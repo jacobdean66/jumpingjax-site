@@ -1,3 +1,8 @@
+import Link from "next/link";
+import { CATEGORY_COPY, CATEGORY_IDS, type RentalCategoryId } from "@/data/rentals";
+
+const CATEGORY_ORDER: RentalCategoryId[] = [...CATEGORY_IDS];
+
 export default function RentalsPage() {
   return (
     <main className="min-h-screen bg-[#071326] px-4 pb-16 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
@@ -16,24 +21,24 @@ export default function RentalsPage() {
         </div>
 
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <article className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-xl font-bold text-cyan-300">Water Slides</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              High-energy slide options for birthdays, schools, and summer events.
-            </p>
-          </article>
-          <article className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-xl font-bold text-cyan-300">Bounce Houses</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Classic inflatable favorites delivered clean and ready for safe fun.
-            </p>
-          </article>
-          <article className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:col-span-2 lg:col-span-1">
-            <h2 className="text-xl font-bold text-cyan-300">Event Packages</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Flexible rental combinations for church groups, festivals, and parties.
-            </p>
-          </article>
+          {CATEGORY_ORDER.map((id) => {
+            const copy = CATEGORY_COPY[id];
+            return (
+              <Link
+                key={id}
+                href={`/rentals/${id}`}
+                className="group touch-manipulation rounded-2xl border border-white/10 bg-white/5 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-white/[0.07] active:scale-[0.98]"
+              >
+                <h2 className="text-xl font-bold text-cyan-300 transition group-hover:text-cyan-200">
+                  {copy.title}
+                </h2>
+                <p className="mt-2 text-sm text-slate-300">{copy.blurb}</p>
+                <p className="mt-4 inline-flex min-h-12 items-center text-sm font-bold text-cyan-100 underline decoration-cyan-400/50 underline-offset-4">
+                  View category →
+                </p>
+              </Link>
+            );
+          })}
         </div>
       </section>
     </main>
