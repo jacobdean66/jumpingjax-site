@@ -1,6 +1,6 @@
 export default function FacilityPartiesPage() {
   return (
-    <main className="min-h-screen bg-[#071326] px-4 pb-16 pt-24 text-white sm:px-6 sm:pt-28 lg:px-8">
+    <main className="min-h-screen bg-[#071326] px-4 pb-16 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
       <section className="mx-auto max-w-4xl text-center">
         <span className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
           Facility Parties

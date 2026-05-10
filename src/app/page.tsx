@@ -24,16 +24,14 @@ export default function Home() {
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a
-              href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-              target="_blank"
+              href="/rentals"
               className="w-full max-w-[280px] rounded-full bg-cyan-400 px-8 py-4 text-center text-lg font-bold text-black transition duration-300 hover:scale-105 hover:bg-cyan-300"
             >
               Book Now
             </a>
 
             <a
-              href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-              target="_blank"
+              href="/rentals"
               className="w-full max-w-[280px] rounded-full border border-white/40 bg-white/10 px-8 py-4 text-center text-lg font-bold backdrop-blur transition duration-300 hover:bg-white/20"
             >
               View Rentals
@@ -68,8 +66,7 @@ export default function Home() {
               </p>
 
               <a
-                href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-                target="_blank"
+                href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 Check Availability
@@ -94,8 +91,7 @@ export default function Home() {
               </p>
 
               <a
-                href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-                target="_blank"
+                href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 View Options
@@ -120,8 +116,7 @@ export default function Home() {
               </p>
 
               <a
-                href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-                target="_blank"
+                href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 Book Today
@@ -211,11 +206,10 @@ export default function Home() {
           </p>
 
           <a
-            href="https://www.facebook.com/share/1ChMgQfUjo/?mibextid=wwXIfr"
-            target="_blank"
+            href="/rentals"
             className="inline-block rounded-full bg-black px-10 py-5 text-xl font-bold text-white transition hover:scale-105"
           >
-            Message Us On Facebook
+            Start Your Booking
           </a>
         </div>
       </section>
