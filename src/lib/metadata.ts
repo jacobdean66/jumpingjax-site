@@ -1,0 +1,304 @@
+/**
+ * SEO and Metadata Utilities for Next.js App Router
+ * Provides reusable metadata generators using centralized site configuration
+ */
+
+import { Metadata } from "next";
+import {
+  business,
+  contact,
+  location,
+  seoDefaults,
+  pageSEO,
+} from "@/data/site";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface MetadataOptions {
+  title?: string;
+  description?: string;
+  keywords?: string[];
+  ogImage?: string;
+  ogType?: "website" | "article";
+  twitterCard?: "summary" | "summary_large_image" | "app" | "player";
+  canonicalUrl?: string;
+  noindex?: boolean;
+  nofollow?: boolean;
+}
+
+export interface PageMetadataOptions extends MetadataOptions {
+  alternates?: {
+    canonical?: string;
+  };
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const DEFAULT_OG_IMAGE = seoDefaults.ogImage || "/og-image.jpg";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://jumpingjax.com";
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Generate canonical URL for a page
+ */
+export const getCanonicalUrl = (path: string = ""): string => {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${BASE_URL}${cleanPath}`;
+};
+
+/**
+ * Generate complete OG image URL
+ */
+export const getOgImageUrl = (imagePath?: string): string => {
+  const image = imagePath || DEFAULT_OG_IMAGE;
+  if (image.startsWith("http")) return image;
+  return `${BASE_URL}${image}`;
+};
+
+/**
+ * Generate complete metadata object for a page
+ */
+export const generateMetadata = (
+  options: MetadataOptions = {}
+): Metadata => {
+  const {
+    title = seoDefaults.title,
+    description = seoDefaults.description,
+    keywords = seoDefaults.keywords,
+    ogImage = DEFAULT_OG_IMAGE,
+    ogType = "website",
+    twitterCard = "summary_large_image",
+    canonicalUrl,
+    noindex = false,
+    nofollow = false,
+  } = options;
+
+  const ogImageUrl = getOgImageUrl(ogImage);
+
+  const robots: Record<string, boolean | string> = {};
+  if (noindex) robots.index = false;
+  if (nofollow) robots.follow = false;
+
+  return {
+    title,
+    description,
+    keywords: keywords
+      ? typeof keywords === "string"
+        ? [keywords]
+        : keywords
+      : undefined,
+    robots:
+      Object.keys(robots).length > 0
+        ? (robots as Record<string, string | boolean>)
+        : undefined,
+    openGraph: {
+      type: ogType,
+      title,
+      description,
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${business.name} - ${business.tagline}`,
+        },
+      ],
+      siteName: business.name,
+    },
+    twitter: {
+      card: twitterCard,
+      title,
+      description,
+      images: [ogImageUrl],
+      creator: seoDefaults.twitterHandle,
+      site: seoDefaults.twitterHandle,
+    },
+    alternates: {
+      canonical: canonicalUrl || getCanonicalUrl(),
+    },
+  };
+};
+
+// ============================================================================
+// Page-Specific Metadata Generators
+// ============================================================================
+
+/**
+ * Generate metadata for the home page
+ */
+export const generateHomeMetadata = (): Metadata => {
+  return generateMetadata({
+    title: pageSEO.home.title,
+    description: pageSEO.home.description,
+    canonicalUrl: getCanonicalUrl("/"),
+    ogType: "website",
+    keywords: [
+      "inflatable rentals",
+      "party rentals",
+      "water slide rentals",
+      "Greenwood SC",
+      "event rentals",
+    ],
+  });
+};
+
+/**
+ * Generate metadata for the rentals page
+ */
+export const generateRentalsMetadata = (): Metadata => {
+  return generateMetadata({
+    title: pageSEO.rentals.title,
+    description: pageSEO.rentals.description,
+    canonicalUrl: getCanonicalUrl("/rentals"),
+    ogType: "website",
+    keywords: [
+      "water slide rentals",
+      "bounce house rentals",
+      "inflatable rentals",
+      "party equipment",
+      "Greenwood SC rentals",
+      ...location.serviceAreas.map((area) => `${area} rentals`),
+    ],
+  });
+};
+
+/**
+ * Generate metadata for the facility parties page
+ */
+export const generateFacilityPartiesMetadata = (): Metadata => {
+  return generateMetadata({
+    title: pageSEO.facilityParties.title,
+    description: pageSEO.facilityParties.description,
+    canonicalUrl: getCanonicalUrl("/facility-parties"),
+    ogType: "website",
+    keywords: [
+      "birthday parties",
+      "corporate events",
+      "facility rental",
+      "party venue",
+      "Greenwood SC",
+    ],
+  });
+};
+
+/**
+ * Generate metadata for the contact page
+ */
+export const generateContactMetadata = (): Metadata => {
+  return generateMetadata({
+    title: pageSEO.contact.title,
+    description: pageSEO.contact.description,
+    canonicalUrl: getCanonicalUrl("/contact"),
+    ogType: "website",
+    keywords: ["contact Jumping Jax", "inquiries", "booking", "Greenwood SC"],
+  });
+};
+
+// ============================================================================
+// Structured Data / Schema.org Helpers
+// ============================================================================
+
+/**
+ * Generate JSON-LD schema for organization
+ */
+export const generateOrganizationSchema = () => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: business.name,
+    description: business.description,
+    image: `${BASE_URL}${business.logo || "/logo.png"}`,
+    telephone: contact.phone,
+    email: contact.email,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: location.city,
+      addressRegion: location.state,
+      addressCountry: location.country,
+    },
+    areaServed: location.serviceAreas,
+    url: BASE_URL,
+    sameAs: [
+      "https://facebook.com/jumpingjax",
+      "https://instagram.com/jumpingjax",
+      "https://youtube.com/jumpingjax",
+    ],
+  };
+};
+
+/**
+ * Generate JSON-LD schema for business hours
+ */
+export const generateBusinessHoursSchema = () => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: business.name,
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "09:00",
+        closes: "18:00",
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "Saturday",
+        opens: "08:00",
+        closes: "17:00",
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "Sunday",
+        opens: "00:00",
+        closes: "00:00",
+      },
+    ],
+  };
+};
+
+/**
+ * Generate JSON-LD schema for a rental product
+ */
+export const generateProductSchema = (
+  productName: string,
+  description: string,
+  price?: number,
+  image?: string
+) => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: productName,
+    description,
+    image: image ? getOgImageUrl(image) : undefined,
+    offers: price
+      ? {
+          "@type": "Offer",
+          priceCurrency: "USD",
+          price: price.toString(),
+          availability: "https://schema.org/InStock",
+        }
+      : undefined,
+    brand: {
+      "@type": "Brand",
+      name: business.name,
+    },
+  };
+};
+
+/**
+ * Inject JSON-LD script into page head
+ */
+export const createJsonLdScript = (data: Record<string, unknown>) => {
+  return {
+    __html: JSON.stringify(data),
+  };
+};
