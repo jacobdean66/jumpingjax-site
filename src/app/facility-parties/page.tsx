@@ -1,3 +1,5 @@
+import { FacilityPartyBookingForm } from "@/components/facility-parties/FacilityPartyBookingForm";
+
 export default function FacilityPartiesPage() {
   return (
     <main className="min-h-screen bg-[#071326] px-4 pb-16 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
@@ -13,6 +15,10 @@ export default function FacilityPartiesPage() {
           private events. We handle setup and cleanup so your group can focus on
           having fun.
         </p>
+      </section>
+
+      <section className="mx-auto mt-4 max-w-5xl">
+        <FacilityPartyBookingForm />
       </section>
     </main>
   );

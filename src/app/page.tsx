@@ -1,3 +1,6 @@
+import Image from "next/image";
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="bg-[#071326] text-white overflow-x-hidden">
@@ -23,19 +26,19 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a
+            <Link
               href="/rentals"
               className="w-full max-w-[280px] rounded-full bg-cyan-400 px-8 py-4 text-center text-lg font-bold text-black transition duration-300 hover:scale-105 hover:bg-cyan-300"
             >
               Book Now
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/rentals"
               className="w-full max-w-[280px] rounded-full border border-white/40 bg-white/10 px-8 py-4 text-center text-lg font-bold backdrop-blur transition duration-300 hover:bg-white/20"
             >
               View Rentals
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -49,11 +52,13 @@ export default function Home() {
 
           <div className="grid gap-8 md:grid-cols-3">
             <div className="rounded-3xl bg-white/5 p-6 backdrop-blur">
-              <div className="mb-4 overflow-hidden rounded-2xl">
-                <img
+              <div className="relative mb-4 h-64 overflow-hidden rounded-2xl">
+                <Image
                   src="/hero.jpg"
                   alt="Water Slide Rental"
-                  className="h-64 w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 33vw"
                 />
               </div>
 
@@ -65,20 +70,22 @@ export default function Home() {
                 Perfect for birthdays, summer parties & school events.
               </p>
 
-              <a
+              <Link
                 href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 Check Availability
-              </a>
+              </Link>
             </div>
 
             <div className="rounded-3xl bg-white/5 p-6 backdrop-blur">
-              <div className="mb-4 overflow-hidden rounded-2xl">
-                <img
+              <div className="relative mb-4 h-64 overflow-hidden rounded-2xl">
+                <Image
                   src="/hero.jpg"
                   alt="Bounce House Rental"
-                  className="h-64 w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 33vw"
                 />
               </div>
 
@@ -90,20 +97,22 @@ export default function Home() {
                 Clean, safe & perfect for kids of all ages.
               </p>
 
-              <a
+              <Link
                 href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 View Options
-              </a>
+              </Link>
             </div>
 
             <div className="rounded-3xl bg-white/5 p-6 backdrop-blur">
-              <div className="mb-4 overflow-hidden rounded-2xl">
-                <img
+              <div className="relative mb-4 h-64 overflow-hidden rounded-2xl">
+                <Image
                   src="/hero.jpg"
                   alt="Party Rental"
-                  className="h-64 w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 33vw"
                 />
               </div>
 
@@ -115,12 +124,12 @@ export default function Home() {
                 Great for churches, schools, festivals & community events.
               </p>
 
-              <a
+              <Link
                 href="/rentals"
                 className="inline-block rounded-full bg-cyan-400 px-6 py-3 font-bold text-black transition hover:scale-105"
               >
                 Book Today
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -205,12 +214,12 @@ export default function Home() {
             Reserve your inflatable rental today before dates fill up.
           </p>
 
-          <a
+          <Link
             href="/rentals"
             className="inline-block rounded-full bg-black px-10 py-5 text-xl font-bold text-white transition hover:scale-105"
           >
             Start Your Booking
-          </a>
+          </Link>
         </div>
       </section>
     </main>

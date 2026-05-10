@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { RentalBookingPanel } from "@/components/booking/RentalBookingPanel";
+import { loadRentalUnavailableYmds } from "@/lib/supabase/booking-data";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
@@ -9,7 +11,6 @@ import {
   getRentalInCategory,
   isCategoryId,
 } from "@/data/rentals";
-import { BOOKING_HREF } from "@/lib/site";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
 
@@ -37,11 +38,18 @@ export default async function RentalDetailPage({ params }: Props) {
   const rental = getRentalInCategory(category, slug);
   if (!rental) notFound();
 
+  const { ymds: initialUnavailableYmds, error: availabilityError } =
+    await loadRentalUnavailableYmds(rental.slug, 6);
+  const availabilityLoadError =
+    availabilityError === "not_configured" || availabilityError === "read_failed"
+      ? availabilityError
+      : null;
+
   const cat = CATEGORY_COPY[rental.categoryId];
 
   return (
-    <main className="min-h-screen scroll-smooth bg-[#071326] px-4 pb-20 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
-      <article className="mx-auto max-w-4xl">
+    <main className="min-h-screen scroll-smooth bg-[#071326] px-4 pb-8 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
+      <article className="mx-auto max-w-4xl pb-28 sm:pb-32">
         <nav className="text-sm font-semibold text-slate-400">
           <Link href="/rentals" className="text-cyan-200 hover:text-cyan-100">
             Rentals
@@ -130,7 +138,7 @@ export default async function RentalDetailPage({ params }: Props) {
 
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
           <a
-            href={BOOKING_HREF}
+            href="#book-rental"
             className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full bg-cyan-400 px-6 py-4 text-center text-lg font-bold text-black transition hover:bg-cyan-300 active:scale-[0.98] sm:text-xl"
           >
             Book this rental
@@ -141,6 +149,16 @@ export default async function RentalDetailPage({ params }: Props) {
           >
             Back to {cat.title}
           </Link>
+        </div>
+
+        <div className="mt-10">
+          <RentalBookingPanel
+            rentalSlug={rental.slug}
+            rentalTitle={rental.title}
+            startingPrice={rental.startingPrice}
+            initialUnavailableYmds={initialUnavailableYmds}
+            availabilityLoadError={availabilityLoadError}
+          />
         </div>
 
         <RelatedRentals rental={rental} />
