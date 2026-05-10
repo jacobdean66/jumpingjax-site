@@ -5,9 +5,11 @@ import { rentalDetailPath } from "@/data/rentals";
 
 type Props = {
   rental: Rental;
+  /** First tiles in a grid: eager load to reduce LCP wait (detail hero sets its own priority). */
+  imagePriority?: boolean;
 };
 
-export function RentalCard({ rental }: Props) {
+export function RentalCard({ rental, imagePriority = false }: Props) {
   const href = rentalDetailPath(rental);
 
   return (
@@ -21,6 +23,7 @@ export function RentalCard({ rental }: Props) {
             src={rental.imageSrc}
             alt={rental.imageAlt}
             fill
+            priority={imagePriority}
             className="object-cover transition duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
