@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, Users } from "lucide-react";
-import { useBookingStore } from "@/store/bookingStore";
+import { useBookingStore, type BookingState } from "@/store/bookingStore";
 
 interface RentalCardProps {
   rentalId?: string;
@@ -28,7 +28,7 @@ export default function RentalCard({
   features = [],
 }: RentalCardProps) {
   const router = useRouter();
-  const setRental = useBookingStore((state) => state.setRental);
+  const setRental = useBookingStore((state: BookingState) => state.setRental);
   const detailUrl = `/rentals/${slug}`;
   const ageFeature = features.find(
     (feature) => feature.includes("Ages") || feature.includes("Age"),

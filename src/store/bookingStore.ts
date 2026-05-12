@@ -55,7 +55,7 @@ const initialBookingState = {
   checkoutStep: "rental" as const,
 };
 
-export const useBookingStore = create<BookingState>((set) => ({
+export const useBookingStore = create<BookingState>()((set) => ({
   ...initialBookingState,
   setRental: (rental) =>
     set({
@@ -81,5 +81,5 @@ export const useBookingStore = create<BookingState>((set) => ({
       eventAddress: customerInfo.eventAddress,
     }),
   setNotes: (notes) => set({ notes }),
-  clearBooking: () => set(initialBookingState),
+  clearBooking: () => set({ ...initialBookingState }),
 }));
