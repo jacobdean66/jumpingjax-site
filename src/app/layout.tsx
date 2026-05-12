@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#071326] text-white">
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-[#071326] text-white">
         <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#071326]/95 backdrop-blur">
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <Link href="/" className="text-lg font-black tracking-wide text-cyan-300">

@@ -168,10 +168,13 @@ export const footerSections: FooterSection[] = [
   {
     title: "Rentals",
     links: [
-      { label: "Water Slides", href: "/rentals?category=water-slides" },
-      { label: "Games", href: "/rentals?category=games" },
-      { label: "Inflatables", href: "/rentals?category=inflatables" },
-      { label: "Party Rentals", href: "/party-rentals" },
+      { label: "Bounce Houses", href: "/rentals/bounce-houses" },
+      { label: "Combos", href: "/rentals/combos" },
+      { label: "Inflatable Games", href: "/rentals/inflatable-games" },
+      { label: "Obstacle Courses", href: "/rentals/obstacle-courses" },
+      { label: "Slides", href: "/rentals/slides" },
+      { label: "Water Slides", href: "/rentals/water-slides" },
+      { label: "Yard Games", href: "/rentals/yard-games" },
     ],
   },
   {
@@ -217,7 +220,7 @@ export const pageSEO = {
   rentals: {
     title: "Inflatable & Party Rentals - Jumping Jax",
     description:
-      "Browse our selection of water slides, games, inflatables, and party equipment available for rent.",
+      "Browse bounce houses, combos, slides, water slides, obstacle courses, inflatable games, and yard games available for delivery across our service area.",
   },
   facilityParties: {
     title: "Facility Parties - Jumping Jax",
@@ -236,10 +239,13 @@ export const pageSEO = {
 // ============================================================================
 
 export const rentalCategories = [
+  { id: "bounce-houses", label: "Bounce Houses", icon: "balloon" },
+  { id: "combos", label: "Combos", icon: "layers" },
+  { id: "inflatable-games", label: "Inflatable Games", icon: "gamepad2" },
+  { id: "obstacle-courses", label: "Obstacle Courses", icon: "flag" },
+  { id: "slides", label: "Slides", icon: "mountain" },
   { id: "water-slides", label: "Water Slides", icon: "waves" },
-  { id: "games", label: "Games", icon: "gamepad2" },
-  { id: "inflatables", label: "Inflatables", icon: "balloon" },
-  { id: "party-rentals", label: "Party Rentals", icon: "party-popper" },
+  { id: "yard-games", label: "Yard Games", icon: "trophy" },
 ];
 
 // ============================================================================

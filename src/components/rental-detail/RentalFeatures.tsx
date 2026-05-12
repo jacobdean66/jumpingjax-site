@@ -17,18 +17,6 @@ export default function RentalFeatures({ rental }: RentalFeaturesProps) {
             </h2>
 
             <div className="space-y-6">
-              {/* Dimensions */}
-              {rental.dimensions && (
-                <div className="rounded-xl bg-white/5 border border-white/10 p-6 backdrop-blur">
-                  <p className="mb-2 text-sm font-semibold text-cyan-400 uppercase tracking-wider">
-                    Dimensions
-                  </p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    {rental.dimensions}
-                  </p>
-                </div>
-              )}
-
               {/* Capacity */}
               {rental.capacity && (
                 <div className="rounded-xl bg-white/5 border border-white/10 p-6 backdrop-blur">

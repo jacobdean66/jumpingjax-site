@@ -20,7 +20,7 @@ export function RelatedRentals({ rental }: Props) {
       </p>
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((r) => (
-          <RentalCard key={r.slug} rental={r} />
+          <RentalCard key={r.id} rental={r} />
         ))}
       </div>
     </section>

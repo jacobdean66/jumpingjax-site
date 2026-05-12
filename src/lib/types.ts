@@ -17,8 +17,6 @@ export type RentalItem = {
 
   features: string[];
 
-  dimensions?: string;
-
   capacity?: number;
 
   available: boolean;

@@ -65,13 +65,15 @@ export default async function RentalDetailPage({ params }: Props) {
           <span className="text-slate-200">{rental.title}</span>
         </nav>
 
-        <div className="relative mt-6 aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.35)] sm:aspect-[21/9]">
+        <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[0_16px_48px_rgba(0,0,0,0.35)] sm:aspect-[3/2]">
           <Image
             src={rental.imageSrc}
             alt={rental.imageAlt}
             fill
             priority
-            className="object-cover"
+            fetchPriority="high"
+            quality={82}
+            className="object-cover object-center"
             sizes="(max-width: 896px) 100vw, 896px"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#071326]/90 via-[#071326]/20 to-transparent" />
@@ -88,31 +90,18 @@ export default async function RentalDetailPage({ params }: Props) {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2">
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
-            <h2 className="text-sm font-black uppercase tracking-wide text-cyan-200">
-              Pricing
-            </h2>
-            <p className="mt-3 text-3xl font-black text-white">
-              From ${rental.startingPrice}
-            </p>
-            <p className="mt-2 text-sm text-slate-300">
-              Final price depends on date, duration, and delivery. Message us for
-              a tailored quote.
-            </p>
-          </section>
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
-            <h2 className="text-sm font-black uppercase tracking-wide text-cyan-200">
-              Dimensions
-            </h2>
-            <p className="mt-3 text-lg font-semibold text-white">
-              {rental.dimensions}
-            </p>
-            <p className="mt-2 text-sm text-slate-300">
-              We confirm fit and anchoring plan before your event day.
-            </p>
-          </section>
-        </div>
+        <section className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
+          <h2 className="text-sm font-black uppercase tracking-wide text-cyan-200">
+            Pricing
+          </h2>
+          <p className="mt-3 text-3xl font-black text-white">
+            From ${rental.startingPrice}
+          </p>
+          <p className="mt-2 max-w-2xl text-pretty text-sm leading-relaxed text-slate-300">
+            Final price depends on date, duration, and delivery. Message us for a
+            tailored quote.
+          </p>
+        </section>
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-cyan-200">

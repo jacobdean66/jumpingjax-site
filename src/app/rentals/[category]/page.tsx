@@ -33,17 +33,25 @@ export default async function RentalCategoryPage({ params }: Props) {
   const rentals = rentalsInCategory(category);
 
   return (
-    <main className="min-h-screen scroll-smooth bg-[#071326] px-4 pb-20 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
+    <main className="min-h-screen scroll-smooth overflow-x-hidden bg-[#071326] px-4 pb-24 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
       <section className="mx-auto max-w-6xl">
-        <nav className="text-sm font-semibold text-slate-400">
-          <Link href="/rentals" className="text-cyan-200 hover:text-cyan-100">
+        <nav
+          className="text-sm font-semibold text-slate-400"
+          aria-label="Breadcrumb"
+        >
+          <Link
+            href="/rentals"
+            className="text-cyan-200 underline-offset-2 hover:text-cyan-100 hover:underline"
+          >
             Rentals
           </Link>
-          <span className="mx-2 text-slate-600">/</span>
+          <span className="mx-2 text-slate-600" aria-hidden>
+            /
+          </span>
           <span className="text-slate-200">{copy.title}</span>
         </nav>
 
-        <header className="mt-6 max-w-3xl">
+        <header className="mt-8 max-w-3xl border-b border-white/10 pb-10">
           <span className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
             {copy.title}
           </span>
@@ -53,12 +61,16 @@ export default async function RentalCategoryPage({ params }: Props) {
           <p className="mt-4 text-pretty text-base leading-7 text-slate-300 sm:text-lg">
             {copy.blurb}
           </p>
+          <p className="mt-4 text-sm font-medium text-slate-400">
+            {rentals.length} {rentals.length === 1 ? "unit" : "units"} available ·
+            tap a card for details & booking
+          </p>
         </header>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid auto-rows-fr gap-7 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-9">
           {rentals.map((rental, index) => (
             <RentalCard
-              key={rental.slug}
+              key={rental.id}
               rental={rental}
               imagePriority={index < 2}
             />

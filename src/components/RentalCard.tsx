@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Ruler, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Sparkles, Users } from "lucide-react";
 import { useBookingStore } from "@/store/bookingStore";
 
 interface RentalCardProps {
@@ -14,7 +14,6 @@ interface RentalCardProps {
   description: string;
   slug: string;
   category?: string;
-  dimensions?: string;
   features?: string[];
 }
 
@@ -26,7 +25,6 @@ export default function RentalCard({
   description,
   slug,
   category,
-  dimensions,
   features = [],
 }: RentalCardProps) {
   const router = useRouter();
@@ -87,15 +85,6 @@ export default function RentalCard({
           </Link>
 
           <div className="mb-4 grid gap-2 text-sm text-slate-600">
-            {dimensions && (
-              <div className="flex items-start gap-2.5">
-                <Ruler
-                  className="mt-0.5 h-4 w-4 flex-none text-cyan-600"
-                  aria-hidden="true"
-                />
-                <span className="break-words font-medium">{dimensions}</span>
-              </div>
-            )}
             {ageFeature && (
               <div className="flex items-start gap-2.5">
                 <Users
