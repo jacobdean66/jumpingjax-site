@@ -1,18 +1,19 @@
 "use client";
 
 type Props = {
+  /** Associates this submit control with a `<form id="…">` elsewhere in the document. */
+  formId: string;
   totalDisplay: string | null;
   disabled: boolean;
   disabledReason?: string;
-  onReserve: () => void;
   isSubmitting?: boolean;
 };
 
 export function StickyReserveBar({
+  formId,
   totalDisplay,
   disabled,
   disabledReason,
-  onReserve,
   isSubmitting = false,
 }: Props) {
   return (
@@ -36,8 +37,8 @@ export function StickyReserveBar({
           )}
         </div>
         <button
-          type="button"
-          onClick={onReserve}
+          type="submit"
+          form={formId}
           disabled={disabled || isSubmitting}
           className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 sm:min-h-14 sm:px-8 sm:text-base"
         >

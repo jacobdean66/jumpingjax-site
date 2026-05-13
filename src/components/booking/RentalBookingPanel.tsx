@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { submitRentalBookingRequest } from "@/app/actions/rental-booking";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
   MOCK_DURATION_OPTIONS,
@@ -221,7 +220,8 @@ export function RentalBookingPanel({
     return null;
   }, [availabilityLoadError, clientFetch.status, serverLoadOk]);
 
-  const handleReserve = async () => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (reserveDisabled || !selectedYmd || !duration) return;
     if (subtotal === null || totalAmount === null) return;
 
@@ -229,24 +229,50 @@ export function RentalBookingPanel({
     setIsSubmitting(true);
 
     try {
-      const result = await submitRentalBookingRequest({
+      const payload = {
+        date: selectedYmd,
+        address: customer.eventAddress.trim(),
+        phone: customer.customerPhone.trim(),
+        rentalItem: rentalTitle,
         rentalSlug,
-        rentalName: rentalTitle,
+        total: totalAmount,
+        subtotal,
         customerName: customer.customerName.trim(),
         email: customer.customerEmail.trim(),
-        phone: customer.customerPhone.trim(),
-        eventDateYmd: selectedYmd,
         durationLabel: duration.label,
         spanDays: duration.spanDays,
-        eventAddress: customer.eventAddress.trim(),
-        subtotal,
-        total: totalAmount,
+      };
+
+      const res = await fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      console.log("[bookings] submitRentalBookingRequest raw result", result);
+      const data: unknown = await res.json().catch(() => null);
+      const ok =
+        res.ok &&
+        data &&
+        typeof data === "object" &&
+        "ok" in data &&
+        (data as { ok?: boolean }).ok === true;
+      const id =
+        data &&
+        typeof data === "object" &&
+        "id" in data &&
+        typeof (data as { id?: unknown }).id === "string"
+          ? (data as { id: string }).id
+          : null;
+      const message =
+        data &&
+        typeof data === "object" &&
+        "message" in data &&
+        typeof (data as { message?: unknown }).message === "string"
+          ? (data as { message: string }).message
+          : undefined;
 
-      if (result.ok) {
-        setSuccessId(result.id);
+      if (ok && id) {
+        setSuccessId(id);
         setOptimisticBlockedYmds((prev) => {
           const next = new Set(prev);
           for (const d of enumerateRange(selectedYmd, duration.spanDays)) {
@@ -258,19 +284,13 @@ export function RentalBookingPanel({
         return;
       }
 
-      if (result.code === "conflict") {
-        setSubmitError(
-          result.message ??
-            "Those dates are no longer available. Please pick another start date or duration.",
-        );
-        router.refresh();
-        return;
-      }
-
-      console.log("[bookings] submit failed", result);
       setSubmitError(
-        result.message ??
-          "We could not save your request. Please try again.",
+        message ?? "We could not save your request. Please try again.",
+      );
+    } catch (e) {
+      console.error("[bookings] fetch /api/book failed", e);
+      setSubmitError(
+        e instanceof Error ? e.message : "Network error. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -285,7 +305,12 @@ export function RentalBookingPanel({
         aria-labelledby="book-rental-heading"
       >
         <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 via-transparent to-transparent p-1">
-          <div className="rounded-[0.9rem] border border-white/10 bg-[#071326]/60 p-5 sm:p-7">
+          <form
+            id="rental-booking-form"
+            className="rounded-[0.9rem] border border-white/10 bg-[#071326]/60 p-5 sm:p-7"
+            onSubmit={handleSubmit}
+            noValidate
+          >
             <h2
               id="book-rental-heading"
               className="text-sm font-black uppercase tracking-[0.12em] text-cyan-200"
@@ -387,15 +412,15 @@ export function RentalBookingPanel({
                 <CustomerForm value={customer} onChange={setCustomer} />
               </div>
             </div>
-          </div>
+          </form>
         </div>
       </section>
 
       <StickyReserveBar
+        formId="rental-booking-form"
         totalDisplay={totalDisplay}
         disabled={reserveDisabled}
         disabledReason={reserveReason}
-        onReserve={handleReserve}
         isSubmitting={isSubmitting}
       />
     </>
