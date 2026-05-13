@@ -164,15 +164,10 @@ export function RentalBookingPanel({
   const totalDisplay =
     totalAmount !== null ? `$${totalAmount}` : null;
 
-  const reserveDisabled =
-    !!successId || !selectionValid || !customerOk || isSubmitting;
-
-  const reserveReason = successId
-    ? undefined
-    : reserveDisabled && !isSubmitting
-      ? !selectionValid
-        ? "Complete a valid date and duration first."
-        : "Add your name, email, phone, and event address to continue."
+  const reserveReason = !selectionValid
+    ? "Complete a valid date and duration first."
+    : !customerOk
+      ? "Add your name, email, phone, and event address to continue."
       : undefined;
 
   const serverLoadOk = availabilityLoadError === null;
@@ -220,36 +215,43 @@ export function RentalBookingPanel({
     return null;
   }, [availabilityLoadError, clientFetch.status, serverLoadOk]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (reserveDisabled || !selectedYmd || !duration) return;
-    if (subtotal === null || totalAmount === null) return;
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log("Submitting booking");
+
+    const customer_name = customer.customerName;
+    const customer_phone = customer.customerPhone;
+    const customer_email = customer.customerEmail;
+    const event_date = selectedYmd ?? "";
+    const rental_item = rentalTitle;
 
     setSubmitError(null);
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        date: selectedYmd,
-        address: customer.eventAddress.trim(),
-        phone: customer.customerPhone.trim(),
-        rentalItem: rentalTitle,
-        rentalSlug,
-        total: totalAmount,
-        subtotal,
-        customerName: customer.customerName.trim(),
-        email: customer.customerEmail.trim(),
-        durationLabel: duration.label,
-        spanDays: duration.spanDays,
-      };
-
       const res = await fetch("/api/book", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customer_name,
+          customer_phone,
+          customer_email,
+          event_date,
+          rental_item,
+          rental_slug: rentalSlug,
+          event_address: customer.eventAddress,
+          duration: duration?.label ?? "",
+          span_days: duration?.spanDays ?? 1,
+          subtotal: subtotal ?? 0,
+          total: totalAmount ?? 0,
+        }),
       });
 
-      const data: unknown = await res.json().catch(() => null);
+      const data: unknown = await res.json();
+      console.log("Booking sent", data);
+
       const ok =
         res.ok &&
         data &&
@@ -273,24 +275,25 @@ export function RentalBookingPanel({
 
       if (ok && id) {
         setSuccessId(id);
-        setOptimisticBlockedYmds((prev) => {
-          const next = new Set(prev);
-          for (const d of enumerateRange(selectedYmd, duration.spanDays)) {
-            next.add(d);
-          }
-          return next;
-        });
+        if (selectedYmd && duration) {
+          setOptimisticBlockedYmds((prev) => {
+            const next = new Set(prev);
+            for (const d of enumerateRange(selectedYmd, duration.spanDays)) {
+              next.add(d);
+            }
+            return next;
+          });
+        }
         router.refresh();
-        return;
+      } else {
+        setSubmitError(
+          message ?? "We could not save your request. Please try again.",
+        );
       }
-
+    } catch (err) {
+      console.error("Booking failed", err);
       setSubmitError(
-        message ?? "We could not save your request. Please try again.",
-      );
-    } catch (e) {
-      console.error("[bookings] fetch /api/book failed", e);
-      setSubmitError(
-        e instanceof Error ? e.message : "Network error. Please try again.",
+        err instanceof Error ? err.message : "Network error. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -298,19 +301,14 @@ export function RentalBookingPanel({
   };
 
   return (
-    <>
+    <form id="booking-form" onSubmit={handleSubmit} noValidate>
       <section
         id="book-rental"
         className="scroll-mt-28 pb-24 sm:scroll-mt-32 sm:pb-28"
         aria-labelledby="book-rental-heading"
       >
         <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 via-transparent to-transparent p-1">
-          <form
-            id="rental-booking-form"
-            className="rounded-[0.9rem] border border-white/10 bg-[#071326]/60 p-5 sm:p-7"
-            onSubmit={handleSubmit}
-            noValidate
-          >
+          <div className="rounded-[0.9rem] border border-white/10 bg-[#071326]/60 p-5 sm:p-7">
             <h2
               id="book-rental-heading"
               className="text-sm font-black uppercase tracking-[0.12em] text-cyan-200"
@@ -412,17 +410,27 @@ export function RentalBookingPanel({
                 <CustomerForm value={customer} onChange={setCustomer} />
               </div>
             </div>
-          </form>
+
+            <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-400 sm:max-w-xs">
+                Tap Reserve to send your request. You can use this button or the
+                bar at the bottom of the screen.
+              </p>
+              <button
+                type="submit"
+                className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-full bg-cyan-400 px-8 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] sm:w-auto sm:min-h-14 sm:text-base"
+              >
+                {isSubmitting ? "Sending…" : "Reserve now"}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
       <StickyReserveBar
-        formId="rental-booking-form"
         totalDisplay={totalDisplay}
-        disabled={reserveDisabled}
         disabledReason={reserveReason}
-        isSubmitting={isSubmitting}
       />
-    </>
+    </form>
   );
 }
