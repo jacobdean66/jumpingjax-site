@@ -1,4 +1,16 @@
+import type { PostgrestError } from "@supabase/supabase-js";
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
+
+function formatPostgrestError(error: PostgrestError): string {
+  return [
+    error.message,
+    error.details && `details: ${error.details}`,
+    error.hint && `hint: ${error.hint}`,
+    error.code && `code: ${error.code}`,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+}
 
 export type CreateBookingInput = {
   rentalSlug: string;
@@ -16,7 +28,7 @@ export type CreateBookingInput = {
 
 export type CreateBookingResult =
   | { ok: true; id: string }
-  | { ok: false; code: "not_configured" | "conflict" | "write_failed" };
+  | { ok: false; code: "conflict" | "write_failed"; message?: string };
 
 /**
  * Persists a pending booking if dates do not overlap an active hold on the same rental.
@@ -25,7 +37,20 @@ export async function insertPendingBooking(
   input: CreateBookingInput,
 ): Promise<CreateBookingResult> {
   if (!isSupabaseServiceConfigured()) {
-    return { ok: false, code: "not_configured" };
+    const diag = {
+      hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    };
+    const message = !diag.hasServiceRoleKey
+      ? "Server env missing SUPABASE_SERVICE_ROLE_KEY (add it in Vercel → Settings → Environment Variables). RLS anon policies do not replace the service role for this server action."
+      : !diag.hasUrl
+        ? "Server env missing NEXT_PUBLIC_SUPABASE_URL."
+        : "Supabase URL or service role key is not configured on the server.";
+    console.error(
+      "[bookings] insertPendingBooking: Supabase service client not configured",
+      diag,
+    );
+    return { ok: false, code: "write_failed", message };
   }
 
   try {
@@ -44,7 +69,13 @@ export async function insertPendingBooking(
       p_total: input.total,
     });
 
+    console.log("[bookings] supabase rpc create_rental_booking response", {
+      data,
+      error,
+    });
+
     if (error) {
+      console.error("[bookings] supabase rpc error object", error);
       const details = (error as { details?: string }).details ?? "";
       const hint = (error as { hint?: string }).hint ?? "";
       const blob = `${error.message} ${details} ${hint}`.toLowerCase();
@@ -53,19 +84,38 @@ export async function insertPendingBooking(
         error.code === "23514" ||
         error.code === "P0001"
       ) {
-        return { ok: false, code: "conflict" };
+        return {
+          ok: false,
+          code: "conflict",
+          message: formatPostgrestError(error),
+        };
       }
-      console.error("[bookings] insert", error);
-      return { ok: false, code: "write_failed" };
+      return {
+        ok: false,
+        code: "write_failed",
+        message: formatPostgrestError(error),
+      };
     }
 
     const id = data as string | null;
     if (!id) {
-      return { ok: false, code: "write_failed" };
+      console.error(
+        "[bookings] supabase rpc returned no booking id",
+        { data, error },
+      );
+      return {
+        ok: false,
+        code: "write_failed",
+        message: `Supabase returned success but no id (data: ${JSON.stringify(data)})`,
+      };
     }
     return { ok: true, id };
   } catch (e) {
-    console.error("[bookings] insert", e);
-    return { ok: false, code: "write_failed" };
+    console.error("[bookings] insertPendingBooking threw", e);
+    return {
+      ok: false,
+      code: "write_failed",
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }

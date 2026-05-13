@@ -243,6 +243,8 @@ export function RentalBookingPanel({
         total: totalAmount,
       });
 
+      console.log("[bookings] submitRentalBookingRequest raw result", result);
+
       if (result.ok) {
         setSuccessId(result.id);
         setOptimisticBlockedYmds((prev) => {
@@ -258,20 +260,18 @@ export function RentalBookingPanel({
 
       if (result.code === "conflict") {
         setSubmitError(
-          "Those dates are no longer available. Please pick another start date or duration.",
+          result.message ??
+            "Those dates are no longer available. Please pick another start date or duration.",
         );
         router.refresh();
         return;
       }
 
-      if (result.code === "not_configured") {
-        setSubmitError(
-          "Booking cannot be saved right now — server configuration is incomplete.",
-        );
-        return;
-      }
-
-      setSubmitError("We could not save your request. Please try again.");
+      console.log("[bookings] submit failed", result);
+      setSubmitError(
+        result.message ??
+          "We could not save your request. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
