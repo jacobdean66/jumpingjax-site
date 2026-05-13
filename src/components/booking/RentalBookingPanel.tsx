@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { submitRentalBookingRequest } from "@/app/actions/rental-booking";
+import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
   MOCK_DURATION_OPTIONS,
   estimateGrandTotal,
@@ -59,11 +60,63 @@ export function RentalBookingPanel({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
 
+  type ClientFetchState =
+    | { status: "idle" }
+    | { status: "skipped" }
+    | { status: "pending" }
+    | { status: "ok"; ymds: string[] }
+    | { status: "error" };
+
+  const [clientFetch, setClientFetch] = useState<ClientFetchState>({
+    status: "idle",
+  });
+
+  useEffect(() => {
+    console.log("SUPABASE ENV:", {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    });
+
+    if (
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ) {
+      setClientFetch({ status: "skipped" });
+      return;
+    }
+
+    let cancelled = false;
+    setClientFetch({ status: "pending" });
+
+    void (async () => {
+      try {
+        const { supabase } = await import("@/lib/supabaseClient");
+        const { ymds, error } = await queryRentalUnavailableYmds(
+          supabase,
+          rentalSlug,
+          6,
+        );
+        if (cancelled) return;
+        if (error) setClientFetch({ status: "error" });
+        else setClientFetch({ status: "ok", ymds });
+      } catch {
+        if (!cancelled) setClientFetch({ status: "error" });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rentalSlug]);
+
+  const effectiveUnavailableYmds =
+    clientFetch.status === "ok" ? clientFetch.ymds : initialUnavailableYmds;
+
   const blockedSet = useMemo(() => {
-    const s = new Set(initialUnavailableYmds);
+    const s = new Set(effectiveUnavailableYmds);
     optimisticBlockedYmds.forEach((d) => s.add(d));
     return s;
-  }, [initialUnavailableYmds, optimisticBlockedYmds]);
+  }, [effectiveUnavailableYmds, optimisticBlockedYmds]);
 
   const duration = useMemo(
     () => MOCK_DURATION_OPTIONS.find((d) => d.id === durationId),
@@ -123,21 +176,50 @@ export function RentalBookingPanel({
         : "Add your name, email, phone, and event address to continue."
       : undefined;
 
+  const serverLoadOk = availabilityLoadError === null;
+
   const availabilityBanner = useMemo(() => {
-    if (availabilityLoadError === "not_configured") {
+    if (clientFetch.status === "idle") {
+      return null;
+    }
+
+    if (clientFetch.status === "ok") {
+      return null;
+    }
+
+    if (
+      clientFetch.status === "skipped" &&
+      (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    ) {
       return {
         tone: "warn" as const,
         text: "Live availability is not connected yet (missing Supabase environment variables). All dates appear open until this is configured.",
       };
     }
-    if (availabilityLoadError === "read_failed") {
-      return {
-        tone: "warn" as const,
-        text: "We could not load live holds from the server. Try refreshing the page. To avoid double-booking, confirm dates with Jumping Jax before paying.",
-      };
+
+    if (clientFetch.status === "pending") {
+      if (availabilityLoadError === "read_failed") {
+        return {
+          tone: "warn" as const,
+          text: "We could not load live holds from the server. Try refreshing the page. To avoid double-booking, confirm dates with Jumping Jax before paying.",
+        };
+      }
+      return null;
     }
+
+    if (clientFetch.status === "error") {
+      if (!serverLoadOk || availabilityLoadError === "read_failed") {
+        return {
+          tone: "warn" as const,
+          text: "We could not load live holds from the server. Try refreshing the page. To avoid double-booking, confirm dates with Jumping Jax before paying.",
+        };
+      }
+      return null;
+    }
+
     return null;
-  }, [availabilityLoadError]);
+  }, [availabilityLoadError, clientFetch.status, serverLoadOk]);
 
   const handleReserve = async () => {
     if (reserveDisabled || !selectedYmd || !duration) return;

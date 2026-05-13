@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RentalBookingPanel } from "@/components/booking/RentalBookingPanel";
-import { loadRentalUnavailableYmds } from "@/lib/supabase/booking-data";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
@@ -38,12 +37,8 @@ export default async function RentalDetailPage({ params }: Props) {
   const rental = getRentalInCategory(category, slug);
   if (!rental) notFound();
 
-  const { ymds: initialUnavailableYmds, error: availabilityError } =
-    await loadRentalUnavailableYmds(rental.slug, 6);
-  const availabilityLoadError =
-    availabilityError === "not_configured" || availabilityError === "read_failed"
-      ? availabilityError
-      : null;
+  const initialUnavailableYmds: string[] = [];
+  const availabilityLoadError = null;
 
   const cat = CATEGORY_COPY[rental.categoryId];
 

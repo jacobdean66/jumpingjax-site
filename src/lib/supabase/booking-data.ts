@@ -1,47 +1,4 @@
-import {
-  defaultAvailabilityWindow,
-  unavailableYmdsFromBookings,
-  type BookingSpanRow,
-} from "@/lib/bookings/unavailableDates";
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
-
-const ACTIVE_STATUSES = ["pending", "approved", "blocked"] as const;
-
-/**
- * Returns YYYY-MM-DD strings that are unavailable for the rental in the browse window.
- * Empty array when Supabase is not configured or on read failure (caller may surface UX).
- */
-export async function loadRentalUnavailableYmds(
-  rentalSlug: string,
-  monthsAhead: number = 6,
-): Promise<{ ymds: string[]; error: string | null }> {
-  if (!isSupabaseServiceConfigured()) {
-    return { ymds: [], error: "not_configured" };
-  }
-
-  try {
-    const supabase = createServiceRoleClient();
-    const { winStart, winEnd } = defaultAvailabilityWindow(monthsAhead);
-
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("event_date, span_days")
-      .eq("rental_slug", rentalSlug)
-      .in("status", [...ACTIVE_STATUSES]);
-
-    if (error) {
-      console.error("[bookings] load unavailable", error.message);
-      return { ymds: [], error: "read_failed" };
-    }
-
-    const rows = (data ?? []) as BookingSpanRow[];
-    const ymds = unavailableYmdsFromBookings(rows, winStart, winEnd);
-    return { ymds, error: null };
-  } catch (e) {
-    console.error("[bookings] load unavailable", e);
-    return { ymds: [], error: "read_failed" };
-  }
-}
 
 export type CreateBookingInput = {
   rentalSlug: string;

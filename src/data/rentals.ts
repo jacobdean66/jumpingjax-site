@@ -334,6 +334,11 @@ export function getRentalInCategory(
   );
 }
 
+/** `slug` is globally unique across inventory (used by booking / store). */
+export function getRentalBySlug(slug: string): Rental | undefined {
+  return RENTALS.find((r) => r.slug === slug);
+}
+
 export function homeFeaturedRentals(): Rental[] {
   return HOMEPAGE_FEATURED.map(({ categoryId, slug }) =>
     getRentalInCategory(categoryId, slug),
