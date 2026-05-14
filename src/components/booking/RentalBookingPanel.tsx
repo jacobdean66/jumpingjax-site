@@ -249,8 +249,20 @@ export function RentalBookingPanel({
         }),
       });
 
-      const data: unknown = await res.json();
-      console.log("Booking sent", data);
+      const data: unknown = await res.json().catch(() => null);
+      console.log("Booking response", { status: res.status, ok: res.ok, data });
+
+      if (!res.ok) {
+        const apiError =
+          data &&
+          typeof data === "object" &&
+          "error" in data &&
+          typeof (data as { error?: unknown }).error === "string"
+            ? (data as { error: string }).error
+            : `Request failed (${res.status})`;
+        setSubmitError(apiError);
+        return;
+      }
 
       const ok =
         res.ok &&

@@ -31,7 +31,7 @@ export type CreateBookingResult =
   | { ok: false; code: "conflict" | "write_failed"; message?: string };
 
 /**
- * Persists a pending booking if dates do not overlap an active hold on the same rental.
+ * Persists a pending booking row in Supabase.
  */
 export async function insertPendingBooking(
   input: CreateBookingInput,
@@ -55,41 +55,31 @@ export async function insertPendingBooking(
 
   try {
     const supabase = createServiceRoleClient();
-    const { data, error } = await supabase.rpc("create_rental_booking", {
-      p_rental_slug: input.rentalSlug,
-      p_rental_name: input.rentalName,
-      p_customer_name: input.customerName,
-      p_email: input.email.trim(),
-      p_phone: input.phone.trim(),
-      p_event_date: input.eventDateYmd,
-      p_duration: input.durationLabel,
-      p_span_days: input.spanDays,
-      p_event_address: input.eventAddress.trim(),
-      p_subtotal: input.subtotal,
-      p_total: input.total,
-    });
+    const bookingData = {
+      rental_slug: input.rentalSlug,
+      rental_name: input.rentalName,
+      customer_name: input.customerName,
+      email: input.email.trim(),
+      phone: input.phone.trim(),
+      event_date: input.eventDateYmd,
+      duration: input.durationLabel,
+      span_days: input.spanDays >= 1 ? input.spanDays : 1,
+      event_address: input.eventAddress.trim(),
+      subtotal: input.subtotal,
+      total: input.total,
+      status: "pending" as const,
+    };
 
-    console.log("[bookings] supabase rpc create_rental_booking response", {
-      data,
-      error,
-    });
+    const { data, error } = await supabase
+      .from("bookings")
+      .insert([bookingData])
+      .select("id")
+      .single();
+
+    console.log("[bookings] supabase insert response", { data, error });
 
     if (error) {
-      console.error("[bookings] supabase rpc error object", error);
-      const details = (error as { details?: string }).details ?? "";
-      const hint = (error as { hint?: string }).hint ?? "";
-      const blob = `${error.message} ${details} ${hint}`.toLowerCase();
-      if (
-        blob.includes("date_conflict") ||
-        error.code === "23514" ||
-        error.code === "P0001"
-      ) {
-        return {
-          ok: false,
-          code: "conflict",
-          message: formatPostgrestError(error),
-        };
-      }
+      console.error("[bookings] supabase insert error", error);
       return {
         ok: false,
         code: "write_failed",
@@ -97,12 +87,12 @@ export async function insertPendingBooking(
       };
     }
 
-    const id = data as string | null;
+    const id = data?.id;
     if (!id) {
-      console.error(
-        "[bookings] supabase rpc returned no booking id",
-        { data, error },
-      );
+      console.error("[bookings] supabase insert returned no booking id", {
+        data,
+        error,
+      });
       return {
         ok: false,
         code: "write_failed",
