@@ -23,7 +23,7 @@ export async function queryRentalUnavailableYmds(
       .from("bookings")
       .select("event_date, span_days")
       .eq("rental_slug", rentalSlug)
-      .in("status", [...ACTIVE_STATUSES]);
+      .in("status", ACTIVE_STATUSES);
 
     if (error) {
       console.error("[bookings] load unavailable", error.message);

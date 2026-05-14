@@ -1,25 +1,10 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient, isSupabaseServiceConfigured } from "@/lib/supabase/admin";
+import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   console.log("[api/book] request received");
-
-  if (!isSupabaseServiceConfigured()) {
-    console.error("[api/book] missing Supabase env", {
-      hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
-      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
-    });
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Server missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
-      },
-      { status: 500 },
-    );
-  }
 
   let body: Record<string, unknown>;
   try {
@@ -34,16 +19,16 @@ export async function POST(req: Request) {
 
   console.log("[api/book] request body", body);
 
-  const bookingData = {
-    rental_slug:
+  const result = await insertPendingBooking({
+    rentalSlug:
       typeof body.rental_slug === "string" && body.rental_slug.trim()
         ? body.rental_slug.trim()
         : "unknown",
-    rental_name:
+    rentalName:
       typeof body.rental_item === "string" && body.rental_item.trim()
         ? body.rental_item.trim()
         : "Rental",
-    customer_name:
+    customerName:
       typeof body.customer_name === "string" && body.customer_name.trim()
         ? body.customer_name.trim()
         : "Guest",
@@ -53,17 +38,17 @@ export async function POST(req: Request) {
         : "unknown@example.com",
     phone:
       typeof body.customer_phone === "string" ? body.customer_phone.trim() : "",
-    event_date:
+    eventDateYmd:
       typeof body.event_date === "string" && body.event_date.trim()
         ? body.event_date.trim()
         : new Date().toISOString().slice(0, 10),
-    duration:
+    durationLabel:
       typeof body.duration === "string" ? body.duration.trim() : "Standard",
-    span_days:
+    spanDays:
       typeof body.span_days === "number" && body.span_days >= 1
         ? body.span_days
         : 1,
-    event_address:
+    eventAddress:
       typeof body.event_address === "string" ? body.event_address.trim() : "",
     subtotal: typeof body.subtotal === "number" ? body.subtotal : 0,
     total:
@@ -72,25 +57,16 @@ export async function POST(req: Request) {
         : typeof body.subtotal === "number"
           ? body.subtotal
           : 0,
-    status: "pending" as const,
-  };
+  });
 
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .insert([bookingData])
-    .select("id")
-    .single();
+  console.log("[api/book] Supabase response", result);
 
-  console.log("[api/book] Supabase response", { data, error });
-
-  if (error) {
-    console.error("[api/book] Supabase insert error", error);
+  if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: result.message ?? result.code },
       { status: 500 },
     );
   }
 
-  return NextResponse.json({ ok: true, id: data.id });
+  return NextResponse.json({ ok: true, id: result.id });
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
+import { isSupabaseBrowserConfigured } from "@/lib/supabaseClient";
 import {
   MOCK_DURATION_OPTIONS,
   estimateGrandTotal,
@@ -71,15 +72,7 @@ export function RentalBookingPanel({
   });
 
   useEffect(() => {
-    console.log("SUPABASE ENV:", {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    });
-
-    if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
+    if (!isSupabaseBrowserConfigured()) {
       setClientFetch({ status: "skipped" });
       return;
     }
@@ -183,8 +176,7 @@ export function RentalBookingPanel({
 
     if (
       clientFetch.status === "skipped" &&
-      (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+      !isSupabaseBrowserConfigured()
     ) {
       return {
         tone: "warn" as const,
