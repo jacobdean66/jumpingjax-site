@@ -17,29 +17,13 @@ export async function queryRentalUnavailableYmds(
       { cache: "no-store" }
     );
 
-    if (res.status === 503) {
-      return { ymds: [], error: "not_configured" };
-    }
-
-    const data: unknown = await res.json().catch(() => null);
+    const data = await res.json();
 
     if (!res.ok) {
-      console.error("[bookings] load unavailable", res.status, data);
-      return { ymds: [], error: "read_failed" };
+      throw new Error(data.error || 'Failed to fetch unavailable dates');
     }
 
-    if (
-      data &&
-      typeof data === "object" &&
-      "ymds" in data &&
-      Array.isArray((data as { ymds: unknown }).ymds) &&
-      (data as { ymds: unknown[] }).ymds.every((x) => typeof x === "string")
-    ) {
-      return { ymds: (data as { ymds: string[] }).ymds, error: null };
-    }
-
-    console.error("[bookings] load unavailable unexpected body", data);
-    return { ymds: [], error: "read_failed" };
+    return { ymds: data.ymds || [], error: null };
   } catch (e) {
     console.error("[bookings] load unavailable", e);
     return { ymds: [], error: "read_failed" };

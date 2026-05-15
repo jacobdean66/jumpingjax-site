@@ -22,13 +22,20 @@ export async function POST(req: Request) {
 
   console.log("[api/book] request body", body);
 
-  const rentalItem =
+  const rental_item =
     typeof body.rental_item === "string" && body.rental_item.trim()
       ? body.rental_item.trim()
       : null;
 
+  if (!rental_item) {
+    return new Response(
+      JSON.stringify({ error: 'rental_item is required' }),
+      { status: 400 }
+    )
+  }
+
   const result = await insertPendingBooking({
-    rental_item: rentalItem,
+    rental_item: rental_item,
     rentalName:
       typeof body.rental_item === "string" && body.rental_item.trim()
         ? body.rental_item.trim()

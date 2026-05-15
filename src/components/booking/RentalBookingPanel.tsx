@@ -40,7 +40,7 @@ function digitsOnly(s: string): string {
 }
 
 export function RentalBookingPanel({
-  rental_item: rentalItemKey,
+  rental_item: slug,
   rentalTitle,
   startingPrice,
   initialUnavailableYmds,
@@ -77,7 +77,7 @@ export function RentalBookingPanel({
     void (async () => {
       try {
         const { ymds, error } = await queryRentalUnavailableYmds(
-          rentalItemKey,
+          slug,
           6,
         );
         if (cancelled) return;
@@ -92,7 +92,7 @@ export function RentalBookingPanel({
     return () => {
       cancelled = true;
     };
-  }, [rentalItemKey]);
+  }, [slug]);
 
   const effectiveUnavailableYmds =
     clientFetch.status === "ok" ? clientFetch.ymds : initialUnavailableYmds;
@@ -220,7 +220,7 @@ export function RentalBookingPanel({
           customer_phone,
           customer_email,
           event_date,
-          rental_item: rentalItemKey,
+          rental_item: slug,
           event_address: customer.eventAddress,
           duration: duration?.label ?? "",
           span_days: duration?.spanDays ?? 1,
