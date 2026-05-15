@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
-import { isSupabaseBrowserConfigured } from "@/lib/supabaseClient";
 import {
   MOCK_DURATION_OPTIONS,
   estimateGrandTotal,
@@ -72,24 +71,18 @@ export function RentalBookingPanel({
   });
 
   useEffect(() => {
-    if (!isSupabaseBrowserConfigured()) {
-      setClientFetch({ status: "skipped" });
-      return;
-    }
-
     let cancelled = false;
     setClientFetch({ status: "pending" });
 
     void (async () => {
       try {
-        const { supabase } = await import("@/lib/supabaseClient");
         const { ymds, error } = await queryRentalUnavailableYmds(
-          supabase,
           rentalSlug,
           6,
         );
         if (cancelled) return;
-        if (error) setClientFetch({ status: "error" });
+        if (error === "not_configured") setClientFetch({ status: "skipped" });
+        else if (error) setClientFetch({ status: "error" });
         else setClientFetch({ status: "ok", ymds });
       } catch {
         if (!cancelled) setClientFetch({ status: "error" });
@@ -174,10 +167,7 @@ export function RentalBookingPanel({
       return null;
     }
 
-    if (
-      clientFetch.status === "skipped" &&
-      !isSupabaseBrowserConfigured()
-    ) {
+    if (clientFetch.status === "skipped") {
       return {
         tone: "warn" as const,
         text: "Live availability is not connected yet (missing Supabase environment variables). All dates appear open until this is configured.",

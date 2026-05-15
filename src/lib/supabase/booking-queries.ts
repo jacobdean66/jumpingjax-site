@@ -1,38 +1,47 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-import {
-  defaultAvailabilityWindow,
-  unavailableYmdsFromBookings,
-  type BookingSpanRow,
-} from "@/lib/bookings/unavailableDates";
-
-const ACTIVE_STATUSES = ["pending", "approved", "blocked"] as const;
+export type RentalUnavailableResult = {
+  ymds: string[];
+  error: "read_failed" | "not_configured" | null;
+};
 
 /**
- * Load unavailable YYYY-MM-DD strings for a rental (anon or service client).
+ * Load unavailable YYYY-MM-DD strings for a rental via same-origin API
+ * (server uses service-role Supabase; avoids browser CORS to Supabase).
  */
 export async function queryRentalUnavailableYmds(
-  supabase: SupabaseClient,
   rentalSlug: string,
   monthsAhead: number = 6,
-): Promise<{ ymds: string[]; error: "read_failed" | null }> {
+): Promise<RentalUnavailableResult> {
+  const params = new URLSearchParams({
+    rentalSlug,
+    monthsAhead: String(monthsAhead),
+  });
+
   try {
-    const { winStart, winEnd } = defaultAvailabilityWindow(monthsAhead);
+    const res = await fetch(`/api/unavailable-dates?${params.toString()}`);
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("event_date, span_days")
-      .eq("rental_slug", rentalSlug)
-      .in("status", ACTIVE_STATUSES);
+    if (res.status === 503) {
+      return { ymds: [], error: "not_configured" };
+    }
 
-    if (error) {
-      console.error("[bookings] load unavailable", error.message);
+    const data: unknown = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("[bookings] load unavailable", res.status, data);
       return { ymds: [], error: "read_failed" };
     }
 
-    const rows = (data ?? []) as BookingSpanRow[];
-    const ymds = unavailableYmdsFromBookings(rows, winStart, winEnd);
-    return { ymds, error: null };
+    if (
+      data &&
+      typeof data === "object" &&
+      "ymds" in data &&
+      Array.isArray((data as { ymds: unknown }).ymds) &&
+      (data as { ymds: unknown[] }).ymds.every((x) => typeof x === "string")
+    ) {
+      return { ymds: (data as { ymds: string[] }).ymds, error: null };
+    }
+
+    console.error("[bookings] load unavailable unexpected body", data);
+    return { ymds: [], error: "read_failed" };
   } catch (e) {
     console.error("[bookings] load unavailable", e);
     return { ymds: [], error: "read_failed" };
