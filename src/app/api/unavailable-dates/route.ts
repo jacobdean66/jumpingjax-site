@@ -45,13 +45,16 @@ export async function GET(req: Request) {
       .in("status", ACTIVE_STATUSES);
 
     if (error) {
-      console.error("[api/unavailable-dates] load unavailable", error.message);
-      return NextResponse.json({ error: "read_failed", ymds: [] }, { status: 500 });
+      console.error("[api/unavailable-dates] FULL ERROR", error);
+      return NextResponse.json(
+        { error: error.message, details: error },
+        { status: 500 },
+      );
     }
 
     const rows = (data ?? []) as BookingSpanRow[];
     const ymds = unavailableYmdsFromBookings(rows, winStart, winEnd);
-    return NextResponse.json({ ymds, error: null });
+    return NextResponse.json({ ymds, error: null, test: "NEW_DEPLOY" });
   } catch (e) {
     console.error("[api/unavailable-dates] load unavailable", e);
     return NextResponse.json({ error: "read_failed", ymds: [] }, { status: 500 });
