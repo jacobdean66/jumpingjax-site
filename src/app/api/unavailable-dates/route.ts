@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 // trigger redeploy
 export const dynamic = "force-dynamic";
 
