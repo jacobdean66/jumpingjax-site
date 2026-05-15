@@ -59,7 +59,7 @@ export async function insertPendingBooking(
       rental_item: input.rental_item,
       rental_name: input.rentalName,
       customer_name: input.customerName,
-      email: input.email.trim(),
+      customer_email: input.email.trim(),
       phone: input.phone.trim(),
       event_date: input.eventDateYmd,
       duration: input.durationLabel,
