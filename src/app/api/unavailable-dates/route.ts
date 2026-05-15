@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     const { data, error } = await supabase
       .from("bookings")
       .select("event_date, span_days")
-      .eq("rental_item", rentalSlug)
+      .ilike("rental_item", rentalSlug)
       .in("status", ACTIVE_STATUSES);
 
     if (error) {
