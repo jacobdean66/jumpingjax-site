@@ -1,3 +1,6 @@
+// trigger redeploy
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
 import {
@@ -9,8 +12,6 @@ import {
   createServiceRoleClient,
   isSupabaseServiceConfigured,
 } from "@/lib/supabase/admin";
-
-export const dynamic = "force-dynamic";
 
 const ACTIVE_STATUSES = ["pending", "approved", "blocked"] as const;
 
@@ -43,6 +44,13 @@ export async function GET(req: Request) {
       .select("event_date, span_days")
       .eq("rental_slug", rentalSlug)
       .in("status", ACTIVE_STATUSES);
+
+    if (error) {
+      console.error("SUPABASE ERROR:", error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+      });
+    }
 
     if (error) {
       console.error("[api/unavailable-dates] FULL ERROR", error);

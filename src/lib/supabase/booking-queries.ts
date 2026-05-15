@@ -16,8 +16,26 @@ export async function queryRentalUnavailableYmds(
     monthsAhead: String(monthsAhead),
   });
 
+  const search = params.toString();
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+          (process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "http://localhost:3000"));
+  const url = `${origin}/api/unavailable-dates?${search}`;
+
   try {
-    const res = await fetch(`/api/unavailable-dates?${params.toString()}`);
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SITE_URL!;
+
+    const res = await fetch(
+      `${baseUrl}/api/unavailable-dates?rentalSlug=${encodeURIComponent(rentalSlug)}`,
+      { cache: "no-store" }
+    );
 
     if (res.status === 503) {
       return { ymds: [], error: "not_configured" };
