@@ -3,7 +3,7 @@ import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
 
 function formatPostgrestError(error: PostgrestError): string {
   return [
-    error.message,
+    String(error),
     error.details && `details: ${error.details}`,
     error.hint && `hint: ${error.hint}`,
     error.code && `code: ${error.code}`,

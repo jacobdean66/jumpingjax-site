@@ -49,17 +49,9 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error("SUPABASE ERROR:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: String(error) }), {
         status: 500,
       });
-    }
-
-    if (error) {
-      console.error("[api/unavailable-dates] FULL ERROR", error);
-      return NextResponse.json(
-        { error: error.message, details: error },
-        { status: 500 },
-      );
     }
 
     const rows = (data ?? []) as BookingSpanRow[];
