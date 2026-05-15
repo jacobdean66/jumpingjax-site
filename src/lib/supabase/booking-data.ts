@@ -80,7 +80,11 @@ export async function insertPendingBooking(
 
     if (error) {
       console.error("SUPABASE INSERT ERROR FULL:", error);
-      return { ok: false, error };
+      return {
+        ok: false,
+        code: "write_failed",
+        message: error.message,
+      };
     }
 
     const id = data?.id;
