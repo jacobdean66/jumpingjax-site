@@ -48,10 +48,14 @@ export async function GET(req: Request) {
       .in("status", ACTIVE_STATUSES);
 
     if (error) {
-      console.error("SUPABASE ERROR:", error);
-      return new Response(JSON.stringify({ error: String(error) }), {
-        status: 500,
-      });
+      console.error("SUPABASE ERROR FULL:", JSON.stringify(error, null, 2));
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+          details: error
+        }),
+        { status: 500 }
+      );
     }
 
     const rows = (data ?? []) as BookingSpanRow[];
