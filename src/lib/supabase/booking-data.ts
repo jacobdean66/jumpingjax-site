@@ -60,7 +60,7 @@ export async function insertPendingBooking(
       rental_name: input.rentalName,
       customer_name: input.customerName,
       customer_email: input.email.trim(),
-      phone: input.phone.trim(),
+      customer_phone: input.phone.trim(),
       event_date: input.eventDateYmd,
       duration: input.durationLabel,
       span_days: input.spanDays >= 1 ? input.spanDays : 1,
