@@ -16,10 +16,10 @@ const ACTIVE_STATUSES = ["pending", "approved", "blocked"] as const;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const rentalSlug = searchParams.get("rentalSlug")?.trim();
-  if (!rentalSlug) {
+  const rental_item = searchParams.get("rental_item")?.trim();
+  if (!rental_item) {
     return NextResponse.json(
-      { error: "missing_rental_slug", ymds: [] },
+      { error: "missing_rental_item", ymds: [] },
       { status: 400 },
     );
   }
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     const { data, error } = await supabase
       .from("bookings")
       .select("event_date, span_days")
-      .ilike("rental_item", rentalSlug)
+      .ilike("rental_item", rental_item)
       .in("status", ACTIVE_STATUSES);
 
     if (error) {

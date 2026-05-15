@@ -137,7 +137,7 @@ export default async function RentalDetailPage({ params }: Props) {
 
         <div className="mt-10">
           <RentalBookingPanel
-            rentalSlug={rental.slug}
+            rental_item={rental.slug}
             rentalTitle={rental.title}
             startingPrice={rental.startingPrice}
             initialUnavailableYmds={initialUnavailableYmds}

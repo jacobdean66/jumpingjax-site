@@ -17,7 +17,7 @@ import { DurationSelector } from "./DurationSelector";
 import { StickyReserveBar } from "./StickyReserveBar";
 
 export type RentalBookingPanelProps = {
-  rentalSlug: string;
+  rental_item: string;
   rentalTitle: string;
   startingPrice: number;
   initialUnavailableYmds: string[];
@@ -40,7 +40,7 @@ function digitsOnly(s: string): string {
 }
 
 export function RentalBookingPanel({
-  rentalSlug,
+  rental_item: rentalItemKey,
   rentalTitle,
   startingPrice,
   initialUnavailableYmds,
@@ -77,7 +77,7 @@ export function RentalBookingPanel({
     void (async () => {
       try {
         const { ymds, error } = await queryRentalUnavailableYmds(
-          rentalSlug,
+          rentalItemKey,
           6,
         );
         if (cancelled) return;
@@ -92,7 +92,7 @@ export function RentalBookingPanel({
     return () => {
       cancelled = true;
     };
-  }, [rentalSlug]);
+  }, [rentalItemKey]);
 
   const effectiveUnavailableYmds =
     clientFetch.status === "ok" ? clientFetch.ymds : initialUnavailableYmds;
@@ -205,7 +205,6 @@ export function RentalBookingPanel({
     const customer_phone = customer.customerPhone;
     const customer_email = customer.customerEmail;
     const event_date = selectedYmd ?? "";
-    const rental_item = rentalTitle;
 
     setSubmitError(null);
     setIsSubmitting(true);
@@ -221,8 +220,7 @@ export function RentalBookingPanel({
           customer_phone,
           customer_email,
           event_date,
-          rental_item,
-          rental_slug: rentalSlug,
+          rental_item: rentalItemKey,
           event_address: customer.eventAddress,
           duration: duration?.label ?? "",
           span_days: duration?.spanDays ?? 1,

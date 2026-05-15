@@ -7,7 +7,7 @@
  *
  * Fields:
  * - id: Stable composite key `${categoryId}/${slug}` (use for analytics / future CMS).
- * - slug: URL segment; must be globally unique (bookings key off rental_slug).
+ * - slug: URL segment; must be globally unique (bookings key off rental_item).
  * - categoryId: Routes under /rentals/[categoryId]/[slug].
  */
 

@@ -13,7 +13,7 @@ function formatPostgrestError(error: PostgrestError): string {
 }
 
 export type CreateBookingInput = {
-  rentalSlug: string;
+  rental_item: string | null;
   rentalName: string;
   customerName: string;
   email: string;
@@ -56,7 +56,7 @@ export async function insertPendingBooking(
   try {
     const supabase = createServiceRoleClient();
     const bookingData = {
-      rental_slug: input.rentalSlug,
+      rental_item: input.rental_item,
       rental_name: input.rentalName,
       customer_name: input.customerName,
       email: input.email.trim(),

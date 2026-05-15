@@ -22,11 +22,13 @@ export async function POST(req: Request) {
 
   console.log("[api/book] request body", body);
 
+  const rentalItem =
+    typeof body.rental_item === "string" && body.rental_item.trim()
+      ? body.rental_item.trim()
+      : null;
+
   const result = await insertPendingBooking({
-    rentalSlug:
-      typeof body.rental_slug === "string" && body.rental_slug.trim()
-        ? body.rental_slug.trim()
-        : "unknown",
+    rental_item: rentalItem,
     rentalName:
       typeof body.rental_item === "string" && body.rental_item.trim()
         ? body.rental_item.trim()

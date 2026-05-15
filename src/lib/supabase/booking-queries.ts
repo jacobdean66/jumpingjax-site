@@ -8,11 +8,11 @@ export type RentalUnavailableResult = {
  * (server uses service-role Supabase; avoids browser CORS to Supabase).
  */
 export async function queryRentalUnavailableYmds(
-  rentalSlug: string,
+  rental_item: string,
   monthsAhead: number = 6,
 ): Promise<RentalUnavailableResult> {
   const params = new URLSearchParams({
-    rentalSlug,
+    rental_item,
     monthsAhead: String(monthsAhead),
   });
 
@@ -33,7 +33,7 @@ export async function queryRentalUnavailableYmds(
         : process.env.NEXT_PUBLIC_SITE_URL!;
 
     const res = await fetch(
-      `${baseUrl}/api/unavailable-dates?rentalSlug=${encodeURIComponent(rentalSlug)}`,
+      `${baseUrl}/api/unavailable-dates?rental_item=${encodeURIComponent(rental_item)}`,
       { cache: "no-store" }
     );
 
