@@ -9,11 +9,14 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
-  } catch (e) {
-    console.error("[api/book] invalid JSON body", e);
+  } catch (error) {
+    console.error("BOOK API ERROR:", error);
     return NextResponse.json(
-      { ok: false, error: "Invalid JSON body" },
-      { status: 400 },
+      {
+        ok: false,
+        error: String(error),
+      },
+      { status: 500 },
     );
   }
 
@@ -59,11 +62,17 @@ export async function POST(req: Request) {
           : 0,
   });
 
-  console.log("[api/book] Supabase response", result);
+  console.log("SUPABASE RESULT:", result);
 
   if (!result.ok) {
+    console.error("SUPABASE FULL ERROR:", result);
+    const error = result.message ?? result.code ?? result;
+    console.error("BOOK API ERROR:", error);
     return NextResponse.json(
-      { ok: false, error: result.message ?? result.code },
+      {
+        ok: false,
+        error: String(error),
+      },
       { status: 500 },
     );
   }
