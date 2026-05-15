@@ -11,29 +11,9 @@ export async function queryRentalUnavailableYmds(
   rental_item: string,
   monthsAhead: number = 6,
 ): Promise<RentalUnavailableResult> {
-  const params = new URLSearchParams({
-    rental_item,
-    monthsAhead: String(monthsAhead),
-  });
-
-  const search = params.toString();
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-          (process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "http://localhost:3000"));
-  const url = `${origin}/api/unavailable-dates?${search}`;
-
   try {
-    const baseUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL!;
-
     const res = await fetch(
-      `${baseUrl}/api/unavailable-dates?rental_item=${encodeURIComponent(rental_item)}`,
+      `/api/unavailable-dates?rental_item=${encodeURIComponent(rental_item)}`,
       { cache: "no-store" }
     );
 
