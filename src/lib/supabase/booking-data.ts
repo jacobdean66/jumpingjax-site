@@ -73,18 +73,14 @@ export async function insertPendingBooking(
     const { data, error } = await supabase
       .from("bookings")
       .insert([bookingData])
-      .select("id")
+      .select()
       .single();
 
     console.log("[bookings] supabase insert response", { data, error });
 
     if (error) {
-      console.error("[bookings] supabase insert error", error);
-      return {
-        ok: false,
-        code: "write_failed",
-        message: formatPostgrestError(error),
-      };
+      console.error("SUPABASE INSERT ERROR FULL:", error);
+      return { ok: false, error };
     }
 
     const id = data?.id;
