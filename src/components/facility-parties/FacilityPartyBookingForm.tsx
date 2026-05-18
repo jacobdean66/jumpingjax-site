@@ -1,5 +1,7 @@
 "use client";
 
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -20,7 +22,7 @@ import type {
   FacilityRoomId,
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
-import { isFriday, isSaturday, isSunday } from "@/lib/facility-parties/time";
+import { getLocalDayOfWeek } from "@/lib/facility-parties/time";
 
 const controlClassName =
   "w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30";
@@ -34,37 +36,56 @@ const PARTY_KIND_CHOICES: {
 }[] = [
   {
     id: "public",
-    title: "Saturday daytime · shared party room",
+    title: "Public Play Party",
     description:
-      "Fixed Saturday windows. Pick the smaller or larger play room — another group may celebrate next door.",
+      "Available during open hours (Wednesday–Saturday). Choose from two party rooms. 1.5 hour time slots.",
   },
   {
     id: "private",
-    title: "Evening & Sunday · whole facility",
+    title: "Private Party (Full Facility)",
     description:
-      "Friday/Saturday evenings or a flexible Sunday. One celebration at a time with automatic spacing.",
+      "Book the entire facility. Available evenings, Sundays, and anytime Monday–Tuesday. Choose 1.5, 2, or 3 hour slots.",
   },
 ];
 
 function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
-  if (!isoDate) {
-    return false;
-  }
+  if (!isoDate) return false;
+
+  const day = getLocalDayOfWeek(isoDate);
+
   if (kind === "public") {
-    return isSaturday(isoDate);
+    // Public allowed Wed–Sat only
+    return day >= 3 && day <= 6;
   }
-  return isFriday(isoDate) || isSaturday(isoDate) || isSunday(isoDate);
+
+  // Private allowed all days
+  return true;
+}
+
+function minutesToIsoDateTime(date: string, minutes: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+
+  return new Date(year, month - 1, day, h, m).toISOString();
+}
+
+function dateToYmd(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function FacilityPartyBookingForm() {
-  const [blocks, setBlocks] = useState<FacilityPartyBookingBlock[]>(
+  const [blocks] = useState<FacilityPartyBookingBlock[]>(
     () => MOCK_FACILITY_PARTY_BOOKINGS,
   );
-  const [partyKind, setPartyKind] = useState<FacilityPartyKind>("public");
+  const [partyKind, setPartyKind] = useState<FacilityPartyKind | null>(null);
   const [roomId, setRoomId] = useState<FacilityRoomId>("room-10");
   const [privateDuration, setPrivateDuration] =
     useState<PrivateDurationMinutes>(90);
-  const [date, setDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -72,8 +93,10 @@ export function FacilityPartyBookingForm() {
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
 
-  const dateOk = dateAllowedForKind(partyKind, date);
+  const date = selectedDate ? dateToYmd(selectedDate) : "";
+  const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
 
   const slotDispositions = useMemo(() => {
     if (!date || !dateOk) {
@@ -94,21 +117,27 @@ export function FacilityPartyBookingForm() {
   );
 
   useEffect(() => {
-    if (selectedStart === null) {
-      return;
-    }
-    const stillValid = slotDispositions.some(
-      (d) => d.startMinutes === selectedStart && d.available,
-    );
-    if (!stillValid) {
-      setSelectedStart(null);
-    }
-  }, [slotDispositions, selectedStart]);
+    if (!partyKind) return;
+
+    const fetchUnavailable = async () => {
+      try {
+        const res = await fetch(`/api/facility/unavailable?partyKind=${partyKind}`);
+        const data = await res.json();
+
+        setUnavailableDates(data || []);
+      } catch (err) {
+        console.error("Failed to fetch unavailable dates", err);
+      }
+    };
+
+    fetchUnavailable();
+  }, [partyKind]);
 
   const customerStepUnlocked = Boolean(selectedDisposition);
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
     setPartyKind(next);
+    setSelectedDate(undefined);
     setSelectedStart(null);
     setFormError(null);
     setSuccessMessage(null);
@@ -117,7 +146,12 @@ export function FacilityPartyBookingForm() {
     }
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onDateSelect = (nextDate: Date | undefined) => {
+    setSelectedDate(nextDate);
+    setSelectedStart(null);
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setSuccessMessage(null);
@@ -129,8 +163,8 @@ export function FacilityPartyBookingForm() {
     if (!dateOk) {
       setFormError(
         partyKind === "public"
-          ? "Saturday daytime visits need a Saturday date."
-          : "Evening and Sunday visits need a Friday, Saturday, or Sunday date.",
+          ? "Public play parties need a Wednesday through Saturday date."
+          : "Private parties are available all days.",
       );
       return;
     }
@@ -151,7 +185,7 @@ export function FacilityPartyBookingForm() {
       partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID;
 
     const request: FacilityPartyBookingRequest = {
-      kind: partyKind,
+      kind: partyKind as FacilityPartyKind,
       date,
       roomId: resolvedRoomId,
       durationMinutes:
@@ -165,22 +199,34 @@ export function FacilityPartyBookingForm() {
       status: "pending",
     };
 
-    const newBlock: FacilityPartyBookingBlock = {
-      id: `local-${crypto.randomUUID?.() ?? String(Date.now())}`,
-      kind: request.kind,
-      date: request.date,
-      roomId: request.roomId,
-      startMinutes: request.startMinutes,
-      endMinutes: request.endMinutes,
-      status: "pending",
-    };
+    try {
+      const res = await fetch("/api/facility/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          party_kind: request.kind,
+          room: request.roomId,
+          start_time: minutesToIsoDateTime(request.date, request.startMinutes),
+          end_time: minutesToIsoDateTime(request.date, request.endMinutes),
+        }),
+      });
 
-    setBlocks((prev) => [...prev, newBlock]);
-    setSuccessMessage(
-      "Thanks! Your request is pending until our team confirms it.",
-    );
-    setSelectedStart(null);
-    setNotes("");
+      if (!res.ok) {
+        throw new Error("Failed to book");
+      }
+
+      setSuccessMessage(
+        "Request submitted! We’ll confirm your party shortly 🎉"
+      );
+
+      setSelectedStart(null);
+      setNotes("");
+
+    } catch {
+      setFormError("Something went wrong. Please try again.");
+    }
   };
 
   const publicRooms = FACILITY_ROOMS;
@@ -203,8 +249,8 @@ export function FacilityPartyBookingForm() {
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
             <li>Saturday daytime uses fixed shared party slots in each play room.</li>
             <li>
-              Evening and Sunday whole-facility visits are spaced automatically
-              (one group at a time).
+              Whole-facility visits are spaced automatically (one group at a
+              time).
             </li>
             <li>
               A {FACILITY_PARTY_BUFFER_MINUTES}-minute setup buffer is included
@@ -245,9 +291,14 @@ export function FacilityPartyBookingForm() {
             })}
           </div>
         </section>
+        {!partyKind && (
+          <p className="text-sm text-slate-400">
+            Choose public or private to continue.
+          </p>
+        )}
 
         {/* 2. Room */}
-        <section className="space-y-3">
+        <section className={`space-y-3 ${!partyKind ? "opacity-50 pointer-events-none" : ""}`}>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             2 · Party space
           </p>
@@ -300,7 +351,7 @@ export function FacilityPartyBookingForm() {
         </section>
 
         {/* 3. Duration */}
-        <section className="space-y-3">
+        <section className={`space-y-3 ${!partyKind ? "opacity-50 pointer-events-none" : ""}`}>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             3 · Length
           </p>
@@ -347,28 +398,45 @@ export function FacilityPartyBookingForm() {
         </section>
 
         {/* 4. Date */}
-        <section className="space-y-3">
+        <section className={`space-y-3 ${!partyKind ? "opacity-50 pointer-events-none" : ""}`}>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             4 · Date
           </p>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setSelectedStart(null);
+          <DayPicker
+            mode="single"
+            selected={selectedDate}
+            onSelect={onDateSelect}
+            disabled={(date) => {
+              const formatted = dateToYmd(date);
+
+              if (!partyKind) return true;
+
+              const day = date.getDay();
+
+              if (partyKind === "public") {
+                return (
+                  day === 0 ||
+                  day === 1 ||
+                  day === 2 ||
+                  unavailableDates.includes(formatted)
+                );
+              }
+
+              return false;
             }}
-            className={controlClassName}
+            modifiersClassNames={{
+              disabled: "opacity-30 cursor-not-allowed",
+            }}
           />
           <p className="text-xs text-slate-500">
             {partyKind === "public"
               ? "Saturday daytime shared slots only."
-              : "Fridays (evening starts), Saturdays (6:30 PM start), or flexible Sundays until 9:00 PM end."}
+              : "Private slots are available after public closing, Sunday from 10:30 AM, and all day Monday–Tuesday."}
           </p>
         </section>
 
         {/* 5. Available times */}
-        <section className="space-y-3">
+        <section className={`space-y-3 ${!partyKind ? "opacity-50 pointer-events-none" : ""}`}>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
               5 · Available times
@@ -378,9 +446,9 @@ export function FacilityPartyBookingForm() {
                 Saturday daytime shared party slots
               </span>
             )}
-            {partyKind === "private" && dateOk && isSunday(date) && (
+            {partyKind === "private" && dateOk && (
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Sunday times spaced automatically
+                Private starts every 30 minutes
               </span>
             )}
           </div>
@@ -391,7 +459,7 @@ export function FacilityPartyBookingForm() {
           {date && !dateOk && (
             <p className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
               {partyKind === "public"
-                ? "Choose a Saturday for daytime shared rooms."
+                ? "Choose a date to see available time slots."
                 : "Choose a Friday, Saturday, or Sunday for evening or Sunday visits."}
             </p>
           )}
@@ -403,7 +471,7 @@ export function FacilityPartyBookingForm() {
           {date && dateOk && slotDispositions.length > 0 && (
             <div
               className={`grid gap-2 sm:grid-cols-2 ${
-                partyKind === "private" && isSunday(date)
+                partyKind === "private"
                   ? "max-h-64 overflow-y-auto pr-1 sm:max-h-80"
                   : ""
               }`}

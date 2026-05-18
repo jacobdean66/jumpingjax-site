@@ -28,7 +28,7 @@ export type CreateBookingInput = {
 
 export type CreateBookingResult =
   | { ok: true; id: string }
-  | { ok: false; code: "conflict" | "write_failed"; message?: string };
+  | { ok: false; code: "conflict" | "write_failed" | "invalid_input"; message?: string };
 
 /**
  * Persists a pending booking row in Supabase.
@@ -55,7 +55,27 @@ export async function insertPendingBooking(
 
   try {
     const supabase = createServiceRoleClient();
-    const bookingData = {
+    if (!input.rental_item) {
+      return {
+        ok: false,
+        code: "invalid_input",
+        message: "rental_item is required",
+      };
+    }
+    const bookingData: {
+      rental_item: string;
+      customer_name: string;
+      customer_email: string;
+      customer_phone: string;
+      event_date: string;
+      span_days: number;
+      status: string;
+      rental_name?: string;
+      duration?: string;
+      event_address?: string;
+      subtotal?: number;
+      total?: number;
+    } = {
       rental_item: input.rental_item,
       rental_name: input.rentalName,
       customer_name: input.customerName,

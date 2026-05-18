@@ -1,17 +1,10 @@
 import {
-  FACILITY_PARTY_BUFFER_MINUTES,
-  PRIVATE_FRIDAY_START_MINUTES,
-  PRIVATE_SATURDAY_START_MINUTES,
-  PUBLIC_SATURDAY_SLOTS,
-  SUNDAY_EARLIEST_START_MINUTES,
-  SUNDAY_LATEST_END_MINUTES,
-  SUNDAY_SLOT_STEP_MINUTES,
+  FACILITY_HOURS,
+  SLOT_INTERVAL_MINUTES,
 } from "./constants";
 import {
   formatMinutesLabel,
-  isFriday,
-  isSaturday,
-  isSunday,
+  getLocalDayOfWeek,
 } from "./time";
 import type {
   FacilityPartyBookingBlock,
@@ -19,23 +12,23 @@ import type {
   FacilitySlotDisposition,
   FacilityTimeSlotOption,
   PrivateDurationMinutes,
+  PublicSlotDefinition,
 } from "./types";
 
 function isActiveBlock(b: FacilityPartyBookingBlock): boolean {
   return b.status !== "cancelled";
 }
 
-function privateIntervalsCollide(
+function intervalsOverlap(
   aStart: number,
   aEnd: number,
   bStart: number,
   bEnd: number,
-  bufferMinutes: number,
 ): boolean {
-  return !(aEnd + bufferMinutes <= bStart || bEnd + bufferMinutes <= aStart);
+  return aStart < bEnd && aEnd > bStart;
 }
 
-function collidesWithAnyPrivate(
+function collidesWithAnyFacilityBooking(
   date: string,
   start: number,
   end: number,
@@ -44,19 +37,74 @@ function collidesWithAnyPrivate(
   return bookings.some(
     (b) =>
       isActiveBlock(b) &&
-      b.kind === "private" &&
       b.date === date &&
-      privateIntervalsCollide(start, end, b.startMinutes, b.endMinutes, FACILITY_PARTY_BUFFER_MINUTES),
+      intervalsOverlap(start, end, b.startMinutes, b.endMinutes),
   );
 }
 
-/** Saturday daytime public slots for one room */
+function listPublicSlotsForDate(date: string): PublicSlotDefinition[] {
+  const [year, month, dayNum] = date.split("-").map(Number);
+
+  // Create LOCAL date (not UTC)
+  const localDate = new Date(year, month - 1, dayNum);
+
+  const day = localDate.getDay();
+
+  console.log("DATE:", date, "DAY:", day);
+
+  let openMinutes = null;
+  let closeMinutes = null;
+
+  if (day === 3 || day === 4) {
+    // Wednesday & Thursday
+    openMinutes = 12 * 60;
+    closeMinutes = 17 * 60;
+  } else if (day === 5) {
+    // Friday (FIXED)
+    openMinutes = 12 * 60;
+    closeMinutes = 18 * 60;
+  } else if (day === 6) {
+    // Saturday
+    openMinutes = 10 * 60;
+    closeMinutes = 18 * 60;
+  } else {
+    return [];
+  }
+
+  const slots: PublicSlotDefinition[] = [];
+
+  let start = openMinutes + 30;
+
+  while (true) {
+    const end = start + 90;
+
+    // must fully fit before closing
+    if (end > closeMinutes) break;
+
+    slots.push({
+      id: `public-${start}-${end}`,
+      startMinutes: start,
+      endMinutes: end,
+    });
+
+    // move forward by full cycle (90 + 30 break)
+    start += 120;
+  }
+
+  console.log("RAW SLOTS:", slots);
+  console.log("FINAL SLOTS:", slots);
+
+  return slots;
+}
+
+/** Public daytime slots for one room */
 export function listAvailablePublicSaturdaySlots(
   date: string,
   roomId: FacilityRoomId,
   bookings: FacilityPartyBookingBlock[],
 ): FacilityTimeSlotOption[] {
-  if (!isSaturday(date)) {
+  const publicSlots = listPublicSlotsForDate(date);
+  if (publicSlots.length === 0) {
     return [];
   }
 
@@ -72,7 +120,7 @@ export function listAvailablePublicSaturdaySlots(
       .map((b) => `${b.startMinutes}-${b.endMinutes}`),
   );
 
-  return PUBLIC_SATURDAY_SLOTS.filter(
+  return publicSlots.filter(
     (slot) => !taken.has(`${slot.startMinutes}-${slot.endMinutes}`),
   ).map((slot) => ({
     startMinutes: slot.startMinutes,
@@ -81,13 +129,14 @@ export function listAvailablePublicSaturdaySlots(
   }));
 }
 
-/** All Saturday public template slots with booked/unavailable flagged for the UI */
+/** All public template slots with booked/unavailable flagged for the UI */
 export function listPublicSaturdaySlotDispositions(
   date: string,
   roomId: FacilityRoomId,
   bookings: FacilityPartyBookingBlock[],
 ): FacilitySlotDisposition[] {
-  if (!isSaturday(date)) {
+  const publicSlots = listPublicSlotsForDate(date);
+  if (publicSlots.length === 0) {
     return [];
   }
 
@@ -97,7 +146,7 @@ export function listPublicSaturdaySlotDispositions(
     ),
   );
 
-  return PUBLIC_SATURDAY_SLOTS.map((slot) => {
+  return publicSlots.map((slot) => {
     const key = `${slot.startMinutes}-${slot.endMinutes}`;
     return {
       startMinutes: slot.startMinutes,
@@ -108,166 +157,108 @@ export function listPublicSaturdaySlotDispositions(
   });
 }
 
-function listFridayPrivateDispositions(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilitySlotDisposition[] {
-  return PRIVATE_FRIDAY_START_MINUTES.map((start) => {
-    const end = start + durationMinutes;
-    const outOfBounds = end > SUNDAY_LATEST_END_MINUTES;
-    const available =
-      !outOfBounds && !collidesWithAnyPrivate(date, start, end, bookings);
-    return {
-      startMinutes: start,
-      endMinutes: end,
-      label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      available,
-    };
-  });
-}
-
-function listSaturdayPrivateDispositions(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilitySlotDisposition[] {
-  return PRIVATE_SATURDAY_START_MINUTES.map((start) => {
-    const end = start + durationMinutes;
-    const outOfBounds = end > SUNDAY_LATEST_END_MINUTES;
-    const available =
-      !outOfBounds && !collidesWithAnyPrivate(date, start, end, bookings);
-    return {
-      startMinutes: start,
-      endMinutes: end,
-      label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      available,
-    };
-  });
-}
-
-function listSundayPrivateDispositions(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilitySlotDisposition[] {
-  const out: FacilitySlotDisposition[] = [];
-  for (
-    let start = SUNDAY_EARLIEST_START_MINUTES;
-    start + durationMinutes <= SUNDAY_LATEST_END_MINUTES;
-    start += SUNDAY_SLOT_STEP_MINUTES
-  ) {
-    const end = start + durationMinutes;
-    const available = !collidesWithAnyPrivate(date, start, end, bookings);
-    out.push({
-      startMinutes: start,
-      endMinutes: end,
-      label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      available,
-    });
-  }
-  return out;
-}
-
 /** Private / buyout slots — includes booked rows so the UI can show disabled states */
+function timeToMinutes(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function getPrivateAvailabilityWindow(date: string) {
+  const day = getLocalDayOfWeek(date);
+
+  if (day === 0) {
+    return {
+      day,
+      startWindow: timeToMinutes("10:30"),
+      endWindow: timeToMinutes("24:00"),
+    };
+  }
+
+  if (day === 1 || day === 2) {
+    return {
+      day,
+      startWindow: timeToMinutes("00:00"),
+      endWindow: timeToMinutes("23:59"),
+    };
+  }
+
+  const hoursByDay = {
+    3: FACILITY_HOURS.wednesday,
+    4: FACILITY_HOURS.thursday,
+    5: FACILITY_HOURS.friday,
+    6: FACILITY_HOURS.saturday,
+  } as const;
+  const hours = hoursByDay[day as keyof typeof hoursByDay];
+
+  if (!hours) {
+    return null;
+  }
+
+  return {
+    day,
+    startWindow: timeToMinutes(hours.close),
+    endWindow: timeToMinutes("24:00"),
+  };
+}
+
 export function listPrivateSlotDispositions(
   date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
+  duration: PrivateDurationMinutes,
+  blocks: FacilityPartyBookingBlock[],
 ): FacilitySlotDisposition[] {
-  if (isFriday(date)) {
-    return listFridayPrivateDispositions(date, durationMinutes, bookings);
-  }
-  if (isSaturday(date)) {
-    return listSaturdayPrivateDispositions(date, durationMinutes, bookings);
-  }
-  if (isSunday(date)) {
-    return listSundayPrivateDispositions(date, durationMinutes, bookings);
-  }
-  return [];
-}
+  const window = getPrivateAvailabilityWindow(date);
 
-function listFridayPrivateSlots(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilityTimeSlotOption[] {
-  const options: FacilityTimeSlotOption[] = [];
-  for (const start of PRIVATE_FRIDAY_START_MINUTES) {
-    const end = start + durationMinutes;
-    if (end > SUNDAY_LATEST_END_MINUTES) {
-      continue;
-    }
-    if (!collidesWithAnyPrivate(date, start, end, bookings)) {
-      options.push({
-        startMinutes: start,
-        endMinutes: end,
-        label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      });
-    }
+  if (!window) {
+    return [];
   }
-  return options;
-}
 
-function listSaturdayPrivateSlots(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilityTimeSlotOption[] {
-  const options: FacilityTimeSlotOption[] = [];
-  for (const start of PRIVATE_SATURDAY_START_MINUTES) {
-    const end = start + durationMinutes;
-    if (end > SUNDAY_LATEST_END_MINUTES) {
-      continue;
-    }
-    if (!collidesWithAnyPrivate(date, start, end, bookings)) {
-      options.push({
-        startMinutes: start,
-        endMinutes: end,
-        label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      });
-    }
-  }
-  return options;
-}
+  const { day, startWindow, endWindow } = window;
+  console.log("PRIVATE DAY:", day);
+  console.log("PRIVATE WINDOW:", startWindow, endWindow);
 
-function listSundayPrivateSlots(
-  date: string,
-  durationMinutes: PrivateDurationMinutes,
-  bookings: FacilityPartyBookingBlock[],
-): FacilityTimeSlotOption[] {
-  const options: FacilityTimeSlotOption[] = [];
+  const slots: FacilitySlotDisposition[] = [];
+
   for (
-    let start = SUNDAY_EARLIEST_START_MINUTES;
-    start + durationMinutes <= SUNDAY_LATEST_END_MINUTES;
-    start += SUNDAY_SLOT_STEP_MINUTES
+    let start = startWindow;
+    start + duration <= endWindow;
+    start += SLOT_INTERVAL_MINUTES
   ) {
-    const end = start + durationMinutes;
-    if (!collidesWithAnyPrivate(date, start, end, bookings)) {
-      options.push({
-        startMinutes: start,
-        endMinutes: end,
-        label: `${formatMinutesLabel(start)}–${formatMinutesLabel(end)}`,
-      });
-    }
+    const end = start + duration;
+    const startTime = formatTime(start);
+    const endTime = formatTime(end);
+
+    console.log("TEST SLOT:", startTime, "→", endTime);
+
+    slots.push({
+      startMinutes: start,
+      endMinutes: end,
+      available: !collidesWithAnyFacilityBooking(date, start, end, blocks),
+      label: `${startTime}–${endTime}`,
+    });
   }
-  return options;
+
+  return slots;
 }
 
-/** Whole-facility private evening (Fri/Sat) or dynamic Sunday */
+function formatTime(minutes: number) {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
+/** Whole-facility private availability */
 export function listAvailablePrivateSlots(
   date: string,
   durationMinutes: PrivateDurationMinutes,
   bookings: FacilityPartyBookingBlock[],
 ): FacilityTimeSlotOption[] {
-  if (isFriday(date)) {
-    return listFridayPrivateSlots(date, durationMinutes, bookings);
-  }
-  if (isSaturday(date)) {
-    return listSaturdayPrivateSlots(date, durationMinutes, bookings);
-  }
-  if (isSunday(date)) {
-    return listSundayPrivateSlots(date, durationMinutes, bookings);
-  }
-  return [];
+  return listPrivateSlotDispositions(date, durationMinutes, bookings)
+    .filter((slot) => slot.available)
+    .map(({ startMinutes, endMinutes, label }) => ({
+      startMinutes,
+      endMinutes,
+      label,
+    }));
 }

@@ -23,8 +23,8 @@ export interface PublicSlotDefinition {
   endMinutes: number;
 }
 
-/** Allowed private durations (Sunday dynamic + Fri/Sat evening) */
-export type PrivateDurationMinutes = 90 | 120;
+/** Allowed private durations */
+export type PrivateDurationMinutes = 90 | 120 | 180;
 
 /** Shape of an existing booking used for availability checks (mock/local for now) */
 export interface FacilityPartyBookingBlock {

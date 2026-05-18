@@ -42,4 +42,39 @@ export const PRIVATE_DURATION_OPTIONS: {
 }[] = [
   { minutes: 90, label: "1.5 hours" },
   { minutes: 120, label: "2 hours" },
+  { minutes: 180, label: "3 hours" },
 ];
+
+// OPEN HOURS
+export const FACILITY_HOURS = {
+  monday: null, // closed (private only)
+  tuesday: null, // closed (private only)
+  wednesday: { open: "12:00", close: "17:00" },
+  thursday: { open: "12:00", close: "17:00" },
+  friday: { open: "12:00", close: "18:00" },
+  saturday: { open: "10:00", close: "18:00" },
+  sunday: null, // public closed, private handled separately
+};
+
+// SLOT RULES
+export const PUBLIC_SLOT_MINUTES = 90;
+export const PRIVATE_SLOT_OPTIONS = [90, 120, 180];
+export const SLOT_INTERVAL_MINUTES = 30;
+
+// PRIVATE TIME RULES
+export const PRIVATE_AFTER_CLOSE_BUFFER = 30;
+export const PRIVATE_BEFORE_OPEN_BUFFER = 30;
+export const SUNDAY_PRIVATE_START = "10:30";
+export const PRIVATE_LATE_END = "24:00"; // midnight cap
+export const PRIVATE_START_AFTER_CLOSE_MINUTES = 30;
+
+// ROOMS
+export const PUBLIC_ROOMS = [
+  { id: "room-10", capacity: 10 },
+  { id: "room-20", capacity: 20 },
+];
+
+export const PRIVATE_ROOM = {
+  id: "room-20",
+  capacity: 20,
+};
