@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
 
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
           end_time: endIso,
         },
       ])
-      .select("id")
+      .select()
       .single();
 
     console.log("BOOKING INSERT RESULT", { data, error });
@@ -89,6 +90,33 @@ export async function POST(req: NextRequest) {
         { error: error.message },
         { status: 500 },
       );
+    }
+
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const confirmLink = `${process.env.NEXT_PUBLIC_SITE_URL}/api/facility/confirm?id=${data.id}`;
+
+      const { error: emailError } = await resend.emails.send({
+        from: "Jumping Jax <onboarding@resend.dev>",
+        to: "jacobdean1166@gmail.com",
+        subject: "New facility booking request",
+        text: [
+          "New facility booking request",
+          "",
+          `Booking ID: ${data.id}`,
+          `Party kind: ${party_kind}`,
+          `Room: ${room}`,
+          `Start time: ${startIso}`,
+          `End time: ${endIso}`,
+          `Confirm link: ${confirmLink}`,
+        ].join("\n"),
+      });
+
+      if (emailError) {
+        console.error("BOOKING EMAIL ERROR", emailError);
+      }
+    } catch (emailError) {
+      console.error("BOOKING EMAIL ERROR", emailError);
     }
 
     return NextResponse.json({ success: true, id: data?.id });
