@@ -1,4 +1,5 @@
 import {
+  FACILITY_PARTY_BUFFER_MINUTES,
   FACILITY_HOURS,
   SLOT_INTERVAL_MINUTES,
 } from "./constants";
@@ -38,7 +39,12 @@ function collidesWithAnyFacilityBooking(
     (b) =>
       isActiveBlock(b) &&
       b.date === date &&
-      intervalsOverlap(start, end, b.startMinutes, b.endMinutes),
+      intervalsOverlap(
+        start,
+        end,
+        b.startMinutes,
+        b.endMinutes + FACILITY_PARTY_BUFFER_MINUTES,
+      ),
   );
 }
 
