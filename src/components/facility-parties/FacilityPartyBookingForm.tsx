@@ -171,9 +171,15 @@ export function FacilityPartyBookingForm() {
   );
 
   useEffect(() => {
+    if (!date) {
+      return;
+    }
+
     const fetchUnavailable = async () => {
       try {
-        const res = await fetch("/api/facility/unavailable");
+        const res = await fetch(
+          `/api/facility/unavailable?date=${encodeURIComponent(date)}`,
+        );
         const data = await res.json();
         const bookings = Array.isArray(data) ? data : [];
         const liveBlocks = bookings
@@ -192,7 +198,7 @@ export function FacilityPartyBookingForm() {
     };
 
     fetchUnavailable();
-  }, []);
+  }, [date]);
 
   const customerStepUnlocked = Boolean(selectedDisposition);
 
@@ -200,6 +206,7 @@ export function FacilityPartyBookingForm() {
     setPartyKind(next);
     setSelectedDate(undefined);
     setSelectedStart(null);
+    setBlocks([]);
     setFormError(null);
     setSuccessMessage(null);
     if (next === "private") {
@@ -210,6 +217,9 @@ export function FacilityPartyBookingForm() {
   const onDateSelect = (nextDate: Date | undefined) => {
     setSelectedDate(nextDate);
     setSelectedStart(null);
+    if (!nextDate) {
+      setBlocks([]);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
