@@ -14,7 +14,6 @@ import {
   listPrivateSlotDispositions,
   listPublicSaturdaySlotDispositions,
 } from "@/lib/facility-parties/availability";
-import { MOCK_FACILITY_PARTY_BOOKINGS } from "@/lib/facility-parties/mock-data";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -48,6 +47,23 @@ const PARTY_KIND_CHOICES: {
   },
 ];
 
+type FacilityBookingRangeResponse = {
+  id: string;
+  party_kind: string;
+  room: string | null;
+  start_time: string;
+  end_time: string;
+  status: string;
+};
+
+function isFacilityPartyKind(value: string): value is FacilityPartyKind {
+  return value === "public" || value === "private";
+}
+
+function isFacilityRoomId(value: string | null): value is FacilityRoomId {
+  return value === "room-10" || value === "room-20";
+}
+
 function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
   if (!isoDate) return false;
 
@@ -77,14 +93,48 @@ function dateToYmd(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function dateTimeToMinutes(value: string) {
+  const date = new Date(value);
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function bookingRangeToBlock(
+  booking: FacilityBookingRangeResponse,
+): FacilityPartyBookingBlock | null {
+  if (
+    booking.status !== "confirmed" ||
+    !isFacilityPartyKind(booking.party_kind)
+  ) {
+    return null;
+  }
+
+  const startDate = new Date(booking.start_time);
+  const endDate = new Date(booking.end_time);
+
+  if (
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime())
+  ) {
+    return null;
+  }
+
+  return {
+    id: booking.id,
+    kind: booking.party_kind,
+    date: dateToYmd(startDate),
+    roomId: isFacilityRoomId(booking.room) ? booking.room : null,
+    startMinutes: dateTimeToMinutes(booking.start_time),
+    endMinutes: dateTimeToMinutes(booking.end_time),
+    status: "confirmed",
+  };
+}
+
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
 }
 
 export function FacilityPartyBookingForm() {
-  const [blocks] = useState<FacilityPartyBookingBlock[]>(
-    () => MOCK_FACILITY_PARTY_BOOKINGS,
-  );
+  const [blocks, setBlocks] = useState<FacilityPartyBookingBlock[]>([]);
   const [partyKind, setPartyKind] = useState<FacilityPartyKind | null>(null);
   const [roomId, setRoomId] = useState<FacilityRoomId>("room-10");
   const [privateDuration, setPrivateDuration] =
@@ -98,7 +148,6 @@ export function FacilityPartyBookingForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
-  const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -122,21 +171,28 @@ export function FacilityPartyBookingForm() {
   );
 
   useEffect(() => {
-    if (!partyKind) return;
-
     const fetchUnavailable = async () => {
       try {
-        const res = await fetch(`/api/facility/unavailable?partyKind=${partyKind}`);
+        const res = await fetch("/api/facility/unavailable");
         const data = await res.json();
+        const bookings = Array.isArray(data) ? data : [];
+        const liveBlocks = bookings
+          .map((booking) =>
+            bookingRangeToBlock(booking as FacilityBookingRangeResponse),
+          )
+          .filter(
+            (block): block is FacilityPartyBookingBlock => Boolean(block),
+          );
 
-        setUnavailableDates(data || []);
+        setBlocks(liveBlocks);
       } catch (err) {
         console.error("Failed to fetch unavailable dates", err);
+        setBlocks([]);
       }
     };
 
     fetchUnavailable();
-  }, [partyKind]);
+  }, []);
 
   const customerStepUnlocked = Boolean(selectedDisposition);
 
@@ -449,8 +505,6 @@ export function FacilityPartyBookingForm() {
             selected={selectedDate}
             onSelect={onDateSelect}
             disabled={(date) => {
-              const formatted = dateToYmd(date);
-
               if (!partyKind) return true;
 
               const day = date.getDay();
@@ -459,8 +513,7 @@ export function FacilityPartyBookingForm() {
                 return (
                   day === 0 ||
                   day === 1 ||
-                  day === 2 ||
-                  unavailableDates.includes(formatted)
+                  day === 2
                 );
               }
 
