@@ -22,7 +22,7 @@ import type {
   FacilityRoomId,
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
-import { getLocalDayOfWeek } from "@/lib/facility-parties/time";
+import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
 
 const controlClassName =
   "w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30";
@@ -77,6 +77,10 @@ function dateToYmd(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
+  return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
+}
+
 export function FacilityPartyBookingForm() {
   const [blocks] = useState<FacilityPartyBookingBlock[]>(
     () => MOCK_FACILITY_PARTY_BOOKINGS,
@@ -93,6 +97,7 @@ export function FacilityPartyBookingForm() {
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
@@ -210,6 +215,17 @@ export function FacilityPartyBookingForm() {
           room: request.roomId,
           start_time: minutesToIsoDateTime(request.date, request.startMinutes),
           end_time: minutesToIsoDateTime(request.date, request.endMinutes),
+          customer_name: request.customerName,
+          email: request.customerEmail,
+          phone: request.customerPhone,
+          notes: request.notes,
+          readable_date: request.date,
+          readable_time: formatReadableTimeRange(
+            selectedDisposition.startMinutes,
+            selectedDisposition.endMinutes,
+          ),
+          party_label:
+            request.kind === "private" ? "Private Party" : "Public Play Party",
         }),
       });
 
@@ -217,19 +233,45 @@ export function FacilityPartyBookingForm() {
         throw new Error("Failed to book");
       }
 
-      setSuccessMessage(
-        "Request submitted! We’ll confirm your party shortly 🎉"
-      );
-
-      setSelectedStart(null);
-      setNotes("");
-
+      setBookingSubmitted(true);
     } catch {
       setFormError("Something went wrong. Please try again.");
     }
   };
 
   const publicRooms = FACILITY_ROOMS;
+  const submittedPartyLabel =
+    partyKind === "private" ? "Private Party" : "Public Play Party";
+  const submittedReadableTime = selectedDisposition
+    ? formatReadableTimeRange(
+        selectedDisposition.startMinutes,
+        selectedDisposition.endMinutes,
+      )
+    : "";
+
+  if (bookingSubmitted) {
+    return (
+      <div className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/25 bg-emerald-300/[0.06] p-5 text-left sm:mt-14 sm:p-8">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+          Request Submitted!
+        </p>
+        <div className="mt-5 space-y-3 text-sm leading-relaxed text-slate-200">
+          <p>A confirmation request has been sent to our team.</p>
+          <p>You will receive an email shortly with your booking details.</p>
+          <p>
+            A second email will be sent once your booking is confirmed.
+          </p>
+        </div>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-[#071326]/55 p-4 text-sm text-slate-300">
+          <p className="font-semibold text-white">{submittedPartyLabel}</p>
+          {date && <p className="mt-2">Date: {date}</p>}
+          {submittedReadableTime && (
+            <p className="mt-1">Time: {submittedReadableTime}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form

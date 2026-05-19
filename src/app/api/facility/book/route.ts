@@ -7,7 +7,19 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { party_kind, room, start_time, end_time } = body;
+    const {
+      party_kind,
+      room,
+      start_time,
+      end_time,
+      customer_name,
+      email,
+      phone,
+      notes,
+      readable_date,
+      readable_time,
+      party_label,
+    } = body;
 
     if (
       (party_kind !== "public" && party_kind !== "private") ||
@@ -78,6 +90,13 @@ export async function POST(req: NextRequest) {
           room,
           start_time: startIso,
           end_time: endIso,
+          customer_name,
+          email,
+          phone,
+          notes,
+          readable_date,
+          readable_time,
+          party_label,
         },
       ])
       .select()
