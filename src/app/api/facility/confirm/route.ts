@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     .eq("id", id)
     .eq("status", "pending")
     .select(
-      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone",
+      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, google_calendar_event_id",
     )
     .maybeSingle();
 
@@ -56,12 +56,18 @@ export async function GET(req: Request) {
     console.log("CUSTOMER NAME:", booking.customer_name);
 
     try {
-      await createGoogleCalendarEvent({
-        title: `${booking.party_label} - ${booking.customer_name}`,
-        description: `Booking for ${booking.customer_name}\nPhone: ${booking.phone || "N/A"}`,
-        start: booking.start_time,
-        end: booking.end_time,
-      });
+      if (!booking.google_calendar_event_id) {
+        const eventId = await createGoogleCalendarEvent({
+          title: `${booking.party_label} - ${booking.customer_name}`,
+          description: `Booking for ${booking.customer_name}\nPhone: ${booking.phone || "N/A"}`,
+          start: booking.start_time,
+          end: booking.end_time,
+        });
+        await supabase
+          .from("facility_bookings")
+          .update({ google_calendar_event_id: eventId })
+          .eq("id", booking.id);
+      }
     } catch (calendarError) {
       console.error("GOOGLE CALENDAR ERROR", calendarError);
     }
