@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 import { createGoogleCalendarEvent } from "@/lib/google/calendar";
+import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     .eq("id", id)
     .eq("status", "pending")
     .select(
-      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, room, google_calendar_event_id",
+      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, room, notes, addon_selections, google_calendar_event_id",
     )
     .maybeSingle();
 
@@ -54,11 +55,20 @@ export async function GET(req: Request) {
 
     try {
       if (!booking.google_calendar_event_id) {
+        const addonsText = formatStoredFacilityAddons(booking.addon_selections);
+        const calendarDescription = [
+          booking.customer_name,
+          booking.phone ? `Phone: ${booking.phone}` : "",
+          booking.room ? `Room: ${booking.room}` : "",
+          booking.notes?.trim() ? `Notes: ${booking.notes.trim()}` : "",
+          addonsText,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
         const eventId = await createGoogleCalendarEvent({
           title: `${booking.party_label} - ${booking.customer_name}`,
-          description: `${booking.customer_name}
-${booking.phone ? `Phone: ${booking.phone}` : ""}
-${booking.room ? `\nRoom: ${booking.room}` : ""}`,
+          description: calendarDescription,
           start: booking.start_time,
           end: booking.end_time,
         });
@@ -107,6 +117,8 @@ ${booking.room ? `\nRoom: ${booking.room}` : ""}`,
         `Party: ${booking.party_label}`,
         `Date: ${booking.readable_date}`,
         `Time: ${booking.readable_time}`,
+        "",
+        formatStoredFacilityAddons(booking.addon_selections),
       ].join("\n"),
     });
 

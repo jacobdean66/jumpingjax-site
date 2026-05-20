@@ -10,6 +10,11 @@ import type {
   FacilityRoomId,
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
+import {
+  facilityAddonsForStorage,
+  formatFacilityAddonsForEmail,
+  resolveFacilityAddons,
+} from "@/lib/facility-parties/addons";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const FACILITY_TIME_ZONE = "America/New_York";
@@ -65,7 +70,12 @@ export async function POST(req: NextRequest) {
       readable_date,
       readable_time,
       party_label,
+      addon_selections,
     } = body;
+
+    const resolvedAddons = resolveFacilityAddons(addon_selections);
+    const storedAddons = facilityAddonsForStorage(resolvedAddons);
+    const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
 
     if (
       (party_kind !== "public" && party_kind !== "private") ||
@@ -235,6 +245,7 @@ export async function POST(req: NextRequest) {
           readable_date,
           readable_time,
           party_label,
+          addon_selections: storedAddons,
         },
       ])
       .select()
@@ -262,10 +273,20 @@ export async function POST(req: NextRequest) {
           "New facility booking request",
           "",
           `Booking ID: ${data.id}`,
+          `Customer: ${customer_name}`,
+          `Email: ${email}`,
+          `Phone: ${phone}`,
+          `Party: ${party_label}`,
+          `Date: ${readable_date}`,
+          `Time: ${readable_time}`,
           `Party kind: ${party_kind}`,
           `Room: ${room}`,
           `Start time: ${startIso}`,
           `End time: ${endIso}`,
+          notes?.trim() ? `Notes: ${String(notes).trim()}` : "Notes: (none)",
+          "",
+          addonsEmailText,
+          "",
           `Confirm link: ${confirmLink}`,
           `Reject link: ${rejectLink}`,
         ].join("\n"),

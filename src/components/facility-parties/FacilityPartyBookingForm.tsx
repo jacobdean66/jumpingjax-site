@@ -14,6 +14,11 @@ import {
   listPrivateSlotDispositions,
   listPublicSaturdaySlotDispositions,
 } from "@/lib/facility-parties/availability";
+import {
+  previewAddonSubtotal,
+  type CottonCandyPackage,
+  type FacilityAddonSelectionsInput,
+} from "@/lib/facility-parties/addons";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -145,6 +150,11 @@ export function FacilityPartyBookingForm() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [balloonsSelected, setBalloonsSelected] = useState(false);
+  const [goodieBagsSelected, setGoodieBagsSelected] = useState(false);
+  const [goodieBagsQuantity, setGoodieBagsQuantity] = useState(1);
+  const [cottonCandyPackage, setCottonCandyPackage] =
+    useState<CottonCandyPackage>("none");
   const [formError, setFormError] = useState<string | null>(null);
   const [availabilityLoadError, setAvailabilityLoadError] = useState<
     string | null
@@ -219,6 +229,27 @@ export function FacilityPartyBookingForm() {
     Boolean(availabilityLoadError) || availabilityLoading;
   const customerStepUnlocked =
     Boolean(selectedDisposition) && !availabilityUnavailable;
+
+  const addonSelections = useMemo((): FacilityAddonSelectionsInput => {
+    const qty = goodieBagsSelected
+      ? Math.max(1, Math.floor(goodieBagsQuantity) || 1)
+      : 0;
+    return {
+      customBirthdayBalloons: balloonsSelected,
+      goodieBagsQuantity: qty,
+      cottonCandyPackage,
+    };
+  }, [
+    balloonsSelected,
+    goodieBagsSelected,
+    goodieBagsQuantity,
+    cottonCandyPackage,
+  ]);
+
+  const addonSubtotalPreview = useMemo(
+    () => previewAddonSubtotal(addonSelections),
+    [addonSelections],
+  );
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
     setPartyKind(next);
@@ -295,6 +326,7 @@ export function FacilityPartyBookingForm() {
       customerEmail: customerEmail.trim(),
       customerPhone: customerPhone.trim(),
       notes: notes.trim(),
+      addonSelections,
       status: "pending",
     };
 
@@ -320,6 +352,7 @@ export function FacilityPartyBookingForm() {
           ),
           party_label:
             request.kind === "private" ? "Private Party" : "Public Play Party",
+          addon_selections: addonSelections,
         }),
       });
 
@@ -735,6 +768,122 @@ export function FacilityPartyBookingForm() {
                     placeholder="Guest count, age range, special requests…"
                   />
                 </label>
+              </div>
+
+              <div className="space-y-4 border-t border-white/10 pt-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+                    Optional Add-ons
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Add-ons are optional and do not affect available time slots.
+                  </p>
+                </div>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/40 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={balloonsSelected}
+                    onChange={(e) => setBalloonsSelected(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
+                  />
+                  <span className="text-sm text-slate-200">
+                    <span className="font-semibold text-white">
+                      Custom Birthday Balloons
+                    </span>
+                    <span className="mt-0.5 block text-slate-400">$10</span>
+                  </span>
+                </label>
+
+                <div className="rounded-xl border border-white/10 bg-[#071326]/40 px-3 py-3">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={goodieBagsSelected}
+                      onChange={(e) => {
+                        setGoodieBagsSelected(e.target.checked);
+                        if (e.target.checked && goodieBagsQuantity < 1) {
+                          setGoodieBagsQuantity(1);
+                        }
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
+                    />
+                    <span className="text-sm text-slate-200">
+                      <span className="font-semibold text-white">Goodie Bags</span>
+                      <span className="mt-0.5 block text-slate-400">
+                        $3.50 each
+                      </span>
+                    </span>
+                  </label>
+                  {goodieBagsSelected && (
+                    <label className="mt-3 block pl-7">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Quantity
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={goodieBagsQuantity}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setGoodieBagsQuantity(
+                            Number.isFinite(next) && next >= 1 ? next : 1,
+                          );
+                        }}
+                        className={inputClassName}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <fieldset className="rounded-xl border border-white/10 bg-[#071326]/40 px-3 py-3">
+                  <legend className="px-1 text-sm font-semibold text-white">
+                    Cotton Candy Package
+                  </legend>
+                  <div className="mt-2 space-y-2">
+                    {(
+                      [
+                        { id: "none" as const, label: "None", price: null },
+                        {
+                          id: "10_kids" as const,
+                          label: "10 kids",
+                          price: "$15",
+                        },
+                        {
+                          id: "20_kids" as const,
+                          label: "20 kids",
+                          price: "$20",
+                        },
+                      ] as const
+                    ).map((opt) => (
+                      <label
+                        key={opt.id}
+                        className="flex cursor-pointer items-center gap-3 text-sm text-slate-200"
+                      >
+                        <input
+                          type="radio"
+                          name="cottonCandyPackage"
+                          checked={cottonCandyPackage === opt.id}
+                          onChange={() => setCottonCandyPackage(opt.id)}
+                          className="h-4 w-4 shrink-0 accent-cyan-400"
+                        />
+                        <span>
+                          {opt.label}
+                          {opt.price ? (
+                            <span className="text-slate-400"> — {opt.price}</span>
+                          ) : null}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {addonSubtotalPreview > 0 && (
+                  <p className="text-sm font-semibold text-cyan-100">
+                    Add-ons subtotal (estimate): ${addonSubtotalPreview.toFixed(2)}
+                  </p>
+                )}
               </div>
             </div>
           )}

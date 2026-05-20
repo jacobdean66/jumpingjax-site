@@ -2,6 +2,8 @@
  * Core types for the facility party booking system (foundational layer).
  */
 
+import type { FacilityAddonSelectionsInput } from "./addons";
+
 /** Kid-capacity rooms for Saturday public parties */
 export type FacilityRoomId = "room-10" | "room-20";
 
@@ -55,6 +57,7 @@ export interface FacilityPartyBookingRequest {
   customerEmail: string;
   customerPhone: string;
   notes: string;
+  addonSelections?: FacilityAddonSelectionsInput;
   status: Extract<FacilityBookingStatus, "pending">;
 }
 
