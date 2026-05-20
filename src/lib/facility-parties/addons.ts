@@ -30,7 +30,7 @@ export type ResolvedFacilityAddons = {
 const BALLOONS_PRICE = 10;
 const GOODIE_BAG_EACH = 3.5;
 const COTTON_CANDY_10 = 15;
-const COTTON_CANDY_20 = 20;
+const COTTON_CANDY_20 = 30;
 const MAX_GOODIE_BAGS = 100;
 
 function isCottonCandyPackage(value: unknown): value is CottonCandyPackage {

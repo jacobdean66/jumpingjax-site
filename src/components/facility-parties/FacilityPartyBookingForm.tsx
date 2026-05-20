@@ -853,7 +853,7 @@ export function FacilityPartyBookingForm() {
                         {
                           id: "20_kids" as const,
                           label: "20 kids",
-                          price: "$20",
+                          price: "$30",
                         },
                       ] as const
                     ).map((opt) => (
