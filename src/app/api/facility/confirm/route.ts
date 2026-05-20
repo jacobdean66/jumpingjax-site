@@ -2,8 +2,95 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 import { createGoogleCalendarEvent } from "@/lib/google/calendar";
-import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
+import {
+  formatStoredFacilityAddons,
+  type ResolvedFacilityAddonLine,
+} from "@/lib/facility-parties/addons";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+
+type FacilityBookingCalendarFields = {
+  customer_name: string;
+  email: string | null;
+  phone: string | null;
+  party_label: string | null;
+  room: string | null;
+  readable_date: string | null;
+  readable_time: string | null;
+  start_time: string;
+  end_time: string;
+  notes: string | null;
+  addon_selections: unknown;
+};
+
+function addonLinesFromStored(stored: unknown): ResolvedFacilityAddonLine[] {
+  if (!stored || typeof stored !== "object") {
+    return [];
+  }
+  const record = stored as { lines?: ResolvedFacilityAddonLine[] };
+  return Array.isArray(record.lines) ? record.lines : [];
+}
+
+function formatCalendarAddonLine(line: ResolvedFacilityAddonLine): string {
+  const price = `$${Number.isInteger(line.lineTotal) ? line.lineTotal : line.lineTotal.toFixed(2)}`;
+
+  if (line.key === "goodieBags") {
+    return `- Goodie Bags (x${line.quantity}) (${price})`;
+  }
+
+  if (line.key === "cottonCandy10" || line.key === "cottonCandy20") {
+    const kids = line.detail ?? "";
+    return `- Cotton Candy (${kids}) (${price})`;
+  }
+
+  return `- ${line.label} (${price})`;
+}
+
+function formatFacilityCalendarDescription(
+  booking: FacilityBookingCalendarFields,
+): string {
+  const sections: string[] = [
+    "Customer:",
+    `Name: ${booking.customer_name}`,
+  ];
+
+  if (booking.email) {
+    sections.push(`Email: ${booking.email}`);
+  }
+  if (booking.phone) {
+    sections.push(`Phone: ${booking.phone}`);
+  }
+
+  sections.push("", "Booking:");
+  if (booking.party_label) {
+    sections.push(`Type: ${booking.party_label}`);
+  }
+  if (booking.room) {
+    sections.push(`Room: ${booking.room}`);
+  }
+
+  const timeValue =
+    booking.readable_time && booking.readable_date
+      ? `${booking.readable_date}, ${booking.readable_time}`
+      : booking.readable_time
+        ? booking.readable_time
+        : `${booking.start_time} - ${booking.end_time}`;
+  sections.push(`Time: ${timeValue}`);
+
+  const addonLines = addonLinesFromStored(booking.addon_selections);
+  if (addonLines.length > 0) {
+    sections.push("", "Add-ons:");
+    for (const line of addonLines) {
+      sections.push(formatCalendarAddonLine(line));
+    }
+  }
+
+  const notes = booking.notes?.trim();
+  if (notes) {
+    sections.push("", "Notes:", notes);
+  }
+
+  return sections.join("\n");
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -55,20 +142,9 @@ export async function GET(req: Request) {
 
     try {
       if (!booking.google_calendar_event_id) {
-        const addonsText = formatStoredFacilityAddons(booking.addon_selections);
-        const calendarDescription = [
-          booking.customer_name,
-          booking.phone ? `Phone: ${booking.phone}` : "",
-          booking.room ? `Room: ${booking.room}` : "",
-          booking.notes?.trim() ? `Notes: ${booking.notes.trim()}` : "",
-          addonsText,
-        ]
-          .filter(Boolean)
-          .join("\n");
-
         const eventId = await createGoogleCalendarEvent({
           title: `${booking.party_label} - ${booking.customer_name}`,
-          description: calendarDescription,
+          description: formatFacilityCalendarDescription(booking),
           start: booking.start_time,
           end: booking.end_time,
         });
