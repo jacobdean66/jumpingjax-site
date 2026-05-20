@@ -8,7 +8,11 @@ export type FacilityRoomId = "room-10" | "room-20";
 export type FacilityPartyKind = "public" | "private";
 
 /** Request lifecycle — online submissions start as pending until staff confirms */
-export type FacilityBookingStatus = "pending" | "confirmed" | "cancelled";
+export type FacilityBookingStatus =
+  | "pending"
+  | "confirmed"
+  | "rejected"
+  | "cancelled";
 
 export interface FacilityRoom {
   id: FacilityRoomId;

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 import { createGoogleCalendarEvent } from "@/lib/google/calendar";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -23,10 +23,7 @@ export async function GET(req: Request) {
       ? "Booking rejected. You can close this tab."
       : "Booking confirmed. You can close this tab.";
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createServiceRoleClient();
 
   const { data: booking, error } = await supabase
     .from("facility_bookings")

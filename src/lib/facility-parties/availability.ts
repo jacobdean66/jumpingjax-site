@@ -114,21 +114,13 @@ export function listAvailablePublicSaturdaySlots(
     return [];
   }
 
-  const taken = new Set(
-    bookings
-      .filter(
-        (b) =>
-          isActiveBlock(b) &&
-          b.kind === "public" &&
-          b.date === date &&
-          b.roomId === roomId,
-      )
-      .map((b) => `${b.startMinutes}-${b.endMinutes}`),
-  );
-
-  return publicSlots.filter(
-    (slot) => !taken.has(`${slot.startMinutes}-${slot.endMinutes}`),
-  ).map((slot) => ({
+  return publicSlots.filter((slot) => !bookings.some(
+    (b) =>
+      isActiveBlock(b) &&
+      b.date === date &&
+      intervalsOverlap(slot.startMinutes, slot.endMinutes, b.startMinutes, b.endMinutes) &&
+      (b.kind === "private" || (b.kind === "public" && b.roomId === roomId)),
+  )).map((slot) => ({
     startMinutes: slot.startMinutes,
     endMinutes: slot.endMinutes,
     label: `${formatMinutesLabel(slot.startMinutes)}–${formatMinutesLabel(slot.endMinutes)}`,

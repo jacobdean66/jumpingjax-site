@@ -146,6 +146,10 @@ export function FacilityPartyBookingForm() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [availabilityLoadError, setAvailabilityLoadError] = useState<
+    string | null
+  >(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
 
@@ -176,10 +180,15 @@ export function FacilityPartyBookingForm() {
     }
 
     const fetchUnavailable = async () => {
+      setAvailabilityLoading(true);
+      setAvailabilityLoadError(null);
       try {
         const res = await fetch(
           `/api/facility/unavailable?date=${encodeURIComponent(date)}`,
         );
+        if (!res.ok) {
+          throw new Error("Failed to fetch unavailable dates");
+        }
         const data = await res.json();
         const bookings = Array.isArray(data) ? data : [];
         const liveBlocks = bookings
@@ -191,22 +200,32 @@ export function FacilityPartyBookingForm() {
           );
 
         setBlocks(liveBlocks);
+        setAvailabilityLoadError(null);
       } catch (err) {
         console.error("Failed to fetch unavailable dates", err);
-        setBlocks([]);
+        setSelectedStart(null);
+        setAvailabilityLoadError(
+          "Availability could not be loaded. Please try again.",
+        );
+      } finally {
+        setAvailabilityLoading(false);
       }
     };
 
     fetchUnavailable();
   }, [date]);
 
-  const customerStepUnlocked = Boolean(selectedDisposition);
+  const availabilityUnavailable =
+    Boolean(availabilityLoadError) || availabilityLoading;
+  const customerStepUnlocked =
+    Boolean(selectedDisposition) && !availabilityUnavailable;
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
     setPartyKind(next);
     setSelectedDate(undefined);
     setSelectedStart(null);
     setBlocks([]);
+    setAvailabilityLoadError(null);
     setFormError(null);
     setSuccessMessage(null);
     if (next === "private") {
@@ -217,6 +236,7 @@ export function FacilityPartyBookingForm() {
   const onDateSelect = (nextDate: Date | undefined) => {
     setSelectedDate(nextDate);
     setSelectedStart(null);
+    setAvailabilityLoadError(null);
     if (!nextDate) {
       setBlocks([]);
     }
@@ -237,6 +257,14 @@ export function FacilityPartyBookingForm() {
           ? "Public play parties need a Wednesday through Saturday date."
           : "Private parties are available all days.",
       );
+      return;
+    }
+    if (availabilityLoadError) {
+      setFormError(availabilityLoadError);
+      return;
+    }
+    if (availabilityLoading) {
+      setFormError("Availability is still loading. Please try again.");
       return;
     }
     if (!selectedDisposition) {
@@ -568,7 +596,12 @@ export function FacilityPartyBookingForm() {
                 : "Choose a Friday, Saturday, or Sunday for evening or Sunday visits."}
             </p>
           )}
-          {date && dateOk && slotDispositions.length === 0 && (
+          {date && dateOk && availabilityLoadError && (
+            <p className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
+              {availabilityLoadError}
+            </p>
+          )}
+          {date && dateOk && !availabilityUnavailable && slotDispositions.length === 0 && (
             <p className="text-sm text-slate-400">
               No times to show for this day and party type.
             </p>
@@ -591,16 +624,16 @@ export function FacilityPartyBookingForm() {
                   <button
                     key={`${slot.startMinutes}-${slot.endMinutes}`}
                     type="button"
-                    disabled={!slot.available}
+                    disabled={!slot.available || availabilityUnavailable}
                     onClick={() => {
-                      if (!slot.available) {
+                      if (!slot.available || availabilityUnavailable) {
                         return;
                       }
                       setSelectedStart(slot.startMinutes);
                       setFormError(null);
                     }}
                     className={`relative rounded-2xl border px-4 py-4 text-left transition ${
-                      slot.available
+                      slot.available && !availabilityUnavailable
                         ? selected
                           ? "border-cyan-400 bg-cyan-400/15 text-white shadow-[0_0_0_1px_rgba(34,211,238,0.35)]"
                           : "border-white/15 bg-[#071326]/60 text-white hover:border-cyan-300/40 active:scale-[0.99]"
@@ -612,10 +645,12 @@ export function FacilityPartyBookingForm() {
                     </span>
                     <span
                       className={`mt-1 block text-xs ${
-                        slot.available ? "text-slate-400" : "text-slate-600"
+                        slot.available && !availabilityUnavailable
+                          ? "text-slate-400"
+                          : "text-slate-600"
                       }`}
                     >
-                      {slot.available
+                      {slot.available && !availabilityUnavailable
                         ? selected
                           ? "Selected · tap to change"
                           : "Tap to select"
