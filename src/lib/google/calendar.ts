@@ -21,6 +21,79 @@ export function createCalendarClient() {
   return google.calendar({ version: "v3", auth });
 }
 
+const ROOM_ID_PATTERN = /^room-\d+$/i;
+
+function formatRoomForSummary(room: string): string {
+  const match = /^room-(\d+)$/i.exec(room.trim());
+  return match ? match[1] : room.trim();
+}
+
+function extractRoom(title: string, description: string): string | null {
+  const fromDescription = description.match(/Room:\s*(room-\d+)/i)?.[1];
+  if (fromDescription) {
+    return fromDescription;
+  }
+
+  const parts = title.split(" - ").map((part) => part.trim());
+  const roomPart = parts.find(
+    (part, index) =>
+      index > 0 && index < parts.length - 1 && ROOM_ID_PATTERN.test(part),
+  );
+  return roomPart ?? null;
+}
+
+function parseTitleParts(title: string, room: string | null) {
+  const separator = " - ";
+  const parts = title.split(separator).map((part) => part.trim());
+
+  if (room && parts.length >= 3) {
+    const roomIndex = parts.findIndex((part) => part.toLowerCase() === room.toLowerCase());
+    if (roomIndex > 0) {
+      return {
+        partyLabel: parts[0],
+        customerName: parts.slice(roomIndex + 1).join(separator),
+      };
+    }
+  }
+
+  const dashIndex = title.indexOf(separator);
+  if (dashIndex === -1) {
+    return null;
+  }
+
+  return {
+    partyLabel: title.slice(0, dashIndex).trim(),
+    customerName: title.slice(dashIndex + separator.length).trim(),
+  };
+}
+
+function buildEventSummary(title: string, description: string): string {
+  const room = extractRoom(title, description);
+  const parsed = parseTitleParts(title, room);
+  if (!parsed || !parsed.customerName) {
+    return title;
+  }
+
+  const { partyLabel, customerName } = parsed;
+  const roomLabel = room ? formatRoomForSummary(room) : null;
+
+  if (/private/i.test(partyLabel)) {
+    return `Private Party - ${customerName}`;
+  }
+  if (/public/i.test(partyLabel)) {
+    if (roomLabel) {
+      return `Public Party - Room ${roomLabel} - ${customerName}`;
+    }
+    return `Public Party - ${customerName}`;
+  }
+
+  if (roomLabel) {
+    return `${partyLabel} - Room ${roomLabel} - ${customerName}`;
+  }
+
+  return `${partyLabel} - ${customerName}`;
+}
+
 export async function createGoogleCalendarEvent(input: {
   title: string;
   description: string;
@@ -34,7 +107,7 @@ export async function createGoogleCalendarEvent(input: {
   const event = await calendar.events.insert({
     calendarId,
     requestBody: {
-      summary: input.title,
+      summary: buildEventSummary(input.title, input.description),
       description: input.description,
       start: {
         dateTime: input.start,

@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     .eq("id", id)
     .eq("status", "pending")
     .select(
-      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, google_calendar_event_id",
+      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, room, google_calendar_event_id",
     )
     .maybeSingle();
 
@@ -59,7 +59,9 @@ export async function GET(req: Request) {
       if (!booking.google_calendar_event_id) {
         const eventId = await createGoogleCalendarEvent({
           title: `${booking.party_label} - ${booking.customer_name}`,
-          description: `Booking for ${booking.customer_name}\nPhone: ${booking.phone || "N/A"}`,
+          description: `${booking.customer_name}
+${booking.phone ? `Phone: ${booking.phone}` : ""}
+${booking.room ? `\nRoom: ${booking.room}` : ""}`,
           start: booking.start_time,
           end: booking.end_time,
         });
