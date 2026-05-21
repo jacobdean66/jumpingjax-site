@@ -1,2 +1,2 @@
 ALTER TABLE public.facility_bookings
-ADD COLUMN status text DEFAULT 'pending';
+ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';

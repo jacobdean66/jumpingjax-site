@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
 export const dynamic = "force-dynamic";
@@ -34,34 +35,39 @@ export async function POST(req: Request) {
     )
   }
 
+  const customerName =
+    typeof body.customer_name === "string" && body.customer_name.trim()
+      ? body.customer_name.trim()
+      : "Guest";
+  const customerEmail =
+    typeof body.customer_email === "string" && body.customer_email.trim()
+      ? body.customer_email.trim()
+      : "";
+  const customerPhone =
+    typeof body.customer_phone === "string" ? body.customer_phone.trim() : "";
+  const eventDateYmd =
+    typeof body.event_date === "string" && body.event_date.trim()
+      ? body.event_date.trim()
+      : new Date().toISOString().slice(0, 10);
+  const durationLabel =
+    typeof body.duration === "string" ? body.duration.trim() : "";
+  const spanDays =
+    typeof body.span_days === "number" && body.span_days >= 1
+      ? body.span_days
+      : 1;
+  const eventAddress =
+    typeof body.event_address === "string" ? body.event_address.trim() : "";
+
   const result = await insertPendingBooking({
     rental_item: rental_item,
-    rentalName:
-      typeof body.rental_item === "string" && body.rental_item.trim()
-        ? body.rental_item.trim()
-        : "Rental",
-    customerName:
-      typeof body.customer_name === "string" && body.customer_name.trim()
-        ? body.customer_name.trim()
-        : "Guest",
-    email:
-      typeof body.customer_email === "string" && body.customer_email.trim()
-        ? body.customer_email.trim()
-        : "unknown@example.com",
-    phone:
-      typeof body.customer_phone === "string" ? body.customer_phone.trim() : "",
-    eventDateYmd:
-      typeof body.event_date === "string" && body.event_date.trim()
-        ? body.event_date.trim()
-        : new Date().toISOString().slice(0, 10),
-    durationLabel:
-      typeof body.duration === "string" ? body.duration.trim() : "Standard",
-    spanDays:
-      typeof body.span_days === "number" && body.span_days >= 1
-        ? body.span_days
-        : 1,
-    eventAddress:
-      typeof body.event_address === "string" ? body.event_address.trim() : "",
+    rentalName: rental_item,
+    customerName,
+    email: customerEmail || "unknown@example.com",
+    phone: customerPhone,
+    eventDateYmd,
+    durationLabel: durationLabel || "Standard",
+    spanDays,
+    eventAddress,
     subtotal: typeof body.subtotal === "number" ? body.subtotal : 0,
     total:
       typeof body.total === "number"
@@ -84,6 +90,48 @@ export async function POST(req: Request) {
       },
       { status: 500 },
     );
+  }
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  if (resendApiKey && customerEmail) {
+    try {
+      const resend = new Resend(resendApiKey);
+      const durationParts: string[] = [];
+      if (durationLabel) durationParts.push(durationLabel);
+      if (spanDays > 1) durationParts.push(`${spanDays} days`);
+      else if (spanDays === 1 && !durationLabel) durationParts.push("1 day");
+
+      const { error: emailError } = await resend.emails.send({
+        from: "Jumping Jax <onboarding@resend.dev>",
+        to: customerEmail,
+        subject: "We received your Jumping Jax rental request",
+        text: [
+          `Hi ${customerName},`,
+          "",
+          "We received your rental request.",
+          "It is waiting for confirmation.",
+          "Jumping Jax will contact you once your request has been reviewed.",
+          "",
+          `Booking reference: ${result.id}`,
+          `Rental: ${rental_item}`,
+          `Event date: ${eventDateYmd}`,
+          durationParts.length > 0
+            ? `Duration: ${durationParts.join(" — ")}`
+            : null,
+          `Name: ${customerName}`,
+          customerPhone ? `Phone: ${customerPhone}` : null,
+          eventAddress ? `Event address: ${eventAddress}` : null,
+        ]
+          .filter((line): line is string => line !== null)
+          .join("\n"),
+      });
+
+      if (emailError) {
+        console.error("[api/book] rental request email error", emailError);
+      }
+    } catch (emailError) {
+      console.error("[api/book] rental request email error", emailError);
+    }
   }
 
   return NextResponse.json({ ok: true, id: result.id });

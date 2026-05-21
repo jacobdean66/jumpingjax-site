@@ -1,15 +1,23 @@
-import type { PostgrestError } from "@supabase/supabase-js";
+import {
+  bookingInclusiveEnd,
+  startOfDay,
+} from "@/lib/bookings/unavailableDates";
+import { parseYMD } from "@/lib/mockBooking";
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
 
-function formatPostgrestError(error: PostgrestError): string {
-  return [
-    String(error),
-    error.details && `details: ${error.details}`,
-    error.hint && `hint: ${error.hint}`,
-    error.code && `code: ${error.code}`,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+const ACTIVE_RENTAL_STATUSES = ["pending", "approved", "blocked"] as const;
+
+function rentalDateRangesOverlap(
+  existingStartYmd: string,
+  existingSpanDays: number,
+  newStartYmd: string,
+  newSpanDays: number,
+): boolean {
+  const existingStart = startOfDay(parseYMD(existingStartYmd));
+  const existingEnd = bookingInclusiveEnd(existingStartYmd, existingSpanDays);
+  const newStart = startOfDay(parseYMD(newStartYmd));
+  const newEnd = bookingInclusiveEnd(newStartYmd, newSpanDays);
+  return existingStart <= newEnd && existingEnd >= newStart;
 }
 
 export type CreateBookingInput = {
@@ -62,6 +70,50 @@ export async function insertPendingBooking(
         message: "rental_item is required",
       };
     }
+
+    const spanDays = input.spanDays >= 1 ? input.spanDays : 1;
+
+    const { data: existingRows, error: conflictQueryError } = await supabase
+      .from("bookings")
+      .select("event_date, span_days")
+      .eq("rental_item", input.rental_item)
+      .in("status", [...ACTIVE_RENTAL_STATUSES]);
+
+    if (conflictQueryError) {
+      console.error("[bookings] conflict check failed", conflictQueryError);
+      return {
+        ok: false,
+        code: "write_failed",
+        message: conflictQueryError.message,
+      };
+    }
+
+    for (const row of existingRows ?? []) {
+      const existingStartYmd =
+        typeof row.event_date === "string"
+          ? row.event_date.slice(0, 10)
+          : String(row.event_date);
+      const existingSpanDays =
+        typeof row.span_days === "number" && row.span_days >= 1
+          ? row.span_days
+          : 1;
+
+      if (
+        rentalDateRangesOverlap(
+          existingStartYmd,
+          existingSpanDays,
+          input.eventDateYmd,
+          spanDays,
+        )
+      ) {
+        return {
+          ok: false,
+          code: "conflict",
+          message: "This rental is unavailable for the selected dates.",
+        };
+      }
+    }
+
     const bookingData: {
       rental_item: string;
       customer_name: string;
@@ -83,7 +135,7 @@ export async function insertPendingBooking(
       customer_phone: input.phone.trim(),
       event_date: input.eventDateYmd,
       duration: input.durationLabel,
-      span_days: input.spanDays >= 1 ? input.spanDays : 1,
+      span_days: spanDays,
       event_address: input.eventAddress.trim(),
       subtotal: input.subtotal,
       total: input.total,
