@@ -57,6 +57,10 @@ export async function POST(req: Request) {
       : 1;
   const eventAddress =
     typeof body.event_address === "string" ? body.event_address.trim() : "";
+  const notes =
+    typeof body.notes === "string" && body.notes.trim()
+      ? body.notes.trim()
+      : "";
 
   const result = await insertPendingBooking({
     rental_item: rental_item,
@@ -93,44 +97,81 @@ export async function POST(req: Request) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  if (resendApiKey && customerEmail) {
-    try {
-      const resend = new Resend(resendApiKey);
-      const durationParts: string[] = [];
-      if (durationLabel) durationParts.push(durationLabel);
-      if (spanDays > 1) durationParts.push(`${spanDays} days`);
-      else if (spanDays === 1 && !durationLabel) durationParts.push("1 day");
+  const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
 
-      const { error: emailError } = await resend.emails.send({
-        from: "Jumping Jax <onboarding@resend.dev>",
-        to: customerEmail,
-        subject: "We received your Jumping Jax rental request",
-        text: [
-          `Hi ${customerName},`,
-          "",
-          "We received your rental request.",
-          "It is waiting for confirmation.",
-          "Jumping Jax will contact you once your request has been reviewed.",
-          "",
-          `Booking reference: ${result.id}`,
-          `Rental: ${rental_item}`,
-          `Event date: ${eventDateYmd}`,
-          durationParts.length > 0
-            ? `Duration: ${durationParts.join(" — ")}`
-            : null,
-          `Name: ${customerName}`,
-          customerPhone ? `Phone: ${customerPhone}` : null,
-          eventAddress ? `Event address: ${eventAddress}` : null,
-        ]
-          .filter((line): line is string => line !== null)
-          .join("\n"),
-      });
+  const durationParts: string[] = [];
+  if (durationLabel) durationParts.push(durationLabel);
+  if (spanDays > 1) durationParts.push(`${spanDays} days`);
+  else if (spanDays === 1 && !durationLabel) durationParts.push("1 day");
+  const durationLine =
+    durationParts.length > 0 ? durationParts.join(" — ") : null;
 
-      if (emailError) {
-        console.error("[api/book] rental request email error", emailError);
+  if (resendApiKey) {
+    const resend = new Resend(resendApiKey);
+
+    if (customerEmail) {
+      try {
+        const { error: emailError } = await resend.emails.send({
+          from: "Jumping Jax <onboarding@resend.dev>",
+          to: customerEmail,
+          subject: "We received your Jumping Jax rental request",
+          text: [
+            `Hi ${customerName},`,
+            "",
+            "We received your rental request.",
+            "It is waiting for confirmation.",
+            "Jumping Jax will contact you once your request has been reviewed.",
+            "",
+            `Booking reference: ${result.id}`,
+            `Rental: ${rental_item}`,
+            `Event date: ${eventDateYmd}`,
+            durationLine ? `Duration: ${durationLine}` : null,
+            `Name: ${customerName}`,
+            customerPhone ? `Phone: ${customerPhone}` : null,
+            eventAddress ? `Event address: ${eventAddress}` : null,
+          ]
+            .filter((line): line is string => line !== null)
+            .join("\n"),
+        });
+
+        if (emailError) {
+          console.error("[api/book] rental customer email error", emailError);
+        }
+      } catch (emailError) {
+        console.error("[api/book] rental customer email error", emailError);
       }
-    } catch (emailError) {
-      console.error("[api/book] rental request email error", emailError);
+    }
+
+    if (facilityOwnerEmail) {
+      try {
+        const { error: emailError } = await resend.emails.send({
+          from: "Jumping Jax <onboarding@resend.dev>",
+          to: facilityOwnerEmail,
+          subject: "New Jumping Jax rental request",
+          text: [
+            "New rental request — manual review required.",
+            "This rental still needs manual review.",
+            "",
+            `Booking ID: ${result.id}`,
+            `Rental: ${rental_item}`,
+            `Event date: ${eventDateYmd}`,
+            durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
+            `Customer: ${customerName}`,
+            `Email: ${customerEmail || "(not provided)"}`,
+            customerPhone ? `Phone: ${customerPhone}` : "Phone: (not provided)",
+            eventAddress
+              ? `Event address: ${eventAddress}`
+              : "Event address: (not provided)",
+            notes ? `Notes: ${notes}` : "Notes: (none)",
+          ].join("\n"),
+        });
+
+        if (emailError) {
+          console.error("[api/book] rental admin email error", emailError);
+        }
+      } catch (emailError) {
+        console.error("[api/book] rental admin email error", emailError);
+      }
     }
   }
 
