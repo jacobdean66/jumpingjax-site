@@ -98,6 +98,7 @@ export async function POST(req: Request) {
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
   const durationParts: string[] = [];
   if (durationLabel) durationParts.push(durationLabel);
@@ -163,6 +164,12 @@ export async function POST(req: Request) {
               ? `Event address: ${eventAddress}`
               : "Event address: (not provided)",
             notes ? `Notes: ${notes}` : "Notes: (none)",
+            "",
+            "Confirm this booking:",
+            `${siteUrl}/api/rentals/confirm?id=${result.id}&action=confirm`,
+            "",
+            "Reject this booking:",
+            `${siteUrl}/api/rentals/confirm?id=${result.id}&action=reject`,
           ].join("\n"),
         });
 

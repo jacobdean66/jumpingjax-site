@@ -171,6 +171,25 @@ export async function insertPendingBooking(
         message: `Supabase returned success but no id (data: ${JSON.stringify(data)})`,
       };
     }
+
+    const rentalName = input.rentalName?.trim();
+    const { error: rentalItemError } = await supabase
+      .from("booking_rental_items")
+      .insert([
+        {
+          booking_id: id,
+          rental_item: input.rental_item,
+          rental_name: rentalName || null,
+        },
+      ]);
+
+    if (rentalItemError) {
+      console.error(
+        "[bookings] booking_rental_items insert failed",
+        rentalItemError,
+      );
+    }
+
     return { ok: true, id };
   } catch (e) {
     console.error("[bookings] insertPendingBooking threw", e);
