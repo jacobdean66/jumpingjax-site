@@ -287,7 +287,6 @@ export function RentalBookingPanel({
             return next;
           });
         }
-        router.refresh();
       } else {
         setSubmitError(
           message ?? "We could not save your request. Please try again.",
