@@ -23,16 +23,37 @@ export async function POST(req: Request) {
 
   console.log("[api/book] request body", body);
 
+  const { rental_items } = body;
+
   const rental_item =
     typeof body.rental_item === "string" && body.rental_item.trim()
       ? body.rental_item.trim()
       : null;
 
-  if (!rental_item) {
+  const normalizedRentalItems =
+    Array.isArray(rental_items) && rental_items.length > 0
+      ? rental_items
+      : rental_item
+        ? [{ rental_item, rental_name: rental_item }]
+        : [];
+
+  if (normalizedRentalItems.length === 0) {
     return new Response(
-      JSON.stringify({ error: 'rental_item is required' }),
-      { status: 400 }
-    )
+      JSON.stringify({ error: "rental_items is required" }),
+      { status: 400 },
+    );
+  }
+
+  const delivery_time =
+    typeof body.delivery_time === "string" && body.delivery_time.trim()
+      ? body.delivery_time.trim()
+      : null;
+
+  if (!delivery_time) {
+    return new Response(
+      JSON.stringify({ error: "delivery_time is required" }),
+      { status: 400 },
+    );
   }
 
   const customerName =
@@ -63,8 +84,7 @@ export async function POST(req: Request) {
       : "";
 
   const result = await insertPendingBooking({
-    rental_item: rental_item,
-    rentalName: rental_item,
+    rental_items: normalizedRentalItems,
     customerName,
     email: customerEmail || "unknown@example.com",
     phone: customerPhone,
@@ -72,6 +92,7 @@ export async function POST(req: Request) {
     durationLabel: durationLabel || "Standard",
     spanDays,
     eventAddress,
+    delivery_time,
     subtotal: typeof body.subtotal === "number" ? body.subtotal : 0,
     total:
       typeof body.total === "number"
@@ -107,6 +128,10 @@ export async function POST(req: Request) {
   const durationLine =
     durationParts.length > 0 ? durationParts.join(" — ") : null;
 
+  const rentalListText = normalizedRentalItems
+    .map((item) => `- ${item.rental_name ?? item.rental_item}`)
+    .join("\n");
+
   if (resendApiKey) {
     const resend = new Resend(resendApiKey);
 
@@ -124,7 +149,7 @@ export async function POST(req: Request) {
             "Jumping Jax will contact you once your request has been reviewed.",
             "",
             `Booking reference: ${result.id}`,
-            `Rental: ${rental_item}`,
+            `Rentals:\n${rentalListText}`,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : null,
             `Name: ${customerName}`,
@@ -154,7 +179,7 @@ export async function POST(req: Request) {
             "This rental still needs manual review.",
             "",
             `Booking ID: ${result.id}`,
-            `Rental: ${rental_item}`,
+            `Rentals:\n${rentalListText}`,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
             `Customer: ${customerName}`,

@@ -21,8 +21,7 @@ function rentalDateRangesOverlap(
 }
 
 export type CreateBookingInput = {
-  rental_item: string | null;
-  rentalName: string;
+  rental_items: { rental_item: string; rental_name?: string }[];
   customerName: string;
   email: string;
   phone: string;
@@ -30,6 +29,7 @@ export type CreateBookingInput = {
   durationLabel: string;
   spanDays: number;
   eventAddress: string;
+  delivery_time?: string;
   subtotal: number;
   total: number;
 };
@@ -63,54 +63,56 @@ export async function insertPendingBooking(
 
   try {
     const supabase = createServiceRoleClient();
-    if (!input.rental_item) {
-      return {
-        ok: false,
-        code: "invalid_input",
-        message: "rental_item is required",
-      };
+    if (!input.rental_items || input.rental_items.length === 0) {
+      return { ok: false, code: "invalid_input" };
     }
+
+    const primaryRentalItem = input.rental_items[0]!;
+    const rental_item = primaryRentalItem.rental_item;
+    const rentalName = primaryRentalItem.rental_name ?? primaryRentalItem.rental_item;
 
     const spanDays = input.spanDays >= 1 ? input.spanDays : 1;
 
-    const { data: existingRows, error: conflictQueryError } = await supabase
-      .from("bookings")
-      .select("event_date, span_days")
-      .eq("rental_item", input.rental_item)
-      .in("status", [...ACTIVE_RENTAL_STATUSES]);
+    for (const item of input.rental_items) {
+      const { data: existingRows, error: conflictQueryError } = await supabase
+        .from("bookings")
+        .select("event_date, span_days")
+        .eq("rental_item", item.rental_item)
+        .in("status", [...ACTIVE_RENTAL_STATUSES]);
 
-    if (conflictQueryError) {
-      console.error("[bookings] conflict check failed", conflictQueryError);
-      return {
-        ok: false,
-        code: "write_failed",
-        message: conflictQueryError.message,
-      };
-    }
-
-    for (const row of existingRows ?? []) {
-      const existingStartYmd =
-        typeof row.event_date === "string"
-          ? row.event_date.slice(0, 10)
-          : String(row.event_date);
-      const existingSpanDays =
-        typeof row.span_days === "number" && row.span_days >= 1
-          ? row.span_days
-          : 1;
-
-      if (
-        rentalDateRangesOverlap(
-          existingStartYmd,
-          existingSpanDays,
-          input.eventDateYmd,
-          spanDays,
-        )
-      ) {
+      if (conflictQueryError) {
+        console.error("[bookings] conflict check failed", conflictQueryError);
         return {
           ok: false,
-          code: "conflict",
-          message: "This rental is unavailable for the selected dates.",
+          code: "write_failed",
+          message: conflictQueryError.message,
         };
+      }
+
+      for (const row of existingRows ?? []) {
+        const existingStartYmd =
+          typeof row.event_date === "string"
+            ? row.event_date.slice(0, 10)
+            : String(row.event_date);
+        const existingSpanDays =
+          typeof row.span_days === "number" && row.span_days >= 1
+            ? row.span_days
+            : 1;
+
+        if (
+          rentalDateRangesOverlap(
+            existingStartYmd,
+            existingSpanDays,
+            input.eventDateYmd,
+            spanDays,
+          )
+        ) {
+          return {
+            ok: false,
+            code: "conflict",
+            message: "This rental is unavailable for the selected dates.",
+          };
+        }
       }
     }
 
@@ -125,11 +127,12 @@ export async function insertPendingBooking(
       rental_name?: string;
       duration?: string;
       event_address?: string;
+      delivery_time?: string;
       subtotal?: number;
       total?: number;
     } = {
-      rental_item: input.rental_item,
-      rental_name: input.rentalName,
+      rental_item: rental_item,
+      rental_name: rentalName,
       customer_name: input.customerName,
       customer_email: input.email.trim(),
       customer_phone: input.phone.trim(),
@@ -137,6 +140,7 @@ export async function insertPendingBooking(
       duration: input.durationLabel,
       span_days: spanDays,
       event_address: input.eventAddress.trim(),
+      delivery_time: input.delivery_time,
       subtotal: input.subtotal,
       total: input.total,
       status: "pending" as const,
@@ -172,16 +176,15 @@ export async function insertPendingBooking(
       };
     }
 
-    const rentalName = input.rentalName?.trim();
+    const rentalItemRows = input.rental_items.map((item) => ({
+      booking_id: id,
+      rental_item: item.rental_item,
+      rental_name: item.rental_name ?? item.rental_item,
+    }));
+
     const { error: rentalItemError } = await supabase
       .from("booking_rental_items")
-      .insert([
-        {
-          booking_id: id,
-          rental_item: input.rental_item,
-          rental_name: rentalName || null,
-        },
-      ]);
+      .insert(rentalItemRows);
 
     if (rentalItemError) {
       console.error(

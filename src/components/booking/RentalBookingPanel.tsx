@@ -52,6 +52,7 @@ export function RentalBookingPanel({
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(MOCK_DURATION_OPTIONS[1]!.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
+  const [deliveryTime, setDeliveryTime] = useState("");
 
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
     () => new Set<string>(),
@@ -67,12 +68,16 @@ export function RentalBookingPanel({
     | { status: "error" };
 
   const [clientFetch, setClientFetch] = useState<ClientFetchState>({
-    status: "idle",
+    status: "pending",
   });
+  const [fetchSlug, setFetchSlug] = useState(slug);
+  if (slug !== fetchSlug) {
+    setFetchSlug(slug);
+    setClientFetch({ status: "pending" });
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setClientFetch({ status: "pending" });
 
     void (async () => {
       try {
@@ -134,9 +139,10 @@ export function RentalBookingPanel({
       customer.customerName.trim().length >= 2 &&
       isPlausibleEmail(customer.customerEmail) &&
       phoneDigits.length >= 10 &&
-      customer.eventAddress.trim().length >= 8
+      customer.eventAddress.trim().length >= 8 &&
+      deliveryTime.trim().length > 0
     );
-  }, [customer]);
+  }, [customer, deliveryTime]);
 
   const subtotal =
     selectionValid && duration
@@ -153,16 +159,12 @@ export function RentalBookingPanel({
   const reserveReason = !selectionValid
     ? "Complete a valid date and duration first."
     : !customerOk
-      ? "Add your name, email, phone, and event address to continue."
+      ? "Add your name, email, phone, event address, and requested delivery time to continue."
       : undefined;
 
   const serverLoadOk = availabilityLoadError === null;
 
   const availabilityBanner = useMemo(() => {
-    if (clientFetch.status === "idle") {
-      return null;
-    }
-
     if (clientFetch.status === "ok") {
       return null;
     }
@@ -222,6 +224,7 @@ export function RentalBookingPanel({
           event_date,
           rental_item: slug,
           event_address: customer.eventAddress,
+          delivery_time: deliveryTime,
           duration: duration?.label ?? "",
           span_days: duration?.spanDays ?? 1,
           subtotal: subtotal ?? 0,
@@ -230,6 +233,11 @@ export function RentalBookingPanel({
       });
 
       const data: unknown = await res.json().catch(() => null);
+      console.log("RENTAL BOOK RESPONSE", {
+        status: res.status,
+        ok: res.ok,
+        data,
+      });
       console.log("Booking response", { status: res.status, ok: res.ok, data });
 
       if (!res.ok) {
@@ -250,13 +258,16 @@ export function RentalBookingPanel({
         typeof data === "object" &&
         "ok" in data &&
         (data as { ok?: boolean }).ok === true;
-      const id =
-        data &&
-        typeof data === "object" &&
-        "id" in data &&
-        typeof (data as { id?: unknown }).id === "string"
-          ? (data as { id: string }).id
+      const rawId =
+        data && typeof data === "object" && "id" in data
+          ? (data as { id: unknown }).id
           : null;
+      const id =
+        typeof rawId === "string"
+          ? rawId
+          : typeof rawId === "number"
+            ? String(rawId)
+            : null;
       const message =
         data &&
         typeof data === "object" &&
@@ -292,6 +303,40 @@ export function RentalBookingPanel({
     }
   };
 
+  if (successId) {
+    return (
+      <section
+        id="book-rental"
+        className="scroll-mt-28 pb-24 sm:scroll-mt-32 sm:pb-28"
+        aria-labelledby="book-rental-success-heading"
+      >
+        <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 via-transparent to-transparent p-1">
+          <div
+            className="rounded-[0.9rem] border border-white/10 bg-[#071326]/60 p-5 sm:p-7"
+            role="status"
+          >
+            <h2
+              id="book-rental-success-heading"
+              className="text-sm font-black uppercase tracking-[0.12em] text-cyan-200"
+            >
+              Request submitted
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-slate-200">
+              Your rental request is pending approval.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-200">
+              You will receive an email once Jumping Jax confirms your booking.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-200">
+              Booking request ID:{" "}
+              <span className="font-mono text-xs text-white">{successId}</span>
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <form id="booking-form" onSubmit={handleSubmit} noValidate>
       <section
@@ -324,32 +369,6 @@ export function RentalBookingPanel({
               >
                 {availabilityBanner.text}
               </p>
-            )}
-
-            {successId && (
-              <div
-                className="mt-4 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-3 text-sm leading-relaxed text-cyan-50"
-                role="status"
-              >
-                <p className="font-bold text-cyan-200">Request received</p>
-                <p className="mt-1 text-slate-200">
-                  Your booking is pending review. Reference ID:{" "}
-                  <span className="font-mono text-xs text-white">{successId}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSuccessId(null);
-                    setSelectedYmd(null);
-                    setCustomer(emptyCustomer);
-                    setSubmitError(null);
-                    setOptimisticBlockedYmds(new Set());
-                  }}
-                  className="mt-3 text-xs font-black uppercase tracking-wider text-cyan-300 underline-offset-4 hover:text-cyan-200 hover:underline"
-                >
-                  Book another date
-                </button>
-              </div>
             )}
 
             {submitError && (
@@ -400,6 +419,25 @@ export function RentalBookingPanel({
                   selectionMessageTone={selectionMessageTone}
                 />
                 <CustomerForm value={customer} onChange={setCustomer} />
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Requested delivery time
+                    </span>
+                    <input
+                      type="time"
+                      name="deliveryTime"
+                      required
+                      value={deliveryTime}
+                      onChange={(e) => setDeliveryTime(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                    />
+                    <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                      Please allow a 30-minute setup window before your event
+                      start time.
+                    </p>
+                  </label>
+                </div>
               </div>
             </div>
 
