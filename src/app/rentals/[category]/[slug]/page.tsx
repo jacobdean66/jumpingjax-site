@@ -2,7 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { RentalBookingPanel } from "@/components/booking/RentalBookingPanel";
+import {
+  RentalAddToRequestButton,
+  RentalBookingPanel,
+} from "@/components/booking/RentalBookingPanel";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
@@ -127,6 +130,10 @@ export default async function RentalDetailPage({ params }: Props) {
           >
             Book this rental
           </a>
+          <RentalAddToRequestButton
+            rental_item={rental.slug}
+            rental_name={rental.title}
+          />
           <Link
             href={`/rentals/${rental.categoryId}`}
             className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full border border-white/25 bg-white/5 px-6 py-4 text-center text-lg font-bold text-white transition hover:bg-white/10 active:scale-[0.98] sm:text-xl"

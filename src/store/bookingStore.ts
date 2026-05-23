@@ -6,6 +6,11 @@ export interface RentalSelection {
   rentalImage: string;
 }
 
+export type RentalCartItem = {
+  rental_item: string;
+  rental_name: string;
+};
+
 export interface CustomerInfo {
   customerName: string;
   customerPhone: string;
@@ -28,7 +33,10 @@ export interface BookingState extends RentalSelection, BookingDates, CustomerInf
   availabilityChecked: boolean;
   paymentIntentId: string | null;
   checkoutStep: "rental" | "details" | "review" | "payment";
+  rentalCartItems: RentalCartItem[];
   setRental: (rental: RentalSelection) => void;
+  addRentalToCart: (item: RentalCartItem) => void;
+  removeRentalFromCart: (rental_item: string) => void;
   setDates: (dates: BookingDates) => void;
   setQuantity: (quantity: number) => void;
   setCustomerInfo: (customerInfo: CustomerInfo) => void;
@@ -53,6 +61,7 @@ const initialBookingState = {
   availabilityChecked: false,
   paymentIntentId: null,
   checkoutStep: "rental" as const,
+  rentalCartItems: [],
 };
 
 export const useBookingStore = create<BookingState>()((set) => ({
@@ -63,6 +72,23 @@ export const useBookingStore = create<BookingState>()((set) => ({
       rentalTitle: rental.rentalTitle,
       rentalImage: rental.rentalImage,
     }),
+  addRentalToCart: (item) =>
+    set((state) => {
+      if (
+        state.rentalCartItems.some(
+          (cartItem) => cartItem.rental_item === item.rental_item,
+        )
+      ) {
+        return state;
+      }
+      return { rentalCartItems: [...state.rentalCartItems, item] };
+    }),
+  removeRentalFromCart: (rental_item) =>
+    set((state) => ({
+      rentalCartItems: state.rentalCartItems.filter(
+        (cartItem) => cartItem.rental_item !== rental_item,
+      ),
+    })),
   setDates: (dates) =>
     set({
       startDate: dates.startDate,

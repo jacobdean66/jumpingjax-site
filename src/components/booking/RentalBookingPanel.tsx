@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
+  useBookingStore,
+  type RentalCartItem,
+} from "@/store/bookingStore";
+import {
   MOCK_DURATION_OPTIONS,
   estimateGrandTotal,
   estimateRentalSubtotal,
@@ -38,6 +42,48 @@ function digitsOnly(s: string): string {
   return s.replace(/\D/g, "");
 }
 
+const RENTAL_SUCCESS_STORAGE_KEY = "jumpingjax-rental-booking-success-id";
+
+function parseBookingId(data: unknown): string | null {
+  if (!data || typeof data !== "object" || !("id" in data)) {
+    return null;
+  }
+  const rawId = (data as { id: unknown }).id;
+  if (typeof rawId === "string" && rawId.trim()) {
+    return rawId.trim();
+  }
+  if (typeof rawId === "number" && Number.isFinite(rawId)) {
+    return String(rawId);
+  }
+  return null;
+}
+
+type RentalAddToRequestButtonProps = {
+  rental_item: string;
+  rental_name: string;
+};
+
+export function RentalAddToRequestButton({
+  rental_item,
+  rental_name,
+}: RentalAddToRequestButtonProps) {
+  const addRentalToCart = useBookingStore((s) => s.addRentalToCart);
+  const inCart = useBookingStore((s) =>
+    s.rentalCartItems.some((item) => item.rental_item === rental_item),
+  );
+
+  return (
+    <button
+      type="button"
+      disabled={inCart}
+      onClick={() => addRentalToCart({ rental_item, rental_name })}
+      className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-6 py-4 text-center text-lg font-bold text-cyan-100 transition hover:bg-cyan-400/20 active:scale-[0.98] disabled:cursor-default disabled:border-white/20 disabled:bg-white/5 disabled:text-slate-400 sm:text-xl"
+    >
+      {inCart ? "Added to rental request" : "Add to rental request"}
+    </button>
+  );
+}
+
 export function RentalBookingPanel({
   rental_item: slug,
   rentalTitle,
@@ -52,25 +98,33 @@ export function RentalBookingPanel({
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
 
-  const [selectedRentalItems, setSelectedRentalItems] = useState([
-    { rental_item: slug, rental_name: rentalTitle },
-  ]);
-  const [cartSyncSlug, setCartSyncSlug] = useState(slug);
-  const [cartSyncTitle, setCartSyncTitle] = useState(rentalTitle);
-  if (slug !== cartSyncSlug || rentalTitle !== cartSyncTitle) {
-    setCartSyncSlug(slug);
-    setCartSyncTitle(rentalTitle);
-    setSelectedRentalItems((prev) => {
-      const rest = prev.filter((item) => item.rental_item !== slug);
-      return [{ rental_item: slug, rental_name: rentalTitle }, ...rest];
-    });
-  }
+  const rentalCartItems = useBookingStore((s) => s.rentalCartItems);
+  const removeRentalFromCart = useBookingStore((s) => s.removeRentalFromCart);
 
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
     () => new Set<string>(),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+
+  const persistedSuccessId =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem(RENTAL_SUCCESS_STORAGE_KEY)
+      : null;
+  const activeSuccessId = successId ?? persistedSuccessId;
+
+  const selectedRentalItems = useMemo((): RentalCartItem[] => {
+    if (rentalCartItems.length === 0) {
+      return [{ rental_item: slug, rental_name: rentalTitle }];
+    }
+    if (rentalCartItems.some((item) => item.rental_item === slug)) {
+      return rentalCartItems;
+    }
+    return [
+      { rental_item: slug, rental_name: rentalTitle },
+      ...rentalCartItems,
+    ];
+  }, [rentalCartItems, slug, rentalTitle]);
 
   type ClientFetchState =
     | { status: "idle" }
@@ -83,7 +137,7 @@ export function RentalBookingPanel({
     status: "pending",
   });
   const [fetchSlug, setFetchSlug] = useState(slug);
-  if (slug !== fetchSlug) {
+  if (!activeSuccessId && slug !== fetchSlug) {
     setFetchSlug(slug);
     setClientFetch({ status: "pending" });
   }
@@ -170,9 +224,11 @@ export function RentalBookingPanel({
 
   const reserveReason = !selectionValid
     ? "Complete a valid date and duration first."
-    : !customerOk
-      ? "Add your name, email, phone, event address, and requested delivery time to continue."
-      : undefined;
+    : selectedRentalItems.length === 0
+      ? "Add at least one rental to your request."
+      : !customerOk
+        ? "Add your name, email, phone, event address, and requested delivery time to continue."
+        : undefined;
 
   const serverLoadOk = availabilityLoadError === null;
 
@@ -220,7 +276,15 @@ export function RentalBookingPanel({
     const event_date = selectedYmd ?? "";
 
     setSubmitError(null);
+    sessionStorage.removeItem(RENTAL_SUCCESS_STORAGE_KEY);
+    setSuccessId(null);
     setIsSubmitting(true);
+
+    if (selectedRentalItems.length === 0) {
+      setSubmitError("Add at least one rental to your request.");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/book", {
@@ -258,16 +322,7 @@ export function RentalBookingPanel({
         return;
       }
 
-      const rawId =
-        data && typeof data === "object" && "id" in data
-          ? (data as { id: unknown }).id
-          : null;
-      const id =
-        typeof rawId === "string"
-          ? rawId
-          : typeof rawId === "number"
-            ? String(rawId)
-            : null;
+      const id = parseBookingId(data);
       const message =
         data &&
         typeof data === "object" &&
@@ -277,6 +332,7 @@ export function RentalBookingPanel({
           : undefined;
 
       if (res.ok && id) {
+        sessionStorage.setItem(RENTAL_SUCCESS_STORAGE_KEY, id);
         setSuccessId(id);
         if (selectedYmd && duration) {
           setOptimisticBlockedYmds((prev) => {
@@ -287,6 +343,9 @@ export function RentalBookingPanel({
             return next;
           });
         }
+        document
+          .getElementById("book-rental")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
         setSubmitError(
           message ?? "We could not save your request. Please try again.",
@@ -302,7 +361,7 @@ export function RentalBookingPanel({
     }
   };
 
-  if (successId) {
+  if (activeSuccessId) {
     return (
       <section
         id="book-rental"
@@ -328,7 +387,9 @@ export function RentalBookingPanel({
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               Booking request ID:{" "}
-              <span className="font-mono text-xs text-white">{successId}</span>
+              <span className="font-mono text-xs text-white">
+                {activeSuccessId}
+              </span>
             </p>
           </div>
         </div>
@@ -338,6 +399,7 @@ export function RentalBookingPanel({
 
   return (
     <form id="booking-form" onSubmit={handleSubmit} noValidate>
+      <fieldset disabled={isSubmitting} className="min-w-0 border-0 p-0">
       <section
         id="book-rental"
         className="scroll-mt-28 pb-24 sm:scroll-mt-32 sm:pb-28"
@@ -425,14 +487,28 @@ export function RentalBookingPanel({
                     {selectedRentalItems.map((item) => (
                       <li
                         key={item.rental_item}
-                        className="text-sm font-semibold text-slate-100"
+                        className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
                       >
-                        {item.rental_name}
+                        <span className="text-sm font-semibold text-slate-100">
+                          {item.rental_name}
+                        </span>
+                        {item.rental_item !== slug && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeRentalFromCart(item.rental_item)
+                            }
+                            className="shrink-0 text-xs font-bold uppercase tracking-wider text-rose-300 hover:text-rose-200"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
                   <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                    More rental items can be added from the rentals page.
+                    Use &ldquo;Add to rental request&rdquo; on other rental
+                    pages to include more inflatables.
                   </p>
                 </div>
                 <CustomerForm value={customer} onChange={setCustomer} />
@@ -489,6 +565,7 @@ export function RentalBookingPanel({
         totalDisplay={totalDisplay}
         disabledReason={reserveReason}
       />
+      </fieldset>
     </form>
   );
 }
