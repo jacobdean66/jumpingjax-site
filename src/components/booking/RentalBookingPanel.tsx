@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
@@ -46,13 +45,26 @@ export function RentalBookingPanel({
   initialUnavailableYmds,
   availabilityLoadError,
 }: RentalBookingPanelProps) {
-  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(MOCK_DURATION_OPTIONS[1]!.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
+
+  const [selectedRentalItems, setSelectedRentalItems] = useState([
+    { rental_item: slug, rental_name: rentalTitle },
+  ]);
+  const [cartSyncSlug, setCartSyncSlug] = useState(slug);
+  const [cartSyncTitle, setCartSyncTitle] = useState(rentalTitle);
+  if (slug !== cartSyncSlug || rentalTitle !== cartSyncTitle) {
+    setCartSyncSlug(slug);
+    setCartSyncTitle(rentalTitle);
+    setSelectedRentalItems((prev) => {
+      const rest = prev.filter((item) => item.rental_item !== slug);
+      return [{ rental_item: slug, rental_name: rentalTitle }, ...rest];
+    });
+  }
 
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
     () => new Set<string>(),
@@ -201,7 +213,6 @@ export function RentalBookingPanel({
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Submitting booking");
 
     const customer_name = customer.customerName;
     const customer_phone = customer.customerPhone;
@@ -223,6 +234,7 @@ export function RentalBookingPanel({
           customer_email,
           event_date,
           rental_item: slug,
+          rental_items: selectedRentalItems,
           event_address: customer.eventAddress,
           delivery_time: deliveryTime,
           duration: duration?.label ?? "",
@@ -233,12 +245,6 @@ export function RentalBookingPanel({
       });
 
       const data: unknown = await res.json().catch(() => null);
-      console.log("RENTAL BOOK RESPONSE", {
-        status: res.status,
-        ok: res.ok,
-        data,
-      });
-      console.log("Booking response", { status: res.status, ok: res.ok, data });
 
       if (!res.ok) {
         const apiError =
@@ -252,12 +258,6 @@ export function RentalBookingPanel({
         return;
       }
 
-      const ok =
-        res.ok &&
-        data &&
-        typeof data === "object" &&
-        "ok" in data &&
-        (data as { ok?: boolean }).ok === true;
       const rawId =
         data && typeof data === "object" && "id" in data
           ? (data as { id: unknown }).id
@@ -276,7 +276,7 @@ export function RentalBookingPanel({
           ? (data as { message: string }).message
           : undefined;
 
-      if (ok && id) {
+      if (res.ok && id) {
         setSuccessId(id);
         if (selectedYmd && duration) {
           setOptimisticBlockedYmds((prev) => {
@@ -417,20 +417,49 @@ export function RentalBookingPanel({
                   selectionMessage={selectionMessage}
                   selectionMessageTone={selectionMessageTone}
                 />
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Selected rentals
+                  </h3>
+                  <ul className="mt-3 space-y-2" aria-label="Selected rentals">
+                    {selectedRentalItems.map((item) => (
+                      <li
+                        key={item.rental_item}
+                        className="text-sm font-semibold text-slate-100"
+                      >
+                        {item.rental_name}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                    More rental items can be added from the rentals page.
+                  </p>
+                </div>
                 <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       Requested delivery time
                     </span>
-                    <input
-                      type="time"
+                    <select
                       name="deliveryTime"
                       required
                       value={deliveryTime}
                       onChange={(e) => setDeliveryTime(e.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
-                    />
+                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                    >
+                      <option value="">Select delivery time</option>
+                      <option value="08:00">8:00 AM</option>
+                      <option value="09:00">9:00 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                      <option value="11:00">11:00 AM</option>
+                      <option value="12:00">12:00 PM</option>
+                      <option value="13:00">1:00 PM</option>
+                      <option value="14:00">2:00 PM</option>
+                      <option value="15:00">3:00 PM</option>
+                      <option value="16:00">4:00 PM</option>
+                      <option value="17:00">5:00 PM</option>
+                    </select>
                     <p className="mt-2 text-xs leading-relaxed text-slate-400">
                       Please allow a 30-minute setup window before your event
                       start time.
