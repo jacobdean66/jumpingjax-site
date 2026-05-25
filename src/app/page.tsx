@@ -48,14 +48,14 @@ export default function Home() {
               href="/rentals"
               className="inline-flex min-h-14 w-full max-w-[280px] items-center justify-center rounded-full bg-cyan-400 px-8 text-lg font-bold text-black shadow-lg shadow-black/30 transition duration-200 hover:bg-cyan-300 hover:shadow-xl active:scale-[0.98] sm:min-h-[3.5rem]"
             >
-              Book Now
+              Inflatable Rentals
             </Link>
 
             <Link
-              href="/rentals"
+              href="/facility-parties"
               className="inline-flex min-h-14 w-full max-w-[280px] items-center justify-center rounded-full border border-white/35 bg-white/10 px-8 text-lg font-bold text-white backdrop-blur transition duration-200 hover:bg-white/20 active:scale-[0.98] sm:min-h-[3.5rem]"
             >
-              View Rentals
+              Facility Party
             </Link>
           </div>
         </div>

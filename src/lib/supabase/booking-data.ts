@@ -20,6 +20,16 @@ function rentalDateRangesOverlap(
   return existingStart <= newEnd && existingEnd >= newStart;
 }
 
+function formatRentalUnavailableMessage(unavailableNames: string[]): string {
+  if (unavailableNames.length === 0) {
+    return "This rental is unavailable for the selected dates.";
+  }
+  if (unavailableNames.length === 1) {
+    return `${unavailableNames[0]} is unavailable for the selected dates.`;
+  }
+  return `These rentals are unavailable for the selected dates: ${unavailableNames.join(", ")}.`;
+}
+
 export type CreateBookingInput = {
   rental_items: { rental_item: string; rental_name?: string }[];
   customerName: string;
@@ -73,6 +83,8 @@ export async function insertPendingBooking(
 
     const spanDays = input.spanDays >= 1 ? input.spanDays : 1;
 
+    const unavailableNames: string[] = [];
+
     for (const item of input.rental_items) {
       const { data: existingRows, error: conflictQueryError } = await supabase
         .from("bookings")
@@ -88,6 +100,9 @@ export async function insertPendingBooking(
           message: conflictQueryError.message,
         };
       }
+
+      const displayName = item.rental_name?.trim() || item.rental_item;
+      let itemUnavailable = false;
 
       for (const row of existingRows ?? []) {
         const existingStartYmd =
@@ -107,13 +122,22 @@ export async function insertPendingBooking(
             spanDays,
           )
         ) {
-          return {
-            ok: false,
-            code: "conflict",
-            message: "This rental is unavailable for the selected dates.",
-          };
+          itemUnavailable = true;
+          break;
         }
       }
+
+      if (itemUnavailable && !unavailableNames.includes(displayName)) {
+        unavailableNames.push(displayName);
+      }
+    }
+
+    if (unavailableNames.length > 0) {
+      return {
+        ok: false,
+        code: "conflict",
+        message: formatRentalUnavailableMessage(unavailableNames),
+      };
     }
 
     const bookingData: {
