@@ -539,7 +539,7 @@ export function RentalBookingPanel({
 
       const id = parseBookingId(data);
       const emailsSent =
-        data &&
+        data != null &&
         typeof data === "object" &&
         "emailsSent" in data &&
         (data as { emailsSent?: unknown }).emailsSent === true;
