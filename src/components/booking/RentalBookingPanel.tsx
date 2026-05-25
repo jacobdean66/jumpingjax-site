@@ -330,7 +330,11 @@ export function RentalBookingPanel({
     | { status: "idle" }
     | { status: "skipped" }
     | { status: "pending" }
-    | { status: "ok"; ymds: string[] }
+    | {
+        status: "ok";
+        ymds: string[];
+        unavailableByRentalItem: Record<string, string[]>;
+      }
     | { status: "error" };
 
   const [clientFetch, setClientFetch] = useState<ClientFetchState>({
@@ -344,17 +348,40 @@ export function RentalBookingPanel({
 
   useEffect(() => {
     let cancelled = false;
+    const rentalItemsToCheck = Array.from(
+      new Set(
+        selectedRentalItems
+          .map((item) => item.rental_item.trim())
+          .filter(Boolean),
+      ),
+    );
 
     void (async () => {
       try {
-        const { ymds, error } = await queryRentalUnavailableYmds(
-          slug,
-          6,
+        const results = await Promise.all(
+          rentalItemsToCheck.map((rentalItem) =>
+            queryRentalUnavailableYmds(rentalItem, 6),
+          ),
         );
         if (cancelled) return;
-        if (error === "not_configured") setClientFetch({ status: "skipped" });
-        else if (error) setClientFetch({ status: "error" });
-        else setClientFetch({ status: "ok", ymds });
+        if (results.every((result) => result.error === "not_configured")) {
+          setClientFetch({ status: "skipped" });
+        } else if (results.some((result) => result.error === "read_failed")) {
+          setClientFetch({ status: "error" });
+        } else {
+          const unavailableByRentalItem = Object.fromEntries(
+            rentalItemsToCheck.map((rentalItem, index) => [
+              rentalItem,
+              results[index]?.ymds ?? [],
+            ]),
+          );
+
+          setClientFetch({
+            status: "ok",
+            ymds: [...new Set(results.flatMap((result) => result.ymds))].sort(),
+            unavailableByRentalItem,
+          });
+        }
       } catch {
         if (!cancelled) setClientFetch({ status: "error" });
       }
@@ -363,7 +390,7 @@ export function RentalBookingPanel({
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [selectedRentalItems]);
 
   const effectiveUnavailableYmds =
     clientFetch.status === "ok" ? clientFetch.ymds : initialUnavailableYmds;
@@ -383,6 +410,20 @@ export function RentalBookingPanel({
     if (!selectedYmd || !duration) return false;
     return !rangeHasBlocked(selectedYmd, duration.spanDays, blockedSet);
   }, [selectedYmd, duration, blockedSet]);
+
+  const unavailableSelectedItems = useMemo(() => {
+    if (!selectedYmd || !duration || clientFetch.status !== "ok") return [];
+
+    return selectedRentalItems.filter((item) => {
+      const unavailableYmds =
+        clientFetch.unavailableByRentalItem[item.rental_item] ?? [];
+      return rangeHasBlocked(
+        selectedYmd,
+        duration.spanDays,
+        new Set(unavailableYmds),
+      );
+    });
+  }, [clientFetch, duration, selectedRentalItems, selectedYmd]);
 
   const selectionMessage = useMemo(() => {
     if (!selectedYmd) return "Pick a start date to see your estimate.";
@@ -755,6 +796,21 @@ export function RentalBookingPanel({
                       onChange={setSelectedYmd}
                       blocked={blockedSet}
                     />
+                    {unavailableSelectedItems.length > 0 && (
+                      <div
+                        className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-xs leading-relaxed text-amber-100 sm:text-sm"
+                        role="alert"
+                      >
+                        <p className="font-semibold text-amber-50">
+                          Unavailable for the selected date range:
+                        </p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                          {unavailableSelectedItems.map((item) => (
+                            <li key={item.rental_item}>{item.rental_name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
