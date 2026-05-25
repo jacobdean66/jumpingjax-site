@@ -4,6 +4,8 @@ import { Resend } from "resend";
 import { createGoogleCalendarEvent } from "@/lib/google/calendar";
 import {
   buildRentalCalendarDescription,
+  buildRentalListWithPrices,
+  formatEstimatedTotalLine,
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -88,6 +90,12 @@ export async function GET(req: Request) {
             rental_name: booking.rental_name ?? booking.rental_item,
           },
         ];
+  const rentalListText = buildRentalListWithPrices(
+    calendarItems,
+    durationLabel,
+    spanDays,
+  );
+  const estimatedTotalLine = formatEstimatedTotalLine(bookingTotal);
 
   if (action === "confirm") {
     try {
@@ -153,6 +161,9 @@ export async function GET(req: Request) {
         emailMessage,
         "",
         `Rental: ${rentalLabel}`,
+        action === "confirm" ? "Selected rentals:" : null,
+        action === "confirm" ? rentalListText : null,
+        action === "confirm" ? estimatedTotalLine : null,
         `Event date: ${eventDate}`,
         durationParts.length > 0 ? `Duration: ${durationParts.join(" — ")}` : null,
         booking.event_address?.trim()
