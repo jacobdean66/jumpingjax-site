@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     .eq("id", id)
     .eq("status", "pending")
     .select(
-      "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, subtotal, total",
+      "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, subtotal, total, google_calendar_event_id",
     )
     .maybeSingle();
 
@@ -99,6 +99,7 @@ export async function GET(req: Request) {
 
   if (action === "confirm") {
     try {
+      if (!booking.google_calendar_event_id) {
       const { start, end } = rentalCalendarDateTimes(
         eventDate,
         booking.delivery_time,
@@ -117,12 +118,26 @@ export async function GET(req: Request) {
         eventAddress: booking.event_address,
         bookingId: String(booking.id),
       });
-      await createGoogleCalendarEvent({
+      const eventId = await createGoogleCalendarEvent({
         title: `Rental — ${rentalLabel} — ${customerName ?? "Guest"}`,
         description,
         start,
         end,
       });
+      if (eventId) {
+        const { error: calendarIdError } = await supabase
+          .from("bookings")
+          .update({ google_calendar_event_id: eventId })
+          .eq("id", id);
+
+        if (calendarIdError) {
+          console.error(
+            "[api/rentals/confirm] rental calendar id save error",
+            calendarIdError,
+          );
+        }
+      }
+      }
     } catch (calendarError) {
       console.error("[api/rentals/confirm] rental calendar error", calendarError);
     }
