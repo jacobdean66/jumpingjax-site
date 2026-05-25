@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   RentalAddToRequestButton,
   RentalBookingPanel,
+  RentalCartButton,
 } from "@/components/booking/RentalBookingPanel";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
@@ -123,24 +124,27 @@ export default async function RentalDetailPage({ params }: Props) {
           </ul>
         </section>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <a
-            href="#book-rental"
-            className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full bg-cyan-400 px-6 py-4 text-center text-lg font-bold text-black transition hover:bg-cyan-300 active:scale-[0.98] sm:text-xl"
-          >
-            Book this rental
-          </a>
-          <RentalAddToRequestButton
-            rental_item={rental.slug}
-            rental_name={rental.title}
-          />
-          <Link
-            href={`/rentals/${rental.categoryId}`}
-            className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full border border-white/25 bg-white/5 px-6 py-4 text-center text-lg font-bold text-white transition hover:bg-white/10 active:scale-[0.98] sm:text-xl"
-          >
-            Back to {cat.title}
-          </Link>
-        </div>
+        <section className="mt-8 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-300">
+              Add rentals to your cart, then checkout below.
+            </p>
+            <RentalCartButton />
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+            <RentalAddToRequestButton
+              rental_item={rental.slug}
+              rental_name={rental.title}
+              keepShoppingHref={`/rentals/${rental.categoryId}`}
+            />
+            <Link
+              href={`/rentals/${rental.categoryId}`}
+              className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full border border-white/25 bg-white/5 px-6 py-4 text-center text-lg font-bold text-white transition hover:bg-white/10 active:scale-[0.98] sm:text-xl"
+            >
+              Back to {cat.title}
+            </Link>
+          </div>
+        </section>
 
         <div className="mt-10">
           <RentalBookingPanel

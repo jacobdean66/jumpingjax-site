@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
   useBookingStore,
@@ -8,11 +9,13 @@ import {
 } from "@/store/bookingStore";
 import {
   MOCK_DURATION_OPTIONS,
-  estimateGrandTotal,
-  estimateRentalSubtotal,
   enumerateRange,
   rangeHasBlocked,
 } from "@/lib/mockBooking";
+import {
+  estimateCartGrandTotal,
+  estimateCartRentalSubtotal,
+} from "@/lib/rentals/rental-pricing-text";
 import { BookingDateCalendar } from "./BookingDateCalendar";
 import { BookingSummary } from "./BookingSummary";
 import { CustomerForm, type CustomerFields } from "./CustomerForm";
@@ -44,6 +47,45 @@ function digitsOnly(s: string): string {
 
 const RENTAL_SUCCESS_STORAGE_KEY = "jumpingjax-rental-booking-success-id";
 
+type PersistedSubmitSuccess = {
+  id: string;
+  slug: string;
+};
+
+function readPersistedSubmitSuccess(slug: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(RENTAL_SUCCESS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "id" in parsed &&
+      "slug" in parsed &&
+      typeof (parsed as PersistedSubmitSuccess).id === "string" &&
+      typeof (parsed as PersistedSubmitSuccess).slug === "string" &&
+      (parsed as PersistedSubmitSuccess).slug === slug
+    ) {
+      return (parsed as PersistedSubmitSuccess).id;
+    }
+    sessionStorage.removeItem(RENTAL_SUCCESS_STORAGE_KEY);
+    return null;
+  } catch {
+    sessionStorage.removeItem(RENTAL_SUCCESS_STORAGE_KEY);
+    return null;
+  }
+}
+
+function writePersistedSubmitSuccess(id: string, slug: string): void {
+  const payload: PersistedSubmitSuccess = { id, slug };
+  sessionStorage.setItem(RENTAL_SUCCESS_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function clearPersistedSubmitSuccess(): void {
+  sessionStorage.removeItem(RENTAL_SUCCESS_STORAGE_KEY);
+}
+
 function parseBookingId(data: unknown): string | null {
   if (!data || typeof data !== "object" || !("id" in data)) {
     return null;
@@ -61,33 +103,162 @@ function parseBookingId(data: unknown): string | null {
 type RentalAddToRequestButtonProps = {
   rental_item: string;
   rental_name: string;
+  variant?: "hero" | "compact";
+  keepShoppingHref?: string;
 };
+
+const viewCartClassName = {
+  hero: "inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-cyan-400 px-6 py-3 text-center text-base font-bold text-black transition hover:bg-cyan-300 active:scale-[0.98] sm:min-h-14 sm:text-lg",
+  compact:
+    "inline-flex min-h-11 w-full items-center justify-center rounded-full bg-cyan-400 px-4 py-2.5 text-center text-sm font-bold text-black transition hover:bg-cyan-300 active:scale-[0.98]",
+} as const;
+
+const keepShoppingClassName = {
+  hero: "inline-flex min-h-12 flex-1 items-center justify-center rounded-full border border-white/25 bg-white/5 px-6 py-3 text-center text-base font-bold text-white transition hover:bg-white/10 active:scale-[0.98] sm:min-h-14 sm:text-lg",
+  compact:
+    "inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/25 bg-white/5 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-white/10 active:scale-[0.98]",
+} as const;
 
 export function RentalAddToRequestButton({
   rental_item,
   rental_name,
+  variant = "hero",
+  keepShoppingHref = "/rentals",
 }: RentalAddToRequestButtonProps) {
   const addRentalToCart = useBookingStore((s) => s.addRentalToCart);
   const inCart = useBookingStore((s) =>
     s.rentalCartItems.some((item) => item.rental_item === rental_item),
   );
 
+  const addClassName =
+    variant === "compact"
+      ? "inline-flex min-h-11 w-full items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-4 py-2.5 text-center text-sm font-bold text-cyan-100 transition hover:bg-cyan-400/20 active:scale-[0.98]"
+      : "inline-flex min-h-14 w-full items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-6 py-4 text-center text-lg font-bold text-cyan-100 transition hover:bg-cyan-400/20 active:scale-[0.98] sm:text-xl";
+
+  if (inCart) {
+    return (
+      <div
+        className={
+          variant === "compact"
+            ? "w-full space-y-2"
+            : "w-full space-y-3 sm:flex-1"
+        }
+        aria-live="polite"
+      >
+        <p
+          className={
+            variant === "compact"
+              ? "text-center text-sm font-bold text-emerald-300"
+              : "text-center text-base font-bold text-emerald-300 sm:text-lg"
+          }
+        >
+          Added to cart
+        </p>
+        <div
+          className={
+            variant === "compact"
+              ? "flex flex-col gap-2"
+              : "flex flex-col gap-3 sm:flex-row"
+          }
+        >
+          <Link href={keepShoppingHref} className={keepShoppingClassName[variant]}>
+            Keep shopping
+          </Link>
+          <a href="#book-rental" className={viewCartClassName[variant]}>
+            {variant === "compact" ? "View cart" : "View cart / checkout"}
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
-      disabled={inCart}
       onClick={() => addRentalToCart({ rental_item, rental_name })}
-      className="inline-flex min-h-14 flex-1 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-6 py-4 text-center text-lg font-bold text-cyan-100 transition hover:bg-cyan-400/20 active:scale-[0.98] disabled:cursor-default disabled:border-white/20 disabled:bg-white/5 disabled:text-slate-400 sm:text-xl"
+      className={addClassName}
     >
-      {inCart ? "Added to rental request" : "Add to rental request"}
+      Add to cart
     </button>
+  );
+}
+
+export function RentalGoToBookingRequestButton({
+  variant = "hero",
+  ensureInCart,
+}: {
+  variant?: "hero" | "compact";
+  ensureInCart?: Pick<RentalCartItem, "rental_item" | "rental_name">;
+}) {
+  const addRentalToCart = useBookingStore((s) => s.addRentalToCart);
+
+  return (
+    <a
+      href="#book-rental"
+      className={viewCartClassName[variant]}
+      onClick={() => {
+        if (ensureInCart) {
+          addRentalToCart(ensureInCart);
+        }
+      }}
+    >
+      {variant === "compact" ? "View cart" : "View cart / checkout"}
+    </a>
+  );
+}
+
+export function RentalCartButton({ className }: { className?: string }) {
+  const count = useBookingStore((s) => s.rentalCartItems.length);
+
+  return (
+    <a
+      href="#book-rental"
+      className={
+        className ??
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-cyan-300/40 bg-cyan-400/15 px-5 py-2.5 text-sm font-bold text-cyan-50 shadow-sm transition hover:bg-cyan-400/25 active:scale-[0.98] sm:text-base"
+      }
+      aria-label={`Rental cart, ${count} item${count === 1 ? "" : "s"}`}
+    >
+      Rental Cart ({count})
+    </a>
+  );
+}
+
+export function RentalCartStatus() {
+  return <RentalCartButton />;
+}
+
+type RentalCardCartActionsProps = {
+  rental_item: string;
+  rental_name: string;
+  keepShoppingHref?: string;
+};
+
+export function RentalCardCartActions({
+  rental_item,
+  rental_name,
+  keepShoppingHref = "/rentals",
+}: RentalCardCartActionsProps) {
+  const inCart = useBookingStore((s) =>
+    s.rentalCartItems.some((item) => item.rental_item === rental_item),
+  );
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <RentalAddToRequestButton
+        rental_item={rental_item}
+        rental_name={rental_name}
+        variant="compact"
+        keepShoppingHref={keepShoppingHref}
+      />
+      {!inCart && <RentalGoToBookingRequestButton variant="compact" />}
+    </div>
   );
 }
 
 export function RentalBookingPanel({
   rental_item: slug,
   rentalTitle,
-  startingPrice,
   initialUnavailableYmds,
   availabilityLoadError,
 }: RentalBookingPanelProps) {
@@ -106,12 +277,30 @@ export function RentalBookingPanel({
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [restoredSuccessId, setRestoredSuccessId] = useState<string | null>(null);
+  const [submitEmailsSent, setSubmitEmailsSent] = useState<boolean | null>(null);
 
-  const persistedSuccessId =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem(RENTAL_SUCCESS_STORAGE_KEY)
-      : null;
-  const activeSuccessId = successId ?? persistedSuccessId;
+  const clearSubmitSuccess = () => {
+    clearPersistedSubmitSuccess();
+    setSuccessId(null);
+    setRestoredSuccessId(null);
+    setSubmitEmailsSent(null);
+  };
+
+  useEffect(() => {
+    setRestoredSuccessId(readPersistedSubmitSuccess(slug));
+  }, [slug]);
+
+  const activeSuccessId = successId ?? restoredSuccessId;
+
+  const skipCartSuccessClear = useRef(true);
+  useEffect(() => {
+    if (skipCartSuccessClear.current) {
+      skipCartSuccessClear.current = false;
+      return;
+    }
+    clearSubmitSuccess();
+  }, [rentalCartItems]);
 
   const selectedRentalItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length === 0) {
@@ -125,6 +314,17 @@ export function RentalBookingPanel({
       ...rentalCartItems,
     ];
   }, [rentalCartItems, slug, rentalTitle]);
+
+  const displayCartItems = useMemo((): RentalCartItem[] => {
+    if (rentalCartItems.length > 0) {
+      return rentalCartItems;
+    }
+    return [{ rental_item: slug, rental_name: rentalTitle }];
+  }, [rentalCartItems, slug, rentalTitle]);
+
+  const currentPageIncludedAtSubmit =
+    rentalCartItems.length > 0 &&
+    !rentalCartItems.some((item) => item.rental_item === slug);
 
   type ClientFetchState =
     | { status: "idle" }
@@ -190,7 +390,7 @@ export function RentalBookingPanel({
     if (!selectionValid) {
       return "That duration overlaps an unavailable date. Choose another start date or shorter duration.";
     }
-    return "Looks good — review your details and tap Reserve when ready.";
+    return "Looks good — complete checkout below and submit your request.";
   }, [selectedYmd, duration, selectionValid]);
 
   const selectionMessageTone = useMemo((): "info" | "warn" | "ok" => {
@@ -212,11 +412,19 @@ export function RentalBookingPanel({
 
   const subtotal =
     selectionValid && duration
-      ? estimateRentalSubtotal(startingPrice, duration.priceMultiplier)
+      ? estimateCartRentalSubtotal(
+          selectedRentalItems,
+          duration.label,
+          duration.spanDays,
+        )
       : null;
   const totalAmount =
     selectionValid && duration
-      ? estimateGrandTotal(startingPrice, duration.priceMultiplier)
+      ? estimateCartGrandTotal(
+          selectedRentalItems,
+          duration.label,
+          duration.spanDays,
+        )
       : null;
 
   const totalDisplay =
@@ -229,6 +437,8 @@ export function RentalBookingPanel({
       : !customerOk
         ? "Add your name, email, phone, event address, and requested delivery time to continue."
         : undefined;
+
+  const submitBlocked = Boolean(reserveReason) || isSubmitting;
 
   const serverLoadOk = availabilityLoadError === null;
 
@@ -276,15 +486,17 @@ export function RentalBookingPanel({
     const event_date = selectedYmd ?? "";
 
     setSubmitError(null);
-    sessionStorage.removeItem(RENTAL_SUCCESS_STORAGE_KEY);
-    setSuccessId(null);
-    setIsSubmitting(true);
+    clearSubmitSuccess();
 
-    if (selectedRentalItems.length === 0) {
-      setSubmitError("Add at least one rental to your request.");
-      setIsSubmitting(false);
+    if (reserveReason) {
+      setSubmitError(reserveReason);
+      document
+        .getElementById("checkout-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const res = await fetch("/api/book", {
@@ -319,10 +531,18 @@ export function RentalBookingPanel({
             ? (data as { error: string }).error
             : `Request failed (${res.status})`;
         setSubmitError(apiError);
+        document
+          .getElementById("book-rental")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
 
       const id = parseBookingId(data);
+      const emailsSent =
+        data &&
+        typeof data === "object" &&
+        "emailsSent" in data &&
+        (data as { emailsSent?: unknown }).emailsSent === true;
       const message =
         data &&
         typeof data === "object" &&
@@ -332,7 +552,8 @@ export function RentalBookingPanel({
           : undefined;
 
       if (res.ok && id) {
-        sessionStorage.setItem(RENTAL_SUCCESS_STORAGE_KEY, id);
+        setSubmitEmailsSent(emailsSent);
+        writePersistedSubmitSuccess(id, slug);
         setSuccessId(id);
         if (selectedYmd && duration) {
           setOptimisticBlockedYmds((prev) => {
@@ -385,6 +606,13 @@ export function RentalBookingPanel({
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               You will receive an email once Jumping Jax confirms your booking.
             </p>
+            {submitEmailsSent === false && (
+              <p className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-sm leading-relaxed text-amber-100">
+                Your request was saved, but we could not send a confirmation
+                email from the server. Jumping Jax will still follow up using
+                the phone number and email you provided.
+              </p>
+            )}
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               Booking request ID:{" "}
               <span className="font-mono text-xs text-white">
@@ -411,12 +639,15 @@ export function RentalBookingPanel({
               id="book-rental-heading"
               className="text-sm font-black uppercase tracking-[0.12em] text-cyan-200"
             >
-              Reserve this rental
+              Rental Cart
             </h2>
+            <p className="mt-1 text-base font-bold text-white sm:text-lg">
+              Checkout request
+            </p>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
-              Choose dates, duration, and your contact info. Unavailable days
-              reflect pending, approved, and blocked bookings in our system.
-              Estimated totals use mock delivery pricing for now.
+              Review your cart, then complete the checkout form below to send
+              one request for everything. Unavailable days reflect pending,
+              approved, and blocked bookings in our system.
             </p>
 
             {availabilityBanner && (
@@ -441,7 +672,78 @@ export function RentalBookingPanel({
               </p>
             )}
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start">
+            <div className="mt-6 rounded-2xl border-2 border-cyan-400/35 bg-cyan-400/10 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-black uppercase tracking-wide text-cyan-100">
+                  Your cart
+                </h3>
+                <span className="rounded-full border border-cyan-300/40 bg-cyan-300/15 px-2.5 py-0.5 text-xs font-bold tabular-nums text-cyan-50">
+                  {displayCartItems.length}
+                </span>
+              </div>
+              <ul
+                className="mt-3 space-y-2"
+                aria-label="Cart items"
+              >
+                {displayCartItems.map((item) => {
+                  const isFallback =
+                    rentalCartItems.length === 0 &&
+                    item.rental_item === slug;
+
+                  return (
+                    <li
+                      key={item.rental_item}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-[#071326]/50 px-3 py-2.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-white">
+                          {item.rental_name}
+                        </span>
+                        {isFallback && (
+                          <span className="mt-0.5 block text-xs text-cyan-100/70">
+                            On this page — add to cart or checkout below
+                          </span>
+                        )}
+                      </div>
+                      {!isFallback && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeRentalFromCart(item.rental_item)
+                          }
+                          className="shrink-0 text-xs font-bold uppercase tracking-wider text-rose-300 hover:text-rose-200"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {currentPageIncludedAtSubmit && (
+                <p className="mt-3 text-xs leading-relaxed text-cyan-100/80">
+                  <span className="font-semibold text-cyan-50">
+                    {rentalTitle}
+                  </span>{" "}
+                  (this page) will also be included when you submit.
+                </p>
+              )}
+              <p className="mt-3 text-xs leading-relaxed text-cyan-100/80">
+                Add more with{" "}
+                <a
+                  href="#related-rentals"
+                  className="font-semibold text-cyan-50 underline decoration-cyan-200/50 underline-offset-2 hover:text-white"
+                >
+                  related rentals below
+                </a>{" "}
+                or browse other units, then return here to checkout.
+              </p>
+            </div>
+
+            <div
+              id="checkout-form"
+              className="mt-8 grid scroll-mt-28 gap-6 sm:scroll-mt-32 lg:grid-cols-2 lg:items-start"
+            >
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
@@ -471,46 +773,13 @@ export function RentalBookingPanel({
 
               <div className="space-y-6">
                 <BookingSummary
-                  rentalTitle={rentalTitle}
-                  startingPrice={startingPrice}
+                  cartItems={selectedRentalItems}
                   selectedYmd={selectedYmd}
                   duration={duration}
                   selectionValid={selectionValid}
                   selectionMessage={selectionMessage}
                   selectionMessageTone={selectionMessageTone}
                 />
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Selected rentals
-                  </h3>
-                  <ul className="mt-3 space-y-2" aria-label="Selected rentals">
-                    {selectedRentalItems.map((item) => (
-                      <li
-                        key={item.rental_item}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
-                      >
-                        <span className="text-sm font-semibold text-slate-100">
-                          {item.rental_name}
-                        </span>
-                        {item.rental_item !== slug && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeRentalFromCart(item.rental_item)
-                            }
-                            className="shrink-0 text-xs font-bold uppercase tracking-wider text-rose-300 hover:text-rose-200"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                    Use &ldquo;Add to rental request&rdquo; on other rental
-                    pages to include more inflatables.
-                  </p>
-                </div>
                 <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
                   <label className="block">
@@ -547,14 +816,14 @@ export function RentalBookingPanel({
 
             <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-400 sm:max-w-xs">
-                Tap Reserve to send your request. You can use this button or the
-                bar at the bottom of the screen.
+                Complete the checkout form above, then submit your request.
               </p>
               <button
                 type="submit"
-                className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-full bg-cyan-400 px-8 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] sm:w-auto sm:min-h-14 sm:text-base"
+                disabled={submitBlocked}
+                className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-full bg-cyan-400 px-8 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-h-14 sm:text-base"
               >
-                {isSubmitting ? "Sending…" : "Reserve now"}
+                {isSubmitting ? "Sending…" : "Submit request"}
               </button>
             </div>
           </div>
@@ -564,6 +833,7 @@ export function RentalBookingPanel({
       <StickyReserveBar
         totalDisplay={totalDisplay}
         disabledReason={reserveReason}
+        submitDisabled={submitBlocked}
       />
       </fieldset>
     </form>

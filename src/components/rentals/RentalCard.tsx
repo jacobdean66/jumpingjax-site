@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Rental } from "@/data/rentals";
 import { rentalDetailPath } from "@/data/rentals";
+import { RentalCardCartActions } from "@/components/booking/RentalBookingPanel";
 
 /** Default `sizes` for 3-col grids inside max-w-6xl (mobile-first bandwidth). */
 const DEFAULT_CARD_SIZES =
@@ -13,12 +14,18 @@ type Props = {
   imagePriority?: boolean;
   /** Override responsive `sizes` when the card sits in a different layout. */
   imageSizes?: string;
+  /** Show cart actions below the card (detail-page related rentals). */
+  showCartActions?: boolean;
+  /** Where "Keep shopping" goes when item is already in cart. */
+  keepShoppingHref?: string;
 };
 
 export function RentalCard({
   rental,
   imagePriority = false,
   imageSizes = DEFAULT_CARD_SIZES,
+  showCartActions = false,
+  keepShoppingHref = "/rentals",
 }: Props) {
   const href = rentalDetailPath(rental);
 
@@ -60,11 +67,18 @@ export function RentalCard({
               className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-cyan-400 px-4 py-3.5 text-center text-base font-bold text-black shadow-sm shadow-black/20 transition group-hover:bg-cyan-300 sm:min-h-14 sm:text-lg"
               role="presentation"
             >
-              View details & book
+              View details
             </span>
           </div>
         </div>
       </Link>
+      {showCartActions && (
+        <RentalCardCartActions
+          rental_item={rental.slug}
+          rental_name={rental.title}
+          keepShoppingHref={keepShoppingHref}
+        />
+      )}
     </article>
   );
 }

@@ -1,16 +1,20 @@
 "use client";
 
+import { getRentalBySlug } from "@/data/rentals";
 import type { DurationOption } from "@/lib/mockBooking";
 import {
   MOCK_SERVICE_FEE,
-  estimateGrandTotal,
   estimateRentalSubtotal,
   formatDisplayDate,
 } from "@/lib/mockBooking";
+import {
+  estimateCartGrandTotal,
+  estimateCartRentalSubtotal,
+} from "@/lib/rentals/rental-pricing-text";
+import type { RentalCartItem } from "@/store/bookingStore";
 
 type Props = {
-  rentalTitle: string;
-  startingPrice: number;
+  cartItems: RentalCartItem[];
   selectedYmd: string | null;
   duration: DurationOption | undefined;
   selectionValid: boolean;
@@ -19,22 +23,24 @@ type Props = {
 };
 
 export function BookingSummary({
-  rentalTitle,
-  startingPrice,
+  cartItems,
   selectedYmd,
   duration,
   selectionValid,
   selectionMessage,
   selectionMessageTone = "info",
 }: Props) {
-  const subtotal =
-    duration && selectionValid
-      ? estimateRentalSubtotal(startingPrice, duration.priceMultiplier)
-      : null;
-  const total =
-    duration && selectionValid
-      ? estimateGrandTotal(startingPrice, duration.priceMultiplier)
-      : null;
+  const durationLabel = duration?.label ?? "";
+  const spanDays = duration?.spanDays ?? 1;
+  const multiplier = duration?.priceMultiplier ?? 1;
+  const showPrices = Boolean(duration && selectionValid);
+
+  const subtotal = showPrices
+    ? estimateCartRentalSubtotal(cartItems, durationLabel, spanDays)
+    : null;
+  const total = showPrices
+    ? estimateCartGrandTotal(cartItems, durationLabel, spanDays)
+    : null;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
@@ -46,12 +52,25 @@ export function BookingSummary({
       </p>
 
       <dl className="mt-4 space-y-3 text-sm">
-        <div className="flex justify-between gap-3 border-b border-white/10 pb-3">
-          <dt className="text-slate-400">Rental</dt>
-          <dd className="max-w-[60%] text-right font-semibold text-white">
-            {rentalTitle}
-          </dd>
-        </div>
+        {cartItems.map((item) => {
+          const rental = getRentalBySlug(item.rental_item);
+          const lineEstimate =
+            showPrices && rental
+              ? estimateRentalSubtotal(rental.startingPrice, multiplier)
+              : null;
+
+          return (
+            <div
+              key={item.rental_item}
+              className="flex justify-between gap-3 border-b border-white/10 pb-3"
+            >
+              <dt className="text-slate-400">{item.rental_name}</dt>
+              <dd className="max-w-[50%] text-right font-semibold tabular-nums text-white">
+                {lineEstimate != null ? `$${lineEstimate}` : "—"}
+              </dd>
+            </div>
+          );
+        })}
         <div className="flex justify-between gap-3 border-b border-white/10 pb-3">
           <dt className="text-slate-400">Start date</dt>
           <dd className="text-right font-medium text-slate-100">

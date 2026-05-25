@@ -3,11 +3,15 @@
 type Props = {
   totalDisplay: string | null;
   disabledReason?: string;
+  formId?: string;
+  submitDisabled?: boolean;
 };
 
 export function StickyReserveBar({
   totalDisplay,
   disabledReason,
+  formId = "booking-form",
+  submitDisabled = false,
 }: Props) {
   return (
     <div
@@ -31,9 +35,11 @@ export function StickyReserveBar({
         </div>
         <button
           type="submit"
-          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] sm:min-h-14 sm:px-8 sm:text-base"
+          form={formId}
+          disabled={submitDisabled}
+          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-14 sm:px-8 sm:text-base"
         >
-          Reserve now
+          Submit request
         </button>
       </div>
     </div>

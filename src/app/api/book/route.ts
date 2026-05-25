@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import {
+  buildRentalListWithPrices,
+  estimateCartGrandTotal,
+  estimateCartRentalSubtotal,
+  formatEstimatedTotalLine,
+} from "@/lib/rentals/rental-pricing-text";
+import {
+  rentalConfirmLink,
+  resolveRentalEmailSiteUrl,
+} from "@/lib/rentals/rental-site-url";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +92,16 @@ export async function POST(req: Request) {
     typeof body.notes === "string" && body.notes.trim()
       ? body.notes.trim()
       : "";
+  const subtotal = estimateCartRentalSubtotal(
+    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    durationLabel || "Standard",
+    spanDays,
+  );
+  const total = estimateCartGrandTotal(
+    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    durationLabel || "Standard",
+    spanDays,
+  );
 
   const result = await insertPendingBooking({
     rental_items: normalizedRentalItems,
@@ -93,13 +113,8 @@ export async function POST(req: Request) {
     spanDays,
     eventAddress,
     delivery_time,
-    subtotal: typeof body.subtotal === "number" ? body.subtotal : 0,
-    total:
-      typeof body.total === "number"
-        ? body.total
-        : typeof body.subtotal === "number"
-          ? body.subtotal
-          : 0,
+    subtotal,
+    total,
   });
 
   console.log("SUPABASE RESULT:", result);
@@ -119,7 +134,11 @@ export async function POST(req: Request) {
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const siteUrl = resolveRentalEmailSiteUrl(req.url);
+  console.log(
+    "[api/book] rental admin email site URL",
+    siteUrl || "(none — confirm/reject links omitted)",
+  );
 
   const durationParts: string[] = [];
   if (durationLabel) durationParts.push(durationLabel);
@@ -128,9 +147,14 @@ export async function POST(req: Request) {
   const durationLine =
     durationParts.length > 0 ? durationParts.join(" — ") : null;
 
-  const rentalListText = normalizedRentalItems
-    .map((item) => `- ${item.rental_name ?? item.rental_item}`)
-    .join("\n");
+  const rentalListText = buildRentalListWithPrices(
+    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    durationLabel || "Standard",
+    spanDays,
+  );
+  const estimatedTotalLine = formatEstimatedTotalLine(total);
+
+  let emailsSent = false;
 
   if (resendApiKey) {
     const resend = new Resend(resendApiKey);
@@ -149,7 +173,10 @@ export async function POST(req: Request) {
             "Jumping Jax will contact you once your request has been reviewed.",
             "",
             `Booking reference: ${result.id}`,
-            `Rentals:\n${rentalListText}`,
+            "Selected rentals:",
+            rentalListText,
+            estimatedTotalLine,
+            "Final quote will be confirmed by Jumping Jax.",
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : null,
             `Name: ${customerName}`,
@@ -162,6 +189,8 @@ export async function POST(req: Request) {
 
         if (emailError) {
           console.error("[api/book] rental customer email error", emailError);
+        } else {
+          emailsSent = true;
         }
       } catch (emailError) {
         console.error("[api/book] rental customer email error", emailError);
@@ -169,6 +198,11 @@ export async function POST(req: Request) {
     }
 
     if (facilityOwnerEmail) {
+      if (!siteUrl) {
+        console.error(
+          "[api/book] rental admin confirm links skipped: set NEXT_PUBLIC_SITE_URL (non-localhost) or deploy on Vercel",
+        );
+      }
       try {
         const { error: emailError } = await resend.emails.send({
           from: "Jumping Jax <onboarding@resend.dev>",
@@ -179,7 +213,9 @@ export async function POST(req: Request) {
             "This rental still needs manual review.",
             "",
             `Booking ID: ${result.id}`,
-            `Rentals:\n${rentalListText}`,
+            "Rentals:",
+            rentalListText,
+            estimatedTotalLine,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
             `Customer: ${customerName}`,
@@ -190,16 +226,24 @@ export async function POST(req: Request) {
               : "Event address: (not provided)",
             notes ? `Notes: ${notes}` : "Notes: (none)",
             "",
-            "Confirm this booking:",
-            `${siteUrl}/api/rentals/confirm?id=${result.id}&action=confirm`,
-            "",
-            "Reject this booking:",
-            `${siteUrl}/api/rentals/confirm?id=${result.id}&action=reject`,
+            ...(siteUrl
+              ? [
+                  "Confirm this booking:",
+                  rentalConfirmLink(siteUrl, result.id, "confirm"),
+                  "",
+                  "Reject this booking:",
+                  rentalConfirmLink(siteUrl, result.id, "reject"),
+                ]
+              : [
+                  "Confirm/reject links unavailable — set NEXT_PUBLIC_SITE_URL on Vercel.",
+                ]),
           ].join("\n"),
         });
 
         if (emailError) {
           console.error("[api/book] rental admin email error", emailError);
+        } else {
+          emailsSent = true;
         }
       } catch (emailError) {
         console.error("[api/book] rental admin email error", emailError);
@@ -207,5 +251,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: result.id });
+  return NextResponse.json({ ok: true, id: result.id, emailsSent });
 }
