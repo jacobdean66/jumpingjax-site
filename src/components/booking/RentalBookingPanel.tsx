@@ -10,6 +10,7 @@ import {
 import {
   MOCK_DURATION_OPTIONS,
   enumerateRange,
+  formatDisplayDate,
   rangeHasBlocked,
 } from "@/lib/mockBooking";
 import {
@@ -265,6 +266,7 @@ export function RentalBookingPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
+  const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(MOCK_DURATION_OPTIONS[1]!.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
@@ -411,19 +413,15 @@ export function RentalBookingPanel({
     return !rangeHasBlocked(selectedYmd, duration.spanDays, blockedSet);
   }, [selectedYmd, duration, blockedSet]);
 
-  const unavailableSelectedItems = useMemo(() => {
-    if (!selectedYmd || !duration || clientFetch.status !== "ok") return [];
+  const clickedBlockedUnavailableItems = useMemo(() => {
+    if (!clickedBlockedYmd || clientFetch.status !== "ok") return [];
 
     return selectedRentalItems.filter((item) => {
       const unavailableYmds =
         clientFetch.unavailableByRentalItem[item.rental_item] ?? [];
-      return rangeHasBlocked(
-        selectedYmd,
-        duration.spanDays,
-        new Set(unavailableYmds),
-      );
+      return unavailableYmds.includes(clickedBlockedYmd);
     });
-  }, [clientFetch, duration, selectedRentalItems, selectedYmd]);
+  }, [clickedBlockedYmd, clientFetch, selectedRentalItems]);
 
   const selectionMessage = useMemo(() => {
     if (!selectedYmd) return "Pick a start date to see your estimate.";
@@ -793,22 +791,34 @@ export function RentalBookingPanel({
                   <div className="mt-3">
                     <BookingDateCalendar
                       value={selectedYmd}
-                      onChange={setSelectedYmd}
+                      onChange={(ymd) => {
+                        setClickedBlockedYmd(null);
+                        setSelectedYmd(ymd);
+                      }}
                       blocked={blockedSet}
+                      onBlockedDateClick={(ymd) => {
+                        setSelectedYmd(null);
+                        setClickedBlockedYmd(ymd);
+                      }}
                     />
-                    {unavailableSelectedItems.length > 0 && (
+                    {clickedBlockedYmd &&
+                      clickedBlockedUnavailableItems.length > 0 && (
                       <div
                         className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-xs leading-relaxed text-amber-100 sm:text-sm"
                         role="alert"
                       >
                         <p className="font-semibold text-amber-50">
-                          Unavailable for the selected date range:
+                          {clickedBlockedUnavailableItems.length === 1
+                            ? `${clickedBlockedUnavailableItems[0]!.rental_name} is unavailable on ${formatDisplayDate(clickedBlockedYmd)}.`
+                            : `These rentals are unavailable on ${formatDisplayDate(clickedBlockedYmd)}:`}
                         </p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                          {unavailableSelectedItems.map((item) => (
-                            <li key={item.rental_item}>{item.rental_name}</li>
-                          ))}
-                        </ul>
+                        {clickedBlockedUnavailableItems.length > 1 && (
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {clickedBlockedUnavailableItems.map((item) => (
+                              <li key={item.rental_item}>{item.rental_name}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     )}
                   </div>

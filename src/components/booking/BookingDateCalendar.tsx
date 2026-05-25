@@ -9,6 +9,7 @@ type Props = {
   value: string | null;
   onChange: (ymd: string | null) => void;
   blocked?: ReadonlySet<string>;
+  onBlockedDateClick?: (ymd: string) => void;
   /** Optional: restrict how far out users can browse */
   maxMonthsAhead?: number;
 };
@@ -32,6 +33,7 @@ export function BookingDateCalendar({
   value,
   onChange,
   blocked = MOCK_BLOCKED_DATE_SET,
+  onBlockedDateClick,
   maxMonthsAhead = 6,
 }: Props) {
   const today = useMemo(() => startOfToday(), []);
@@ -125,7 +127,7 @@ export function BookingDateCalendar({
               const ymd = toYMD(d);
               const isPast = d < today;
               const isBlocked = blocked.has(ymd);
-              const disabled = isPast || isBlocked;
+              const disabled = isPast;
               const selected = value === ymd;
 
               return (
@@ -133,8 +135,13 @@ export function BookingDateCalendar({
                   key={ymd}
                   type="button"
                   disabled={disabled}
+                  aria-disabled={isBlocked || undefined}
                   onClick={() => {
                     if (disabled) return;
+                    if (isBlocked) {
+                      onBlockedDateClick?.(ymd);
+                      return;
+                    }
                     onChange(ymd);
                   }}
                   className={[
@@ -142,7 +149,7 @@ export function BookingDateCalendar({
                     selected
                       ? "z-[1] bg-cyan-400 text-black shadow-lg shadow-cyan-950/40"
                       : isBlocked
-                        ? "cursor-not-allowed bg-rose-500/15 text-rose-100/90 line-through decoration-rose-300/50"
+                        ? "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]"
                         : isPast
                           ? "cursor-not-allowed text-slate-600 opacity-45"
                           : "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]",
@@ -153,6 +160,14 @@ export function BookingDateCalendar({
                   aria-pressed={selected}
                 >
                   {day}
+                  {isBlocked && (
+                    <span
+                      className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/50 bg-amber-300 text-[0.65rem] font-black leading-none text-black shadow-sm shadow-black/20"
+                      aria-hidden="true"
+                    >
+                      !
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -161,8 +176,8 @@ export function BookingDateCalendar({
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-slate-400">
-        Unavailable dates appear in rose. Past days are grayed out and cannot be
-        selected.
+        Dates marked with ! have unavailable cart items. Tap one to see which
+        rental is unavailable. Past days are grayed out and cannot be selected.
       </p>
     </div>
   );
