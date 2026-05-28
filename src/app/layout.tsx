@@ -55,6 +55,12 @@ export default function RootLayout({
                 Rentals
               </Link>
               <Link
+                href="/rentals/foam-parties"
+                className="rounded-full bg-sky-100 px-3 py-2 text-sky-950 transition hover:bg-sky-200"
+              >
+                Foam Parties
+              </Link>
+              <Link
                 href="/rentals"
                 className="rounded-full bg-yellow-300 px-4 py-2 font-bold text-slate-950 shadow-sm shadow-yellow-700/20 transition hover:bg-yellow-200"
               >
