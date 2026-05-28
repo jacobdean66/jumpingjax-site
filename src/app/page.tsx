@@ -1,7 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import {
   CATEGORY_BROWSE_ORDER,
   CATEGORY_COPY,
@@ -12,7 +10,6 @@ import {
 
 const FEATURED_IMAGE_SIZES =
   "(max-width: 768px) 94vw, (max-width: 1200px) 33vw, 400px";
-const logoExists = existsSync(join(process.cwd(), "public", "logo.png"));
 
 export default function Home() {
   const featured = homeFeaturedRentals();
@@ -37,21 +34,17 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-sky-950/45 via-cyan-800/10 to-[#fff8e8]" />
 
         <div className="relative z-10 mx-auto max-w-5xl px-2 text-center text-white">
-          <div className="mx-auto mb-6 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-yellow-300 bg-white/95 p-3 text-center text-lg font-black leading-tight text-pink-600 shadow-xl shadow-sky-950/25 sm:h-36 sm:w-36 sm:text-2xl">
-            {logoExists ? (
-              <Image
-                src="/logo.png"
-                alt="Jumping Jax logo"
-                width={128}
-                height={128}
-                priority
-                className="h-full w-full object-contain"
-              />
-            ) : (
-              <span>Jumping Jax</span>
-            )}
+          <div className="relative mx-auto mb-6 h-36 w-[min(92vw,34rem)] drop-shadow-[0_18px_28px_rgba(8,18,45,0.58)] sm:h-48 sm:w-[min(78vw,46rem)]">
+            <Image
+              src="/logo.png"
+              alt="Jumping Jax Inflatable Rentals & Parties logo"
+              fill
+              priority
+              sizes="(max-width: 640px) 92vw, 46rem"
+              className="object-contain"
+            />
           </div>
-          <h1 className="mb-6 text-4xl font-black leading-tight tracking-tight drop-shadow-md sm:text-6xl md:text-7xl">
+          <h1 className="mb-6 text-3xl font-black leading-tight tracking-tight drop-shadow-md sm:text-5xl md:text-6xl">
             Water Slide & Bounce House Rentals
           </h1>
 
