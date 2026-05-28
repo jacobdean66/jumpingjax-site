@@ -350,6 +350,7 @@ const FOAM_PARTY_RENTALS: Rental[] = [
       "All ages with adult supervision; guests should expect wet, slippery foam play.",
     setupRequirements: [
       "Level outdoor setup area with safe drainage and permission for foam/water use.",
+      "Foam party space must be completely cleared before setup: no toys, sticks, rocks, yard debris, trash, or dog poop. Guests will be rolling, sliding, and playing in this area.",
       "Standard 120V outlet within 50 ft and access to a water source or hose reach.",
       "Clear path for delivery and enough open space for guests to move safely.",
     ],
@@ -458,6 +459,7 @@ function setupForCategory(categoryId: RentalCategoryId): string[] {
   if (categoryId === "foam-parties") {
     return [
       "Level outdoor setup area with safe drainage and permission for foam/water use.",
+      "Foam party space must be completely cleared before setup: no toys, sticks, rocks, yard debris, trash, or dog poop. Guests will be rolling, sliding, and playing in this area.",
       "Standard 120V outlet within 50 ft and access to a water source or hose reach.",
       "Clear path for delivery and enough open space for guests to move safely.",
     ];

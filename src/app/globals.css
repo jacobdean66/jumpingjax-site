@@ -27,3 +27,49 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+.facility-party-readable {
+  color: #0f172a;
+}
+
+.facility-party-readable :is(h2, h3, legend, label, p, li, span, button) {
+  color: #0f172a;
+}
+
+.facility-party-readable :is(p, li, span, label) {
+  line-height: 1.65;
+}
+
+.facility-party-readable :is(input, select, textarea) {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.facility-party-readable :is(input, select, textarea)::placeholder {
+  color: #64748b;
+}
+
+.facility-party-readable
+  :is(button, div, fieldset, label)[class*="bg-[#071326"] {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.facility-party-readable :is(div, p)[class*="bg-cyan-400/5"],
+.facility-party-readable :is(div, p)[class*="bg-cyan-300/"],
+.facility-party-readable :is(button)[class*="bg-cyan-400/10"] {
+  background: #ecfeff;
+  border-color: #67e8f9;
+}
+
+.facility-party-readable :is(p)[class*="bg-amber-400/5"] {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #78350f;
+}
+
+.facility-party-readable button:disabled,
+.facility-party-readable [class*="opacity-50"] {
+  opacity: 0.7;
+}

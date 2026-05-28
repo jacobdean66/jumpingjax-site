@@ -33,7 +33,7 @@ import type {
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
 
 const controlClassName =
-  "w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30";
+  "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
 
 const inputClassName = `mt-1.5 ${controlClassName}`;
 
@@ -458,7 +458,7 @@ export function FacilityPartyBookingForm() {
         ref={confirmationRef}
         tabIndex={-1}
         role="status"
-        className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-emerald-300/[0.08] p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
+        className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-white p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
           Booking request received
@@ -491,7 +491,7 @@ export function FacilityPartyBookingForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left sm:mt-14 sm:p-8"
+      className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_18px_48px_rgba(15,23,42,0.12)] sm:mt-14 sm:p-8"
     >
       <header className="space-y-3">
         <h2 className="text-lg font-black uppercase tracking-wide text-cyan-200 sm:text-xl">
