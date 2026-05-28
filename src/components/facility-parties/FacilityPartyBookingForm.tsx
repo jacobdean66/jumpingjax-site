@@ -46,6 +46,7 @@ const FACILITY_DRINK_CHOICES = [
 ] as const;
 
 const PAYMENT_METHOD_CHOICES = ["Cash", "Card"] as const;
+const CHILD_GENDER_CHOICES = ["Boy", "Girl"] as const;
 
 const PARTY_KIND_CHOICES: {
   id: FacilityPartyKind;
@@ -889,14 +890,20 @@ export function FacilityPartyBookingForm() {
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Child&apos;s gender
                   </span>
-                  <input
-                    type="text"
+                  <select
                     name="childGender"
+                    required
                     value={childGender}
                     onChange={(e) => setChildGender(e.target.value)}
                     className={inputClassName}
-                    placeholder="Girl, boy, nonbinary, or prefer not to say"
-                  />
+                  >
+                    <option value="">Select gender</option>
+                    {CHILD_GENDER_CHOICES.map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -986,8 +993,9 @@ export function FacilityPartyBookingForm() {
                     className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
                   />
                   <span>
-                    I understand a $50 deposit is due two weeks before the
-                    party date and can be paid directly to Jumping Jax.
+                    I understand the $50 deposit is due within one week of
+                    making this reservation and can be paid directly to Jumping
+                    Jax.
                   </span>
                 </label>
                 <label className="block">

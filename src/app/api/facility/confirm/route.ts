@@ -292,7 +292,7 @@ export async function GET(req: Request) {
           ? `Payment method: ${booking.payment_method}`
           : null,
         action === "confirm"
-          ? "Deposit: $50 due two weeks before the party date, paid directly to Jumping Jax."
+          ? "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
           : null,
         "",
         formatStoredFacilityAddons(booking.addon_selections),

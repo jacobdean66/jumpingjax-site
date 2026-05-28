@@ -31,6 +31,19 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
         <header className="border-b-4 border-pink-400 bg-white/95 shadow-sm backdrop-blur">
           <div className="h-2 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
+          <div className="bg-slate-950 px-4 py-2 text-center text-sm font-bold text-white sm:text-base">
+            <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-1 sm:flex-row sm:gap-6">
+              <a href="tel:8649331420" className="hover:text-yellow-300">
+                864-933-1420
+              </a>
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
+                className="hover:text-yellow-300"
+              >
+                559 Beaudrot Rd, Greenwood, SC
+              </a>
+            </div>
+          </div>
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <Link href="/" className="text-lg font-black tracking-wide text-pink-600">
               Jumping Jax
@@ -59,6 +72,12 @@ export default function RootLayout({
                 className="rounded-full bg-sky-100 px-3 py-2 text-sky-950 transition hover:bg-sky-200"
               >
                 Foam Parties
+              </Link>
+              <Link
+                href="/#contact"
+                className="rounded-full bg-orange-100 px-3 py-2 text-orange-950 transition hover:bg-orange-200"
+              >
+                Contact
               </Link>
               <Link
                 href="/rentals"

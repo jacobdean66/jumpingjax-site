@@ -134,25 +134,25 @@ const ITEM_STARTING_PRICE: Record<string, number> = {
   "whoville-igloo-combo-grinch-themed-inflatable-bounce-house": 275,
   "world-of-disney": 175,
   "4-in-1-sports-game": 225,
-  "floating-baseball-game": 115,
-  "football-game": 115,
+  "floating-baseball-game": 75,
+  "football-game": 75,
   "human-whackamole": 180,
   "hungry-hippo": 325,
-  "jumpingjax-basketball-shootout": 125,
+  "jumpingjax-basketball-shootout": 225,
   "sports-star": 75,
   "call-of-duty-course": 225,
-  "criss-cross-course": 375,
+  "criss-cross-course": 350,
   "grinch-whoville-mayhem": 375,
   "offshore-obstacle-course": 450,
   "sports-course": 275,
   "toxic-course": 275,
-  "18-ft-slide": 225,
+  "18-ft-slide": 175,
   "18-ft-tropical-double-lane-slide": 325,
-  "24-ft-slide": 375,
+  "24-ft-slide": 225,
   "30-ft-long-rock-climb-slide": 200,
-  "pirate-slide": 275,
-  "princess-slide": 275,
-  "sugar-rush-slide": 325,
+  "pirate-slide": 175,
+  "princess-slide": 175,
+  "sugar-rush-slide": 175,
   "18-ft-tropical-double-lane-waterslide": 450,
   "island-breeze-combo-waterslide": 300,
   "pirate-waterslide": 325,
@@ -164,13 +164,13 @@ const ITEM_STARTING_PRICE: Record<string, number> = {
   chairs: 3,
   "cotton-candy": 85,
   "cotton-candy-birthday-package": 30,
-  "dunk-tank": 200,
+  "dunk-tank": 190,
   generator: 100,
   "helium-latex-balloons": 10,
   "inflatable-birthday-chair": 75,
   "popcorn-machine": 100,
   "sno-cone": 85,
-  "basketball-game": 75,
+  "basketball-game": 105,
 };
 
 const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
@@ -212,9 +212,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "22' Tropical Hurricane Waterslide",
     shortDescription:
-      "22' Tropical Hurricane Waterslide - premium tall water slide with tropical color.",
+      "22' Tropical Hurricane Waterslide - premium tall water slide with an extended lane.",
     description:
-      "Reserve 22' Tropical Hurricane Waterslide for your next South Carolina event. This premium tall water slide brings bright tropical styling and big summer energy. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve 22' Tropical Hurricane Waterslide for your next South Carolina event. This premium tall water slide brings bright tropical styling, big summer energy, and an extended lane for a longer ride. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 450,
     imageSrc: "/inflatables/waterslides/legacy/22-ft-tropical-hurricane-waterslide.jpg",
     imageAlt: "22' Tropical Hurricane Waterslide rental from Jumping Jax",
@@ -244,9 +244,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "Double Splash Waterslide",
     shortDescription:
-      "Double Splash Waterslide - compact water fun with a friendly price point.",
+      "Double Splash Waterslide - 15-foot compact water fun with a friendly price point.",
     description:
-      "Reserve Double Splash Waterslide for your next South Carolina event. This waterslide is a good fit when you want summer fun without the footprint of the tallest units. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve Double Splash Waterslide for your next South Carolina event. This 15-foot waterslide is a good fit when you want summer fun without the footprint of the tallest units. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 250,
     imageSrc: "/inflatables/waterslides/legacy/double-splash-waterslide.jpg",
     imageAlt: "Double Splash Waterslide rental from Jumping Jax",
@@ -260,9 +260,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "Mini Tiki Plunge",
     shortDescription:
-      "Mini Tiki Plunge - smaller water slide option for younger guests.",
+      "Mini Tiki Plunge - 15-foot water slide option for younger guests.",
     description:
-      "Reserve Mini Tiki Plunge for your next South Carolina event. This smaller waterslide option is friendly for younger kids and tighter spaces while still keeping the party cool. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve Mini Tiki Plunge for your next South Carolina event. This 15-foot waterslide option is friendly for younger kids and tighter spaces while still keeping the party cool. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 200,
     imageSrc: "/inflatables/waterslides/legacy/mini-tiki-plunge.jpg",
     imageAlt: "Mini Tiki Plunge rental from Jumping Jax",
@@ -276,9 +276,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "Mini Waterslide",
     shortDescription:
-      "Mini Waterslide - smaller splash option for younger parties and tighter yards.",
+      "Mini Waterslide - 12-foot splash option for younger parties and tighter yards.",
     description:
-      "Reserve Mini Waterslide for your next South Carolina event. This compact water slide is a good fit for younger children and smaller setup areas. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve Mini Waterslide for your next South Carolina event. This compact 12-foot water slide is a good fit for younger children and smaller setup areas. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 175,
     imageSrc: "/inflatables/waterslides/legacy/mini-waterslide.jpg",
     imageAlt: "Mini Waterslide rental from Jumping Jax",
@@ -324,9 +324,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "Rampage Doublelane Waterslide",
     shortDescription:
-      "Rampage Doublelane Waterslide - 22-foot dual-lane racing waterslide.",
+      "Rampage Doublelane Waterslide - 20-foot dual-lane racing waterslide.",
     description:
-      "Reserve Rampage Doublelane Waterslide for your next South Carolina event. The Rampage features two 22-foot slide lanes and a curling ramp at the bottom for thrill-seeking guests who want to beat the heat. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve Rampage Doublelane Waterslide for your next South Carolina event. The Rampage features two 20-foot slide lanes and a curling ramp at the bottom for thrill-seeking guests who want to beat the heat. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 375,
     imageSrc: "/inflatables/waterslides/legacy/rampage-doublelane-waterslide.jpg",
     imageAlt: "Rampage Doublelane Waterslide rental from Jumping Jax",
@@ -340,9 +340,9 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     categoryId: "water-slides",
     title: "Ruby Falls Waterslide with Deep Pool",
     shortDescription:
-      "Ruby Falls Waterslide with Deep Pool - water slide ending in a deeper splash pool.",
+      "Ruby Falls Waterslide with Deep Pool - 19-foot water slide ending in a deeper splash pool.",
     description:
-      "Reserve Ruby Falls Waterslide with Deep Pool for your next South Carolina event. This waterslide adds a bigger splash pool experience for hot summer celebrations. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+      "Reserve Ruby Falls Waterslide with Deep Pool for your next South Carolina event. This 19-foot waterslide adds a bigger splash pool experience for hot summer celebrations. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
     startingPrice: 350,
     imageSrc: "/inflatables/waterslides/legacy/ruby-falls-waterslide-with-deep-pool.jpg",
     imageAlt: "Ruby Falls Waterslide with Deep Pool rental from Jumping Jax",
@@ -368,7 +368,7 @@ const FOAM_PARTY_RENTALS: Rental[] = [
     ageRecommendation:
       "All ages with adult supervision; guests should expect wet, slippery foam play.",
     setupRequirements: [
-      "Level outdoor setup area with safe drainage and permission for foam/water use.",
+      "Recommended foam play area is about 30 ft x 30 ft, with safe drainage and permission for foam/water use.",
       "Foam party space must be completely cleared before setup: no toys, sticks, rocks, yard debris, trash, or dog poop. Guests will be rolling, sliding, and playing in this area.",
       "Standard 120V outlet within 50 ft and access to a water source or hose reach.",
       "Clear path for delivery and enough open space for guests to move safely.",
@@ -416,7 +416,7 @@ const ACCESSORY_RENTALS: Rental[] = [
   {
     slug: "dunk-tank",
     title: "Dunk Tank",
-    startingPrice: 200,
+    startingPrice: 190,
     imageSrc: "/inflatables/accessories/dunk-tank.jpg",
   },
   {
@@ -472,6 +472,96 @@ const TITLE_OVERRIDES: Record<string, string> = {
   combo1: "Combo Bounce & Slide",
 };
 
+const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
+  "dalmation-bounce":
+    "Dalmatian Bounce House - great for Paw Patrol themed parties and fireman themed parties.",
+  "jumbo-castle-bouncer":
+    "Jumbo Castle Bouncer - extra large bounce area for classic birthday party fun.",
+  "candy-land-toddle-combo":
+    "Candy Land Toddler Combo - dry unit only, recommended for children 5 and under.",
+  "cars-combo":
+    "Cars Combo - small bounce area, basketball goal, tunnel, obstacles, climb, and slide.",
+  "castle-combo":
+    "Castle Combo - dry unit only with a bounce area, twister spots, basketball goal, and outside slide.",
+  "18-ft-tropical-double-lane-waterslide":
+    "18 Ft Tropical Double Lane Waterslide - built for side-by-side racing.",
+  "island-breeze-combo-waterslide":
+    "Island Breeze Combo Waterslide - large bounce area, basketball goal, climb, and waterslide.",
+  "pirate-waterslide":
+    "Pirate Waterslide - 18-foot water slide with a splash pool at the end.",
+  "princess-waterslide":
+    "Princess Waterslide - 18-foot water slide for princess parties and girls-just-wanna-have-fun birthdays.",
+  "18-ft-tropical-double-lane-slide":
+    "18 Ft Tropical Double Lane Slide - side-by-side racing fun for dry events.",
+  "30-ft-long-rock-climb-slide":
+    "30 Ft Long Rock Climb Slide - enter the tunnel, climb the wall, and slide as you race your opponent.",
+  "pirate-slide":
+    "Pirate Slide - kids can use their imagination while playing on the pirate slide.",
+  "criss-cross-course":
+    "Criss Cross Course - race your opponent through crossover obstacles, climbs, and slides.",
+  "grinch-whoville-mayhem":
+    "Grinch Whoville Mayhem - great for holiday parties, Christmas, and Christmas in July.",
+  "offshore-obstacle-course":
+    "Offshore Obstacle Course - race-ready course that can be used wet or dry.",
+  "toxic-course":
+    "Toxic Course - race uphill through obstacles, climb to the steps, and slide down.",
+  "4-in-1-sports-game":
+    "4-in-1 Sports Game - includes baseball, football, basketball, and soccer.",
+  "human-whackamole":
+    "Human Whac-A-Mole - accommodates seven people at one time for fast group fun.",
+  "jumpingjax-basketball-shootout":
+    "Jumping Jax Basketball Shootout - eight goals to keep shooters moving.",
+  "basketball-game": "Basketball Game - compete one on one.",
+};
+
+const DESCRIPTION_OVERRIDES: Record<string, string> = {
+  "dalmation-bounce":
+    "Reserve Dalmatian Bounce House for your next South Carolina event. This classic bounce house is great for Paw Patrol themed parties, fireman themed parties, and young guests who want a bright jump area. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "jumbo-castle-bouncer":
+    "Reserve Jumbo Castle Bouncer for your next South Carolina event. The extra large bounce area gives kids more room to jump, play, and burn energy during birthday parties, school events, and family celebrations. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "candy-land-toddle-combo":
+    "Reserve Candy Land Toddler Combo for your next South Carolina event. This dry unit is recommended for children 5 and under and gives younger guests a toddler-friendly bounce and slide experience. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "cars-combo":
+    "Reserve Cars Combo for your next South Carolina event. This combo has a small bounce area with a basketball goal, a tunnel that goes under the slide, obstacles to go through, and then a climb and slide. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "castle-combo":
+    "Reserve Castle Combo for your next South Carolina event. This dry unit has a bounce area with colored spots for twister play, a basketball goal, and a small climbing slide that exits on the outside. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "18-ft-tropical-double-lane-waterslide":
+    "Reserve 18 Ft Tropical Double Lane Waterslide for your next South Carolina event. Two lanes make it perfect for side-by-side racing, keeping the line moving and the party energy high. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "island-breeze-combo-waterslide":
+    "Reserve Island Breeze Combo Waterslide for your next South Carolina event. It has a large bounce area, a basketball goal, and a fun climb and waterslide for guests who want more than one way to play. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "pirate-waterslide":
+    "Reserve Pirate Waterslide for your next South Carolina event. This 18-foot waterslide lets kids use their imagination while sliding into the splash pool at the end. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "princess-waterslide":
+    "Reserve Princess Waterslide for your next South Carolina event. Treat her like a princess with this 18-foot waterslide made for bright birthdays, dress-up themes, and girls-just-wanna-have-fun parties. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "18-ft-tropical-double-lane-slide":
+    "Reserve 18 Ft Tropical Double Lane Slide for your next South Carolina event. The dual-lane design adds side-by-side racing for dry events, school days, and backyard parties. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "30-ft-long-rock-climb-slide":
+    "Reserve 30 Ft Long Rock Climb Slide for your next South Carolina event. Enter the tunnel, climb the wall, and slide as you race your opponent to the finish. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "pirate-slide":
+    "Reserve Pirate Slide for your next South Carolina event. Kids can use their imagination while playing on the pirate slide, making it a strong fit for themed birthdays and dry events. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "criss-cross-course":
+    "Reserve Criss Cross Course for your next South Carolina event. Race your opponent through the obstacles, cross over, climb to the top, cross over again, and slide down to see who can finish first. It is great for one-on-one competition, and our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "grinch-whoville-mayhem":
+    "Reserve Grinch Whoville Mayhem for your next South Carolina event. This course is great for holiday parties, Christmas, and Christmas in July, and it can be used wet or dry. It is also great for one-on-one competition, and our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "offshore-obstacle-course":
+    "Reserve Offshore Obstacle Course for your next South Carolina event. This course can be used wet or dry and is great for one-on-one competition, relays, schools, churches, and large parties. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "toxic-course":
+    "Reserve Toxic Course for your next South Carolina event. Race your opponent through obstacles while running uphill to get to the steps, then slide down to the finish. It is great for one-on-one competition, and our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "4-in-1-sports-game":
+    "Reserve 4-in-1 Sports Game for your next South Carolina event. This inflatable game includes baseball, football, basketball, and soccer so guests can rotate through multiple sports challenges. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "human-whackamole":
+    "Reserve Human Whac-A-Mole for your next South Carolina event. This game can accommodate seven people at one time and keeps guests entertained with quick, silly group competition. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "jumpingjax-basketball-shootout":
+    "Reserve Jumping Jax Basketball Shootout for your next South Carolina event. It has eight goals to shoot at, making it a high-capacity basketball challenge for schools, churches, birthdays, and festivals. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+  "basketball-game":
+    "Reserve Basketball Game for your next South Carolina event. Compete one on one with a simple crowd-friendly yard game that pairs well with inflatables, foam parties, and concessions. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+};
+
+const AGE_RECOMMENDATION_OVERRIDES: Record<string, string> = {
+  "candy-land-toddle-combo":
+    "Recommended for children 5 and under; adult supervision required.",
+};
+
 /**
  * Filename stems flagged for editorial follow-up (titles inferred; confirm with ops).
  * TODO(content): Replace inferred names when official SKU / licensing labels are finalized.
@@ -513,9 +603,9 @@ function inferTitle(stem: string): string {
 function shortBlurb(categoryId: RentalCategoryId, title: string): string {
   const templates: Record<RentalCategoryId, string> = {
     "bounce-houses": `${title} — roomy jump floor, bright artwork, and parent-friendly sightlines.`,
-    combos: `${title} — bounce zone plus slide in one unit; ask about wet or dry configuration when you book.`,
+    combos: `${title} - large bounce area, basketball goal, and small climb and slide in one unit.`,
     "inflatable-games": `${title} — keeps guests active and rotating; great alongside a bounce or slide.`,
-    "obstacle-courses": `${title} — built for relays and timed runs; ideal for schools and large guest lists.`,
+    "obstacle-courses": `${title} - great for one-on-one competition, relays, and timed runs.`,
     slides: `${title} — tall slide presence without water requirements; great for dry events and cooler days.`,
     "water-slides": `${title} — summer-ready water fun; hose and power placement confirmed before delivery.`,
     "yard-games": `${title} — pairs well with inflatables for festivals, churches, and backyard parties.`,
@@ -527,6 +617,29 @@ function shortBlurb(categoryId: RentalCategoryId, title: string): string {
 
 function longDescription(categoryId: RentalCategoryId, title: string): string {
   return `Reserve ${title} for your next South Carolina event. ${shortBlurb(categoryId, title)} Our crew handles delivery, inflation, and safety review so you can focus on your guests.`;
+}
+
+function shortDescriptionForRental(
+  slug: string,
+  categoryId: RentalCategoryId,
+  title: string,
+): string {
+  return SHORT_DESCRIPTION_OVERRIDES[slug] ?? shortBlurb(categoryId, title);
+}
+
+function descriptionForRental(
+  slug: string,
+  categoryId: RentalCategoryId,
+  title: string,
+): string {
+  return DESCRIPTION_OVERRIDES[slug] ?? longDescription(categoryId, title);
+}
+
+function ageRecommendationForRental(
+  slug: string,
+  categoryId: RentalCategoryId,
+): string {
+  return AGE_RECOMMENDATION_OVERRIDES[slug] ?? ageForCategory(categoryId);
 }
 
 function ageForCategory(categoryId: RentalCategoryId): string {
@@ -568,6 +681,7 @@ function setupForCategory(categoryId: RentalCategoryId): string[] {
   if (categoryId === "foam-parties") {
     return [
       "Level outdoor setup area with safe drainage and permission for foam/water use.",
+      "Recommended foam play area is about 30 ft x 30 ft.",
       "Foam party space must be completely cleared before setup: no toys, sticks, rocks, yard debris, trash, or dog poop. Guests will be rolling, sliding, and playing in this area.",
       "Standard 120V outlet within 50 ft and access to a water source or hose reach.",
       "Clear path for delivery and enough open space for guests to move safely.",
@@ -622,12 +736,12 @@ function manifestToRentals(): Rental[] {
       slug,
       categoryId,
       title,
-      shortDescription: shortBlurb(categoryId, title),
-      description: longDescription(categoryId, title),
+      shortDescription: shortDescriptionForRental(slug, categoryId, title),
+      description: descriptionForRental(slug, categoryId, title),
       startingPrice: ITEM_STARTING_PRICE[slug] ?? DEFAULT_STARTING_PRICE[categoryId],
       imageSrc,
       imageAlt: `${title} inflatable rental from Jumping Jax`,
-      ageRecommendation: ageForCategory(categoryId),
+      ageRecommendation: ageRecommendationForRental(slug, categoryId),
       setupRequirements: setupForCategory(categoryId),
     });
   }

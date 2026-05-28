@@ -391,7 +391,7 @@ export async function POST(req: NextRequest) {
           `Party theme: ${String(party_theme).trim()}`,
           `Drink choice: ${String(drink_choice).trim()}`,
           `Payment method: ${String(payment_method).trim()}`,
-          `Deposit: $50 due two weeks before the party date, paid directly to Jumping Jax.`,
+          `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
           "",
           addonsEmailText,
           ...pricingLines,

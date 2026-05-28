@@ -76,9 +76,9 @@ export const business: BusinessInfo = {
 // ============================================================================
 
 export const contact: ContactInfo = {
-  phone: "(864) 555-JUMP",
-  email: "info@jumpingjax.com",
-  address: "Greenwood, SC",
+  phone: "864-933-1420",
+  email: "info@jumpingjaxllc.com",
+  address: "559 Beaudrot Rd, Greenwood, SC",
 };
 
 // ============================================================================
@@ -94,6 +94,9 @@ export const location: LocationInfo = {
     "Clinton",
     "Abbeville",
     "Edgefield",
+    "Honea Path",
+    "Laurens",
+    "Ninety Six",
     "Saluda",
     "McCormick",
   ],
@@ -143,12 +146,14 @@ export const navigationLinks: NavigationLink[] = [
   { label: "Home", href: "/" },
   { label: "Rentals", href: "/rentals" },
   { label: "Facility Parties", href: "/facility-parties" },
+  { label: "Foam Parties", href: "/rentals/foam-parties" },
+  { label: "Accessories", href: "/rentals/accessories" },
   { label: "Contact", href: "/contact" },
 ];
 
 export const mobileNavigationLinks: NavigationLink[] = [
   ...navigationLinks,
-  { label: "Phone", href: "tel:(864) 555-JUMP" },
+  { label: "Phone", href: "tel:8649331420" },
 ];
 
 // ============================================================================
@@ -162,6 +167,8 @@ export const footerSections: FooterSection[] = [
       { label: "Home", href: "/" },
       { label: "Rentals", href: "/rentals" },
       { label: "Facility Parties", href: "/facility-parties" },
+      { label: "Foam Parties", href: "/rentals/foam-parties" },
+      { label: "Accessories", href: "/rentals/accessories" },
       { label: "Contact", href: "/contact" },
     ],
   },
@@ -174,6 +181,8 @@ export const footerSections: FooterSection[] = [
       { label: "Obstacle Courses", href: "/rentals/obstacle-courses" },
       { label: "Slides", href: "/rentals/slides" },
       { label: "Water Slides", href: "/rentals/water-slides" },
+      { label: "Foam Parties", href: "/rentals/foam-parties" },
+      { label: "Accessories", href: "/rentals/accessories" },
       { label: "Yard Games", href: "/rentals/yard-games" },
     ],
   },
@@ -245,6 +254,8 @@ export const rentalCategories = [
   { id: "obstacle-courses", label: "Obstacle Courses", icon: "flag" },
   { id: "slides", label: "Slides", icon: "mountain" },
   { id: "water-slides", label: "Water Slides", icon: "waves" },
+  { id: "foam-parties", label: "Foam Parties", icon: "bubbles" },
+  { id: "accessories", label: "Accessories", icon: "package" },
   { id: "yard-games", label: "Yard Games", icon: "trophy" },
 ];
 

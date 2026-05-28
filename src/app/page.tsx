@@ -11,6 +11,17 @@ import {
 const FEATURED_IMAGE_SIZES =
   "(max-width: 768px) 94vw, (max-width: 1200px) 33vw, 400px";
 
+const SERVICE_AREAS = [
+  "Greenwood",
+  "Clinton",
+  "Abbeville",
+  "Edgefield",
+  "Honea Path",
+  "Laurens",
+  "Ninety Six",
+  "Saluda",
+];
+
 export default function Home() {
   const featured = homeFeaturedRentals();
 
@@ -44,13 +55,26 @@ export default function Home() {
               className="object-contain"
             />
           </div>
+          <div className="mx-auto mb-5 flex max-w-3xl flex-col items-center justify-center gap-2 rounded-3xl border border-white/50 bg-white/90 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-sky-950/20 sm:flex-row sm:gap-5 sm:text-base">
+            <a href="tel:8649331420" className="hover:text-pink-700">
+              864-933-1420
+            </a>
+            <span className="hidden h-5 w-px bg-slate-300 sm:block" />
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
+              className="hover:text-pink-700"
+            >
+              559 Beaudrot Rd, Greenwood, SC
+            </a>
+          </div>
           <h1 className="mb-6 text-3xl font-black leading-tight tracking-tight drop-shadow-md sm:text-5xl md:text-6xl">
-            Water Slide & Bounce House Rentals
+            Indoor Play Area, Parties & Rentals
           </h1>
 
           <p className="mx-auto mb-10 max-w-3xl text-pretty text-lg font-semibold leading-snug text-white drop-shadow sm:text-xl md:text-2xl">
-            Bright, clean party rentals across Greenwood, Clinton, Abbeville &
-            Edgefield areas.
+            Open play hours, party rooms, foam parties, water slides, bounce
+            houses, and clean rental delivery across Greenwood and nearby
+            communities.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
@@ -66,6 +90,44 @@ export default function Home() {
               className="inline-flex min-h-14 w-full max-w-[280px] items-center justify-center rounded-full border border-white/70 bg-white/90 px-8 text-lg font-bold text-pink-700 backdrop-blur transition duration-200 hover:bg-white active:scale-[0.98] sm:min-h-[3.5rem]"
             >
               Facility Party
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* INDOOR FACILITY */}
+      <section className="bg-cyan-100 px-4 py-20 sm:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <span className="inline-flex rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-800">
+              Indoor Play Area
+            </span>
+            <h2 className="mt-5 text-balance text-3xl font-black tracking-tight sm:text-5xl">
+              Come play indoors, then party in a real party room.
+            </h2>
+            <p className="mt-5 text-pretty text-base leading-8 text-slate-700 sm:text-lg">
+              Jumping Jax is an indoor play area in Greenwood with open play
+              hours, inflatable fun, seating for families, concessions, and
+              birthday party options. Families choose us because kids can move,
+              bounce, slide, and celebrate in one place while parents have a
+              simple reservation process and a team that handles the setup.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border-2 border-white bg-white/80 p-5 shadow-[0_14px_36px_rgba(6,182,212,0.16)] sm:p-6">
+            <h3 className="text-2xl font-black">Open Play Hours</h3>
+            <div className="mt-5 grid gap-3 text-base font-semibold text-slate-800">
+              <p>Wednesday: 12:00 PM - 5:00 PM</p>
+              <p>Thursday: 12:00 PM - 5:00 PM</p>
+              <p>Friday: 12:00 PM - 6:00 PM</p>
+              <p>Saturday: 10:00 AM - 6:00 PM</p>
+              <p>Sunday: Private parties all day</p>
+            </div>
+            <Link
+              href="/facility-parties"
+              className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-pink-500 px-6 text-base font-bold text-white shadow-sm shadow-pink-900/20 transition hover:bg-pink-600 active:scale-[0.99]"
+            >
+              Request a Facility Party
             </Link>
           </div>
         </div>
@@ -169,7 +231,7 @@ export default function Home() {
               </h3>
 
               <p className="text-pretty text-slate-600">
-                Every inflatable is cleaned and inspected before delivery.
+                Every inflatable is cleaned and inspected at delivery.
               </p>
             </div>
 
@@ -189,7 +251,8 @@ export default function Home() {
               </h3>
 
               <p className="text-pretty text-slate-600">
-                Fast communication and simple reservations through Facebook.
+                Send your request online. No Facebook message is required to
+                start a booking.
               </p>
             </div>
           </div>
@@ -204,21 +267,58 @@ export default function Home() {
           </h2>
 
           <div className="flex flex-wrap justify-center gap-3 text-lg sm:gap-4">
-            <span className="rounded-full bg-pink-500 px-6 py-3 font-bold text-white">
-              Greenwood
-            </span>
+            {SERVICE_AREAS.map((area, index) => {
+              const colors = [
+                "bg-pink-500",
+                "bg-cyan-500",
+                "bg-lime-500",
+                "bg-orange-500",
+                "bg-sky-500",
+                "bg-fuchsia-500",
+                "bg-emerald-500",
+                "bg-amber-500",
+              ];
+              return (
+                <span
+                  key={area}
+                  className={`${colors[index % colors.length]} rounded-full px-6 py-3 font-bold text-white`}
+                >
+                  {area}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-            <span className="rounded-full bg-cyan-500 px-6 py-3 font-bold text-white">
-              Clinton
-            </span>
-
-            <span className="rounded-full bg-lime-500 px-6 py-3 font-bold text-white">
-              Abbeville
-            </span>
-
-            <span className="rounded-full bg-orange-500 px-6 py-3 font-bold text-white">
-              Edgefield
-            </span>
+      {/* CONTACT */}
+      <section id="contact" className="bg-white px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-5xl text-center">
+          <span className="inline-flex rounded-full border border-pink-200 bg-pink-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-pink-800">
+            Contact Us
+          </span>
+          <h2 className="mt-5 text-balance text-3xl font-black tracking-tight sm:text-5xl">
+            Need help choosing the right party setup?
+          </h2>
+          <div className="mt-8 grid gap-4 text-lg font-bold sm:grid-cols-3">
+            <a
+              href="tel:8649331420"
+              className="rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-5 py-6 text-cyan-900 transition hover:bg-cyan-100"
+            >
+              864-933-1420
+            </a>
+            <a
+              href="mailto:info@jumpingjaxllc.com"
+              className="rounded-3xl border-2 border-pink-100 bg-pink-50 px-5 py-6 text-pink-900 transition hover:bg-pink-100"
+            >
+              info@jumpingjaxllc.com
+            </a>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
+              className="rounded-3xl border-2 border-yellow-100 bg-yellow-50 px-5 py-6 text-yellow-950 transition hover:bg-yellow-100"
+            >
+              559 Beaudrot Rd
+            </a>
           </div>
         </div>
       </section>
