@@ -6,13 +6,14 @@ import {
   buildRentalCalendarDescription,
   buildRentalListWithPrices,
   formatEstimatedTotalLine,
+  isFoamPartyRentalItem,
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
 import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const RENTAL_BOOKING_SELECT =
-  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id";
+  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_foam_calendar_event_id";
 
 type RentalBookingRow = {
   id: number | string;
@@ -38,9 +39,10 @@ type RentalBookingRow = {
   subtotal: number | null;
   total: number | null;
   google_calendar_event_id: string | null;
+  google_foam_calendar_event_id: string | null;
 };
 
-type CalendarRepairResult = "already_exists" | "created" | "failed";
+type CalendarRepairResult = "already_exists" | "created" | "failed" | "skipped";
 
 async function loadRentalItems(
   supabase: ReturnType<typeof createServiceRoleClient>,
@@ -75,6 +77,13 @@ async function createMissingRentalCalendarEvent(input: {
   customerEmail: string | null;
   rentalLabel: string;
 }): Promise<CalendarRepairResult> {
+  const rentalOnlyItems = input.calendarItems.filter(
+    (item) => !isFoamPartyRentalItem(item.rental_item),
+  );
+  if (rentalOnlyItems.length === 0) {
+    return "skipped";
+  }
+
   if (input.booking.google_calendar_event_id) {
     return "already_exists";
   }
@@ -85,9 +94,13 @@ async function createMissingRentalCalendarEvent(input: {
     input.spanDays,
     input.booking.event_start_time,
   );
+  const rentalDurationLabel =
+    rentalOnlyItems.length === input.calendarItems.length
+      ? input.durationLabel
+      : "Full day";
   const description = buildRentalCalendarDescription({
-    items: input.calendarItems,
-    durationLabel: input.durationLabel,
+    items: rentalOnlyItems,
+    durationLabel: rentalDurationLabel,
     spanDays: input.spanDays,
     total: input.bookingTotal,
     deliveryFee: input.booking.delivery_fee,
@@ -137,6 +150,93 @@ async function createMissingRentalCalendarEvent(input: {
   return savedBooking?.google_calendar_event_id ? "created" : "failed";
 }
 
+async function createMissingFoamCalendarEvent(input: {
+  supabase: ReturnType<typeof createServiceRoleClient>;
+  booking: RentalBookingRow;
+  id: string;
+  calendarItems: { rental_item?: string; rental_name?: string }[];
+  eventDate: string;
+  spanDays: number;
+  durationLabel: string;
+  bookingTotal: number | null;
+  customerName: string | null;
+  customerEmail: string | null;
+}): Promise<CalendarRepairResult> {
+  const foamItems = input.calendarItems.filter((item) =>
+    isFoamPartyRentalItem(item.rental_item),
+  );
+  if (foamItems.length === 0) {
+    return "skipped";
+  }
+
+  if (input.booking.google_foam_calendar_event_id) {
+    return "already_exists";
+  }
+
+  const { start, end } = rentalCalendarDateTimes(
+    input.eventDate,
+    input.booking.delivery_time,
+    input.spanDays,
+    input.booking.event_start_time,
+  );
+  const description = buildRentalCalendarDescription({
+    items: foamItems,
+    durationLabel: input.durationLabel,
+    spanDays: input.spanDays,
+    total: input.bookingTotal,
+    deliveryFee: input.booking.delivery_fee,
+    mileageFee: input.booking.mileage_fee,
+    distanceMiles: input.booking.distance_miles,
+    eventDateYmd: input.eventDate,
+    deliveryTime: input.booking.delivery_time,
+    eventStartTime: input.booking.event_start_time,
+    requestedDeliveryWindow: input.booking.requested_delivery_window,
+    customerName: input.customerName ?? "Guest",
+    customerPhone: input.booking.customer_phone,
+    customerEmail: input.customerEmail,
+    eventAddress: input.booking.event_address,
+    setupSurface: input.booking.setup_surface,
+    setupAccess: input.booking.setup_access,
+    setupNotes: input.booking.setup_notes,
+    paymentMethod: input.booking.payment_method,
+    bookingId: String(input.booking.id),
+  });
+
+  const foamCalendarId =
+    process.env.GOOGLE_FOAM_CALENDAR_ID?.trim() ||
+    process.env.GOOGLE_CALENDAR_ID ||
+    "primary";
+  const eventId = await createGoogleCalendarEvent({
+    title: `Foam Party - ${input.customerName ?? "Guest"}`,
+    description,
+    start,
+    end,
+    calendarId: foamCalendarId,
+  });
+
+  if (!eventId) {
+    return "failed";
+  }
+
+  const { data: savedBooking, error: calendarIdError } = await input.supabase
+    .from("bookings")
+    .update({ google_foam_calendar_event_id: eventId })
+    .eq("id", input.id)
+    .is("google_foam_calendar_event_id", null)
+    .select("google_foam_calendar_event_id")
+    .maybeSingle<{ google_foam_calendar_event_id: string | null }>();
+
+  if (calendarIdError) {
+    console.error(
+      "[api/rentals/confirm] foam calendar id save error",
+      calendarIdError,
+    );
+    return "failed";
+  }
+
+  return savedBooking?.google_foam_calendar_event_id ? "created" : "failed";
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -177,7 +277,7 @@ export async function GET(req: Request) {
       .select(RENTAL_BOOKING_SELECT)
       .eq("id", id)
       .eq("status", "approved")
-      .is("google_calendar_event_id", null)
+      .or("google_calendar_event_id.is.null,google_foam_calendar_event_id.is.null")
       .maybeSingle<RentalBookingRow>();
 
     if (existingError) {
@@ -231,11 +331,12 @@ export async function GET(req: Request) {
   );
   const estimatedTotalLine = formatEstimatedTotalLine(bookingTotal);
 
-  let calendarRepairResult: CalendarRepairResult | null = null;
+  let rentalCalendarResult: CalendarRepairResult | null = null;
+  let foamCalendarResult: CalendarRepairResult | null = null;
 
   if (action === "confirm") {
     try {
-      calendarRepairResult = await createMissingRentalCalendarEvent({
+      rentalCalendarResult = await createMissingRentalCalendarEvent({
         supabase,
         booking,
         id,
@@ -250,19 +351,47 @@ export async function GET(req: Request) {
       });
     } catch (calendarError) {
       console.error("[api/rentals/confirm] rental calendar error", calendarError);
-      calendarRepairResult = "failed";
+      rentalCalendarResult = "failed";
+    }
+
+    try {
+      foamCalendarResult = await createMissingFoamCalendarEvent({
+        supabase,
+        booking,
+        id,
+        calendarItems,
+        eventDate,
+        spanDays,
+        durationLabel,
+        bookingTotal,
+        customerName,
+        customerEmail,
+      });
+    } catch (calendarError) {
+      console.error("[api/rentals/confirm] foam calendar error", calendarError);
+      foamCalendarResult = "failed";
     }
   }
 
   if (calendarRepairOnly) {
-    if (calendarRepairResult === "created") {
+    if (
+      rentalCalendarResult === "created" ||
+      foamCalendarResult === "created"
+    ) {
       return new Response("Rental calendar event repaired");
     }
 
-    return NextResponse.json(
-      { error: "Rental is approved, but calendar repair failed" },
-      { status: 500 },
-    );
+    if (
+      rentalCalendarResult === "failed" ||
+      foamCalendarResult === "failed"
+    ) {
+      return NextResponse.json(
+        { error: "Rental is approved, but calendar repair failed" },
+        { status: 500 },
+      );
+    }
+
+    return new Response("Rental calendar event already exists");
   }
 
   if (!customerEmail || !customerName) {

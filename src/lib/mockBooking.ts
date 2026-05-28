@@ -47,6 +47,30 @@ export const MOCK_DURATION_OPTIONS: DurationOption[] = [
   },
 ];
 
+export const FOAM_DURATION_OPTIONS: DurationOption[] = [
+  {
+    id: "foam-30",
+    label: "30 minutes",
+    hint: "$200 foam party",
+    spanDays: 1,
+    priceMultiplier: 1,
+  },
+  {
+    id: "foam-60",
+    label: "1 hour",
+    hint: "$300 foam party",
+    spanDays: 1,
+    priceMultiplier: 1.5,
+  },
+  {
+    id: "foam-120",
+    label: "2 hours",
+    hint: "$450 foam party",
+    spanDays: 1,
+    priceMultiplier: 2.25,
+  },
+];
+
 /** Static mock blackout dates (summer 2026 examples + scattered days). */
 const MOCK_BLOCKED_LIST: string[] = [
   "2026-05-17",

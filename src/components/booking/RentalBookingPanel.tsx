@@ -8,6 +8,7 @@ import {
   type RentalCartItem,
 } from "@/store/bookingStore";
 import {
+  FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
   enumerateRange,
   formatDisplayDate,
@@ -18,6 +19,7 @@ import {
   estimateCartRentalSubtotal,
   estimateMileageFee,
   estimateRentalDeliveryFee,
+  isFoamPartyRentalItem,
   normalizeDistanceMiles,
 } from "@/lib/rentals/rental-pricing-text";
 import { BookingDateCalendar } from "./BookingDateCalendar";
@@ -376,6 +378,22 @@ export function RentalBookingPanel({
     ];
   }, [rentalCartItems, slug, rentalTitle]);
 
+  const durationOptions = useMemo(
+    () =>
+      selectedRentalItems.some((item) =>
+        isFoamPartyRentalItem(item.rental_item),
+      )
+        ? FOAM_DURATION_OPTIONS
+        : MOCK_DURATION_OPTIONS,
+    [selectedRentalItems],
+  );
+
+  useEffect(() => {
+    if (!durationOptions.some((option) => option.id === durationId)) {
+      setDurationId(durationOptions[0]!.id);
+    }
+  }, [durationId, durationOptions]);
+
   const displayCartItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length > 0) {
       return rentalCartItems;
@@ -470,8 +488,8 @@ export function RentalBookingPanel({
   }, [effectiveUnavailableYmds, optimisticBlockedYmds]);
 
   const duration = useMemo(
-    () => MOCK_DURATION_OPTIONS.find((d) => d.id === durationId),
-    [durationId],
+    () => durationOptions.find((d) => d.id === durationId),
+    [durationId, durationOptions],
   );
 
   const selectionValid = useMemo(() => {
@@ -922,11 +940,11 @@ export function RentalBookingPanel({
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    2. Duration
+                    2. {durationOptions === FOAM_DURATION_OPTIONS ? "Foam time" : "Duration"}
                   </h3>
                   <div className="mt-3">
                     <DurationSelector
-                      options={MOCK_DURATION_OPTIONS}
+                      options={durationOptions}
                       value={durationId}
                       onChange={setDurationId}
                     />

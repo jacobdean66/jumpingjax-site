@@ -3,12 +3,12 @@
 import { getRentalBySlug } from "@/data/rentals";
 import type { DurationOption } from "@/lib/mockBooking";
 import {
-  estimateRentalSubtotal,
   formatDisplayDate,
 } from "@/lib/mockBooking";
 import {
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
+  estimateRentalLineSubtotal,
   estimateMileageFee,
   estimateRentalDeliveryFee,
   normalizeDistanceMiles,
@@ -38,7 +38,6 @@ export function BookingSummary({
 }: Props) {
   const durationLabel = duration?.label ?? "";
   const spanDays = duration?.spanDays ?? 1;
-  const multiplier = duration?.priceMultiplier ?? 1;
   const showPrices = Boolean(duration && selectionValid);
 
   const subtotal = showPrices
@@ -74,7 +73,7 @@ export function BookingSummary({
           const rental = getRentalBySlug(item.rental_item);
           const lineEstimate =
             showPrices && rental
-              ? estimateRentalSubtotal(rental.startingPrice, multiplier)
+              ? estimateRentalLineSubtotal(item, durationLabel, spanDays)
               : null;
 
           return (

@@ -1,10 +1,12 @@
 import { getRentalBySlug } from "@/data/rentals";
 import {
+  FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
   MOCK_SERVICE_FEE,
   estimateRentalSubtotal,
 } from "@/lib/mockBooking";
 
+export const FOAM_PARTY_RENTAL_ITEM = "foam-party";
 export const JUMPING_JAX_FACILITY_ADDRESS =
   "559 Beaudrot Rd, Greenwood, SC";
 export const RENTAL_DELIVERY_BASE_FEE = MOCK_SERVICE_FEE;
@@ -15,6 +17,10 @@ export type RentalLineInput = {
   rental_item?: string;
   rental_name?: string;
 };
+
+export function isFoamPartyRentalItem(slug: string | null | undefined): boolean {
+  return slug?.trim() === FOAM_PARTY_RENTAL_ITEM;
+}
 
 export function formatUsd(amount: number): string {
   return `$${Math.round(amount)}`;
@@ -32,18 +38,52 @@ export function durationMultiplierForBooking(
   return bySpan?.priceMultiplier ?? 1;
 }
 
+function durationMultiplierForRentalItem(
+  slug: string,
+  durationLabel: string,
+  spanDays: number,
+): number {
+  const label = durationLabel.trim();
+  if (isFoamPartyRentalItem(slug)) {
+    const foamByLabel = FOAM_DURATION_OPTIONS.find((d) => d.label === label);
+    return foamByLabel?.priceMultiplier ?? FOAM_DURATION_OPTIONS[0]!.priceMultiplier;
+  }
+
+  const standardByLabel = MOCK_DURATION_OPTIONS.find((d) => d.label === label);
+  if (standardByLabel) return standardByLabel.priceMultiplier;
+
+  const standardBySpan = MOCK_DURATION_OPTIONS.find((d) => d.spanDays === spanDays);
+  return standardBySpan?.priceMultiplier ?? 1;
+}
+
+export function estimateRentalLineSubtotal(
+  item: RentalLineInput,
+  durationLabel: string,
+  spanDays: number,
+): number | null {
+  const slug =
+    typeof item.rental_item === "string" ? item.rental_item.trim() : "";
+  const rental = slug ? getRentalBySlug(slug) : undefined;
+  if (!rental) return null;
+
+  return estimateRentalSubtotal(
+    rental.startingPrice,
+    durationMultiplierForRentalItem(slug, durationLabel, spanDays),
+  );
+}
+
 export function estimateCartRentalSubtotal(
   items: RentalLineInput[],
   durationLabel: string,
   spanDays: number,
 ): number {
-  const multiplier = durationMultiplierForBooking(durationLabel, spanDays);
   return items.reduce((sum, item) => {
-    const slug =
-      typeof item.rental_item === "string" ? item.rental_item.trim() : "";
-    const rental = slug ? getRentalBySlug(slug) : undefined;
-    if (!rental) return sum;
-    return sum + estimateRentalSubtotal(rental.startingPrice, multiplier);
+    const lineSubtotal = estimateRentalLineSubtotal(
+      item,
+      durationLabel,
+      spanDays,
+    );
+    return sum + (lineSubtotal ?? 0);
   }, 0);
 }
 
@@ -104,8 +144,6 @@ export function buildRentalListWithPrices(
   durationLabel: string,
   spanDays: number,
 ): string {
-  const multiplier = durationMultiplierForBooking(durationLabel, spanDays);
-
   return items
     .map((item) => {
       const slug =
@@ -118,11 +156,12 @@ export function buildRentalListWithPrices(
       if (!rental) {
         return `- ${name}`;
       }
-      const itemEstimate = estimateRentalSubtotal(
-        rental.startingPrice,
-        multiplier,
+      const itemEstimate = estimateRentalLineSubtotal(
+        item,
+        durationLabel,
+        spanDays,
       );
-      return `- ${name} (estimated ${formatUsd(itemEstimate)})`;
+      return `- ${name} (estimated ${formatUsd(itemEstimate ?? rental.startingPrice)})`;
     })
     .join("\n");
 }
