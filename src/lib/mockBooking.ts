@@ -13,8 +13,8 @@ export type DurationOption = {
   priceMultiplier: number;
 };
 
-/** Flat mock fee shown as delivery / service — not a real quote. */
-export const MOCK_SERVICE_FEE = 45;
+/** Base delivery fee charged once per rental order. */
+export const MOCK_SERVICE_FEE = 25;
 
 export const MOCK_DURATION_OPTIONS: DurationOption[] = [
   {

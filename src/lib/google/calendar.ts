@@ -99,10 +99,12 @@ export async function createGoogleCalendarEvent(input: {
   description: string;
   start: string;
   end: string;
+  calendarId?: string;
 }) {
   const calendar = createCalendarClient();
 
-  const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+  const calendarId =
+    input.calendarId?.trim() || process.env.GOOGLE_CALENDAR_ID || "primary";
 
   const event = await calendar.events.insert({
     calendarId,

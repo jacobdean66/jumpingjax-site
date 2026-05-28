@@ -4,12 +4,17 @@ import {
   buildRentalListWithPrices,
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
+  estimateMileageFee,
+  estimateRentalDeliveryFee,
+  formatDeliveryFeeLines,
   formatEstimatedTotalLine,
+  normalizeDistanceMiles,
 } from "@/lib/rentals/rental-pricing-text";
 import {
   rentalConfirmLink,
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
+import { getResendFromAddress } from "@/lib/email/resend";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
 export const dynamic = "force-dynamic";
@@ -54,14 +59,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const delivery_time =
-    typeof body.delivery_time === "string" && body.delivery_time.trim()
-      ? body.delivery_time.trim()
+  const requestedDeliveryWindow =
+    typeof body.requested_delivery_window === "string" &&
+    body.requested_delivery_window.trim()
+      ? body.requested_delivery_window.trim()
+      : null;
+  const eventStartTime =
+    typeof body.event_start_time === "string" && body.event_start_time.trim()
+      ? body.event_start_time.trim()
       : null;
 
-  if (!delivery_time) {
+  if (!requestedDeliveryWindow || !eventStartTime) {
     return new Response(
-      JSON.stringify({ error: "delivery_time is required" }),
+      JSON.stringify({
+        error: "requested_delivery_window and event_start_time are required",
+      }),
       { status: 400 },
     );
   }
@@ -88,6 +100,26 @@ export async function POST(req: Request) {
       : 1;
   const eventAddress =
     typeof body.event_address === "string" ? body.event_address.trim() : "";
+  const distanceMiles = normalizeDistanceMiles(body.distance_miles);
+  const mileageFee = estimateMileageFee(distanceMiles);
+  const deliveryFee = estimateRentalDeliveryFee(distanceMiles);
+  const setupSurface =
+    typeof body.setup_surface === "string" ? body.setup_surface.trim() : "";
+  const setupAccess =
+    typeof body.setup_access === "string" ? body.setup_access.trim() : "";
+  const setupNotes =
+    typeof body.setup_notes === "string" ? body.setup_notes.trim() : "";
+  const paymentMethod =
+    typeof body.payment_method === "string" ? body.payment_method.trim() : "";
+  if (!eventAddress || !setupSurface || !setupAccess || !paymentMethod) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "event_address, setup_surface, setup_access, and payment_method are required",
+      }),
+      { status: 400 },
+    );
+  }
   const notes =
     typeof body.notes === "string" && body.notes.trim()
       ? body.notes.trim()
@@ -101,6 +133,7 @@ export async function POST(req: Request) {
     normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
     durationLabel || "Standard",
     spanDays,
+    deliveryFee,
   );
 
   const result = await insertPendingBooking({
@@ -112,7 +145,15 @@ export async function POST(req: Request) {
     durationLabel: durationLabel || "Standard",
     spanDays,
     eventAddress,
-    delivery_time,
+    event_start_time: eventStartTime,
+    requested_delivery_window: requestedDeliveryWindow,
+    distance_miles: distanceMiles,
+    delivery_fee: deliveryFee,
+    mileage_fee: mileageFee,
+    setup_surface: setupSurface,
+    setup_access: setupAccess,
+    setup_notes: setupNotes,
+    payment_method: paymentMethod,
     subtotal,
     total,
   });
@@ -134,6 +175,7 @@ export async function POST(req: Request) {
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
+  const fromAddress = getResendFromAddress();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
     "[api/book] rental admin email site URL",
@@ -153,6 +195,11 @@ export async function POST(req: Request) {
     spanDays,
   );
   const estimatedTotalLine = formatEstimatedTotalLine(total);
+  const deliveryFeeLines = formatDeliveryFeeLines({
+    deliveryFee,
+    mileageFee,
+    distanceMiles,
+  });
 
   let emailsSent = false;
 
@@ -162,7 +209,7 @@ export async function POST(req: Request) {
     if (customerEmail) {
       try {
         const { error: emailError } = await resend.emails.send({
-          from: "Jumping Jax <onboarding@resend.dev>",
+          from: fromAddress,
           to: customerEmail,
           subject: "We received your Jumping Jax rental request",
           text: [
@@ -175,13 +222,21 @@ export async function POST(req: Request) {
             `Booking reference: ${result.id}`,
             "Selected rentals:",
             rentalListText,
-            estimatedTotalLine,
-            "Final quote will be confirmed by Jumping Jax.",
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : null,
+            `Official party start time: ${eventStartTime}`,
+            `Requested delivery window: ${requestedDeliveryWindow}`,
             `Name: ${customerName}`,
             customerPhone ? `Phone: ${customerPhone}` : null,
             eventAddress ? `Event address: ${eventAddress}` : null,
+            setupSurface ? `Setup surface: ${setupSurface}` : null,
+            setupAccess ? `Setup access: ${setupAccess}` : null,
+            setupNotes ? `Setup notes: ${setupNotes}` : null,
+            paymentMethod ? `Payment method: ${paymentMethod}` : null,
+            "",
+            ...deliveryFeeLines,
+            estimatedTotalLine,
+            "Final quote will be confirmed by Jumping Jax.",
           ]
             .filter((line): line is string => line !== null)
             .join("\n"),
@@ -205,7 +260,7 @@ export async function POST(req: Request) {
       }
       try {
         const { error: emailError } = await resend.emails.send({
-          from: "Jumping Jax <onboarding@resend.dev>",
+          from: fromAddress,
           to: facilityOwnerEmail,
           subject: "New Jumping Jax rental request",
           text: [
@@ -215,15 +270,29 @@ export async function POST(req: Request) {
             `Booking ID: ${result.id}`,
             "Rentals:",
             rentalListText,
-            estimatedTotalLine,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
+            `Official party start time: ${eventStartTime}`,
+            `Requested delivery window: ${requestedDeliveryWindow}`,
             `Customer: ${customerName}`,
             `Email: ${customerEmail || "(not provided)"}`,
             customerPhone ? `Phone: ${customerPhone}` : "Phone: (not provided)",
             eventAddress
               ? `Event address: ${eventAddress}`
               : "Event address: (not provided)",
+            setupSurface
+              ? `Setup surface: ${setupSurface}`
+              : "Setup surface: (not provided)",
+            setupAccess
+              ? `Setup access: ${setupAccess}`
+              : "Setup access: (not provided)",
+            setupNotes ? `Setup notes: ${setupNotes}` : "Setup notes: (none)",
+            paymentMethod
+              ? `Payment method: ${paymentMethod}`
+              : "Payment method: (not provided)",
+            "",
+            ...deliveryFeeLines,
+            estimatedTotalLine,
             notes ? `Notes: ${notes}` : "Notes: (none)",
             "",
             ...(siteUrl

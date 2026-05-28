@@ -40,6 +40,15 @@ export type CreateBookingInput = {
   spanDays: number;
   eventAddress: string;
   delivery_time?: string;
+  event_start_time?: string;
+  requested_delivery_window?: string;
+  distance_miles?: number | null;
+  delivery_fee: number;
+  mileage_fee: number;
+  setup_surface: string;
+  setup_access: string;
+  setup_notes: string;
+  payment_method: string;
   subtotal: number;
   total: number;
 };
@@ -152,6 +161,15 @@ export async function insertPendingBooking(
       duration?: string;
       event_address?: string;
       delivery_time?: string;
+      event_start_time?: string;
+      requested_delivery_window?: string;
+      distance_miles?: number | null;
+      delivery_fee?: number;
+      mileage_fee?: number;
+      setup_surface?: string;
+      setup_access?: string;
+      setup_notes?: string;
+      payment_method?: string;
       subtotal?: number;
       total?: number;
     } = {
@@ -165,6 +183,15 @@ export async function insertPendingBooking(
       span_days: spanDays,
       event_address: input.eventAddress.trim(),
       delivery_time: input.delivery_time,
+      event_start_time: input.event_start_time,
+      requested_delivery_window: input.requested_delivery_window?.trim(),
+      distance_miles: input.distance_miles,
+      delivery_fee: input.delivery_fee,
+      mileage_fee: input.mileage_fee,
+      setup_surface: input.setup_surface.trim(),
+      setup_access: input.setup_access.trim(),
+      setup_notes: input.setup_notes.trim(),
+      payment_method: input.payment_method.trim(),
       subtotal: input.subtotal,
       total: input.total,
       status: "pending" as const,

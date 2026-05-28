@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { MOCK_BLOCKED_DATE_SET, startOfToday, toYMD } from "@/lib/mockBooking";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
@@ -10,6 +10,8 @@ type Props = {
   onChange: (ymd: string | null) => void;
   blocked?: ReadonlySet<string>;
   onBlockedDateClick?: (ymd: string) => void;
+  blockedPopoverYmd?: string | null;
+  renderBlockedPopover?: (ymd: string) => ReactNode;
   /** Optional: restrict how far out users can browse */
   maxMonthsAhead?: number;
 };
@@ -34,6 +36,8 @@ export function BookingDateCalendar({
   onChange,
   blocked = MOCK_BLOCKED_DATE_SET,
   onBlockedDateClick,
+  blockedPopoverYmd,
+  renderBlockedPopover,
   maxMonthsAhead = 6,
 }: Props) {
   const today = useMemo(() => startOfToday(), []);
@@ -130,45 +134,63 @@ export function BookingDateCalendar({
               const disabled = isPast;
               const selected = value === ymd;
 
+              const showBlockedPopover =
+                isBlocked &&
+                blockedPopoverYmd === ymd &&
+                Boolean(renderBlockedPopover);
+
               return (
-                <button
-                  key={ymd}
-                  type="button"
-                  disabled={disabled}
-                  aria-disabled={isBlocked || undefined}
-                  onClick={() => {
-                    if (disabled) return;
-                    if (isBlocked) {
-                      onBlockedDateClick?.(ymd);
-                      return;
-                    }
-                    onChange(ymd);
-                  }}
-                  className={[
-                    "relative flex aspect-square min-h-[2.75rem] items-center justify-center rounded-xl text-sm font-semibold transition",
-                    selected
-                      ? "z-[1] bg-cyan-400 text-black shadow-lg shadow-cyan-950/40"
-                      : isBlocked
-                        ? "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]"
-                        : isPast
-                          ? "cursor-not-allowed text-slate-600 opacity-45"
-                          : "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]",
-                  ].join(" ")}
-                  aria-label={`${ymd}${
-                    isBlocked ? ", unavailable" : selected ? ", selected" : ""
-                  }`}
-                  aria-pressed={selected}
-                >
-                  {day}
-                  {isBlocked && (
+                <div key={ymd} className="relative">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    aria-disabled={isBlocked || undefined}
+                    onClick={() => {
+                      if (disabled) return;
+                      if (isBlocked) {
+                        onBlockedDateClick?.(ymd);
+                        return;
+                      }
+                      onChange(ymd);
+                    }}
+                    className={[
+                      "relative flex aspect-square min-h-[2.75rem] items-center justify-center rounded-xl text-sm font-semibold transition",
+                      selected
+                        ? "z-[1] bg-cyan-400 text-black shadow-lg shadow-cyan-950/40"
+                        : isBlocked
+                          ? "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]"
+                          : isPast
+                            ? "cursor-not-allowed text-slate-600 opacity-45"
+                            : "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]",
+                    ].join(" ")}
+                    aria-label={`${ymd}${
+                      isBlocked ? ", unavailable" : selected ? ", selected" : ""
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    {day}
+                    {isBlocked && (
+                      <span
+                        className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/50 bg-amber-300 text-[0.65rem] font-black leading-none text-black shadow-sm shadow-black/20"
+                        aria-hidden="true"
+                      >
+                        !
+                      </span>
+                    )}
+                  </button>
+                {showBlockedPopover && (
+                  <div
+                    className="absolute bottom-full left-1/2 z-30 mb-2 w-[min(16rem,82vw)] -translate-x-1/2 rounded-xl border border-amber-300/45 bg-[#140f04] px-3 py-2 text-left text-xs leading-relaxed text-amber-50 shadow-2xl shadow-black/50"
+                    role="alert"
+                  >
+                    {renderBlockedPopover?.(ymd)}
                     <span
-                      className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/50 bg-amber-300 text-[0.65rem] font-black leading-none text-black shadow-sm shadow-black/20"
+                      className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-amber-300/45 bg-[#140f04]"
                       aria-hidden="true"
-                    >
-                      !
-                    </span>
-                  )}
-                </button>
+                    />
+                  </div>
+                )}
+                </div>
               );
             })}
           </div>

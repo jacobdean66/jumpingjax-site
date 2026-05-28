@@ -174,3 +174,37 @@ export function formatStoredFacilityAddons(stored: unknown): string {
 
   return "Add-ons: None selected";
 }
+
+export function getStoredFacilityAddonsSubtotal(stored: unknown): number {
+  if (!stored || typeof stored !== "object") {
+    return 0;
+  }
+
+  const record = stored as {
+    lines?: ResolvedFacilityAddonLine[];
+    subtotal?: number;
+    selections?: StoredFacilityAddonSelections;
+  };
+
+  if (typeof record.subtotal === "number" && Number.isFinite(record.subtotal)) {
+    return record.subtotal;
+  }
+
+  if (Array.isArray(record.lines)) {
+    return record.lines.reduce(
+      (sum, line) =>
+        sum + (Number.isFinite(Number(line.lineTotal)) ? Number(line.lineTotal) : 0),
+      0,
+    );
+  }
+
+  if (record.selections) {
+    return resolveFacilityAddons(record.selections).subtotal;
+  }
+
+  return 0;
+}
+
+export function formatFacilityTotalLine(total: number): string {
+  return `Total price: $${total.toFixed(2)}`;
+}

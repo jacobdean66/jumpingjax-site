@@ -16,6 +16,9 @@ import {
 import {
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
+  estimateMileageFee,
+  estimateRentalDeliveryFee,
+  normalizeDistanceMiles,
 } from "@/lib/rentals/rental-pricing-text";
 import { BookingDateCalendar } from "./BookingDateCalendar";
 import { BookingSummary } from "./BookingSummary";
@@ -36,7 +39,54 @@ const emptyCustomer: CustomerFields = {
   customerEmail: "",
   customerPhone: "",
   eventAddress: "",
+  distanceMiles: "",
+  setupSurface: "",
+  setupAccess: "",
+  setupNotes: "",
+  paymentMethod: "",
 };
+
+const STANDARD_DELIVERY_WINDOWS = [
+  "7:00 AM - 10:00 AM",
+  "10:00 AM - 1:00 PM",
+  "1:00 PM - 4:00 PM",
+  "4:00 PM - 7:00 PM",
+] as const;
+
+const FRIDAY_DELIVERY_WINDOWS = [
+  "Friday 7:00 AM - 10:00 AM",
+  "Friday 10:00 AM - 1:00 PM",
+  "Friday 1:00 PM - 4:00 PM",
+  "Friday 4:00 PM - 7:00 PM",
+] as const;
+
+const PARTY_START_TIMES = [
+  ["08:00", "8:00 AM"],
+  ["08:30", "8:30 AM"],
+  ["09:00", "9:00 AM"],
+  ["09:30", "9:30 AM"],
+  ["10:00", "10:00 AM"],
+  ["10:30", "10:30 AM"],
+  ["11:00", "11:00 AM"],
+  ["11:30", "11:30 AM"],
+  ["12:00", "12:00 PM"],
+  ["12:30", "12:30 PM"],
+  ["13:00", "1:00 PM"],
+  ["13:30", "1:30 PM"],
+  ["14:00", "2:00 PM"],
+  ["14:30", "2:30 PM"],
+  ["15:00", "3:00 PM"],
+  ["15:30", "3:30 PM"],
+  ["16:00", "4:00 PM"],
+  ["16:30", "4:30 PM"],
+  ["17:00", "5:00 PM"],
+  ["17:30", "5:30 PM"],
+  ["18:00", "6:00 PM"],
+  ["18:30", "6:30 PM"],
+  ["19:00", "7:00 PM"],
+  ["19:30", "7:30 PM"],
+  ["20:00", "8:00 PM"],
+] as const;
 
 function isPlausibleEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -44,6 +94,14 @@ function isPlausibleEmail(email: string): boolean {
 
 function digitsOnly(s: string): string {
   return s.replace(/\D/g, "");
+}
+
+function isFridayOrSaturday(ymd: string | null): boolean {
+  if (!ymd) return false;
+  const [year, month, day] = ymd.split("-").map(Number);
+  if (!year || !month || !day) return false;
+  const dayOfWeek = new Date(year, month - 1, day).getDay();
+  return dayOfWeek === 5 || dayOfWeek === 6;
 }
 
 const RENTAL_SUCCESS_STORAGE_KEY = "jumpingjax-rental-booking-success-id";
@@ -270,6 +328,7 @@ export function RentalBookingPanel({
   const [durationId, setDurationId] = useState(MOCK_DURATION_OPTIONS[1]!.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
+  const [eventStartTime, setEventStartTime] = useState("");
 
   const rentalCartItems = useBookingStore((s) => s.rentalCartItems);
   const removeRentalFromCart = useBookingStore((s) => s.removeRentalFromCart);
@@ -327,6 +386,13 @@ export function RentalBookingPanel({
   const currentPageIncludedAtSubmit =
     rentalCartItems.length > 0 &&
     !rentalCartItems.some((item) => item.rental_item === slug);
+  const showFridayDeliveryPrompt = isFridayOrSaturday(selectedYmd);
+
+  useEffect(() => {
+    if (!showFridayDeliveryPrompt && deliveryTime.startsWith("Friday ")) {
+      setDeliveryTime("");
+    }
+  }, [deliveryTime, showFridayDeliveryPrompt]);
 
   type ClientFetchState =
     | { status: "idle" }
@@ -440,14 +506,28 @@ export function RentalBookingPanel({
 
   const customerOk = useMemo(() => {
     const phoneDigits = digitsOnly(customer.customerPhone);
+    const verifiedDistanceMiles = normalizeDistanceMiles(customer.distanceMiles);
     return (
       customer.customerName.trim().length >= 2 &&
       isPlausibleEmail(customer.customerEmail) &&
       phoneDigits.length >= 10 &&
       customer.eventAddress.trim().length >= 8 &&
-      deliveryTime.trim().length > 0
+      verifiedDistanceMiles !== null &&
+      customer.setupSurface.trim().length > 0 &&
+      customer.setupAccess.trim().length > 0 &&
+      customer.paymentMethod.trim().length > 0 &&
+      deliveryTime.trim().length > 0 &&
+      eventStartTime.trim().length > 0
     );
-  }, [customer, deliveryTime]);
+  }, [customer, deliveryTime, eventStartTime]);
+
+  const distanceMiles = normalizeDistanceMiles(customer.distanceMiles);
+  const deliveryFee = selectionValid && duration
+    ? estimateRentalDeliveryFee(distanceMiles)
+    : null;
+  const mileageFee = selectionValid && duration
+    ? estimateMileageFee(distanceMiles)
+    : null;
 
   const subtotal =
     selectionValid && duration
@@ -463,6 +543,7 @@ export function RentalBookingPanel({
           selectedRentalItems,
           duration.label,
           duration.spanDays,
+          deliveryFee ?? undefined,
         )
       : null;
 
@@ -471,10 +552,10 @@ export function RentalBookingPanel({
 
   const reserveReason = !selectionValid
     ? "Complete a valid date and duration first."
-    : selectedRentalItems.length === 0
-      ? "Add at least one rental to your request."
+      : selectedRentalItems.length === 0
+        ? "Add at least one rental to your request."
       : !customerOk
-        ? "Add your name, email, phone, event address, and requested delivery time to continue."
+        ? "Add your contact details, verify the event address, choose setup details, choose payment method, choose a delivery window, and add the party start time to continue."
         : undefined;
 
   const submitBlocked = Boolean(reserveReason) || isSubmitting;
@@ -551,7 +632,15 @@ export function RentalBookingPanel({
           rental_item: slug,
           rental_items: selectedRentalItems,
           event_address: customer.eventAddress,
-          delivery_time: deliveryTime,
+          requested_delivery_window: deliveryTime,
+          event_start_time: eventStartTime,
+          distance_miles: distanceMiles,
+          delivery_fee: deliveryFee ?? 0,
+          mileage_fee: mileageFee ?? 0,
+          setup_surface: customer.setupSurface,
+          setup_access: customer.setupAccess,
+          setup_notes: customer.setupNotes,
+          payment_method: customer.paymentMethod,
           duration: duration?.label ?? "",
           span_days: duration?.spanDays ?? 1,
           subtotal: subtotal ?? 0,
@@ -800,27 +889,35 @@ export function RentalBookingPanel({
                         setSelectedYmd(null);
                         setClickedBlockedYmd(ymd);
                       }}
+                      blockedPopoverYmd={
+                        clickedBlockedUnavailableItems.length > 0
+                          ? clickedBlockedYmd
+                          : null
+                      }
+                      renderBlockedPopover={(ymd) => {
+                        if (clickedBlockedUnavailableItems.length === 0) {
+                          return null;
+                        }
+                        return (
+                          <>
+                            <p className="font-semibold text-amber-50">
+                              {clickedBlockedUnavailableItems.length === 1
+                                ? `${clickedBlockedUnavailableItems[0]!.rental_name} is unavailable on ${formatDisplayDate(ymd)}.`
+                                : `Unavailable on ${formatDisplayDate(ymd)}:`}
+                            </p>
+                            {clickedBlockedUnavailableItems.length > 1 && (
+                              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+                                {clickedBlockedUnavailableItems.map((item) => (
+                                  <li key={item.rental_item}>
+                                    {item.rental_name}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </>
+                        );
+                      }}
                     />
-                    {clickedBlockedYmd &&
-                      clickedBlockedUnavailableItems.length > 0 && (
-                      <div
-                        className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-xs leading-relaxed text-amber-100 sm:text-sm"
-                        role="alert"
-                      >
-                        <p className="font-semibold text-amber-50">
-                          {clickedBlockedUnavailableItems.length === 1
-                            ? `${clickedBlockedUnavailableItems[0]!.rental_name} is unavailable on ${formatDisplayDate(clickedBlockedYmd)}.`
-                            : `These rentals are unavailable on ${formatDisplayDate(clickedBlockedYmd)}:`}
-                        </p>
-                        {clickedBlockedUnavailableItems.length > 1 && (
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {clickedBlockedUnavailableItems.map((item) => (
-                              <li key={item.rental_item}>{item.rental_name}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div>
@@ -845,12 +942,37 @@ export function RentalBookingPanel({
                   selectionValid={selectionValid}
                   selectionMessage={selectionMessage}
                   selectionMessageTone={selectionMessageTone}
+                  distanceMiles={customer.distanceMiles}
                 />
                 <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+                  <label className="mb-5 block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Official party start time
+                    </span>
+                    <select
+                      name="eventStartTime"
+                      required
+                      value={eventStartTime}
+                      onChange={(e) => setEventStartTime(e.target.value)}
+                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                    >
+                      <option value="">Select official start time</option>
+                      {PARTY_START_TIMES.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                      This is when your party officially starts. It is separate
+                      from the delivery window and will appear on the booking
+                      details.
+                    </p>
+                  </label>
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Requested delivery time
+                      Requested delivery window
                     </span>
                     <select
                       name="deliveryTime"
@@ -859,21 +981,34 @@ export function RentalBookingPanel({
                       onChange={(e) => setDeliveryTime(e.target.value)}
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
                     >
-                      <option value="">Select delivery time</option>
-                      <option value="08:00">8:00 AM</option>
-                      <option value="09:00">9:00 AM</option>
-                      <option value="10:00">10:00 AM</option>
-                      <option value="11:00">11:00 AM</option>
-                      <option value="12:00">12:00 PM</option>
-                      <option value="13:00">1:00 PM</option>
-                      <option value="14:00">2:00 PM</option>
-                      <option value="15:00">3:00 PM</option>
-                      <option value="16:00">4:00 PM</option>
-                      <option value="17:00">5:00 PM</option>
+                      <option value="">Select a 3-hour delivery window</option>
+                      {showFridayDeliveryPrompt && (
+                        <optgroup label="Friday delivery recommended">
+                          {FRIDAY_DELIVERY_WINDOWS.map((window) => (
+                            <option key={window} value={window}>
+                              {window} (recommended)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Standard delivery windows">
+                        {STANDARD_DELIVERY_WINDOWS.map((window) => (
+                          <option key={window} value={window}>
+                            {window}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
+                    {showFridayDeliveryPrompt && (
+                      <p className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
+                        Friday delivery is recommended for Friday and Saturday
+                        events when available. It helps us route weekend
+                        deliveries and gives setup more breathing room.
+                      </p>
+                    )}
                     <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                      Please allow a 30-minute setup window before your event
-                      start time.
+                      This is a requested delivery window. Jumping Jax will
+                      confirm the final delivery plan after reviewing the route.
                     </p>
                   </label>
                 </div>

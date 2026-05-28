@@ -6,12 +6,27 @@ import {
   formatStoredFacilityAddons,
   type ResolvedFacilityAddonLine,
 } from "@/lib/facility-parties/addons";
+import {
+  formatFacilityPricingLines,
+  type FacilityPricingResult,
+} from "@/lib/facility-parties/pricing";
+import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 type FacilityBookingCalendarFields = {
   customer_name: string;
   email: string | null;
   phone: string | null;
+  parent_name: string | null;
+  child_name: string | null;
+  child_gender: string | null;
+  child_age: string | null;
+  party_theme: string | null;
+  balloon_colors: string | null;
+  table_cloth_colors: string | null;
+  drink_choice: string | null;
+  payment_method: string | null;
+  deposit_acknowledged: boolean | null;
   party_label: string | null;
   room: string | null;
   readable_date: string | null;
@@ -20,7 +35,38 @@ type FacilityBookingCalendarFields = {
   end_time: string;
   notes: string | null;
   addon_selections: unknown;
+  facility_package_price: number | null;
+  addon_subtotal: number | null;
+  subtotal: number | null;
+  tax: number | null;
+  total: number | null;
+  pricing_details: unknown;
 };
+
+function numberOrZero(value: number | null): number {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function pricingFromBooking(
+  booking: FacilityBookingCalendarFields,
+): FacilityPricingResult {
+  const taxRate =
+    booking.pricing_details &&
+    typeof booking.pricing_details === "object" &&
+    typeof (booking.pricing_details as { taxRate?: unknown }).taxRate === "number"
+      ? (booking.pricing_details as { taxRate: number }).taxRate
+      : 0.07;
+
+  return {
+    packagePrice: numberOrZero(booking.facility_package_price),
+    addonSubtotal: numberOrZero(booking.addon_subtotal),
+    subtotal: numberOrZero(booking.subtotal),
+    tax: numberOrZero(booking.tax),
+    total: numberOrZero(booking.total),
+    taxRate,
+    missingPrice: null,
+  };
+}
 
 function addonLinesFromStored(stored: unknown): ResolvedFacilityAddonLine[] {
   if (!stored || typeof stored !== "object") {
@@ -59,11 +105,43 @@ function formatFacilityCalendarDescription(
   if (booking.phone) {
     sections.push(`Phone: ${booking.phone}`);
   }
+  if (booking.parent_name) {
+    sections.push(`Parent: ${booking.parent_name}`);
+  }
 
   sections.push("", "Booking:");
   if (booking.party_label) {
     sections.push(`Type: ${booking.party_label}`);
   }
+  if (booking.child_name) {
+    sections.push(`Child: ${booking.child_name}`);
+  }
+  if (booking.child_gender) {
+    sections.push(`Child gender: ${booking.child_gender}`);
+  }
+  if (booking.child_age) {
+    sections.push(`Child age: ${booking.child_age}`);
+  }
+  if (booking.party_theme) {
+    sections.push(`Theme: ${booking.party_theme}`);
+  }
+  if (booking.balloon_colors) {
+    sections.push(`Balloon colors: ${booking.balloon_colors}`);
+  }
+  if (booking.table_cloth_colors) {
+    sections.push(`Table cloth colors: ${booking.table_cloth_colors}`);
+  }
+  if (booking.drink_choice) {
+    sections.push(`Drink choice: ${booking.drink_choice}`);
+  }
+  if (booking.payment_method) {
+    sections.push(`Payment method: ${booking.payment_method}`);
+  }
+  sections.push(
+    `Deposit acknowledgement: ${
+      booking.deposit_acknowledged ? "Checked" : "Not checked"
+    }`,
+  );
   if (booking.room) {
     sections.push(`Room: ${booking.room}`);
   }
@@ -83,6 +161,7 @@ function formatFacilityCalendarDescription(
       sections.push(formatCalendarAddonLine(line));
     }
   }
+  sections.push("", ...formatFacilityPricingLines(pricingFromBooking(booking)));
 
   const notes = booking.notes?.trim();
   if (notes) {
@@ -96,6 +175,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const action = searchParams.get("action") ?? "confirm";
+  const facilityCalendarId =
+    process.env.GOOGLE_FACILITY_CALENDAR_ID?.trim() ||
+    process.env.GOOGLE_CALENDAR_ID?.trim() ||
+    "primary";
 
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -119,7 +202,7 @@ export async function GET(req: Request) {
     .eq("id", id)
     .eq("status", "pending")
     .select(
-      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, room, notes, addon_selections, google_calendar_event_id",
+      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id",
     )
     .maybeSingle();
 
@@ -147,11 +230,18 @@ export async function GET(req: Request) {
           description: formatFacilityCalendarDescription(booking),
           start: booking.start_time,
           end: booking.end_time,
+          calendarId: facilityCalendarId,
         });
-        await supabase
+        const { error: calendarIdError } = await supabase
           .from("facility_bookings")
           .update({ google_calendar_event_id: eventId })
           .eq("id", booking.id);
+        if (calendarIdError) {
+          console.error(
+            "[api/facility/confirm] facility calendar id save error",
+            calendarIdError,
+          );
+        }
       }
     } catch (calendarError) {
       console.error("GOOGLE CALENDAR ERROR", calendarError);
@@ -180,9 +270,10 @@ export async function GET(req: Request) {
       action === "reject"
         ? "We are sorry, but we are unable to confirm your facility booking request for this time."
         : "Your facility booking has been confirmed.";
+    const pricingLines = formatFacilityPricingLines(pricingFromBooking(booking));
 
     const { error: emailError } = await resend.emails.send({
-      from: "Jumping Jax <onboarding@resend.dev>",
+      from: getResendFromAddress(),
       to: booking.email,
       subject: emailSubject,
       text: [
@@ -193,9 +284,22 @@ export async function GET(req: Request) {
         `Party: ${booking.party_label}`,
         `Date: ${booking.readable_date}`,
         `Time: ${booking.readable_time}`,
+        booking.child_name ? `Child: ${booking.child_name}` : null,
+        booking.child_age ? `Child age: ${booking.child_age}` : null,
+        booking.party_theme ? `Party theme: ${booking.party_theme}` : null,
+        booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
+        booking.payment_method
+          ? `Payment method: ${booking.payment_method}`
+          : null,
+        action === "confirm"
+          ? "Deposit: $50 due two weeks before the party date, paid directly to Jumping Jax."
+          : null,
         "",
         formatStoredFacilityAddons(booking.addon_selections),
-      ].join("\n"),
+        ...pricingLines,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n"),
     });
 
     if (emailError) {

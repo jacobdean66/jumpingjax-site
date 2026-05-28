@@ -15,6 +15,11 @@ import {
   formatFacilityAddonsForEmail,
   resolveFacilityAddons,
 } from "@/lib/facility-parties/addons";
+import {
+  formatFacilityPricingLines,
+  priceFacilityParty,
+} from "@/lib/facility-parties/pricing";
+import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const FACILITY_TIME_ZONE = "America/New_York";
@@ -66,6 +71,16 @@ export async function POST(req: NextRequest) {
       customer_name,
       email,
       phone,
+      parent_name,
+      child_name,
+      child_gender,
+      child_age,
+      party_theme,
+      balloon_colors,
+      table_cloth_colors,
+      drink_choice,
+      payment_method,
+      deposit_acknowledged,
       notes,
       readable_date,
       readable_time,
@@ -93,6 +108,15 @@ export async function POST(req: NextRequest) {
       !isNonEmptyString(customer_name) ||
       !isValidEmail(email) ||
       !isNonEmptyString(phone) ||
+      !isNonEmptyString(parent_name) ||
+      !isNonEmptyString(child_name) ||
+      !isNonEmptyString(child_gender) ||
+      !isNonEmptyString(child_age) ||
+      !isNonEmptyString(party_theme) ||
+      !isNonEmptyString(balloon_colors) ||
+      !isNonEmptyString(table_cloth_colors) ||
+      !isNonEmptyString(drink_choice) ||
+      !isNonEmptyString(payment_method) ||
       !isNonEmptyString(readable_date) ||
       !isNonEmptyString(readable_time) ||
       !isNonEmptyString(party_label)
@@ -132,6 +156,22 @@ export async function POST(req: NextRequest) {
     const endIso = endDate.toISOString();
     const startParts = getFacilityDateParts(startDate);
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
+    const pricing = priceFacilityParty({
+      partyKind: party_kind,
+      roomId: room as FacilityRoomId,
+      date: startParts.date,
+      durationMinutes,
+      addonSubtotal: resolvedAddons.subtotal,
+    });
+
+    if (pricing.missingPrice) {
+      return NextResponse.json(
+        { error: "Facility pricing is not configured for this party option" },
+        { status: 400 },
+      );
+    }
+
+    const pricingLines = formatFacilityPricingLines(pricing);
 
     if (party_kind === "public") {
       if (!isFacilityRoomId(room)) {
@@ -241,11 +281,30 @@ export async function POST(req: NextRequest) {
           customer_name,
           email,
           phone,
+          parent_name: String(parent_name).trim(),
+          child_name: String(child_name).trim(),
+          child_gender: String(child_gender).trim(),
+          child_age: String(child_age).trim(),
+          party_theme: String(party_theme).trim(),
+          balloon_colors: String(balloon_colors).trim(),
+          table_cloth_colors: String(table_cloth_colors).trim(),
+          drink_choice: String(drink_choice).trim(),
+          payment_method: String(payment_method).trim(),
+          deposit_acknowledged: deposit_acknowledged === true,
           notes,
           readable_date,
           readable_time,
           party_label,
           addon_selections: storedAddons,
+          facility_package_price: pricing.packagePrice,
+          addon_subtotal: pricing.addonSubtotal,
+          subtotal: pricing.subtotal,
+          tax: pricing.tax,
+          total: pricing.total,
+          pricing_details: {
+            taxRate: pricing.taxRate,
+            source: "facility-party-price-sheet",
+          },
         },
       ])
       .select()
@@ -264,9 +323,10 @@ export async function POST(req: NextRequest) {
       const resend = new Resend(resendApiKey);
       const confirmLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=confirm`;
       const rejectLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=reject`;
+      const fromAddress = getResendFromAddress();
 
-      const { error: emailError } = await resend.emails.send({
-        from: "Jumping Jax <onboarding@resend.dev>",
+      const { error: adminEmailError } = await resend.emails.send({
+        from: fromAddress,
         to: facilityOwnerEmail,
         subject: "New facility booking request",
         text: [
@@ -274,8 +334,20 @@ export async function POST(req: NextRequest) {
           "",
           `Booking ID: ${data.id}`,
           `Customer: ${customer_name}`,
+          `Parent name: ${String(parent_name).trim()}`,
           `Email: ${email}`,
           `Phone: ${phone}`,
+          `Child name: ${String(child_name).trim()}`,
+          `Child gender: ${String(child_gender).trim()}`,
+          `Child age: ${String(child_age).trim()}`,
+          `Party theme: ${String(party_theme).trim()}`,
+          `Balloon colors: ${String(balloon_colors).trim()}`,
+          `Table cloth colors: ${String(table_cloth_colors).trim()}`,
+          `Drink choice: ${String(drink_choice).trim()}`,
+          `Payment method: ${String(payment_method).trim()}`,
+          `Deposit acknowledgement: ${
+            deposit_acknowledged === true ? "Checked" : "Not checked"
+          }`,
           `Party: ${party_label}`,
           `Date: ${readable_date}`,
           `Time: ${readable_time}`,
@@ -286,16 +358,52 @@ export async function POST(req: NextRequest) {
           notes?.trim() ? `Notes: ${String(notes).trim()}` : "Notes: (none)",
           "",
           addonsEmailText,
+          ...pricingLines,
           "",
           `Confirm link: ${confirmLink}`,
           `Reject link: ${rejectLink}`,
         ].join("\n"),
       });
 
-      if (emailError) {
-        console.error("BOOKING EMAIL ERROR", emailError);
+      if (adminEmailError) {
+        console.error("BOOKING EMAIL ERROR", adminEmailError);
         return NextResponse.json(
-          { error: "Booking was saved but notification failed" },
+          { error: "Booking was saved but admin notification failed" },
+          { status: 500 },
+        );
+      }
+
+      const { error: customerEmailError } = await resend.emails.send({
+        from: fromAddress,
+        to: email,
+        subject: "Your Jumping Jax facility booking request was received",
+        text: [
+          `Hi ${customer_name},`,
+          "",
+          "We received your facility booking request. It is waiting for confirmation from Jumping Jax.",
+          "",
+          `Party: ${party_label}`,
+          `Date: ${readable_date}`,
+          `Time: ${readable_time}`,
+          `Parent name: ${String(parent_name).trim()}`,
+          `Child name: ${String(child_name).trim()}`,
+          `Child age: ${String(child_age).trim()}`,
+          `Party theme: ${String(party_theme).trim()}`,
+          `Drink choice: ${String(drink_choice).trim()}`,
+          `Payment method: ${String(payment_method).trim()}`,
+          `Deposit: $50 due two weeks before the party date, paid directly to Jumping Jax.`,
+          "",
+          addonsEmailText,
+          ...pricingLines,
+          "",
+          "A second email will be sent once your booking is confirmed.",
+        ].join("\n"),
+      });
+
+      if (customerEmailError) {
+        console.error("CUSTOMER BOOKING REQUEST EMAIL ERROR", customerEmailError);
+        return NextResponse.json(
+          { error: "Booking was saved but customer notification failed" },
           { status: 500 },
         );
       }

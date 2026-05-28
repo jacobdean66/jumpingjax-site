@@ -3,13 +3,17 @@
 import { getRentalBySlug } from "@/data/rentals";
 import type { DurationOption } from "@/lib/mockBooking";
 import {
-  MOCK_SERVICE_FEE,
   estimateRentalSubtotal,
   formatDisplayDate,
 } from "@/lib/mockBooking";
 import {
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
+  estimateMileageFee,
+  estimateRentalDeliveryFee,
+  normalizeDistanceMiles,
+  RENTAL_INCLUDED_DELIVERY_MILES,
+  RENTAL_EXTRA_MILE_RATE,
 } from "@/lib/rentals/rental-pricing-text";
 import type { RentalCartItem } from "@/store/bookingStore";
 
@@ -20,6 +24,7 @@ type Props = {
   selectionValid: boolean;
   selectionMessage?: string;
   selectionMessageTone?: "info" | "warn" | "ok";
+  distanceMiles?: string;
 };
 
 export function BookingSummary({
@@ -29,6 +34,7 @@ export function BookingSummary({
   selectionValid,
   selectionMessage,
   selectionMessageTone = "info",
+  distanceMiles,
 }: Props) {
   const durationLabel = duration?.label ?? "";
   const spanDays = duration?.spanDays ?? 1;
@@ -38,8 +44,20 @@ export function BookingSummary({
   const subtotal = showPrices
     ? estimateCartRentalSubtotal(cartItems, durationLabel, spanDays)
     : null;
+  const normalizedDistanceMiles = normalizeDistanceMiles(distanceMiles);
+  const deliveryFee = showPrices
+    ? estimateRentalDeliveryFee(normalizedDistanceMiles)
+    : null;
+  const mileageFee = showPrices
+    ? estimateMileageFee(normalizedDistanceMiles)
+    : null;
   const total = showPrices
-    ? estimateCartGrandTotal(cartItems, durationLabel, spanDays)
+    ? estimateCartGrandTotal(
+        cartItems,
+        durationLabel,
+        spanDays,
+        deliveryFee ?? undefined,
+      )
     : null;
 
   return (
@@ -48,7 +66,7 @@ export function BookingSummary({
         Estimate
       </h3>
       <p className="mt-2 text-xs text-slate-400">
-        Mock pricing only — final quote from Jumping Jax may differ.
+        Estimate only — final quote from Jumping Jax may differ.
       </p>
 
       <dl className="mt-4 space-y-3 text-sm">
@@ -90,11 +108,24 @@ export function BookingSummary({
           </dd>
         </div>
         <div className="flex justify-between gap-3 border-b border-white/10 pb-3">
-          <dt className="text-slate-400">Delivery &amp; setup (mock)</dt>
+          <dt className="text-slate-400">Delivery &amp; setup</dt>
           <dd className="font-semibold tabular-nums text-white">
-            {subtotal != null ? `$${MOCK_SERVICE_FEE}` : "—"}
+            {deliveryFee != null ? `$${deliveryFee}` : "—"}
           </dd>
         </div>
+        {showPrices && (
+          <div className="flex justify-between gap-3 border-b border-white/10 pb-3 text-xs">
+            <dt className="text-slate-500">
+              Mileage after {RENTAL_INCLUDED_DELIVERY_MILES} miles at $
+              {RENTAL_EXTRA_MILE_RATE}/mile
+            </dt>
+            <dd className="text-right font-semibold tabular-nums text-slate-300">
+              {normalizedDistanceMiles != null && mileageFee != null
+                ? `$${mileageFee}`
+                : "Confirmed after review"}
+            </dd>
+          </div>
+        )}
         <div className="flex justify-between gap-3 pt-1">
           <dt className="text-base font-black text-cyan-100">Estimated total</dt>
           <dd className="text-xl font-black tabular-nums text-cyan-300">

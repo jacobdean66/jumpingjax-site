@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface RentalSelection {
   rentalId: string;
@@ -64,48 +65,58 @@ const initialBookingState = {
   rentalCartItems: [],
 };
 
-export const useBookingStore = create<BookingState>()((set) => ({
-  ...initialBookingState,
-  setRental: (rental) =>
-    set({
-      rentalId: rental.rentalId,
-      rentalTitle: rental.rentalTitle,
-      rentalImage: rental.rentalImage,
+export const useBookingStore = create<BookingState>()(
+  persist(
+    (set) => ({
+      ...initialBookingState,
+      setRental: (rental) =>
+        set({
+          rentalId: rental.rentalId,
+          rentalTitle: rental.rentalTitle,
+          rentalImage: rental.rentalImage,
+        }),
+      addRentalToCart: (item) =>
+        set((state) => {
+          if (
+            state.rentalCartItems.some(
+              (cartItem) => cartItem.rental_item === item.rental_item,
+            )
+          ) {
+            return state;
+          }
+          return { rentalCartItems: [...state.rentalCartItems, item] };
+        }),
+      removeRentalFromCart: (rental_item) =>
+        set((state) => ({
+          rentalCartItems: state.rentalCartItems.filter(
+            (cartItem) => cartItem.rental_item !== rental_item,
+          ),
+        })),
+      setDates: (dates) =>
+        set({
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          availabilityChecked: false,
+        }),
+      setQuantity: (quantity) =>
+        set({
+          quantity: Math.max(1, quantity),
+        }),
+      setCustomerInfo: (customerInfo) =>
+        set({
+          customerName: customerInfo.customerName,
+          customerPhone: customerInfo.customerPhone,
+          customerEmail: customerInfo.customerEmail,
+          eventAddress: customerInfo.eventAddress,
+        }),
+      setNotes: (notes) => set({ notes }),
+      clearBooking: () => set({ ...initialBookingState }),
     }),
-  addRentalToCart: (item) =>
-    set((state) => {
-      if (
-        state.rentalCartItems.some(
-          (cartItem) => cartItem.rental_item === item.rental_item,
-        )
-      ) {
-        return state;
-      }
-      return { rentalCartItems: [...state.rentalCartItems, item] };
-    }),
-  removeRentalFromCart: (rental_item) =>
-    set((state) => ({
-      rentalCartItems: state.rentalCartItems.filter(
-        (cartItem) => cartItem.rental_item !== rental_item,
-      ),
-    })),
-  setDates: (dates) =>
-    set({
-      startDate: dates.startDate,
-      endDate: dates.endDate,
-      availabilityChecked: false,
-    }),
-  setQuantity: (quantity) =>
-    set({
-      quantity: Math.max(1, quantity),
-    }),
-  setCustomerInfo: (customerInfo) =>
-    set({
-      customerName: customerInfo.customerName,
-      customerPhone: customerInfo.customerPhone,
-      customerEmail: customerInfo.customerEmail,
-      eventAddress: customerInfo.eventAddress,
-    }),
-  setNotes: (notes) => set({ notes }),
-  clearBooking: () => set({ ...initialBookingState }),
-}));
+    {
+      name: "jumpingjax-rental-cart",
+      partialize: (state) => ({
+        rentalCartItems: state.rentalCartItems,
+      }),
+    },
+  ),
+);

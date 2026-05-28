@@ -2,7 +2,7 @@
 
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   FACILITY_PARTY_BUFFER_MINUTES,
@@ -19,6 +19,10 @@ import {
   type CottonCandyPackage,
   type FacilityAddonSelectionsInput,
 } from "@/lib/facility-parties/addons";
+import {
+  formatFacilityPricingLines,
+  priceFacilityParty,
+} from "@/lib/facility-parties/pricing";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -32,6 +36,16 @@ const controlClassName =
   "w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30";
 
 const inputClassName = `mt-1.5 ${controlClassName}`;
+
+const FACILITY_DRINK_CHOICES = [
+  "Capri-Sun",
+  "Kool-Aid Jammers",
+  "Gatorade",
+  "Soda",
+  "Huggs",
+] as const;
+
+const PAYMENT_METHOD_CHOICES = ["Cash", "Card"] as const;
 
 const PARTY_KIND_CHOICES: {
   id: FacilityPartyKind;
@@ -139,6 +153,7 @@ function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
 }
 
 export function FacilityPartyBookingForm() {
+  const confirmationRef = useRef<HTMLDivElement | null>(null);
   const [blocks, setBlocks] = useState<FacilityPartyBookingBlock[]>([]);
   const [partyKind, setPartyKind] = useState<FacilityPartyKind | null>(null);
   const [roomId, setRoomId] = useState<FacilityRoomId>("room-10");
@@ -149,6 +164,16 @@ export function FacilityPartyBookingForm() {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [parentName, setParentName] = useState("");
+  const [childName, setChildName] = useState("");
+  const [childGender, setChildGender] = useState("");
+  const [childAge, setChildAge] = useState("");
+  const [partyTheme, setPartyTheme] = useState("");
+  const [balloonColors, setBalloonColors] = useState("");
+  const [tableClothColors, setTableClothColors] = useState("");
+  const [drinkChoice, setDrinkChoice] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [depositAcknowledged, setDepositAcknowledged] = useState(false);
   const [notes, setNotes] = useState("");
   const [balloonsSelected, setBalloonsSelected] = useState(false);
   const [goodieBagsSelected, setGoodieBagsSelected] = useState(false);
@@ -230,6 +255,18 @@ export function FacilityPartyBookingForm() {
   const customerStepUnlocked =
     Boolean(selectedDisposition) && !availabilityUnavailable;
 
+  useEffect(() => {
+    if (!bookingSubmitted) {
+      return;
+    }
+
+    confirmationRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    confirmationRef.current?.focus({ preventScroll: true });
+  }, [bookingSubmitted]);
+
   const addonSelections = useMemo((): FacilityAddonSelectionsInput => {
     const qty = goodieBagsSelected
       ? Math.max(1, Math.floor(goodieBagsQuantity) || 1)
@@ -250,6 +287,21 @@ export function FacilityPartyBookingForm() {
     () => previewAddonSubtotal(addonSelections),
     [addonSelections],
   );
+
+  const pricingPreview = useMemo(() => {
+    if (!partyKind || !date || !selectedDisposition) {
+      return null;
+    }
+
+    return priceFacilityParty({
+      partyKind,
+      roomId: partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID,
+      date,
+      durationMinutes:
+        selectedDisposition.endMinutes - selectedDisposition.startMinutes,
+      addonSubtotal: addonSubtotalPreview,
+    });
+  }, [addonSubtotalPreview, date, partyKind, roomId, selectedDisposition]);
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
     setPartyKind(next);
@@ -310,6 +362,20 @@ export function FacilityPartyBookingForm() {
       setFormError("Add your name, email, and phone so we can follow up.");
       return;
     }
+    if (
+      !parentName.trim() ||
+      !childName.trim() ||
+      !childGender.trim() ||
+      !childAge.trim() ||
+      !partyTheme.trim() ||
+      !balloonColors.trim() ||
+      !tableClothColors.trim() ||
+      !drinkChoice.trim() ||
+      !paymentMethod.trim()
+    ) {
+      setFormError("Add the birthday child, party detail, and payment fields.");
+      return;
+    }
 
     const resolvedRoomId =
       partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID;
@@ -344,6 +410,16 @@ export function FacilityPartyBookingForm() {
           customer_name: request.customerName,
           email: request.customerEmail,
           phone: request.customerPhone,
+          parent_name: parentName.trim(),
+          child_name: childName.trim(),
+          child_gender: childGender.trim(),
+          child_age: childAge.trim(),
+          party_theme: partyTheme.trim(),
+          balloon_colors: balloonColors.trim(),
+          table_cloth_colors: tableClothColors.trim(),
+          drink_choice: drinkChoice.trim(),
+          payment_method: paymentMethod.trim(),
+          deposit_acknowledged: depositAcknowledged,
           notes: request.notes,
           readable_date: request.date,
           readable_time: formatReadableTimeRange(
@@ -378,15 +454,26 @@ export function FacilityPartyBookingForm() {
 
   if (bookingSubmitted) {
     return (
-      <div className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/25 bg-emerald-300/[0.06] p-5 text-left sm:mt-14 sm:p-8">
+      <div
+        ref={confirmationRef}
+        tabIndex={-1}
+        role="status"
+        className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-emerald-300/[0.08] p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
+      >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
-          Request Submitted!
+          Booking request received
         </p>
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
+          Watch your email for the request confirmation.
+        </h2>
         <div className="mt-5 space-y-3 text-sm leading-relaxed text-slate-200">
-          <p>A confirmation request has been sent to our team.</p>
-          <p>You will receive an email shortly with your booking details.</p>
           <p>
-            A second email will be sent once your booking is confirmed.
+            We sent your party request to Jumping Jax for review, and a booking
+            request email should arrive with the details you submitted.
+          </p>
+          <p>
+            Your date is not fully confirmed until Jumping Jax approves it. A
+            second email will be sent after approval.
           </p>
         </div>
         <div className="mt-6 rounded-2xl border border-white/10 bg-[#071326]/55 p-4 text-sm text-slate-300">
@@ -395,6 +482,7 @@ export function FacilityPartyBookingForm() {
           {submittedReadableTime && (
             <p className="mt-1">Time: {submittedReadableTime}</p>
           )}
+          {paymentMethod && <p className="mt-1">Payment: {paymentMethod}</p>}
         </div>
       </div>
     );
@@ -729,6 +817,20 @@ export function FacilityPartyBookingForm() {
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Parent name
+                  </span>
+                  <input
+                    type="text"
+                    name="parentName"
+                    autoComplete="name"
+                    value={parentName}
+                    onChange={(e) => setParentName(e.target.value)}
+                    className={inputClassName}
+                    placeholder="Parent or guardian"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Email
                   </span>
                   <input
@@ -754,6 +856,141 @@ export function FacilityPartyBookingForm() {
                     className={inputClassName}
                     placeholder="(864) 555-0199"
                   />
+                </label>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Child&apos;s name
+                    </span>
+                    <input
+                      type="text"
+                      name="childName"
+                      value={childName}
+                      onChange={(e) => setChildName(e.target.value)}
+                      className={inputClassName}
+                      placeholder="Birthday child"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Age
+                    </span>
+                    <input
+                      type="number"
+                      name="childAge"
+                      min={1}
+                      max={18}
+                      value={childAge}
+                      onChange={(e) => setChildAge(e.target.value)}
+                      className={inputClassName}
+                      placeholder="Age"
+                    />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Child&apos;s gender
+                  </span>
+                  <input
+                    type="text"
+                    name="childGender"
+                    value={childGender}
+                    onChange={(e) => setChildGender(e.target.value)}
+                    className={inputClassName}
+                    placeholder="Girl, boy, nonbinary, or prefer not to say"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Party theme
+                  </span>
+                  <input
+                    type="text"
+                    name="partyTheme"
+                    value={partyTheme}
+                    onChange={(e) => setPartyTheme(e.target.value)}
+                    className={inputClassName}
+                    placeholder="Princess, Sonic, sports, glow party..."
+                  />
+                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Balloon colors
+                    </span>
+                    <input
+                      type="text"
+                      name="balloonColors"
+                      value={balloonColors}
+                      onChange={(e) => setBalloonColors(e.target.value)}
+                      className={inputClassName}
+                      placeholder="Pink, purple, white"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Table cloth colors
+                    </span>
+                    <input
+                      type="text"
+                      name="tableClothColors"
+                      value={tableClothColors}
+                      onChange={(e) => setTableClothColors(e.target.value)}
+                      className={inputClassName}
+                      placeholder="Blue and silver"
+                    />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Drink choice
+                  </span>
+                  <select
+                    name="drinkChoice"
+                    required
+                    value={drinkChoice}
+                    onChange={(e) => setDrinkChoice(e.target.value)}
+                    className={inputClassName}
+                  >
+                    <option value="">Select drink</option>
+                    {FACILITY_DRINK_CHOICES.map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    How will you pay?
+                  </span>
+                  <select
+                    name="paymentMethod"
+                    required
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className={inputClassName}
+                  >
+                    <option value="">Select payment method</option>
+                    {PAYMENT_METHOD_CHOICES.map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex gap-3 rounded-xl border border-white/10 bg-[#071326]/45 px-3 py-3 text-sm leading-relaxed text-slate-300">
+                  <input
+                    type="checkbox"
+                    name="depositAcknowledged"
+                    checked={depositAcknowledged}
+                    onChange={(e) => setDepositAcknowledged(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
+                  />
+                  <span>
+                    I understand a $50 deposit is due two weeks before the
+                    party date and can be paid directly to Jumping Jax.
+                  </span>
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -883,6 +1120,13 @@ export function FacilityPartyBookingForm() {
                   <p className="text-sm font-semibold text-cyan-100">
                     Add-ons subtotal (estimate): ${addonSubtotalPreview.toFixed(2)}
                   </p>
+                )}
+                {pricingPreview && !pricingPreview.missingPrice && (
+                  <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-3 text-sm text-slate-200">
+                    {formatFacilityPricingLines(pricingPreview).map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

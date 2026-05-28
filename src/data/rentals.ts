@@ -92,14 +92,237 @@ const FOLDER_TO_CATEGORY_ID: Record<string, RentalCategoryId> = {
 };
 
 const DEFAULT_STARTING_PRICE: Record<RentalCategoryId, number> = {
-  "bounce-houses": 195,
-  combos: 295,
-  "inflatable-games": 325,
-  "obstacle-courses": 449,
-  slides: 279,
-  "water-slides": 349,
-  "yard-games": 175,
+  "bounce-houses": 175,
+  combos: 225,
+  "inflatable-games": 175,
+  "obstacle-courses": 350,
+  slides: 300,
+  "water-slides": 350,
+  "yard-games": 125,
 };
+
+const ITEM_STARTING_PRICE: Record<string, number> = {
+  castle: 150,
+  "dalmation-bounce": 175,
+  "dream-castle": 150,
+  "jumbo-castle-bouncer": 185,
+  "tiger-belly-bounce": 150,
+  "candy-land-toddle-combo": 165,
+  "cars-combo": 200,
+  "castle-combo": 175,
+  combo1: 175,
+  "dream-combo": 175,
+  "fairies-combo": 175,
+  "island-breeze-combo": 240,
+  "spongebob-combo": 175,
+  "whoville-igloo-combo-grinch-themed-inflatable-bounce-house": 275,
+  "world-of-disney": 175,
+  "4-in-1-sports-game": 225,
+  "floating-baseball-game": 115,
+  "football-game": 115,
+  "human-whackamole": 180,
+  "hungry-hippo": 325,
+  "jumpingjax-basketball-shootout": 125,
+  "sports-star": 75,
+  "call-of-duty-course": 225,
+  "criss-cross-course": 375,
+  "grinch-whoville-mayhem": 375,
+  "offshore-obstacle-course": 450,
+  "sports-course": 275,
+  "toxic-course": 275,
+  "18-ft-slide": 225,
+  "18-ft-tropical-double-lane-slide": 325,
+  "24-ft-slide": 375,
+  "30-ft-long-rock-climb-slide": 200,
+  "pirate-slide": 275,
+  "princess-slide": 275,
+  "sugar-rush-slide": 325,
+  "18-ft-tropical-double-lane-waterslide": 450,
+  "island-breeze-combo-waterslide": 300,
+  "pirate-waterslide": 325,
+  "princess-waterslide": 325,
+  "basketball-game": 75,
+  "dunk-tank": 175,
+};
+
+const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
+  {
+    id: "water-slides/18-ft-basic-waterslide",
+    slug: "18-ft-basic-waterslide",
+    categoryId: "water-slides",
+    title: "18' Basic Waterslide",
+    shortDescription:
+      "18' Basic Waterslide - classic backyard water slide fun for hot South Carolina days.",
+    description:
+      "Reserve 18' Basic Waterslide for your next South Carolina event. This classic water slide keeps guests cool with a straightforward climb, slide, and splash setup. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 325,
+    imageSrc: "/inflatables/waterslides/princess-waterslide.webp",
+    imageAlt: "18' Basic Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/22-ft-hurricane-waterslide",
+    slug: "22-ft-hurricane-waterslide",
+    categoryId: "water-slides",
+    title: "22' Hurricane Waterslide",
+    shortDescription:
+      "22' Hurricane Waterslide - tall summer slide with a bigger thrill factor.",
+    description:
+      "Reserve 22' Hurricane Waterslide for your next South Carolina event. This taller water slide is a strong fit for birthdays, schools, churches, and summer gatherings that need a bigger splash. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 400,
+    imageSrc: "/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp",
+    imageAlt: "22' Hurricane Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/22-ft-tropical-hurricane-waterslide",
+    slug: "22-ft-tropical-hurricane-waterslide",
+    categoryId: "water-slides",
+    title: "22' Tropical Hurricane Waterslide",
+    shortDescription:
+      "22' Tropical Hurricane Waterslide - premium tall water slide with tropical color.",
+    description:
+      "Reserve 22' Tropical Hurricane Waterslide for your next South Carolina event. This premium tall water slide brings bright tropical styling and big summer energy. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 450,
+    imageSrc: "/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp",
+    imageAlt: "22' Tropical Hurricane Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/double-lane-18ft-waterslide",
+    slug: "double-lane-18ft-waterslide",
+    categoryId: "water-slides",
+    title: "Double Lane 18ft Waterslide",
+    shortDescription:
+      "Double Lane 18ft Waterslide - two lanes for side-by-side racing and splashdowns.",
+    description:
+      "Reserve Double Lane 18ft Waterslide for your next South Carolina event. Two slide lanes keep the line moving and add friendly racing energy for backyard parties and group events. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 450,
+    imageSrc: "/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp",
+    imageAlt: "Double Lane 18ft Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/double-splash-waterslide",
+    slug: "double-splash-waterslide",
+    categoryId: "water-slides",
+    title: "Double Splash Waterslide",
+    shortDescription:
+      "Double Splash Waterslide - compact water fun with a friendly price point.",
+    description:
+      "Reserve Double Splash Waterslide for your next South Carolina event. This waterslide is a good fit when you want summer fun without the footprint of the tallest units. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 250,
+    imageSrc: "/inflatables/waterslides/island-breeze-combo-waterslide.webp",
+    imageAlt: "Double Splash Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/mini-tiki-plunge",
+    slug: "mini-tiki-plunge",
+    categoryId: "water-slides",
+    title: "Mini Tiki Plunge",
+    shortDescription:
+      "Mini Tiki Plunge - smaller water slide option for younger guests.",
+    description:
+      "Reserve Mini Tiki Plunge for your next South Carolina event. This smaller waterslide option is friendly for younger kids and tighter spaces while still keeping the party cool. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 200,
+    imageSrc: "/inflatables/waterslides/island-breeze-combo-waterslide.webp",
+    imageAlt: "Mini Tiki Plunge rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 4+ with active adult supervision near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/mini-waterslide",
+    slug: "mini-waterslide",
+    categoryId: "water-slides",
+    title: "Mini Waterslide",
+    shortDescription:
+      "Mini Waterslide - smaller splash option for younger parties and tighter yards.",
+    description:
+      "Reserve Mini Waterslide for your next South Carolina event. This compact water slide is a good fit for younger children and smaller setup areas. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 175,
+    imageSrc: "/inflatables/waterslides/princess-waterslide.webp",
+    imageAlt: "Mini Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 4+ with active adult supervision near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/mini-waterslide-2",
+    slug: "mini-waterslide-2",
+    categoryId: "water-slides",
+    title: "Mini Waterslide 2",
+    shortDescription:
+      "Mini Waterslide 2 - compact water slide for younger summer celebrations.",
+    description:
+      "Reserve Mini Waterslide 2 for your next South Carolina event. This compact water slide gives younger guests a fun way to cool off without requiring a large yard. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 175,
+    imageSrc: "/inflatables/waterslides/princess-waterslide.webp",
+    imageAlt: "Mini Waterslide 2 rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 4+ with active adult supervision near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/purple-hurricane-18ft",
+    slug: "purple-hurricane-18ft",
+    categoryId: "water-slides",
+    title: "Purple Hurricane 18ft",
+    shortDescription:
+      "Purple Hurricane 18ft - colorful water slide with a strong summer party look.",
+    description:
+      "Reserve Purple Hurricane 18ft for your next South Carolina event. This colorful 18-foot waterslide is a strong choice for birthdays, school events, and backyard summer parties. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 350,
+    imageSrc: "/inflatables/waterslides/princess-waterslide.webp",
+    imageAlt: "Purple Hurricane 18ft waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/rampage-doublelane-waterslide",
+    slug: "rampage-doublelane-waterslide",
+    categoryId: "water-slides",
+    title: "Rampage Doublelane Waterslide",
+    shortDescription:
+      "Rampage Doublelane Waterslide - 22-foot dual-lane racing waterslide.",
+    description:
+      "Reserve Rampage Doublelane Waterslide for your next South Carolina event. The Rampage features two 22-foot slide lanes and a curling ramp at the bottom for thrill-seeking guests who want to beat the heat. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 375,
+    imageSrc: "/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp",
+    imageAlt: "Rampage Doublelane Waterslide rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+  {
+    id: "water-slides/ruby-falls-waterslide-with-deep-pool",
+    slug: "ruby-falls-waterslide-with-deep-pool",
+    categoryId: "water-slides",
+    title: "Ruby Falls Waterslide with Deep Pool",
+    shortDescription:
+      "Ruby Falls Waterslide with Deep Pool - water slide ending in a deeper splash pool.",
+    description:
+      "Reserve Ruby Falls Waterslide with Deep Pool for your next South Carolina event. This waterslide adds a bigger splash pool experience for hot summer celebrations. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
+    startingPrice: 350,
+    imageSrc: "/inflatables/waterslides/pirate-waterslide.webp",
+    imageAlt: "Ruby Falls Waterslide with Deep Pool rental from Jumping Jax",
+    ageRecommendation:
+      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
+    setupRequirements: setupForCategory("water-slides"),
+  },
+];
 
 const TITLE_OVERRIDES: Record<string, string> = {
   "dalmation-bounce": "Dalmatian Bounce House",
@@ -218,7 +441,7 @@ function setupForCategory(categoryId: RentalCategoryId): string[] {
 }
 
 function manifestToRentals(): Rental[] {
-  const list: Rental[] = [];
+  const list: Rental[] = [...LEGACY_WATERSLIDE_RENTALS];
 
   for (const row of INFLATABLE_MANIFEST) {
     const categoryId = FOLDER_TO_CATEGORY_ID[row.categoryFolder];
@@ -236,7 +459,7 @@ function manifestToRentals(): Rental[] {
       title,
       shortDescription: shortBlurb(categoryId, title),
       description: longDescription(categoryId, title),
-      startingPrice: DEFAULT_STARTING_PRICE[categoryId],
+      startingPrice: ITEM_STARTING_PRICE[slug] ?? DEFAULT_STARTING_PRICE[categoryId],
       imageSrc,
       imageAlt: `${title} inflatable rental from Jumping Jax`,
       ageRecommendation: ageForCategory(categoryId),
@@ -265,8 +488,8 @@ export const RENTALS: Rental[] = manifestToRentals();
 
 /** Full-bleed homepage hero (Next/Image); distinct from first “Popular” tile to avoid duplicate visuals. */
 export const HOMEPAGE_HERO_ASSET = {
-  src: "/inflatables/slides/30-ft-long-rock-climb-slide.webp",
-  alt: "30 Ft Long Rock Climb Slide inflatable rental at an outdoor event",
+  src: "/hero.jpg",
+  alt: "A large Jumping Jax tropical waterslide set up outdoors",
 } as const;
 
 /** Rentals hub: high-intent categories first for conversion browsing. */

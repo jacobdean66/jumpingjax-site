@@ -28,35 +28,42 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col overflow-x-hidden bg-[#071326] text-white">
-        <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#071326]/95 backdrop-blur">
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
+        <header className="border-b-4 border-pink-400 bg-white/95 shadow-sm backdrop-blur">
+          <div className="h-2 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <Link href="/" className="text-lg font-black tracking-wide text-cyan-300">
+            <Link href="/" className="text-lg font-black tracking-wide text-pink-600">
               Jumping Jax
             </Link>
             <nav className="flex w-full flex-wrap items-center gap-2 text-sm font-semibold sm:w-auto sm:justify-end sm:text-base">
-              <Link href="/" className="rounded-full px-3 py-2 transition hover:bg-white/10">
+              <Link
+                href="/"
+                className="rounded-full bg-cyan-100 px-3 py-2 text-cyan-950 transition hover:bg-cyan-200"
+              >
                 Home
               </Link>
               <Link
                 href="/facility-parties"
-                className="rounded-full px-3 py-2 transition hover:bg-white/10"
+                className="rounded-full bg-lime-100 px-3 py-2 text-lime-950 transition hover:bg-lime-200"
               >
                 Facility Parties
               </Link>
-              <Link href="/rentals" className="rounded-full px-3 py-2 transition hover:bg-white/10">
+              <Link
+                href="/rentals"
+                className="rounded-full bg-pink-100 px-3 py-2 text-pink-950 transition hover:bg-pink-200"
+              >
                 Rentals
               </Link>
               <Link
                 href="/rentals"
-                className="rounded-full bg-cyan-400 px-4 py-2 font-bold text-black transition hover:bg-cyan-300"
+                className="rounded-full bg-yellow-300 px-4 py-2 font-bold text-slate-950 shadow-sm shadow-yellow-700/20 transition hover:bg-yellow-200"
               >
                 Book Now
               </Link>
             </nav>
           </div>
         </header>
-        <div className="pt-20 sm:pt-24">{children}</div>
+        <div>{children}</div>
       </body>
     </html>
   );
