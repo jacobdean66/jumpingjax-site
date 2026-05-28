@@ -21,6 +21,7 @@ export const CATEGORY_IDS = [
   "slides",
   "water-slides",
   "foam-parties",
+  "accessories",
   "yard-games",
 ] as const;
 
@@ -79,6 +80,11 @@ export const CATEGORY_COPY: Record<
     blurb:
       "Bubble-filled foam party packages that can stand alone or pair with an inflatable rental.",
   },
+  accessories: {
+    title: "Accessories",
+    blurb:
+      "Tables, chairs, generators, concession machines, balloons, and party add-ons.",
+  },
   "yard-games": {
     title: "Yard Games",
     blurb:
@@ -95,6 +101,7 @@ const FOLDER_TO_CATEGORY_ID: Record<string, RentalCategoryId> = {
   slides: "slides",
   waterslides: "water-slides",
   "foam-parties": "foam-parties",
+  accessories: "accessories",
   "yard-games": "yard-games",
 };
 
@@ -106,6 +113,7 @@ const DEFAULT_STARTING_PRICE: Record<RentalCategoryId, number> = {
   slides: 300,
   "water-slides": 350,
   "foam-parties": 200,
+  accessories: 25,
   "yard-games": 125,
 };
 
@@ -150,8 +158,19 @@ const ITEM_STARTING_PRICE: Record<string, number> = {
   "pirate-waterslide": 325,
   "princess-waterslide": 325,
   "foam-party": 200,
+  "40in-helium-number-balloons": 10,
+  "6-ft-table": 6,
+  "8-ft-table": 8,
+  chairs: 3,
+  "cotton-candy": 85,
+  "cotton-candy-birthday-package": 30,
+  "dunk-tank": 200,
+  generator: 100,
+  "helium-latex-balloons": 10,
+  "inflatable-birthday-chair": 75,
+  "popcorn-machine": 100,
+  "sno-cone": 85,
   "basketball-game": 75,
-  "dunk-tank": 175,
 };
 
 const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
@@ -357,6 +376,93 @@ const FOAM_PARTY_RENTALS: Rental[] = [
   },
 ];
 
+const ACCESSORY_RENTALS: Rental[] = [
+  {
+    slug: "40in-helium-number-balloons",
+    title: "40in Helium Number Balloons",
+    startingPrice: 10,
+    imageSrc: "/inflatables/accessories/40in-helium-number-balloons.jpg",
+  },
+  {
+    slug: "6-ft-table",
+    title: "6 Ft Table",
+    startingPrice: 6,
+    imageSrc: "/inflatables/accessories/6-ft-table.jpg",
+  },
+  {
+    slug: "8-ft-table",
+    title: "8 Ft Table",
+    startingPrice: 8,
+    imageSrc: "/inflatables/accessories/8-ft-table.jpg",
+  },
+  {
+    slug: "chairs",
+    title: "Chairs",
+    startingPrice: 3,
+    imageSrc: "/inflatables/accessories/chairs.jpg",
+  },
+  {
+    slug: "cotton-candy",
+    title: "Cotton Candy",
+    startingPrice: 85,
+    imageSrc: "/inflatables/accessories/cotton-candy.jpg",
+  },
+  {
+    slug: "cotton-candy-birthday-package",
+    title: "Cotton Candy Birthday Package",
+    startingPrice: 30,
+    imageSrc: "/inflatables/accessories/cotton-candy-birthday-package.jpg",
+  },
+  {
+    slug: "dunk-tank",
+    title: "Dunk Tank",
+    startingPrice: 200,
+    imageSrc: "/inflatables/accessories/dunk-tank.jpg",
+  },
+  {
+    slug: "generator",
+    title: "Generator",
+    startingPrice: 100,
+    imageSrc: "/inflatables/accessories/generator.jpg",
+  },
+  {
+    slug: "helium-latex-balloons",
+    title: "Helium Latex Balloons",
+    startingPrice: 10,
+    imageSrc: "/inflatables/accessories/helium-latex-balloons.jpg",
+  },
+  {
+    slug: "inflatable-birthday-chair",
+    title: "Inflatable Birthday Chair",
+    startingPrice: 75,
+    imageSrc: "/inflatables/accessories/inflatable-birthday-chair.jpg",
+  },
+  {
+    slug: "popcorn-machine",
+    title: "Popcorn Machine",
+    startingPrice: 100,
+    imageSrc: "/inflatables/accessories/popcorn-machine.jpg",
+  },
+  {
+    slug: "sno-cone",
+    title: "Sno Cone",
+    startingPrice: 85,
+    imageSrc: "/inflatables/accessories/sno-cone.jpg",
+  },
+].map((item): Rental => ({
+  id: `accessories/${item.slug}`,
+  slug: item.slug,
+  categoryId: "accessories",
+  title: item.title,
+  shortDescription: `${item.title} - party accessory rental that pairs well with inflatables and foam parties.`,
+  description: `Add ${item.title} to your Jumping Jax booking. Accessories can be rented with inflatables, foam parties, or other event packages, and Jumping Jax will confirm quantities and details after reviewing your request.`,
+  startingPrice: item.startingPrice,
+  imageSrc: item.imageSrc,
+  imageAlt: `${item.title} rental from Jumping Jax`,
+  ageRecommendation: "All ages with host supervision and normal event safety rules.",
+  setupRequirements: setupForCategory("accessories"),
+}));
+
 const TITLE_OVERRIDES: Record<string, string> = {
   "dalmation-bounce": "Dalmatian Bounce House",
   "jumpingjax-basketball-shootout": "Jumping Jax Basketball Shootout",
@@ -414,6 +520,7 @@ function shortBlurb(categoryId: RentalCategoryId, title: string): string {
     "water-slides": `${title} — summer-ready water fun; hose and power placement confirmed before delivery.`,
     "yard-games": `${title} — pairs well with inflatables for festivals, churches, and backyard parties.`,
     "foam-parties": `${title} - bubble-filled foam fun for standalone parties or inflatable add-ons.`,
+    accessories: `${title} - add-on rental that helps round out the party setup.`,
   };
   return templates[categoryId];
 }
@@ -438,6 +545,8 @@ function ageForCategory(categoryId: RentalCategoryId): string {
       return "Ages 5+ with swimming comfort; adult supervision required near water landing areas.";
     case "foam-parties":
       return "All ages with adult supervision; guests should expect wet, slippery foam play.";
+    case "accessories":
+      return "All ages with host supervision and normal event safety rules.";
     case "yard-games":
       return "All ages with host supervision; follow posted rules for dunk tanks and shooting games.";
     default:
@@ -464,6 +573,13 @@ function setupForCategory(categoryId: RentalCategoryId): string[] {
       "Clear path for delivery and enough open space for guests to move safely.",
     ];
   }
+  if (categoryId === "accessories") {
+    return [
+      "Customer should confirm quantity needed in the booking notes or by phone.",
+      "Tables, chairs, concessions, generators, and balloons require a clean, level setup area.",
+      "Concession machines and generators may require power, fuel, supplies, or staff confirmation before final approval.",
+    ];
+  }
   if (categoryId === "obstacle-courses") {
     return [
       "Long, level run with clear start/finish staging and unobstructed sightlines.",
@@ -488,6 +604,7 @@ function manifestToRentals(): Rental[] {
   const list: Rental[] = [
     ...LEGACY_WATERSLIDE_RENTALS,
     ...FOAM_PARTY_RENTALS,
+    ...ACCESSORY_RENTALS,
   ];
 
   for (const row of INFLATABLE_MANIFEST) {
@@ -496,6 +613,7 @@ function manifestToRentals(): Rental[] {
 
     const stem = fileStem(row.file);
     const slug = slugFromStem(stem);
+    if (list.some((r) => r.slug === slug)) continue;
     const title = inferTitle(stem);
     const imageSrc = `/inflatables/${row.categoryFolder}/${row.file}`;
 
@@ -543,6 +661,7 @@ export const HOMEPAGE_HERO_ASSET = {
 export const CATEGORY_BROWSE_ORDER: RentalCategoryId[] = [
   "water-slides",
   "foam-parties",
+  "accessories",
   "bounce-houses",
   "combos",
   "slides",
@@ -555,12 +674,13 @@ export const CATEGORY_BROWSE_ORDER: RentalCategoryId[] = [
 const CATEGORY_PREVIEW_SLUG: Partial<Record<RentalCategoryId, string>> = {
   "water-slides": "18-ft-tropical-double-lane-waterslide",
   "foam-parties": "foam-party",
+  accessories: "generator",
   "bounce-houses": "dream-castle",
   combos: "world-of-disney",
   slides: "30-ft-long-rock-climb-slide",
   "obstacle-courses": "offshore-obstacle-course",
   "inflatable-games": "human-whackamole",
-  "yard-games": "dunk-tank",
+  "yard-games": "basketball-game",
 };
 
 export function categoryPreviewRental(
@@ -618,17 +738,30 @@ export function homeFeaturedRentals(): Rental[] {
 }
 
 export function relatedRentals(rental: Rental, limit = 3): Rental[] {
+  const accessoryAddOns = [
+    getRentalBySlug("generator"),
+    getRentalBySlug("cotton-candy"),
+    getRentalBySlug("popcorn-machine"),
+  ].filter((r): r is Rental => Boolean(r));
+
   if (rental.slug === "foam-party") {
-    return RENTALS.filter((r) => r.categoryId === "water-slides").slice(
-      0,
-      limit,
-    );
+    return accessoryAddOns.slice(0, limit);
+  }
+
+  if (rental.categoryId === "accessories") {
+    return RENTALS.filter(
+      (r) => r.categoryId === "accessories" && r.slug !== rental.slug,
+    ).slice(0, limit);
   }
 
   const sameCategory = RENTALS.filter(
     (r) => r.categoryId === rental.categoryId && r.slug !== rental.slug,
   );
   const foamParty = getRentalBySlug("foam-party");
-  const withFoamAddon = foamParty ? [foamParty, ...sameCategory] : sameCategory;
-  return withFoamAddon.slice(0, limit);
+  const suggestedAddOns = [
+    ...(foamParty ? [foamParty] : []),
+    ...accessoryAddOns,
+    ...sameCategory,
+  ];
+  return suggestedAddOns.slice(0, limit);
 }
