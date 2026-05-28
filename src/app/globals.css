@@ -73,3 +73,27 @@ body {
 .facility-party-readable [class*="opacity-50"] {
   opacity: 0.7;
 }
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  header,
+  iframe,
+  form,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  a {
+    color: #0f172a;
+    text-decoration: none;
+  }
+}

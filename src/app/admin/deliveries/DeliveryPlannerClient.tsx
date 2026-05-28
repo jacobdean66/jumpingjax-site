@@ -420,6 +420,129 @@ function statusCounts(items: PlannedInflatable[]) {
   );
 }
 
+function chunkLoads(items: PlannedInflatable[]): PlannedInflatable[][] {
+  const sorted = sortTruckItems(items);
+  const loads: PlannedInflatable[][] = [];
+  for (let i = 0; i < sorted.length; i += TRUCK_INFLATABLE_CAPACITY) {
+    loads.push(sorted.slice(i, i + TRUCK_INFLATABLE_CAPACITY));
+  }
+  return loads;
+}
+
+function routeRangeLabel(load: PlannedInflatable[]): string {
+  const sequences = load
+    .map((item) => item.deliverySequence)
+    .filter((value): value is number => typeof value === "number");
+  if (sequences.length === 0) return "Stops not numbered yet";
+  return sequences.length === 1
+    ? `Stop ${sequences[0]}`
+    : `Stops ${Math.min(...sequences)}-${Math.max(...sequences)}`;
+}
+
+function LoadSheet({
+  truck,
+  items,
+}: {
+  truck: TruckId;
+  items: PlannedInflatable[];
+}) {
+  const loads = chunkLoads(items);
+  const truckLabel = COLUMN_LABELS[truck];
+
+  return (
+    <section className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-slate-200 pb-3 print:border-slate-900">
+        <div>
+          <h3 className="text-2xl font-black text-slate-950">{truckLabel}</h3>
+          <p className="mt-1 text-sm font-bold text-slate-700">
+            Load the trailer in this order. Each load holds up to 3 inflatables.
+          </p>
+        </div>
+        <p className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-black text-white">
+          {items.length} inflatables
+        </p>
+      </div>
+
+      {loads.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-base font-bold text-slate-700">
+          No inflatables assigned to this truck.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-4">
+          {loads.map((load, index) => (
+            <div
+              key={`${truck}-load-${index}`}
+              className="rounded-xl border border-slate-300 bg-slate-50 p-4 print:border-slate-700"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xl font-black text-slate-950">
+                  {truckLabel} - Trailer Load {index + 1}
+                </h4>
+                <span className="rounded-full bg-amber-200 px-3 py-1 text-sm font-black text-amber-950">
+                  {routeRangeLabel(load)}
+                </span>
+              </div>
+              {index > 0 && (
+                <p className="mt-2 rounded-lg bg-rose-100 px-3 py-2 text-sm font-black text-rose-900">
+                  Return and reload before starting this load.
+                </p>
+              )}
+              <ol className="mt-3 grid gap-3">
+                {load.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-lg border border-slate-200 bg-white p-3 print:border-slate-500"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-wide text-sky-800">
+                          Stop {item.deliverySequence ?? "?"} - Booking #{item.bookingId}
+                        </p>
+                        <p className="mt-1 text-lg font-black text-slate-950">
+                          {item.rentalName}
+                        </p>
+                      </div>
+                      {item.isBigSlide && (
+                        <span className="rounded-full bg-sky-200 px-3 py-1 text-xs font-black uppercase text-sky-950">
+                          Big slide
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 grid gap-1 text-sm text-slate-800 sm:grid-cols-2">
+                      <p>
+                        <span className="font-black">Customer:</span>{" "}
+                        {item.customerName}
+                      </p>
+                      <p>
+                        <span className="font-black">Phone:</span>{" "}
+                        {item.customerPhone ?? "Not saved"}
+                      </p>
+                      <p>
+                        <span className="font-black">Crew arrives:</span>{" "}
+                        {formatTime(item.plannedArrivalTime)}
+                      </p>
+                      <p>
+                        <span className="font-black">Party starts:</span>{" "}
+                        {formatTime(item.eventStartTime)}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm font-bold leading-relaxed text-slate-900">
+                      Address: {item.eventAddress ?? "No address saved"}
+                    </p>
+                    <p className={`mt-2 rounded-lg border px-3 py-2 text-sm font-black ${warningClasses(item.warning)}`}>
+                      {warningLabel(item.warning)}: {item.warningText}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function InflatableCard({
   item,
   onAssign,
@@ -757,6 +880,39 @@ export function DeliveryPlannerClient({
             Save failed: {saveError}
           </p>
         )}
+      </section>
+
+      <section className="mt-5 rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:border-0 print:p-0 print:shadow-none">
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <div>
+            <h2 className="text-3xl font-black text-slate-950">
+              Print truck load sheets
+            </h2>
+            <p className="mt-1 max-w-3xl text-base font-bold leading-relaxed text-slate-700">
+              Give this to the crew. It says what goes on each trailer load,
+              where each stop goes, and what time the crew should arrive.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white hover:bg-slate-800"
+          >
+            Print this plan
+          </button>
+        </div>
+        <div className="hidden print:block">
+          <h1 className="text-3xl font-black text-slate-950">
+            Jumping Jax Delivery Plan
+          </h1>
+          <p className="mt-1 text-lg font-bold text-slate-800">
+            Date: {deliveries.date}
+          </p>
+        </div>
+        <div className="mt-4 grid gap-5 xl:grid-cols-2 print:grid-cols-1">
+          <LoadSheet truck="truck-1" items={columns.truck1} />
+          <LoadSheet truck="truck-2" items={columns.truck2} />
+        </div>
       </section>
 
       <section className="mt-5 grid gap-3 lg:grid-cols-3">
