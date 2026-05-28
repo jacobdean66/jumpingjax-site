@@ -56,7 +56,7 @@ const PARTY_KIND_CHOICES: {
     id: "public",
     title: "Public Play Party",
     description:
-      "Available during open hours (Wednesday–Saturday). Choose from two party rooms. 1.5 hour time slots.",
+      "Available during open hours (Wednesday-Saturday). Choose the 10 kid party room or 20 kid party room. 1.5 hour time slots.",
   },
   {
     id: "private",
@@ -355,7 +355,7 @@ export function FacilityPartyBookingForm() {
       return;
     }
     if (partyKind === "public" && !roomId) {
-      setFormError("Select which play room you want.");
+      setFormError("Select which room you want.");
       return;
     }
     if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
@@ -504,7 +504,7 @@ export function FacilityPartyBookingForm() {
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm leading-relaxed text-slate-200">
           <p className="font-semibold text-cyan-100">Scheduling notes</p>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
-            <li>Saturday daytime uses fixed shared party slots in each play room.</li>
+            <li>Saturday daytime uses fixed shared party slots in each room.</li>
             <li>
               Whole-facility visits are spaced automatically (one group at a
               time).
@@ -557,13 +557,12 @@ export function FacilityPartyBookingForm() {
         {/* 2. Room */}
         <section className={`space-y-3 ${!partyKind ? "opacity-50 pointer-events-none" : ""}`}>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            2 · Party space
+            2 · Room
           </p>
           {partyKind === "public" ? (
             <>
               <p className="text-sm text-slate-400">
-                The smaller room is only offered for Saturday daytime visits.
-                Choose the space that fits your headcount.
+                Choose the room that fits your headcount.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {publicRooms.map((room) => {
@@ -584,8 +583,8 @@ export function FacilityPartyBookingForm() {
                     >
                       <span className="block text-sm font-semibold text-white">
                         {room.id === "room-10"
-                          ? "Smaller play room"
-                          : "Larger play room"}
+                          ? "10 kid party room"
+                          : "20 kid party room"}
                       </span>
                       <span className="mt-1 block text-xs text-slate-400">
                         Up to {room.maxKids} kids · {room.label}
@@ -597,11 +596,10 @@ export function FacilityPartyBookingForm() {
             </>
           ) : (
             <div className="rounded-2xl border border-white/10 bg-[#071326]/55 px-4 py-4 text-sm leading-relaxed text-slate-300">
-              <p className="font-semibold text-white">Whole facility · larger party space</p>
+              <p className="font-semibold text-white">Whole facility · 20 kid party room</p>
               <p className="mt-2">
-                Evening and Sunday visits always use our larger private party
-                area (up to 20 kids). The smaller room is not offered for these
-                times.
+                Evening and Sunday visits always use the 20 kid party room. The
+                10 kid party room is not offered for these times.
               </p>
             </div>
           )}

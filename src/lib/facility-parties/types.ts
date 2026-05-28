@@ -38,7 +38,7 @@ export interface FacilityPartyBookingBlock {
   kind: FacilityPartyKind;
   /** Local calendar date YYYY-MM-DD */
   date: string;
-  /** Public: booked room. Private: larger party space (stored as 20-kid room id). */
+  /** Public: booked room. Private: 20 kid party room. */
   roomId: FacilityRoomId | null;
   startMinutes: number;
   endMinutes: number;

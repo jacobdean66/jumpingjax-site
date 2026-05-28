@@ -7,12 +7,12 @@ import type {
 
 export const FACILITY_PARTY_BUFFER_MINUTES = 30;
 
-/** Private / buyout requests always use the larger party space (20-kid room). */
+/** Private / buyout requests always use the 20 kid party room. */
 export const PRIVATE_PARTY_ROOM_ID: FacilityRoomId = "room-20";
 
 export const FACILITY_ROOMS: FacilityRoom[] = [
-  { id: "room-10", label: "10-kid room", maxKids: 10 },
-  { id: "room-20", label: "20-kid room", maxKids: 20 },
+  { id: "room-10", label: "10 kid party room", maxKids: 10 },
+  { id: "room-20", label: "20 kid party room", maxKids: 20 },
 ];
 
 /** Saturday public: fixed 90-minute blocks */
