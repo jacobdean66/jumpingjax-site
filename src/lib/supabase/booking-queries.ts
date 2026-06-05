@@ -13,7 +13,9 @@ export async function queryRentalUnavailableYmds(
 ): Promise<RentalUnavailableResult> {
   try {
     const res = await fetch(
-      `/api/unavailable-dates?rental_item=${encodeURIComponent(rental_item)}`,
+      `/api/unavailable-dates?rental_item=${encodeURIComponent(
+        rental_item,
+      )}&months_ahead=${monthsAhead}`,
       { cache: "no-store" }
     );
 

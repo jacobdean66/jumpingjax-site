@@ -44,44 +44,44 @@ export default function RootLayout({
               </a>
             </div>
           </div>
-          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="mx-auto grid w-full max-w-6xl gap-3 px-4 py-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:px-6">
             <Link href="/" className="text-lg font-black tracking-wide text-pink-600">
               Jumping Jax
             </Link>
-            <nav className="flex w-full flex-wrap items-center gap-2 text-sm font-semibold sm:w-auto sm:justify-end sm:text-base">
+            <nav className="site-mobile-nav grid min-w-0 grid-cols-1 gap-2 text-xs font-semibold min-[430px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:text-base">
               <Link
                 href="/"
-                className="rounded-full bg-cyan-100 px-3 py-2 text-cyan-950 transition hover:bg-cyan-200"
+                className="min-w-0 rounded-full bg-cyan-100 px-3 py-2 text-center text-cyan-950 transition hover:bg-cyan-200"
               >
                 Home
               </Link>
               <Link
                 href="/facility-parties"
-                className="rounded-full bg-lime-100 px-3 py-2 text-lime-950 transition hover:bg-lime-200"
+                className="min-w-0 rounded-full bg-lime-100 px-3 py-2 text-center text-lime-950 transition hover:bg-lime-200"
               >
                 Facility Parties
               </Link>
               <Link
                 href="/rentals"
-                className="rounded-full bg-pink-100 px-3 py-2 text-pink-950 transition hover:bg-pink-200"
+                className="min-w-0 rounded-full bg-pink-100 px-3 py-2 text-center text-pink-950 transition hover:bg-pink-200"
               >
                 Rentals
               </Link>
               <Link
                 href="/rentals/foam-parties"
-                className="rounded-full bg-sky-100 px-3 py-2 text-sky-950 transition hover:bg-sky-200"
+                className="min-w-0 rounded-full bg-sky-100 px-3 py-2 text-center text-sky-950 transition hover:bg-sky-200"
               >
                 Foam Parties
               </Link>
               <Link
                 href="/#contact"
-                className="rounded-full bg-orange-100 px-3 py-2 text-orange-950 transition hover:bg-orange-200"
+                className="min-w-0 rounded-full bg-orange-100 px-3 py-2 text-center text-orange-950 transition hover:bg-orange-200"
               >
                 Contact
               </Link>
               <Link
                 href="/rentals"
-                className="rounded-full bg-yellow-300 px-4 py-2 font-bold text-slate-950 shadow-sm shadow-yellow-700/20 transition hover:bg-yellow-200"
+                className="min-w-0 rounded-full bg-yellow-300 px-4 py-2 text-center font-bold text-slate-950 shadow-sm shadow-yellow-700/20 transition hover:bg-yellow-200"
               >
                 Book Now
               </Link>

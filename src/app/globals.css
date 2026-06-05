@@ -28,6 +28,17 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+.site-mobile-nav {
+  width: calc(100vw - 2rem);
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .site-mobile-nav {
+    width: auto;
+  }
+}
+
 .facility-party-readable {
   color: #0f172a;
 }

@@ -351,7 +351,10 @@ export function RentalBookingPanel({
   };
 
   useEffect(() => {
-    setRestoredSuccessId(readPersistedSubmitSuccess(slug));
+    const timeoutId = window.setTimeout(() => {
+      setRestoredSuccessId(readPersistedSubmitSuccess(slug));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [slug]);
 
   const activeSuccessId = successId ?? restoredSuccessId;
@@ -388,11 +391,11 @@ export function RentalBookingPanel({
     [selectedRentalItems],
   );
 
-  useEffect(() => {
-    if (!durationOptions.some((option) => option.id === durationId)) {
-      setDurationId(durationOptions[0]!.id);
-    }
-  }, [durationId, durationOptions]);
+  const selectedDurationId = durationOptions.some(
+    (option) => option.id === durationId,
+  )
+    ? durationId
+    : durationOptions[0]!.id;
 
   const displayCartItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length > 0) {
@@ -405,12 +408,10 @@ export function RentalBookingPanel({
     rentalCartItems.length > 0 &&
     !rentalCartItems.some((item) => item.rental_item === slug);
   const showFridayDeliveryPrompt = isFridayOrSaturday(selectedYmd);
-
-  useEffect(() => {
-    if (!showFridayDeliveryPrompt && deliveryTime.startsWith("Friday ")) {
-      setDeliveryTime("");
-    }
-  }, [deliveryTime, showFridayDeliveryPrompt]);
+  const selectedDeliveryTime =
+    !showFridayDeliveryPrompt && deliveryTime.startsWith("Friday ")
+      ? ""
+      : deliveryTime;
 
   type ClientFetchState =
     | { status: "idle" }
@@ -488,8 +489,8 @@ export function RentalBookingPanel({
   }, [effectiveUnavailableYmds, optimisticBlockedYmds]);
 
   const duration = useMemo(
-    () => durationOptions.find((d) => d.id === durationId),
-    [durationId, durationOptions],
+    () => durationOptions.find((d) => d.id === selectedDurationId),
+    [durationOptions, selectedDurationId],
   );
 
   const selectionValid = useMemo(() => {
@@ -534,10 +535,10 @@ export function RentalBookingPanel({
       customer.setupSurface.trim().length > 0 &&
       customer.setupAccess.trim().length > 0 &&
       customer.paymentMethod.trim().length > 0 &&
-      deliveryTime.trim().length > 0 &&
+      selectedDeliveryTime.trim().length > 0 &&
       eventStartTime.trim().length > 0
     );
-  }, [customer, deliveryTime, eventStartTime]);
+  }, [customer, selectedDeliveryTime, eventStartTime]);
 
   const distanceMiles = normalizeDistanceMiles(customer.distanceMiles);
   const deliveryFee = selectionValid && duration
@@ -650,7 +651,7 @@ export function RentalBookingPanel({
           rental_item: slug,
           rental_items: selectedRentalItems,
           event_address: customer.eventAddress,
-          requested_delivery_window: deliveryTime,
+          requested_delivery_window: selectedDeliveryTime,
           event_start_time: eventStartTime,
           distance_miles: distanceMiles,
           delivery_fee: deliveryFee ?? 0,
@@ -945,7 +946,7 @@ export function RentalBookingPanel({
                   <div className="mt-3">
                     <DurationSelector
                       options={durationOptions}
-                      value={durationId}
+                      value={selectedDurationId}
                       onChange={setDurationId}
                     />
                   </div>
@@ -995,7 +996,7 @@ export function RentalBookingPanel({
                     <select
                       name="deliveryTime"
                       required
-                      value={deliveryTime}
+                      value={selectedDeliveryTime}
                       onChange={(e) => setDeliveryTime(e.target.value)}
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
                     >
