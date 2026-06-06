@@ -394,6 +394,16 @@ export async function GET(req: Request) {
     return new Response("Rental calendar event already exists");
   }
 
+  if (
+    action === "confirm" &&
+    (rentalCalendarResult === "failed" || foamCalendarResult === "failed")
+  ) {
+    return NextResponse.json(
+      { error: "Rental approved, but Google Calendar event creation failed" },
+      { status: 500 },
+    );
+  }
+
   if (!customerEmail || !customerName) {
     return new Response(`${successMessage}. No customer email sent (missing data).`);
   }
