@@ -19,11 +19,18 @@ type PlannedInflatable = {
   eventStartTime: string | null;
   requestedDeliveryWindow: string | null;
   eventAddress: string | null;
+  distanceMiles: number | null;
+  setupLocation: string | null;
+  setupSurface: string | null;
+  setupAccess: string | null;
+  setupNotes: string | null;
   singleStopMapUrl: string | null;
   rentalName: string;
   rentalItem: string;
   isBigSlide: boolean;
+  deliveryDate: string | null;
   deliveryTruck: TruckId | null;
+  trailerLoad: number | null;
   deliverySequence: number | null;
   plannedArrivalTime: string | null;
   plannedSetupStart: string | null;
@@ -38,15 +45,18 @@ type PlannedInflatable = {
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 const TRUCKS: TruckId[] = ["truck-1", "truck-2"];
 const COLUMN_LABELS: Record<ColumnId, string> = {
-  unassigned: "Needs a Truck",
-  "truck-1": "Truck 1",
-  "truck-2": "Truck 2",
+  unassigned: "Needs Assignment",
+  "truck-1": "Short Trailer",
+  "truck-2": "Long Trailer",
 };
 const DAY_START_MINUTES = 7 * 60;
 const FIRST_DRIVE_MINUTES = 45;
 const BETWEEN_STOPS_MINUTES = 30;
+const RETURN_TO_SHOP_MINUTES = 30;
+const RELOAD_MINUTES = 20;
 const TARGET_READY_BUFFER_MINUTES = 60;
-const MIN_READY_BUFFER_MINUTES = 45;
+const MIN_READY_BUFFER_MINUTES = 30;
+const DELIVERY_WINDOW_MINUTES = 180;
 const TRUCK_INFLATABLE_CAPACITY = 3;
 const TRUCK_BIG_SLIDE_CAPACITY = 3;
 
@@ -64,6 +74,13 @@ function timeFromMinutes(value: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+function addDays(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function formatTime(value: string | null): string {
   if (!value) return "Not set";
   const minutes = minutesFromTime(value);
@@ -79,15 +96,20 @@ function routeUrl(items: PlannedInflatable[]): string | null {
   const stops = uniqueStops(items);
   if (stops.length === 0) return null;
 
-  const url = new URL("https://www.google.com/maps/dir/");
-  url.searchParams.set("api", "1");
-  url.searchParams.set("origin", SHOP_ADDRESS);
-  url.searchParams.set("destination", stops[stops.length - 1]!);
-  url.searchParams.set("travelmode", "driving");
-  if (stops.length > 1) {
-    url.searchParams.set("waypoints", stops.slice(0, -1).join("|"));
-  }
-  return url.toString();
+  const routeStops = [SHOP_ADDRESS, ...stops, SHOP_ADDRESS];
+  return `https://www.google.com/maps/dir/${routeStops
+    .map((stop) => encodeURIComponent(stop))
+    .join("/")}`;
+}
+
+function deliveryDeadlineMinutes(eventStartTime: string | null): number | null {
+  const partyStart = minutesFromTime(eventStartTime);
+  return partyStart == null ? null : partyStart - MIN_READY_BUFFER_MINUTES;
+}
+
+function deliveryWindowStartMinutes(eventStartTime: string | null): number | null {
+  const deadline = deliveryDeadlineMinutes(eventStartTime);
+  return deadline == null ? null : deadline - DELIVERY_WINDOW_MINUTES;
 }
 
 function uniqueStops(items: PlannedInflatable[]): string[] {
@@ -101,35 +123,23 @@ function uniqueStops(items: PlannedInflatable[]): string[] {
     });
 }
 
-function routeEmbedUrl(items: PlannedInflatable[]): string | null {
-  const stops = uniqueStops(items);
-  if (stops.length === 0) return null;
-
-  const url = new URL("https://maps.google.com/maps");
-  url.searchParams.set("f", "d");
-  url.searchParams.set("source", "s_d");
-  url.searchParams.set("saddr", SHOP_ADDRESS);
-  url.searchParams.set("daddr", stops.join(" to: "));
-  url.searchParams.set("output", "embed");
-  return url.toString();
-}
-
 function evaluateWarning(
   item: PlannedInflatable,
 ): Pick<PlannedInflatable, "warning" | "warningText"> {
   const partyStart = minutesFromTime(item.eventStartTime);
+  const deliveryDeadline = deliveryDeadlineMinutes(item.eventStartTime);
   const setupEnd = minutesFromTime(item.plannedSetupEnd);
 
   if (partyStart == null) {
     return {
       warning: "missing_time",
-      warningText: "Fix this first: no official party start time.",
+      warningText: "Needs attention: no party start time is saved.",
     };
   }
   if (setupEnd == null) {
     return {
       warning: "unplanned",
-      warningText: "Needs a truck before timing can be checked.",
+      warningText: "Needs attention: assign this inflatable to a truck.",
     };
   }
 
@@ -137,31 +147,47 @@ function evaluateWarning(
   if (buffer < 0) {
     return {
       warning: "late",
-      warningText: `Problem: setup ends ${Math.abs(buffer)} min after party starts.`,
+      warningText: `Needs attention: setup ends ${Math.abs(buffer)} min after party starts.`,
     };
   }
   if (buffer < MIN_READY_BUFFER_MINUTES) {
     return {
       warning: "late",
-      warningText: `Problem: only ${buffer} min before party starts.`,
+      warningText: `Needs attention: setup ends after the ${formatTime(
+        deliveryDeadline == null ? null : timeFromMinutes(deliveryDeadline),
+      )} delivery deadline.`,
     };
   }
   if (buffer < TARGET_READY_BUFFER_MINUTES) {
     return {
       warning: "tight",
-      warningText: `Watch closely: ${buffer} min before party starts.`,
+      warningText: `Close timing: ready ${buffer} min before party starts.`,
     };
   }
   return {
     warning: "ok",
-    warningText: `Good: ready ${buffer} min before party starts.`,
+    warningText: `Ready: finished ${buffer} min before party starts.`,
   };
 }
 
 function sortByPartyStart(a: PlannedInflatable, b: PlannedInflatable) {
-  const aTime = minutesFromTime(a.eventStartTime) ?? 9999;
-  const bTime = minutesFromTime(b.eventStartTime) ?? 9999;
-  return aTime - bTime || a.customerName.localeCompare(b.customerName);
+  const aDeadline = deliveryDeadlineMinutes(a.eventStartTime) ?? 9999;
+  const bDeadline = deliveryDeadlineMinutes(b.eventStartTime) ?? 9999;
+  if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+  return a.customerName.localeCompare(b.customerName);
+}
+
+function sortForRoute(a: PlannedInflatable, b: PlannedInflatable) {
+  const aDeadline = deliveryDeadlineMinutes(a.eventStartTime) ?? 9999;
+  const bDeadline = deliveryDeadlineMinutes(b.eventStartTime) ?? 9999;
+  if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+
+  const aMiles = a.distanceMiles ?? -1;
+  const bMiles = b.distanceMiles ?? -1;
+  if (aMiles !== bMiles) return bMiles - aMiles;
+
+  return (a.eventAddress ?? "").localeCompare(b.eventAddress ?? "") ||
+    a.customerName.localeCompare(b.customerName);
 }
 
 function sortTruckItems(items: PlannedInflatable[]) {
@@ -196,14 +222,21 @@ function flattenBookings(bookings: AdminDeliveryBooking[]): PlannedInflatable[] 
       eventStartTime: booking.eventStartTime,
       requestedDeliveryWindow: booking.requestedDeliveryWindow,
       eventAddress: booking.eventAddress,
+      distanceMiles: booking.distanceMiles,
+      setupLocation: booking.setupLocation,
+      setupSurface: booking.setupSurface,
+      setupAccess: booking.setupAccess,
+      setupNotes: booking.setupNotes,
       singleStopMapUrl: booking.singleStopMapUrl,
       rentalName: item.rental_name,
       rentalItem: item.rental_item,
       isBigSlide: item.isBigSlide,
+      deliveryDate: item.deliveryDate,
       deliveryTruck:
         item.deliveryTruck === "truck-1" || item.deliveryTruck === "truck-2"
           ? item.deliveryTruck
           : null,
+      trailerLoad: item.trailerLoad,
       deliverySequence: item.deliverySequence,
       plannedArrivalTime: item.plannedArrivalTime,
       plannedSetupStart: item.plannedSetupStart,
@@ -212,7 +245,7 @@ function flattenBookings(bookings: AdminDeliveryBooking[]): PlannedInflatable[] 
       deliveryRouteNotes: item.deliveryRouteNotes,
       estimatedSetupMinutes: item.estimatedSetupMinutes,
       warning: "unplanned",
-      warningText: "Needs a truck before timing can be checked.",
+      warningText: "Needs attention: assign this inflatable to a truck.",
     })),
   );
 }
@@ -235,22 +268,45 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
   }
 
   for (const truck of TRUCKS) {
-    let availableAt = DAY_START_MINUTES + FIRST_DRIVE_MINUTES;
-    let inflatableCount = 0;
-    let bigSlideCount = 0;
-    let lastBookingId: string | null = null;
+    let availableAt = DAY_START_MINUTES;
+    let sequence = 1;
+    const truckItems = sortTruckItems(items.filter((item) => item.deliveryTruck === truck));
+    const loadNumbers = [
+      ...new Set(
+        truckItems.map(
+          (item, index) =>
+            item.trailerLoad ?? Math.floor(index / TRUCK_INFLATABLE_CAPACITY) + 1,
+        ),
+      ),
+    ].sort((a, b) => a - b);
 
-    sortTruckItems(items.filter((item) => item.deliveryTruck === truck)).forEach(
-      (item, index) => {
+    for (const loadNumber of loadNumbers) {
+      let loadInflatableCount = 0;
+      let loadBigSlideCount = 0;
+      let lastBookingId: string | null = null;
+      let loadAvailableAt = availableAt + FIRST_DRIVE_MINUTES;
+      const loadItems = truckItems.filter(
+        (item, index) =>
+          (item.trailerLoad ?? Math.floor(index / TRUCK_INFLATABLE_CAPACITY) + 1) ===
+          loadNumber,
+      );
+
+      loadItems.forEach((item) => {
         const sameStop = lastBookingId === item.bookingId;
-        const setupStart = sameStop ? availableAt - BETWEEN_STOPS_MINUTES : availableAt;
+        const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
+        const targetArrival =
+          windowStart == null ? loadAvailableAt : Math.max(loadAvailableAt, windowStart);
+        const setupStart = sameStop
+          ? targetArrival - BETWEEN_STOPS_MINUTES
+          : targetArrival;
         const setupEnd = setupStart + item.estimatedSetupMinutes;
-        inflatableCount += 1;
-        bigSlideCount += item.isBigSlide ? 1 : 0;
+        loadInflatableCount += 1;
+        loadBigSlideCount += item.isBigSlide ? 1 : 0;
 
         const planned = {
           ...item,
-          deliverySequence: index + 1,
+          trailerLoad: loadNumber,
+          deliverySequence: sequence,
           plannedArrivalTime: timeFromMinutes(setupStart),
           plannedSetupStart: timeFromMinutes(setupStart),
           plannedSetupEnd: timeFromMinutes(setupEnd),
@@ -258,8 +314,8 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
             item.deliveryRouteStatus === "planned" ? "planned" : "draft",
         };
         const capacityWarning =
-          inflatableCount > TRUCK_INFLATABLE_CAPACITY ||
-          bigSlideCount > TRUCK_BIG_SLIDE_CAPACITY;
+          loadInflatableCount > TRUCK_INFLATABLE_CAPACITY ||
+          loadBigSlideCount > TRUCK_BIG_SLIDE_CAPACITY;
 
         byId.set(
           item.id,
@@ -268,15 +324,18 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
                 ...planned,
                 warning: "capacity",
                 warningText:
-                  "Truck has more than 3 inflatables. Plan a second load or move this inflatable.",
+                  "Needs attention: this trailer load has more than 3 inflatables.",
               }
             : { ...planned, ...evaluateWarning(planned) },
         );
 
-        availableAt = setupEnd + (sameStop ? 0 : BETWEEN_STOPS_MINUTES);
+        loadAvailableAt = setupEnd + (sameStop ? 0 : BETWEEN_STOPS_MINUTES);
         lastBookingId = item.bookingId;
-      },
-    );
+        sequence += 1;
+      });
+
+      availableAt = loadAvailableAt + RETURN_TO_SHOP_MINUTES + RELOAD_MINUTES;
+    }
   }
 
   return items.map((item) => byId.get(item.id) ?? item);
@@ -297,7 +356,7 @@ function autoDraft(items: PlannedInflatable[]): PlannedInflatable[] {
     "truck-2": { availableAt: DAY_START_MINUTES + FIRST_DRIVE_MINUTES, sequence: 1, inflatableCount: 0, bigSlideCount: 0 },
   };
 
-  return [...items].sort(sortByPartyStart).map((item) => {
+  return [...items].sort(sortForRoute).map((item) => {
     const preferredTruck = preferredTruckForAddress(item.eventAddress);
     const otherTruck = preferredTruck === "truck-1" ? "truck-2" : "truck-1";
     const preferredState = truckState[preferredTruck];
@@ -321,7 +380,9 @@ function autoDraft(items: PlannedInflatable[]): PlannedInflatable[] {
     }
 
     const state = truckState[truck];
-    const setupStart = state.availableAt;
+    const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
+    const setupStart =
+      windowStart == null ? state.availableAt : Math.max(state.availableAt, windowStart);
     const setupEnd = setupStart + item.estimatedSetupMinutes;
     const planned = {
       ...item,
@@ -382,8 +443,10 @@ function routeAssignments(items: PlannedInflatable[]) {
     id: item.bookingId,
     bookingId: item.bookingId,
     itemId: item.itemId,
-    deliveryTruck: item.deliveryTruck,
-    deliverySequence: item.deliverySequence,
+      deliveryTruck: item.deliveryTruck,
+      deliveryDate: item.deliveryDate,
+      trailerLoad: item.trailerLoad,
+      deliverySequence: item.deliverySequence,
     plannedArrivalTime: item.plannedArrivalTime,
     plannedSetupStart: item.plannedSetupStart,
     plannedSetupEnd: item.plannedSetupEnd,
@@ -401,32 +464,50 @@ function warningClasses(warning: PlannedInflatable["warning"]) {
 }
 
 function warningLabel(warning: PlannedInflatable["warning"]) {
-  if (warning === "ok") return "GOOD";
-  if (warning === "tight") return "WATCH";
-  if (warning === "unplanned") return "NOT PLANNED";
-  return "FIX";
+  if (warning === "ok") return "READY";
+  if (warning === "tight") return "CLOSE TIMING";
+  return "NEEDS ATTENTION";
+}
+
+function printWarningLabel(warning: PlannedInflatable["warning"]) {
+  if (warning === "ok") return "Ready";
+  if (warning === "tight") return "Tight";
+  if (warning === "missing_time") return "No start";
+  if (warning === "capacity") return "Capacity";
+  if (warning === "late") return "Late";
+  return "Check";
 }
 
 function statusCounts(items: PlannedInflatable[]) {
   return items.reduce(
     (counts, item) => {
       if (!item.deliveryTruck) counts.unassigned += 1;
-      if (item.warning === "late" || item.warning === "capacity") counts.fix += 1;
-      if (item.warning === "tight") counts.watch += 1;
-      if (item.warning === "ok") counts.good += 1;
+      if (
+        item.warning === "late" ||
+        item.warning === "capacity" ||
+        item.warning === "missing_time" ||
+        item.warning === "unplanned"
+      ) {
+        counts.needsAttention += 1;
+      }
+      if (item.warning === "tight") counts.closeTiming += 1;
+      if (item.warning === "ok") counts.ready += 1;
       return counts;
     },
-    { unassigned: 0, fix: 0, watch: 0, good: 0 },
+    { unassigned: 0, needsAttention: 0, closeTiming: 0, ready: 0 },
   );
 }
 
 function chunkLoads(items: PlannedInflatable[]): PlannedInflatable[][] {
   const sorted = sortTruckItems(items);
-  const loads: PlannedInflatable[][] = [];
-  for (let i = 0; i < sorted.length; i += TRUCK_INFLATABLE_CAPACITY) {
-    loads.push(sorted.slice(i, i + TRUCK_INFLATABLE_CAPACITY));
-  }
-  return loads;
+  const loadMap = new Map<number, PlannedInflatable[]>();
+  sorted.forEach((item, index) => {
+    const load = item.trailerLoad ?? Math.floor(index / TRUCK_INFLATABLE_CAPACITY) + 1;
+    loadMap.set(load, [...(loadMap.get(load) ?? []), item]);
+  });
+  return [...loadMap.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, load]) => load);
 }
 
 function routeRangeLabel(load: PlannedInflatable[]): string {
@@ -437,6 +518,10 @@ function routeRangeLabel(load: PlannedInflatable[]): string {
   return sequences.length === 1
     ? `Stop ${sequences[0]}`
     : `Stops ${Math.min(...sequences)}-${Math.max(...sequences)}`;
+}
+
+function loadNumber(load: PlannedInflatable[], fallback: number): number {
+  return load.find((item) => item.trailerLoad)?.trailerLoad ?? fallback;
 }
 
 function LoadSheet({
@@ -450,8 +535,8 @@ function LoadSheet({
   const truckLabel = COLUMN_LABELS[truck];
 
   return (
-    <section className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-slate-200 pb-3 print:border-slate-900">
+    <section className="delivery-print-sheet rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:break-inside-auto print:border-slate-900 print:p-0 print:shadow-none">
+      <div className="delivery-print-trailer-head flex flex-wrap items-start justify-between gap-3 border-b-2 border-slate-200 pb-3 print:border-slate-900">
         <div>
           <h3 className="text-2xl font-black text-slate-950">{truckLabel}</h3>
           <p className="mt-1 text-sm font-bold text-slate-700">
@@ -468,73 +553,74 @@ function LoadSheet({
           No inflatables assigned to this truck.
         </p>
       ) : (
-        <div className="mt-4 grid gap-4">
+        <div className="delivery-print-loads mt-4 grid gap-4">
           {loads.map((load, index) => (
             <div
               key={`${truck}-load-${index}`}
-              className="rounded-xl border border-slate-300 bg-slate-50 p-4 print:border-slate-700"
+              className="delivery-print-load rounded-xl border border-slate-300 bg-slate-50 p-4 print:border-slate-700"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="delivery-print-load-head flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-xl font-black text-slate-950">
-                  {truckLabel} - Trailer Load {index + 1}
+                  {truckLabel} - Load {loadNumber(load, index + 1)}
                 </h4>
                 <span className="rounded-full bg-amber-200 px-3 py-1 text-sm font-black text-amber-950">
                   {routeRangeLabel(load)}
                 </span>
               </div>
-              {index > 0 && (
-                <p className="mt-2 rounded-lg bg-rose-100 px-3 py-2 text-sm font-black text-rose-900">
-                  Return and reload before starting this load.
-                </p>
-              )}
-              <ol className="mt-3 grid gap-3">
-                {load.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-lg border border-slate-200 bg-white p-3 print:border-slate-500"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black uppercase tracking-wide text-sky-800">
-                          Stop {item.deliverySequence ?? "?"} - Booking #{item.bookingId}
-                        </p>
-                        <p className="mt-1 text-lg font-black text-slate-950">
+              <p className="delivery-print-shop-note mt-2 rounded-lg bg-rose-100 px-3 py-2 text-sm font-black text-rose-900">
+                Shop to stops to shop. Reload before next load.
+              </p>
+              {routeUrl(load) ? (
+                <a
+                  href={routeUrl(load) ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="delivery-print-map-link mt-2 inline-flex rounded-lg bg-amber-200 px-3 py-2 text-sm font-black text-amber-950"
+                >
+                  Open Load {loadNumber(load, index + 1)} Map
+                </a>
+              ) : null}
+              <div className="delivery-print-table-wrap mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white">
+                <table className="delivery-print-table w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th>Stop</th>
+                      <th>Item</th>
+                      <th>Customer</th>
+                      <th>Phone</th>
+                      <th>Arrive</th>
+                      <th>Party</th>
+                      <th>Address</th>
+                      <th>Setup</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {load.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.deliverySequence ?? "?"}</td>
+                        <td>
                           {item.rentalName}
-                        </p>
-                      </div>
-                      {item.isBigSlide && (
-                        <span className="rounded-full bg-sky-200 px-3 py-1 text-xs font-black uppercase text-sky-950">
-                          Big slide
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2 grid gap-1 text-sm text-slate-800 sm:grid-cols-2">
-                      <p>
-                        <span className="font-black">Customer:</span>{" "}
-                        {item.customerName}
-                      </p>
-                      <p>
-                        <span className="font-black">Phone:</span>{" "}
-                        {item.customerPhone ?? "Not saved"}
-                      </p>
-                      <p>
-                        <span className="font-black">Crew arrives:</span>{" "}
-                        {formatTime(item.plannedArrivalTime)}
-                      </p>
-                      <p>
-                        <span className="font-black">Party starts:</span>{" "}
-                        {formatTime(item.eventStartTime)}
-                      </p>
-                    </div>
-                    <p className="mt-2 text-sm font-bold leading-relaxed text-slate-900">
-                      Address: {item.eventAddress ?? "No address saved"}
-                    </p>
-                    <p className={`mt-2 rounded-lg border px-3 py-2 text-sm font-black ${warningClasses(item.warning)}`}>
-                      {warningLabel(item.warning)}: {item.warningText}
-                    </p>
-                  </li>
-                ))}
-              </ol>
+                          {item.isBigSlide ? " (big)" : ""}
+                        </td>
+                        <td>{item.customerName}</td>
+                        <td>{item.customerPhone ?? ""}</td>
+                        <td>{formatTime(item.plannedArrivalTime)}</td>
+                        <td>{formatTime(item.eventStartTime)}</td>
+                        <td>
+                          {item.eventAddress ?? "No address"}
+                          {item.setupLocation ? ` | ${item.setupLocation}` : ""}
+                        </td>
+                        <td>
+                          {printWarningLabel(item.warning)}
+                          {item.setupSurface ? ` | ${item.setupSurface}` : ""}
+                          {item.setupAccess ? ` | ${item.setupAccess}` : ""}
+                          {item.setupNotes ? ` | ${item.setupNotes}` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>
@@ -543,13 +629,60 @@ function LoadSheet({
   );
 }
 
+function LoadMapLinks({
+  truck,
+  items,
+}: {
+  truck: TruckId;
+  items: PlannedInflatable[];
+}) {
+  const loads = chunkLoads(items);
+  if (loads.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm">
+      <p className="text-sm font-black text-slate-950">
+        {COLUMN_LABELS[truck]} load maps
+      </p>
+      <p className="mt-1 text-xs font-bold text-slate-600">
+        Each map starts at the shop, runs one trailer load, and returns to the
+        shop.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {loads.map((load, index) => {
+          const url = routeUrl(load);
+          if (!url) return null;
+          const number = loadNumber(load, index + 1);
+          return (
+            <a
+              key={`${truck}-load-map-${number}`}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-amber-200 px-3 py-2 text-sm font-black text-amber-950 hover:bg-amber-300"
+            >
+              Load {number} Map
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function InflatableCard({
   item,
+  plannerDate,
+  onDateChange,
+  onLoadChange,
   onAssign,
   onUnassign,
   onMove,
 }: {
   item: PlannedInflatable;
+  plannerDate: string;
+  onDateChange: (id: string, date: string) => void;
+  onLoadChange: (id: string, load: number) => void;
   onAssign: (id: string, truck: TruckId) => void;
   onUnassign: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
@@ -613,34 +746,80 @@ function InflatableCard({
         </p>
       )}
 
-      <div className="mt-4 grid gap-2 text-sm font-black sm:grid-cols-2">
-        {item.deliveryTruck ? (
-          <>
-            <button type="button" onClick={() => onMove(item.id, -1)} className="rounded-xl bg-white px-3 py-3 text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50">
-              Move Earlier
-            </button>
-            <button type="button" onClick={() => onMove(item.id, 1)} className="rounded-xl bg-white px-3 py-3 text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50">
-              Move Later
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" onClick={() => onAssign(item.id, "truck-1")} className="rounded-xl bg-sky-600 px-3 py-3 text-white hover:bg-sky-700">
-              Put on Truck 1
-            </button>
-            <button type="button" onClick={() => onAssign(item.id, "truck-2")} className="rounded-xl bg-sky-600 px-3 py-3 text-white hover:bg-sky-700">
-              Put on Truck 2
-            </button>
-          </>
-        )}
-        {item.deliveryTruck && (
-          <button type="button" onClick={() => onUnassign(item.id)} className="rounded-xl bg-slate-100 px-3 py-3 text-slate-700 hover:bg-slate-200">
-            Remove from Truck
+      <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-black sm:grid-cols-3">
+        <label className="grid gap-1 text-slate-700">
+          Take it
+          <input
+            type="date"
+            value={item.deliveryDate ?? plannerDate}
+            onChange={(event) => onDateChange(item.id, event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-950"
+          />
+        </label>
+        <label className="grid gap-1 text-slate-700">
+          Trailer
+          <select
+            value={item.deliveryTruck ?? ""}
+            onChange={(event) =>
+              event.target.value
+                ? onAssign(item.id, event.target.value as TruckId)
+                : onUnassign(item.id)
+            }
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-950"
+          >
+            <option value="">Unassigned</option>
+            <option value="truck-1">Short Trailer</option>
+            <option value="truck-2">Long Trailer</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-slate-700">
+          Load
+          <select
+            value={item.trailerLoad ?? 1}
+            onChange={(event) => onLoadChange(item.id, Number(event.target.value))}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-950"
+          >
+            <option value={1}>Load 1</option>
+            <option value={2}>Load 2</option>
+            <option value={3}>Load 3</option>
+            <option value={4}>Load 4</option>
+          </select>
+        </label>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-black">
+        {[
+          { label: "Prev day", date: addDays(plannerDate, -1) },
+          { label: "This day", date: plannerDate },
+          { label: "Next day", date: addDays(plannerDate, 1) },
+        ].map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            onClick={() => onDateChange(item.id, option.date)}
+            className={`rounded-lg px-2 py-2 ${
+              (item.deliveryDate ?? plannerDate) === option.date
+                ? "bg-slate-950 text-white"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {option.label}
           </button>
-        )}
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm font-black sm:grid-cols-4">
+        <button type="button" onClick={() => onMove(item.id, -1)} disabled={!item.deliveryTruck} className="rounded-xl bg-white px-3 py-3 text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45">
+          Up
+        </button>
+        <button type="button" onClick={() => onMove(item.id, 1)} disabled={!item.deliveryTruck} className="rounded-xl bg-white px-3 py-3 text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45">
+          Down
+        </button>
+        <button type="button" onClick={() => onUnassign(item.id)} disabled={!item.deliveryTruck} className="rounded-xl bg-slate-100 px-3 py-3 text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-45">
+          Clear
+        </button>
         {item.singleStopMapUrl && (
           <a href={item.singleStopMapUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-amber-200 px-3 py-3 text-center text-amber-950 hover:bg-amber-300">
-            Open Stop Map
+            Map
           </a>
         )}
       </div>
@@ -651,18 +830,22 @@ function InflatableCard({
 function DeliveryColumn({
   column,
   items,
+  plannerDate,
+  onDateChange,
+  onLoadChange,
   onAssign,
   onUnassign,
   onMove,
 }: {
   column: ColumnId;
   items: PlannedInflatable[];
+  plannerDate: string;
+  onDateChange: (id: string, date: string) => void;
+  onLoadChange: (id: string, load: number) => void;
   onAssign: (id: string, truck: TruckId) => void;
   onUnassign: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
 }) {
-  const mapUrl = column !== "unassigned" ? routeUrl(items) : null;
-  const mapEmbedUrl = column !== "unassigned" ? routeEmbedUrl(items) : null;
   const bigSlideCount = items.filter((item) => item.isBigSlide).length;
   const overloaded =
     items.length > TRUCK_INFLATABLE_CAPACITY ||
@@ -684,26 +867,7 @@ function DeliveryColumn({
             </p>
           )}
         </div>
-        {mapUrl && (
-          <a href={mapUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-amber-950 hover:bg-amber-200">
-            Open Route
-          </a>
-        )}
       </div>
-      {mapEmbedUrl && (
-        <div className="mb-3 overflow-hidden rounded-xl border border-sky-200 bg-white">
-          <iframe
-            title={`${COLUMN_LABELS[column]} stop map`}
-            src={mapEmbedUrl}
-            className="h-72 w-full"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-          <div className="border-t border-sky-100 p-3 text-sm font-bold text-slate-700">
-            Map shows each customer stop once, in the order listed below.
-          </div>
-        </div>
-      )}
       <div className="grid gap-3">
         {items.length === 0 ? (
           <div className="rounded-xl border border-dashed border-sky-200 bg-white p-5 text-sm font-bold text-slate-600">
@@ -716,6 +880,9 @@ function DeliveryColumn({
             <InflatableCard
               key={item.id}
               item={item}
+              plannerDate={plannerDate}
+              onDateChange={onDateChange}
+              onLoadChange={onLoadChange}
               onAssign={onAssign}
               onUnassign={onUnassign}
               onMove={onMove}
@@ -738,6 +905,7 @@ export function DeliveryPlannerClient({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const columns = useMemo(
     () => ({
@@ -748,10 +916,6 @@ export function DeliveryPlannerClient({
     [items],
   );
   const counts = statusCounts(items);
-  const truck1Route = routeUrl(columns.truck1);
-  const truck2Route = routeUrl(columns.truck2);
-  const truck1Map = routeEmbedUrl(columns.truck1);
-  const truck2Map = routeEmbedUrl(columns.truck2);
 
   const onAssign = (id: string, truck: TruckId) => {
     setItems((current) => {
@@ -764,6 +928,8 @@ export function DeliveryPlannerClient({
             ? {
                 ...item,
                 deliveryTruck: truck,
+                deliveryDate: item.deliveryDate ?? deliveries.date,
+                trailerLoad: item.trailerLoad ?? 1,
                 deliverySequence: assignedToTruck.length + 1,
                 deliveryRouteStatus: "draft",
               }
@@ -771,6 +937,40 @@ export function DeliveryPlannerClient({
         ),
       );
     });
+    setSaveStatus("idle");
+  };
+
+  const onDateChange = (id: string, date: string) => {
+    setItems((current) =>
+      recalculatePlan(
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                deliveryDate: date,
+                deliveryRouteStatus: "draft",
+              }
+            : item,
+        ),
+      ),
+    );
+    setSaveStatus("idle");
+  };
+
+  const onLoadChange = (id: string, load: number) => {
+    setItems((current) =>
+      recalculatePlan(
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                trailerLoad: load,
+                deliveryRouteStatus: "draft",
+              }
+            : item,
+        ),
+      ),
+    );
     setSaveStatus("idle");
   };
 
@@ -782,6 +982,7 @@ export function DeliveryPlannerClient({
             ? {
                 ...item,
                 deliveryTruck: null,
+                trailerLoad: null,
                 deliverySequence: null,
                 plannedArrivalTime: null,
                 plannedSetupStart: null,
@@ -800,12 +1001,28 @@ export function DeliveryPlannerClient({
     setSaveStatus("idle");
   };
 
-  const runAutoPlan = () => {
-    const next = autoDraft(items);
-    const plannedCount = next.filter((item) => item.deliveryTruck).length;
-    setItems(next);
-    setPlanMessage(`Auto-Plan is done. ${plannedCount} inflatables have trucks.`);
-    setSaveStatus("idle");
+  const runAutoPlan = async () => {
+    setSaveStatus("saving");
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/admin/deliveries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, autoPlan: true, date: deliveries.date }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { error?: string; plannedCount?: number }
+        | null;
+      if (!res.ok) throw new Error(data?.error || "Unable to auto-plan route.");
+      setPlanMessage(
+        `Truck plan saved. ${data?.plannedCount ?? 0} inflatables are assigned.`,
+      );
+      setSaveStatus("saved");
+      window.location.reload();
+    } catch (error) {
+      setSaveStatus("error");
+      setSaveError(error instanceof Error ? error.message : "Unable to auto-plan route.");
+    }
   };
 
   const savePlan = async () => {
@@ -826,21 +1043,37 @@ export function DeliveryPlannerClient({
     }
   };
 
+  const printPlan = () => {
+    if (isPrinting) return;
+    setIsPrinting(true);
+    window.print();
+    window.setTimeout(() => setIsPrinting(false), 2500);
+  };
+
   return (
     <>
-      <section className="mt-6 rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
+      <section className="delivery-screen-only mt-6 rounded-xl border border-sky-200 bg-white p-4 shadow-sm print:hidden">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <h2 className="text-2xl font-black text-slate-950">Start here</h2>
             <p className="mt-1 text-sm font-bold text-slate-600">
-              This page automatically puts every inflatable on a truck when it
-              loads. Fix any red cards, then click Save.
+              Set each inflatable's delivery day, trailer, load, and order.
+              Each printed load starts at the shop and returns to the shop.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:flex">
+          <div className="grid gap-2 sm:grid-cols-3 lg:flex">
             <button type="button" onClick={runAutoPlan} className="rounded-xl bg-sky-600 px-5 py-4 text-left text-sm font-black text-white hover:bg-sky-700">
-              <span className="block text-xs uppercase">Optional</span>
-              Recalculate Truck Plan
+              <span className="block text-xs uppercase">Update</span>
+              Rebuild and Save Plan
+            </button>
+            <button
+              type="button"
+              onClick={printPlan}
+              disabled={isPrinting}
+              className="rounded-xl bg-slate-950 px-5 py-4 text-left text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="block text-xs uppercase">Print</span>
+              {isPrinting ? "Opening Print..." : "Print Load Sheets"}
             </button>
             <button type="button" onClick={savePlan} disabled={saveStatus === "saving"} className="rounded-xl bg-amber-300 px-5 py-4 text-left text-sm font-black text-amber-950 hover:bg-amber-200 disabled:opacity-60">
               <span className="block text-xs uppercase">Save</span>
@@ -851,22 +1084,19 @@ export function DeliveryPlannerClient({
 
         {planMessage && (
           <p className="mt-3 rounded-xl bg-sky-100 px-4 py-3 text-sm font-black text-sky-950">
-            {planMessage} Truck 1 and Truck 2 are below.
+            {planMessage} Short Trailer and Long Trailer are below.
           </p>
         )}
 
-        <div className="mt-4 grid gap-2 text-sm font-black sm:grid-cols-4">
-          <div className="rounded-xl bg-slate-100 px-3 py-2 text-slate-800">
-            No truck: {counts.unassigned}
-          </div>
+        <div className="mt-4 grid gap-2 text-sm font-black sm:grid-cols-3">
           <div className="rounded-xl bg-rose-100 px-3 py-2 text-rose-900">
-            Fix: {counts.fix}
+            Needs attention: {counts.needsAttention}
           </div>
           <div className="rounded-xl bg-amber-100 px-3 py-2 text-amber-950">
-            Watch: {counts.watch}
+            Close timing: {counts.closeTiming}
           </div>
           <div className="rounded-xl bg-emerald-100 px-3 py-2 text-emerald-950">
-            Good: {counts.good}
+            Ready to print: {counts.ready}
           </div>
         </div>
 
@@ -882,24 +1112,55 @@ export function DeliveryPlannerClient({
         )}
       </section>
 
+      <div className="delivery-screen-only mt-6 grid gap-5 xl:grid-cols-3 print:hidden">
+        <DeliveryColumn
+          column="unassigned"
+          items={columns.unassigned}
+          plannerDate={deliveries.date}
+          onDateChange={onDateChange}
+          onLoadChange={onLoadChange}
+          onAssign={onAssign}
+          onUnassign={onUnassign}
+          onMove={onMove}
+        />
+        <DeliveryColumn
+          column="truck-1"
+          items={columns.truck1}
+          plannerDate={deliveries.date}
+          onDateChange={onDateChange}
+          onLoadChange={onLoadChange}
+          onAssign={onAssign}
+          onUnassign={onUnassign}
+          onMove={onMove}
+        />
+        <DeliveryColumn
+          column="truck-2"
+          items={columns.truck2}
+          plannerDate={deliveries.date}
+          onDateChange={onDateChange}
+          onLoadChange={onLoadChange}
+          onAssign={onAssign}
+          onUnassign={onUnassign}
+          onMove={onMove}
+        />
+      </div>
+
+      <section className="delivery-screen-only mt-5 grid gap-3 lg:grid-cols-2 print:hidden">
+        <LoadMapLinks truck="truck-1" items={columns.truck1} />
+        <LoadMapLinks truck="truck-2" items={columns.truck2} />
+      </section>
+
       <section className="mt-5 rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:border-0 print:p-0 print:shadow-none">
-        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+        <div className="border-b border-slate-200 pb-4 print:hidden">
           <div>
-            <h2 className="text-3xl font-black text-slate-950">
-              Print truck load sheets
+            <h2 className="text-2xl font-black text-slate-950">
+              Print load sheets
             </h2>
-            <p className="mt-1 max-w-3xl text-base font-bold leading-relaxed text-slate-700">
-              Give this to the crew. It says what goes on each trailer load,
-              where each stop goes, and what time the crew should arrive.
+            <p className="mt-1 max-w-3xl text-sm font-bold leading-relaxed text-slate-700">
+              Prints a condensed trailer-load sheet with one small map and one
+              tight table per load.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white hover:bg-slate-800"
-          >
-            Print this plan
-          </button>
         </div>
         <div className="hidden print:block">
           <h1 className="text-3xl font-black text-slate-950">
@@ -909,108 +1170,29 @@ export function DeliveryPlannerClient({
             Date: {deliveries.date}
           </p>
         </div>
-        <div className="mt-4 grid gap-5 xl:grid-cols-2 print:grid-cols-1">
+        <div className="mt-4 hidden gap-5 xl:grid-cols-2 print:mt-1 print:grid print:grid-cols-2 print:gap-2">
           <LoadSheet truck="truck-1" items={columns.truck1} />
           <LoadSheet truck="truck-2" items={columns.truck2} />
         </div>
       </section>
 
-      <section className="mt-5 grid gap-3 lg:grid-cols-3">
+      <section className="delivery-screen-only mt-5 grid gap-3 lg:grid-cols-2 print:hidden">
         <div className="rounded-xl border border-sky-100 bg-white p-4">
-          <p className="text-sm font-black text-slate-950">What changed</p>
+          <p className="text-sm font-black text-slate-950">Multiple inflatables</p>
           <p className="mt-1 text-sm text-slate-600">
-            Multi-item bookings are split here so each inflatable gets its own truck.
+            If one customer booked more than one inflatable, each inflatable is
+            listed so the crew knows exactly what goes on each truck.
           </p>
         </div>
         <div className="rounded-xl border border-sky-100 bg-white p-4">
-          <p className="text-sm font-black text-slate-950">Auto-Plan rule</p>
+          <p className="text-sm font-black text-slate-950">How trucks are chosen</p>
           <p className="mt-1 text-sm text-slate-600">
-            Truck 2 leans west toward Abbeville/Donalds/Due West/Bradley. Truck
-            1 leans Greenwood, then the plan balances timing.
+            The planner starts with the customer address and party time, then
+            balances the route between the Short Trailer and Long Trailer.
           </p>
-        </div>
-        <div className="rounded-xl border border-sky-100 bg-white p-4">
-          <p className="text-sm font-black text-slate-950">Open maps</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-sm font-black">
-            {truck1Route && <a href={truck1Route} target="_blank" rel="noreferrer" className="rounded-xl bg-amber-200 px-3 py-2 text-amber-950 hover:bg-amber-300">Truck 1 Route</a>}
-            {truck2Route && <a href={truck2Route} target="_blank" rel="noreferrer" className="rounded-xl bg-amber-200 px-3 py-2 text-amber-950 hover:bg-amber-300">Truck 2 Route</a>}
-            {!truck1Route && !truck2Route && <span className="text-slate-600">Routes appear after planning.</span>}
-          </div>
         </div>
       </section>
 
-      {(truck1Map || truck2Map) && (
-        <section className="mt-5 grid gap-5 lg:grid-cols-2">
-          {truck1Map && (
-            <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 p-4">
-                <div>
-                  <h3 className="text-xl font-black text-slate-950">
-                    Truck 1 Map
-                  </h3>
-                  <p className="text-sm font-bold text-slate-600">
-                    Shows each stop in route order.
-                  </p>
-                </div>
-                {truck1Route && (
-                  <a
-                    href={truck1Route}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-amber-200 px-3 py-2 text-sm font-black text-amber-950 hover:bg-amber-300"
-                  >
-                    Open
-                  </a>
-                )}
-              </div>
-              <iframe
-                title="Truck 1 stop map"
-                src={truck1Map}
-                className="h-96 w-full border-t border-sky-100"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-          )}
-          {truck2Map && (
-            <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 p-4">
-                <div>
-                  <h3 className="text-xl font-black text-slate-950">
-                    Truck 2 Map
-                  </h3>
-                  <p className="text-sm font-bold text-slate-600">
-                    Shows each stop in route order.
-                  </p>
-                </div>
-                {truck2Route && (
-                  <a
-                    href={truck2Route}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-amber-200 px-3 py-2 text-sm font-black text-amber-950 hover:bg-amber-300"
-                  >
-                    Open
-                  </a>
-                )}
-              </div>
-              <iframe
-                title="Truck 2 stop map"
-                src={truck2Map}
-                className="h-96 w-full border-t border-sky-100"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-          )}
-        </section>
-      )}
-
-      <div className="mt-6 grid gap-5 xl:grid-cols-3">
-        <DeliveryColumn column="unassigned" items={columns.unassigned} onAssign={onAssign} onUnassign={onUnassign} onMove={onMove} />
-        <DeliveryColumn column="truck-1" items={columns.truck1} onAssign={onAssign} onUnassign={onUnassign} onMove={onMove} />
-        <DeliveryColumn column="truck-2" items={columns.truck2} onAssign={onAssign} onUnassign={onUnassign} onMove={onMove} />
-      </div>
     </>
   );
 }
