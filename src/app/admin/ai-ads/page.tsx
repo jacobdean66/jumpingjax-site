@@ -117,55 +117,67 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
           />
         </section>
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-2">
+        <section className="mt-6">
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                Library
+              </p>
+              <h2 className="text-2xl font-black">Previous videos</h2>
+            </div>
+            <p className="text-sm font-bold text-slate-500">
+              Small previews for quick scanning.
+            </p>
+          </div>
+
           {items.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
               No generated AI ads found yet.
             </div>
           ) : (
-            items.map((item) => (
-              <article
-                key={item.id ?? item.video_url}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-              >
-                {item.video_url && (
-                  <video
-                    src={item.video_url}
-                    controls
-                    className="aspect-video w-full bg-slate-950 object-contain"
-                  />
-                )}
-                <div className="space-y-3 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${ratingClass(item.rating)}`}
-                    >
-                      {ratingLabel(item.rating)}
-                    </span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
-                      {item.model === "high" ? "Kling" : "Wan"}
-                    </span>
-                    {item.duration ? (
-                      <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
-                        {item.duration}s
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {items.map((item) => (
+                <article
+                  key={item.id ?? item.video_url}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                >
+                  {item.video_url && (
+                    <video
+                      src={item.video_url}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full bg-slate-950 object-cover"
+                    />
+                  )}
+                  <div className="space-y-2 p-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${ratingClass(item.rating)}`}
+                      >
+                        {ratingLabel(item.rating)}
                       </span>
+                      <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                        {item.model === "high" ? "Kling" : "Wan"}
+                      </span>
+                      {item.duration ? (
+                        <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          {item.duration}s
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <p className="line-clamp-2 text-xs font-black leading-snug text-slate-950">
+                      {item.prompt ?? item.content}
+                    </p>
+                    {item.created_at ? (
+                      <p className="text-[11px] font-bold text-slate-400">
+                        {new Date(item.created_at).toLocaleString()}
+                      </p>
                     ) : null}
                   </div>
-
-                  <p className="text-sm font-black text-slate-950">
-                    {item.prompt ?? item.content}
-                  </p>
-                  <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">
-                    {item.content}
-                  </p>
-                  {item.created_at ? (
-                    <p className="text-xs font-bold text-slate-400">
-                      {new Date(item.created_at).toLocaleString()}
-                    </p>
-                  ) : null}
-                </div>
-              </article>
-            ))
+                </article>
+              ))}
+            </div>
           )}
         </section>
       </section>
