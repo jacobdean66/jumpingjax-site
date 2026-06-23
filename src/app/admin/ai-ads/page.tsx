@@ -1,0 +1,149 @@
+import Link from "next/link";
+import { loadAiAdMemory } from "@/lib/admin/ai-ads";
+import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+
+export const dynamic = "force-dynamic";
+
+type Props = {
+  searchParams?: Promise<{ token?: string }>;
+};
+
+function ratingLabel(rating?: "like" | "dislike" | null) {
+  if (rating === "like") return "Liked";
+  if (rating === "dislike") return "Disliked";
+  return "Unrated";
+}
+
+function ratingClass(rating?: "like" | "dislike" | null) {
+  if (rating === "like") {
+    return "border-emerald-200 bg-emerald-100 text-emerald-950";
+  }
+  if (rating === "dislike") {
+    return "border-rose-200 bg-rose-100 text-rose-950";
+  }
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
+function AuthError({
+  reason,
+}: {
+  reason: "missing_config" | "invalid_token";
+}) {
+  return (
+    <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-950">
+      <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
+          AI Ads
+        </p>
+        <h1 className="mt-3 text-3xl font-black">
+          {reason === "missing_config"
+            ? "Admin token not configured"
+            : "Invalid admin link"}
+        </h1>
+        <p className="mt-3 leading-relaxed text-slate-600">
+          This page shows generated ad videos, so it uses the private admin token.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+export default async function AdminAiAdsPage({ searchParams }: Props) {
+  const resolved = await searchParams;
+  const token = resolved?.token ?? "";
+  const auth = verifyAdminDeliveryToken(token);
+
+  if (!auth.ok) return <AuthError reason={auth.reason} />;
+
+  const items = (await loadAiAdMemory(40)).filter(
+    (item) => item.role === "assistant" && item.video_url
+  );
+  const query = `token=${encodeURIComponent(token)}`;
+
+  return (
+    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl">
+        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+              Jumping Jax Admin
+            </p>
+            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
+              AI Ads
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+              Review generated videos, prompt history, and like/dislike ratings
+              before using anything in marketing.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`https://ai-video-app-orcin.vercel.app/ai-video`}
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700"
+            >
+              Open generator
+            </Link>
+            <Link
+              href={`/admin/recovery-snapshot?${query}`}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
+            >
+              Download recovery snapshot
+            </Link>
+          </div>
+        </header>
+
+        <section className="mt-6 grid gap-4 lg:grid-cols-2">
+          {items.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+              No generated AI ads found yet.
+            </div>
+          ) : (
+            items.map((item) => (
+              <article
+                key={item.id ?? item.video_url}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                {item.video_url && (
+                  <video
+                    src={item.video_url}
+                    controls
+                    className="aspect-video w-full bg-slate-950 object-contain"
+                  />
+                )}
+                <div className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${ratingClass(item.rating)}`}
+                    >
+                      {ratingLabel(item.rating)}
+                    </span>
+                    <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
+                      {item.model === "high" ? "Kling" : "Wan"}
+                    </span>
+                    {item.duration ? (
+                      <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600">
+                        {item.duration}s
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <p className="text-sm font-black text-slate-950">
+                    {item.prompt ?? item.content}
+                  </p>
+                  <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">
+                    {item.content}
+                  </p>
+                  {item.created_at ? (
+                    <p className="text-xs font-bold text-slate-400">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            ))
+          )}
+        </section>
+      </section>
+    </main>
+  );
+}
