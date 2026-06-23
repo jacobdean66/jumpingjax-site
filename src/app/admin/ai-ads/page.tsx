@@ -78,10 +78,16 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`https://ai-video-app-orcin.vercel.app/ai-video`}
+              href={`/admin/deliveries?${query}`}
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Admin home
+            </Link>
+            <Link
+              href="https://ai-video-app-orcin.vercel.app/ai-video"
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700"
             >
-              Open generator
+              Open generator full screen
             </Link>
             <Link
               href={`/admin/recovery-snapshot?${query}`}
@@ -91,6 +97,25 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
             </Link>
           </div>
         </header>
+
+        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                Generator
+              </p>
+              <h2 className="mt-1 text-2xl font-black">Create and tune ads</h2>
+            </div>
+            <p className="text-sm font-bold text-slate-500">
+              Results save below after generation.
+            </p>
+          </div>
+          <iframe
+            src="https://ai-video-app-orcin.vercel.app/ai-video"
+            title="AI video generator"
+            className="h-[920px] w-full border-0 bg-zinc-950"
+          />
+        </section>
 
         <section className="mt-6 grid gap-4 lg:grid-cols-2">
           {items.length === 0 ? (

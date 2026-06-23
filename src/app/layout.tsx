@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { getSeoBaseUrl } from "@/lib/seo/site-url";
+import { SiteChrome } from "./SiteChrome";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +15,38 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jumping Jax",
-  description: "Premium water slide and bounce house rentals",
+  metadataBase: new URL(getSeoBaseUrl()),
+  title: {
+    default: "Jumping Jax | Inflatable Rentals & Party Venue in Greenwood, SC",
+    template: "%s | Jumping Jax",
+  },
+  description:
+    "Jumping Jax offers inflatable rentals, water slides, bounce houses, foam parties, open play, and birthday party rooms in Greenwood, SC.",
+  alternates: {
+    canonical: "/",
+  },
+  keywords: [
+    "inflatable rentals near me",
+    "bounce house rentals near me",
+    "water slide rentals near me",
+    "party rentals near me",
+    "Greenwood SC inflatable rentals",
+    "Greenwood SC birthday party venue",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "Jumping Jax",
+    title: "Jumping Jax | Inflatable Rentals & Party Venue in Greenwood, SC",
+    description:
+      "Book inflatable rentals, water slides, bounce houses, foam parties, and facility parties with Jumping Jax in Greenwood, SC.",
+    url: "/",
+    images: [
+      {
+        url: "/logo.png",
+        alt: "Jumping Jax Inflatable Rentals and Parties",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -29,65 +60,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
-        <header className="border-b-4 border-pink-400 bg-white/95 shadow-sm backdrop-blur">
-          <div className="h-2 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
-          <div className="bg-slate-950 px-4 py-2 text-center text-sm font-bold text-white sm:text-base">
-            <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-1 sm:flex-row sm:gap-6">
-              <a href="tel:8649331420" className="hover:text-yellow-300">
-                864-933-1420
-              </a>
-              <a
-                href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
-                className="hover:text-yellow-300"
-              >
-                559 Beaudrot Rd, Greenwood, SC
-              </a>
-            </div>
-          </div>
-          <div className="mx-auto grid w-full max-w-6xl gap-3 px-4 py-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:px-6">
-            <Link href="/" className="text-lg font-black tracking-wide text-pink-600">
-              Jumping Jax
-            </Link>
-            <nav className="site-mobile-nav grid min-w-0 grid-cols-1 gap-2 text-xs font-semibold min-[430px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:text-base">
-              <Link
-                href="/"
-                className="min-w-0 rounded-full bg-cyan-100 px-3 py-2 text-center text-cyan-950 transition hover:bg-cyan-200"
-              >
-                Home
-              </Link>
-              <Link
-                href="/facility-parties"
-                className="min-w-0 rounded-full bg-lime-100 px-3 py-2 text-center text-lime-950 transition hover:bg-lime-200"
-              >
-                Facility Parties
-              </Link>
-              <Link
-                href="/rentals"
-                className="min-w-0 rounded-full bg-pink-100 px-3 py-2 text-center text-pink-950 transition hover:bg-pink-200"
-              >
-                Rentals
-              </Link>
-              <Link
-                href="/rentals/foam-parties"
-                className="min-w-0 rounded-full bg-sky-100 px-3 py-2 text-center text-sky-950 transition hover:bg-sky-200"
-              >
-                Foam Parties
-              </Link>
-              <Link
-                href="/#contact"
-                className="min-w-0 rounded-full bg-orange-100 px-3 py-2 text-center text-orange-950 transition hover:bg-orange-200"
-              >
-                Contact
-              </Link>
-              <Link
-                href="/rentals"
-                className="min-w-0 rounded-full bg-yellow-300 px-4 py-2 text-center font-bold text-slate-950 shadow-sm shadow-yellow-700/20 transition hover:bg-yellow-200"
-              >
-                Book Now
-              </Link>
-            </nav>
-          </div>
-        </header>
+        <SiteChrome />
         <div>{children}</div>
       </body>
     </html>
