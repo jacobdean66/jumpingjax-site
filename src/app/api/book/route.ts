@@ -14,13 +14,19 @@ import {
   rentalConfirmLink,
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
-import { getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmail, getResendFromAddress } from "@/lib/email/resend";
+import { rateLimit } from "@/lib/rate-limit";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  console.log("[api/book] request received");
+  const limited = rateLimit(req, {
+    scope: "rental-booking",
+    limit: 8,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (limited) return limited;
 
   let body: Record<string, unknown>;
   try {
@@ -35,8 +41,6 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-
-  console.log("[api/book] request body", body);
 
   const { rental_items } = body;
 
@@ -103,19 +107,35 @@ export async function POST(req: Request) {
   const distanceMiles = normalizeDistanceMiles(body.distance_miles);
   const mileageFee = estimateMileageFee(distanceMiles);
   const deliveryFee = estimateRentalDeliveryFee(distanceMiles);
+  const setupLocation =
+    typeof body.setup_location === "string" ? body.setup_location.trim() : "";
   const setupSurface =
     typeof body.setup_surface === "string" ? body.setup_surface.trim() : "";
   const setupAccess =
     typeof body.setup_access === "string" ? body.setup_access.trim() : "";
   const setupNotes =
     typeof body.setup_notes === "string" ? body.setup_notes.trim() : "";
+  const electricityDistance =
+    typeof body.electricity_distance === "string"
+      ? body.electricity_distance.trim()
+      : "";
+  const waterDistance =
+    typeof body.water_distance === "string" ? body.water_distance.trim() : "";
+  const setupNoteLines = [
+    electricityDistance
+      ? `Electricity distance: ${electricityDistance}`
+      : null,
+    waterDistance ? `Water distance: ${waterDistance}` : null,
+    ...setupNotes.split(/\r?\n/).map((line) => line.trim()),
+  ].filter((line): line is string => Boolean(line));
+  const savedSetupNotes = Array.from(new Set(setupNoteLines)).join("\n");
   const paymentMethod =
     typeof body.payment_method === "string" ? body.payment_method.trim() : "";
-  if (!eventAddress || !setupSurface || !setupAccess || !paymentMethod) {
+  if (!eventAddress || !setupLocation || !setupSurface || !setupAccess || !paymentMethod) {
     return new Response(
       JSON.stringify({
         error:
-          "event_address, setup_surface, setup_access, and payment_method are required",
+          "event_address, setup_location, setup_surface, setup_access, and payment_method are required",
       }),
       { status: 400 },
     );
@@ -150,18 +170,16 @@ export async function POST(req: Request) {
     distance_miles: distanceMiles,
     delivery_fee: deliveryFee,
     mileage_fee: mileageFee,
+    setup_location: setupLocation,
     setup_surface: setupSurface,
     setup_access: setupAccess,
-    setup_notes: setupNotes,
+    setup_notes: savedSetupNotes,
     payment_method: paymentMethod,
     subtotal,
     total,
   });
 
-  console.log("SUPABASE RESULT:", result);
-
   if (!result.ok) {
-    console.error("SUPABASE FULL ERROR:", result);
     const error = result.message ?? result.code ?? result;
     console.error("BOOK API ERROR:", error);
     return NextResponse.json(
@@ -174,7 +192,7 @@ export async function POST(req: Request) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
+  const facilityOwnerEmail = getFacilityOwnerEmail();
   const fromAddress = getResendFromAddress();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
@@ -229,6 +247,7 @@ export async function POST(req: Request) {
             `Name: ${customerName}`,
             customerPhone ? `Phone: ${customerPhone}` : null,
             eventAddress ? `Event address: ${eventAddress}` : null,
+            setupLocation ? `Setup location: ${setupLocation}` : null,
             setupSurface ? `Setup surface: ${setupSurface}` : null,
             setupAccess ? `Setup access: ${setupAccess}` : null,
             setupNotes ? `Setup notes: ${setupNotes}` : null,
@@ -280,6 +299,9 @@ export async function POST(req: Request) {
             eventAddress
               ? `Event address: ${eventAddress}`
               : "Event address: (not provided)",
+            setupLocation
+              ? `Setup location: ${setupLocation}`
+              : "Setup location: (not provided)",
             setupSurface
               ? `Setup surface: ${setupSurface}`
               : "Setup surface: (not provided)",

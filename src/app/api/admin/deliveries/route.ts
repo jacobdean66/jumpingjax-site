@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
-import { loadAdminDeliveries } from "@/lib/admin/deliveries";
+import {
+  autoPlanDeliveriesForDate,
+  loadAdminDeliveries,
+} from "@/lib/admin/deliveries";
+import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const limited = rateLimit(req, {
+    scope: "admin-deliveries-read",
+    limit: 120,
+    windowMs: 60 * 1000,
+  });
+  if (limited) return limited;
+
   const { searchParams } = new URL(req.url);
   const auth = verifyAdminDeliveryToken(searchParams.get("token"));
 
@@ -42,7 +53,9 @@ type RouteAssignment = {
   id?: unknown;
   bookingId?: unknown;
   itemId?: unknown;
+  deliveryDate?: unknown;
   deliveryTruck?: unknown;
+  trailerLoad?: unknown;
   deliverySequence?: unknown;
   plannedArrivalTime?: unknown;
   plannedSetupStart?: unknown;
@@ -51,6 +64,10 @@ type RouteAssignment = {
   deliveryRouteStatus?: unknown;
   deliveryRouteNotes?: unknown;
 };
+
+type DeliveryPatchBody =
+  | { token?: unknown; assignments?: unknown; autoPlan?: unknown; date?: unknown }
+  | null;
 
 function nullableText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -61,9 +78,14 @@ function nullableNumber(value: unknown): number | null {
 }
 
 export async function PATCH(req: Request) {
-  const body = (await req.json().catch(() => null)) as
-    | { token?: unknown; assignments?: unknown }
-    | null;
+  const limited = rateLimit(req, {
+    scope: "admin-deliveries-write",
+    limit: 60,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (limited) return limited;
+
+  const body = (await req.json().catch(() => null)) as DeliveryPatchBody;
 
   const auth = verifyAdminDeliveryToken(
     typeof body?.token === "string" ? body.token : null,
@@ -79,6 +101,26 @@ export async function PATCH(req: Request) {
       },
       { status: auth.reason === "missing_config" ? 503 : 401 },
     );
+  }
+
+  if (body?.autoPlan === true) {
+    try {
+      const result = await autoPlanDeliveriesForDate(
+        typeof body.date === "string" ? body.date : null,
+      );
+      return NextResponse.json({ ok: true, ...result });
+    } catch (error) {
+      console.error("[api/admin/deliveries] auto-plan failed", error);
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to auto-plan deliveries.",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   if (!Array.isArray(body?.assignments)) {
@@ -99,6 +141,8 @@ export async function PATCH(req: Request) {
           .from("booking_rental_items")
           .update({
             delivery_truck: nullableText(assignment.deliveryTruck),
+            delivery_date: nullableText(assignment.deliveryDate),
+            trailer_load: nullableNumber(assignment.trailerLoad),
             delivery_sequence: nullableNumber(assignment.deliverySequence),
             planned_arrival_time: nullableText(assignment.plannedArrivalTime),
             planned_setup_start: nullableText(assignment.plannedSetupStart),
@@ -135,7 +179,7 @@ export async function PATCH(req: Request) {
           delivery_route_notes: nullableText(assignment.deliveryRouteNotes),
         })
         .eq("id", id)
-        .eq("status", "approved");
+        .in("status", ["pending", "approved"]);
 
       if (error) {
         throw new Error(error.message);

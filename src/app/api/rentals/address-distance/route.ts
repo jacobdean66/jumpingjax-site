@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 const RENTAL_ORIGIN_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
@@ -40,6 +41,13 @@ function milesFromMeters(meters: number): number {
 }
 
 export async function POST(req: Request) {
+  const limited = rateLimit(req, {
+    scope: "address-distance",
+    limit: 30,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json(

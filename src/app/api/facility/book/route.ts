@@ -19,7 +19,8 @@ import {
   formatFacilityPricingLines,
   priceFacilityParty,
 } from "@/lib/facility-parties/pricing";
-import { getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmail, getResendFromAddress } from "@/lib/email/resend";
+import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const FACILITY_TIME_ZONE = "America/New_York";
@@ -60,6 +61,13 @@ function isValidEmail(value: unknown): value is string {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, {
+    scope: "facility-booking",
+    limit: 8,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   try {
     const body = await req.json();
 
@@ -112,9 +120,6 @@ export async function POST(req: NextRequest) {
       !isNonEmptyString(child_name) ||
       !isNonEmptyString(child_gender) ||
       !isNonEmptyString(child_age) ||
-      !isNonEmptyString(party_theme) ||
-      !isNonEmptyString(balloon_colors) ||
-      !isNonEmptyString(table_cloth_colors) ||
       !isNonEmptyString(drink_choice) ||
       !isNonEmptyString(payment_method) ||
       !isNonEmptyString(readable_date) ||
@@ -141,7 +146,7 @@ export async function POST(req: NextRequest) {
     }
 
     const resendApiKey = process.env.RESEND_API_KEY?.trim();
-    const facilityOwnerEmail = process.env.FACILITY_OWNER_EMAIL?.trim();
+    const facilityOwnerEmail = getFacilityOwnerEmail();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
     if (!resendApiKey || !facilityOwnerEmail || !siteUrl) {
@@ -309,8 +314,6 @@ export async function POST(req: NextRequest) {
       ])
       .select()
       .single();
-
-    console.log("BOOKING INSERT RESULT", { id: data?.id, error });
 
     if (error) {
       return NextResponse.json(
