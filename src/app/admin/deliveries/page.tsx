@@ -45,6 +45,19 @@ function SummaryTile({
   );
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+}
+
 export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token;
@@ -73,7 +86,11 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   }
 
   const query = `token=${encodeURIComponent(token ?? "")}`;
-  const deliveriesResult = await loadAdminDeliveries(date)
+  const deliveriesResult = await withTimeout(
+    loadAdminDeliveries(date),
+    2500,
+    "Supabase route planner data timed out.",
+  )
     .then((deliveries) => ({ deliveries, error: null }))
     .catch((error) => ({
       deliveries: null,
