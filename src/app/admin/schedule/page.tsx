@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  ScheduleCalendar,
+  type CalendarDay,
+  type CalendarEvent,
+} from "./ScheduleCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +25,7 @@ type RentalRow = {
   id: number | string;
   status: string | null;
   customer_name: string | null;
+  customer_email: string | null;
   customer_phone: string | null;
   rental_item: string | null;
   rental_name: string | null;
@@ -27,29 +33,34 @@ type RentalRow = {
   event_date: string;
   event_start_time: string | null;
   requested_delivery_window: string | null;
+  delivery_time: string | null;
+  setup_location: string | null;
+  setup_surface: string | null;
+  setup_access: string | null;
+  setup_notes: string | null;
+  payment_method: string | null;
+  total: number | string | null;
 };
 
 type FacilityRow = {
   id: string;
   status: string | null;
   customer_name: string | null;
+  email: string | null;
   phone: string | null;
+  room: string | null;
   readable_date: string | null;
   readable_time: string | null;
   party_label: string | null;
   start_time: string;
-};
-
-type ScheduleEvent = {
-  id: string;
-  kind: "rental" | "facility";
-  date: string;
-  time: string | null;
-  title: string;
-  customer: string;
-  phone: string | null;
-  status: string;
-  city: string | null;
+  end_time: string;
+  parent_name: string | null;
+  child_name: string | null;
+  child_age: string | null;
+  party_theme: string | null;
+  notes: string | null;
+  payment_method: string | null;
+  total: number | string | null;
 };
 
 function AuthError({
@@ -140,6 +151,17 @@ function formatTime(value: string | null): string {
   return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
+function money(value: number | string | null): string | null {
+  if (value === null) return null;
+  const parsed =
+    typeof value === "string" ? Number(value.replace(/[^0-9.-]/g, "")) : value;
+  if (!Number.isFinite(parsed)) return String(value);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(parsed);
+}
+
 function rentalCity(address: string | null): string {
   if (!address) return "Rental";
   const parts = address
@@ -163,6 +185,14 @@ function scheduleHref(token: string, view: ScheduleView, date: Date): string {
     date: toYmd(date),
   });
   return `/admin/schedule?${params.toString()}`;
+}
+
+function calendarDay(value: Date): CalendarDay {
+  return {
+    ymd: toYmd(value),
+    dayName: DAYS[value.getDay()] ?? "",
+    label: formatShort(value),
+  };
 }
 
 function rangeForView(view: ScheduleView, focus: Date) {
@@ -197,13 +227,13 @@ function withTimeout<T>(
 async function loadScheduleEvents(input: {
   from: string;
   to: string;
-}): Promise<ScheduleEvent[]> {
+}): Promise<CalendarEvent[]> {
   const supabase = createServiceRoleClient();
   const [rentals, facility] = await Promise.all([
     supabase
       .from("bookings")
       .select(
-        "id, status, customer_name, customer_phone, rental_item, rental_name, event_address, event_date, event_start_time, requested_delivery_window",
+        "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_address, event_date, event_start_time, requested_delivery_window, delivery_time, setup_location, setup_surface, setup_access, setup_notes, payment_method, total",
       )
       .gte("event_date", input.from)
       .lte("event_date", input.to)
@@ -212,7 +242,7 @@ async function loadScheduleEvents(input: {
     supabase
       .from("facility_bookings")
       .select(
-        "id, status, customer_name, phone, readable_date, readable_time, party_label, start_time",
+        "id, status, customer_name, email, phone, room, readable_date, readable_time, party_label, start_time, end_time, parent_name, child_name, child_age, party_theme, notes, payment_method, total",
       )
       .gte("readable_date", input.from)
       .lte("readable_date", input.to)
@@ -223,30 +253,74 @@ async function loadScheduleEvents(input: {
   if (facility.error) throw new Error(facility.error.message);
 
   const rentalEvents = ((rentals.data ?? []) as RentalRow[]).map(
-    (row): ScheduleEvent => ({
+    (row): CalendarEvent => ({
       id: `rental-${row.id}`,
       kind: "rental",
       date: String(row.event_date).slice(0, 10),
       time: clean(row.event_start_time) ?? clean(row.requested_delivery_window),
+      displayTime: formatTime(clean(row.event_start_time) ?? clean(row.requested_delivery_window)),
       title: clean(row.rental_name) ?? clean(row.rental_item) ?? "Rental",
       customer: clean(row.customer_name) ?? "Guest",
       phone: clean(row.customer_phone),
+      email: clean(row.customer_email),
       status: clean(row.status) ?? "pending",
       city: rentalCity(clean(row.event_address)),
+      details: [
+        { label: "Customer", value: clean(row.customer_name) },
+        { label: "Phone", value: clean(row.customer_phone) },
+        { label: "Email", value: clean(row.customer_email) },
+        { label: "Rental", value: clean(row.rental_name) ?? clean(row.rental_item) },
+        { label: "Date", value: String(row.event_date).slice(0, 10) },
+        { label: "Start time", value: formatTime(clean(row.event_start_time)) },
+        {
+          label: "Delivery window",
+          value: clean(row.requested_delivery_window) ?? clean(row.delivery_time),
+        },
+        { label: "City", value: rentalCity(clean(row.event_address)) },
+        { label: "Address", value: clean(row.event_address) },
+        { label: "Setup location", value: clean(row.setup_location) },
+        { label: "Surface", value: clean(row.setup_surface) },
+        { label: "Access", value: clean(row.setup_access) },
+        { label: "Setup notes", value: clean(row.setup_notes) },
+        { label: "Payment", value: clean(row.payment_method) },
+        { label: "Total", value: money(row.total) },
+        { label: "Status", value: clean(row.status) },
+      ],
     }),
   );
 
   const facilityEvents = ((facility.data ?? []) as FacilityRow[]).map(
-    (row): ScheduleEvent => ({
+    (row): CalendarEvent => ({
       id: `facility-${row.id}`,
       kind: "facility",
       date: clean(row.readable_date) ?? String(row.start_time).slice(0, 10),
       time: clean(row.readable_time),
+      displayTime: formatTime(clean(row.readable_time)),
       title: clean(row.party_label) ?? "Facility party",
       customer: clean(row.customer_name) ?? "Guest",
       phone: clean(row.phone),
+      email: clean(row.email),
       status: clean(row.status) ?? "pending",
       city: null,
+      details: [
+        { label: "Customer", value: clean(row.customer_name) },
+        { label: "Phone", value: clean(row.phone) },
+        { label: "Email", value: clean(row.email) },
+        { label: "Party", value: clean(row.party_label) },
+        { label: "Room", value: clean(row.room) },
+        { label: "Date", value: clean(row.readable_date) ?? String(row.start_time).slice(0, 10) },
+        { label: "Time", value: clean(row.readable_time) },
+        { label: "Start", value: row.start_time },
+        { label: "End", value: row.end_time },
+        { label: "Parent", value: clean(row.parent_name) },
+        { label: "Child", value: clean(row.child_name) },
+        { label: "Child age", value: clean(row.child_age) },
+        { label: "Theme", value: clean(row.party_theme) },
+        { label: "Notes", value: clean(row.notes) },
+        { label: "Payment", value: clean(row.payment_method) },
+        { label: "Total", value: money(row.total) },
+        { label: "Status", value: clean(row.status) },
+      ],
     }),
   );
 
@@ -255,8 +329,8 @@ async function loadScheduleEvents(input: {
   );
 }
 
-function groupEventsByDate(events: ScheduleEvent[]) {
-  return events.reduce<Record<string, ScheduleEvent[]>>((groups, event) => {
+function groupEventsByDate(events: CalendarEvent[]) {
+  return events.reduce<Record<string, CalendarEvent[]>>((groups, event) => {
     groups[event.date] = [...(groups[event.date] ?? []), event];
     return groups;
   }, {});
@@ -282,7 +356,7 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
   )
     .then((events) => ({ events, error: null }))
     .catch((error) => ({
-      events: [] as ScheduleEvent[],
+      events: [] as CalendarEvent[],
       error:
         error instanceof Error ? error.message : "Unable to load schedule.",
     }));
@@ -391,64 +465,10 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
             </div>
           )}
 
-          <div className="mt-6 grid gap-3 md:grid-cols-7">
-            {DAYS.map((day) => (
-              <p key={day} className="hidden text-center text-xs font-black uppercase tracking-wide text-slate-500 md:block">
-                {day}
-              </p>
-            ))}
-            {visibleDays.map((day) => (
-              <div
-                key={toYmd(day)}
-                className="flex aspect-square min-h-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
-              >
-                <div className="shrink-0">
-                  <p className="text-xs font-black text-slate-500">
-                    {DAYS[day.getDay()]}
-                  </p>
-                  <h3 className="mt-1 text-lg font-black leading-none">
-                    {formatShort(day)}
-                  </h3>
-                </div>
-                <div className="mt-3 grid min-h-0 flex-1 gap-1.5 overflow-y-auto pr-1">
-                  {(eventsByDate[toYmd(day)] ?? []).length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-slate-200 bg-white px-2 py-2 text-[10px] font-bold text-slate-500">
-                      No bookings
-                    </p>
-                  ) : (
-                    (eventsByDate[toYmd(day)] ?? []).map((event) => (
-                      <div
-                        key={event.id}
-                        className="rounded-lg bg-white px-2 py-2 text-[10px] font-bold leading-tight text-slate-700 shadow-sm"
-                      >
-                        {event.kind === "rental" ? (
-                          <>
-                            <p className="font-black text-slate-950">
-                              {event.city}: {event.title}
-                            </p>
-                            <p className="mt-1">
-                              {formatTime(event.time)} - {event.customer}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-black text-slate-950">
-                              {formatTime(event.time)} - {event.title}
-                            </p>
-                            <p className="mt-1">{event.customer}</p>
-                          </>
-                        )}
-                        <p className="mt-1 truncate uppercase tracking-wide text-slate-500">
-                          {event.status}
-                          {event.phone ? ` | ${event.phone}` : ""}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <ScheduleCalendar
+            days={visibleDays.map(calendarDay)}
+            eventsByDate={eventsByDate}
+          />
         </section>
       </section>
     </main>
