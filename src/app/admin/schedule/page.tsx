@@ -23,6 +23,7 @@ type RentalRow = {
   customer_phone: string | null;
   rental_item: string | null;
   rental_name: string | null;
+  event_address: string | null;
   event_date: string;
   event_start_time: string | null;
   requested_delivery_window: string | null;
@@ -48,6 +49,7 @@ type ScheduleEvent = {
   customer: string;
   phone: string | null;
   status: string;
+  city: string | null;
 };
 
 function AuthError({
@@ -138,6 +140,17 @@ function formatTime(value: string | null): string {
   return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
+function rentalCity(address: string | null): string {
+  if (!address) return "Rental";
+  const parts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length >= 3) return parts[parts.length - 2] ?? "Rental";
+  if (parts.length >= 2) return parts[parts.length - 1] ?? "Rental";
+  return "Rental";
+}
+
 function viewFromParam(value: string | undefined): ScheduleView {
   if (value === "day" || value === "week") return value;
   return "month";
@@ -190,7 +203,7 @@ async function loadScheduleEvents(input: {
     supabase
       .from("bookings")
       .select(
-        "id, status, customer_name, customer_phone, rental_item, rental_name, event_date, event_start_time, requested_delivery_window",
+        "id, status, customer_name, customer_phone, rental_item, rental_name, event_address, event_date, event_start_time, requested_delivery_window",
       )
       .gte("event_date", input.from)
       .lte("event_date", input.to)
@@ -219,6 +232,7 @@ async function loadScheduleEvents(input: {
       customer: clean(row.customer_name) ?? "Guest",
       phone: clean(row.customer_phone),
       status: clean(row.status) ?? "pending",
+      city: rentalCity(clean(row.event_address)),
     }),
   );
 
@@ -232,6 +246,7 @@ async function loadScheduleEvents(input: {
       customer: clean(row.customer_name) ?? "Guest",
       phone: clean(row.phone),
       status: clean(row.status) ?? "pending",
+      city: null,
     }),
   );
 
@@ -385,31 +400,45 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
             {visibleDays.map((day) => (
               <div
                 key={toYmd(day)}
-                className="min-h-32 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                className="flex aspect-square min-h-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
               >
-                <p className="text-sm font-black text-slate-500">
-                  {DAYS[day.getDay()]}
-                </p>
-                <h3 className="mt-1 text-xl font-black">{formatShort(day)}</h3>
-                <div className="mt-4 grid gap-2">
+                <div className="shrink-0">
+                  <p className="text-xs font-black text-slate-500">
+                    {DAYS[day.getDay()]}
+                  </p>
+                  <h3 className="mt-1 text-lg font-black leading-none">
+                    {formatShort(day)}
+                  </h3>
+                </div>
+                <div className="mt-3 grid min-h-0 flex-1 gap-1.5 overflow-y-auto pr-1">
                   {(eventsByDate[toYmd(day)] ?? []).length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-500">
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-white px-2 py-2 text-[10px] font-bold text-slate-500">
                       No bookings
                     </p>
                   ) : (
                     (eventsByDate[toYmd(day)] ?? []).map((event) => (
                       <div
                         key={event.id}
-                        className="rounded-lg bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-sm"
+                        className="rounded-lg bg-white px-2 py-2 text-[10px] font-bold leading-tight text-slate-700 shadow-sm"
                       >
-                        <p className="font-black text-slate-950">
-                          {event.kind === "rental" ? "Rental" : "Facility"}:{" "}
-                          {event.title}
-                        </p>
-                        <p className="mt-1">
-                          {formatTime(event.time)} - {event.customer}
-                        </p>
-                        <p className="mt-1 uppercase tracking-wide text-slate-500">
+                        {event.kind === "rental" ? (
+                          <>
+                            <p className="font-black text-slate-950">
+                              {event.city}: {event.title}
+                            </p>
+                            <p className="mt-1">
+                              {formatTime(event.time)} - {event.customer}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-black text-slate-950">
+                              {formatTime(event.time)} - {event.title}
+                            </p>
+                            <p className="mt-1">{event.customer}</p>
+                          </>
+                        )}
+                        <p className="mt-1 truncate uppercase tracking-wide text-slate-500">
                           {event.status}
                           {event.phone ? ` | ${event.phone}` : ""}
                         </p>
