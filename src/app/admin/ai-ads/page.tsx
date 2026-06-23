@@ -78,7 +78,7 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/admin/deliveries?${query}`}
+              href={`/admin?${query}`}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
             >
               Admin home
