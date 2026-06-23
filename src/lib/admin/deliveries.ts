@@ -1,4 +1,9 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  loadRouteMatrix,
+  routeLegKey,
+  type RouteLegEstimate,
+} from "@/lib/google/routes";
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
@@ -209,18 +214,6 @@ function compareBookings(a: AdminDeliveryBooking, b: AdminDeliveryBooking) {
   return a.customerName.localeCompare(b.customerName);
 }
 
-function preferredTruckForAddress(address: string | null): DeliveryTruckId {
-  const text = address?.toLowerCase() ?? "";
-  const westRouteTowns = [
-    "abbeville",
-    "bradley",
-    "donalds",
-    "due west",
-    "calhoun falls",
-  ];
-  return westRouteTowns.some((town) => text.includes(town)) ? "truck-2" : "truck-1";
-}
-
 export async function loadAdminDeliveries(
   rawDate: string | null | undefined,
 ): Promise<AdminDeliveriesResult> {
@@ -415,6 +408,14 @@ type PlannedRouteItem = {
   estimatedSetupMinutes: number;
 };
 
+type TruckPlanState = {
+  availableAt: number;
+  sequence: number;
+  inflatableCount: number;
+  bigSlideCount: number;
+  currentStop: string;
+};
+
 function minutesFromTime(value: string | null): number | null {
   if (!value) return null;
   const match = value.match(/^(\d{1,2}):(\d{2})/);
@@ -452,6 +453,99 @@ function sortRouteItems(a: PlannedRouteItem, b: PlannedRouteItem) {
     a.bookingId.localeCompare(b.bookingId);
 }
 
+function routeLegEstimate(
+  matrix: Map<string, RouteLegEstimate>,
+  origin: string,
+  destination: string | null,
+  fallbackMinutes: number,
+): RouteLegEstimate {
+  if (!destination) {
+    return { durationMinutes: fallbackMinutes, distanceMiles: 0 };
+  }
+  if (origin.trim().toLowerCase() === destination.trim().toLowerCase()) {
+    return { durationMinutes: 0, distanceMiles: 0 };
+  }
+  return (
+    matrix.get(routeLegKey(origin, destination)) ?? {
+      durationMinutes: fallbackMinutes,
+      distanceMiles: 0,
+    }
+  );
+}
+
+function wouldFitTruck(state: TruckPlanState, item: PlannedRouteItem, capacity: number) {
+  return (
+    state.inflatableCount + 1 <= capacity &&
+    state.bigSlideCount + (item.isBigSlide ? 1 : 0) <= capacity
+  );
+}
+
+function plannedStartForItem(
+  item: PlannedRouteItem,
+  state: TruckPlanState,
+  matrix: Map<string, RouteLegEstimate>,
+  fallbackDriveMinutes: number,
+) {
+  const leg = routeLegEstimate(
+    matrix,
+    state.currentStop,
+    item.eventAddress,
+    fallbackDriveMinutes,
+  );
+  const arrivalAt = state.availableAt + leg.durationMinutes;
+  const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
+  return {
+    leg,
+    setupStart: windowStart == null ? arrivalAt : Math.max(arrivalAt, windowStart),
+  };
+}
+
+function chooseTruckForItem(
+  item: PlannedRouteItem,
+  truckState: Record<DeliveryTruckId, TruckPlanState>,
+  matrix: Map<string, RouteLegEstimate>,
+  firstDriveMinutes: number,
+  betweenStopsMinutes: number,
+  capacity: number,
+): DeliveryTruckId {
+  const candidates = DELIVERY_TRUCKS.map((truck) => {
+    const state = truckState[truck];
+    const { leg, setupStart } = plannedStartForItem(
+      item,
+      state,
+      matrix,
+      fallbackDriveMinutesForState(state, firstDriveMinutes, betweenStopsMinutes),
+    );
+    const setupEnd = setupStart + item.estimatedSetupMinutes;
+    const deadline = deliveryDeadlineMinutes(item.eventStartTime);
+    const lateness = deadline == null ? 0 : Math.max(0, setupEnd - deadline);
+    return {
+      truck,
+      fits: wouldFitTruck(state, item, capacity),
+      setupStart,
+      lateness,
+      distanceMiles: leg.distanceMiles,
+    };
+  });
+
+  return candidates.sort((a, b) => {
+    if (a.fits !== b.fits) return a.fits ? -1 : 1;
+    if (a.lateness !== b.lateness) return a.lateness - b.lateness;
+    if (a.setupStart !== b.setupStart) return a.setupStart - b.setupStart;
+    return a.distanceMiles - b.distanceMiles;
+  })[0].truck;
+}
+
+function fallbackDriveMinutesForState(
+  state: TruckPlanState,
+  firstDriveMinutes: number,
+  betweenStopsMinutes: number,
+) {
+  return state.currentStop === SHOP_ADDRESS
+    ? firstDriveMinutes
+    : betweenStopsMinutes;
+}
+
 export async function autoPlanDeliveriesForDate(
   rawDate: string | null | undefined,
 ): Promise<{ date: string; plannedCount: number }> {
@@ -462,26 +556,20 @@ export async function autoPlanDeliveriesForDate(
   const betweenStopsMinutes = 30;
   const truckCapacity = 3;
 
-  const truckState: Record<
-    DeliveryTruckId,
-    {
-      availableAt: number;
-      sequence: number;
-      inflatableCount: number;
-      bigSlideCount: number;
-    }
-  > = {
+  const truckState: Record<DeliveryTruckId, TruckPlanState> = {
     "truck-1": {
-      availableAt: dayStartMinutes + firstDriveMinutes,
+      availableAt: dayStartMinutes,
       sequence: 1,
       inflatableCount: 0,
       bigSlideCount: 0,
+      currentStop: SHOP_ADDRESS,
     },
     "truck-2": {
-      availableAt: dayStartMinutes + firstDriveMinutes,
+      availableAt: dayStartMinutes,
       sequence: 1,
       inflatableCount: 0,
       bigSlideCount: 0,
+      currentStop: SHOP_ADDRESS,
     },
   };
 
@@ -498,41 +586,30 @@ export async function autoPlanDeliveriesForDate(
     })),
   );
 
+  const matrix = await loadRouteMatrix([
+    SHOP_ADDRESS,
+    ...routeItems
+      .map((item) => item.eventAddress)
+      .filter((address): address is string => Boolean(address)),
+  ]);
+
   let plannedCount = 0;
   for (const item of routeItems.sort(sortRouteItems)) {
-    const preferredTruck = preferredTruckForAddress(item.eventAddress);
-    const otherTruck = preferredTruck === "truck-1" ? "truck-2" : "truck-1";
-    const preferredState = truckState[preferredTruck];
-    const otherState = truckState[otherTruck];
-    const preferredWouldFit =
-      preferredState.inflatableCount + 1 <= truckCapacity &&
-      preferredState.bigSlideCount + (item.isBigSlide ? 1 : 0) <= truckCapacity;
-    const otherWouldFit =
-      otherState.inflatableCount + 1 <= truckCapacity &&
-      otherState.bigSlideCount + (item.isBigSlide ? 1 : 0) <= truckCapacity;
-
-    let truck = preferredTruck;
-    if (!preferredWouldFit && otherWouldFit) {
-      truck = otherTruck;
-    } else if (
-      preferredState.availableAt - otherState.availableAt > 90 &&
-      otherWouldFit
-    ) {
-      truck = otherTruck;
-    } else if (
-      !preferredWouldFit &&
-      !otherWouldFit &&
-      otherState.availableAt < preferredState.availableAt
-    ) {
-      truck = otherTruck;
-    }
-
+    const truck = chooseTruckForItem(
+      item,
+      truckState,
+      matrix,
+      firstDriveMinutes,
+      betweenStopsMinutes,
+      truckCapacity,
+    );
     const state = truckState[truck];
-    const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
-    const setupStart =
-      windowStart == null
-        ? state.availableAt
-        : Math.max(state.availableAt, windowStart);
+    const { leg, setupStart } = plannedStartForItem(
+      item,
+      state,
+      matrix,
+      fallbackDriveMinutesForState(state, firstDriveMinutes, betweenStopsMinutes),
+    );
     const setupEnd = setupStart + item.estimatedSetupMinutes;
 
     const { error } = await supabase
@@ -547,13 +624,18 @@ export async function autoPlanDeliveriesForDate(
         planned_setup_end: timeFromMinutes(setupEnd),
         estimated_setup_minutes: item.estimatedSetupMinutes,
         delivery_route_status: "planned",
+        delivery_route_notes:
+          item.eventAddress && matrix.size > 0
+            ? `Drive from previous stop: ${leg.distanceMiles.toFixed(1)} mi, ${leg.durationMinutes} min.`
+            : null,
       })
       .eq("id", item.itemId);
 
     if (error) throw new Error(error.message);
 
     state.sequence += 1;
-    state.availableAt = setupEnd + betweenStopsMinutes;
+    state.availableAt = setupEnd;
+    state.currentStop = item.eventAddress ?? state.currentStop;
     state.inflatableCount += 1;
     state.bigSlideCount += item.isBigSlide ? 1 : 0;
     plannedCount += 1;
