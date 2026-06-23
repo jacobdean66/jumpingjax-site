@@ -1,0 +1,4 @@
+-- Placeholder for a migration version already recorded in the remote Supabase
+-- migration history. The live schema has since been reconciled with the local
+-- migration files, so this file exists only to keep local and remote migration
+-- histories comparable.
