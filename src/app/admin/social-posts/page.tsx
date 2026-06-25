@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
   listSocialPosts,
@@ -18,27 +19,6 @@ type Props = {
     error?: string;
   }>;
 };
-
-function AuthError({
-  reason,
-}: {
-  reason: "missing_config" | "invalid_token";
-}) {
-  return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-950">
-      <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
-          Social Posts
-        </p>
-        <h1 className="mt-3 text-3xl font-black">
-          {reason === "missing_config"
-            ? "Admin token not configured"
-            : "Invalid admin link"}
-        </h1>
-      </section>
-    </main>
-  );
-}
 
 function Field({
   label,
@@ -60,7 +40,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
   const token = resolved?.token ?? "";
   const auth = await verifyAdminAccess(token);
 
-  if (!auth.ok) return <AuthError reason={auth.reason} />;
+  if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   const query = token ? `token=${encodeURIComponent(token)}` : "";
   let posts: SocialPost[] = [];

@@ -81,7 +81,11 @@ function sessionSecret(): string | null {
   const passwords = loginIdentities()
     .map((identity) => identity.password)
     .join("|");
-  return passwords || null;
+  if (passwords) return passwords;
+
+  // Staff passwords live in Supabase; allow signed cookies when env tokens are unset.
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return serviceRole ? `staff-session:${serviceRole}` : null;
 }
 
 function signSessionPayload(payload: string): string | null {
