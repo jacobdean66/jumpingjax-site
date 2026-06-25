@@ -45,6 +45,7 @@ export type CreateBookingInput = {
   distance_miles?: number | null;
   delivery_fee: number;
   mileage_fee: number;
+  setup_location: string;
   setup_surface: string;
   setup_access: string;
   setup_notes: string;
@@ -166,6 +167,7 @@ export async function insertPendingBooking(
       distance_miles?: number | null;
       delivery_fee?: number;
       mileage_fee?: number;
+      setup_location?: string;
       setup_surface?: string;
       setup_access?: string;
       setup_notes?: string;
@@ -188,6 +190,7 @@ export async function insertPendingBooking(
       distance_miles: input.distance_miles,
       delivery_fee: input.delivery_fee,
       mileage_fee: input.mileage_fee,
+      setup_location: input.setup_location.trim(),
       setup_surface: input.setup_surface.trim(),
       setup_access: input.setup_access.trim(),
       setup_notes: input.setup_notes.trim(),
