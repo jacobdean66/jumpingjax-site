@@ -6,6 +6,15 @@ export function aiVideoAppUrl(): string {
   ).replace(/\/+$/, "");
 }
 
+export function socialPostEffectiveSourceImageUrl(input: {
+  approved_image_url?: string | null;
+  source_image_url?: string | null;
+}): string | null {
+  return socialVideoSourceImageUrl(
+    input.approved_image_url ?? input.source_image_url ?? null,
+  );
+}
+
 export function socialVideoSourceImageUrl(
   postSourceImageUrl: string | null,
 ): string | null {

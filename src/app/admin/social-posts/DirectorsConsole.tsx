@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DirectorPreviewResult } from "@/lib/social-posts/director-console";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import type { SocialPost } from "@/lib/social-posts/social-post-data";
@@ -50,6 +50,28 @@ type ImageDirectorPreviewResponse = {
   costEstimate?: ImageDirectorCostEstimate;
   preset?: ImageDirectionPreset;
   sourceImageCategory?: string | null;
+};
+
+type ImageGenerateResponse = {
+  ok?: boolean;
+  error?: string;
+  status?: string;
+  generatedImageUrl?: string | null;
+  predictionId?: string;
+};
+
+type ImageStatusResponse = {
+  ok?: boolean;
+  error?: string;
+  status?: string | null;
+  generatedImageUrl?: string | null;
+  predictionId?: string | null;
+};
+
+type PatchResponse = {
+  ok?: boolean;
+  error?: string;
+  post?: SocialPost;
 };
 
 function creativeSourceLabel(source: DirectorPreviewResult["creativeSource"]): string {
@@ -162,6 +184,17 @@ export default function DirectorsConsole({
   } | null>(null);
   const [imageCopied, setImageCopied] = useState(false);
   const [imagePreviewLoading, setImagePreviewLoading] = useState(false);
+  const [imageGenerating, setImageGenerating] = useState(false);
+  const [activeImageGeneration, setActiveImageGeneration] = useState<{
+    status: string | null;
+    generatedImageUrl: string | null;
+  } | null>(null);
+  const [imageActionPending, setImageActionPending] = useState(false);
+
+  const imageStatus =
+    activeImageGeneration?.status ?? post.image_generation_status;
+  const generatedImageUrl =
+    activeImageGeneration?.generatedImageUrl ?? post.generated_image_url;
 
   const motionPreset =
     presetOverride?.motion ??
@@ -197,7 +230,12 @@ export default function DirectorsConsole({
   const previewStale = preview !== null && previewKey !== preview.cacheKey;
 
   const sourceImageUrl =
-    preview?.resolvedSourceImageUrl ?? post.source_image_url ?? "";
+    preview?.resolvedSourceImageUrl ??
+    post.approved_image_url ??
+    post.source_image_url ??
+    "";
+
+  const originalSourceImageUrl = post.original_image_url ?? post.source_image_url ?? "";
 
   const imageCategory = sourceImageCategory(post.source_image_url);
 
@@ -221,6 +259,45 @@ export default function DirectorsConsole({
 
   const imagePreviewStale =
     imagePreview !== null && imagePreviewKey !== imagePreview.cacheKey;
+
+  const pollImageStatus = useCallback(async () => {
+    const response = await fetch(
+      `/api/social-posts/${post.id}/image-status?token=${encodeURIComponent(token)}`,
+      { cache: "no-store" },
+    );
+    const data = (await response.json()) as ImageStatusResponse;
+
+    if (!response.ok) {
+      throw new Error(data.error ?? "Image status check failed");
+    }
+
+    setActiveImageGeneration({
+      status: data.status ?? null,
+      generatedImageUrl: data.generatedImageUrl ?? null,
+    });
+    return data;
+  }, [post.id, token]);
+
+  useEffect(() => {
+    if (imageStatus !== "processing") return undefined;
+
+    const timer = window.setInterval(() => {
+      void pollImageStatus()
+        .then((data) => {
+          if (data.status === "succeeded") {
+            setActiveImageGeneration(null);
+            onGenerateComplete();
+          }
+        })
+        .catch((caught) => {
+          onError(
+            caught instanceof Error ? caught.message : "Image status check failed",
+          );
+        });
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [imageStatus, onError, onGenerateComplete, pollImageStatus]);
 
   const fetchPreview = useCallback(async () => {
     setPreviewLoading(true);
@@ -312,6 +389,112 @@ export default function DirectorsConsole({
     imagePreviewKey,
     onError,
   ]);
+
+  async function generateImage() {
+    if (!imagePrompt.trim()) {
+      onError("Preview the image prompt before generating.");
+      return;
+    }
+
+    setImageGenerating(true);
+    onError("");
+
+    try {
+      const response = await fetch(`/api/social-posts/${post.id}/generate-image`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          finalImagePrompt: imagePrompt,
+          imageDirectionPreset,
+          sourceImageUrl: post.source_image_url,
+        }),
+      });
+      const data = (await response.json()) as ImageGenerateResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Image generation failed");
+      }
+
+      setActiveImageGeneration({
+        status: data.status ?? "processing",
+        generatedImageUrl: data.generatedImageUrl ?? null,
+      });
+      onMessage("Image generation started");
+
+      if (data.status === "processing" || !data.generatedImageUrl) {
+        await pollImageStatus();
+      } else {
+        setActiveImageGeneration(null);
+        onGenerateComplete();
+      }
+    } catch (caught) {
+      onError(caught instanceof Error ? caught.message : "Image generation failed");
+    } finally {
+      setImageGenerating(false);
+    }
+  }
+
+  async function acceptGeneratedImage() {
+    setImageActionPending(true);
+    onError("");
+
+    try {
+      const response = await fetch(`/api/social-posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          action: "accept_image",
+        }),
+      });
+      const data = (await response.json()) as PatchResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not accept generated image");
+      }
+
+      onMessage("Approved image saved");
+      onGenerateComplete();
+    } catch (caught) {
+      onError(
+        caught instanceof Error ? caught.message : "Could not accept generated image",
+      );
+    } finally {
+      setImageActionPending(false);
+    }
+  }
+
+  async function rejectGeneratedImage() {
+    setImageActionPending(true);
+    onError("");
+
+    try {
+      const response = await fetch(`/api/social-posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          action: "reject_image",
+        }),
+      });
+      const data = (await response.json()) as PatchResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not reject generated image");
+      }
+
+      setActiveImageGeneration(null);
+      onMessage("Generated image rejected");
+      onGenerateComplete();
+    } catch (caught) {
+      onError(
+        caught instanceof Error ? caught.message : "Could not reject generated image",
+      );
+    } finally {
+      setImageActionPending(false);
+    }
+  }
 
   async function savePresets() {
     await fetch(`/api/social-posts/${post.id}`, {
@@ -437,6 +620,18 @@ export default function DirectorsConsole({
 
           <Section title="2. Source Image">
             <ReadOnlyRow label="Source Image URL" value={sourceImageUrl || "—"} />
+            {originalSourceImageUrl && originalSourceImageUrl !== sourceImageUrl ? (
+              <ReadOnlyRow
+                label="Original Source Image URL"
+                value={originalSourceImageUrl}
+              />
+            ) : null}
+            {post.approved_image_url ? (
+              <ReadOnlyRow
+                label="Approved Image URL"
+                value={post.approved_image_url}
+              />
+            ) : null}
             {sourceImageUrl ? (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -618,6 +813,95 @@ export default function DirectorsConsole({
                 ))}
               </ul>
             ) : null}
+
+            <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                Image Generation
+              </p>
+              <div className="mt-2 space-y-2">
+                <ReadOnlyRow
+                  label="Generation Status"
+                  value={
+                    imageGenerating
+                      ? "Starting..."
+                      : imageStatus
+                        ? imageStatus
+                        : "Not started"
+                  }
+                />
+                {post.image_generation_provider ? (
+                  <ReadOnlyRow
+                    label="Provider"
+                    value={`${post.image_generation_provider}${
+                      post.image_generation_model
+                        ? ` (${post.image_generation_model})`
+                        : ""
+                    }`}
+                  />
+                ) : null}
+
+                <button
+                  type="button"
+                  disabled={imageGenerating || imagePreviewLoading || imagePreviewStale || !imagePrompt.trim()}
+                  onClick={() => void generateImage()}
+                  className="min-h-10 w-full rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  title={
+                    imagePreviewStale
+                      ? "Preview again after changing presets or source image"
+                      : undefined
+                  }
+                >
+                  {imageGenerating ? "Generating..." : "Generate Image"}
+                </button>
+
+                {generatedImageUrl ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-2">
+                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                      Generated Image Preview
+                    </p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={generatedImageUrl}
+                      alt="Generated image preview"
+                      className="max-h-56 w-full rounded-lg object-contain"
+                    />
+                  </div>
+                ) : imageStatus === "processing" ? (
+                  <p className="text-sm font-semibold text-slate-600">
+                    Image generation is processing. Status will refresh automatically.
+                  </p>
+                ) : null}
+
+                {generatedImageUrl && imageStatus === "succeeded" ? (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={imageActionPending}
+                      onClick={() => void acceptGeneratedImage()}
+                      className="min-h-10 flex-1 rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      Accept Image
+                    </button>
+                    <button
+                      type="button"
+                      disabled={imageActionPending}
+                      onClick={() => void rejectGeneratedImage()}
+                      className="min-h-10 flex-1 rounded-full bg-rose-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      Reject Image
+                    </button>
+                    <button
+                      type="button"
+                      disabled={imageGenerating || imagePreviewStale || !imagePrompt.trim()}
+                      onClick={() => void generateImage()}
+                      className="min-h-10 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </CollapsibleSection>
 
           <Section title="4. Generation Settings">

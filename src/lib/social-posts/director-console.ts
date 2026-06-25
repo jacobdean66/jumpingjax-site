@@ -8,7 +8,10 @@ import {
   type CameraPreset,
   type MotionPreset,
 } from "./video-director";
-import { aiVideoAppUrl, socialVideoSourceImageUrl } from "./social-video-utils";
+import {
+  aiVideoAppUrl,
+  socialPostEffectiveSourceImageUrl,
+} from "./social-video-utils";
 import type { SocialPostBusinessFocus } from "./social-post-data";
 
 export type CreativeSource = "openai" | "rule-fallback" | "unknown";
@@ -19,6 +22,7 @@ export type DirectorPreviewInput = {
   goal: string | null;
   businessFocus: SocialPostBusinessFocus;
   postSourceImageUrl: string | null;
+  approvedImageUrl?: string | null;
   motionPreset?: string | null;
   cameraPreset?: string | null;
   creativeSource?: string | null;
@@ -228,7 +232,10 @@ export function buildDirectorPreview(
 ): DirectorPreviewResult {
   const motionPreset = normalizeMotionPresetValue(input.motionPreset);
   const cameraPreset = normalizeCameraPresetValue(input.cameraPreset);
-  const resolvedSourceImageUrl = socialVideoSourceImageUrl(input.postSourceImageUrl);
+  const resolvedSourceImageUrl = socialPostEffectiveSourceImageUrl({
+    approved_image_url: input.approvedImageUrl,
+    source_image_url: input.postSourceImageUrl,
+  });
   const campaign = getSocialCampaign(input.campaignId);
 
   const { improvedPrompt } = createVideoDirectorPrompt({

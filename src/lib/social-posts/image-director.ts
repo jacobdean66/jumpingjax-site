@@ -249,7 +249,7 @@ export function estimateImageDirectorCost(): ImageDirectorCostEstimate {
   const imageGenerationUsd = 0.08;
   const notes = [
     "Preview cost is $0 — prompt planning only.",
-    "Image generation/editing cost is a rough placeholder until image generation is wired up.",
+    "Image generation uses Replicate via the Image Engine provider adapter.",
     "Actual provider pricing may vary by model and resolution.",
   ];
 

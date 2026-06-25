@@ -3,6 +3,13 @@ import {
   getSocialPostById,
   updateSocialPostMediaUrl,
 } from "@/lib/social-posts/social-post-data";
+import { buildDirectorPreview } from "@/lib/social-posts/director-console";
+import {
+  aiVideoAppUrl,
+  socialPostEffectiveSourceImageUrl,
+  isPublicHttpUrl,
+  socialVideoSourceImageUrl,
+} from "@/lib/social-posts/social-video-utils";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 type RouteContext = {
@@ -11,6 +18,9 @@ type RouteContext = {
 
 type GenerateRequest = {
   token?: string;
+  finalPrompt?: string;
+  motionPreset?: string | null;
+  cameraPreset?: string | null;
 };
 
 type GenerateStartResponse = {
@@ -25,39 +35,11 @@ type GenerateStatusResponse = {
   error?: string | null;
 };
 
-const DEFAULT_AI_VIDEO_APP_URL = "https://ai-video-app-orcin.vercel.app";
 const POLL_ATTEMPTS = 36;
 const POLL_INTERVAL_MS = 5_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function aiVideoAppUrl(): string {
-  return (
-    process.env.AI_VIDEO_APP_URL?.trim() || DEFAULT_AI_VIDEO_APP_URL
-  ).replace(/\/+$/, "");
-}
-
-function socialVideoSourceImageUrl(postSourceImageUrl: string | null): string | null {
-  if (postSourceImageUrl?.trim()) return postSourceImageUrl.trim();
-
-  const configured = process.env.SOCIAL_POST_VIDEO_SOURCE_IMAGE_URL?.trim();
-  if (configured) return configured;
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!siteUrl) return null;
-
-  return `${siteUrl.replace(/\/+$/, "")}/logo.png`;
-}
-
-function isPublicHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 async function generateVideoFromExistingAiCreator(
@@ -155,11 +137,32 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
+    const motionPreset = body.motionPreset ?? post.motion_preset;
+    const cameraPreset = body.cameraPreset ?? post.camera_preset;
+
+    const preview = buildDirectorPreview({
+      originalPrompt: prompt,
+      campaignId: post.campaign_id,
+      goal: post.goal,
+      businessFocus: post.business_focus,
+      postSourceImageUrl: post.source_image_url,
+      approvedImageUrl: post.approved_image_url,
+      motionPreset,
+      cameraPreset,
+      creativeSource: post.creative_source,
+    });
+
+    const videoPrompt = body.finalPrompt?.trim() || preview.finalVideoPrompt;
+    const effectiveSourceImageUrl = socialPostEffectiveSourceImageUrl(post);
+
     const mediaUrl = await generateVideoFromExistingAiCreator(
-      prompt,
-      post.source_image_url,
+      videoPrompt,
+      effectiveSourceImageUrl,
     );
-    const updatedPost = await updateSocialPostMediaUrl(id, mediaUrl);
+    const updatedPost = await updateSocialPostMediaUrl(id, mediaUrl, {
+      motionPreset: preview.generationSettings.motionPreset,
+      cameraPreset: preview.generationSettings.cameraPreset,
+    });
 
     return NextResponse.json({ ok: true, post: updatedPost, mediaUrl });
   } catch (error) {

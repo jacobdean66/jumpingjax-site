@@ -49,6 +49,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       goal: post.goal,
       businessFocus: post.business_focus,
       postSourceImageUrl: post.source_image_url,
+      approvedImageUrl: post.approved_image_url,
       motionPreset: body.motionPreset ?? post.motion_preset,
       cameraPreset: body.cameraPreset ?? post.camera_preset,
       creativeSource: post.creative_source,

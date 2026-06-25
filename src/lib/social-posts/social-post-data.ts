@@ -30,6 +30,15 @@ export type SocialPost = {
   business_focus: SocialPostBusinessFocus;
   media_url: string | null;
   source_image_url: string | null;
+  original_image_url: string | null;
+  approved_image_url: string | null;
+  generated_image_url: string | null;
+  image_generation_provider: string | null;
+  image_generation_model: string | null;
+  image_prediction_id: string | null;
+  image_generation_created_at: string | null;
+  image_generation_prompt: string | null;
+  image_generation_status: string | null;
   motion_preset: string | null;
   camera_preset: string | null;
   creative_source: string | null;
@@ -74,7 +83,7 @@ export type UpdateSocialPostDraftInput = {
 };
 
 const SOCIAL_POST_SELECT =
-  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, source_image_url, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
+  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, source_image_url, original_image_url, approved_image_url, generated_image_url, image_generation_provider, image_generation_model, image_prediction_id, image_generation_created_at, image_generation_prompt, image_generation_status, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
 
 function cleanText(value: string | null | undefined): string | null {
   const cleaned = value?.trim();
@@ -205,6 +214,126 @@ export async function updateSocialPostMediaUrl(
       media_url: cleanText(mediaUrl),
       motion_preset: cleanText(options?.motionPreset),
       camera_preset: cleanText(options?.cameraPreset),
+      updated_at: new Date().toISOString(),
+      error_message: null,
+    })
+    .eq("id", id)
+    .select(SOCIAL_POST_SELECT)
+    .single<SocialPost>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export type StartSocialPostImageGenerationInput = {
+  originalImageUrl: string | null;
+  generationPrompt: string;
+  provider: string;
+  model: string;
+  predictionId: string;
+  status: string;
+  generatedImageUrl?: string | null;
+};
+
+export async function startSocialPostImageGeneration(
+  id: string,
+  input: StartSocialPostImageGenerationInput,
+): Promise<SocialPost> {
+  const existing = await getSocialPostById(id);
+  if (!existing) throw new Error("Social post not found.");
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({
+      original_image_url:
+        cleanText(existing.original_image_url) ?? cleanText(input.originalImageUrl),
+      image_generation_prompt: cleanText(input.generationPrompt),
+      image_generation_provider: cleanText(input.provider),
+      image_generation_model: cleanText(input.model),
+      image_prediction_id: cleanText(input.predictionId),
+      image_generation_created_at: new Date().toISOString(),
+      image_generation_status: cleanText(input.status),
+      generated_image_url: cleanText(input.generatedImageUrl),
+      updated_at: new Date().toISOString(),
+      error_message: null,
+    })
+    .eq("id", id)
+    .select(SOCIAL_POST_SELECT)
+    .single<SocialPost>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function updateSocialPostImageGenerationStatus(
+  id: string,
+  input: {
+    status: string;
+    generatedImageUrl?: string | null;
+    errorMessage?: string | null;
+  },
+): Promise<SocialPost> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({
+      image_generation_status: cleanText(input.status),
+      generated_image_url: cleanText(input.generatedImageUrl),
+      error_message: cleanText(input.errorMessage),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select(SOCIAL_POST_SELECT)
+    .single<SocialPost>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function acceptSocialPostGeneratedImage(id: string): Promise<SocialPost> {
+  const post = await getSocialPostById(id);
+  if (!post) throw new Error("Social post not found.");
+  if (!post.generated_image_url?.trim()) {
+    throw new Error("No generated image is available to accept.");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({
+      approved_image_url: cleanText(post.generated_image_url),
+      updated_at: new Date().toISOString(),
+      error_message: null,
+    })
+    .eq("id", id)
+    .select(SOCIAL_POST_SELECT)
+    .single<SocialPost>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function rejectSocialPostGeneratedImage(id: string): Promise<SocialPost> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({
+      generated_image_url: null,
+      image_prediction_id: null,
+      image_generation_status: null,
       updated_at: new Date().toISOString(),
       error_message: null,
     })
