@@ -2,6 +2,7 @@ import {
   SOCIAL_SOURCE_IMAGES,
   type SocialSourceImage,
 } from "@/lib/social-posts/social-source-images";
+import { planWithOpenAICreativeDirector } from "./openai-creative-director";
 import { getSocialCampaign } from "./social-campaigns";
 
 export type SocialAgentInput = {
@@ -62,7 +63,7 @@ function keywordMatch(value: string, words: string[]): boolean {
   return words.some((word) => value.includes(word));
 }
 
-function chooseSourceImageUrl(
+export function chooseSourceImageUrl(
   goal: string | undefined,
   businessFocus: SocialAgentPlan["businessFocus"],
   preferredImageKeywords: string[] = [],
@@ -123,9 +124,6 @@ function chooseSourceImageUrl(
     );
   }
 
-  // These keyword rules are deliberately simple and transparent. When OpenAI is
-  // connected, replace them with semantic matching over source image metadata,
-  // live inventory context, and the requested goal.
   return (
     findSourceImageByCategory("Homepage") ??
     findSourceImage((image) => image.focus === businessFocus || image.focus === "both") ??
@@ -134,9 +132,7 @@ function chooseSourceImageUrl(
   );
 }
 
-export async function createSocialAgentPlan(
-  input: SocialAgentInput,
-): Promise<SocialAgentPlan> {
+function createRuleBasedSocialAgentPlan(input: SocialAgentInput): SocialAgentPlan {
   const campaign = getSocialCampaign(input.campaignId);
   const campaignGoal = campaign?.goalTemplates[0];
   const mediaType = input.mediaType ?? campaign?.defaultMediaType ?? "video";
@@ -153,9 +149,6 @@ export async function createSocialAgentPlan(
   );
 
   if (campaign) {
-    // This campaign branch is the Creative Director foundation. OpenAI can later
-    // replace these deterministic templates with richer campaign strategy,
-    // angle selection, and variant generation while preserving the same API.
     const captionAngle = campaign.captionAngles[0] ?? "";
     const promptAngle = campaign.promptAngles[0] ?? "";
     return {
@@ -208,5 +201,35 @@ export async function createSocialAgentPlan(
     businessFocus,
     sourceImageUrl,
     campaignId: null,
+  };
+}
+
+export async function createSocialAgentPlan(
+  input: SocialAgentInput,
+): Promise<SocialAgentPlan> {
+  const fallbackPlan = createRuleBasedSocialAgentPlan(input);
+
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return fallbackPlan;
+  }
+
+  const openAiPlan = await planWithOpenAICreativeDirector(input);
+  if (!openAiPlan) {
+    return fallbackPlan;
+  }
+
+  return {
+    title: openAiPlan.title,
+    caption: openAiPlan.caption,
+    mediaType: openAiPlan.mediaType,
+    platforms: openAiPlan.platforms,
+    generationPrompt: openAiPlan.generationPrompt,
+    businessFocus: openAiPlan.businessFocus,
+    sourceImageUrl: chooseSourceImageUrl(
+      openAiPlan.goal,
+      openAiPlan.businessFocus,
+      openAiPlan.sourceImageKeywords,
+    ),
+    campaignId: openAiPlan.campaignId,
   };
 }
