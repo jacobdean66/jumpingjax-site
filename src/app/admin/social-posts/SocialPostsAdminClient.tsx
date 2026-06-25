@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
+import DirectorsConsole from "./DirectorsConsole";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type {
   SocialPost,
@@ -152,7 +153,6 @@ function Field({
 export default function SocialPostsAdminClient({ posts, token, sourceImages }: Props) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, EditorDraft>>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -286,30 +286,34 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
     }
   }
 
-  async function generateMedia(id: string) {
-    setGeneratingId(id);
-    setMessage(null);
-    setError(null);
+  async function updatePostSourceImage(id: string, sourceImageUrl: string) {
+    const post = postsById.get(id);
+    if (!post) return;
 
-    try {
-      const response = await fetch(`/api/social-posts/${id}/generate-media`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const data = (await response.json()) as JsonResponse;
+    setDrafts((current) => ({
+      ...current,
+      [id]: {
+        ...(current[id] ?? draftFromPost(post)),
+        source_image_url: sourceImageUrl,
+      },
+    }));
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Media generation failed");
-      }
-
-      setMessage("Media generated");
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Media generation failed");
-    } finally {
-      setGeneratingId(null);
-    }
+    await patchPost(
+      id,
+      {
+        title: post.title,
+        caption: post.caption,
+        prompt: post.prompt,
+        media_type: post.media_type,
+        campaign_id: post.campaign_id,
+        goal: post.goal,
+        business_focus: post.business_focus,
+        source_image_url: sourceImageUrl,
+        platforms: post.platforms,
+        status: post.status,
+      },
+      "Source image updated",
+    );
   }
 
   return (
@@ -665,18 +669,17 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
                     </div>
                   ) : null}
 
+                  <DirectorsConsole
+                    post={post}
+                    token={token}
+                    sourceImages={sourceImages}
+                    onSourceImageChange={(url) => void updatePostSourceImage(post.id, url)}
+                    onGenerateComplete={() => router.refresh()}
+                    onError={setError}
+                    onMessage={setMessage}
+                  />
+
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    {!post.media_url &&
-                    (post.status === "draft" || post.status === "approved") ? (
-                      <button
-                        type="button"
-                        disabled={generatingId === post.id}
-                        onClick={() => void generateMedia(post.id)}
-                        className="min-h-11 flex-1 rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {generatingId === post.id ? "Generating..." : "Generate Media"}
-                      </button>
-                    ) : null}
                     <button
                       type="button"
                       disabled={pendingId === post.id}

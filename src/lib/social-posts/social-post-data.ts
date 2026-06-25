@@ -30,6 +30,9 @@ export type SocialPost = {
   business_focus: SocialPostBusinessFocus;
   media_url: string | null;
   source_image_url: string | null;
+  motion_preset: string | null;
+  camera_preset: string | null;
+  creative_source: string | null;
   platforms: SocialPostPlatform[];
   status: SocialPostStatus;
   scheduled_for: string | null;
@@ -47,6 +50,9 @@ export type CreateSocialPostInput = {
   business_focus?: string | null;
   media_url?: string | null;
   source_image_url?: string | null;
+  motion_preset?: string | null;
+  camera_preset?: string | null;
+  creative_source?: string | null;
   platforms?: string[] | null;
 };
 
@@ -59,13 +65,16 @@ export type UpdateSocialPostDraftInput = {
   media_type?: string | null;
   business_focus?: string | null;
   source_image_url?: string | null;
+  motion_preset?: string | null;
+  camera_preset?: string | null;
+  creative_source?: string | null;
   platforms?: string[] | null;
   status?: string | null;
   scheduled_for?: string | null;
 };
 
 const SOCIAL_POST_SELECT =
-  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, source_image_url, platforms, status, scheduled_for, posted_at, error_message";
+  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, source_image_url, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
 
 function cleanText(value: string | null | undefined): string | null {
   const cleaned = value?.trim();
@@ -165,6 +174,9 @@ export async function createSocialPost(
       business_focus: normalizeBusinessFocus(input.business_focus),
       media_url: cleanText(input.media_url),
       source_image_url: cleanText(input.source_image_url),
+      motion_preset: cleanText(input.motion_preset),
+      camera_preset: cleanText(input.camera_preset),
+      creative_source: cleanText(input.creative_source),
       platforms: normalizePlatforms(input.platforms),
       status: "draft",
     })
@@ -181,12 +193,18 @@ export async function createSocialPost(
 export async function updateSocialPostMediaUrl(
   id: string,
   mediaUrl: string,
+  options?: {
+    motionPreset?: string | null;
+    cameraPreset?: string | null;
+  },
 ): Promise<SocialPost> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("social_posts")
     .update({
       media_url: cleanText(mediaUrl),
+      motion_preset: cleanText(options?.motionPreset),
+      camera_preset: cleanText(options?.cameraPreset),
       updated_at: new Date().toISOString(),
       error_message: null,
     })
@@ -272,6 +290,9 @@ export async function updateSocialPostDraft(
     media_type: normalizeMediaType(input.media_type),
     business_focus: normalizeBusinessFocus(input.business_focus),
     source_image_url: cleanText(input.source_image_url),
+    motion_preset: cleanText(input.motion_preset),
+    camera_preset: cleanText(input.camera_preset),
+    creative_source: cleanText(input.creative_source),
     platforms: normalizePlatforms(input.platforms),
     status: (input.status ?? "draft") as SocialPostStatus,
     scheduled_for: nextScheduledFor,
@@ -321,6 +342,9 @@ export async function duplicateSocialPostDraft(id: string): Promise<SocialPost> 
     media_type: post.media_type,
     business_focus: post.business_focus,
     source_image_url: post.source_image_url,
+    motion_preset: post.motion_preset,
+    camera_preset: post.camera_preset,
+    creative_source: post.creative_source,
     platforms: post.platforms,
   });
 }
