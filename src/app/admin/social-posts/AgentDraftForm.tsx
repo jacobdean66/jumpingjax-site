@@ -42,7 +42,8 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
 
     setPending(true);
     setMessage(null);
@@ -71,8 +72,10 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
         throw new Error(data.error ?? "AI draft could not be created.");
       }
 
-      event.currentTarget.reset();
       setSelectedGoal(PREMADE_GOALS[0]);
+      if (formElement) {
+        formElement.reset();
+      }
       setMessage("AI draft created");
       router.refresh();
     } catch (caught) {
