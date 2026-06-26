@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { getImageGenerationStatus } from "@/lib/social-posts/image-engine";
 import {
+  isSupabaseSocialMediaPublicUrl,
+  persistSocialMediaFromRemoteUrl,
+} from "@/lib/social-posts/social-media-storage";
+import {
   getSocialPostById,
   updateSocialPostImageGenerationStatus,
 } from "@/lib/social-posts/social-post-data";
@@ -55,15 +59,35 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const statusResult = await getImageGenerationStatus(post.image_prediction_id);
     const normalizedStatus = normalizeProviderStatus(statusResult.status);
 
+    let generatedImageUrl =
+      statusResult.generatedImageUrl ?? post.generated_image_url;
+    let generatedImageSourceUrl = post.generated_image_source_url;
+
+    if (
+      normalizedStatus === "succeeded" &&
+      generatedImageUrl &&
+      !isSupabaseSocialMediaPublicUrl(generatedImageUrl)
+    ) {
+      const persisted = await persistSocialMediaFromRemoteUrl({
+        postId: id,
+        remoteUrl: generatedImageUrl,
+        kind: "image",
+      });
+      generatedImageSourceUrl = persisted.sourceUrl;
+      generatedImageUrl = persisted.permanentUrl;
+    }
+
     let updatedPost = post;
     if (
       normalizedStatus !== post.image_generation_status ||
-      statusResult.generatedImageUrl !== post.generated_image_url ||
+      generatedImageUrl !== post.generated_image_url ||
+      generatedImageSourceUrl !== post.generated_image_source_url ||
       statusResult.error
     ) {
       updatedPost = await updateSocialPostImageGenerationStatus(id, {
         status: normalizedStatus,
-        generatedImageUrl: statusResult.generatedImageUrl,
+        generatedImageUrl,
+        generatedImageSourceUrl,
         errorMessage: statusResult.error,
       });
       revalidatePath("/admin/social-posts");
@@ -73,7 +97,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       ok: true,
       post: updatedPost,
       status: normalizedStatus,
-      generatedImageUrl: statusResult.generatedImageUrl,
+      generatedImageUrl,
       provider: statusResult.provider,
       model: statusResult.model,
       predictionId: statusResult.predictionId,

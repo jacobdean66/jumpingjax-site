@@ -5,6 +5,10 @@ import {
 } from "@/lib/social-posts/social-post-data";
 import { buildDirectorPreview } from "@/lib/social-posts/director-console";
 import {
+  isSupabaseSocialMediaPublicUrl,
+  persistSocialMediaFromRemoteUrl,
+} from "@/lib/social-posts/social-media-storage";
+import {
   aiVideoAppUrl,
   socialPostEffectiveSourceImageUrl,
   isPublicHttpUrl,
@@ -155,13 +159,28 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const videoPrompt = body.finalPrompt?.trim() || preview.finalVideoPrompt;
     const effectiveSourceImageUrl = socialPostEffectiveSourceImageUrl(post);
 
-    const mediaUrl = await generateVideoFromExistingAiCreator(
+    const remoteVideoUrl = await generateVideoFromExistingAiCreator(
       videoPrompt,
       effectiveSourceImageUrl,
     );
+
+    let mediaUrl = remoteVideoUrl;
+    let mediaSourceUrl: string | null = post.media_source_url;
+
+    if (remoteVideoUrl && !isSupabaseSocialMediaPublicUrl(remoteVideoUrl)) {
+      const persisted = await persistSocialMediaFromRemoteUrl({
+        postId: id,
+        remoteUrl: remoteVideoUrl,
+        kind: "video",
+      });
+      mediaUrl = persisted.permanentUrl;
+      mediaSourceUrl = persisted.sourceUrl;
+    }
+
     const updatedPost = await updateSocialPostMediaUrl(id, mediaUrl, {
       motionPreset: preview.generationSettings.motionPreset,
       cameraPreset: preview.generationSettings.cameraPreset,
+      mediaSourceUrl,
     });
 
     return NextResponse.json({ ok: true, post: updatedPost, mediaUrl });

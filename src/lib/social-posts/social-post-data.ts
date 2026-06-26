@@ -33,6 +33,8 @@ export type SocialPost = {
   original_image_url: string | null;
   approved_image_url: string | null;
   generated_image_url: string | null;
+  generated_image_source_url: string | null;
+  media_source_url: string | null;
   image_generation_provider: string | null;
   image_generation_model: string | null;
   image_prediction_id: string | null;
@@ -83,7 +85,7 @@ export type UpdateSocialPostDraftInput = {
 };
 
 const SOCIAL_POST_SELECT =
-  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, source_image_url, original_image_url, approved_image_url, generated_image_url, image_generation_provider, image_generation_model, image_prediction_id, image_generation_created_at, image_generation_prompt, image_generation_status, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
+  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, media_source_url, source_image_url, original_image_url, approved_image_url, generated_image_url, generated_image_source_url, image_generation_provider, image_generation_model, image_prediction_id, image_generation_created_at, image_generation_prompt, image_generation_status, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
 
 function cleanText(value: string | null | undefined): string | null {
   const cleaned = value?.trim();
@@ -205,6 +207,7 @@ export async function updateSocialPostMediaUrl(
   options?: {
     motionPreset?: string | null;
     cameraPreset?: string | null;
+    mediaSourceUrl?: string | null;
   },
 ): Promise<SocialPost> {
   const supabase = createServiceRoleClient();
@@ -212,6 +215,7 @@ export async function updateSocialPostMediaUrl(
     .from("social_posts")
     .update({
       media_url: cleanText(mediaUrl),
+      media_source_url: cleanText(options?.mediaSourceUrl),
       motion_preset: cleanText(options?.motionPreset),
       camera_preset: cleanText(options?.cameraPreset),
       updated_at: new Date().toISOString(),
@@ -277,6 +281,7 @@ export async function updateSocialPostImageGenerationStatus(
   input: {
     status: string;
     generatedImageUrl?: string | null;
+    generatedImageSourceUrl?: string | null;
     errorMessage?: string | null;
   },
 ): Promise<SocialPost> {
@@ -286,6 +291,7 @@ export async function updateSocialPostImageGenerationStatus(
     .update({
       image_generation_status: cleanText(input.status),
       generated_image_url: cleanText(input.generatedImageUrl),
+      generated_image_source_url: cleanText(input.generatedImageSourceUrl),
       error_message: cleanText(input.errorMessage),
       updated_at: new Date().toISOString(),
     })
