@@ -4,8 +4,10 @@ import {
   buildImageDirectorPrompt,
   estimateImageDirectorCost,
   getImageDirectorSafetyWarnings,
-  normalizeImageDirectionPresetValue,
+  getImageQualityWarnings,
+  normalizeImageStudioPresetValue,
 } from "@/lib/social-posts/image-director";
+import { listImageProviderIds } from "@/lib/social-posts/image-provider";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import { getSocialPostById } from "@/lib/social-posts/social-post-data";
 import { socialVideoSourceImageUrl } from "@/lib/social-posts/social-video-utils";
@@ -17,8 +19,12 @@ type RouteContext = {
 
 type ImageDirectorPreviewRequest = {
   token?: string;
+  imageStudioPreset?: string | null;
   imageDirectionPreset?: string | null;
   sourceImageUrl?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  providerId?: string | null;
 };
 
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -43,7 +49,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const preset = normalizeImageDirectionPresetValue(body.imageDirectionPreset);
+    const preset = normalizeImageStudioPresetValue(
+      body.imageStudioPreset ?? body.imageDirectionPreset,
+    );
     const resolvedSourceImageUrl = socialVideoSourceImageUrl(
       typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
         ? body.sourceImageUrl.trim()
@@ -59,24 +67,33 @@ export async function POST(req: NextRequest, context: RouteContext) {
       campaignName,
       postPrompt: post.prompt ?? "",
       sourceImageCategory: category,
-      imageDirectionPreset: preset,
+      imageStudioPreset: preset,
     });
 
     const warnings = getImageDirectorSafetyWarnings({
       prompt: finalImagePrompt,
       sourceImageCategory: category,
       originalSourceImageUrl: resolvedSourceImageUrl,
-      imageDirectionPreset: preset,
+      imageStudioPreset: preset,
     });
-    const costEstimate = estimateImageDirectorCost();
+    const qualityWarnings = getImageQualityWarnings({
+      prompt: finalImagePrompt,
+      sourceImageCategory: category,
+      imageStudioPreset: preset,
+      imageWidth: body.imageWidth,
+      imageHeight: body.imageHeight,
+    });
+    const costEstimate = estimateImageDirectorCost(4, body.providerId ?? undefined);
 
     return NextResponse.json({
       ok: true,
       finalImagePrompt,
       warnings,
+      qualityWarnings,
       costEstimate,
       preset,
       sourceImageCategory: category,
+      availableProviders: listImageProviderIds(),
     });
   } catch (error) {
     return NextResponse.json(
