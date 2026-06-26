@@ -1,25 +1,23 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getSocialPostById,
-  updateSocialPostMediaUrl,
 } from "@/lib/social-posts/social-post-data";
 import { buildDirectorPreview } from "@/lib/social-posts/director-console";
 import {
   createSocialPostAsset,
   findOrCreateSocialPostSourceAsset,
+  findSocialPostAssetByPrediction,
   findSocialPostAssetByUrl,
-  selectSocialPostAsset,
   updateSocialPostAsset,
 } from "@/lib/social-posts/social-post-assets";
 import {
-  isSupabaseSocialMediaPublicUrl,
-  persistSocialMediaFromRemoteUrl,
-} from "@/lib/social-posts/social-media-storage";
+  normalizeVideoProviderStatus,
+  startVideoGeneration,
+  SOCIAL_VIDEO_PROVIDER,
+} from "@/lib/social-posts/video-engine";
 import {
-  aiVideoAppUrl,
   socialPostEffectiveSourceImageUrl,
-  isPublicHttpUrl,
-  socialVideoSourceImageUrl,
 } from "@/lib/social-posts/social-video-utils";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
@@ -33,83 +31,6 @@ type GenerateRequest = {
   motionPreset?: string | null;
   cameraPreset?: string | null;
 };
-
-type GenerateStartResponse = {
-  jobId?: string;
-  status?: string;
-  error?: string;
-};
-
-type GenerateStatusResponse = {
-  status?: string;
-  video_url?: string | null;
-  error?: string | null;
-};
-
-const POLL_ATTEMPTS = 36;
-const POLL_INTERVAL_MS = 5_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function generateVideoFromExistingAiCreator(
-  prompt: string,
-  postSourceImageUrl: string | null,
-): Promise<string> {
-  const sourceImageUrl = socialVideoSourceImageUrl(postSourceImageUrl);
-
-  if (!sourceImageUrl || !isPublicHttpUrl(sourceImageUrl)) {
-    throw new Error(
-      "Video generation needs a valid public source image URL. Add source_image_url to this social post, or configure SOCIAL_POST_VIDEO_SOURCE_IMAGE_URL or NEXT_PUBLIC_SITE_URL.",
-    );
-  }
-
-  const baseUrl = aiVideoAppUrl();
-  const startResponse = await fetch(`${baseUrl}/api/generate`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      prompt,
-      imageUrl: sourceImageUrl,
-      referenceSummary: "Social post draft generated from the Jumping Jax admin.",
-      duration: 5,
-      qualityMode: "draft",
-    }),
-  });
-  const startData = (await startResponse.json()) as GenerateStartResponse;
-
-  if (!startResponse.ok || !startData.jobId) {
-    throw new Error(startData.error ?? "Failed to start video generation.");
-  }
-
-  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-    if (attempt > 0) await sleep(POLL_INTERVAL_MS);
-
-    const statusResponse = await fetch(
-      `${baseUrl}/api/status?jobId=${encodeURIComponent(startData.jobId)}`,
-      { cache: "no-store" },
-    );
-    const statusData = (await statusResponse.json()) as GenerateStatusResponse;
-
-    if (!statusResponse.ok) {
-      throw new Error(statusData.error ?? "Failed to check video status.");
-    }
-
-    if (statusData.status === "succeeded") {
-      if (!statusData.video_url) {
-        throw new Error("Video generation finished without a video URL.");
-      }
-      return statusData.video_url;
-    }
-
-    if (statusData.status === "failed" || statusData.status === "canceled") {
-      throw new Error(statusData.error ?? "Video generation failed.");
-    }
-  }
-
-  throw new Error("Video generation is still processing. Try again in a moment.");
-}
 
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
@@ -166,28 +87,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const videoPrompt = body.finalPrompt?.trim() || preview.finalVideoPrompt;
     const effectiveSourceImageUrl = socialPostEffectiveSourceImageUrl(post);
 
-    const remoteVideoUrl = await generateVideoFromExistingAiCreator(
-      videoPrompt,
-      effectiveSourceImageUrl,
-    );
+    const started = await startVideoGeneration({
+      prompt: videoPrompt,
+      sourceImageUrl: effectiveSourceImageUrl,
+    });
 
     if (!effectiveSourceImageUrl) {
-      throw new Error("Video generation completed without a source image.");
-    }
-
-    let mediaUrl = remoteVideoUrl;
-    let mediaSourceUrl: string | null = post.media_source_url;
-    let storagePath: string | null = null;
-
-    if (remoteVideoUrl && !isSupabaseSocialMediaPublicUrl(remoteVideoUrl)) {
-      const persisted = await persistSocialMediaFromRemoteUrl({
-        postId: id,
-        remoteUrl: remoteVideoUrl,
-        kind: "video",
-      });
-      mediaUrl = persisted.permanentUrl;
-      mediaSourceUrl = persisted.sourceUrl;
-      storagePath = persisted.storagePath;
+      throw new Error("Video generation started without a source image.");
     }
 
     const parentAsset =
@@ -208,50 +114,47 @@ export async function POST(req: NextRequest, context: RouteContext) {
         sourceUrl: effectiveSourceImageUrl,
         createdBy: "video_director",
       }));
-    let videoAsset = await findSocialPostAssetByUrl({
+
+    const normalizedStatus = normalizeVideoProviderStatus(started.status);
+    const existingAsset = await findSocialPostAssetByPrediction({
       socialPostId: id,
-      url: mediaUrl,
+      predictionId: started.jobId,
       assetType: "video",
-      assetStage: "generated",
     });
 
-    if (videoAsset) {
-      videoAsset = await updateSocialPostAsset({
-        socialPostId: id,
-        assetId: videoAsset.id,
-        sourceUrl: mediaSourceUrl,
-        storagePath: storagePath ?? undefined,
-        generationStatus: "succeeded",
-        generationPrompt: videoPrompt,
-      });
-    } else {
-      videoAsset = await createSocialPostAsset({
-        socialPostId: id,
-        parentAssetId: parentAsset.id,
-        assetType: "video",
-        assetStage: "generated",
-        url: mediaUrl,
-        sourceUrl: mediaSourceUrl,
-        storagePath,
-        generationEngine: "ai-video-app",
-        generationStatus: "succeeded",
-        generationPrompt: videoPrompt,
-        createdBy: "video_director",
-        metadata: {
-          motion_preset: preview.generationSettings.motionPreset,
-          camera_preset: preview.generationSettings.cameraPreset,
-        },
-      });
-    }
-    await selectSocialPostAsset({ socialPostId: id, assetId: videoAsset.id });
+    const videoAsset = existingAsset
+      ? await updateSocialPostAsset({
+          socialPostId: id,
+          assetId: existingAsset.id,
+          generationStatus: normalizedStatus,
+          generationPrompt: videoPrompt,
+        })
+      : await createSocialPostAsset({
+          socialPostId: id,
+          parentAssetId: parentAsset.id,
+          assetType: "video",
+          assetStage: "generated",
+          provider: started.provider,
+          generationEngine: SOCIAL_VIDEO_PROVIDER,
+          predictionId: started.jobId,
+          generationStatus: normalizedStatus,
+          generationPrompt: videoPrompt,
+          createdBy: "video_director",
+          metadata: {
+            motion_preset: preview.generationSettings.motionPreset,
+            camera_preset: preview.generationSettings.cameraPreset,
+            source_image_url: started.sourceImageUrl,
+          },
+        });
 
-    const updatedPost = await updateSocialPostMediaUrl(id, mediaUrl, {
-      motionPreset: preview.generationSettings.motionPreset,
-      cameraPreset: preview.generationSettings.cameraPreset,
-      mediaSourceUrl,
+    revalidatePath("/admin/social-posts");
+
+    return NextResponse.json({
+      ok: true,
+      predictionId: started.jobId,
+      assetId: videoAsset.id,
+      status: normalizedStatus,
     });
-
-    return NextResponse.json({ ok: true, post: updatedPost, mediaUrl });
   } catch (error) {
     return NextResponse.json(
       {

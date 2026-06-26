@@ -40,7 +40,23 @@ type PreviewResponse = {
 type GenerateResponse = {
   ok?: boolean;
   error?: string;
+  predictionId?: string;
+  status?: string;
 };
+
+type MediaStatusResponse = {
+  ok?: boolean;
+  error?: string;
+  status?: string;
+  mediaUrl?: string | null;
+};
+
+const VIDEO_POLL_INTERVAL_MS = 5_000;
+const VIDEO_POLL_ATTEMPTS = 120;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 type ImageDirectorPreviewResponse = {
   ok?: boolean;
@@ -175,7 +191,7 @@ export default function DirectorsConsole({
   const [imageResolution, setImageResolution] = useState<string | null>(null);
   const [imageDirectorExpanded, setImageDirectorExpanded] = useState(false);
   const [imageDirectionPreset, setImageDirectionPreset] =
-    useState<ImageDirectionPreset>("keep-original");
+    useState<ImageDirectionPreset>("original-rental-photo");
   const [imagePrompt, setImagePrompt] = useState("");
   const [imagePreview, setImagePreview] = useState<{
     cacheKey: string;
@@ -547,8 +563,39 @@ export default function DirectorsConsole({
       });
       const data = (await response.json()) as GenerateResponse;
 
-      if (!response.ok) {
+      if (!response.ok || !data.predictionId) {
         throw new Error(data.error ?? "Video generation failed");
+      }
+
+      onMessage("Video generation started — rendering…");
+
+      const predictionId = data.predictionId;
+      let finished = false;
+      for (let attempt = 0; attempt < VIDEO_POLL_ATTEMPTS; attempt += 1) {
+        await delay(VIDEO_POLL_INTERVAL_MS);
+
+        const statusResponse = await fetch(
+          `/api/social-posts/${post.id}/media-status?token=${encodeURIComponent(
+            token,
+          )}&predictionId=${encodeURIComponent(predictionId)}`,
+          { cache: "no-store" },
+        );
+        const statusData = (await statusResponse.json()) as MediaStatusResponse;
+
+        if (!statusResponse.ok || statusData.status === "failed") {
+          throw new Error(statusData.error ?? "Video generation failed");
+        }
+
+        if (statusData.status === "succeeded") {
+          finished = true;
+          break;
+        }
+      }
+
+      if (!finished) {
+        throw new Error(
+          "Video is still rendering. It will appear once finished — refresh in a moment.",
+        );
       }
 
       onMessage("Video generated");
