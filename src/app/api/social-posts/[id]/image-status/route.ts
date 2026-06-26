@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { getImageGenerationStatus } from "@/lib/social-posts/image-engine";
 import {
+  findSocialPostAssetByPrediction,
+  updateSocialPostAsset,
+} from "@/lib/social-posts/social-post-assets";
+import {
   isSupabaseSocialMediaPublicUrl,
   persistSocialMediaFromRemoteUrl,
 } from "@/lib/social-posts/social-media-storage";
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     let generatedImageUrl =
       statusResult.generatedImageUrl ?? post.generated_image_url;
     let generatedImageSourceUrl = post.generated_image_source_url;
+    let storagePath: string | null = null;
 
     if (
       normalizedStatus === "succeeded" &&
@@ -75,6 +80,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       });
       generatedImageSourceUrl = persisted.sourceUrl;
       generatedImageUrl = persisted.permanentUrl;
+      storagePath = persisted.storagePath;
     }
 
     let updatedPost = post;
@@ -84,6 +90,26 @@ export async function GET(req: NextRequest, context: RouteContext) {
       generatedImageSourceUrl !== post.generated_image_source_url ||
       statusResult.error
     ) {
+      const asset = await findSocialPostAssetByPrediction({
+        socialPostId: id,
+        predictionId: post.image_prediction_id,
+        assetType: "image",
+      });
+      if (!asset) {
+        throw new Error("Generated image asset not found.");
+      }
+      await updateSocialPostAsset({
+        socialPostId: id,
+        assetId: asset.id,
+        url: generatedImageUrl,
+        sourceUrl: generatedImageSourceUrl,
+        storagePath: storagePath ?? undefined,
+        provider: statusResult.provider ?? undefined,
+        generationEngine: statusResult.provider ?? undefined,
+        model: statusResult.model ?? undefined,
+        generationStatus: normalizedStatus,
+        notes: statusResult.error ?? undefined,
+      });
       updatedPost = await updateSocialPostImageGenerationStatus(id, {
         status: normalizedStatus,
         generatedImageUrl,

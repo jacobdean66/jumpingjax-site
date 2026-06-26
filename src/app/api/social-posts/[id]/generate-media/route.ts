@@ -5,6 +5,13 @@ import {
 } from "@/lib/social-posts/social-post-data";
 import { buildDirectorPreview } from "@/lib/social-posts/director-console";
 import {
+  createSocialPostAsset,
+  findOrCreateSocialPostSourceAsset,
+  findSocialPostAssetByUrl,
+  selectSocialPostAsset,
+  updateSocialPostAsset,
+} from "@/lib/social-posts/social-post-assets";
+import {
   isSupabaseSocialMediaPublicUrl,
   persistSocialMediaFromRemoteUrl,
 } from "@/lib/social-posts/social-media-storage";
@@ -164,8 +171,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
       effectiveSourceImageUrl,
     );
 
+    if (!effectiveSourceImageUrl) {
+      throw new Error("Video generation completed without a source image.");
+    }
+
     let mediaUrl = remoteVideoUrl;
     let mediaSourceUrl: string | null = post.media_source_url;
+    let storagePath: string | null = null;
 
     if (remoteVideoUrl && !isSupabaseSocialMediaPublicUrl(remoteVideoUrl)) {
       const persisted = await persistSocialMediaFromRemoteUrl({
@@ -175,7 +187,63 @@ export async function POST(req: NextRequest, context: RouteContext) {
       });
       mediaUrl = persisted.permanentUrl;
       mediaSourceUrl = persisted.sourceUrl;
+      storagePath = persisted.storagePath;
     }
+
+    const parentAsset =
+      (await findSocialPostAssetByUrl({
+        socialPostId: id,
+        url: effectiveSourceImageUrl,
+        assetType: "image",
+        assetStage: "approved",
+      })) ??
+      (await findSocialPostAssetByUrl({
+        socialPostId: id,
+        url: effectiveSourceImageUrl,
+        assetType: "image",
+        assetStage: "source",
+      })) ??
+      (await findOrCreateSocialPostSourceAsset({
+        socialPostId: id,
+        sourceUrl: effectiveSourceImageUrl,
+        createdBy: "video_director",
+      }));
+    let videoAsset = await findSocialPostAssetByUrl({
+      socialPostId: id,
+      url: mediaUrl,
+      assetType: "video",
+      assetStage: "generated",
+    });
+
+    if (videoAsset) {
+      videoAsset = await updateSocialPostAsset({
+        socialPostId: id,
+        assetId: videoAsset.id,
+        sourceUrl: mediaSourceUrl,
+        storagePath: storagePath ?? undefined,
+        generationStatus: "succeeded",
+        generationPrompt: videoPrompt,
+      });
+    } else {
+      videoAsset = await createSocialPostAsset({
+        socialPostId: id,
+        parentAssetId: parentAsset.id,
+        assetType: "video",
+        assetStage: "generated",
+        url: mediaUrl,
+        sourceUrl: mediaSourceUrl,
+        storagePath,
+        generationEngine: "ai-video-app",
+        generationStatus: "succeeded",
+        generationPrompt: videoPrompt,
+        createdBy: "video_director",
+        metadata: {
+          motion_preset: preview.generationSettings.motionPreset,
+          camera_preset: preview.generationSettings.cameraPreset,
+        },
+      });
+    }
+    await selectSocialPostAsset({ socialPostId: id, assetId: videoAsset.id });
 
     const updatedPost = await updateSocialPostMediaUrl(id, mediaUrl, {
       motionPreset: preview.generationSettings.motionPreset,

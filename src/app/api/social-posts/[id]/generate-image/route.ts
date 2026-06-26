@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
   buildImageDirectorPrompt,
-  normalizeImageDirectionPresetValue,
+  normalizeImageStudioPresetValue,
 } from "@/lib/social-posts/image-director";
+import { resolveImageGenerationMode, startImageGeneration } from "@/lib/social-posts/image-engine";
 import {
-  resolveImageGenerationMode,
-  startImageGeneration,
-} from "@/lib/social-posts/image-engine";
+  createSocialPostAsset,
+  findOrCreateSocialPostSourceAsset,
+  findSocialPostAssetByPrediction,
+  updateSocialPostAsset,
+} from "@/lib/social-posts/social-post-assets";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import {
   getSocialPostById,
@@ -65,7 +68,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const preset = normalizeImageDirectionPresetValue(body.imageDirectionPreset);
+    const preset = normalizeImageStudioPresetValue(body.imageDirectionPreset);
     const resolvedSourceImageUrl = socialVideoSourceImageUrl(
       typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
         ? body.sourceImageUrl.trim()
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       campaignName,
       postPrompt: post.prompt ?? "",
       sourceImageCategory: category,
-      imageDirectionPreset: preset,
+      imageStudioPreset: preset,
     });
 
     const generationPrompt = body.finalImagePrompt?.trim() || builtPrompt;
@@ -95,6 +98,44 @@ export async function POST(req: NextRequest, context: RouteContext) {
       sourceImageUrl: resolvedSourceImageUrl,
       mode,
     });
+
+    const sourceAsset = resolvedSourceImageUrl
+      ? await findOrCreateSocialPostSourceAsset({
+          socialPostId: id,
+          sourceUrl: resolvedSourceImageUrl,
+          createdBy: "image_director",
+        })
+      : null;
+    const existingAsset = await findSocialPostAssetByPrediction({
+      socialPostId: id,
+      predictionId: result.predictionId,
+      assetType: "image",
+    });
+
+    if (existingAsset) {
+      await updateSocialPostAsset({
+        socialPostId: id,
+        assetId: existingAsset.id,
+        url: result.generatedImageUrl ?? null,
+        generationStatus: normalizeProviderStatus(result.status),
+      });
+    } else {
+      await createSocialPostAsset({
+        socialPostId: id,
+        parentAssetId: sourceAsset?.id,
+        assetType: "image",
+        assetStage: "generated",
+        url: result.generatedImageUrl ?? null,
+        provider: result.provider,
+        generationEngine: result.provider,
+        model: result.model,
+        predictionId: result.predictionId,
+        generationStatus: normalizeProviderStatus(result.status),
+        generationPrompt,
+        createdBy: "image_director",
+        metadata: { mode, source_image_url: resolvedSourceImageUrl },
+      });
+    }
 
     const updatedPost = await startSocialPostImageGeneration(id, {
       originalImageUrl: resolvedSourceImageUrl,

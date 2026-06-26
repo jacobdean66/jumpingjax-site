@@ -81,6 +81,27 @@ export type CreateSocialPostAssetInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type UpdateSocialPostAssetInput = {
+  socialPostId: string;
+  assetId: string;
+  url?: string | null;
+  sourceUrl?: string | null;
+  storagePath?: string | null;
+  provider?: string | null;
+  generationEngine?: string | null;
+  model?: string | null;
+  generationStatus?: string | null;
+  generationPrompt?: string | null;
+  generationCost?: number | null;
+  generationDurationMs?: number | null;
+  isSelected?: boolean;
+  isRejected?: boolean;
+  isFavorite?: boolean;
+  rating?: number | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
 const SOCIAL_POST_ASSET_SELECT =
   "id, social_post_id, parent_asset_id, asset_family_id, created_at, updated_at, asset_type, asset_stage, url, source_url, storage_path, provider, generation_engine, model, prediction_id, generation_status, generation_prompt, concept_id, generation_cost, generation_duration_ms, created_by, is_selected, is_rejected, is_favorite, rating, notes, metadata";
 
@@ -94,6 +115,81 @@ async function getAssetById(assetId: string): Promise<SocialPostAsset | null> {
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function findSocialPostAssetByUrl(input: {
+  socialPostId: string;
+  url: string;
+  assetType?: SocialPostAssetType;
+  assetStage?: SocialPostAssetStage;
+}): Promise<SocialPostAsset | null> {
+  const supabase = createServiceRoleClient();
+  let query = supabase
+    .from("social_post_assets")
+    .select(SOCIAL_POST_ASSET_SELECT)
+    .eq("social_post_id", input.socialPostId)
+    .eq("url", input.url);
+
+  if (input.assetType) {
+    query = query.eq("asset_type", input.assetType);
+  }
+  if (input.assetStage) {
+    query = query.eq("asset_stage", input.assetStage);
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SocialPostAsset>();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function findLatestSocialPostConceptAsset(input: {
+  socialPostId: string;
+  conceptId: string;
+}): Promise<SocialPostAsset | null> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_post_assets")
+    .select(SOCIAL_POST_ASSET_SELECT)
+    .eq("social_post_id", input.socialPostId)
+    .eq("asset_type", "image")
+    .eq("asset_stage", "concept")
+    .eq("concept_id", input.conceptId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SocialPostAsset>();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function findOrCreateSocialPostSourceAsset(input: {
+  socialPostId: string;
+  sourceUrl: string;
+  createdBy: string;
+  metadata?: Record<string, unknown>;
+}): Promise<SocialPostAsset> {
+  const existing = await findSocialPostAssetByUrl({
+    socialPostId: input.socialPostId,
+    url: input.sourceUrl,
+    assetType: "image",
+    assetStage: "source",
+  });
+
+  if (existing) return existing;
+
+  return createSocialPostAsset({
+    socialPostId: input.socialPostId,
+    assetType: "image",
+    assetStage: "source",
+    url: input.sourceUrl,
+    sourceUrl: input.sourceUrl,
+    createdBy: input.createdBy,
+    metadata: input.metadata,
+  });
 }
 
 export async function createSocialPostAsset(
@@ -167,6 +263,53 @@ export async function findSocialPostAssetByPrediction(input: {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<SocialPostAsset>();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateSocialPostAsset(
+  input: UpdateSocialPostAssetInput,
+): Promise<SocialPostAsset> {
+  const asset = await getAssetById(input.assetId);
+  if (!asset || asset.social_post_id !== input.socialPostId) {
+    throw new Error("Social post asset not found.");
+  }
+
+  const update: Record<string, unknown> = {};
+  const values: Array<[string, unknown]> = [
+    ["url", input.url],
+    ["source_url", input.sourceUrl],
+    ["storage_path", input.storagePath],
+    ["provider", input.provider],
+    ["generation_engine", input.generationEngine],
+    ["model", input.model],
+    ["generation_status", input.generationStatus],
+    ["generation_prompt", input.generationPrompt],
+    ["generation_cost", input.generationCost],
+    ["generation_duration_ms", input.generationDurationMs],
+    ["is_selected", input.isSelected],
+    ["is_rejected", input.isRejected],
+    ["is_favorite", input.isFavorite],
+    ["rating", input.rating],
+    ["notes", input.notes],
+    ["metadata", input.metadata],
+  ];
+
+  for (const [key, value] of values) {
+    if (value !== undefined) update[key] = value;
+  }
+
+  if (Object.keys(update).length === 0) return asset;
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_post_assets")
+    .update(update)
+    .eq("id", input.assetId)
+    .eq("social_post_id", input.socialPostId)
+    .select(SOCIAL_POST_ASSET_SELECT)
+    .single<SocialPostAsset>();
 
   if (error) throw new Error(error.message);
   return data;

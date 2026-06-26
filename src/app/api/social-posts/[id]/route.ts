@@ -7,13 +7,24 @@ import {
 import {
   acceptSocialPostGeneratedImage,
   deleteSocialPost,
+  discardImageStudioConcepts,
   duplicateSocialPostDraft,
   getSocialPostById,
   rejectSocialPostGeneratedImage,
+  removeImageStudioSourceImage,
   scheduleSocialPost,
   updateSocialPostDraft,
   updateSocialPostStatus,
+  approveImageStudioSource,
+  type SocialPost,
 } from "@/lib/social-posts/social-post-data";
+import {
+  createSocialPostAsset,
+  findSocialPostAssetByPrediction,
+  findSocialPostAssetByUrl,
+  selectSocialPostAsset,
+  updateSocialPostAsset,
+} from "@/lib/social-posts/social-post-assets";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 type RouteContext = {
@@ -56,6 +67,63 @@ function agentInputFromBody(body: Record<string, unknown>): SocialAgentInput {
   };
 }
 
+async function findCurrentGeneratedImageAsset(
+  post: SocialPost,
+) {
+  if (post.image_prediction_id) {
+    return findSocialPostAssetByPrediction({
+      socialPostId: post.id,
+      predictionId: post.image_prediction_id,
+      assetType: "image",
+    });
+  }
+
+  if (!post.generated_image_url) return null;
+  return findSocialPostAssetByUrl({
+    socialPostId: post.id,
+    url: post.generated_image_url,
+    assetType: "image",
+  });
+}
+
+async function recordApprovedImageAsset(input: {
+  post: SocialPost;
+  imageUrl: string;
+  sourceUrl?: string | null;
+}) {
+  const selectedAsset = await findSocialPostAssetByUrl({
+    socialPostId: input.post.id,
+    url: input.imageUrl,
+    assetType: "image",
+  });
+  if (!selectedAsset) {
+    throw new Error("Selected image asset not found.");
+  }
+
+  let approvedAsset = await findSocialPostAssetByUrl({
+    socialPostId: input.post.id,
+    url: input.imageUrl,
+    assetType: "image",
+    assetStage: "approved",
+  });
+  if (!approvedAsset) {
+    approvedAsset = await createSocialPostAsset({
+      socialPostId: input.post.id,
+      parentAssetId: selectedAsset.id,
+      assetType: "image",
+      assetStage: "approved",
+      url: input.imageUrl,
+      sourceUrl: input.sourceUrl ?? null,
+      createdBy: "human",
+    });
+  }
+
+  await selectSocialPostAsset({
+    socialPostId: input.post.id,
+    assetId: approvedAsset.id,
+  });
+}
+
 export async function PATCH(req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const contentType = req.headers.get("content-type") ?? "";
@@ -81,13 +149,75 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       }
 
       if (body.action === "accept_image") {
+        const existing = await getSocialPostById(id);
+        if (!existing) {
+          return NextResponse.json({ error: "Social post not found" }, { status: 404 });
+        }
+        if (!existing.generated_image_url) {
+          return NextResponse.json(
+            { error: "No generated image is available to accept." },
+            { status: 400 },
+          );
+        }
+        await recordApprovedImageAsset({
+          post: existing,
+          imageUrl: existing.generated_image_url,
+          sourceUrl: existing.generated_image_source_url,
+        });
         const post = await acceptSocialPostGeneratedImage(id);
         revalidatePath("/admin/social-posts");
         return NextResponse.json({ post });
       }
 
       if (body.action === "reject_image") {
+        const existing = await getSocialPostById(id);
+        if (!existing) {
+          return NextResponse.json({ error: "Social post not found" }, { status: 404 });
+        }
+        const generatedAsset = await findCurrentGeneratedImageAsset(existing);
+        if (!generatedAsset) {
+          return NextResponse.json(
+            { error: "Generated image asset not found." },
+            { status: 400 },
+          );
+        }
+        await updateSocialPostAsset({
+          socialPostId: id,
+          assetId: generatedAsset.id,
+          isSelected: false,
+          isRejected: true,
+        });
         const post = await rejectSocialPostGeneratedImage(id);
+        revalidatePath("/admin/social-posts");
+        return NextResponse.json({ post });
+      }
+
+      if (body.action === "use_as_source_image") {
+        const imageUrl = stringValue(body.image_url);
+        const existing = await getSocialPostById(id);
+        if (!existing) {
+          return NextResponse.json({ error: "Social post not found" }, { status: 404 });
+        }
+        if (!imageUrl) {
+          return NextResponse.json(
+            { error: "Approved image URL is required." },
+            { status: 400 },
+          );
+        }
+        await recordApprovedImageAsset({ post: existing, imageUrl });
+        const post = await approveImageStudioSource(id, imageUrl);
+        revalidatePath("/admin/social-posts");
+        return NextResponse.json({ post });
+      }
+
+      if (body.action === "remove_source_image") {
+        const post = await removeImageStudioSourceImage(id);
+        revalidatePath("/admin/social-posts");
+        return NextResponse.json({ post });
+      }
+
+      if (body.action === "discard_image_concepts") {
+        const post = await discardImageStudioConcepts(id);
         revalidatePath("/admin/social-posts");
         return NextResponse.json({ post });
       }
