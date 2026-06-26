@@ -8,10 +8,14 @@ export type ImageDirectionPreset =
   | "clean-product-background"
   | "facebook-ad-starting-frame";
 
+export type ImageStudioPreset = ImageDirectionPreset;
+
 export type ImageDirectionPresetOption = {
   id: ImageDirectionPreset;
   label: string;
 };
+
+export type ImageStudioPresetOption = ImageDirectionPresetOption;
 
 export const IMAGE_DIRECTION_PRESETS: ImageDirectionPresetOption[] = [
   { id: "keep-original", label: "Keep Original" },
@@ -24,17 +28,26 @@ export const IMAGE_DIRECTION_PRESETS: ImageDirectionPresetOption[] = [
   { id: "facebook-ad-starting-frame", label: "Facebook Ad Starting Frame" },
 ];
 
+export const IMAGE_STUDIO_PRESETS = IMAGE_DIRECTION_PRESETS;
+
 export const IMAGE_DIRECTION_PRESET_LABELS: Record<ImageDirectionPreset, string> =
   Object.fromEntries(
     IMAGE_DIRECTION_PRESETS.map((preset) => [preset.id, preset.label]),
   ) as Record<ImageDirectionPreset, string>;
+
+export const IMAGE_STUDIO_PRESET_LABELS = IMAGE_DIRECTION_PRESET_LABELS;
+
+export type ImageConceptId = "A" | "B" | "C" | "D";
+
+export const IMAGE_CONCEPT_IDS: ImageConceptId[] = ["A", "B", "C", "D"];
 
 export type ImageDirectorInput = {
   originalSourceImageUrl: string | null;
   campaignName: string | null;
   postPrompt: string;
   sourceImageCategory: string | null;
-  imageDirectionPreset: ImageDirectionPreset;
+  imageDirectionPreset?: ImageDirectionPreset | null;
+  imageStudioPreset?: ImageStudioPreset | null;
 };
 
 export type ImageDirectorOutput = {
@@ -119,6 +132,13 @@ const PRESET_SNIPPETS: Record<ImageDirectionPreset, string> = {
     "Compose a scroll-stopping Facebook ad starting frame in vertical 9:16. Hero inflatable preserved exactly, optional young children ages 3–7 with child-sized bodies in safe supervised play, bright backyard energy, no text overlays.",
 };
 
+const CONCEPT_VARIATIONS: Record<ImageConceptId, string> = {
+  A: "Primary composition with balanced framing.",
+  B: "Slightly warmer golden-hour lighting and softer background depth.",
+  C: "Wider framing that shows more of the backyard environment.",
+  D: "Closer emphasis on faces and inflatable hero details with vibrant color.",
+};
+
 function normalizeImageDirectionPreset(
   value: ImageDirectionPreset | string | null | undefined,
 ): ImageDirectionPreset {
@@ -152,7 +172,9 @@ function buildContextLines(input: ImageDirectorInput): string[] {
 }
 
 export function buildImageDirectorPrompt(input: ImageDirectorInput): ImageDirectorOutput {
-  const preset = normalizeImageDirectionPreset(input.imageDirectionPreset);
+  const preset = normalizeImageDirectionPreset(
+    input.imageStudioPreset ?? input.imageDirectionPreset,
+  );
   const postPrompt = input.postPrompt.trim();
   const contextLines = buildContextLines(input);
 
@@ -173,6 +195,15 @@ export function buildImageDirectorPrompt(input: ImageDirectorInput): ImageDirect
   return {
     prompt: sections.join("\n"),
   };
+}
+
+export function buildConceptPrompt(
+  basePrompt: string,
+  conceptId: ImageConceptId,
+): string {
+  const prompt = basePrompt.trim();
+  if (!prompt) return prompt;
+  return `${prompt}\nConcept ${conceptId}: ${CONCEPT_VARIATIONS[conceptId]}`;
 }
 
 export function getImageDirectorSafetyWarnings(input: {
@@ -264,5 +295,11 @@ export function estimateImageDirectorCost(): ImageDirectorCostEstimate {
 export function normalizeImageDirectionPresetValue(
   value: string | null | undefined,
 ): ImageDirectionPreset {
+  return normalizeImageDirectionPreset(value);
+}
+
+export function normalizeImageStudioPresetValue(
+  value: string | null | undefined,
+): ImageStudioPreset {
   return normalizeImageDirectionPreset(value);
 }

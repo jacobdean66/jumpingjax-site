@@ -171,3 +171,11 @@ const replicateImageProvider = new ReplicateImageProvider();
 export function getDefaultImageProvider(): ImageProvider {
   return replicateImageProvider;
 }
+
+export function getImageProvider(providerId: string): ImageProvider {
+  if (providerId === replicateImageProvider.id) {
+    return replicateImageProvider;
+  }
+
+  throw new Error(`Unsupported image provider: ${providerId}`);
+}
