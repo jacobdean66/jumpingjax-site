@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+import { verifyAdminAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,7 @@ function AuthError({
 export default async function AdminHomePage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
-  const auth = verifyAdminDeliveryToken(token);
+  const auth = await verifyAdminAccess(token);
 
   if (!auth.ok) return <AuthError reason={auth.reason} />;
 
