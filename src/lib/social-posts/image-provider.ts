@@ -168,14 +168,32 @@ class ReplicateImageProvider implements ImageProvider {
 
 const replicateImageProvider = new ReplicateImageProvider();
 
-export function getDefaultImageProvider(): ImageProvider {
-  return replicateImageProvider;
+const imageProviders = new Map<string, ImageProvider>([
+  [replicateImageProvider.id, replicateImageProvider],
+]);
+
+export function registerImageProvider(provider: ImageProvider): void {
+  imageProviders.set(provider.id, provider);
 }
 
-export function getImageProvider(providerId: string): ImageProvider {
-  if (providerId === replicateImageProvider.id) {
-    return replicateImageProvider;
-  }
+export function listImageProviderIds(): string[] {
+  return Array.from(imageProviders.keys());
+}
 
-  throw new Error(`Unsupported image provider: ${providerId}`);
+export function getImageProvider(providerId?: string | null): ImageProvider {
+  const resolvedId =
+    providerId?.trim() ||
+    process.env.IMAGE_PROVIDER?.trim() ||
+    replicateImageProvider.id;
+  const provider = imageProviders.get(resolvedId);
+  if (!provider) {
+    throw new Error(
+      `Unknown image provider "${resolvedId}". Available: ${listImageProviderIds().join(", ")}`,
+    );
+  }
+  return provider;
+}
+
+export function getDefaultImageProvider(): ImageProvider {
+  return getImageProvider();
 }
