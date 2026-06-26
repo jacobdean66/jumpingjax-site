@@ -133,10 +133,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             body.action === "regenerate_all"
               ? plan.sourceImageUrl
               : stringValue(body.source_image_url) || existing.source_image_url,
-          creative_source:
-            body.action === "regenerate_caption"
-              ? existing.creative_source
-              : plan.creativeSource,
           platforms:
             body.action === "regenerate_all" ? plan.platforms : arrayValue(body.platforms),
           status: stringValue(body.status) || existing.status,
