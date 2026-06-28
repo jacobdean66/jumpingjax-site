@@ -5,7 +5,10 @@ import {
   attachSocialCampaignMemoryEvidence,
   createSocialCampaignMemoryVersion,
   listSocialCampaignMemories,
+  type AttachSocialCampaignMemoryEvidenceInput,
   type AttachSocialCampaignMemoryEvidenceItem,
+  type CreateSocialCampaignMemoryVersionInput,
+  type ListSocialCampaignMemoriesInput,
   type SocialCampaignMemory,
   type SocialCampaignMemoryEvidence,
   type SocialCampaignMemoryType,
@@ -28,6 +31,27 @@ type EligibleDecisionType = (typeof ELIGIBLE_DECISION_TYPES)[number];
 type ImageOutcome = (typeof IMAGE_OUTCOMES)[number];
 type ConfidenceLabel = "low" | "medium" | "high";
 type EvidenceRole = "supporting" | "contradicting";
+
+type UpdateMemoryStatusInput = {
+  memoryId: string;
+  status: "superseded" | "retracted";
+  outputSummary: Record<string, unknown>;
+};
+
+type PromotionEngineDependencies = {
+  listMemories: (
+    input?: ListSocialCampaignMemoriesInput,
+  ) => Promise<SocialCampaignMemory[]>;
+  createMemoryVersion: (
+    input: CreateSocialCampaignMemoryVersionInput,
+  ) => Promise<SocialCampaignMemory>;
+  attachMemoryEvidence: (
+    input: AttachSocialCampaignMemoryEvidenceInput,
+  ) => Promise<SocialCampaignMemoryEvidence[]>;
+  updateMemoryStatus: (
+    input: UpdateMemoryStatusInput,
+  ) => Promise<SocialCampaignMemory>;
+};
 
 export type ListPromotionEligibleDecisionsInput = {
   campaignId?: string | null;
@@ -87,6 +111,26 @@ type Pattern = {
 
 const SOCIAL_CAMPAIGN_MEMORY_SELECT =
   "id, campaign_id, memory_key, memory_type, memory_text, recommendation, confidence_score, support_count, contradiction_count, status, version, supersedes_memory_id, algorithm_version, input_summary, output_summary, created_at, updated_at, promoted_at, created_by";
+
+let promotionEngineDependencies: PromotionEngineDependencies = {
+  listMemories: listSocialCampaignMemories,
+  createMemoryVersion: createSocialCampaignMemoryVersion,
+  attachMemoryEvidence: attachSocialCampaignMemoryEvidence,
+  updateMemoryStatus,
+};
+
+export function configureCampaignMemoryPromotionTestDependencies(
+  dependencies: Partial<PromotionEngineDependencies> | null,
+): void {
+  promotionEngineDependencies = {
+    listMemories: dependencies?.listMemories ?? listSocialCampaignMemories,
+    createMemoryVersion:
+      dependencies?.createMemoryVersion ?? createSocialCampaignMemoryVersion,
+    attachMemoryEvidence:
+      dependencies?.attachMemoryEvidence ?? attachSocialCampaignMemoryEvidence,
+    updateMemoryStatus: dependencies?.updateMemoryStatus ?? updateMemoryStatus,
+  };
+}
 
 function cleanText(value: string | null | undefined): string | null {
   const cleaned = value?.trim();
@@ -541,7 +585,7 @@ export async function promoteCampaignMemoryCandidate(
     throw new Error("Cannot promote a campaign memory without evidence.");
   }
 
-  const existingMemories = await listSocialCampaignMemories({
+  const existingMemories = await promotionEngineDependencies.listMemories({
     campaignId: candidate.campaignId,
     memoryKey: candidate.memoryKey,
   });
@@ -552,7 +596,7 @@ export async function promoteCampaignMemoryCandidate(
   const latestActiveMemory =
     existingMemories.find((memory) => memory.status === "active") ?? null;
 
-  const memory = await createSocialCampaignMemoryVersion({
+  const memory = await promotionEngineDependencies.createMemoryVersion({
     campaignId: candidate.campaignId,
     memoryKey: candidate.memoryKey,
     memoryType: candidate.memoryType,
@@ -571,7 +615,7 @@ export async function promoteCampaignMemoryCandidate(
   });
 
   try {
-    const evidence = await attachSocialCampaignMemoryEvidence({
+    const evidence = await promotionEngineDependencies.attachMemoryEvidence({
       memoryId: memory.id,
       evidence: evidenceInput,
     });
@@ -581,7 +625,7 @@ export async function promoteCampaignMemoryCandidate(
     }
 
     if (latestActiveMemory) {
-      await updateMemoryStatus({
+      await promotionEngineDependencies.updateMemoryStatus({
         memoryId: latestActiveMemory.id,
         status: "superseded",
         outputSummary: {
@@ -608,11 +652,11 @@ export async function retractSocialCampaignMemory(
   memoryId: string,
   reason: string,
 ): Promise<SocialCampaignMemory> {
-  const existingMemories = await listSocialCampaignMemories({});
+  const existingMemories = await promotionEngineDependencies.listMemories({});
   const memory = existingMemories.find((item) => item.id === memoryId);
   if (!memory) throw new Error("Campaign memory not found.");
 
-  return updateMemoryStatus({
+  return promotionEngineDependencies.updateMemoryStatus({
     memoryId,
     status: "retracted",
     outputSummary: {
