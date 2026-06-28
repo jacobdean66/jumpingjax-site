@@ -69,12 +69,24 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
               Meta posting is intentionally not connected yet.
             </p>
           </div>
-          <Link
-            href={query ? `/admin?${query}` : "/admin"}
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-          >
-            Admin home
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={
+                query
+                  ? `/admin/social-posts/working-context?${query}`
+                  : "/admin/social-posts/working-context"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Working context
+            </Link>
+            <Link
+              href={query ? `/admin?${query}` : "/admin"}
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Admin home
+            </Link>
+          </div>
         </header>
 
         {resolved?.message ? (
