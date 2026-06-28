@@ -25,6 +25,7 @@ import {
   selectSocialPostAsset,
   updateSocialPostAsset,
 } from "@/lib/social-posts/social-post-assets";
+import { recordSocialPostDecision } from "@/lib/social-posts/social-post-decisions";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 type RouteContext = {
@@ -122,6 +123,18 @@ async function recordApprovedImageAsset(input: {
     socialPostId: input.post.id,
     assetId: approvedAsset.id,
   });
+
+  return approvedAsset;
+}
+
+async function recordSocialPostDecisionBestEffort(
+  input: Parameters<typeof recordSocialPostDecision>[0],
+) {
+  try {
+    await recordSocialPostDecision(input);
+  } catch (error) {
+    console.error("Failed to record social post decision", error);
+  }
 }
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
@@ -159,12 +172,32 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             { status: 400 },
           );
         }
-        await recordApprovedImageAsset({
+        const approvedAsset = await recordApprovedImageAsset({
           post: existing,
           imageUrl: existing.generated_image_url,
           sourceUrl: existing.generated_image_source_url,
         });
         const post = await acceptSocialPostGeneratedImage(id);
+        await recordSocialPostDecisionBestEffort({
+          socialPostId: id,
+          assetId: approvedAsset.id,
+          assetFamilyId: approvedAsset.asset_family_id,
+          campaignId: existing.campaign_id,
+          decisionStage: "image_review",
+          decisionType: "accepted",
+          decision: "Accepted generated image for video source.",
+          inputSnapshot: {
+            generated_image_url: existing.generated_image_url,
+            generated_image_source_url: existing.generated_image_source_url,
+            image_prediction_id: existing.image_prediction_id,
+          },
+          outputSnapshot: {
+            approved_image_url: post.approved_image_url,
+            asset_id: approvedAsset.id,
+            asset_family_id: approvedAsset.asset_family_id,
+          },
+          createdBy: "human",
+        });
         revalidatePath("/admin/social-posts");
         return NextResponse.json({ post });
       }
@@ -188,6 +221,29 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           isRejected: true,
         });
         const post = await rejectSocialPostGeneratedImage(id);
+        await recordSocialPostDecisionBestEffort({
+          socialPostId: id,
+          assetId: generatedAsset.id,
+          assetFamilyId: generatedAsset.asset_family_id,
+          campaignId: existing.campaign_id,
+          decisionStage: "image_review",
+          decisionType: "rejected",
+          decision: "Rejected generated image.",
+          inputSnapshot: {
+            generated_image_url: existing.generated_image_url,
+            image_prediction_id: existing.image_prediction_id,
+          },
+          outputSnapshot: {
+            asset_id: generatedAsset.id,
+            asset_family_id: generatedAsset.asset_family_id,
+            is_rejected: true,
+            generated_image_url: post.generated_image_url,
+            image_prediction_id: post.image_prediction_id,
+          },
+          provider: generatedAsset.provider,
+          model: generatedAsset.model,
+          createdBy: "human",
+        });
         revalidatePath("/admin/social-posts");
         return NextResponse.json({ post });
       }
@@ -217,7 +273,26 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       }
 
       if (body.action === "discard_image_concepts") {
+        const existing = await getSocialPostById(id);
         const post = await discardImageStudioConcepts(id);
+        await recordSocialPostDecisionBestEffort({
+          socialPostId: id,
+          campaignId: existing?.campaign_id ?? post.campaign_id,
+          decisionStage: "image_review",
+          decisionType: "discarded",
+          decision: "Discarded image concepts and cleared generated image state.",
+          inputSnapshot: {
+            image_concepts_count: existing?.image_concepts.length ?? null,
+            generated_image_url: existing?.generated_image_url ?? null,
+            image_prediction_id: existing?.image_prediction_id ?? null,
+          },
+          outputSnapshot: {
+            image_concepts_count: post.image_concepts.length,
+            generated_image_url: post.generated_image_url,
+            image_prediction_id: post.image_prediction_id,
+          },
+          createdBy: "human",
+        });
         revalidatePath("/admin/social-posts");
         return NextResponse.json({ post });
       }

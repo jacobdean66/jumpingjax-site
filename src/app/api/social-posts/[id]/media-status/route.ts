@@ -6,6 +6,7 @@ import {
   selectSocialPostAsset,
   updateSocialPostAsset,
 } from "@/lib/social-posts/social-post-assets";
+import { recordSocialPostDecision } from "@/lib/social-posts/social-post-decisions";
 import {
   isSupabaseSocialMediaPublicUrl,
   persistSocialMediaFromRemoteUrl,
@@ -22,6 +23,16 @@ import {
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+async function recordSocialPostDecisionBestEffort(
+  input: Parameters<typeof recordSocialPostDecision>[0],
+) {
+  try {
+    await recordSocialPostDecision(input);
+  } catch (error) {
+    console.error("Failed to record social post decision", error);
+  }
+}
 
 function metadataString(
   metadata: Record<string, unknown>,
@@ -153,6 +164,30 @@ export async function GET(req: NextRequest, context: RouteContext) {
       motionPreset: metadataString(asset.metadata, "motion_preset"),
       cameraPreset: metadataString(asset.metadata, "camera_preset"),
       mediaSourceUrl,
+    });
+    await recordSocialPostDecisionBestEffort({
+      socialPostId: id,
+      assetId: updatedAsset.id,
+      assetFamilyId: updatedAsset.asset_family_id,
+      campaignId: post.campaign_id,
+      decisionStage: "video_review",
+      decisionType: "selected",
+      decision: "Selected succeeded generated video as current social post media.",
+      inputSnapshot: {
+        prediction_id: predictionId.trim(),
+        provider_status: statusResult.status,
+        provider_video_url: statusResult.videoUrl,
+        previous_media_url: post.media_url,
+      },
+      outputSnapshot: {
+        media_url: updatedPost.media_url,
+        media_source_url: updatedPost.media_source_url,
+        storage_path: updatedAsset.storage_path,
+        asset_id: updatedAsset.id,
+        asset_family_id: updatedAsset.asset_family_id,
+      },
+      provider: statusResult.provider,
+      createdBy: "video_director",
     });
 
     revalidatePath("/admin/social-posts");
