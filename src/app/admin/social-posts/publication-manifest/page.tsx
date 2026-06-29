@@ -2,6 +2,10 @@ import Link from "next/link";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
+  buildOwnerApprovalSummaryUnavailable,
+  type OwnerApprovalSummary,
+} from "@/lib/social-posts/social-owner-approval-summary";
+import {
   type PublicationManifest,
   type PublicationManifestAsset,
 } from "@/lib/social-posts/social-publication-manifest";
@@ -167,6 +171,71 @@ function ReadinessPreview({
         </div>
       </section>
     </div>
+  );
+}
+
+function OwnerApprovalPreview({
+  summary,
+}: {
+  summary: OwnerApprovalSummary;
+}) {
+  return (
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+            D6.2 Owner Approval Visibility
+          </p>
+          <h2 className="mt-2 text-xl font-black text-slate-950">
+            {summary.statusLabel}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+            Owner approval is displayed here as computed read-only state only.
+            This panel does not request, approve, reject, revoke, publish,
+            schedule, or grant publication permission.
+          </p>
+        </div>
+        <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {summary.badgeTone}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Field label="Status" value={summary.statusKind} />
+        <Field label="Proposal ID" value={summary.proposalId} />
+        <Field label="Approval ID" value={summary.approvalId} />
+        <Field
+          label="Owner Action Required"
+          value={String(summary.ownerActionRequired)}
+        />
+        <Field
+          label="Can Submit For Approval"
+          value={String(summary.canBeSubmittedForApproval)}
+        />
+        <Field
+          label="Publish Signal Only"
+          value={String(summary.canBePublishedSignalOnly.signal)}
+        />
+        <Field
+          label="Publication Permission"
+          value={String(!summary.canBePublishedSignalOnly.notPublicationPermission)}
+        />
+        <Field label="Authoritative" value={String(summary.authoritative)} />
+      </div>
+
+      <div className="mt-4">
+        <PillList
+          values={[
+            `computedOnly: ${String(summary.computedOnly)}`,
+            `authoritative: ${String(summary.authoritative)}`,
+            `approvesNothing: ${String(summary.approvesNothing)}`,
+            `publishesNothing: ${String(summary.publishesNothing)}`,
+            `schedulesNothing: ${String(summary.schedulesNothing)}`,
+            `notPublicationPermission: ${String(summary.notPublicationPermission)}`,
+          ]}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -356,6 +425,11 @@ export default async function AdminPublicationManifestPage({
   const postId = resolved?.postId?.trim() ?? "";
   let manifest: PublicationManifest | null = null;
   let readiness: PublicationReadiness | null = null;
+  const ownerApprovalSummary = postId
+    ? buildOwnerApprovalSummaryUnavailable({
+        reasonCode: "proposal_lookup_not_wired",
+      })
+    : null;
 
   if (postId) {
     readiness = await evaluatePublicationReadinessForPost(postId);
@@ -423,6 +497,9 @@ export default async function AdminPublicationManifestPage({
         </section>
 
         {readiness ? <ReadinessPreview readiness={readiness} /> : null}
+        {ownerApprovalSummary ? (
+          <OwnerApprovalPreview summary={ownerApprovalSummary} />
+        ) : null}
         {manifest ? <ManifestPreview manifest={manifest} /> : null}
       </section>
     </main>
