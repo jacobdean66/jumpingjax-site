@@ -166,6 +166,20 @@ export async function findLatestSocialPostConceptAsset(input: {
   return data;
 }
 
+export async function listSocialPostAssets(
+  socialPostId: string,
+): Promise<SocialPostAsset[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_post_assets")
+    .select(SOCIAL_POST_ASSET_SELECT)
+    .eq("social_post_id", socialPostId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SocialPostAsset[];
+}
+
 export async function findOrCreateSocialPostSourceAsset(input: {
   socialPostId: string;
   sourceUrl: string;
