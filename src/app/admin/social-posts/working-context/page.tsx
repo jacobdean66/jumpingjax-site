@@ -213,7 +213,7 @@ function MemoryCard({ memory }: { memory: SocialWorkingContextMemory }) {
 function ContextPreview({ context }: { context: SocialWorkingContext }) {
   const campaignLabel =
     context.campaign.label ??
-    (context.campaign.id ? context.campaign.id : "Custom / no campaign");
+    (context.campaign.id ? context.campaign.id : "No campaign / uncategorized");
 
   return (
     <div className="mt-6 space-y-5">
@@ -389,16 +389,38 @@ export default async function AdminSocialWorkingContextPage({
               context assembled from posts, decisions, and active campaign memory.
             </p>
           </div>
-          <Link
-            href={
-              token
-                ? `/admin/social-posts?token=${encodeURIComponent(token)}`
-                : "/admin/social-posts"
-            }
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-          >
-            Social posts
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={
+                token
+                  ? `/admin/social-posts/memory?token=${encodeURIComponent(token)}`
+                  : "/admin/social-posts/memory"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Campaign memory
+            </Link>
+            <Link
+              href={
+                token
+                  ? `/admin/social-posts/publication-manifest?token=${encodeURIComponent(token)}`
+                  : "/admin/social-posts/publication-manifest"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication manifest
+            </Link>
+            <Link
+              href={
+                token
+                  ? `/admin/social-posts?token=${encodeURIComponent(token)}`
+                  : "/admin/social-posts"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Social posts
+            </Link>
+          </div>
         </header>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -414,7 +436,7 @@ export default async function AdminSocialWorkingContextPage({
                 defaultValue={resolved?.campaignId ?? ""}
                 className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
               >
-                <option value="">Custom / no campaign</option>
+                <option value="">No campaign / uncategorized</option>
                 {SOCIAL_CAMPAIGNS.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
                     {campaign.label}
@@ -429,6 +451,10 @@ export default async function AdminSocialWorkingContextPage({
               Preview Context
             </button>
           </form>
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            No campaign / uncategorized only shows posts where campaign_id is
+            empty; it does not include all campaigns.
+          </p>
           {!hasCampaignSelection ? (
             <p className="mt-3 text-sm font-semibold text-slate-600">
               Select a campaign and submit to build a preview.

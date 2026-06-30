@@ -123,9 +123,9 @@ What it introduced: ledger domain contract (M1), persistence model (M2), in-memo
 
 Note: this implementation phase is **Publication Ledger**, not the original roadmap Learning layer. See Implementation Phase Map below.
 
-### Platform Hardening H1–H7
+### Platform Hardening H1–H8
 
-After D8 M1–M6, platform hardening made the ledger operationally inspectable:
+After D8 M1–M6, platform hardening made the ledger operationally inspectable and the admin surface navigable:
 
 - **H1:** Durable append-only SQL schema for ledger attempts, outcomes, and evidence.
 - **H2:** SQL row ↔ persistence record mapping.
@@ -134,6 +134,7 @@ After D8 M1–M6, platform hardening made the ledger operationally inspectable:
 - **H5:** Bridge between in-memory reference repository and production store.
 - **H6:** Admin read wiring through the H5 bridge into D8 replay.
 - **H7:** Social-posts admin navigation, manifest ↔ ledger cross-links, and documentation reconciliation.
+- **H8:** Final platform consistency audit — admin navigation completeness, documentation hardening across `ROADMAP.md`, `ARCHITECTURE.md`, and `AI_AGENTS.md`, and read-only smoke inspection before D9.
 
 ## Current State
 
@@ -155,6 +156,16 @@ Publication Targets (D7)
 Publication Ledger (D8 + H1–H6 durable store and admin read)
 ```
 
+Admin read-only surfaces (all auth-gated):
+
+| Route | Layer | Purpose |
+|-------|-------|---------|
+| `/admin/social-posts` | Hub | Draft list and navigation |
+| `/admin/social-posts/working-context` | D5 | Campaign-scoped working context preview |
+| `/admin/social-posts/memory` | D4 | Campaign memory inspector |
+| `/admin/social-posts/publication-manifest` | D6 | Post-scoped manifest, readiness, targets |
+| `/admin/social-posts/publication-ledger` | D8 + H6 | Scoped ledger load and replay |
+
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
 
 The Promotion Engine is deterministic and manually invoked. It does not run automatically in production. It reads Decision History, builds promotion candidates, enforces thresholds, calculates confidence, requires evidence, and writes Campaign Memory only through an explicit path.
@@ -163,9 +174,9 @@ Campaign Memory is derived knowledge. It is versioned, explainable, evidence-lin
 
 Working Context is implemented as temporary, campaign-scoped context rebuilt from source data. It is not authoritative history.
 
-D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation.
+D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-D9 Scheduler has **not** started. Metrics collection and Learning-layer automation remain future work under the original long-term roadmap labels below.
+D9 Scheduler has **not** started. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -176,7 +187,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D6 | Owner approval, manifest, readiness | Publication Layer | Complete |
 | D7 | Publication targets | Metrics Layer | Name reused; metrics not built |
 | D8 | Publication ledger | Learning Layer | Name reused; learning not built |
-| H1–H7 | Ledger durability + admin wiring + docs | (platform hardening) | Complete through H7 |
+| H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
 | — | Metrics collection | Metrics Layer | Not started |
 | — | Outcome-based learning proposals | Learning Layer | Not started |
 | D9 | Autonomous scheduler | Autonomous Scheduler | Not started |

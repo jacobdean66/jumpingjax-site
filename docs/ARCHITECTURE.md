@@ -105,6 +105,18 @@ Current components:
 
 Ledger replay state is derived only. It must not be treated as publish authority.
 
+## Admin Read-Only Surfaces
+
+All implemented marketing-platform admin pages are auth-gated and read-only for inspection:
+
+- **Social posts hub** — navigation entry point for drafts and subsystem pages.
+- **Working Context (D5)** — temporary campaign-scoped context preview.
+- **Campaign Memory Inspector (D4)** — promoted memory and evidence visibility.
+- **Publication Manifest (D6)** — post-scoped manifest, readiness, owner approval summary, and target visibility.
+- **Publication Ledger (D8 + H6)** — scoped durable ledger load through H5 bridge and D8 replay.
+
+H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation.
+
 ## Current Production Data Flow
 
 The current production data flow is:
@@ -207,16 +219,16 @@ Code phase numbers and original roadmap labels diverged after D6:
 | D6 | Owner approval, manifest, readiness | Publication Layer |
 | D7 | Publication targets | Metrics Layer (name reused) |
 | D8 | Publication ledger | Learning Layer (name reused) |
-| H1–H7 | Ledger durability, admin read, navigation, docs | Platform hardening |
+| H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
 | D9 | Scheduler | Autonomous Scheduler (not started) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H7 platform hardening.
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening.
 
-Not started under original long-term labels: Metrics collection, Learning-layer automation, D9 Scheduler, D10 Campaign Manager.
+Not started: D9 Scheduler, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
 See `docs/ROADMAP.md` for milestone detail. D9 has not started.
 

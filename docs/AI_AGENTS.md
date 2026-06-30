@@ -15,6 +15,50 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
+## Implemented Platform Stack (D1–D8, H1–H8)
+
+The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
+
+```text
+Decision History (D4.1)
+↓
+Promotion Engine (D4.3)
+↓
+Campaign Memory (D4.2) + Memory Inspector admin (D4.9)
+↓
+Working Context (D5)
+↓
+Publication Layer (D6: owner approval, manifest, readiness)
+↓
+Publication Targets (implementation D7)
+↓
+Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
+```
+
+Platform hardening H1–H8 made the ledger durable, admin-readable, navigable, and documentation-consistent. **D9 Scheduler has not started.** Publisher execution, Metrics collection, Learning automation, and background workers are **not implemented**.
+
+### Implementation phase naming note
+
+Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:
+
+| Code phase | Built subsystem | Future roadmap label (not built) |
+|------------|-----------------|----------------------------------|
+| D7 | Publication Targets | Metrics Layer |
+| D8 | Publication Ledger | Learning Layer |
+
+When reading commits or admin labels, use the code-phase meaning above.
+
+### Admin inspection surfaces (read-only)
+
+| Route | Inspects |
+|-------|----------|
+| `/admin/social-posts/working-context` | D5 Working Context |
+| `/admin/social-posts/memory` | D4 Campaign Memory |
+| `/admin/social-posts/publication-manifest` | D6 manifest, readiness, approval summary, D7 targets |
+| `/admin/social-posts/publication-ledger` | D8 ledger replay via H5 bridge |
+
+Agents must treat admin replay and computed manifest/readiness output as **non-authoritative**. Only Decision History and append-only ledger rows are durable evidence.
+
 ## Organizational Chart
 
 ```text
@@ -73,6 +117,8 @@ Responsibilities:
 - campaign goals
 - scheduling requests
 - delegation
+
+**Status: not implemented (D10).** D9 Scheduler has not started.
 
 Inputs:
 
@@ -164,6 +210,8 @@ Responsibilities:
 - retries
 - publication records
 
+**Status: not implemented.** D6–D8 provide publication preparation, targets, and append-only ledger evidence only. No publisher agent executes customer-facing posts yet.
+
 Never:
 
 - create creative
@@ -180,6 +228,8 @@ Responsibilities:
 - CTR
 - conversions
 
+**Status: not implemented.** This is the original roadmap Metrics layer. Implementation phase D7 built Publication Targets instead.
+
 Never:
 
 - interpret learning
@@ -193,6 +243,8 @@ Responsibilities:
 - detect successful patterns
 - identify failures
 - recommend candidate memories
+
+**Status: not implemented.** This is the original roadmap Learning layer. Implementation phase D8 built Publication Ledger instead. Candidate knowledge still flows through the manual Promotion Engine when promoted.
 
 Never:
 
@@ -259,6 +311,8 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 - Approvals flow upward.
 
 ## Future Expansion
+
+D9 Scheduler, Publisher execution, Metrics collection, Learning automation, and Campaign Manager orchestration are planned but **not started**.
 
 Future agents may include:
 
