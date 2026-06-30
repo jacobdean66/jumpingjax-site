@@ -61,11 +61,49 @@ Campaign Memory stores durable lessons derived from Decision History. It is vers
 
 Campaign Memory is derived state. It must always be possible to rebuild it from Decision History and evidence rules.
 
-### Layer 4: Working Context (Planned)
+### Layer 4: Working Context
 
-Working Context is planned as temporary, campaign-scoped operational context for agents. It will be rebuilt from source data and Campaign Memory as needed. It is not historical and is never authoritative.
+Working Context is temporary, campaign-scoped operational context for agents. It is rebuilt from source data and Campaign Memory as needed. It is not historical and is never authoritative.
 
-Working Context should help agents act coherently during a campaign without becoming a substitute for Decision History or Campaign Memory.
+Working Context helps agents act coherently during a campaign without becoming a substitute for Decision History or Campaign Memory. An admin preview exists; it remains read-only and non-authoritative.
+
+### Layer 5: Publication Layer (D6)
+
+The Publication Layer prepares social posts for publication without granting publish authority.
+
+Current components:
+
+- Owner approval domain, persistence, and flows
+- Computed publication manifest
+- Computed publication readiness
+
+Admin surfaces are read-only visibility helpers. They do not execute publication.
+
+### Layer 6: Publication Targets (implementation D7)
+
+Publication Targets define where content could be published (for example Facebook page or Instagram business account).
+
+Current components:
+
+- Target definitions and capabilities
+- Selection projection
+- Durable Supabase-backed target store
+- Integration boundary (non-authoritative, no publish permission)
+
+### Layer 7: Publication Ledger (implementation D8 + H1–H6)
+
+The Publication Ledger records append-only evidence of publication attempts, outcomes, and sanitized evidence summaries.
+
+Current components:
+
+- Domain contract, persistence model, in-memory reference repository
+- Replay read model (computed, non-authoritative)
+- Integration boundary for future scheduler/metrics hooks (validation-only today)
+- Durable Supabase store (H1–H4)
+- Production/reference bridge (H5)
+- Read-only admin replay wiring (H6)
+
+Ledger replay state is derived only. It must not be treated as publish authority.
 
 ## Current Production Data Flow
 
@@ -84,6 +122,16 @@ social_campaign_memory_evidence
 ```
 
 `social_posts` represents the marketing post being planned or produced. `social_post_assets` stores generated or selected assets connected to that post. `social_post_decisions` records durable decisions about creative, image, video, or related social post work. `social_campaign_memories` stores promoted memory versions. `social_campaign_memory_evidence` links each memory to the exact decision rows and related entities that justify it.
+
+Publication stack tables and flows (D6–D8, H1–H6):
+
+```text
+social_owner_approval_proposals / social_owner_approval_events (D6)
+social_publication_targets (D7)
+social_publication_ledger_attempts / outcomes / evidence (D8 + H1)
+```
+
+Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; replay output is computed at read time.
 
 ## Promotion Engine
 
@@ -136,11 +184,11 @@ Evidence linkage rules:
 - Evidence may also link to social posts, assets, asset families, and campaigns when available.
 - Evidence is mandatory for promotion.
 
-## Working Context (Planned)
+## Working Context
 
-Working Context is Planned.
+Working Context is implemented as temporary, campaign-scoped context rebuilt from posts, decisions, and active campaign memory.
 
-It will be:
+It is:
 
 - temporary
 - campaign scoped
@@ -148,18 +196,29 @@ It will be:
 - never historical
 - never authoritative
 
-Working Context should help agents keep track of active campaign state while they work. It must not become a hidden memory store. If something needs to become durable learning, it must flow through explicit promotion into Campaign Memory with evidence.
+Working Context must not become a hidden memory store. If something needs to become durable learning, it must flow through explicit promotion into Campaign Memory with evidence.
+
+## Implementation Phase Map
+
+Code phase numbers and original roadmap labels diverged after D6:
+
+| Code phase | Subsystem | Original roadmap label |
+|------------|-----------|------------------------|
+| D6 | Owner approval, manifest, readiness | Publication Layer |
+| D7 | Publication targets | Metrics Layer (name reused) |
+| D8 | Publication ledger | Learning Layer (name reused) |
+| H1–H7 | Ledger durability, admin read, navigation, docs | Platform hardening |
+| — | Metrics collection | Metrics Layer (not started) |
+| — | Learning proposals | Learning Layer (not started) |
+| D9 | Scheduler | Autonomous Scheduler (not started) |
 
 ## Future Roadmap
 
-- D5 Working Context: Planned.
-- D6 Publications: Planned.
-- D7 Metrics: Planned.
-- D8 Learning: Planned.
-- D9 Scheduler: Planned.
-- D10 Autonomous Campaign Manager: Planned.
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H7 platform hardening.
 
-These stages describe intended direction. They are not current production capabilities unless separately implemented and verified.
+Not started under original long-term labels: Metrics collection, Learning-layer automation, D9 Scheduler, D10 Campaign Manager.
+
+See `docs/ROADMAP.md` for milestone detail. D9 has not started.
 
 ## Non-Negotiable Invariants
 

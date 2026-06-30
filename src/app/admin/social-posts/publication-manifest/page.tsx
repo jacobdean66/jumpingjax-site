@@ -521,6 +521,14 @@ export default async function AdminPublicationManifestPage({
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   const postId = resolved?.postId?.trim() ?? "";
+  const query = token ? `token=${encodeURIComponent(token)}` : "";
+  const ledgerHref = postId
+    ? query
+      ? `/admin/social-posts/publication-ledger?${query}&postId=${encodeURIComponent(postId)}`
+      : `/admin/social-posts/publication-ledger?postId=${encodeURIComponent(postId)}`
+    : query
+      ? `/admin/social-posts/publication-ledger?${query}`
+      : "/admin/social-posts/publication-ledger";
   let manifest: PublicationManifest | null = null;
   let readiness: PublicationReadiness | null = null;
   const ownerApprovalSummary = postId
@@ -550,16 +558,20 @@ export default async function AdminPublicationManifestPage({
               readiness for requesting owner approval.
             </p>
           </div>
-          <Link
-            href={
-              token
-                ? `/admin/social-posts?token=${encodeURIComponent(token)}`
-                : "/admin/social-posts"
-            }
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-          >
-            Social posts
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={ledgerHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication ledger
+            </Link>
+            <Link
+              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Social posts
+            </Link>
+          </div>
         </header>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

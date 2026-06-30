@@ -91,6 +91,50 @@ What it introduced: `docs/ARCHITECTURE.md`, the architectural reference that def
 
 Why it was necessary before moving on: the platform is now large enough that future engineers and AI agents need shared architectural constraints before implementing additional features.
 
+### D5: Working Context
+
+D5 introduced temporary, campaign-scoped working context for active social post work.
+
+What it introduced: read-only working context helpers and an admin preview surface rebuilt from posts, decisions, and campaign memory.
+
+Why it was necessary before moving on: agents need short-term operational context without creating hidden durable history.
+
+### D6: Publication Layer (Owner Approval, Manifest, Readiness)
+
+D6 introduced the publication preparation stack for social posts.
+
+What it introduced: owner approval domain and persistence, publication manifest computation, publication readiness evaluation, and read-only admin visibility.
+
+Why it was necessary before moving on: publication targets, ledger evidence, and future scheduling all require explicit approval and manifest state.
+
+### D7: Publication Targets (implementation phase)
+
+D7 introduced durable publication target definitions and selection.
+
+What it introduced: target capabilities, selection projection, Supabase-backed target store, integration boundary, and manifest-page visibility.
+
+Note: this implementation phase is **Publication Targets**, not the original roadmap Metrics layer. See Implementation Phase Map below.
+
+### D8: Publication Ledger (implementation phase)
+
+D8 introduced append-only publication attempt evidence.
+
+What it introduced: ledger domain contract (M1), persistence model (M2), in-memory repository (M3), replay read model (M4/M5), integration boundary (M6), and initial admin visibility (D8.5).
+
+Note: this implementation phase is **Publication Ledger**, not the original roadmap Learning layer. See Implementation Phase Map below.
+
+### Platform Hardening H1–H7
+
+After D8 M1–M6, platform hardening made the ledger operationally inspectable:
+
+- **H1:** Durable append-only SQL schema for ledger attempts, outcomes, and evidence.
+- **H2:** SQL row ↔ persistence record mapping.
+- **H3:** Domain entry → persistence record mapper.
+- **H4:** Supabase production store for ledger records.
+- **H5:** Bridge between in-memory reference repository and production store.
+- **H6:** Admin read wiring through the H5 bridge into D8 replay.
+- **H7:** Social-posts admin navigation, manifest ↔ ledger cross-links, and documentation reconciliation.
+
 ## Current State
 
 The current architecture is:
@@ -102,7 +146,13 @@ Promotion Engine
 ↓
 Campaign Memory
 ↓
-(Planned) Working Context
+Working Context
+↓
+Publication Layer (D6: approval, manifest, readiness)
+↓
+Publication Targets (D7)
+↓
+Publication Ledger (D8 + H1–H6 durable store and admin read)
 ```
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -111,9 +161,27 @@ The Promotion Engine is deterministic and manually invoked. It does not run auto
 
 Campaign Memory is derived knowledge. It is versioned, explainable, evidence-linked, and rebuildable from source history.
 
-Working Context is not implemented yet. It is planned as temporary, campaign-scoped context rebuilt from source data and never treated as authoritative history.
+Working Context is implemented as temporary, campaign-scoped context rebuilt from source data. It is not authoritative history.
 
-Today, the system remains deterministic and manually driven. That is intentional.
+D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation.
+
+D9 Scheduler has **not** started. Metrics collection and Learning-layer automation remain future work under the original long-term roadmap labels below.
+
+## Implementation Phase Map
+
+Code phase numbers and original roadmap labels diverged after D6. Use this map when reading commits, admin pages, and module comments:
+
+| Code phase | Implemented subsystem | Original roadmap label | Status |
+|------------|----------------------|------------------------|--------|
+| D6 | Owner approval, manifest, readiness | Publication Layer | Complete |
+| D7 | Publication targets | Metrics Layer | Name reused; metrics not built |
+| D8 | Publication ledger | Learning Layer | Name reused; learning not built |
+| H1–H7 | Ledger durability + admin wiring + docs | (platform hardening) | Complete through H7 |
+| — | Metrics collection | Metrics Layer | Not started |
+| — | Outcome-based learning proposals | Learning Layer | Not started |
+| D9 | Autonomous scheduler | Autonomous Scheduler | Not started |
+
+Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
 ## Planned Milestones
 
@@ -144,44 +212,23 @@ Exit criteria:
 - Decision traceability.
 - Explainability helpers.
 
-### D5: Working Context
-
-Goal: temporary campaign brain.
-
-Working Context will help active campaign agents operate with coherent short-term context.
-
-It must be:
-
-- campaign scoped
-- rebuilt from source
-- never historical
-- never authoritative
-
-D5 must not create hidden memory. Any durable learning must still flow through explicit promotion into Campaign Memory with evidence.
-
-### D6: Publication Layer
-
-Goal: track the publishing lifecycle.
-
-D6 will introduce a clearer structure for published content and publishing states. It should make the platform aware of what was prepared, approved, published, scheduled, skipped, or failed.
-
-This phase is necessary before metrics can be trusted because analytics need to connect back to specific published marketing outputs.
-
-### D7: Metrics Layer
+### Metrics Layer (original roadmap; not started)
 
 Goal: collect campaign performance.
 
-D7 will collect performance data for published campaigns and posts. It should connect outcomes to the content, assets, campaigns, and decisions that produced them.
+This layer will collect performance data for published campaigns and posts. It should connect outcomes to the content, assets, campaigns, and decisions that produced them.
 
 This phase is necessary before learning from results. The platform cannot learn from performance until performance is captured consistently.
 
-### D8: Learning Layer
+This is **not** the same as implementation phase D7 (Publication Targets), which is already complete.
+
+### Learning Layer (original roadmap; not started)
 
 Goal: transform metrics into candidate knowledge.
 
-D8 will use metrics and Decision History to identify candidate lessons. Promotion remains manual. The Learning Layer may propose what appears to be working, but it must not silently create authoritative knowledge.
+This layer will use metrics and Decision History to identify candidate lessons. Promotion remains manual. It may propose what appears to be working, but it must not silently create authoritative knowledge.
 
-This phase exists to connect real outcomes to explainable recommendations while preserving explicit promotion.
+This is **not** the same as implementation phase D8 (Publication Ledger), which is already complete.
 
 ### D9: Autonomous Scheduler
 
