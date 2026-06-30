@@ -14,6 +14,7 @@ import {
   type PublicationReadiness,
   type PublicationReadinessIssue,
 } from "@/lib/social-posts/social-publication-readiness";
+import { selectPublicationTargetCandidates } from "@/lib/social-posts/social-publication-target-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -235,6 +236,103 @@ function OwnerApprovalPreview({
           ]}
         />
       </div>
+    </section>
+  );
+}
+
+function PublicationTargetVisibility({
+  manifest,
+}: {
+  manifest: PublicationManifest | null;
+}) {
+  const selection = manifest
+    ? selectPublicationTargetCandidates({
+        manifest,
+        configuredTargets: [],
+      })
+    : null;
+  const candidateCount = selection?.candidates.length ?? 0;
+  const selectableCount = selection?.selectableCandidates.length ?? 0;
+  const issueCodes = selection?.issues.map((issue) => issue.code) ?? [];
+
+  return (
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+            D7 Publication Target Visibility
+          </p>
+          <h2 className="mt-2 text-xl font-black text-slate-950">
+            Read-only target selection status
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+            Destination platforms are treated as hints only. This panel does
+            not load live configured targets yet, and it does not create, edit,
+            approve, publish, schedule, or grant publication permission.
+          </p>
+        </div>
+        <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          non-authoritative
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Field
+          label="Destination Hints"
+          value={
+            manifest ? (
+              <PillList values={manifest.destinations.platforms} />
+            ) : (
+              <EmptyValue />
+            )
+          }
+        />
+        <Field label="Configured Targets Loaded" value="0" />
+        <Field label="Candidate Count" value={candidateCount} />
+        <Field label="Selectable Count" value={selectableCount} />
+      </div>
+
+      <div className="mt-4">
+        <PillList
+          values={[
+            `computedOnly: ${String(selection?.computedOnly ?? true)}`,
+            `authoritative: ${String(selection?.authoritative ?? false)}`,
+            `grantsPublishingPermission: ${String(
+              selection?.grantsPublishingPermission ?? false,
+            )}`,
+            `publishesNothing: ${String(selection?.publishesNothing ?? true)}`,
+            `schedulesNothing: ${String(selection?.schedulesNothing ?? true)}`,
+            `recordsNoMetrics: ${String(selection?.recordsNoMetrics ?? true)}`,
+            `performsNoLearning: ${String(selection?.performsNoLearning ?? true)}`,
+          ]}
+        />
+      </div>
+
+      {manifest ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950">
+          {candidateCount === 0 ? (
+            <p>
+              No configured publication targets are loaded in this read-only
+              admin preview, so no target candidates are selectable here.
+            </p>
+          ) : (
+            <p>
+              Candidate visibility is computed only and is not publication
+              authority.
+            </p>
+          )}
+          {issueCodes.length > 0 ? (
+            <div className="mt-3">
+              <PillList values={issueCodes} />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm font-semibold text-slate-600">
+          Enter a social post ID to compute manifest destination hints before
+          target visibility is evaluated.
+        </p>
+      )}
     </section>
   );
 }
@@ -500,6 +598,7 @@ export default async function AdminPublicationManifestPage({
         {ownerApprovalSummary ? (
           <OwnerApprovalPreview summary={ownerApprovalSummary} />
         ) : null}
+        <PublicationTargetVisibility manifest={manifest} />
         {manifest ? <ManifestPreview manifest={manifest} /> : null}
       </section>
     </main>
