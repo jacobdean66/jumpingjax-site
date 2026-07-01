@@ -276,6 +276,20 @@ What it does not introduce: actual publishing, Facebook/Instagram/TikTok/LinkedI
 
 The Execution foundation may reason about execution intent, authority requirements, and preflight/result states, but it does not execute, publish, or grant execution authority. Wave 2 (execution implementation, platform adapters, cron/workers, retry automation) has not started.
 
+### D10 Wave 2: Execution Durable Infrastructure (complete)
+
+D10 Wave 2 made the Execution foundation durable without adding execution, mirroring the D9 H9–H11/H15–H17/H21–H23 SQL/row-mapping/production-store hardening pattern:
+
+- **D10 H28:** Durable append-only SQL schema for Execution intents, results, and evidence (`social_publication_execution_intents`, `social_publication_execution_results`, `social_publication_execution_evidence`) — reference IDs only (social post, publication target, publisher request/result/job, schedule, ledger entry, publication manifest, owner approval, approval, metric observation, campaign memory, decision history), preflight status/block reasons, sanitized evidence, immutable/append-only by trigger, scope-consistency triggers between results/evidence and their parent intent, and no credential, OAuth, platform payload, adapter, network, retry, or cron/trigger-for-execution storage.
+- **D10 H29:** Execution row mapping (`social-publication-execution-rows.ts`, `social-publication-execution-mapper.ts`) — raw database row models with strict UUID/enum/timestamp validation matching the H28 schema, domain ↔ row mapping, domain ↔ persistence-mapping helpers that produce reference-only intent/result records plus deterministic sanitized evidence, and forbidden-state detection covering secrets, external platform APIs, SDKs, network, cron/timers, workers/queues, API routes, admin UI, SQL/Supabase, bridges, storage, lower-layer payloads/mutations, execution triggers, metrics, and learning state.
+- **D10 H30:** Execution production store (`social-publication-execution-store.ts`) — service-role Supabase access mirroring the Publisher/Scheduler/Metrics store pattern: fail-closed configuration detection, deterministic record/row validation before any write, duplicate-identity and duplicate-idempotency-key rejection, parent-intent/parent-result existence and scope-consistency checks before writing results or evidence, and read helpers filtered by social post, publication target, manifest, job, or schedule. No bridge, no admin UI, and no execution path.
+
+What it introduced: durable, append-only Execution persistence (SQL + row mapping + production store) so execution intents, results, and evidence can be written and read back exactly as validated, with the same fail-closed and reference-only guarantees as every other durable layer in this platform.
+
+What it does not introduce: actual publishing, Facebook/Instagram/TikTok/LinkedIn/Google API calls, OAuth, credentials, HTTP/fetch, cron, workers, queues, timers, retries, API routes, admin UI, bridges, mutation of any lower layer (Scheduler, Publisher, Ledger, Manifest, Approval, Targets, Metrics, Learning, Campaign Memory, Decision History), or any change to Rentals, Facility Parties, Booking, Google Calendar, Inventory, Driver App, or the customer-facing website.
+
+Execution can now be durably recorded, but nothing calls it yet: platform adapters, execution bridges, admin UI, and any automated trigger for execution (cron, workers, retries) remain future work.
+
 ## Current State
 
 The current architecture is:
@@ -306,6 +320,8 @@ Learning Read Layer (D9 Wave 9 foundation + Wave 10 bridge/read-only admin/navig
 AI Operations Console (D9 Wave 11; unified read-only overview + cross-system explainability + passive diagnostics; no new bridge, no mutation, no execution)
 ↓
 Execution Boundary Design (D10 Wave 1; domain + repository contract + replay only; no execution, no platform APIs, no mutation)
+↓
+Execution Durable Infrastructure (D10 Wave 2; append-only SQL + row mapping + production store; no execution, no platform APIs, no bridge, no admin UI)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -351,6 +367,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D9 Wave 11 | AI Operations Console (unified subsystem overview + cross-system explainability + passive diagnostics; no new bridge) | Operations Console | Complete; passive AI platform (D1-D9) fully read-visible |
 | D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + Learning foundation and read layer (M10-M12 + H25-H27) + AI Operations Console (Wave 11) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation and read layer / Operations Console | Wave 11 complete; passive platform fully observable; no execution |
 | D10 Wave 1 (M1-M3) | Execution boundary design (domain + repository contract + replay) | Campaign Manager (name reused; orchestration not built) | Foundation complete; no execution, no platform APIs, no persistence, no bridge, no admin UI |
+| D10 Wave 2 (H28-H30) | Execution durable infrastructure (append-only SQL + row mapping + production store) | Campaign Manager (name reused; orchestration not built) | Durable persistence complete; still does not execute; no bridge, no admin UI, no platform adapters |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
