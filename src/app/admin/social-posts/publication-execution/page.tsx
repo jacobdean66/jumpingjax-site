@@ -17,6 +17,11 @@ import {
   type SocialPublicationExecutionJobProjection,
   type SocialPublicationExecutionReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-replay";
+import {
+  replaySocialPublicationExecutionPreflight,
+  type SocialPublicationExecutionPreflightJobProjection,
+  type SocialPublicationExecutionPreflightReplayDiagnostic,
+} from "@/lib/social-posts/social-publication-execution-preflight-replay";
 
 export const dynamic = "force-dynamic";
 
@@ -503,6 +508,121 @@ function DiagnosticsList({
   );
 }
 
+function PreflightJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPublicationExecutionPreflightJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1280px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Preflight</th>
+                <th className="px-3 py-2">Replay State</th>
+                <th className="px-3 py-2">Why Blocked</th>
+                <th className="px-3 py-2">Missing References</th>
+                <th className="px-3 py-2">Authority Present</th>
+                <th className="px-3 py-2">Evidence Present</th>
+                <th className="px-3 py-2">Stale References</th>
+                <th className="px-3 py-2">Could Run Later</th>
+                <th className="px-3 py-2">Unsafe</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-black">{job.preflightStatus}</td>
+                  <td className="px-3 py-2 font-black">{job.replayState}</td>
+                  <td className="px-3 py-2">
+                    <PillList values={job.diagnostics.map((diagnostic) => diagnostic.code)} />
+                  </td>
+                  <td className="px-3 py-2"><PillList values={job.missingReferences} /></td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `owner: ${String(job.authorityPresent.owner)}`,
+                        `publisher: ${String(job.authorityPresent.publisher)}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `intent: ${String(job.evidencePresent.intent)}`,
+                        `result: ${String(job.evidencePresent.result)}`,
+                        `ledger: ${String(job.evidencePresent.ledger)}`,
+                        `preflight: ${String(job.evidencePresent.preflight)}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2"><PillList values={job.staleReferences} /></td>
+                  <td className="px-3 py-2 font-black">{String(job.couldRunLater)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.unsafe)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PreflightDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPublicationExecutionPreflightReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No preflight replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminPublicationExecutionPage({
   searchParams,
 }: Props) {
@@ -535,6 +655,7 @@ export default async function AdminPublicationExecutionPage({
 
   const loaded = await loadExecution(filters);
   const replay = replaySocialPublicationExecution(loaded.model).value;
+  const preflightReplay = replaySocialPublicationExecutionPreflight(loaded.model).value;
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Social posts"],
@@ -678,6 +799,59 @@ export default async function AdminPublicationExecutionPage({
                 </div>
               </section>
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Execution Preflight Gate
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {preflightReplay.summary.preflightBlockedJobCount > 0
+                        ? "Preflight blocks found"
+                        : "No preflight blocks found"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Read-only preflight diagnostics explain whether Execution
+                      records have the references, authority, and evidence an
+                      eventual runner would need. This gate does not run, retry,
+                      approve, publish, call APIs, or mutate records.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    read only
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Preflight Pass" value={preflightReplay.summary.preflightPassJobCount} />
+                  <Field label="Preflight Blocked" value={preflightReplay.summary.preflightBlockedJobCount} />
+                  <Field label="Missing References" value={preflightReplay.summary.missingReferenceJobCount} />
+                  <Field label="Authority Blocked" value={preflightReplay.summary.authorityBlockedJobCount} />
+                  <Field label="Stale References" value={preflightReplay.summary.staleReferenceJobCount} />
+                  <Field label="Unsafe Jobs" value={preflightReplay.summary.unsafeJobCount} />
+                  <Field label="Replay Valid" value={String(preflightReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={preflightReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `computedOnly: ${String(preflightReplay.computedOnly)}`,
+                      `readOnly: ${String(preflightReplay.readOnly)}`,
+                      `authoritative: ${String(preflightReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(preflightReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(preflightReplay.executesNothing)}`,
+                      `publishesNothing: ${String(preflightReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <PreflightJobTable title="Preflight-Pass Jobs" empty="No jobs currently pass preflight." jobs={preflightReplay.preflightPassJobs} />
+              <PreflightJobTable title="Preflight-Blocked Jobs" empty="No jobs are blocked by preflight." jobs={preflightReplay.preflightBlockedJobs} />
+              <PreflightJobTable title="Missing-Reference Jobs" empty="No jobs are missing required preflight references." jobs={preflightReplay.missingReferenceJobs} />
+              <PreflightJobTable title="Authority-Blocked Jobs" empty="No jobs are missing authority evidence." jobs={preflightReplay.authorityBlockedJobs} />
+              <PreflightJobTable title="Stale-Reference Jobs" empty="No jobs have stale preflight references." jobs={preflightReplay.staleReferenceJobs} />
+              <PreflightJobTable title="Unsafe Jobs" empty="No jobs have unsafe execution contract diagnostics." jobs={preflightReplay.unsafeJobs} />
+
               <JobTable title="Pending Jobs" empty="No pending Execution jobs." jobs={replay.pendingJobs} />
               <JobTable title="Blocked Jobs" empty="No blocked Execution jobs." jobs={replay.blockedJobs} />
               <JobTable title="Preflight-Passed Jobs" empty="No preflight-passed Execution jobs." jobs={replay.preflightPassedJobs} />
@@ -710,6 +884,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <DiagnosticsList diagnostics={replay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Preflight Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <PreflightDiagnosticsList diagnostics={preflightReplay.diagnostics} />
                 </div>
               </section>
             </>
