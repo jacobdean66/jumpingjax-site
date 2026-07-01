@@ -15,7 +15,7 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
-## Implemented Platform Stack (D1–D8, H1–H8)
+## Implemented Platform Stack (D1–D9, H1–H11)
 
 The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
 
@@ -34,10 +34,10 @@ Publication Targets (implementation D7)
 ↓
 Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
 ↓
-Publication Scheduler (D9 M1–M3 foundation; intent and replay only)
+Publication Scheduler (D9 M1–M3 foundation + H9–H11 durable intent storage; no execution)
 ```
 
-**D9 Scheduler Wave 1 (M1–M3) has started** as a library-only foundation. Publisher execution, Metrics collection, Learning automation, background workers, and scheduler admin surfaces are **not implemented**.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9–H11)** added durable storage — append-only SQL schema, row/mapper translation, and a Supabase-backed production store — mirroring the Publication Ledger's H1–H4 hardening. Publisher execution, Metrics collection, Learning automation, background workers, and scheduler admin surfaces are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -120,7 +120,7 @@ Responsibilities:
 - scheduling requests
 - delegation
 
-**Status: not implemented (D10).** D9 Scheduler Wave 1 (M1–M3) provides library-only intent and replay; no autonomous scheduling agent runs in production yet.
+**Status: not implemented (D10).** D9 Wave 1 (M1–M3) provides library-only intent and replay; D9 Wave 2 (H9–H11) adds durable intent storage. No autonomous scheduling agent runs in production yet.
 
 Inputs:
 
@@ -314,7 +314,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1–M3 library foundation) has started. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1–M3 library foundation) and Wave 2 (H9–H11 durable intent storage) are complete. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 

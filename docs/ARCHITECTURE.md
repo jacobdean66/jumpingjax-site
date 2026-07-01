@@ -105,17 +105,22 @@ Current components:
 
 Ledger replay state is derived only. It must not be treated as publish authority.
 
-### Layer 8: Publication Scheduler (implementation D9 Wave 1)
+### Layer 8: Publication Scheduler (implementation D9 Wave 1 + Wave 2)
 
 The Publication Scheduler computes publication schedule intent from lower-layer references. It does not execute publication, mutate the ledger, or grant authority.
 
-Current components (library-only):
+Current components:
 
 - **D9 M1:** Scheduler domain contract — vocabulary, schedule identities, state types, validation, serialization, deterministic ordering primitives
 - **D9 M2:** Repository contract — persistence record shapes, repository interface, request validation (no implementation)
 - **D9 M3:** Replay read model — next scheduled publication, overdue, paused, and completed schedule projections (computed, non-authoritative)
+- **D9 H9:** Durable append-only SQL schema for scheduler intent records (`social_publication_schedule_intents`) — reference IDs only, immutable by trigger
+- **D9 H10:** SQL row ↔ persistence record mapping (`social-publication-scheduler-rows.ts`) and domain intent ↔ persistence record mapper (`social-publication-scheduler-mapper.ts`) — forbidden-payload checks, reference-only enforcement
+- **D9 H11:** Supabase production store (`social-publication-scheduler-store.ts`) — create/append/read per the M2 repository contract, deterministic validation before write
 
-Not started in D9: publisher execution, durable scheduler store, integration boundary wiring, admin surfaces, cron, timers, workers, metrics, and learning.
+H9–H11 mirror the Publication Ledger's H1–H4 durability pattern: an append-only table, row/mapper translation, and a production store, with no bridge, admin wiring, or cron/worker integration.
+
+Not started in D9: publisher execution, integration boundary wiring into ledger evidence, admin surfaces, cron, timers, workers, metrics, and learning.
 
 The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
 
@@ -149,12 +154,13 @@ social_campaign_memory_evidence
 
 `social_posts` represents the marketing post being planned or produced. `social_post_assets` stores generated or selected assets connected to that post. `social_post_decisions` records durable decisions about creative, image, video, or related social post work. `social_campaign_memories` stores promoted memory versions. `social_campaign_memory_evidence` links each memory to the exact decision rows and related entities that justify it.
 
-Publication stack tables and flows (D6–D8, H1–H6):
+Publication stack tables and flows (D6–D9, H1–H11):
 
 ```text
 social_owner_approval_proposals / social_owner_approval_events (D6)
 social_publication_targets (D7)
 social_publication_ledger_attempts / outcomes / evidence (D8 + H1)
+social_publication_schedule_intents (D9 + H9)
 ```
 
 Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; replay output is computed at read time.
@@ -236,15 +242,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler (M1–M3 foundation) | Autonomous Scheduler (Wave 1 in progress) |
+| D9 | Scheduler (M1–M3 foundation + H9–H11 durable storage) | Autonomous Scheduler (Wave 2 complete) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only).
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11).
 
 Not started: D9 publisher/execution integration, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only; no execution engine exists yet.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage only; no execution engine exists yet.
 
 ## Non-Negotiable Invariants
 

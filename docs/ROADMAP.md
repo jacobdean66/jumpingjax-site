@@ -136,6 +136,16 @@ After D8 M1–M6, platform hardening made the ledger operationally inspectable a
 - **H7:** Social-posts admin navigation, manifest ↔ ledger cross-links, and documentation reconciliation.
 - **H8:** Final platform consistency audit — admin navigation completeness, documentation hardening across `ROADMAP.md`, `ARCHITECTURE.md`, and `AI_AGENTS.md`, and read-only smoke inspection before D9.
 
+### Platform Hardening H9–H11 (D9 Wave 2)
+
+After D9 M1–M3, platform hardening gave the scheduler the same durable-storage treatment H1–H4 gave the ledger:
+
+- **H9:** Durable append-only SQL schema for scheduler intent records (`social_publication_schedule_intents`) — reference IDs only, immutable/append-only by trigger, intent-only invariants enforced by check constraints.
+- **H10:** SQL row ↔ persistence record mapping (`social-publication-scheduler-rows.ts`) and domain intent ↔ persistence record mapper (`social-publication-scheduler-mapper.ts`) — forbidden-payload checks, reference-only enforcement, no Supabase client.
+- **H11:** Supabase production store for scheduler records (`social-publication-scheduler-store.ts`) — create/append/read per the M2 repository contract, deterministic validation before write, fail-closed on misconfiguration.
+
+H9–H11 give the scheduler durable history. They do not add execution, cron, timers, workers, publishing, metrics, or learning. The scheduler remains intent-only.
+
 ## Current State
 
 The current architecture is:
@@ -155,7 +165,7 @@ Publication Targets (D7)
 ↓
 Publication Ledger (D8 + H1–H6 durable store and admin read)
 ↓
-Publication Scheduler (D9 M1–M3 foundation; intent and replay only)
+Publication Scheduler (D9 M1–M3 foundation + H9–H11 durable intent storage; no execution)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -178,7 +188,7 @@ Working Context is implemented as temporary, campaign-scoped context rebuilt fro
 
 D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-**D9 Scheduler Wave 1 (M1–M3) has started** as a library-only foundation: scheduler domain, repository contract, and replay helpers. There is no execution engine, publisher, metrics, learning, cron, workers, or scheduler admin surface yet. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. There is still no execution engine, publisher, metrics, learning, cron, workers, or scheduler admin surface. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -192,7 +202,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
 | — | Metrics collection | Metrics Layer | Not started |
 | — | Outcome-based learning proposals | Learning Layer | Not started |
-| D9 | Autonomous scheduler (M1–M3 foundation) | Autonomous Scheduler | Wave 1 in progress |
+| D9 | Autonomous scheduler (M1–M3 foundation + H9–H11 durable storage) | Autonomous Scheduler | Wave 2 complete |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -243,17 +253,23 @@ This layer will use metrics and Decision History to identify candidate lessons. 
 
 This is **not** the same as implementation phase D8 (Publication Ledger), which is already complete.
 
-### D9: Autonomous Scheduler (Wave 1 started)
+### D9: Autonomous Scheduler (Wave 2 complete)
 
 Goal: recommend posting cadence and compute publication schedule intent without granting publish authority.
 
-**D9 Wave 1 (M1–M3) is in progress.** The scheduler foundation is library-only:
+**D9 Wave 1 (M1–M3)** built the scheduler foundation as a library-only layer:
 
 - **D9 M1:** Publication scheduler domain — vocabulary, schedule identities, state types, validation, serialization, and deterministic scheduling primitives. Intent-only; no timers, cron, or execution.
 - **D9 M2:** Scheduler repository contract — persistence record shapes, repository interface, and validation. Contract-only; no SQL, Supabase, or implementation.
 - **D9 M3:** Scheduler replay — deterministic read helpers for next scheduled publication, overdue schedules, paused schedules, and completed schedules. Replay-only; no execution.
 
-The scheduler may read references to Owner Approval, Publication Manifest, Publication Targets, and Publication Ledger. It must not mutate those layers, publish, or grant authority. Publisher execution, metrics, learning, cron, workers, and admin surfaces remain future work.
+**D9 Wave 2 (H9–H11)** added durable storage on top of the Wave 1 foundation, mirroring the Publication Ledger's H1–H4 hardening:
+
+- **D9 H9:** Append-only SQL schema for scheduler intent records — reference IDs only, immutable by trigger.
+- **D9 H10:** Row ↔ persistence record mapping and domain intent ↔ persistence record mapper — forbidden-payload checks, reference-only enforcement.
+- **D9 H11:** Supabase production store — create/append/read per the M2 repository contract, deterministic validation before write.
+
+The scheduler may read references to Owner Approval, Publication Manifest, Publication Targets, and Publication Ledger. It must not mutate those layers, publish, or grant authority. Publisher execution, metrics, learning, cron, workers, and admin surfaces remain future work (D9 Wave 3+).
 
 Human approval remains required. The scheduler may recommend and compute intent, but it must not become an unchecked publishing authority.
 
