@@ -22,6 +22,11 @@ import {
   type SocialPublicationExecutionPreflightJobProjection,
   type SocialPublicationExecutionPreflightReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-preflight-replay";
+import {
+  replaySocialPublicationExecutionPlanner,
+  type SocialPublicationExecutionPlannerReplayDiagnostic,
+} from "@/lib/social-posts/social-publication-execution-planner-replay";
+import type { SocialPublicationExecutionPlanStep } from "@/lib/social-posts/social-publication-execution-planner";
 
 export const dynamic = "force-dynamic";
 
@@ -623,6 +628,128 @@ function PreflightDiagnosticsList({
   );
 }
 
+function PlannerStepTable({
+  title,
+  empty,
+  steps,
+}: {
+  title: string;
+  empty: string;
+  steps: readonly SocialPublicationExecutionPlanStep[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {steps.length}
+        </span>
+      </div>
+      {steps.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1500px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Order</th>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Priority</th>
+                <th className="px-3 py-2">Why Next</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+                <th className="px-3 py-2">Authority Chain</th>
+                <th className="px-3 py-2">Reference Chain</th>
+                <th className="px-3 py-2">Dependency Graph</th>
+                <th className="px-3 py-2">Could Run Later</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {steps.map((step) => (
+                <tr key={`${step.stepId}-${step.executionIntentId}`}>
+                  <td className="px-3 py-2 font-black">{step.order}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{step.executionJobId}</td>
+                  <td className="px-3 py-2 font-black">{step.status}</td>
+                  <td className="px-3 py-2 font-black">{step.priority}</td>
+                  <td className="px-3 py-2 min-w-[260px] font-semibold text-slate-700">
+                    {step.whyWouldRun}
+                  </td>
+                  <td className="px-3 py-2"><PillList values={step.blockingReasons} /></td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `required: ${step.requiredAuthority.join(", ")}`,
+                        `present: ${step.presentAuthority.join(", ") || "none"}`,
+                        `missing: ${step.missingAuthority.join(", ") || "none"}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `required: ${step.requiredReferences.join(", ")}`,
+                        `present: ${step.presentReferences.join(", ") || "none"}`,
+                        `missing: ${step.missingReferences.join(", ") || "none"}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={step.dependencyGraph.map(
+                        (dependency) =>
+                          `${dependency.dependencyType}:${String(dependency.present)}:${String(dependency.blocksStep)}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-black">{String(step.couldRunLater)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PlannerDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPublicationExecutionPlannerReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No planner replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminPublicationExecutionPage({
   searchParams,
 }: Props) {
@@ -656,6 +783,7 @@ export default async function AdminPublicationExecutionPage({
   const loaded = await loadExecution(filters);
   const replay = replaySocialPublicationExecution(loaded.model).value;
   const preflightReplay = replaySocialPublicationExecutionPreflight(loaded.model).value;
+  const plannerReplay = replaySocialPublicationExecutionPlanner(loaded.model).value;
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Social posts"],
@@ -852,6 +980,61 @@ export default async function AdminPublicationExecutionPage({
               <PreflightJobTable title="Stale-Reference Jobs" empty="No jobs have stale preflight references." jobs={preflightReplay.staleReferenceJobs} />
               <PreflightJobTable title="Unsafe Jobs" empty="No jobs have unsafe execution contract diagnostics." jobs={preflightReplay.unsafeJobs} />
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Execution Planner
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {plannerReplay.summary.readyPlanCount > 0
+                        ? "Planner found ready jobs"
+                        : "No jobs ready in planner"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      The planner answers what would run, in what order, and
+                      why. It is simulated-only: no run button, no retry button,
+                      no approval control, no API call, and no mutation.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    simulated only
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Total Steps" value={plannerReplay.summary.totalStepCount} />
+                  <Field label="Planned Jobs" value={plannerReplay.summary.plannedJobCount} />
+                  <Field label="Ready Plans" value={plannerReplay.summary.readyPlanCount} />
+                  <Field label="Waiting Plans" value={plannerReplay.summary.waitingPlanCount} />
+                  <Field label="Blocked Plans" value={plannerReplay.summary.blockedPlanCount} />
+                  <Field label="Dependency Failures" value={plannerReplay.summary.dependencyFailureCount} />
+                  <Field label="Authority Failures" value={plannerReplay.summary.authorityFailureCount} />
+                  <Field label="Reference Failures" value={plannerReplay.summary.referenceFailureCount} />
+                  <Field label="Replay Valid" value={String(plannerReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={plannerReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `computedOnly: ${String(plannerReplay.computedOnly)}`,
+                      `readOnly: ${String(plannerReplay.readOnly)}`,
+                      `authoritative: ${String(plannerReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(plannerReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(plannerReplay.executesNothing)}`,
+                      `publishesNothing: ${String(plannerReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <PlannerStepTable title="Planned Execution Order" empty="No planned execution steps." steps={plannerReplay.executionOrder} />
+              <PlannerStepTable title="Ready Plans" empty="No planner steps are ready." steps={plannerReplay.readyPlans} />
+              <PlannerStepTable title="Waiting Plans" empty="No planner steps are waiting." steps={plannerReplay.waitingPlans} />
+              <PlannerStepTable title="Blocked Plans" empty="No planner steps are blocked." steps={plannerReplay.blockedPlans} />
+              <PlannerStepTable title="Dependency Failures" empty="No planner dependency failures." steps={plannerReplay.dependencyFailures} />
+              <PlannerStepTable title="Authority Failures" empty="No planner authority failures." steps={plannerReplay.authorityFailures} />
+              <PlannerStepTable title="Reference Failures" empty="No planner reference failures." steps={plannerReplay.referenceFailures} />
+
               <JobTable title="Pending Jobs" empty="No pending Execution jobs." jobs={replay.pendingJobs} />
               <JobTable title="Blocked Jobs" empty="No blocked Execution jobs." jobs={replay.blockedJobs} />
               <JobTable title="Preflight-Passed Jobs" empty="No preflight-passed Execution jobs." jobs={replay.preflightPassedJobs} />
@@ -893,6 +1076,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <PreflightDiagnosticsList diagnostics={preflightReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Planner Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <PlannerDiagnosticsList diagnostics={plannerReplay.diagnostics} />
                 </div>
               </section>
             </>
