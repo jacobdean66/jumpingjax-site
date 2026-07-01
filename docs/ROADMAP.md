@@ -493,7 +493,7 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager (Wave 1 Execution Boundary Design complete)
+### D10: Campaign Manager (Wave 3 Execution Read Visibility complete)
 
 Goal: top-level orchestrator.
 
@@ -507,7 +507,15 @@ This phase depends on the earlier layers being stable because orchestration with
 - **D10 M2:** Execution repository contract — reference-only persistence record shapes, domain ↔ record mapping, validation, and an in-memory reference repository for tests. Contract-only; no SQL, Supabase, store, or bridge. May import M1 only.
 - **D10 M3:** Execution replay — deterministic read helpers for pending, blocked, preflight-passed, failed, and completed jobs, and missing/sufficient authority evidence. Replay-only; no execution. May import M2/M1.
 
-The Execution foundation may reference Scheduler, Publisher, Ledger, Manifest, Approval, Publication Target, Metrics, Learning, Campaign Memory, Decision History, and social post ids by id only. It must not call Facebook, Instagram, TikTok, LinkedIn, or Google APIs, use OAuth or credentials, use HTTP/fetch, start cron/timers/workers/queues, expose API routes or admin UI, use SQL/Supabase, or mutate any lower layer. Wave 2 (execution implementation, platform adapters, cron/workers, retry automation) has not started.
+The Execution foundation may reference Scheduler, Publisher, Ledger, Manifest, Approval, Publication Target, Metrics, Learning, Campaign Memory, Decision History, and social post ids by id only. It must not call Facebook, Instagram, TikTok, LinkedIn, or Google APIs, use OAuth or credentials, use HTTP/fetch, start cron/timers/workers/queues, expose API routes or mutate any lower layer.
+
+**D10 Wave 3 (H31-H33)** made durable Execution records read-visible without starting execution:
+
+- **D10 H31:** Execution bridge (`social-publication-execution-bridge.ts`) mirrors the Scheduler, Publisher, Metrics, and Learning bridge pattern with environment-aware mode resolution, production-safe fail-closed behavior, unsafe reference-mode rejection in production, explicit test implementation injection, reference seed support, and no silent fallback.
+- **D10 H32:** Execution read-only admin (`/admin/social-posts/publication-execution`) displays Execution requests, results, computed replay, pending/blocked/preflight-passed/failed/completed buckets, missing/sufficient authority evidence, empty state, bridge misconfiguration, storage unavailable, and read errors. It uses GET filters only and has no POST controls or mutation path.
+- **D10 H33:** Navigation links now connect the Social Posts hub, Execution, Scheduler, Publisher, Metrics, Learning, Ledger, Manifest, and Operations Console.
+
+What it does not introduce: actual execution, publishing, adapters, platform integrations, API routes, HTTP/fetch, credentials, workers, queues, cron, timers, retries, new SQL, persistence changes, scheduler automation, metrics collection, learning automation, or protected-system edits. Execution remains a read-visible boundary and still does not run.
 
 ## Long-Term Vision
 
