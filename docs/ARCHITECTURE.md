@@ -123,9 +123,23 @@ Current components:
 
 H9–H14 mirror the Publication Ledger's durability and read-visibility pattern: an append-only table, row/mapper translation, a production store, an environment-aware bridge, and read-only admin inspection. There is still no cron/worker integration.
 
-Not started in D9: scheduler execution, publisher execution, integration boundary wiring into ledger evidence, API routes, cron, timers, workers, metrics, and learning.
+Not started in D9: scheduler execution, publisher execution, integration boundary wiring into ledger evidence, API routes, cron, timers, workers, platform credentials, external API calls, metrics, and learning.
 
 The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
+
+### Layer 9: Publisher Foundation (implementation D9 Wave 4, complete)
+
+The Publisher foundation defines how future publication execution should be represented and replayed without executing publication. It mirrors the scheduler's M1–M3 layering with M4–M6.
+
+Current components:
+
+- **M4 domain** (`social-publication-publisher.ts`) — job/channel identity, request/result contracts, model-only authority requirement, forbidden-state checks, validation, and serialize/hydrate. Cannot import M5/M6.
+- **M5 repository contract** (`social-publication-publisher-repository.ts`) — reference-only persistence records, domain ↔ record mapping, and validation. May import M4 only.
+- **M6 replay** (`social-publication-publisher-replay.ts`) — deterministic replay computing pending, blocked, completed, failed, missing-authority, and sufficient-authority-evidence jobs from the M5 persistence model. May import M5/M4.
+
+This layer is foundation-only. It does not contain publisher execution, platform credentials, external API calls, social-platform clients, cron, timers, workers, retries, metrics collection, learning automation, or customer-facing publication.
+
+The Publisher foundation must remain below owner authority. It may prepare future execution semantics, but it must not publish, mutate scheduler intent, mutate ledger evidence, or contact external platforms.
 
 ## Admin Read-Only Surfaces
 
@@ -246,15 +260,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) | Autonomous Scheduler (Wave 3 complete) |
+| D9 | Scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) + Publisher foundation (M4 domain/M5 repository/M6 replay only) | Autonomous Scheduler / Publisher foundation (Wave 4 complete) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11), and D9 Wave 3 scheduler read visibility/admin wiring (H12–H14).
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11), D9 Wave 3 scheduler read visibility/admin wiring (H12–H14), and D9 Wave 4 Publisher foundation (M4 domain, M5 repository contract, M6 replay).
 
-Not started: D9 scheduler execution, D9 publisher/execution integration, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
+Not started: D9 scheduler execution, D9 publisher execution, publisher/execution integration, platform credentials, external API calls, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage. D9 Wave 3 (H12–H14) makes that durable intent read-visible through a bridge and read-only admin page; no execution engine exists yet.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage. D9 Wave 3 (H12–H14) makes that durable intent read-visible through a bridge and read-only admin page. D9 Wave 4 (M4–M6) adds the Publisher domain, contract, and replay helpers; no execution engine, API route, or admin UI exists yet.
 
 ## Non-Negotiable Invariants
 

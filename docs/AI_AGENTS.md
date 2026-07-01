@@ -35,9 +35,11 @@ Publication Targets (implementation D7)
 Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
 ↓
 Publication Scheduler (D9 M1–M3 foundation + H9–H14 durable/read-visible intent storage and admin read; no execution)
+↓
+Publisher Foundation (D9 Wave 4 domain/contract/replay only; no execution)
 ```
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9–H11)** added durable storage — append-only SQL schema, row/mapper translation, and a Supabase-backed production store — mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. Scheduler execution, Publisher execution, Metrics collection, Learning automation, background workers, API routes, and mutation controls are still **not implemented**.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9–H11)** added durable storage — append-only SQL schema, row/mapper translation, and a Supabase-backed production store — mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6) only. Scheduler execution, Publisher execution, platform credentials, external API calls, Metrics collection, Learning automation, background workers, API routes, and mutation controls are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -215,6 +217,8 @@ Responsibilities:
 
 **Status: not implemented.** D6–D8 provide publication preparation, targets, and append-only ledger evidence only. No publisher agent executes customer-facing posts yet.
 
+D9 Wave 4 completed the Publisher foundation: publisher domain vocabulary (M4), contract boundaries (M5), and replay helpers (M6) exist for future execution planning. This is not a publishing agent. There are still no platform credentials, external API calls, social-platform clients, cron, timers, workers, retries, metrics hooks, learning hooks, API routes, or admin UI.
+
 Never:
 
 - create creative
@@ -315,7 +319,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1–M3 library foundation), Wave 2 (H9–H11 durable intent storage), and Wave 3 (H12–H14 bridge/read visibility/admin navigation) are complete. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1–M3 library foundation), Wave 2 (H9–H11 durable intent storage), Wave 3 (H12–H14 bridge/read visibility/admin navigation), and Wave 4 (M4–M6 Publisher domain, contract, and replay helpers) are complete. Publisher execution, platform credentials, external API calls, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 
