@@ -543,6 +543,13 @@ export default async function AdminPublicationManifestPage({
     : query
       ? `/admin/social-posts/publication-publisher?${query}`
       : "/admin/social-posts/publication-publisher";
+  const metricsHref = postId
+    ? query
+      ? `/admin/social-posts/publication-metrics?${query}&postId=${encodeURIComponent(postId)}`
+      : `/admin/social-posts/publication-metrics?postId=${encodeURIComponent(postId)}`
+    : query
+      ? `/admin/social-posts/publication-metrics?${query}`
+      : "/admin/social-posts/publication-metrics";
   let manifest: PublicationManifest | null = null;
   let readiness: PublicationReadiness | null = null;
   const ownerApprovalSummary = postId
@@ -590,6 +597,12 @@ export default async function AdminPublicationManifestPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication scheduler
+            </Link>
+            <Link
+              href={metricsHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication metrics
             </Link>
             <Link
               href={

@@ -159,6 +159,24 @@ function schedulerPublicationPublisherHref(filters: SchedulerFilters, token: str
     : "/admin/social-posts/publication-publisher";
 }
 
+function schedulerPublicationMetricsHref(filters: SchedulerFilters, token: string): string {
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (filters.scheduleId) params.set("scheduleId", filters.scheduleId);
+  if (filters.socialPostId) params.set("postId", filters.socialPostId);
+  if (filters.publicationManifestId) {
+    params.set("manifestId", filters.publicationManifestId);
+  }
+  if (filters.publicationTargetId) {
+    params.set("publicationTargetId", filters.publicationTargetId);
+  }
+
+  const query = params.toString();
+  return query
+    ? `/admin/social-posts/publication-metrics?${query}`
+    : "/admin/social-posts/publication-metrics";
+}
+
 function activeFilterLabels(filters: SchedulerFilters): readonly string[] {
   return Object.entries(filters)
     .filter(([, value]) => value.length > 0)
@@ -633,6 +651,7 @@ export default async function AdminPublicationSchedulerPage({
   const ledgerHref = schedulerPublicationLedgerHref(filters, token);
   const manifestHref = schedulerPublicationManifestHref(filters, token);
   const publisherHref = schedulerPublicationPublisherHref(filters, token);
+  const metricsHref = schedulerPublicationMetricsHref(filters, token);
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -670,6 +689,12 @@ export default async function AdminPublicationSchedulerPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication manifest
+            </Link>
+            <Link
+              href={metricsHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication metrics
             </Link>
             <Link
               href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
