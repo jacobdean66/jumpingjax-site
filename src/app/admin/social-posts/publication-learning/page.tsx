@@ -459,6 +459,7 @@ export default async function AdminPublicationLearningPage({ searchParams }: Pro
               ["/admin/social-posts/publication-ledger", "Ledger"],
               ["/admin/social-posts/publication-manifest", "Manifest"],
               ["/admin/social-posts/publication-metrics", "Metrics"],
+              ["/admin/social-posts/operations", "AI Operations Console"],
             ].map(([href, label]) => (
               <Link
                 key={href}

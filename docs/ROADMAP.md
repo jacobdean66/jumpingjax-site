@@ -250,6 +250,18 @@ What it introduced: one additional read-only admin surface and a small set of pr
 
 What it does not introduce: new bridges, new SQL, new persistence, new API routes, mutation of any subsystem, publication targets/scheduler/publisher execution, learning automation or promotion, external API calls, HTTP/fetch, OAuth, or credentials. With Wave 11 complete, the entire passive AI platform (D1–D9) is now fully read-visible and explainable end to end. D10 (Campaign Manager) and all automation remain not started.
 
+### D9 Final Architecture Audit (complete)
+
+Before D10, a release-candidate audit reviewed every completed D1–D9 layer in dependency order (Decision History through the AI Operations Console), the social-posts admin navigation, `ROADMAP.md`/`ARCHITECTURE.md`/`AI_AGENTS.md`, and every read-only admin page for auth gating, bridge usage, and error/empty states.
+
+Findings and fixes:
+
+- **Navigation gap (fixed):** every other social-posts admin surface (working context, campaign memory, publication manifest, ledger, scheduler, publisher, metrics, learning) linked to the hub but not to the AI Operations Console, even though the console already linked to all of them. An "AI Operations Console" back-link was added to each surface's navigation row so the console and every subsystem are mutually reachable. No new bridge, persistence, or behavior was added.
+- **Technical debt (flagged, not removed):** `social-publication-publisher-read-model-replay.ts` and its `.test.mts` are an untracked, unreferenced alternate Publisher replay implementation that duplicates the shipped M6 replay (`social-publication-publisher-replay.ts`, the one actually used by the Publisher bridge, admin page, and Operations Console). Nothing in the application imports the read-model-replay file outside its own test. It is not wired into any bridge, admin page, or route. Recommendation: review for removal in a dedicated cleanup change; do not delete as part of an audit commit.
+- Cross-layer dependency direction, reference-only boundaries, replay determinism, bridge fail-closed behavior, and admin auth gating were all verified consistent with this document and `docs/ARCHITECTURE.md`. No architectural or persistence changes were required.
+
+This audit made no execution, automation, scheduler/publisher/metrics/learning, SQL, or persistence changes. The passive AI platform (D1–D9) remains complete and unchanged in behavior; only admin navigation was repaired.
+
 ## Current State
 
 The current architecture is:

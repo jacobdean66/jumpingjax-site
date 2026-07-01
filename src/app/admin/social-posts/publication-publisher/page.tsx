@@ -509,6 +509,9 @@ export default async function AdminPublicationPublisherPage({
   const loaded = await loadPublisher(filters);
   const replay = replaySocialPublicationPublisher(loaded.model).value;
   const hubHref = token ? `/admin/social-posts?token=${encodeURIComponent(token)}` : "/admin/social-posts";
+  const operationsHref = token
+    ? `/admin/social-posts/operations?token=${encodeURIComponent(token)}`
+    : "/admin/social-posts/operations";
   const schedulerHref = linkWithFilters(
     "/admin/social-posts/publication-scheduler",
     token,
@@ -568,6 +571,9 @@ export default async function AdminPublicationPublisherPage({
             </Link>
             <Link href={learningHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
               Publication learning
+            </Link>
+            <Link href={operationsHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
+              AI Operations Console
             </Link>
             <Link href={hubHref} className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">
               Social posts

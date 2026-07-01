@@ -413,6 +413,16 @@ export default async function AdminSocialWorkingContextPage({
             <Link
               href={
                 token
+                  ? `/admin/social-posts/operations?token=${encodeURIComponent(token)}`
+                  : "/admin/social-posts/operations"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              AI Operations Console
+            </Link>
+            <Link
+              href={
+                token
                   ? `/admin/social-posts?token=${encodeURIComponent(token)}`
                   : "/admin/social-posts"
               }

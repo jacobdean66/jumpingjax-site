@@ -297,7 +297,7 @@ Responsibilities:
 - trace a single social post through Decision History, Campaign Memory, Manifest, Owner Approval, Ledger, Scheduler, Publisher, Metrics, and Learning, surfacing real reference ids at each stage
 - surface passive diagnostics (missing bridge, storage unavailable, replay diagnostics, missing references) for human review
 
-**Status: complete (D9 Wave 11).** The console (`/admin/social-posts/operations`) is a pure composition layer — it calls only the bridges and replay helpers that already exist for Scheduler, Publisher, Metrics, and Learning (H12/H18/H24/H25), plus the existing list/lookup functions for Campaign Memory, Publication Targets, Decision History, Working Context, Manifest, Owner Approval, and Ledger. It introduces no new bridge and no new persistence.
+**Status: complete (D9 Wave 11).** The console (`/admin/social-posts/operations`) is a pure composition layer — it calls only the bridges and replay helpers that already exist for Scheduler, Publisher, Metrics, and Learning (H12/H18/H24/H25), plus the existing list/lookup functions for Campaign Memory, Publication Targets, Decision History, Working Context, Manifest, Owner Approval, and Ledger. It introduces no new bridge and no new persistence. The D9 Final Architecture Audit (pre-D10) added a back-link from every other social-posts admin surface to this console, so navigation between the console and every subsystem it observes is mutual.
 
 Never:
 
