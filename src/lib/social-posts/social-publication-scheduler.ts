@@ -176,7 +176,6 @@ const FORBIDDEN_SECRET_KEYS = new Set([
 
 const FORBIDDEN_PUBLISH_AUTHORITY_KEYS = new Set([
   "canPublish",
-  "grantsPublishingPermission",
   "publishAuthority",
   "publisherAuthority",
 ]);
