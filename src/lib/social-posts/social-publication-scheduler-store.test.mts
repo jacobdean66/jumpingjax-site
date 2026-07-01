@@ -13,6 +13,7 @@ import {
   fetchSocialPublicationScheduleRecordsByPublicationTarget,
   fetchSocialPublicationScheduleRows,
   fetchSocialPublicationScheduleRowsByScheduleId,
+  type SocialPublicationSchedulerReadFilter,
   type SocialPublicationSchedulerStoreResult,
   type SocialPublicationSchedulerStoreStorage,
 } from "./social-publication-scheduler-store";
@@ -20,7 +21,6 @@ import * as storeExports from "./social-publication-scheduler-store";
 import { mapPublicationScheduleIntentToScheduleRecord } from "./social-publication-scheduler-mapper";
 import type { SocialPublicationSchedulerScheduleRow } from "./social-publication-scheduler-rows";
 import type {
-  SocialPublicationSchedulerReadFilter,
   SocialPublicationSchedulerScheduleRecord,
 } from "./social-publication-scheduler-repository";
 import type { PublicationScheduleIntent } from "./social-publication-scheduler";
