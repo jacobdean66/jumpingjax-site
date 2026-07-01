@@ -26,6 +26,11 @@ import {
   replaySocialPublicationExecutionPlanner,
   type SocialPublicationExecutionPlannerReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-planner-replay";
+import {
+  replaySocialPublicationExecutionAdapters,
+  type SocialPublicationExecutionAdapterJobProjection,
+  type SocialPublicationExecutionAdapterReplayDiagnostic,
+} from "@/lib/social-posts/social-publication-execution-adapter-replay";
 import type { SocialPublicationExecutionPlanStep } from "@/lib/social-posts/social-publication-execution-planner";
 
 export const dynamic = "force-dynamic";
@@ -750,6 +755,107 @@ function PlannerDiagnosticsList({
   );
 }
 
+function AdapterJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPublicationExecutionAdapterJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1560px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Required Adapter</th>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">Available</th>
+                <th className="px-3 py-2">Dry Run</th>
+                <th className="px-3 py-2">Ready</th>
+                <th className="px-3 py-2">Blocked</th>
+                <th className="px-3 py-2">Unsupported Channel</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+                <th className="px-3 py-2">Safety Requirements</th>
+                <th className="px-3 py-2">Missing Preflight</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{job.publicationTargetId}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{job.requiredAdapterId ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.requiredPlatform ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{String(job.adapterAvailable)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.dryRunCapable)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.adapterReady)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.adapterBlocked)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.unsupportedChannel)}</td>
+                  <td className="px-3 py-2"><PillList values={job.blockingReasons} /></td>
+                  <td className="px-3 py-2"><PillList values={job.safetyRequirements} /></td>
+                  <td className="px-3 py-2"><PillList values={job.preflightRequirementsMissing} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdapterDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPublicationExecutionAdapterReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No adapter replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminPublicationExecutionPage({
   searchParams,
 }: Props) {
@@ -784,6 +890,7 @@ export default async function AdminPublicationExecutionPage({
   const replay = replaySocialPublicationExecution(loaded.model).value;
   const preflightReplay = replaySocialPublicationExecutionPreflight(loaded.model).value;
   const plannerReplay = replaySocialPublicationExecutionPlanner(loaded.model).value;
+  const adapterReplay = replaySocialPublicationExecutionAdapters(loaded.model).value;
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Social posts"],
@@ -1035,6 +1142,64 @@ export default async function AdminPublicationExecutionPage({
               <PlannerStepTable title="Authority Failures" empty="No planner authority failures." steps={plannerReplay.authorityFailures} />
               <PlannerStepTable title="Reference Failures" empty="No planner reference failures." steps={plannerReplay.referenceFailures} />
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Execution Adapter Contracts
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {adapterReplay.summary.adapterReadyJobCount > 0
+                        ? "Adapter-ready jobs found"
+                        : "No adapter-ready jobs"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Adapter diagnostics explain which reference dry-run adapter
+                      would apply, whether the channel is supported, and why a job
+                      remains blocked. Only dry-run reference adapters exist. There
+                      are no real platform adapters, OAuth flows, credentials,
+                      external API calls, run buttons, or POST handlers.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    contract only
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Available Adapters" value={adapterReplay.summary.availableAdapterCount} />
+                  <Field label="Missing Adapters" value={adapterReplay.summary.missingAdapterCount} />
+                  <Field label="Adapter Ready" value={adapterReplay.summary.adapterReadyJobCount} />
+                  <Field label="Adapter Blocked" value={adapterReplay.summary.adapterBlockedJobCount} />
+                  <Field label="Dry-Run Capable" value={adapterReplay.summary.dryRunCapableJobCount} />
+                  <Field label="Unsupported Channels" value={adapterReplay.summary.unsupportedChannelJobCount} />
+                  <Field label="Replay Valid" value={String(adapterReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={adapterReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...adapterReplay.availableAdapters.map(
+                        (adapter) => `adapter:${adapter.identity.adapterId}`,
+                      ),
+                      ...adapterReplay.missingAdapters.map(
+                        (platform) => `missing:${platform}`,
+                      ),
+                      `computedOnly: ${String(adapterReplay.computedOnly)}`,
+                      `readOnly: ${String(adapterReplay.readOnly)}`,
+                      `authoritative: ${String(adapterReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(adapterReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(adapterReplay.executesNothing)}`,
+                      `publishesNothing: ${String(adapterReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <AdapterJobTable title="Adapter-Ready Jobs" empty="No jobs are adapter-ready." jobs={adapterReplay.adapterReadyJobs} />
+              <AdapterJobTable title="Adapter-Blocked Jobs" empty="No jobs are adapter-blocked." jobs={adapterReplay.adapterBlockedJobs} />
+              <AdapterJobTable title="Dry-Run Capable Jobs" empty="No jobs are dry-run capable." jobs={adapterReplay.dryRunCapableJobs} />
+              <AdapterJobTable title="Unsupported Channel Jobs" empty="No jobs have unsupported channels." jobs={adapterReplay.unsupportedChannelJobs} />
+
               <JobTable title="Pending Jobs" empty="No pending Execution jobs." jobs={replay.pendingJobs} />
               <JobTable title="Blocked Jobs" empty="No blocked Execution jobs." jobs={replay.blockedJobs} />
               <JobTable title="Preflight-Passed Jobs" empty="No preflight-passed Execution jobs." jobs={replay.preflightPassedJobs} />
@@ -1085,6 +1250,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <PlannerDiagnosticsList diagnostics={plannerReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Adapter Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <AdapterDiagnosticsList diagnostics={adapterReplay.diagnostics} />
                 </div>
               </section>
             </>
