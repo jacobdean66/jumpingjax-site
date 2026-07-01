@@ -320,6 +320,7 @@ export default async function AdminPublicationMetricsPage({ searchParams }: Prop
               ["/admin/social-posts/publication-scheduler", "Scheduler"],
               ["/admin/social-posts/publication-ledger", "Ledger"],
               ["/admin/social-posts/publication-manifest", "Manifest"],
+              ["/admin/social-posts/publication-learning", "Learning"],
             ].map(([href, label]) => (
               <Link
                 key={href}

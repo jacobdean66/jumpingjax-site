@@ -529,6 +529,11 @@ export default async function AdminPublicationPublisherPage({
     token,
     filters,
   );
+  const learningHref = linkWithFilters(
+    "/admin/social-posts/publication-learning",
+    token,
+    filters,
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -560,6 +565,9 @@ export default async function AdminPublicationPublisherPage({
             </Link>
             <Link href={metricsHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
               Publication metrics
+            </Link>
+            <Link href={learningHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
+              Publication learning
             </Link>
             <Link href={hubHref} className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">
               Social posts
