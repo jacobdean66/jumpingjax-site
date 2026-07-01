@@ -573,6 +573,17 @@ export default async function AdminPublicationLedgerPage({
     : query
       ? `/admin/social-posts/publication-manifest?${query}`
       : "/admin/social-posts/publication-manifest";
+  const schedulerParams = new URLSearchParams();
+  if (token) schedulerParams.set("token", token);
+  if (postId) schedulerParams.set("postId", postId);
+  if (manifestId) schedulerParams.set("manifestId", manifestId);
+  if (publicationTargetId) {
+    schedulerParams.set("publicationTargetId", publicationTargetId);
+  }
+  const schedulerQuery = schedulerParams.toString();
+  const schedulerHref = schedulerQuery
+    ? `/admin/social-posts/publication-scheduler?${schedulerQuery}`
+    : "/admin/social-posts/publication-scheduler";
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -598,6 +609,12 @@ export default async function AdminPublicationLedgerPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication manifest
+            </Link>
+            <Link
+              href={schedulerHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication scheduler
             </Link>
             <Link
               href={
