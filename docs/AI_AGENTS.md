@@ -15,7 +15,7 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
-## Implemented Platform Stack (D1-D9, H1-H24 + M7-M9)
+## Implemented Platform Stack (D1-D9, H1-H24 + M7-M12)
 
 The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
 
@@ -39,9 +39,11 @@ Publication Scheduler (D9 M1-M3 foundation + H9-H14 durable/read-visible intent 
 Publisher Read Integration (D9 Wave 4 foundation + Wave 5 durable store + Wave 6 H18-H20 bridge/read-only admin; no execution)
 ↓
 Metrics Durable Read Integration (D9 Wave 7 foundation + Wave 8 H21-H24 durable store/bridge/read-only admin; no collection)
+↓
+Learning Foundation (D9 Wave 9 M10-M12: domain + repository contract + replay; passive, explainable; no persistence, bridge, admin UI, or automation)
 ```
 
-**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. **D9 Wave 6 (H18-H20)** completed Publisher read integration with a bridge, read-only admin page, and navigation wiring. **D9 Wave 7 (M7-M9)** completed the passive Metrics foundation with a domain, repository contract, and replay helpers for manually supplied observations only. **D9 Wave 8 (H21-H24)** completed Metrics durable persistence, bridge/read-only admin visibility, and navigation. Scheduler execution, Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Learning automation, background workers, queues, and mutation controls are still **not implemented**.
+**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. **D9 Wave 6 (H18-H20)** completed Publisher read integration with a bridge, read-only admin page, and navigation wiring. **D9 Wave 7 (M7-M9)** completed the passive Metrics foundation with a domain, repository contract, and replay helpers for manually supplied observations only. **D9 Wave 8 (H21-H24)** completed Metrics durable persistence, bridge/read-only admin visibility, and navigation. **D9 Wave 9 (M10-M12)** completed the passive, explainable Learning foundation with a domain, repository contract, and replay helpers, all reference-only and library-only. Scheduler execution, Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Learning persistence/bridge/admin UI, Learning automation and model training, background workers, queues, and mutation controls are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -52,7 +54,7 @@ Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:
 | D7 | Publication Targets | Metrics Layer |
 | D8 | Publication Ledger | Learning Layer |
 
-When reading commits or admin labels, use the code-phase meaning above.
+When reading commits or admin labels, use the code-phase meaning above. Separately, D9 M10-M12 has since built a passive, explainable Learning **foundation** (domain, repository contract, replay) toward the future roadmap Learning Layer label — this is distinct from D8's reused label and does not include persistence, automation, or promotion.
 
 ### Admin inspection surfaces (read-only)
 
@@ -268,12 +270,16 @@ Responsibilities:
 - identify failures
 - recommend candidate memories
 
-**Status: not implemented.** This is the original roadmap Learning layer. Implementation phase D8 built Publication Ledger instead. Candidate knowledge still flows through the manual Promotion Engine when promoted.
+**Status: passive foundation complete (D9 Wave 9, M10-M12); persistence, automation, and promotion not implemented.** This is the original roadmap Learning layer. Implementation phase D8 built Publication Ledger instead. D9 M10 added the Learning domain (candidate insight vocabulary, confidence scoring, reference-only linkage to Metrics/Publisher/Scheduler/Ledger/Manifest/Approval/Target/Campaign Memory/Decision History/social post ids). D9 M11 added the repository contract (record models, domain/record mapping, in-memory reference repository for tests only). D9 M12 added pure replay (candidate/blocked/accepted-for-review/rejected buckets, missing/sufficient evidence, and computed-only summaries by candidate type, campaign, and social post). Candidate knowledge still flows through the manual Promotion Engine when promoted; the Learning foundation cannot promote, approve, schedule, or publish on its own.
 
 Never:
 
 - modify Decision History
 - promote memories automatically
+- train AI models
+- call external APIs or use SDKs/HTTP/fetch
+- persist insights, expose a bridge, or expose an admin UI
+- mutate Metrics, Publisher, Scheduler, Ledger, Approval, Manifest, Targets, Campaign Memory, or Decision History
 
 ## Promotion Engine
 
@@ -336,7 +342,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), Wave 5 (H15-H17 Publisher durable persistence), Wave 6 (H18-H20 Publisher bridge/read-only admin/navigation), Wave 7 (M7-M9 passive Metrics foundation), and Wave 8 (H21-H24 Metrics durable persistence/bridge/read-only admin/navigation) are complete. Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), Wave 5 (H15-H17 Publisher durable persistence), Wave 6 (H18-H20 Publisher bridge/read-only admin/navigation), Wave 7 (M7-M9 passive Metrics foundation), Wave 8 (H21-H24 Metrics durable persistence/bridge/read-only admin/navigation), and Wave 9 (M10-M12 passive Learning foundation: domain, repository contract, replay) are complete. Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Learning persistence/bridge/admin UI, Learning automation and model training, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 
