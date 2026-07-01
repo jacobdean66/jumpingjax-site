@@ -493,7 +493,7 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager (Wave 3 Execution Read Visibility complete)
+### D10: Campaign Manager (Wave 4 Execution Preflight Gate complete)
 
 Goal: top-level orchestrator.
 
@@ -516,6 +516,14 @@ The Execution foundation may reference Scheduler, Publisher, Ledger, Manifest, A
 - **D10 H33:** Navigation links now connect the Social Posts hub, Execution, Scheduler, Publisher, Metrics, Learning, Ledger, Manifest, and Operations Console.
 
 What it does not introduce: actual execution, publishing, adapters, platform integrations, API routes, HTTP/fetch, credentials, workers, queues, cron, timers, retries, new SQL, persistence changes, scheduler automation, metrics collection, learning automation, or protected-system edits. Execution remains a read-visible boundary and still does not run.
+
+**D10 Wave 4 (M4-M5 + H34)** added a read-only preflight gate over existing Execution records:
+
+- **D10 M4:** Execution preflight domain (`social-publication-execution-preflight.ts`) validates whether an Execution intent/result has owner approval, publication target, ledger evidence, Publisher request, Scheduler intent, and Manifest references; has no blocked states; and has no missing owner or Publisher authority. It returns pass/block diagnostics only and grants no execution permission.
+- **D10 M5:** Preflight replay integration (`social-publication-execution-preflight-replay.ts`) composes Execution replay with preflight diagnostics to compute preflight-pass, preflight-blocked, missing-reference, authority-blocked, stale-reference, and unsafe job buckets. It is computed-only and read-only.
+- **D10 H34:** Execution admin now shows preflight diagnostics: why a job is blocked, missing references, present authority, present evidence, stale references, unsafe contract flags, and whether the job could theoretically run later. It adds no run, retry, or approve control.
+
+What it does not introduce: actual execution, publisher adapters, social platform APIs, HTTP/fetch, credentials, workers, queues, cron, timers, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution still does not run.
 
 ## Long-Term Vision
 
