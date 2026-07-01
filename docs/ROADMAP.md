@@ -262,6 +262,20 @@ Findings and fixes:
 
 This audit made no execution, automation, scheduler/publisher/metrics/learning, SQL, or persistence changes. The passive AI platform (D1–D9) remains complete and unchanged in behavior; only admin navigation was repaired.
 
+### D10 Wave 1: Execution Boundary Design (complete)
+
+D10 Wave 1 began Execution as a passive, non-executing library foundation, mirroring the D9 M1–M3/M4–M6/M10–M12 domain/repository/replay pattern:
+
+- **D10 M1:** Execution domain (`social-publication-execution.ts`) — execution intent and job identity, execution authority requirement (owner approval, publisher authority, and preflight-pass gates, all model-only), preflight result vocabulary (not-run/passed/blocked/failed), block-reason vocabulary, sanitized evidence references, result vocabulary (blocked/failed/completed), validation, serialization/hydration, and forbidden-state detection covering secrets, external platform APIs, SDKs, network, cron/timers, workers/queues, API routes, admin UI, SQL/Supabase, bridges, storage, lower-layer payloads and mutations, execution triggers, metrics, and learning state. References Scheduler, Publisher, Ledger, Manifest, Approval, Publication Target, Metrics, Learning, Campaign Memory, Decision History, and social post ids by id only. Cannot import M2/M3.
+- **D10 M2:** Execution repository contract (`social-publication-execution-repository.ts`) — reference-only persistence record models for intents and results, domain ↔ record mapping, validation, relationship/identity checks, and an in-memory reference repository for tests only. No SQL, Supabase, store, or bridge. May import M1 only.
+- **D10 M3:** Execution replay (`social-publication-execution-replay.ts`) — pure, computed-only read projections for pending, blocked, preflight-passed, failed, and completed jobs, plus missing-authority and sufficient-authority-evidence buckets. Replay is non-authoritative and grants no execution permission. May import M2/M1.
+
+What it introduced: passive Execution domain vocabulary, a reference-only persistence contract, and deterministic replay helpers describing what an eventual execution boundary would need to enforce before ever calling a platform API.
+
+What it does not introduce: actual publishing, Facebook/Instagram/TikTok/LinkedIn/Google API calls, OAuth, credentials, HTTP/fetch, cron, workers, queues, timers, API routes, admin UI, SQL, Supabase, mutation of any lower layer (Scheduler, Publisher, Ledger, Manifest, Approval, Targets, Metrics, Learning, Campaign Memory, Decision History), or any change to Rentals, Facility Parties, Booking, Google Calendar, Inventory, Driver App, or the customer-facing website.
+
+The Execution foundation may reason about execution intent, authority requirements, and preflight/result states, but it does not execute, publish, or grant execution authority. Wave 2 (execution implementation, platform adapters, cron/workers, retry automation) has not started.
+
 ## Current State
 
 The current architecture is:
@@ -290,6 +304,8 @@ Metrics Durable Read Integration (D9 Wave 7 foundation + Wave 8 durable store/br
 Learning Read Layer (D9 Wave 9 foundation + Wave 10 bridge/read-only admin/navigation; passive, explainable; no persistence, execution, or automation)
 ↓
 AI Operations Console (D9 Wave 11; unified read-only overview + cross-system explainability + passive diagnostics; no new bridge, no mutation, no execution)
+↓
+Execution Boundary Design (D10 Wave 1; domain + repository contract + replay only; no execution, no platform APIs, no mutation)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -334,6 +350,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D9 H25-H27 | Learning Read Layer (fail-closed bridge + read-only admin + navigation/explainability) | Learning Layer | Read layer complete; no persistence, execution, or automation |
 | D9 Wave 11 | AI Operations Console (unified subsystem overview + cross-system explainability + passive diagnostics; no new bridge) | Operations Console | Complete; passive AI platform (D1-D9) fully read-visible |
 | D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + Learning foundation and read layer (M10-M12 + H25-H27) + AI Operations Console (Wave 11) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation and read layer / Operations Console | Wave 11 complete; passive platform fully observable; no execution |
+| D10 Wave 1 (M1-M3) | Execution boundary design (domain + repository contract + replay) | Campaign Manager (name reused; orchestration not built) | Foundation complete; no execution, no platform APIs, no persistence, no bridge, no admin UI |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -459,13 +476,21 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager
+### D10: Campaign Manager (Wave 1 Execution Boundary Design complete)
 
 Goal: top-level orchestrator.
 
 D10 will introduce the Campaign Manager as the coordinating agent over specialized AI agents. It should delegate work, collect recommendations, request approvals, and keep campaigns moving through the platform.
 
 This phase depends on the earlier layers being stable because orchestration without reliable history, memory, publication state, metrics, and learning would create opaque automation.
+
+**D10 Wave 1 (M1–M3)** began the Execution boundary as a library-only foundation, using the same pattern as D9's domain/repository/replay waves:
+
+- **D10 M1:** Execution domain — execution intent and job identity, model-only authority requirement (owner approval, publisher authority, preflight pass), preflight result and block-reason vocabulary, sanitized evidence references, result vocabulary, validation, serialize/hydrate, and forbidden-state detection. Intent-only; no platform APIs, network, or credentials. Cannot import M2/M3.
+- **D10 M2:** Execution repository contract — reference-only persistence record shapes, domain ↔ record mapping, validation, and an in-memory reference repository for tests. Contract-only; no SQL, Supabase, store, or bridge. May import M1 only.
+- **D10 M3:** Execution replay — deterministic read helpers for pending, blocked, preflight-passed, failed, and completed jobs, and missing/sufficient authority evidence. Replay-only; no execution. May import M2/M1.
+
+The Execution foundation may reference Scheduler, Publisher, Ledger, Manifest, Approval, Publication Target, Metrics, Learning, Campaign Memory, Decision History, and social post ids by id only. It must not call Facebook, Instagram, TikTok, LinkedIn, or Google APIs, use OAuth or credentials, use HTTP/fetch, start cron/timers/workers/queues, expose API routes or admin UI, use SQL/Supabase, or mutate any lower layer. Wave 2 (execution implementation, platform adapters, cron/workers, retry automation) has not started.
 
 ## Long-Term Vision
 
