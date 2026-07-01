@@ -226,6 +226,18 @@ What it introduced: passive, explainable modeling and computed replay for candid
 
 What it does not introduce: AI model training, OpenAI or other external API calls, HTTP/fetch, credentials, secrets, SQL, Supabase, production store, persistence, bridge, admin UI, API routes, cron, timers, workers, queues, automation, scheduling, publishing, metrics collection, campaign memory promotion, or owner approval/ledger/manifest/target mutation.
 
+### D9 Wave 10: Learning Read Layer (complete)
+
+D9 Wave 10 made the passive, explainable Learning foundation read-visible without adding persistence, execution, or automation:
+
+- **D9 H25:** Learning bridge (`social-publication-learning-bridge.ts`) — environment-aware mode resolution, fail-closed production selection, and a reference-mode read bridge backed by the M11 in-memory repository. No production learning store exists; production mode always fails closed with `production_unavailable` unless a test-only implementation is injected. The bridge exposes list/load/snapshot reads only — no append, execution, or store-writing surface.
+- **D9 H26:** Learning read-only admin (`/admin/social-posts/publication-learning`) — GET-only filters, candidate/blocked/accepted-for-review/rejected insight buckets, missing/sufficient evidence buckets, computed group summaries by candidate type/campaign/social post, replay diagnostics, and empty/bridge-misconfigured/storage-unavailable/read-error states. No POST handlers, no mutations.
+- **D9 H27:** Navigation and explainability — Learning is cross-linked from the social-posts hub and the Metrics, Publisher, Scheduler, Ledger, and Manifest admin pages (and back). Every insight display shows confidence score/level, supporting evidence id, every referenced metric/publisher/scheduler/ledger/manifest/approval/campaign-memory/decision-history id, and a plain-language explanation of why replay classified the insight the way it did.
+
+What it introduced: read visibility into the Wave 9 Learning foundation through a fail-closed bridge and a read-only, explainable admin page.
+
+What it does not introduce: a production learning store, SQL, Supabase persistence, API routes, AI model training, external API calls, HTTP/fetch, scheduler execution, publisher execution, metrics collection, campaign memory promotion, learning automation, or any mutation of Metrics, Publisher, Scheduler, Ledger, Manifest, Approval, Targets, or Campaign Memory.
+
 ## Current State
 
 The current architecture is:
@@ -251,7 +263,7 @@ Publisher Read Integration (D9 Wave 4 foundation + Wave 5 durable store + Wave 6
 ↓
 Metrics Durable Read Integration (D9 Wave 7 foundation + Wave 8 durable store/bridge/read-only admin; no collection)
 ↓
-Learning Foundation (D9 Wave 9: domain + repository contract + replay; passive, explainable; no persistence, bridge, admin UI, or automation)
+Learning Read Layer (D9 Wave 9 foundation + Wave 10 bridge/read-only admin/navigation; passive, explainable; no persistence, execution, or automation)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -264,6 +276,9 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-manifest` | D6 | Post-scoped manifest, readiness, targets |
 | `/admin/social-posts/publication-ledger` | D8 + H6 | Scoped ledger load and replay |
 | `/admin/social-posts/publication-scheduler` | D9 + H13 | Scheduler intent records and computed replay |
+| `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
+| `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
+| `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
 
@@ -275,7 +290,7 @@ Working Context is implemented as temporary, campaign-scoped context rebuilt fro
 
 D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15–H17)** added durable Publisher SQL, row/domain mapping, and a Supabase-backed production store for Publisher records. **D9 Wave 6 (H18–H20)** added the Publisher bridge, read-only Publisher admin, and navigation wiring. **D9 Wave 7 (M7–M9)** added the passive Metrics foundation. **D9 Wave 8 (H21–H24)** added durable Metrics SQL, row mapping, production store, bridge, read-only admin, and navigation wiring. **D9 Wave 9 (M10–M12)** added the passive, explainable Learning foundation: a learning domain, a repository contract, and pure replay helpers, all reference-only and library-only. There is still no scheduler execution, publisher execution, metrics collection from external services, learning persistence, learning bridge, learning admin UI, AI model training, cron, workers, queues, retries, platform credentials, external API calls, or Metrics/Learning-driven automation. Metrics collection, Learning persistence and execution, Publisher execution, and background automation remain future work.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15–H17)** added durable Publisher SQL, row/domain mapping, and a Supabase-backed production store for Publisher records. **D9 Wave 6 (H18–H20)** added the Publisher bridge, read-only Publisher admin, and navigation wiring. **D9 Wave 7 (M7–M9)** added the passive Metrics foundation. **D9 Wave 8 (H21–H24)** added durable Metrics SQL, row mapping, production store, bridge, read-only admin, and navigation wiring. **D9 Wave 9 (M10–M12)** added the passive, explainable Learning foundation: a learning domain, a repository contract, and pure replay helpers, all reference-only and library-only. **D9 Wave 10 (H25–H27)** made that Learning foundation read-visible: a fail-closed read bridge with no production store, a read-only explainable admin page, and navigation/cross-link wiring across Metrics, Publisher, Scheduler, Ledger, and Manifest. There is still no scheduler execution, publisher execution, metrics collection from external services, learning persistence, learning automation, AI model training, cron, workers, queues, retries, platform credentials, external API calls, or Metrics/Learning-driven automation. Metrics collection, Learning persistence and execution, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -289,7 +304,8 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
 | D9 M7-M9 + H21-H24 | Passive Metrics durable read integration | Metrics Layer | Durable/read-visible complete; no collection |
 | D9 M10-M12 | Passive Learning foundation (domain + repository contract + replay) | Learning Layer | Foundation complete; no persistence, bridge, admin UI, or automation |
-| D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + passive Learning foundation (M10-M12) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation | Wave 9 complete; no execution |
+| D9 H25-H27 | Learning Read Layer (fail-closed bridge + read-only admin + navigation/explainability) | Learning Layer | Read layer complete; no persistence, execution, or automation |
+| D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + Learning foundation and read layer (M10-M12 + H25-H27) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation and read layer | Wave 10 complete; no execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
