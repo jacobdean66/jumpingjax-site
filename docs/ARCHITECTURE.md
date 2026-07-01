@@ -127,19 +127,22 @@ Not started in D9: scheduler execution, publisher execution, integration boundar
 
 The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
 
-### Layer 9: Publisher Foundation (implementation D9 Wave 4, complete)
+### Layer 9: Publisher Durable Persistence (implementation D9 Wave 4 + Wave 5, complete)
 
-The Publisher foundation defines how future publication execution should be represented and replayed without executing publication. It mirrors the scheduler's M1–M3 layering with M4–M6.
+The Publisher layer defines how future publication execution should be represented, mapped, replayed, and persisted without executing publication. It mirrors the scheduler and ledger durability pattern while remaining Publisher-record-only.
 
 Current components:
 
 - **M4 domain** (`social-publication-publisher.ts`) — job/channel identity, request/result contracts, model-only authority requirement, forbidden-state checks, validation, and serialize/hydrate. Cannot import M5/M6.
 - **M5 repository contract** (`social-publication-publisher-repository.ts`) — reference-only persistence records, domain ↔ record mapping, and validation. May import M4 only.
 - **M6 replay** (`social-publication-publisher-replay.ts`) — deterministic replay computing pending, blocked, completed, failed, missing-authority, and sufficient-authority-evidence jobs from the M5 persistence model. May import M5/M4.
+- **H15 SQL** (`social_publication_publisher_requests`, `social_publication_publisher_results`, `social_publication_publisher_evidence`) — append-only Publisher persistence with immutable audit fields, reference IDs only, authority/scheduler/ledger/target/manifest references, and no stored platform payloads.
+- **H16 row mapping** (`social-publication-publisher-rows.ts`, `social-publication-publisher-mapper.ts`) — SQL row models, validation, recursive payload checks, domain-to-row and row-to-domain mapping, and reference-only enforcement.
+- **H17 production store** (`social-publication-publisher-store.ts`) — service-role Supabase repository implementation for creating requests, appending results, inserting evidence, and reading Publisher records by post, target, manifest, or job.
 
-This layer is foundation-only. It does not contain publisher execution, platform credentials, external API calls, social-platform clients, cron, timers, workers, retries, metrics collection, learning automation, or customer-facing publication.
+This layer is persistence-only. It does not contain publisher execution, bridge wiring, admin UI, API routes, platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics collection, learning automation, or customer-facing publication.
 
-The Publisher foundation must remain below owner authority. It may prepare future execution semantics, but it must not publish, mutate scheduler intent, mutate ledger evidence, or contact external platforms.
+The Publisher persistence layer must remain below owner authority. It may persist Publisher domain objects that reference Scheduler IDs, Ledger IDs, Manifest IDs, Approval IDs, Publication Target IDs, and social post IDs. It must not embed lower-layer payloads, publish, mutate scheduler intent, mutate ledger evidence, mutate approval/manifest/target rows, or contact external platforms.
 
 ## Admin Read-Only Surfaces
 
@@ -172,16 +175,17 @@ social_campaign_memory_evidence
 
 `social_posts` represents the marketing post being planned or produced. `social_post_assets` stores generated or selected assets connected to that post. `social_post_decisions` records durable decisions about creative, image, video, or related social post work. `social_campaign_memories` stores promoted memory versions. `social_campaign_memory_evidence` links each memory to the exact decision rows and related entities that justify it.
 
-Publication stack tables and flows (D6–D9, H1–H14):
+Publication stack tables and flows (D6-D9, H1-H17):
 
 ```text
 social_owner_approval_proposals / social_owner_approval_events (D6)
 social_publication_targets (D7)
 social_publication_ledger_attempts / outcomes / evidence (D8 + H1)
 social_publication_schedule_intents (D9 + H9)
+social_publication_publisher_requests / results / evidence (D9 + H15)
 ```
 
-Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; replay output is computed at read time.
+Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; Scheduler records are append-only intent; Publisher records are append-only request/result/evidence persistence. Replay output is computed at read time. None of these durable rows grant publish authority.
 
 ## Promotion Engine
 
@@ -260,15 +264,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) + Publisher foundation (M4 domain/M5 repository/M6 replay only) | Autonomous Scheduler / Publisher foundation (Wave 4 complete) |
+| D9 | Scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher persistence (M4-M6 foundation + H15-H17 SQL, mapping, production store) | Autonomous Scheduler / Publisher persistence (Wave 5 complete; no execution) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11), D9 Wave 3 scheduler read visibility/admin wiring (H12–H14), and D9 Wave 4 Publisher foundation (M4 domain, M5 repository contract, M6 replay).
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1-H8 platform hardening, D9 Wave 1 scheduler foundation (M1-M3 library only), D9 Wave 2 scheduler durable storage (H9-H11), D9 Wave 3 scheduler read visibility/admin wiring (H12-H14), D9 Wave 4 Publisher foundation (M4 domain, M5 repository contract, M6 replay), and D9 Wave 5 Publisher durable persistence (H15 SQL, H16 row mapping, H17 production store).
 
-Not started: D9 scheduler execution, D9 publisher execution, publisher/execution integration, platform credentials, external API calls, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
+Not started: D9 scheduler execution, D9 publisher execution, publisher bridge/admin/API wiring, platform credentials, external API calls, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage. D9 Wave 3 (H12–H14) makes that durable intent read-visible through a bridge and read-only admin page. D9 Wave 4 (M4–M6) adds the Publisher domain, contract, and replay helpers; no execution engine, API route, or admin UI exists yet.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1-M3) provides intent and replay only. D9 Wave 2 (H9-H11) adds durable intent storage. D9 Wave 3 (H12-H14) makes that durable intent read-visible through a bridge and read-only admin page. D9 Wave 4 (M4-M6) adds the Publisher domain, contract, and replay helpers. D9 Wave 5 (H15-H17) adds durable Publisher persistence. No scheduler execution, publisher execution engine, Publisher bridge, API route, admin UI, metrics, or learning exists yet.
 
 ## Non-Negotiable Invariants
 

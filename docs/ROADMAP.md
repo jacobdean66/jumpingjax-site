@@ -163,6 +163,20 @@ What it does not introduce: publisher execution, platform credentials, external 
 
 The Publisher foundation may reason about publication intent and future hand-off boundaries, but it does not publish posts and does not grant publish authority.
 
+### D9 Wave 5: Publisher Durable Persistence (complete)
+
+D9 Wave 5 made Publisher records durable without adding publication execution:
+
+- **D9 H15:** Durable append-only SQL schema for Publisher requests, results, and evidence (`social_publication_publisher_requests`, `social_publication_publisher_results`, `social_publication_publisher_evidence`) — reference IDs only, immutable/append-only by trigger, and no payload, credential, execution, metric, or learning storage.
+- **D9 H16:** SQL row mapping and Publisher domain mapping (`social-publication-publisher-rows.ts`, `social-publication-publisher-mapper.ts`) — recursive validation, forbidden-payload detection, reference-only enforcement, and focused mapper tests.
+- **D9 H17:** Supabase service-role Publisher production store (`social-publication-publisher-store.ts`) — create/append/read operations, deterministic validation before writes, duplicate/idempotency checks, parent/scope checks, fail-closed service configuration, and focused store tests.
+
+What it introduced: durable Publisher persistence for Publisher domain records only.
+
+What it does not introduce: publisher execution, bridges, admin UI, API routes, platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics collection, learning automation, or customer-facing publication.
+
+The Publisher may persist Publisher requests, results, and evidence that reference Scheduler IDs, Ledger IDs, Manifest IDs, Approval IDs, Publication Target IDs, and social post IDs. It must not embed lower-layer payloads, mutate lower layers, or publish.
+
 ## Current State
 
 The current architecture is:
@@ -184,7 +198,7 @@ Publication Ledger (D8 + H1–H6 durable store and admin read)
 ↓
 Publication Scheduler (D9 M1–M3 foundation + H9–H14 durable/read-visible intent storage and admin read; no execution)
 ↓
-Publisher Foundation (D9 Wave 4 domain/contract/replay only; no execution)
+Publisher Durable Persistence (D9 Wave 4 foundation + Wave 5 H15-H17 durable store; no execution)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -208,7 +222,7 @@ Working Context is implemented as temporary, campaign-scoped context rebuilt fro
 
 D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6) only. There is still no scheduler execution, publisher execution, metrics, learning, cron, workers, platform credentials, external API calls, or API route. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15–H17)** added durable Publisher SQL, row/domain mapping, and a Supabase-backed production store for Publisher records. There is still no scheduler execution, publisher execution, metrics, learning, cron, workers, platform credentials, external API calls, bridge, admin UI, or API route. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -222,7 +236,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
 | — | Metrics collection | Metrics Layer | Not started |
 | — | Outcome-based learning proposals | Learning Layer | Not started |
-| D9 | Autonomous scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) + Publisher foundation (M4 domain/M5 repository/M6 replay only) | Autonomous Scheduler / Publisher foundation | Wave 4 complete |
+| D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher durable persistence (M4-M6 foundation + H15-H17 SQL, mapping, production store) | Autonomous Scheduler / Publisher persistence | Wave 5 complete; no execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -273,7 +287,7 @@ This layer will use metrics and Decision History to identify candidate lessons. 
 
 This is **not** the same as implementation phase D8 (Publication Ledger), which is already complete.
 
-### D9: Autonomous Scheduler and Publisher Foundation (Wave 4 complete)
+### D9: Autonomous Scheduler and Publisher Persistence (Wave 5 complete)
 
 Goal: recommend posting cadence and compute publication schedule intent without granting publish authority.
 
@@ -307,7 +321,13 @@ Human approval remains required. The scheduler may recommend and compute intent,
 - No publisher execution exists yet.
 - No platform credentials, social-platform clients, or external API calls exist yet.
 - No cron, timers, workers, retry engine, metrics collection, or learning automation exists yet.
-- No API routes, admin UI, or production storage exist yet for the publisher.
+- No API routes, admin UI, bridge, or execution path exists yet for the publisher.
+
+**D9 Wave 5** completed durable Publisher persistence:
+
+- **H15 (SQL):** Publisher requests, results, and evidence are stored append-only with immutable audit fields, reference IDs only, scheduler/ledger/manifest/target/approval references, and safety constraints that prohibit payload, credential, execution, metrics, or learning state.
+- **H16 (row mapping):** Publisher row and mapper layers translate domain, repository, evidence, and SQL row shapes with recursive validation, forbidden-payload detection, reference-only enforcement, and focused tests.
+- **H17 (production store):** Publisher service-role store creates requests, appends results, inserts evidence, reads by post/target/manifest/job, validates before storage access, rejects duplicate identity or idempotency keys, and checks parent/scope consistency. It is repository/storage only.
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
