@@ -15,7 +15,7 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
-## Implemented Platform Stack (D1-D9, H1-H17)
+## Implemented Platform Stack (D1-D9, H1-H20)
 
 The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
 
@@ -36,10 +36,10 @@ Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
 ↓
 Publication Scheduler (D9 M1-M3 foundation + H9-H14 durable/read-visible intent storage and admin read; no execution)
 ↓
-Publisher Durable Persistence (D9 Wave 4 foundation + Wave 5 H15-H17 durable store; no execution)
+Publisher Read Integration (D9 Wave 4 foundation + Wave 5 durable store + Wave 6 H18-H20 bridge/read-only admin; no execution)
 ```
 
-**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. Scheduler execution, Publisher execution, Publisher bridges/admin/API routes, platform credentials, external API calls, Metrics collection, Learning automation, background workers, queues, and mutation controls are still **not implemented**.
+**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. **D9 Wave 6 (H18-H20)** completed Publisher read integration with a bridge, read-only admin page, and navigation wiring. Scheduler execution, Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection, Learning automation, background workers, queues, and mutation controls are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -61,6 +61,7 @@ When reading commits or admin labels, use the code-phase meaning above.
 | `/admin/social-posts/publication-manifest` | D6 manifest, readiness, approval summary, D7 targets |
 | `/admin/social-posts/publication-ledger` | D8 ledger replay via H5 bridge |
 | `/admin/social-posts/publication-scheduler` | D9 scheduler intent replay via H12 bridge |
+| `/admin/social-posts/publication-publisher` | D9 Publisher records and replay via H18 bridge |
 
 Agents must treat admin replay, scheduler replay, publisher replay, and computed manifest/readiness output as **non-authoritative**. Decision History, append-only ledger rows, append-only scheduler intent rows, and append-only Publisher request/result/evidence rows are durable records; none of them grant publish authority.
 
@@ -215,9 +216,9 @@ Responsibilities:
 - retries
 - publication records
 
-**Status: persistence complete; execution not implemented.** D6-D8 provide publication preparation, targets, and append-only ledger evidence. D9 Wave 5 adds durable Publisher requests, results, and evidence. No publisher agent executes customer-facing posts yet.
+**Status: read integration complete; execution not implemented.** D6-D8 provide publication preparation, targets, and append-only ledger evidence. D9 Wave 5 adds durable Publisher requests, results, and evidence. D9 Wave 6 adds Publisher bridge and read-only admin inspection. No publisher agent executes customer-facing posts yet.
 
-D9 Wave 4 completed the Publisher foundation: publisher domain vocabulary (M4), contract boundaries (M5), and replay helpers (M6) exist for future execution planning. D9 Wave 5 completed durable Publisher persistence: SQL (H15), row/domain mapping (H16), and a service-role production store (H17) persist Publisher records only. This is not a publishing agent. There are still no platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics hooks, learning hooks, bridge, API routes, or admin UI.
+D9 Wave 4 completed the Publisher foundation: publisher domain vocabulary (M4), contract boundaries (M5), and replay helpers (M6) exist for future execution planning. D9 Wave 5 completed durable Publisher persistence: SQL (H15), row/domain mapping (H16), and a service-role production store (H17) persist Publisher records only. D9 Wave 6 completed read visibility through a Publisher bridge (H18), read-only admin page (H19), and navigation wiring (H20). This is not a publishing agent. There are still no platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics hooks, learning hooks, API routes, or execution path.
 
 Never:
 
@@ -319,7 +320,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), and Wave 5 (H15-H17 Publisher durable persistence) are complete. Publisher execution, Publisher bridge/admin/API wiring, platform credentials, external API calls, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), Wave 5 (H15-H17 Publisher durable persistence), and Wave 6 (H18-H20 Publisher bridge/read-only admin/navigation) are complete. Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 

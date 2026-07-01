@@ -127,9 +127,9 @@ Not started in D9: scheduler execution, publisher execution, integration boundar
 
 The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
 
-### Layer 9: Publisher Durable Persistence (implementation D9 Wave 4 + Wave 5, complete)
+### Layer 9: Publisher Read Integration (implementation D9 Wave 4 + Wave 5 + Wave 6, complete)
 
-The Publisher layer defines how future publication execution should be represented, mapped, replayed, and persisted without executing publication. It mirrors the scheduler and ledger durability pattern while remaining Publisher-record-only.
+The Publisher layer defines how future publication execution should be represented, mapped, replayed, persisted, bridged, and read-inspected without executing publication. It mirrors the scheduler and ledger durability/read-visibility pattern while remaining Publisher-record-only.
 
 Current components:
 
@@ -139,8 +139,11 @@ Current components:
 - **H15 SQL** (`social_publication_publisher_requests`, `social_publication_publisher_results`, `social_publication_publisher_evidence`) — append-only Publisher persistence with immutable audit fields, reference IDs only, authority/scheduler/ledger/target/manifest references, and no stored platform payloads.
 - **H16 row mapping** (`social-publication-publisher-rows.ts`, `social-publication-publisher-mapper.ts`) — SQL row models, validation, recursive payload checks, domain-to-row and row-to-domain mapping, and reference-only enforcement.
 - **H17 production store** (`social-publication-publisher-store.ts`) — service-role Supabase repository implementation for creating requests, appending results, inserting evidence, and reading Publisher records by post, target, manifest, or job.
+- **H18 bridge** (`social-publication-publisher-bridge.ts`) — environment-aware Publisher repository bridge with safe production detection, fail-closed configuration, and no silent production fallback.
+- **H19 read-only admin** (`/admin/social-posts/publication-publisher`) — GET-only Publisher record and replay inspection through the bridge.
+- **H20 navigation** — social-posts hub, Publisher, Scheduler, Publication Ledger, and Publication Manifest cross-links preserve query scope and remain read-only.
 
-This layer is persistence-only. It does not contain publisher execution, bridge wiring, admin UI, API routes, platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics collection, learning automation, or customer-facing publication.
+This layer is read-integration only. It does not contain publisher execution, API routes, SQL changes, persistence changes, row mapping changes, production store changes, platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics collection, learning automation, or customer-facing publication.
 
 The Publisher persistence layer must remain below owner authority. It may persist Publisher domain objects that reference Scheduler IDs, Ledger IDs, Manifest IDs, Approval IDs, Publication Target IDs, and social post IDs. It must not embed lower-layer payloads, publish, mutate scheduler intent, mutate ledger evidence, mutate approval/manifest/target rows, or contact external platforms.
 
@@ -154,8 +157,9 @@ All implemented marketing-platform admin pages are auth-gated and read-only for 
 - **Publication Manifest (D6)** — post-scoped manifest, readiness, owner approval summary, and target visibility.
 - **Publication Ledger (D8 + H6)** — scoped durable ledger load through H5 bridge and D8 replay.
 - **Publication Scheduler (D9 + H13)** — durable scheduler intent records and computed replay through H12 bridge.
+- **Publication Publisher (D9 + H19)** — durable Publisher request/result records and computed replay through H18 bridge.
 
-H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces.
+H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces. H20 added Publisher links between the hub, Publisher, scheduler, ledger, and manifest read surfaces.
 
 ## Current Production Data Flow
 
@@ -175,7 +179,7 @@ social_campaign_memory_evidence
 
 `social_posts` represents the marketing post being planned or produced. `social_post_assets` stores generated or selected assets connected to that post. `social_post_decisions` records durable decisions about creative, image, video, or related social post work. `social_campaign_memories` stores promoted memory versions. `social_campaign_memory_evidence` links each memory to the exact decision rows and related entities that justify it.
 
-Publication stack tables and flows (D6-D9, H1-H17):
+Publication stack tables and flows (D6-D9, H1-H20):
 
 ```text
 social_owner_approval_proposals / social_owner_approval_events (D6)
@@ -185,7 +189,7 @@ social_publication_schedule_intents (D9 + H9)
 social_publication_publisher_requests / results / evidence (D9 + H15)
 ```
 
-Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; Scheduler records are append-only intent; Publisher records are append-only request/result/evidence persistence. Replay output is computed at read time. None of these durable rows grant publish authority.
+Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; Scheduler records are append-only intent; Publisher records are append-only request/result/evidence persistence. Scheduler, Ledger, and Publisher replay outputs are computed at read time. None of these durable rows or replay outputs grant publish authority.
 
 ## Promotion Engine
 
@@ -264,15 +268,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher persistence (M4-M6 foundation + H15-H17 SQL, mapping, production store) | Autonomous Scheduler / Publisher persistence (Wave 5 complete; no execution) |
+| D9 | Scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage/admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) | Autonomous Scheduler / Publisher read integration (Wave 6 complete; no execution) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1-H8 platform hardening, D9 Wave 1 scheduler foundation (M1-M3 library only), D9 Wave 2 scheduler durable storage (H9-H11), D9 Wave 3 scheduler read visibility/admin wiring (H12-H14), D9 Wave 4 Publisher foundation (M4 domain, M5 repository contract, M6 replay), and D9 Wave 5 Publisher durable persistence (H15 SQL, H16 row mapping, H17 production store).
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1-H8 platform hardening, D9 Wave 1 scheduler foundation (M1-M3 library only), D9 Wave 2 scheduler durable storage (H9-H11), D9 Wave 3 scheduler read visibility/admin wiring (H12-H14), D9 Wave 4 Publisher foundation (M4 domain, M5 repository contract, M6 replay), D9 Wave 5 Publisher durable persistence (H15 SQL, H16 row mapping, H17 production store), and D9 Wave 6 Publisher read integration (H18 bridge, H19 read-only admin, H20 navigation).
 
-Not started: D9 scheduler execution, D9 publisher execution, publisher bridge/admin/API wiring, platform credentials, external API calls, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
+Not started: D9 scheduler execution, D9 publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1-M3) provides intent and replay only. D9 Wave 2 (H9-H11) adds durable intent storage. D9 Wave 3 (H12-H14) makes that durable intent read-visible through a bridge and read-only admin page. D9 Wave 4 (M4-M6) adds the Publisher domain, contract, and replay helpers. D9 Wave 5 (H15-H17) adds durable Publisher persistence. No scheduler execution, publisher execution engine, Publisher bridge, API route, admin UI, metrics, or learning exists yet.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1-M3) provides intent and replay only. D9 Wave 2 (H9-H11) adds durable intent storage. D9 Wave 3 (H12-H14) makes that durable intent read-visible through a bridge and read-only admin page. D9 Wave 4 (M4-M6) adds the Publisher domain, contract, and replay helpers. D9 Wave 5 (H15-H17) adds durable Publisher persistence. D9 Wave 6 (H18-H20) makes Publisher records read-visible through a bridge and read-only admin page. No scheduler execution, publisher execution engine, Publisher API route, metrics, or learning exists yet.
 
 ## Non-Negotiable Invariants
 
