@@ -368,6 +368,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + Learning foundation and read layer (M10-M12 + H25-H27) + AI Operations Console (Wave 11) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation and read layer / Operations Console | Wave 11 complete; passive platform fully observable; no execution |
 | D10 Wave 1 (M1-M3) | Execution boundary design (domain + repository contract + replay) | Campaign Manager (name reused; orchestration not built) | Foundation complete; no execution, no platform APIs, no persistence, no bridge, no admin UI |
 | D10 Wave 2 (H28-H30) | Execution durable infrastructure (append-only SQL + row mapping + production store) | Campaign Manager (name reused; orchestration not built) | Durable persistence complete; still does not execute; no bridge, no admin UI, no platform adapters |
+| D10 Wave 6 (M8-M10 + H36) | Execution adapter contract layer (adapter contracts + dry-run reference adapter + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Adapter contracts complete; only dry-run reference adapters exist; no real platform adapters, OAuth, credentials, or execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -493,7 +494,7 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager (Wave 5 Execution Planner complete)
+### D10: Campaign Manager (Wave 6 Execution Adapter Contract Layer complete)
 
 Goal: top-level orchestrator.
 
@@ -532,6 +533,15 @@ What it does not introduce: actual execution, publisher adapters, social platfor
 - **D10 H35:** Execution admin now shows planned execution order, dependency graph, blocking reasons, authority chain, reference chain, and why each job would theoretically execute next.
 
 What it does not introduce: actual execution, adapters, platform integrations, external APIs, HTTP/fetch, credentials, workers, queues, cron, timers, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution remains simulated only and still does not run.
+
+**D10 Wave 6 (M8-M10 + H36)** added the Execution Adapter Contract Layer:
+
+- **D10 M8:** Execution adapter contract domain (`social-publication-execution-adapter.ts`) models adapter identity, platform channel identity, capabilities, request/response/error/evidence contracts, safety requirements, preflight requirements, and dry-run support vocabulary with validation, serialization, and hydration. It defines contracts only; there are no Facebook, Instagram, TikTok, LinkedIn, OAuth, credential, network, or platform implementations.
+- **D10 M9:** Dry-run reference adapter (`social-publication-execution-adapter-dry-run.ts`) provides in-memory reference adapters that simulate adapter responses for planning and boundary tests only. No persistence, no external API, and no real publishing.
+- **D10 M10:** Adapter validation/replay (`social-publication-execution-adapter-replay.ts`) composes planner replay with adapter contracts to compute available adapters, missing adapters, unsupported channel jobs, dry-run-capable jobs, adapter-blocked jobs, and adapter-ready jobs. It remains computed-only and read-only.
+- **D10 H36:** Execution admin now shows required adapter, adapter availability, dry-run capability, unsupported channels, adapter blocking reasons, and safety requirements. It adds no run button, publish button, POST handler, OAuth flow, credential field, or external API call.
+
+What it does not introduce: real platform adapters, OAuth, credentials, HTTP/fetch, platform APIs, actual publishing, scheduler automation, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Only dry-run reference adapter contracts exist; Execution still does not run.
 
 ## Long-Term Vision
 
