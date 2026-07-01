@@ -142,6 +142,16 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
             </Link>
             <Link
               href={
+                query
+                  ? `/admin/social-posts/publication-execution?${query}`
+                  : "/admin/social-posts/publication-execution"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication execution
+            </Link>
+            <Link
+              href={
                 query ? `/admin/social-posts/memory?${query}` : "/admin/social-posts/memory"
               }
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"

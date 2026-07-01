@@ -617,6 +617,17 @@ export default async function AdminPublicationLedgerPage({
   const learningHref = learningQuery
     ? `/admin/social-posts/publication-learning?${learningQuery}`
     : "/admin/social-posts/publication-learning";
+  const executionParams = new URLSearchParams();
+  if (token) executionParams.set("token", token);
+  if (postId) executionParams.set("postId", postId);
+  if (manifestId) executionParams.set("manifestId", manifestId);
+  if (publicationTargetId) {
+    executionParams.set("publicationTargetId", publicationTargetId);
+  }
+  const executionQuery = executionParams.toString();
+  const executionHref = executionQuery
+    ? `/admin/social-posts/publication-execution?${executionQuery}`
+    : "/admin/social-posts/publication-execution";
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -666,6 +677,12 @@ export default async function AdminPublicationLedgerPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication learning
+            </Link>
+            <Link
+              href={executionHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication execution
             </Link>
             <Link
               href={

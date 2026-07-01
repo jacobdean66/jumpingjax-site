@@ -537,6 +537,11 @@ export default async function AdminPublicationPublisherPage({
     token,
     filters,
   );
+  const executionHref = linkWithFilters(
+    "/admin/social-posts/publication-execution",
+    token,
+    filters,
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -571,6 +576,9 @@ export default async function AdminPublicationPublisherPage({
             </Link>
             <Link href={learningHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
               Publication learning
+            </Link>
+            <Link href={executionHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
+              Publication execution
             </Link>
             <Link href={operationsHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
               AI Operations Console

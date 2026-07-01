@@ -31,6 +31,7 @@ const HUB_NAV: readonly [string, string][] = [
   ["/admin/social-posts/publication-metrics", "Publication metrics"],
   ["/admin/social-posts/publication-ledger", "Publication ledger"],
   ["/admin/social-posts/publication-learning", "Publication learning"],
+  ["/admin/social-posts/publication-execution", "Publication execution"],
   ["/admin/social-posts/memory", "Campaign memory"],
 ];
 

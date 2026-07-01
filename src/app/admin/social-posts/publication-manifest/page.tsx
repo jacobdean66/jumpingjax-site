@@ -557,6 +557,13 @@ export default async function AdminPublicationManifestPage({
     : query
       ? `/admin/social-posts/publication-learning?${query}`
       : "/admin/social-posts/publication-learning";
+  const executionHref = postId
+    ? query
+      ? `/admin/social-posts/publication-execution?${query}&postId=${encodeURIComponent(postId)}`
+      : `/admin/social-posts/publication-execution?postId=${encodeURIComponent(postId)}`
+    : query
+      ? `/admin/social-posts/publication-execution?${query}`
+      : "/admin/social-posts/publication-execution";
   let manifest: PublicationManifest | null = null;
   let readiness: PublicationReadiness | null = null;
   const ownerApprovalSummary = postId
@@ -616,6 +623,12 @@ export default async function AdminPublicationManifestPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication learning
+            </Link>
+            <Link
+              href={executionHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication execution
             </Link>
             <Link
               href={

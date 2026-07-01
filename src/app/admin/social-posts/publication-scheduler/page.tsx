@@ -177,6 +177,24 @@ function schedulerPublicationMetricsHref(filters: SchedulerFilters, token: strin
     : "/admin/social-posts/publication-metrics";
 }
 
+function schedulerPublicationExecutionHref(filters: SchedulerFilters, token: string): string {
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (filters.scheduleId) params.set("scheduleId", filters.scheduleId);
+  if (filters.socialPostId) params.set("postId", filters.socialPostId);
+  if (filters.publicationManifestId) {
+    params.set("manifestId", filters.publicationManifestId);
+  }
+  if (filters.publicationTargetId) {
+    params.set("publicationTargetId", filters.publicationTargetId);
+  }
+
+  const query = params.toString();
+  return query
+    ? `/admin/social-posts/publication-execution?${query}`
+    : "/admin/social-posts/publication-execution";
+}
+
 function activeFilterLabels(filters: SchedulerFilters): readonly string[] {
   return Object.entries(filters)
     .filter(([, value]) => value.length > 0)
@@ -652,6 +670,7 @@ export default async function AdminPublicationSchedulerPage({
   const manifestHref = schedulerPublicationManifestHref(filters, token);
   const publisherHref = schedulerPublicationPublisherHref(filters, token);
   const metricsHref = schedulerPublicationMetricsHref(filters, token);
+  const executionHref = schedulerPublicationExecutionHref(filters, token);
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -705,6 +724,12 @@ export default async function AdminPublicationSchedulerPage({
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
             >
               Publication learning
+            </Link>
+            <Link
+              href={executionHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication execution
             </Link>
             <Link
               href={query ? `/admin/social-posts/operations?${query}` : "/admin/social-posts/operations"}

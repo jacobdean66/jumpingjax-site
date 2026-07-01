@@ -321,6 +321,7 @@ export default async function AdminPublicationMetricsPage({ searchParams }: Prop
               ["/admin/social-posts/publication-ledger", "Ledger"],
               ["/admin/social-posts/publication-manifest", "Manifest"],
               ["/admin/social-posts/publication-learning", "Learning"],
+              ["/admin/social-posts/publication-execution", "Execution"],
               ["/admin/social-posts/operations", "AI Operations Console"],
             ].map(([href, label]) => (
               <Link
