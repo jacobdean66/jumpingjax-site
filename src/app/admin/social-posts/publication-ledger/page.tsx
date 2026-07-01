@@ -584,6 +584,17 @@ export default async function AdminPublicationLedgerPage({
   const schedulerHref = schedulerQuery
     ? `/admin/social-posts/publication-scheduler?${schedulerQuery}`
     : "/admin/social-posts/publication-scheduler";
+  const publisherParams = new URLSearchParams();
+  if (token) publisherParams.set("token", token);
+  if (postId) publisherParams.set("postId", postId);
+  if (manifestId) publisherParams.set("manifestId", manifestId);
+  if (publicationTargetId) {
+    publisherParams.set("publicationTargetId", publicationTargetId);
+  }
+  const publisherQuery = publisherParams.toString();
+  const publisherHref = publisherQuery
+    ? `/admin/social-posts/publication-publisher?${publisherQuery}`
+    : "/admin/social-posts/publication-publisher";
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -604,6 +615,12 @@ export default async function AdminPublicationLedgerPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={publisherHref}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Publication publisher
+            </Link>
             <Link
               href={manifestHref}
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
