@@ -15,7 +15,7 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
-## Implemented Platform Stack (D1-D9, H1-H20)
+## Implemented Platform Stack (D1-D9, H1-H20 + M7-M9)
 
 The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
 
@@ -37,9 +37,11 @@ Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
 Publication Scheduler (D9 M1-M3 foundation + H9-H14 durable/read-visible intent storage and admin read; no execution)
 ↓
 Publisher Read Integration (D9 Wave 4 foundation + Wave 5 durable store + Wave 6 H18-H20 bridge/read-only admin; no execution)
+↓
+Metrics Foundation (D9 Wave 7 M7-M9 passive domain/repository/replay only; no collection)
 ```
 
-**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. **D9 Wave 6 (H18-H20)** completed Publisher read integration with a bridge, read-only admin page, and navigation wiring. Scheduler execution, Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection, Learning automation, background workers, queues, and mutation controls are still **not implemented**.
+**D9 Scheduler Wave 1 (M1-M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9-H11)** added durable storage: append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1-H4 hardening. **D9 Scheduler Wave 3 (H12-H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15-H17)** completed Publisher durable persistence with SQL, row/domain mapping, and a service-role production store. **D9 Wave 6 (H18-H20)** completed Publisher read integration with a bridge, read-only admin page, and navigation wiring. **D9 Wave 7 (M7-M9)** completed the passive Metrics foundation with a domain, repository contract, and replay helpers for manually supplied observations only. Scheduler execution, Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Metrics persistence, Metrics bridge/admin, Learning automation, background workers, queues, and mutation controls are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -236,7 +238,19 @@ Responsibilities:
 - CTR
 - conversions
 
-**Status: not implemented.** This is the original roadmap Metrics layer. Implementation phase D7 built Publication Targets instead.
+**Status: passive foundation complete; collection not implemented.** This is the original roadmap Metrics layer. Implementation phase D7 built Publication Targets instead. D9 Wave 7 added passive Metrics domain, repository contract, and replay helpers for manually supplied observations only.
+
+D9 Wave 7 Metrics can model observations that reference Publisher IDs, Scheduler IDs, Ledger IDs, Manifest IDs, Approval IDs, Target IDs, and social post IDs. Metrics replay may compute pending, completed, failed, missing-evidence, sufficient-evidence, and aggregate summary projections. These projections are non-authoritative and read-only.
+
+Never:
+
+- collect metrics from real services
+- call Facebook, Instagram, TikTok, LinkedIn, OAuth, HTTP, fetch, analytics SDKs, or external APIs
+- persist production Metrics rows
+- expose Metrics bridge, admin UI, or API routes
+- trigger publishing or scheduling
+- mutate Publisher, Scheduler, Ledger, Approval, Manifest, Target, or social post records
+- perform learning automation
 
 Never:
 
@@ -320,7 +334,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), Wave 5 (H15-H17 Publisher durable persistence), and Wave 6 (H18-H20 Publisher bridge/read-only admin/navigation) are complete. Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1-M3 library foundation), Wave 2 (H9-H11 durable intent storage), Wave 3 (H12-H14 bridge/read visibility/admin navigation), Wave 4 (M4-M6 Publisher domain, contract, and replay helpers), Wave 5 (H15-H17 Publisher durable persistence), Wave 6 (H18-H20 Publisher bridge/read-only admin/navigation), and Wave 7 (M7-M9 passive Metrics foundation) are complete. Publisher execution, Publisher API routes, platform credentials, external API calls, Metrics collection from real services, Metrics persistence, Metrics bridge/admin, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 

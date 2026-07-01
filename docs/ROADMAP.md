@@ -189,6 +189,18 @@ What it introduced: read integration for Publisher persistence through the Publi
 
 What it does not introduce: publisher execution, API routes, SQL changes, persistence changes, row mapping changes, production store changes, platform credentials, external API calls, social-platform clients, cron, timers, workers, queues, retries, metrics collection, learning automation, or customer-facing publication.
 
+### D9 Wave 7: Metrics Foundation (complete)
+
+D9 Wave 7 began Metrics as a passive library foundation without collecting from real services:
+
+- **D9 M7:** Metrics domain (`social-publication-metrics.ts`) — metric vocabulary, observation identities, observation/evidence shapes, aggregation types, validation, serialization, hydration, sorting, and forbidden-state detection.
+- **D9 M8:** Metrics repository contract (`social-publication-metrics-repository.ts`) — record models, reference-only scope, validation, domain/record mapping, and an in-memory reference repository contract for tests only.
+- **D9 M9:** Metrics replay (`social-publication-metrics-replay.ts`) — computed read projections for pending/completed/failed observations, missing/sufficient evidence, and aggregate summaries.
+
+What it introduced: passive modeling and computed replay for manually supplied metric observations.
+
+What it does not introduce: metrics collection from real services, SQL, Supabase, production store, persistence, bridge, admin UI, API routes, Facebook, Instagram, TikTok, LinkedIn, OAuth, credentials, HTTP, fetch, analytics SDKs, external APIs, publisher execution, scheduler execution, cron, timers, workers, queues, retries, learning automation, or customer-facing publication.
+
 ## Current State
 
 The current architecture is:
@@ -211,6 +223,8 @@ Publication Ledger (D8 + H1–H6 durable store and admin read)
 Publication Scheduler (D9 M1–M3 foundation + H9–H14 durable/read-visible intent storage and admin read; no execution)
 ↓
 Publisher Read Integration (D9 Wave 4 foundation + Wave 5 durable store + Wave 6 bridge/read-only admin; no execution)
+↓
+Metrics Foundation (D9 Wave 7 M7–M9 passive domain/repository/replay only; no collection)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -234,7 +248,7 @@ Working Context is implemented as temporary, campaign-scoped context rebuilt fro
 
 D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15–H17)** added durable Publisher SQL, row/domain mapping, and a Supabase-backed production store for Publisher records. **D9 Wave 6 (H18–H20)** added the Publisher bridge, read-only Publisher admin, and navigation wiring. There is still no scheduler execution, publisher execution, metrics, learning, cron, workers, queues, retries, platform credentials, external API calls, API route, SQL change, persistence change, row mapping change, or production store change. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. **D9 Wave 4** completed the Publisher foundation with a domain contract (M4), repository contract (M5), and replay helpers (M6). **D9 Wave 5 (H15–H17)** added durable Publisher SQL, row/domain mapping, and a Supabase-backed production store for Publisher records. **D9 Wave 6 (H18–H20)** added the Publisher bridge, read-only Publisher admin, and navigation wiring. **D9 Wave 7 (M7–M9)** added the passive Metrics foundation: domain, repository contract, and replay helpers for manually supplied observations only. There is still no scheduler execution, publisher execution, metrics collection, learning, cron, workers, queues, retries, platform credentials, external API calls, API route, SQL change, persistence change, row mapping change, production store change, metrics bridge, or metrics admin UI. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -246,9 +260,9 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D7 | Publication targets | Metrics Layer | Name reused; metrics not built |
 | D8 | Publication ledger | Learning Layer | Name reused; learning not built |
 | H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
-| — | Metrics collection | Metrics Layer | Not started |
+| D9 M7-M9 | Passive Metrics foundation | Metrics Layer | Foundation complete; no collection/persistence |
 | — | Outcome-based learning proposals | Learning Layer | Not started |
-| D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) | Autonomous Scheduler / Publisher read integration | Wave 6 complete; no execution |
+| D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics foundation (M7-M9) | Autonomous Scheduler / Publisher read integration / Metrics foundation | Wave 7 complete; no execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -281,15 +295,17 @@ Exit criteria:
 - Decision traceability.
 - Explainability helpers.
 
-### Metrics Layer (original roadmap; not started)
+### Metrics Layer (foundation complete; collection not started)
 
 Goal: collect campaign performance.
 
-This layer will collect performance data for published campaigns and posts. It should connect outcomes to the content, assets, campaigns, and decisions that produced them.
+The D9 Wave 7 foundation models passive observations and computes replay summaries. It does not collect from real services, persist production rows, expose a bridge, or provide an admin UI.
+
+This layer will eventually collect performance data for published campaigns and posts. It should connect outcomes to the content, assets, campaigns, and decisions that produced them.
 
 This phase is necessary before learning from results. The platform cannot learn from performance until performance is captured consistently.
 
-This is **not** the same as implementation phase D7 (Publication Targets), which is already complete.
+This is **not** the same as implementation phase D7 (Publication Targets), which is already complete. D9 Wave 7 is a passive foundation only; real metrics collection remains not started.
 
 ### Learning Layer (original roadmap; not started)
 
@@ -299,7 +315,7 @@ This layer will use metrics and Decision History to identify candidate lessons. 
 
 This is **not** the same as implementation phase D8 (Publication Ledger), which is already complete.
 
-### D9: Autonomous Scheduler and Publisher Read Integration (Wave 6 complete)
+### D9: Autonomous Scheduler, Publisher Read Integration, and Metrics Foundation (Wave 7 complete)
 
 Goal: recommend posting cadence and compute publication schedule intent without granting publish authority.
 
@@ -346,6 +362,12 @@ Human approval remains required. The scheduler may recommend and compute intent,
 - **H18 (bridge):** Publisher bridge selects reference or production repository access by environment, rejects unsafe reference mode in production, fails closed when production storage is not configured, and exposes Publisher repository reads/writes without execution.
 - **H19 (read-only admin):** Publisher admin page lists Publisher requests/results and computed replay for pending, blocked, completed, failed, missing-authority, and sufficient-authority jobs. Forms are GET-only.
 - **H20 (navigation):** Social-posts hub, Publisher, Scheduler, Ledger, and Manifest pages cross-link while preserving token/query scope.
+
+**D9 Wave 7** completed the passive Metrics foundation:
+
+- **M7 (domain):** Metrics vocabulary, observation identities, evidence, aggregation types, validation, serialization, hydration, and forbidden-state detection.
+- **M8 (repository contract):** Metrics record models, reference-only scope, validation, domain/record mapping, and an in-memory reference repository contract. No SQL, Supabase, production store, bridge, or persistence was added.
+- **M9 (replay):** Pure replay helpers compute pending/completed/failed observations, missing/sufficient evidence, and aggregate summaries. Replay remains computed-only, read-only, non-authoritative, and unable to publish, schedule, collect, or learn.
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
