@@ -15,7 +15,7 @@ Each agent has:
 
 No agent should duplicate another agent's responsibility. The platform should grow by adding clear roles, not by creating overlapping agents that compete for ownership.
 
-## Implemented Platform Stack (D1–D9, H1–H11)
+## Implemented Platform Stack (D1–D9, H1–H14)
 
 The following is **implemented today** in code. Future agent roles below remain aspirational until their corresponding layers are built.
 
@@ -34,10 +34,10 @@ Publication Targets (implementation D7)
 ↓
 Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
 ↓
-Publication Scheduler (D9 M1–M3 foundation + H9–H11 durable intent storage; no execution)
+Publication Scheduler (D9 M1–M3 foundation + H9–H14 durable/read-visible intent storage and admin read; no execution)
 ```
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9–H11)** added durable storage — append-only SQL schema, row/mapper translation, and a Supabase-backed production store — mirroring the Publication Ledger's H1–H4 hardening. Publisher execution, Metrics collection, Learning automation, background workers, and scheduler admin surfaces are still **not implemented**.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation. **D9 Scheduler Wave 2 (H9–H11)** added durable storage — append-only SQL schema, row/mapper translation, and a Supabase-backed production store — mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added read visibility through the scheduler bridge, a read-only scheduler admin page, and admin navigation wiring. Scheduler execution, Publisher execution, Metrics collection, Learning automation, background workers, API routes, and mutation controls are still **not implemented**.
 
 ### Implementation phase naming note
 
@@ -58,8 +58,9 @@ When reading commits or admin labels, use the code-phase meaning above.
 | `/admin/social-posts/memory` | D4 Campaign Memory |
 | `/admin/social-posts/publication-manifest` | D6 manifest, readiness, approval summary, D7 targets |
 | `/admin/social-posts/publication-ledger` | D8 ledger replay via H5 bridge |
+| `/admin/social-posts/publication-scheduler` | D9 scheduler intent replay via H12 bridge |
 
-Agents must treat admin replay and computed manifest/readiness output as **non-authoritative**. Only Decision History and append-only ledger rows are durable evidence.
+Agents must treat admin replay, scheduler replay, and computed manifest/readiness output as **non-authoritative**. Only Decision History, append-only ledger rows, and append-only scheduler intent rows are durable evidence; none of them grant publish authority.
 
 ## Organizational Chart
 
@@ -120,7 +121,7 @@ Responsibilities:
 - scheduling requests
 - delegation
 
-**Status: not implemented (D10).** D9 Wave 1 (M1–M3) provides library-only intent and replay; D9 Wave 2 (H9–H11) adds durable intent storage. No autonomous scheduling agent runs in production yet.
+**Status: not implemented (D10).** D9 Wave 1 (M1–M3) provides library-only intent and replay; D9 Wave 2 (H9–H11) adds durable intent storage; D9 Wave 3 (H12–H14) makes scheduler intent read-visible through the bridge and read-only admin page. No autonomous scheduling agent runs in production yet.
 
 Inputs:
 
@@ -314,7 +315,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler Wave 1 (M1–M3 library foundation) and Wave 2 (H9–H11 durable intent storage) are complete. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
+D9 Scheduler Wave 1 (M1–M3 library foundation), Wave 2 (H9–H11 durable intent storage), and Wave 3 (H12–H14 bridge/read visibility/admin navigation) are complete. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 

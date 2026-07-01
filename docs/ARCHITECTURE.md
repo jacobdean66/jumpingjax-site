@@ -105,9 +105,9 @@ Current components:
 
 Ledger replay state is derived only. It must not be treated as publish authority.
 
-### Layer 8: Publication Scheduler (implementation D9 Wave 1 + Wave 2)
+### Layer 8: Publication Scheduler (implementation D9 Wave 1 + Wave 2 + Wave 3)
 
-The Publication Scheduler computes publication schedule intent from lower-layer references. It does not execute publication, mutate the ledger, or grant authority.
+The Publication Scheduler computes publication schedule intent from lower-layer references and makes durable intent records read-visible. It does not execute publication, mutate the ledger, or grant authority.
 
 Current components:
 
@@ -117,10 +117,13 @@ Current components:
 - **D9 H9:** Durable append-only SQL schema for scheduler intent records (`social_publication_schedule_intents`) — reference IDs only, immutable by trigger
 - **D9 H10:** SQL row ↔ persistence record mapping (`social-publication-scheduler-rows.ts`) and domain intent ↔ persistence record mapper (`social-publication-scheduler-mapper.ts`) — forbidden-payload checks, reference-only enforcement
 - **D9 H11:** Supabase production store (`social-publication-scheduler-store.ts`) — create/append/read per the M2 repository contract, deterministic validation before write
+- **D9 H12:** Scheduler bridge (`social-publication-scheduler-bridge.ts`) — environment-aware reference/production bridge with create, append, list, and identity-load operations
+- **D9 H13:** Read-only scheduler admin page (`/admin/social-posts/publication-scheduler`) — durable intent records and computed replay for next, overdue, paused, and completed schedules
+- **D9 H14:** Admin navigation wiring — hub, scheduler, manifest, and ledger read surfaces are cross-linked
 
-H9–H11 mirror the Publication Ledger's H1–H4 durability pattern: an append-only table, row/mapper translation, and a production store, with no bridge, admin wiring, or cron/worker integration.
+H9–H14 mirror the Publication Ledger's durability and read-visibility pattern: an append-only table, row/mapper translation, a production store, an environment-aware bridge, and read-only admin inspection. There is still no cron/worker integration.
 
-Not started in D9: publisher execution, integration boundary wiring into ledger evidence, admin surfaces, cron, timers, workers, metrics, and learning.
+Not started in D9: scheduler execution, publisher execution, integration boundary wiring into ledger evidence, API routes, cron, timers, workers, metrics, and learning.
 
 The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
 
@@ -133,8 +136,9 @@ All implemented marketing-platform admin pages are auth-gated and read-only for 
 - **Campaign Memory Inspector (D4)** — promoted memory and evidence visibility.
 - **Publication Manifest (D6)** — post-scoped manifest, readiness, owner approval summary, and target visibility.
 - **Publication Ledger (D8 + H6)** — scoped durable ledger load through H5 bridge and D8 replay.
+- **Publication Scheduler (D9 + H13)** — durable scheduler intent records and computed replay through H12 bridge.
 
-H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation.
+H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces.
 
 ## Current Production Data Flow
 
@@ -154,7 +158,7 @@ social_campaign_memory_evidence
 
 `social_posts` represents the marketing post being planned or produced. `social_post_assets` stores generated or selected assets connected to that post. `social_post_decisions` records durable decisions about creative, image, video, or related social post work. `social_campaign_memories` stores promoted memory versions. `social_campaign_memory_evidence` links each memory to the exact decision rows and related entities that justify it.
 
-Publication stack tables and flows (D6–D9, H1–H11):
+Publication stack tables and flows (D6–D9, H1–H14):
 
 ```text
 social_owner_approval_proposals / social_owner_approval_events (D6)
@@ -242,15 +246,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler (M1–M3 foundation + H9–H11 durable storage) | Autonomous Scheduler (Wave 2 complete) |
+| D9 | Scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) | Autonomous Scheduler (Wave 3 complete) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11).
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only), D9 Wave 2 scheduler durable storage (H9–H11), and D9 Wave 3 scheduler read visibility/admin wiring (H12–H14).
 
-Not started: D9 publisher/execution integration, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
+Not started: D9 scheduler execution, D9 publisher/execution integration, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage only; no execution engine exists yet.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only. D9 Wave 2 (H9–H11) adds durable intent storage. D9 Wave 3 (H12–H14) makes that durable intent read-visible through a bridge and read-only admin page; no execution engine exists yet.
 
 ## Non-Negotiable Invariants
 

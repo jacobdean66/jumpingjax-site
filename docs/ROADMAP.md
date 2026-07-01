@@ -136,15 +136,18 @@ After D8 M1–M6, platform hardening made the ledger operationally inspectable a
 - **H7:** Social-posts admin navigation, manifest ↔ ledger cross-links, and documentation reconciliation.
 - **H8:** Final platform consistency audit — admin navigation completeness, documentation hardening across `ROADMAP.md`, `ARCHITECTURE.md`, and `AI_AGENTS.md`, and read-only smoke inspection before D9.
 
-### Platform Hardening H9–H11 (D9 Wave 2)
+### Platform Hardening H9–H14 (D9 Wave 2–3)
 
 After D9 M1–M3, platform hardening gave the scheduler the same durable-storage treatment H1–H4 gave the ledger:
 
 - **H9:** Durable append-only SQL schema for scheduler intent records (`social_publication_schedule_intents`) — reference IDs only, immutable/append-only by trigger, intent-only invariants enforced by check constraints.
 - **H10:** SQL row ↔ persistence record mapping (`social-publication-scheduler-rows.ts`) and domain intent ↔ persistence record mapper (`social-publication-scheduler-mapper.ts`) — forbidden-payload checks, reference-only enforcement, no Supabase client.
 - **H11:** Supabase production store for scheduler records (`social-publication-scheduler-store.ts`) — create/append/read per the M2 repository contract, deterministic validation before write, fail-closed on misconfiguration.
+- **H12:** Scheduler bridge (`social-publication-scheduler-bridge.ts`) — environment-aware reference/production bridge with create, append, list, and identity-load operations so durable scheduler intent is read-visible without adding execution behavior.
+- **H13:** Read-only scheduler admin page (`/admin/social-posts/publication-scheduler`) — durable intent records plus computed replay state for next, overdue, paused, and completed schedules.
+- **H14:** Admin navigation wiring — social-posts hub, scheduler, publication ledger, and publication manifest are cross-linked with token/query behavior preserved.
 
-H9–H11 give the scheduler durable history. They do not add execution, cron, timers, workers, publishing, metrics, or learning. The scheduler remains intent-only.
+H9–H14 give the scheduler durable, read-visible intent history and read-only admin inspection. They do not add execution, cron, timers, workers, publishing, metrics, learning, API routes, or mutation controls. The scheduler remains intent-only.
 
 ## Current State
 
@@ -165,7 +168,7 @@ Publication Targets (D7)
 ↓
 Publication Ledger (D8 + H1–H6 durable store and admin read)
 ↓
-Publication Scheduler (D9 M1–M3 foundation + H9–H11 durable intent storage; no execution)
+Publication Scheduler (D9 M1–M3 foundation + H9–H14 durable/read-visible intent storage and admin read; no execution)
 ```
 
 Admin read-only surfaces (all auth-gated):
@@ -177,6 +180,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/memory` | D4 | Campaign memory inspector |
 | `/admin/social-posts/publication-manifest` | D6 | Post-scoped manifest, readiness, targets |
 | `/admin/social-posts/publication-ledger` | D8 + H6 | Scoped ledger load and replay |
+| `/admin/social-posts/publication-scheduler` | D9 + H13 | Scheduler intent records and computed replay |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
 
@@ -188,7 +192,7 @@ Working Context is implemented as temporary, campaign-scoped context rebuilt fro
 
 D6–D8 provide publication preparation, target selection, and append-only ledger evidence. H1–H6 added durable ledger storage and read-only admin inspection. H7 connected admin navigation and reconciled documentation. H8 completed the final consistency audit before D9.
 
-**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. There is still no execution engine, publisher, metrics, learning, cron, workers, or scheduler admin surface. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
+**D9 Scheduler Wave 1 (M1–M3)** built a library-only foundation: scheduler domain, repository contract, and replay helpers. **D9 Scheduler Wave 2 (H9–H11)** added durable storage: an append-only SQL schema, row/mapper translation, and a Supabase-backed production store, mirroring the Publication Ledger's H1–H4 hardening. **D9 Scheduler Wave 3 (H12–H14)** added a read bridge, read-only admin page, and admin navigation wiring so durable scheduler intent can be listed, loaded, and inspected with computed replay state. There is still no execution engine, publisher, metrics, learning, cron, workers, or API route. Metrics collection, Learning-layer automation, Publisher execution, and background automation remain future work.
 
 ## Implementation Phase Map
 
@@ -202,7 +206,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | H1–H8 | Ledger durability + admin wiring + docs + final audit | (platform hardening) | Complete through H8 |
 | — | Metrics collection | Metrics Layer | Not started |
 | — | Outcome-based learning proposals | Learning Layer | Not started |
-| D9 | Autonomous scheduler (M1–M3 foundation + H9–H11 durable storage) | Autonomous Scheduler | Wave 2 complete |
+| D9 | Autonomous scheduler (M1–M3 foundation + H9–H14 durable/read-visible storage and admin read) | Autonomous Scheduler | Wave 3 complete |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -253,7 +257,7 @@ This layer will use metrics and Decision History to identify candidate lessons. 
 
 This is **not** the same as implementation phase D8 (Publication Ledger), which is already complete.
 
-### D9: Autonomous Scheduler (Wave 2 complete)
+### D9: Autonomous Scheduler (Wave 3 complete)
 
 Goal: recommend posting cadence and compute publication schedule intent without granting publish authority.
 
@@ -269,7 +273,13 @@ Goal: recommend posting cadence and compute publication schedule intent without 
 - **D9 H10:** Row ↔ persistence record mapping and domain intent ↔ persistence record mapper — forbidden-payload checks, reference-only enforcement.
 - **D9 H11:** Supabase production store — create/append/read per the M2 repository contract, deterministic validation before write.
 
-The scheduler may read references to Owner Approval, Publication Manifest, Publication Targets, and Publication Ledger. It must not mutate those layers, publish, or grant authority. Publisher execution, metrics, learning, cron, workers, and admin surfaces remain future work (D9 Wave 3+).
+**D9 Wave 3 (H12–H14)** made scheduler intent read-visible through an environment-aware bridge and read-only admin surface:
+
+- **D9 H12:** Scheduler bridge — reference and production modes, deterministic validation, no unsafe production fallback, and read operations for listing schedule intents or loading them by identity.
+- **D9 H13:** Scheduler admin read page — GET-only filters, raw intent records, computed replay summary, next/overdue/paused/completed schedule sections, and read/storage error states.
+- **D9 H14:** Admin navigation wiring — hub, scheduler, manifest, and ledger links remain read-only and preserve existing token/query behavior.
+
+The scheduler may read references to Owner Approval, Publication Manifest, Publication Targets, and Publication Ledger. It must not mutate those layers, publish, or grant authority. Publisher execution, metrics, learning, cron, workers, and API routes remain future work.
 
 Human approval remains required. The scheduler may recommend and compute intent, but it must not become an unchecked publishing authority.
 
