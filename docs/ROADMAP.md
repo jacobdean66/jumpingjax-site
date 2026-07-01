@@ -495,7 +495,7 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager (Wave 6 Execution Adapter Contract Layer complete)
+### D10: Campaign Manager (Wave 8 Execution Coordinator complete)
 
 Goal: top-level orchestrator.
 
@@ -551,6 +551,14 @@ What it does not introduce: real platform adapters, OAuth, credentials, HTTP/fet
 - **D10 H37:** Execution admin now shows human operator verification needs, manual checklist items, adapter prerequisites, authority checklist, rollback notes, audit expectations, and blocked reasons. It adds no run button, approve button, retry button, POST handler, or automation control.
 
 What it does not introduce: actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution is fully modeled through runbook/readiness layers but remains inactive by design.
+
+**D10 Wave 8 (M13-M14 + H38)** added the Execution Coordinator:
+
+- **D10 M13:** Execution coordinator domain (`social-publication-execution-coordinator.ts`) models execution coordination, pipeline phases, ordered pipeline, dependency validation, authority chain, adapter selection, planner/preflight/runbook integration, coordination diagnostics, validation, serialization, hydration, and forbidden-state detection. It assembles all modeling layers into a single deterministic plan and never executes anything.
+- **D10 M14:** Coordinator replay (`social-publication-execution-coordinator-replay.ts`) composes preflight, planner, adapter, and runbook replay to compute fully coordinated jobs, waiting jobs, blocked jobs, dependency failures, authority failures, adapter readiness, runbook readiness, and pipeline summary. It remains pure replay with no mutation.
+- **D10 H38:** Execution admin now shows execution pipeline, coordination stages, dependency graph, authority graph, adapter selection, pipeline readiness, and coordination diagnostics. It adds no run button, execute button, retry button, POST handler, or automation control.
+
+What it does not introduce: actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, platform integrations, or protected-system edits. The execution pipeline is fully modeled end-to-end but remains inactive by design.
 
 ## Long-Term Vision
 

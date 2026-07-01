@@ -286,6 +286,18 @@ Current components:
 
 This layer does not contain actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, API routes, POST handlers, SQL changes, persistence changes, automation controls, lower-layer mutations, scheduler automation, publisher execution, metrics collection, learning automation, or protected-system edits. Execution is fully modeled through runbook/readiness layers but remains inactive by design; D10 execution implementation has not started.
 
+### Layer 13 continued: Execution Coordinator (implementation D10 Wave 8, complete)
+
+D10 Wave 8 added the Execution Coordinator that assembles preflight, planner, adapter, and runbook modeling layers into a single deterministic execution pipeline plan. It answers how all execution layers coordinate into an ordered pipeline with dependency validation, authority chains, and adapter selection, but it never executes, publishes, or calls external APIs.
+
+Current components:
+
+- **M13 coordinator domain** (`social-publication-execution-coordinator.ts`) - execution coordination, pipeline phases, ordered pipeline, dependency validation, authority chain, adapter selection, planner/preflight/runbook integration, coordination diagnostics, serialize/hydrate, and forbidden-state detection.
+- **M14 coordinator replay** (`social-publication-execution-coordinator-replay.ts`) - read-only composition of preflight, planner, adapter, and runbook replay to compute fully coordinated jobs, waiting jobs, blocked jobs, dependency failures, authority failures, adapter readiness, runbook readiness, and pipeline summary.
+- **H38 admin visibility** (`/admin/social-posts/publication-execution`) - displays execution pipeline, coordination stages, dependency graph, authority graph, adapter selection, pipeline readiness, and coordination diagnostics.
+
+This layer does not contain actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, API routes, POST handlers, SQL changes, persistence changes, automation controls, lower-layer mutations, scheduler automation, publisher execution, metrics collection, learning automation, or protected-system edits. The execution pipeline is fully modeled end-to-end but remains inactive by design; D10 execution implementation has not started.
+
 ## Admin Read-Only Surfaces
 
 All implemented marketing-platform admin pages are auth-gated and read-only for inspection:
@@ -299,7 +311,7 @@ All implemented marketing-platform admin pages are auth-gated and read-only for 
 - **Publication Publisher (D9 + H19)** — durable Publisher request/result records and computed replay through H18 bridge.
 - **Publication Metrics (D9 + H24)** — durable metric observation records and computed replay through H24 bridge.
 - **Publication Learning (D9 + H26)** — candidate/blocked/accepted-for-review/rejected learning insight records and computed, explainable replay through the H25 bridge. No production store; storage-unavailable is an expected state.
-- **Publication Execution (D10 + H32/H34/H35/H36/H37)** — durable Execution request/result records, computed replay, read-only preflight diagnostics, simulated planner visibility, adapter contract diagnostics, and runbook readiness diagnostics through H31 bridge; no execution controls.
+- **Publication Execution (D10 + H32/H34/H35/H36/H37/H38)** — durable Execution request/result records, computed replay, read-only preflight diagnostics, simulated planner visibility, adapter contract diagnostics, runbook readiness diagnostics, and coordinator pipeline diagnostics through H31 bridge; no execution controls.
 - **AI Operations Console (D9 Wave 11)** — unified, GET-only overview of all read-visible subsystems, a cross-system pipeline trace scoped by social post id, and passive health diagnostics. Composes existing bridges/replay only; introduces no new persistence or mutation.
 
 H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces. H20 added Publisher links between the hub, Publisher, scheduler, ledger, and manifest read surfaces. H27 added Learning links between the hub, Metrics, Publisher, Scheduler, Ledger, and Manifest read surfaces. Wave 11 added the Operations Console link from the social-posts hub. The D9 Final Architecture Audit (pre-D10) closed the remaining Operations Console back-link gap. H33 adds Execution links between the hub, Scheduler, Publisher, Metrics, Learning, Ledger, Manifest, and Operations Console.
@@ -422,6 +434,7 @@ Code phase numbers and original roadmap labels diverged after D6:
 | D10 Wave 5 (M6-M7 + H35) | Execution planner (pure plan domain + replay integration + admin visibility) | Campaign Manager (name reused; orchestration not built; simulated planning only, no execution, no APIs, no adapters, no workers/cron/queues/retries) |
 | D10 Wave 6 (M8-M10 + H36) | Execution adapter contract layer (adapter contracts + dry-run reference adapter + replay + admin visibility) | Campaign Manager (name reused; orchestration not built; contract-only adapter layer, only dry-run reference adapters, no real platform adapters, OAuth, credentials, or execution) |
 | D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built; runbook/readiness complete, human checklist exists, execution fully modeled but inactive, D10 execution implementation not started) |
+| D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built; pipeline modeled end-to-end, no execution, no platform integrations, no automation) |
 
 ## Future Roadmap
 
