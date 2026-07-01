@@ -105,6 +105,20 @@ Current components:
 
 Ledger replay state is derived only. It must not be treated as publish authority.
 
+### Layer 8: Publication Scheduler (implementation D9 Wave 1)
+
+The Publication Scheduler computes publication schedule intent from lower-layer references. It does not execute publication, mutate the ledger, or grant authority.
+
+Current components (library-only):
+
+- **D9 M1:** Scheduler domain contract — vocabulary, schedule identities, state types, validation, serialization, deterministic ordering primitives
+- **D9 M2:** Repository contract — persistence record shapes, repository interface, request validation (no implementation)
+- **D9 M3:** Replay read model — next scheduled publication, overdue, paused, and completed schedule projections (computed, non-authoritative)
+
+Not started in D9: publisher execution, durable scheduler store, integration boundary wiring, admin surfaces, cron, timers, workers, metrics, and learning.
+
+The dormant D8 M6 scheduler boundary adapter (`createDormantPublicationLedgerSchedulerBoundaryAdapter`) remains validation-only until a future D9 milestone explicitly wires scheduler intent into ledger evidence.
+
 ## Admin Read-Only Surfaces
 
 All implemented marketing-platform admin pages are auth-gated and read-only for inspection:
@@ -222,15 +236,15 @@ Code phase numbers and original roadmap labels diverged after D6:
 | H1–H8 | Ledger durability, admin read, navigation, docs, final audit | Platform hardening |
 | — | Metrics collection | Metrics Layer (not started) |
 | — | Learning proposals | Learning Layer (not started) |
-| D9 | Scheduler | Autonomous Scheduler (not started) |
+| D9 | Scheduler (M1–M3 foundation) | Autonomous Scheduler (Wave 1 in progress) |
 
 ## Future Roadmap
 
-Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening.
+Completed implementation phases: D5 Working Context, D6 Publication Layer, D7 Publication Targets, D8 Publication Ledger, H1–H8 platform hardening, D9 Wave 1 scheduler foundation (M1–M3 library only).
 
-Not started: D9 Scheduler, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
+Not started: D9 publisher/execution integration, Publisher execution, Metrics collection, Learning-layer automation, D10 Campaign Manager, and all background automation (cron, queues, workers, retry engines).
 
-See `docs/ROADMAP.md` for milestone detail. D9 has not started.
+See `docs/ROADMAP.md` for milestone detail. D9 Wave 1 (M1–M3) provides intent and replay only; no execution engine exists yet.
 
 ## Non-Negotiable Invariants
 

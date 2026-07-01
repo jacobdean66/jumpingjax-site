@@ -33,9 +33,11 @@ Publication Layer (D6: owner approval, manifest, readiness)
 Publication Targets (implementation D7)
 ↓
 Publication Ledger (implementation D8 + H1–H6 durable store/admin read)
+↓
+Publication Scheduler (D9 M1–M3 foundation; intent and replay only)
 ```
 
-Platform hardening H1–H8 made the ledger durable, admin-readable, navigable, and documentation-consistent. **D9 Scheduler has not started.** Publisher execution, Metrics collection, Learning automation, and background workers are **not implemented**.
+**D9 Scheduler Wave 1 (M1–M3) has started** as a library-only foundation. Publisher execution, Metrics collection, Learning automation, background workers, and scheduler admin surfaces are **not implemented**.
 
 ### Implementation phase naming note
 
@@ -118,7 +120,7 @@ Responsibilities:
 - scheduling requests
 - delegation
 
-**Status: not implemented (D10).** D9 Scheduler has not started.
+**Status: not implemented (D10).** D9 Scheduler Wave 1 (M1–M3) provides library-only intent and replay; no autonomous scheduling agent runs in production yet.
 
 Inputs:
 
@@ -312,7 +314,7 @@ Business Brain differs from Campaign Memory. Campaign Memory represents campaign
 
 ## Future Expansion
 
-D9 Scheduler, Publisher execution, Metrics collection, Learning automation, and Campaign Manager orchestration are planned but **not started**.
+D9 Scheduler Wave 1 (M1–M3 library foundation) has started. Publisher execution, Metrics collection, Learning automation, scheduler execution, and Campaign Manager orchestration remain **not started**.
 
 Future agents may include:
 
