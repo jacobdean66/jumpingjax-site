@@ -369,6 +369,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D10 Wave 1 (M1-M3) | Execution boundary design (domain + repository contract + replay) | Campaign Manager (name reused; orchestration not built) | Foundation complete; no execution, no platform APIs, no persistence, no bridge, no admin UI |
 | D10 Wave 2 (H28-H30) | Execution durable infrastructure (append-only SQL + row mapping + production store) | Campaign Manager (name reused; orchestration not built) | Durable persistence complete; still does not execute; no bridge, no admin UI, no platform adapters |
 | D10 Wave 6 (M8-M10 + H36) | Execution adapter contract layer (adapter contracts + dry-run reference adapter + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Adapter contracts complete; only dry-run reference adapters exist; no real platform adapters, OAuth, credentials, or execution |
+| D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Runbook/readiness complete; human checklist exists; execution fully modeled but inactive; D10 execution implementation not started |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -542,6 +543,14 @@ What it does not introduce: actual execution, adapters, platform integrations, e
 - **D10 H36:** Execution admin now shows required adapter, adapter availability, dry-run capability, unsupported channels, adapter blocking reasons, and safety requirements. It adds no run button, publish button, POST handler, OAuth flow, credential field, or external API call.
 
 What it does not introduce: real platform adapters, OAuth, credentials, HTTP/fetch, platform APIs, actual publishing, scheduler automation, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Only dry-run reference adapter contracts exist; Execution still does not run.
+
+**D10 Wave 7 (M11-M12 + H37)** added the Execution Runbook Readiness Layer:
+
+- **D10 M11:** Execution runbook domain (`social-publication-execution-runbook.ts`) models execution runbooks, runbook steps, operator checklists, manual confirmation requirements, adapter prerequisites, preflight prerequisites, rollback notes, audit expectations, blocked runbook reasons, validation, serialization, hydration, and forbidden-state detection. It defines readiness vocabulary only; there is no automation, execution, or platform integration.
+- **D10 M12:** Runbook replay (`social-publication-execution-runbook-replay.ts`) composes preflight, planner, and adapter replay to compute ready/blocked runbooks, missing checklist items, missing adapter prerequisites, missing authority evidence, and manual confirmation requirements. It remains pure replay with no mutation.
+- **D10 H37:** Execution admin now shows human operator verification needs, manual checklist items, adapter prerequisites, authority checklist, rollback notes, audit expectations, and blocked reasons. It adds no run button, approve button, retry button, POST handler, or automation control.
+
+What it does not introduce: actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution is fully modeled through runbook/readiness layers but remains inactive by design.
 
 ## Long-Term Vision
 
