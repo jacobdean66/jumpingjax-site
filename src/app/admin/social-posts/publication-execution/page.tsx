@@ -36,6 +36,11 @@ import {
   type SocialPublicationExecutionRunbookJobProjection,
   type SocialPublicationExecutionRunbookReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-runbook-replay";
+import {
+  replaySocialPublicationExecutionCoordinator,
+  type SocialPublicationExecutionCoordinatorJobProjection,
+  type SocialPublicationExecutionCoordinatorReplayDiagnostic,
+} from "@/lib/social-posts/social-publication-execution-coordinator-replay";
 import type { SocialPublicationExecutionPlanStep } from "@/lib/social-posts/social-publication-execution-planner";
 
 export const dynamic = "force-dynamic";
@@ -974,6 +979,133 @@ function RunbookDiagnosticsList({
   );
 }
 
+function CoordinatorJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPublicationExecutionCoordinatorJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1800px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Coordination Status</th>
+                <th className="px-3 py-2">Fully Coordinated</th>
+                <th className="px-3 py-2">Pipeline Phases</th>
+                <th className="px-3 py-2">Dependency Graph</th>
+                <th className="px-3 py-2">Authority Graph</th>
+                <th className="px-3 py-2">Adapter Selection</th>
+                <th className="px-3 py-2">Adapter Ready</th>
+                <th className="px-3 py-2">Runbook Ready</th>
+                <th className="px-3 py-2">Dependency Failures</th>
+                <th className="px-3 py-2">Authority Failures</th>
+                <th className="px-3 py-2">Blocked Reasons</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-black">{job.coordinationStatus}</td>
+                  <td className="px-3 py-2 font-black">{String(job.fullyCoordinated)}</td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={job.pipelinePhases.map(
+                        (phase) => `${phase.kind}:${phase.status}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={job.dependencyGraph.map(
+                        (node) => `${node.dependencyType}:${String(node.present)}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={job.authorityGraph.map(
+                        (node) => `${node.authorityType}:${String(node.present)}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `adapter: ${job.adapterSelection.adapterId ?? "none"}`,
+                        `platform: ${job.adapterSelection.platform ?? "none"}`,
+                        `dryRun: ${String(job.adapterSelection.dryRunCapable)}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-black">{String(job.adapterReady)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.runbookReady)}</td>
+                  <td className="px-3 py-2"><PillList values={job.dependencyFailures} /></td>
+                  <td className="px-3 py-2"><PillList values={job.authorityFailures} /></td>
+                  <td className="px-3 py-2"><PillList values={job.blockingReasons} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CoordinatorDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPublicationExecutionCoordinatorReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No coordinator replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminPublicationExecutionPage({
   searchParams,
 }: Props) {
@@ -1010,6 +1142,7 @@ export default async function AdminPublicationExecutionPage({
   const plannerReplay = replaySocialPublicationExecutionPlanner(loaded.model).value;
   const adapterReplay = replaySocialPublicationExecutionAdapters(loaded.model).value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
+  const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Social posts"],
@@ -1376,6 +1509,68 @@ export default async function AdminPublicationExecutionPage({
               <RunbookJobTable title="Missing Authority Runbooks" empty="No jobs are missing authority evidence." jobs={runbookReplay.missingAuthorityRunbooks} />
               <RunbookJobTable title="Manual Confirmation Runbooks" empty="No jobs require manual confirmations." jobs={runbookReplay.manualConfirmationRunbooks} />
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Execution Coordinator Pipeline
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {coordinatorReplay.summary.fullyCoordinatedJobCount > 0
+                        ? "Fully coordinated jobs found"
+                        : "No fully coordinated jobs"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Coordinator diagnostics assemble preflight, planner, adapter, and
+                      runbook layers into a single deterministic execution pipeline.
+                      This shows coordination stages, dependency graphs, authority
+                      chains, adapter selection, and pipeline readiness. It never
+                      executes, publishes, calls external APIs, or mutates records.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    pipeline only
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Total Jobs" value={coordinatorReplay.summary.totalJobCount} />
+                  <Field label="Fully Coordinated" value={coordinatorReplay.summary.fullyCoordinatedJobCount} />
+                  <Field label="Waiting Jobs" value={coordinatorReplay.summary.waitingJobCount} />
+                  <Field label="Blocked Jobs" value={coordinatorReplay.summary.blockedJobCount} />
+                  <Field label="Dependency Failures" value={coordinatorReplay.summary.dependencyFailureCount} />
+                  <Field label="Authority Failures" value={coordinatorReplay.summary.authorityFailureCount} />
+                  <Field label="Adapter Ready" value={coordinatorReplay.summary.adapterReadyCount} />
+                  <Field label="Runbook Ready" value={coordinatorReplay.summary.runbookReadyCount} />
+                  <Field label="Replay Valid" value={String(coordinatorReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={coordinatorReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...coordinatorReplay.plan.orderedPipeline.map(
+                        (phase) => `pipeline:${phase}`,
+                      ),
+                      `planStatus: ${coordinatorReplay.plan.status}`,
+                      `computedOnly: ${String(coordinatorReplay.computedOnly)}`,
+                      `readOnly: ${String(coordinatorReplay.readOnly)}`,
+                      `authoritative: ${String(coordinatorReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(coordinatorReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(coordinatorReplay.executesNothing)}`,
+                      `publishesNothing: ${String(coordinatorReplay.publishesNothing)}`,
+                      `automationForbidden: true`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <CoordinatorJobTable title="Fully Coordinated Jobs" empty="No jobs are fully coordinated across all pipeline layers." jobs={coordinatorReplay.fullyCoordinatedJobs} />
+              <CoordinatorJobTable title="Waiting Jobs" empty="No jobs are waiting on coordination prerequisites." jobs={coordinatorReplay.waitingJobs} />
+              <CoordinatorJobTable title="Blocked Jobs" empty="No jobs are blocked by coordination diagnostics." jobs={coordinatorReplay.blockedJobs} />
+              <CoordinatorJobTable title="Dependency Failure Jobs" empty="No jobs have dependency failures." jobs={coordinatorReplay.dependencyFailureJobs} />
+              <CoordinatorJobTable title="Authority Failure Jobs" empty="No jobs have authority failures." jobs={coordinatorReplay.authorityFailureJobs} />
+              <CoordinatorJobTable title="Adapter Ready Jobs" empty="No jobs have adapter readiness." jobs={coordinatorReplay.adapterReadyJobs} />
+              <CoordinatorJobTable title="Runbook Ready Jobs" empty="No jobs have runbook readiness." jobs={coordinatorReplay.runbookReadyJobs} />
+
               <JobTable title="Pending Jobs" empty="No pending Execution jobs." jobs={replay.pendingJobs} />
               <JobTable title="Blocked Jobs" empty="No blocked Execution jobs." jobs={replay.blockedJobs} />
               <JobTable title="Preflight-Passed Jobs" empty="No preflight-passed Execution jobs." jobs={replay.preflightPassedJobs} />
@@ -1444,6 +1639,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <RunbookDiagnosticsList diagnostics={runbookReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Coordinator Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <CoordinatorDiagnosticsList diagnostics={coordinatorReplay.diagnostics} />
                 </div>
               </section>
             </>
