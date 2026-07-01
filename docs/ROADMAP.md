@@ -493,7 +493,7 @@ The Learning foundation may reference Metrics, Publisher, Scheduler, Ledger, Man
 
 The Publisher foundation is intentionally preparatory. It may define how future publishing should be represented and replayed, but it must not contact external platforms or publish customer-facing content.
 
-### D10: Campaign Manager (Wave 4 Execution Preflight Gate complete)
+### D10: Campaign Manager (Wave 5 Execution Planner complete)
 
 Goal: top-level orchestrator.
 
@@ -524,6 +524,14 @@ What it does not introduce: actual execution, publishing, adapters, platform int
 - **D10 H34:** Execution admin now shows preflight diagnostics: why a job is blocked, missing references, present authority, present evidence, stale references, unsafe contract flags, and whether the job could theoretically run later. It adds no run, retry, or approve control.
 
 What it does not introduce: actual execution, publisher adapters, social platform APIs, HTTP/fetch, credentials, workers, queues, cron, timers, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution still does not run.
+
+**D10 Wave 5 (M6-M7 + H35)** added the read-only Execution Planner:
+
+- **D10 M6:** Execution planner domain (`social-publication-execution-planner.ts`) models simulated execution plans, ordered steps, dependency graphs, priority, blocking reasons, required authority, required references, planner diagnostics, validation, serialization, and hydration. It is pure and grants no execution permission.
+- **D10 M7:** Planner replay (`social-publication-execution-planner-replay.ts`) composes preflight replay into planned jobs, execution order, ready plans, waiting plans, blocked plans, dependency failures, authority failures, and reference failures. It remains read-only and computed-only.
+- **D10 H35:** Execution admin now shows planned execution order, dependency graph, blocking reasons, authority chain, reference chain, and why each job would theoretically execute next.
+
+What it does not introduce: actual execution, adapters, platform integrations, external APIs, HTTP/fetch, credentials, workers, queues, cron, timers, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. Execution remains simulated only and still does not run.
 
 ## Long-Term Vision
 
