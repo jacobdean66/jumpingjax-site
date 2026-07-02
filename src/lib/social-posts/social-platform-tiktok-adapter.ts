@@ -1,4 +1,4 @@
-export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_VERSION = "d11-m7-v1" as const;
+export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_VERSION = "d11-m10-v1" as const;
 
 export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_PLATFORMS = [
   "tiktok",

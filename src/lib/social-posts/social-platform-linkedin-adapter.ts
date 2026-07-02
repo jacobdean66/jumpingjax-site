@@ -1,4 +1,4 @@
-export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_VERSION = "d11-m8-v1" as const;
+export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_VERSION = "d11-m11-v1" as const;
 
 export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_PLATFORMS = [
   "linkedin",

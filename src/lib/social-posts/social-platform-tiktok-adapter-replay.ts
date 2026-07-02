@@ -13,7 +13,7 @@ import {
   type SocialPlatformTiktokAdapterPostKind,
 } from "./social-platform-tiktok-adapter";
 
-export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_REPLAY_VERSION = "d11-m11-v1" as const;
+export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_REPLAY_VERSION = "d11-m14-v1" as const;
 
 export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_REPLAY_DIAGNOSTIC_CODES = [
   "planner_replay_error",

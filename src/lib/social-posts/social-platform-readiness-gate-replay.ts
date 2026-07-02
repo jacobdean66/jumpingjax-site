@@ -29,7 +29,7 @@ import {
 } from "./social-platform-adapter-registry";
 import type { SocialPublicationExecutionPersistenceModel } from "./social-publication-execution-repository";
 
-export const SOCIAL_PLATFORM_READINESS_GATE_REPLAY_VERSION = "d11-m14-v1" as const;
+export const SOCIAL_PLATFORM_READINESS_GATE_REPLAY_VERSION = "d11-m17-v1" as const;
 
 export const SOCIAL_PLATFORM_READINESS_GATE_REPLAY_DIAGNOSTIC_CODES = [
   "capability_replay_error",

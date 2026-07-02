@@ -13,7 +13,7 @@ import {
   type SocialPlatformLinkedinAdapterPostKind,
 } from "./social-platform-linkedin-adapter";
 
-export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_REPLAY_VERSION = "d11-m12-v1" as const;
+export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_REPLAY_VERSION = "d11-m15-v1" as const;
 
 export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_REPLAY_DIAGNOSTIC_CODES = [
   "planner_replay_error",

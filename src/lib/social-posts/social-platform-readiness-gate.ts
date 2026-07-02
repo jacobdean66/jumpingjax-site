@@ -5,7 +5,7 @@ import {
 } from "./social-platform-adapter-registry";
 import type { SocialPlatformCredentialProvider } from "./social-platform-credential-boundary";
 
-export const SOCIAL_PLATFORM_READINESS_GATE_VERSION = "d11-m13-v1" as const;
+export const SOCIAL_PLATFORM_READINESS_GATE_VERSION = "d11-m16-v1" as const;
 
 export const SOCIAL_PLATFORM_READINESS_REQUIREMENTS = [
   "architecturally_complete",

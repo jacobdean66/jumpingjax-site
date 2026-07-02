@@ -16,7 +16,7 @@ import {
   type SocialPlatformTiktokAdapterPostRequest,
 } from "./social-platform-tiktok-adapter";
 
-export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_DRY_RUN_VERSION = "d11-m9-v1" as const;
+export const SOCIAL_PLATFORM_TIKTOK_ADAPTER_DRY_RUN_VERSION = "d11-m12-v1" as const;
 
 export type SocialPlatformTiktokAdapterDryRunBlockedReason =
   | "factory_resolution_failed"

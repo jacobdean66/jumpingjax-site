@@ -16,7 +16,7 @@ import {
   type SocialPlatformLinkedinAdapterPostRequest,
 } from "./social-platform-linkedin-adapter";
 
-export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_DRY_RUN_VERSION = "d11-m10-v1" as const;
+export const SOCIAL_PLATFORM_LINKEDIN_ADAPTER_DRY_RUN_VERSION = "d11-m13-v1" as const;
 
 export type SocialPlatformLinkedinAdapterDryRunBlockedReason =
   | "factory_resolution_failed"
