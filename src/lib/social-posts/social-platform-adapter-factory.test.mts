@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 
 import {
   createSocialPlatformAdapter,
-  createUnsupportedSocialPlatformAdapter,
   resolveSocialPlatformAdapter,
   SOCIAL_PLATFORM_ADAPTER_FACTORY_VERSION,
 } from "./social-platform-adapter-factory";
@@ -46,14 +45,29 @@ await test("creates reference adapter selections without dry-run support", () =>
   }
 });
 
-await test("creates unsupported adapter selections without execution contracts", () => {
-  const result = createUnsupportedSocialPlatformAdapter("tiktok");
+await test("creates contract-shell dry-run adapter selections without D10 execution contracts", () => {
+  const result = createSocialPlatformAdapter({
+    platform: "tiktok",
+    implementationKind: "dry_run",
+  });
+
   assert.equal(result.ok, true);
   if (result.ok) {
-    assert.equal(result.value.implementationKind, "unsupported");
-    assert.equal(result.value.supported, false);
+    assert.equal(result.value.implementationKind, "dry_run");
+    assert.equal(result.value.supported, true);
+    assert.equal(result.value.dryRunAvailable, true);
     assert.equal(result.value.executionAdapterContract, null);
-    assert.equal(result.value.dryRunAvailable, false);
+    assert.equal(result.value.grantsExecutionPermission, false);
+  }
+});
+
+await test("resolves dry-run adapters for contract-shell platforms", () => {
+  const linkedin = resolveSocialPlatformAdapter({ platform: "linkedin" });
+  assert.equal(linkedin.ok, true);
+  if (linkedin.ok) {
+    assert.equal(linkedin.value.implementationKind, "dry_run");
+    assert.equal(linkedin.value.supported, true);
+    assert.equal(linkedin.value.dryRunAvailable, true);
   }
 });
 
@@ -66,15 +80,6 @@ await test("resolves preferred dry-run adapters for supported platforms", () => 
   if (dryRun.ok && reference.ok) {
     assert.equal(dryRun.value.implementationKind, "dry_run");
     assert.equal(reference.value.implementationKind, "reference");
-  }
-});
-
-await test("resolves unsupported adapters for future platforms", () => {
-  const linkedin = resolveSocialPlatformAdapter({ platform: "linkedin" });
-  assert.equal(linkedin.ok, true);
-  if (linkedin.ok) {
-    assert.equal(linkedin.value.implementationKind, "unsupported");
-    assert.equal(linkedin.value.supported, false);
   }
 });
 

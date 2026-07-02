@@ -29,15 +29,15 @@ async function test(name: string, fn: TestFn): Promise<void> {
 await test("exposes a frozen registry snapshot with supported and unsupported platforms", () => {
   const snapshot = getSocialPlatformAdapterRegistrySnapshot();
   assert.equal(snapshot.registryVersion, SOCIAL_PLATFORM_ADAPTER_REGISTRY_VERSION);
-  assert.deepEqual(snapshot.supportedPlatforms, ["facebook", "instagram"]);
-  assert.deepEqual(snapshot.unsupportedPlatforms, ["tiktok", "linkedin"]);
+  assert.deepEqual(snapshot.supportedPlatforms, ["facebook", "instagram", "tiktok", "linkedin"]);
+  assert.deepEqual(snapshot.unsupportedPlatforms, []);
   assert.equal(snapshot.grantsExecutionPermission, false);
   assert.equal(snapshot.executesNothing, true);
 });
 
 await test("registers reference, dry-run, and unsupported adapter entries", () => {
   const entries = listRegisteredSocialPlatformAdapters();
-  assert.equal(entries.length, 6);
+  assert.equal(entries.length, 8);
 
   const facebookEntries = discoverSocialPlatformAdaptersByPlatform("facebook");
   assert.equal(facebookEntries.length, 2);
@@ -49,8 +49,13 @@ await test("registers reference, dry-run, and unsupported adapter entries", () =
   );
 
   const tiktokEntries = discoverSocialPlatformAdaptersByPlatform("tiktok");
-  assert.equal(tiktokEntries.length, 1);
-  assert.equal(tiktokEntries[0]?.implementationKind, "unsupported");
+  assert.equal(tiktokEntries.length, 2);
+  assert.ok(
+    tiktokEntries.some((entry) => entry.implementationKind === "reference"),
+  );
+  assert.ok(
+    tiktokEntries.some((entry) => entry.implementationKind === "dry_run"),
+  );
 });
 
 await test("discovers adapters by id and discovery key", () => {
@@ -80,8 +85,8 @@ await test("lists supported and unsupported channel registrations", () => {
   const supported = listSupportedSocialPlatformAdapterChannels();
   const unsupported = listUnsupportedSocialPlatformAdapterChannels();
   assert.ok(supported.every((channel) => channel.supported));
-  assert.ok(unsupported.every((channel) => !channel.supported));
-  assert.equal(listRegisteredSocialPlatformAdapterChannels().length, supported.length + unsupported.length);
+  assert.equal(unsupported.length, 0);
+  assert.equal(listRegisteredSocialPlatformAdapterChannels().length, supported.length);
 });
 
 await test("evaluates channel support by platform and channel type", () => {
@@ -95,10 +100,10 @@ await test("evaluates channel support by platform and channel type", () => {
   );
   assert.equal(
     isSocialPlatformAdapterChannelSupported("tiktok", "tiktok_business_account"),
-    false,
+    true,
   );
-  assert.deepEqual(listSupportedSocialPlatformAdapterPlatforms(), ["facebook", "instagram"]);
-  assert.deepEqual(listUnsupportedSocialPlatformAdapterPlatforms(), ["tiktok", "linkedin"]);
+  assert.deepEqual(listSupportedSocialPlatformAdapterPlatforms(), ["facebook", "instagram", "tiktok", "linkedin"]);
+  assert.deepEqual(listUnsupportedSocialPlatformAdapterPlatforms(), []);
 });
 
 console.log("social-platform-adapter-registry tests passed");

@@ -18,14 +18,17 @@ export const SOCIAL_PLATFORM_ADAPTER_PLATFORMS = [
   "linkedin",
 ] as const;
 
-export const SOCIAL_PLATFORM_ADAPTER_SUPPORTED_PLATFORMS = [
-  ...SOCIAL_PUBLICATION_EXECUTION_ADAPTER_PLATFORMS,
-] as const;
-
-export const SOCIAL_PLATFORM_ADAPTER_UNSUPPORTED_PLATFORMS = [
+export const SOCIAL_PLATFORM_ADAPTER_CONTRACT_SHELL_PLATFORMS = [
   "tiktok",
   "linkedin",
 ] as const;
+
+export const SOCIAL_PLATFORM_ADAPTER_SUPPORTED_PLATFORMS = [
+  ...SOCIAL_PUBLICATION_EXECUTION_ADAPTER_PLATFORMS,
+  ...SOCIAL_PLATFORM_ADAPTER_CONTRACT_SHELL_PLATFORMS,
+] as const;
+
+export const SOCIAL_PLATFORM_ADAPTER_UNSUPPORTED_PLATFORMS = [] as const;
 
 export const SOCIAL_PLATFORM_ADAPTER_CHANNEL_TYPES = [
   ...PUBLICATION_TARGET_TYPES,
@@ -35,6 +38,8 @@ export const SOCIAL_PLATFORM_ADAPTER_CHANNEL_TYPES = [
 
 export const SOCIAL_PLATFORM_ADAPTER_SUPPORTED_CHANNEL_TYPES = [
   ...SOCIAL_PUBLICATION_EXECUTION_ADAPTER_CHANNEL_TYPES,
+  "tiktok_business_account",
+  "linkedin_company_page",
 ] as const;
 
 export const SOCIAL_PLATFORM_ADAPTER_IMPLEMENTATION_KINDS = [
@@ -56,6 +61,9 @@ export const SOCIAL_PLATFORM_ADAPTER_FEATURE_FLAGS = [
 
 export type SocialPlatformAdapterPlatform =
   (typeof SOCIAL_PLATFORM_ADAPTER_PLATFORMS)[number];
+
+export type SocialPlatformAdapterContractShellPlatform =
+  (typeof SOCIAL_PLATFORM_ADAPTER_CONTRACT_SHELL_PLATFORMS)[number];
 
 export type SocialPlatformAdapterSupportedPlatform =
   (typeof SOCIAL_PLATFORM_ADAPTER_SUPPORTED_PLATFORMS)[number];
@@ -206,15 +214,6 @@ const REFERENCE_FEATURE_FLAGS: readonly SocialPlatformAdapterFeatureFlag[] = [
   "external_api_blocked",
 ];
 
-const UNSUPPORTED_FEATURE_FLAGS: readonly SocialPlatformAdapterFeatureFlag[] = [
-  "execution_blocked",
-  "oauth_blocked",
-  "credentials_blocked",
-  "network_blocked",
-  "sdk_blocked",
-  "external_api_blocked",
-];
-
 function channelRegistration(
   channelType: SocialPlatformAdapterChannelType,
 ): SocialPlatformAdapterChannelRegistration {
@@ -230,14 +229,28 @@ function channelRegistration(
   };
 }
 
+function supportedChannelTypeForPlatform(
+  platform: SocialPlatformAdapterSupportedPlatform,
+): SocialPlatformAdapterSupportedChannelType {
+  if (platform === "facebook") return "facebook_page";
+  if (platform === "instagram") return "instagram_business_account";
+  if (platform === "tiktok") return "tiktok_business_account";
+  return "linkedin_company_page";
+}
+
+function isExecutionDryRunPlatform(
+  platform: SocialPlatformAdapterSupportedPlatform,
+): platform is SocialPublicationExecutionAdapterPlatform {
+  return platform === "facebook" || platform === "instagram";
+}
+
 function createSupportedPlatformEntry(
   platform: SocialPlatformAdapterSupportedPlatform,
   implementationKind: "reference" | "dry_run",
 ): SocialPlatformAdapterRegistryEntry {
-  const channelType: SocialPlatformAdapterSupportedChannelType =
-    platform === "facebook" ? "facebook_page" : "instagram_business_account";
-
+  const channelType = supportedChannelTypeForPlatform(platform);
   const dryRun = implementationKind === "dry_run";
+  const wiredToExecutionDryRun = dryRun && isExecutionDryRunPlatform(platform);
 
   return {
     adapterId: `platform-adapter-${platform}-${implementationKind}`,
@@ -261,50 +274,14 @@ function createSupportedPlatformEntry(
       layer: "platform_adapter_registry",
       contractOnly: true,
       implementsNothing: true,
-      wiredToExecutionDryRun: dryRun,
+      wiredToExecutionDryRun,
       notes: dryRun
-        ? "Registry entry maps to D10 dry-run execution adapter contract."
-        : "Registry entry maps to D10 reference execution adapter contract.",
-    },
-    computedOnly: true,
-    readOnly: true,
-    authoritative: false,
-    grantsExecutionPermission: false,
-    executesNothing: true,
-    publishesNothing: true,
-  };
-}
-
-function createUnsupportedPlatformEntry(
-  platform: SocialPlatformAdapterUnsupportedPlatform,
-): SocialPlatformAdapterRegistryEntry {
-  const channelType =
-    platform === "tiktok" ? "tiktok_business_account" : "linkedin_company_page";
-
-  return {
-    adapterId: `platform-adapter-${platform}-unsupported`,
-    adapterVersion: SOCIAL_PLATFORM_ADAPTER_REGISTRY_VERSION,
-    displayName: `${platform} unsupported platform adapter`,
-    platform,
-    implementationKind: "unsupported",
-    discoveryKey: `${platform}:unsupported`,
-    capabilities: {
-      supportsDryRun: false,
-      supportsEvidenceCapture: false,
-      supportsPreflightEvaluation: false,
-      supportedPlatforms: [],
-      supportedChannelTypes: [],
-      ...SHARED_CAPABILITY_FLAGS,
-    },
-    channels: [channelRegistration(channelType)],
-    featureFlags: UNSUPPORTED_FEATURE_FLAGS,
-    metadata: {
-      registryVersion: SOCIAL_PLATFORM_ADAPTER_REGISTRY_VERSION,
-      layer: "platform_adapter_registry",
-      contractOnly: true,
-      implementsNothing: true,
-      wiredToExecutionDryRun: false,
-      notes: "Platform adapter is registered but unsupported in D11 Wave 1.",
+        ? wiredToExecutionDryRun
+          ? "Registry entry maps to D10 dry-run execution adapter contract."
+          : `Registry entry maps to D11 ${platform} contract-shell dry-run adapter.`
+        : wiredToExecutionDryRun
+          ? "Registry entry maps to D10 reference execution adapter contract."
+          : `Registry entry maps to D11 ${platform} contract-shell reference adapter.`,
     },
     computedOnly: true,
     readOnly: true,
@@ -320,8 +297,10 @@ const REGISTRY_ENTRIES: readonly SocialPlatformAdapterRegistryEntry[] = Object.f
   createSupportedPlatformEntry("facebook", "dry_run"),
   createSupportedPlatformEntry("instagram", "reference"),
   createSupportedPlatformEntry("instagram", "dry_run"),
-  createUnsupportedPlatformEntry("tiktok"),
-  createUnsupportedPlatformEntry("linkedin"),
+  createSupportedPlatformEntry("tiktok", "reference"),
+  createSupportedPlatformEntry("tiktok", "dry_run"),
+  createSupportedPlatformEntry("linkedin", "reference"),
+  createSupportedPlatformEntry("linkedin", "dry_run"),
 ]);
 
 const REGISTRY_BY_ID = new Map(
@@ -376,18 +355,30 @@ export function isSocialPlatformAdapterImplementationKind(
 export function toPublicationTargetPlatform(
   platform: SocialPlatformAdapterSupportedPlatform,
 ): PublicationTargetPlatform {
+  if (platform === "tiktok" || platform === "linkedin") {
+    throw new Error(`Publication target mapping is unavailable for platform: ${platform}`);
+  }
   return platform;
 }
 
 export function toExecutionAdapterPlatform(
   platform: SocialPlatformAdapterSupportedPlatform,
 ): SocialPublicationExecutionAdapterPlatform {
+  if (!isExecutionDryRunPlatform(platform)) {
+    throw new Error(`Execution adapter mapping is unavailable for platform: ${platform}`);
+  }
   return platform;
 }
 
 export function toExecutionAdapterChannelType(
   channelType: SocialPlatformAdapterSupportedChannelType,
 ): SocialPublicationExecutionAdapterChannelType {
+  if (
+    channelType === "tiktok_business_account" ||
+    channelType === "linkedin_company_page"
+  ) {
+    throw new Error(`Execution adapter mapping is unavailable for channel: ${channelType}`);
+  }
   return channelType;
 }
 

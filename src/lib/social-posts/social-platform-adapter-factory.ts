@@ -59,12 +59,16 @@ export type SocialPlatformAdapterFactorySelection = Readonly<{
   callsNoExternalApis: true;
 }>;
 
-function createReferenceExecutionAdapterContract(
+function isExecutionAdapterPlatform(
   platform: SocialPlatformAdapterSupportedPlatform,
+): platform is SocialPublicationExecutionAdapterPlatform {
+  return platform === "facebook" || platform === "instagram";
+}
+
+function createReferenceExecutionAdapterContract(
+  platform: SocialPublicationExecutionAdapterPlatform,
 ): SocialPublicationExecutionAdapterContract {
-  const dryRun = createDryRunSocialPublicationExecutionAdapter(
-    platform as SocialPublicationExecutionAdapterPlatform,
-  );
+  const dryRun = createDryRunSocialPublicationExecutionAdapter(platform);
 
   return {
     ...dryRun,
@@ -181,10 +185,11 @@ export function createSocialPlatformAdapter(input: Readonly<{
     return { ok: false, diagnostics };
   }
 
-  const executionAdapterContract =
-    input.implementationKind === "dry_run"
+  const executionAdapterContract = isExecutionAdapterPlatform(input.platform)
+    ? input.implementationKind === "dry_run"
       ? createDryRunSocialPublicationExecutionAdapter(input.platform)
-      : createReferenceExecutionAdapterContract(input.platform);
+      : createReferenceExecutionAdapterContract(input.platform)
+    : null;
 
   return {
     ok: true,

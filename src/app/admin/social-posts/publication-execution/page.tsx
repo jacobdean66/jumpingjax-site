@@ -46,6 +46,22 @@ import {
   type SocialPlatformMetaAdapterReplayDiagnostic,
 } from "@/lib/social-posts/social-platform-meta-adapter-replay";
 import {
+  SOCIAL_PLATFORM_TIKTOK_ADAPTER_CONTRACTS,
+  SOCIAL_PLATFORM_TIKTOK_ADAPTER_VERSION,
+} from "@/lib/social-posts/social-platform-tiktok-adapter";
+import {
+  replaySocialPlatformTiktokAdapter,
+  type SocialPlatformTiktokAdapterJobProjection,
+} from "@/lib/social-posts/social-platform-tiktok-adapter-replay";
+import {
+  SOCIAL_PLATFORM_LINKEDIN_ADAPTER_CONTRACTS,
+  SOCIAL_PLATFORM_LINKEDIN_ADAPTER_VERSION,
+} from "@/lib/social-posts/social-platform-linkedin-adapter";
+import {
+  replaySocialPlatformLinkedinAdapter,
+  type SocialPlatformLinkedinAdapterJobProjection,
+} from "@/lib/social-posts/social-platform-linkedin-adapter-replay";
+import {
   SOCIAL_PLATFORM_CREDENTIAL_BOUNDARY_CONTRACTS,
   SOCIAL_PLATFORM_CREDENTIAL_BOUNDARY_VERSION,
 } from "@/lib/social-posts/social-platform-credential-boundary";
@@ -1020,6 +1036,163 @@ function MetaAdapterDiagnosticsList({
   );
 }
 
+function ContractShellAdapterDiagnosticsList({
+  title,
+  diagnostics,
+}: {
+  title: string;
+  diagnostics: readonly { code: string; path: string; message: string; severity: string }[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">{title}</p>
+      <div className="mt-4">
+        {diagnostics.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+            No replay diagnostics.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {diagnostics.map((diagnostic, index) => (
+              <div
+                key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+                className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+                    {diagnostic.severity}
+                  </span>
+                  <p className="font-black">{diagnostic.code}</p>
+                </div>
+                <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+                <p className="mt-1 font-semibold">{diagnostic.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TiktokAdapterJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPlatformTiktokAdapterJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">{title}</p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1480px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">Channel</th>
+                <th className="px-3 py-2">Post Kind</th>
+                <th className="px-3 py-2">Media Refs</th>
+                <th className="px-3 py-2">TikTok Ready</th>
+                <th className="px-3 py-2">TikTok Blocked</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{job.publicationTargetId}</td>
+                  <td className="px-3 py-2 font-black">{job.platform ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.channelType ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.postKind ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.mediaRefCount}</td>
+                  <td className="px-3 py-2 font-black">{String(job.tiktokReady)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.tiktokBlocked)}</td>
+                  <td className="px-3 py-2"><PillList values={job.blockingReasons} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LinkedinAdapterJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPlatformLinkedinAdapterJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">{title}</p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1480px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">Channel</th>
+                <th className="px-3 py-2">Post Kind</th>
+                <th className="px-3 py-2">Media Refs</th>
+                <th className="px-3 py-2">LinkedIn Ready</th>
+                <th className="px-3 py-2">LinkedIn Blocked</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{job.publicationTargetId}</td>
+                  <td className="px-3 py-2 font-black">{job.platform ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.channelType ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.postKind ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.mediaRefCount}</td>
+                  <td className="px-3 py-2 font-black">{String(job.linkedinReady)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.linkedinBlocked)}</td>
+                  <td className="px-3 py-2"><PillList values={job.blockingReasons} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CredentialProviderReadinessTable({
   readiness,
 }: {
@@ -1515,6 +1688,8 @@ export default async function AdminPublicationExecutionPage({
   const adapterReplay = replaySocialPublicationExecutionAdapters(loaded.model).value;
   const platformAdapterReplay = replaySocialPlatformAdapterCapabilities(loaded.model).value;
   const metaAdapterReplay = replaySocialPlatformMetaAdapter(loaded.model).value;
+  const tiktokAdapterReplay = replaySocialPlatformTiktokAdapter(loaded.model).value;
+  const linkedinAdapterReplay = replaySocialPlatformLinkedinAdapter(loaded.model).value;
   const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
@@ -1881,6 +2056,8 @@ export default async function AdminPublicationExecutionPage({
                       `executionCapable: ${String(platformAdapterReplay.executionCapability.executionCapable)}`,
                       `dryRunFacebook: ${String(platformAdapterReplay.dryRunAvailability.facebook)}`,
                       `dryRunInstagram: ${String(platformAdapterReplay.dryRunAvailability.instagram)}`,
+                      `dryRunTiktok: ${String(platformAdapterReplay.dryRunAvailability.tiktok)}`,
+                      `dryRunLinkedin: ${String(platformAdapterReplay.dryRunAvailability.linkedin)}`,
                       `computedOnly: ${String(platformAdapterReplay.computedOnly)}`,
                       `readOnly: ${String(platformAdapterReplay.readOnly)}`,
                       `authoritative: ${String(platformAdapterReplay.authoritative)}`,
@@ -1984,6 +2161,68 @@ export default async function AdminPublicationExecutionPage({
               <MetaAdapterJobTable title="Missing Media Jobs" empty="No jobs are missing media references." jobs={metaAdapterReplay.missingMediaJobs} />
               <MetaAdapterJobTable title="Unsupported Channel Jobs" empty="No jobs have unsupported Meta channels." jobs={metaAdapterReplay.unsupportedChannelJobs} />
               <MetaAdapterJobTable title="Missing Capability Jobs" empty="No jobs are missing Meta capabilities." jobs={metaAdapterReplay.missingCapabilityJobs} />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      TikTok / LinkedIn Platform Adapter Contracts
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {tiktokAdapterReplay.summary.tiktokReadyJobCount + linkedinAdapterReplay.summary.linkedinReadyJobCount > 0
+                        ? "Contract-shell-ready jobs found"
+                        : "No contract-shell-ready jobs"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D11 Wave 3 alt adds TikTok and LinkedIn adapter contract shells with
+                      channel support, contract-only post and media request shapes, dry-run
+                      simulation output, blocked reasons, missing media references, and
+                      capability diagnostics. This is contract and replay visibility only:
+                      no TikTok/LinkedIn APIs, no OAuth, no credentials, no HTTP/fetch,
+                      no run button, and no POST handlers.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H41 contract shells
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="TikTok Contract Version" value={SOCIAL_PLATFORM_TIKTOK_ADAPTER_VERSION} />
+                  <Field label="LinkedIn Contract Version" value={SOCIAL_PLATFORM_LINKEDIN_ADAPTER_VERSION} />
+                  <Field label="TikTok Ready" value={tiktokAdapterReplay.summary.tiktokReadyJobCount} />
+                  <Field label="LinkedIn Ready" value={linkedinAdapterReplay.summary.linkedinReadyJobCount} />
+                  <Field label="TikTok Blocked" value={tiktokAdapterReplay.summary.tiktokBlockedJobCount} />
+                  <Field label="LinkedIn Blocked" value={linkedinAdapterReplay.summary.linkedinBlockedJobCount} />
+                  <Field label="TikTok Missing Media" value={tiktokAdapterReplay.summary.missingMediaJobCount} />
+                  <Field label="LinkedIn Missing Media" value={linkedinAdapterReplay.summary.missingMediaJobCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...SOCIAL_PLATFORM_TIKTOK_ADAPTER_CONTRACTS.map(
+                        (contract) => `tiktokContract:${contract.identity.adapterId}`,
+                      ),
+                      ...SOCIAL_PLATFORM_LINKEDIN_ADAPTER_CONTRACTS.map(
+                        (contract) => `linkedinContract:${contract.identity.adapterId}`,
+                      ),
+                      `tiktokReplayValid: ${String(tiktokAdapterReplay.replayIntegrity.valid)}`,
+                      `linkedinReplayValid: ${String(linkedinAdapterReplay.replayIntegrity.valid)}`,
+                      `apiBlocked: true`,
+                      `oauthBlocked: true`,
+                      `credentialsBlocked: true`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <TiktokAdapterJobTable title="TikTok-Ready Jobs" empty="No jobs are TikTok-ready." jobs={tiktokAdapterReplay.tiktokReadyJobs} />
+              <TiktokAdapterJobTable title="TikTok-Blocked Jobs" empty="No jobs are TikTok-blocked." jobs={tiktokAdapterReplay.tiktokBlockedJobs} />
+              <TiktokAdapterJobTable title="TikTok Video-Post Ready" empty="No jobs are video-post ready." jobs={tiktokAdapterReplay.videoPostReadyJobs} />
+              <TiktokAdapterJobTable title="TikTok Feed-Post Ready" empty="No jobs are feed-post ready." jobs={tiktokAdapterReplay.feedPostReadyJobs} />
+              <LinkedinAdapterJobTable title="LinkedIn-Ready Jobs" empty="No jobs are LinkedIn-ready." jobs={linkedinAdapterReplay.linkedinReadyJobs} />
+              <LinkedinAdapterJobTable title="LinkedIn-Blocked Jobs" empty="No jobs are LinkedIn-blocked." jobs={linkedinAdapterReplay.linkedinBlockedJobs} />
+              <LinkedinAdapterJobTable title="LinkedIn Article-Post Ready" empty="No jobs are article-post ready." jobs={linkedinAdapterReplay.articlePostReadyJobs} />
+              <LinkedinAdapterJobTable title="LinkedIn Feed-Post Ready" empty="No jobs are feed-post ready." jobs={linkedinAdapterReplay.feedPostReadyJobs} />
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -2265,6 +2504,16 @@ export default async function AdminPublicationExecutionPage({
                   <MetaAdapterDiagnosticsList diagnostics={metaAdapterReplay.diagnostics} />
                 </div>
               </section>
+
+              <ContractShellAdapterDiagnosticsList
+                title="TikTok Adapter Replay Diagnostics"
+                diagnostics={tiktokAdapterReplay.diagnostics}
+              />
+
+              <ContractShellAdapterDiagnosticsList
+                title="LinkedIn Adapter Replay Diagnostics"
+                diagnostics={linkedinAdapterReplay.diagnostics}
+              />
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">

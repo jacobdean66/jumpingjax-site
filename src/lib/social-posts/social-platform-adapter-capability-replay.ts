@@ -168,17 +168,12 @@ export function replaySocialPlatformAdapterCapabilities(
     .filter((platform, index, values) => values.indexOf(platform) === index)
     .map((platform) => projectPlatformReadiness(platform, diagnostics));
 
-  const dryRunAvailability = platformReadiness.reduce<
-    Record<SocialPlatformAdapterSupportedPlatform, boolean>
-  >((output, readiness) => {
-    if (readiness.platform === "facebook" || readiness.platform === "instagram") {
-      output[readiness.platform] = readiness.dryRunAvailable;
-    }
-    return output;
-  }, {
-    facebook: false,
-    instagram: false,
-  });
+  const dryRunAvailability: Readonly<Record<SocialPlatformAdapterSupportedPlatform, boolean>> = {
+    facebook: platformReadiness.find((item) => item.platform === "facebook")?.dryRunAvailable ?? false,
+    instagram: platformReadiness.find((item) => item.platform === "instagram")?.dryRunAvailable ?? false,
+    tiktok: platformReadiness.find((item) => item.platform === "tiktok")?.dryRunAvailable ?? false,
+    linkedin: platformReadiness.find((item) => item.platform === "linkedin")?.dryRunAvailable ?? false,
+  };
 
   const executionProjection = input.includeExecutionProjection === false
     ? null
@@ -266,9 +261,7 @@ function projectPlatformReadiness(
 
   const blockingReasons: string[] = [];
   if (!reference.ok) blockingReasons.push("reference_adapter_unavailable");
-  if (!dryRun.ok && platform !== "tiktok" && platform !== "linkedin") {
-    blockingReasons.push("dry_run_adapter_unavailable");
-  }
+  if (!dryRun.ok) blockingReasons.push("dry_run_adapter_unavailable");
   if (!unsupported.ok) {
     diagnostics.push({
       code: "registry_entry_missing",

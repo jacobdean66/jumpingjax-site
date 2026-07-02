@@ -12,9 +12,9 @@ async function test(name: string, fn: TestFn): Promise<void> {
 await test("replays registered adapters, supported platforms, and feature flags", () => {
   const replay = replaySocialPlatformAdapterCapabilities().value;
 
-  assert.equal(replay.registeredAdapters.length, 6);
-  assert.deepEqual(replay.supportedPlatforms, ["facebook", "instagram"]);
-  assert.deepEqual(replay.unsupportedPlatforms, ["tiktok", "linkedin"]);
+  assert.equal(replay.registeredAdapters.length, 8);
+  assert.deepEqual(replay.supportedPlatforms, ["facebook", "instagram", "tiktok", "linkedin"]);
+  assert.deepEqual(replay.unsupportedPlatforms, []);
   assert.ok(replay.featureFlags.includes("dry_run_enabled"));
   assert.equal(replay.grantsExecutionPermission, false);
 });
@@ -24,6 +24,8 @@ await test("computes dry-run availability and modeled execution capability only"
 
   assert.equal(replay.dryRunAvailability.facebook, true);
   assert.equal(replay.dryRunAvailability.instagram, true);
+  assert.equal(replay.dryRunAvailability.tiktok, true);
+  assert.equal(replay.dryRunAvailability.linkedin, true);
   assert.equal(replay.executionCapability.executionCapable, false);
   assert.equal(replay.executionCapability.realExecutionBlocked, true);
   assert.equal(replay.executionCapability.oauthBlocked, true);
@@ -33,7 +35,7 @@ await test("projects supported and unsupported channels with platform readiness"
   const replay = replaySocialPlatformAdapterCapabilities().value;
 
   assert.ok(replay.supportedChannels.every((channel) => channel.supported));
-  assert.ok(replay.unsupportedChannels.every((channel) => !channel.supported));
+  assert.equal(replay.unsupportedChannels.length, 0);
   assert.equal(replay.platformReadiness.length, 4);
 
   const facebook = replay.platformReadiness.find((item) => item.platform === "facebook");
@@ -44,8 +46,8 @@ await test("projects supported and unsupported channels with platform readiness"
 
   const tiktok = replay.platformReadiness.find((item) => item.platform === "tiktok");
   assert.ok(tiktok);
-  assert.equal(tiktok?.supported, false);
-  assert.equal(tiktok?.dryRunAvailable, false);
+  assert.equal(tiktok?.supported, true);
+  assert.equal(tiktok?.dryRunAvailable, true);
 });
 
 await test("composes D10 execution adapter replay into execution projection", () => {
