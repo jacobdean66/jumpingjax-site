@@ -37,6 +37,15 @@ import {
   type SocialPlatformAdapterPlatformReadiness,
 } from "@/lib/social-posts/social-platform-adapter-capability-replay";
 import {
+  SOCIAL_PLATFORM_META_ADAPTER_CONTRACTS,
+  SOCIAL_PLATFORM_META_ADAPTER_VERSION,
+} from "@/lib/social-posts/social-platform-meta-adapter";
+import {
+  replaySocialPlatformMetaAdapter,
+  type SocialPlatformMetaAdapterJobProjection,
+  type SocialPlatformMetaAdapterReplayDiagnostic,
+} from "@/lib/social-posts/social-platform-meta-adapter-replay";
+import {
   replaySocialPublicationExecutionRunbooks,
   type SocialPublicationExecutionRunbookJobProjection,
   type SocialPublicationExecutionRunbookReplayDiagnostic,
@@ -896,6 +905,107 @@ function PlatformAdapterReadinessTable({
   );
 }
 
+function MetaAdapterJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPlatformMetaAdapterJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1680px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Target</th>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">Channel</th>
+                <th className="px-3 py-2">Post Kind</th>
+                <th className="px-3 py-2">Media Refs</th>
+                <th className="px-3 py-2">Meta Ready</th>
+                <th className="px-3 py-2">Meta Blocked</th>
+                <th className="px-3 py-2">Missing Media</th>
+                <th className="px-3 py-2">Unsupported Channel</th>
+                <th className="px-3 py-2">Missing Capability</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={`${job.executionJobId}-${job.executionIntentId}`}>
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{job.publicationTargetId}</td>
+                  <td className="px-3 py-2 font-black">{job.platform ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.channelType ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.postKind ?? <EmptyValue />}</td>
+                  <td className="px-3 py-2 font-black">{job.mediaRefCount}</td>
+                  <td className="px-3 py-2 font-black">{String(job.metaReady)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.metaBlocked)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.missingMedia)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.unsupportedChannel)}</td>
+                  <td className="px-3 py-2 font-black">{String(job.missingCapability)}</td>
+                  <td className="px-3 py-2"><PillList values={job.blockingReasons} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MetaAdapterDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPlatformMetaAdapterReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No Meta adapter replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PlatformAdapterDiagnosticsList({
   diagnostics,
 }: {
@@ -1240,6 +1350,7 @@ export default async function AdminPublicationExecutionPage({
   const plannerReplay = replaySocialPublicationExecutionPlanner(loaded.model).value;
   const adapterReplay = replaySocialPublicationExecutionAdapters(loaded.model).value;
   const platformAdapterReplay = replaySocialPlatformAdapterCapabilities(loaded.model).value;
+  const metaAdapterReplay = replaySocialPlatformMetaAdapter(loaded.model).value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
 
@@ -1637,6 +1748,82 @@ export default async function AdminPublicationExecutionPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Meta Platform Adapter Contract
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {metaAdapterReplay.summary.metaReadyJobCount > 0
+                        ? "Meta-ready jobs found"
+                        : "No Meta-ready jobs"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D11 Wave 2 Meta adapter contract shell shows Facebook and
+                      Instagram channel support, contract-only post and media
+                      request shapes, dry-run simulation output, blocked reasons,
+                      missing media references, and capability diagnostics. This
+                      is contract and replay visibility only: no Meta Graph API,
+                      no OAuth, no credentials, no HTTP/fetch, no run button,
+                      and no POST handlers.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    contract shell
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Contract Version" value={SOCIAL_PLATFORM_META_ADAPTER_VERSION} />
+                  <Field label="Registered Meta Contracts" value={SOCIAL_PLATFORM_META_ADAPTER_CONTRACTS.length} />
+                  <Field label="Meta Ready" value={metaAdapterReplay.summary.metaReadyJobCount} />
+                  <Field label="Meta Blocked" value={metaAdapterReplay.summary.metaBlockedJobCount} />
+                  <Field label="Facebook Ready" value={metaAdapterReplay.summary.facebookReadyJobCount} />
+                  <Field label="Instagram Ready" value={metaAdapterReplay.summary.instagramReadyJobCount} />
+                  <Field label="Missing Media" value={metaAdapterReplay.summary.missingMediaJobCount} />
+                  <Field label="Unsupported Channels" value={metaAdapterReplay.summary.unsupportedChannelJobCount} />
+                  <Field label="Missing Capabilities" value={metaAdapterReplay.summary.missingCapabilityJobCount} />
+                  <Field label="Replay Valid" value={String(metaAdapterReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={metaAdapterReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...SOCIAL_PLATFORM_META_ADAPTER_CONTRACTS.map(
+                        (contract) => `metaContract:${contract.identity.adapterId}`,
+                      ),
+                      ...SOCIAL_PLATFORM_META_ADAPTER_CONTRACTS.flatMap((contract) =>
+                        contract.capabilities.supportedChannelTypes.map(
+                          (channel) => `channel:${channel}`,
+                        ),
+                      ),
+                      ...SOCIAL_PLATFORM_META_ADAPTER_CONTRACTS.flatMap((contract) =>
+                        [...contract.capabilities.capabilityFlags].map(
+                          (flag) => `capability:${flag}`,
+                        ),
+                      ),
+                      `computedOnly: ${String(metaAdapterReplay.computedOnly)}`,
+                      `readOnly: ${String(metaAdapterReplay.readOnly)}`,
+                      `authoritative: ${String(metaAdapterReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(metaAdapterReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(metaAdapterReplay.executesNothing)}`,
+                      `publishesNothing: ${String(metaAdapterReplay.publishesNothing)}`,
+                      `graphApiBlocked: true`,
+                      `oauthBlocked: true`,
+                      `credentialsBlocked: true`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <MetaAdapterJobTable title="Meta-Ready Jobs" empty="No jobs are Meta-ready." jobs={metaAdapterReplay.metaReadyJobs} />
+              <MetaAdapterJobTable title="Meta-Blocked Jobs" empty="No jobs are Meta-blocked." jobs={metaAdapterReplay.metaBlockedJobs} />
+              <MetaAdapterJobTable title="Facebook-Ready Jobs" empty="No jobs are Facebook-ready." jobs={metaAdapterReplay.facebookReadyJobs} />
+              <MetaAdapterJobTable title="Instagram-Ready Jobs" empty="No jobs are Instagram-ready." jobs={metaAdapterReplay.instagramReadyJobs} />
+              <MetaAdapterJobTable title="Missing Media Jobs" empty="No jobs are missing media references." jobs={metaAdapterReplay.missingMediaJobs} />
+              <MetaAdapterJobTable title="Unsupported Channel Jobs" empty="No jobs have unsupported Meta channels." jobs={metaAdapterReplay.unsupportedChannelJobs} />
+              <MetaAdapterJobTable title="Missing Capability Jobs" empty="No jobs are missing Meta capabilities." jobs={metaAdapterReplay.missingCapabilityJobs} />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
                       Execution Runbook Readiness
                     </p>
                     <h2 className="mt-2 text-2xl font-black text-slate-950">
@@ -1820,6 +2007,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <PlatformAdapterDiagnosticsList diagnostics={platformAdapterReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Meta Adapter Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <MetaAdapterDiagnosticsList diagnostics={metaAdapterReplay.diagnostics} />
                 </div>
               </section>
 
