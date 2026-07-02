@@ -76,6 +76,14 @@ import {
   type SocialPlatformCredentialProviderReadiness,
 } from "@/lib/social-posts/social-platform-credential-boundary-replay";
 import {
+  replaySocialPlatformReadinessGate,
+  type SocialPlatformReadinessGateReplayDiagnostic,
+} from "@/lib/social-posts/social-platform-readiness-gate-replay";
+import {
+  SOCIAL_PLATFORM_READINESS_GATE_VERSION,
+  type SocialPlatformReadinessDiagnostic,
+} from "@/lib/social-posts/social-platform-readiness-gate";
+import {
   replaySocialPublicationExecutionRunbooks,
   type SocialPublicationExecutionRunbookJobProjection,
   type SocialPublicationExecutionRunbookReplayDiagnostic,
@@ -1193,6 +1201,99 @@ function LinkedinAdapterJobTable({
   );
 }
 
+function PlatformReadinessGateTable({
+  readiness,
+}: {
+  readiness: readonly SocialPlatformReadinessDiagnostic[];
+}) {
+  if (readiness.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No platform readiness gate projections.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-[1600px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Platform</th>
+            <th className="px-3 py-2">Provider</th>
+            <th className="px-3 py-2">State</th>
+            <th className="px-3 py-2">Architecturally Complete</th>
+            <th className="px-3 py-2">Credential Boundary Aware</th>
+            <th className="px-3 py-2">Capability Modeled</th>
+            <th className="px-3 py-2">Dry Run Capable</th>
+            <th className="px-3 py-2">Execution Blocked</th>
+            <th className="px-3 py-2">Reference Adapter</th>
+            <th className="px-3 py-2">Dry-Run Adapter</th>
+            <th className="px-3 py-2">Adapter Contract</th>
+            <th className="px-3 py-2">Credential Contract</th>
+            <th className="px-3 py-2">OAuth Contract</th>
+            <th className="px-3 py-2">Blocking Reasons</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {readiness.map((item) => (
+            <tr key={item.platform}>
+              <td className="px-3 py-2 font-black">{item.platform}</td>
+              <td className="px-3 py-2 font-black">{item.provider ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-black">{item.state}</td>
+              <td className="px-3 py-2 font-black">{String(item.architecturallyComplete)}</td>
+              <td className="px-3 py-2 font-black">{String(item.credentialBoundaryAware)}</td>
+              <td className="px-3 py-2 font-black">{String(item.capabilityModeled)}</td>
+              <td className="px-3 py-2 font-black">{String(item.dryRunCapable)}</td>
+              <td className="px-3 py-2 font-black">{String(item.executionBlocked)}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.referenceAdapterId ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.dryRunAdapterId ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.adapterContractId ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.credentialContractId ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.oauthContractId ?? <EmptyValue />}</td>
+              <td className="px-3 py-2"><PillList values={[...item.blockingReasons]} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PlatformReadinessGateDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPlatformReadinessGateReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No platform readiness gate replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CredentialProviderReadinessTable({
   readiness,
 }: {
@@ -1691,6 +1792,7 @@ export default async function AdminPublicationExecutionPage({
   const tiktokAdapterReplay = replaySocialPlatformTiktokAdapter(loaded.model).value;
   const linkedinAdapterReplay = replaySocialPlatformLinkedinAdapter(loaded.model).value;
   const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
+  const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
 
@@ -2310,6 +2412,83 @@ export default async function AdminPublicationExecutionPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      Platform Readiness Gate
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {readinessGateReplay.summary.allArchitecturallyReady
+                        ? "All platforms architecturally ready"
+                        : "Some platforms architecturally blocked"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D11 Wave 4 platform readiness gate evaluates whether each
+                      platform adapter is architecturally complete, credential-boundary-aware,
+                      capability-modeled, and dry-run-capable while remaining blocked from
+                      real execution. This is read-only diagnostics only: no OAuth, no
+                      credentials, no HTTP/fetch, no run button, and no POST handlers.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H42 readiness gate
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Gate Version" value={SOCIAL_PLATFORM_READINESS_GATE_VERSION} />
+                  <Field label="Replay Version" value={readinessGateReplay.replayVersion} />
+                  <Field label="Registry Version" value={readinessGateReplay.registryVersion} />
+                  <Field label="Total Platforms" value={readinessGateReplay.summary.totalPlatformCount} />
+                  <Field label="Architecturally Ready" value={readinessGateReplay.summary.architecturallyReadyCount} />
+                  <Field label="Architecturally Blocked" value={readinessGateReplay.summary.architecturallyBlockedCount} />
+                  <Field label="Dry-Run Capable" value={readinessGateReplay.summary.dryRunCapableCount} />
+                  <Field label="Credential Boundary Aware" value={readinessGateReplay.summary.credentialBoundaryAwareCount} />
+                  <Field label="All Architecturally Ready" value={String(readinessGateReplay.summary.allArchitecturallyReady)} />
+                  <Field label="All Execution Blocked" value={String(readinessGateReplay.summary.allExecutionBlocked)} />
+                  <Field label="Replay Valid" value={String(readinessGateReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={readinessGateReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Platform Ready (Impact)" value={readinessGateReplay.capabilityImpact.platformReadyCount} />
+                  <Field label="Platform Blocked (Impact)" value={readinessGateReplay.capabilityImpact.platformBlockedCount} />
+                  <Field label="Dry-Run Platforms (Impact)" value={readinessGateReplay.capabilityImpact.dryRunPlatformCount} />
+                  <Field label="Meta Ready Jobs (Impact)" value={readinessGateReplay.capabilityImpact.metaReadyJobCount} />
+                  <Field label="TikTok Ready Jobs (Impact)" value={readinessGateReplay.capabilityImpact.tiktokReadyJobCount} />
+                  <Field label="LinkedIn Ready Jobs (Impact)" value={readinessGateReplay.capabilityImpact.linkedinReadyJobCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...readinessGateReplay.verdict.platforms.map(
+                        (platform) => `platform:${platform.platform}:${platform.state}`,
+                      ),
+                      ...readinessGateReplay.readinessReasons
+                        .filter((reason) => reason.referenceId)
+                        .map((reason) => `ref:${reason.referenceId}`),
+                      `liveOAuthBlocked: ${String(readinessGateReplay.capabilityImpact.liveOAuthBlocked)}`,
+                      `liveCredentialsBlocked: ${String(readinessGateReplay.capabilityImpact.liveCredentialsBlocked)}`,
+                      `executionCapable: ${String(readinessGateReplay.capabilityImpact.executionCapable)}`,
+                      `computedOnly: ${String(readinessGateReplay.computedOnly)}`,
+                      `readOnly: ${String(readinessGateReplay.readOnly)}`,
+                      `authoritative: ${String(readinessGateReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(readinessGateReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(readinessGateReplay.executesNothing)}`,
+                      `publishesNothing: ${String(readinessGateReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Platform Readiness Gate Diagnostics
+                </p>
+                <div className="mt-4">
+                  <PlatformReadinessGateTable readiness={readinessGateReplay.verdict.platforms} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
                       Execution Runbook Readiness
                     </p>
                     <h2 className="mt-2 text-2xl font-black text-slate-950">
@@ -2521,6 +2700,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <CredentialBoundaryDiagnosticsList diagnostics={credentialBoundaryReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Platform Readiness Gate Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <PlatformReadinessGateDiagnosticsList diagnostics={readinessGateReplay.diagnostics} />
                 </div>
               </section>
 

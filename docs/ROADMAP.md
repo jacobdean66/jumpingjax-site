@@ -340,11 +340,13 @@ Platform Adapter Architecture (D11 Wave 1; registry + factory + capability repla
 Meta Platform Adapter Contract Shell (D11 Wave 2; Meta contract + dry-run + replay + admin visibility; contract shell only, no Graph API/OAuth/credentials/publishing)
 ↓
 TikTok/LinkedIn Platform Adapter Contract Shells (D11 Wave 3 alt; TikTok/LinkedIn contract + dry-run + replay + H41 admin visibility; contract shells only, no APIs/OAuth/credentials/publishing)
+↓
+Platform Readiness Gate (D11 Wave 4; readiness domain + replay + H42 admin visibility; read-only gate only, no OAuth/credentials/HTTP/real execution)
 ```
 
-D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no TikTok/LinkedIn APIs, OAuth, credentials, HTTP/fetch, or publishing.
+D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no TikTok/LinkedIn APIs, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
 
-Next phase (not started): D11 Wave 4 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
+Next phase (not started): D11 Wave 5 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -359,7 +361,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-3 alt + H32/H34/H35/H36/H37/H38/H39/H40/H41 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, Meta adapter contract diagnostics, and TikTok/LinkedIn adapter contract diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, Meta adapter contract diagnostics, TikTok/LinkedIn adapter contract diagnostics, and platform readiness gate diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -400,6 +402,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D11 Wave 1 (M1-M3 + H39) | Platform adapter architecture (registry + factory + capability replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Registry/factory/replay complete; architecture only; no OAuth, credentials, HTTP, real adapters, or execution |
 | D11 Wave 2 (M4-M6 + H40) | Meta platform adapter contract shell (Meta contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Meta contract/dry-run/replay complete; contract shell only; no Graph API, OAuth, credentials, HTTP, or publishing |
 | D11 Wave 3 alt (M7-M12 + H41) | TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, OAuth, credentials, HTTP, or publishing |
+| D11 Wave 4 (M13-M15 + H42) | Platform readiness gate (readiness domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Readiness gate complete; architecture/credential/capability/dry-run diagnostics only; no OAuth, credentials, HTTP, real execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
