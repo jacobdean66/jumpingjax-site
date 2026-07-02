@@ -72,6 +72,8 @@ Platform Readiness Gate (D11 Wave 4 M16-M17 + H42; readiness domain + replay + a
 
 D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visibility: Wave 4 adds the read-only preflight gate, Wave 5 adds the simulated-only Execution Planner, Wave 6 adds adapter contract vocabulary with dry-run reference adapters only, Wave 7 adds runbook/readiness vocabulary with human operator checklists, and Wave 8 adds the Execution Coordinator that assembles all modeling layers into a single deterministic pipeline plan. **D11 Wave 1** adds platform adapter registry, factory, and capability replay plus H39 admin visibility for registered adapters, supported platforms, capabilities, unsupported channels, dry-run availability, and feature flags. **D11 Wave 2** adds the Meta (Facebook/Instagram) adapter contract shell plus dry-run simulation and replay plus H40 admin visibility for Meta adapter status, channel support, blocked reasons, missing media/refs, and capability diagnostics. **D11 Wave 3 alt** adds credential/OAuth boundary contracts plus TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay plus H41 admin visibility for credential/OAuth and TikTok/LinkedIn diagnostics. **D11 Wave 4** adds the platform readiness gate plus H42 admin visibility for per-platform architectural completeness, credential-boundary awareness, capability modeling, dry-run capability, and execution-blocked diagnostics composed from registry, capability replay, credential/OAuth boundary, and per-platform adapter replays. Execution is fully modeled through preflight, planner, adapter, runbook, coordinator, and platform readiness layers but still does not run. D11 Waves 2-4 are contract/readiness shells only: no Meta Graph API, TikTok/LinkedIn APIs, live OAuth, credential storage, platform integrations, external APIs, HTTP/fetch, workers, cron, queues, retries, API routes, SQL changes, or persistence changes. D11 Wave 5 has not started.
 
+**D12 planning gate:** `docs/D12_INTEGRATION_GATE.md` defines the approval criteria, security requirements, rollback requirements, human approval requirements, validation requirements, risk register, and admin diagnostics required before real platform integration can begin. D12 does not implement OAuth, credentials, HTTP/fetch, SDKs/API clients, publishing, execution runners, workers, cron, queues, or retries.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:
@@ -436,6 +438,8 @@ Future agents may include:
 - Customer Journey Agent
 
 New agents must have a single responsibility and must not duplicate existing responsibilities. A new agent should be added only when it creates a clear boundary that makes the organization easier to understand, audit, and evolve.
+
+D12 does not authorize new live-integration agents or execution agents. Any future agent that uses OAuth, credentials, HTTP, platform APIs, publishing, execution runners, workers, cron, queues, or retries requires a later explicit approval milestone after the D12 integration gate criteria are satisfied.
 
 ## Guiding Philosophy
 

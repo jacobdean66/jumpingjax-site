@@ -346,7 +346,7 @@ Platform Readiness Gate (D11 Wave 4; readiness domain + replay + H42 admin visib
 
 D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: credential/OAuth architecture boundaries plus TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no live OAuth, credential storage, TikTok/LinkedIn APIs, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no live OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
 
-Next phase (not started): D11 Wave 5 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
+Next phase: D12 planning gate only. `docs/D12_INTEGRATION_GATE.md` defines the approval criteria, security requirements, rollback requirements, human approval requirements, validation requirements, risk register, and admin diagnostics required before any real platform integration can begin. OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -403,6 +403,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D11 Wave 2 (M4-M6 + H40) | Meta platform adapter contract shell (Meta contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Meta contract/dry-run/replay complete; contract shell only; no Graph API, OAuth, credentials, HTTP, or publishing |
 | D11 Wave 3 alt (M7-M15 + H41) | Credential/OAuth boundary and TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Credential/OAuth boundary plus TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, live OAuth, credential storage, HTTP, or publishing |
 | D11 Wave 4 (M16-M17 + H42) | Platform readiness gate (readiness domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Readiness gate complete; architecture/credential/capability/dry-run diagnostics only; no live OAuth, credentials, HTTP, real execution |
+| D12 planning gate | Real integration design criteria only (`docs/D12_INTEGRATION_GATE.md`) | Campaign Manager (name reused; orchestration not built) | Planning-only approval criteria complete; no OAuth implementation, credential storage, HTTP, API clients, publishing, execution runner, workers, cron, queues, or retries |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
