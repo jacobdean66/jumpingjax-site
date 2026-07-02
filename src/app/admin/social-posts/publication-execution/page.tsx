@@ -83,6 +83,9 @@ import {
   SOCIAL_PLATFORM_READINESS_GATE_VERSION,
   type SocialPlatformReadinessDiagnostic,
 } from "@/lib/social-posts/social-platform-readiness-gate";
+import { replaySocialPlatformOAuthRequests } from "@/lib/social-posts/social-platform-oauth-request-replay";
+import { replaySocialPlatformOAuthCallbacks } from "@/lib/social-posts/social-platform-oauth-callback-replay";
+import { replaySocialPlatformOAuthSessions } from "@/lib/social-posts/social-platform-oauth-session-replay";
 import {
   replaySocialPublicationExecutionRunbooks,
   type SocialPublicationExecutionRunbookJobProjection,
@@ -1793,6 +1796,9 @@ export default async function AdminPublicationExecutionPage({
   const linkedinAdapterReplay = replaySocialPlatformLinkedinAdapter(loaded.model).value;
   const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
   const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
+  const oauthRequestReplay = replaySocialPlatformOAuthRequests().value;
+  const oauthCallbackReplay = replaySocialPlatformOAuthCallbacks().value;
+  const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
 
@@ -2407,6 +2413,77 @@ export default async function AdminPublicationExecutionPage({
               <CredentialBoundaryJobTable title="OAuth-Blocked Jobs" empty="No jobs are OAuth-blocked." jobs={credentialBoundaryReplay.oauthBlockedJobs} />
               <CredentialBoundaryJobTable title="Missing Authorization Jobs" empty="No jobs are missing authorization." jobs={credentialBoundaryReplay.missingAuthorizationJobs} />
               <CredentialBoundaryJobTable title="Missing Credential Kind Jobs" empty="No jobs are missing credential kinds." jobs={credentialBoundaryReplay.missingCredentialKindJobs} />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D12 Secretless OAuth Diagnostics
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      OAuth request, callback, and session replay visible
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D12 OAuth diagnostics expose pure request, callback outcome,
+                      and session replay summaries only. This section creates no
+                      OAuth requests, receives no callbacks, redirects no users,
+                      exchanges no authorization codes, stores no credentials,
+                      and grants no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    D12 diagnostics only
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Request Replay Version" value={oauthRequestReplay.replayVersion} />
+                  <Field label="Modeled Requests" value={oauthRequestReplay.summary.modeledRequestCount} />
+                  <Field label="Invalid Requests" value={oauthRequestReplay.summary.invalidRequestCount} />
+                  <Field label="Request Replay Valid" value={String(oauthRequestReplay.replayIntegrity.valid)} />
+                  <Field label="Callback Replay Version" value={oauthCallbackReplay.replayVersion} />
+                  <Field label="Modeled Outcomes" value={oauthCallbackReplay.summary.modeledOutcomeCount} />
+                  <Field label="Invalid Outcomes" value={oauthCallbackReplay.summary.invalidOutcomeCount} />
+                  <Field label="Callback Replay Valid" value={String(oauthCallbackReplay.replayIntegrity.valid)} />
+                  <Field label="Session Replay Version" value={oauthSessionReplay.replayVersion} />
+                  <Field label="Sessions" value={oauthSessionReplay.summary.sessionCount} />
+                  <Field label="Awaiting Callback" value={oauthSessionReplay.summary.awaitingCallbackCount} />
+                  <Field label="Session Replay Valid" value={String(oauthSessionReplay.replayIntegrity.valid)} />
+                  <Field label="Success Intent" value={oauthSessionReplay.summary.successIntentCount} />
+                  <Field label="Denied" value={oauthSessionReplay.summary.deniedCount} />
+                  <Field label="Canceled" value={oauthSessionReplay.summary.canceledCount} />
+                  <Field label="State Mismatch" value={oauthSessionReplay.summary.stateMismatchCount} />
+                  <Field label="Expired" value={oauthSessionReplay.summary.expiredCount} />
+                  <Field label="Provider Error" value={oauthSessionReplay.summary.providerErrorCount} />
+                  <Field label="Diagnostics" value={
+                    oauthRequestReplay.summary.diagnosticCount +
+                    oauthCallbackReplay.summary.diagnosticCount +
+                    oauthSessionReplay.summary.diagnosticCount
+                  } />
+                  <Field label="Authoritative" value="false" />
+                </div>
+
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `requestReadOnly: ${String(oauthRequestReplay.readOnly)}`,
+                      `callbackReadOnly: ${String(oauthCallbackReplay.readOnly)}`,
+                      `sessionReadOnly: ${String(oauthSessionReplay.readOnly)}`,
+                      `requestAuthoritative: ${String(oauthRequestReplay.authoritative)}`,
+                      `callbackAuthoritative: ${String(oauthCallbackReplay.authoritative)}`,
+                      `sessionAuthoritative: ${String(oauthSessionReplay.authoritative)}`,
+                      `requestGrantsExecution: ${String(oauthRequestReplay.grantsExecutionPermission)}`,
+                      `callbackGrantsExecution: ${String(oauthCallbackReplay.grantsExecutionPermission)}`,
+                      `sessionGrantsExecution: ${String(oauthSessionReplay.grantsExecutionPermission)}`,
+                      `liveOAuthBlocked: true`,
+                      `credentialExchangeBlocked: true`,
+                      `storesNoCredentials: true`,
+                      `routesAdded: false`,
+                      `httpFetchAdded: false`,
+                    ]}
+                  />
+                </div>
+              </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
