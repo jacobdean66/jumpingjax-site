@@ -338,11 +338,13 @@ Execution Coordinator (D10 Wave 8; coordinator domain + replay + admin visibilit
 Platform Adapter Architecture (D11 Wave 1; registry + factory + capability replay + admin visibility; architecture only, no OAuth/credentials/HTTP/real execution)
 ↓
 Meta Platform Adapter Contract Shell (D11 Wave 2; Meta contract + dry-run + replay + admin visibility; contract shell only, no Graph API/OAuth/credentials/publishing)
+↓
+TikTok/LinkedIn Platform Adapter Contract Shells (D11 Wave 3 alt; TikTok/LinkedIn contract + dry-run + replay + H41 admin visibility; contract shells only, no APIs/OAuth/credentials/publishing)
 ```
 
-D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. Wave 3 (OAuth, credentials, HTTP, real platform SDK integrations, publish, execution) has not started.
+D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no TikTok/LinkedIn APIs, OAuth, credentials, HTTP/fetch, or publishing.
 
-Next phase (not started): D11 Wave 3 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
+Next phase (not started): D11 Wave 4 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -357,7 +359,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-2 + H32/H34/H35/H36/H37/H38/H39/H40 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, and Meta adapter contract diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-3 alt + H32/H34/H35/H36/H37/H38/H39/H40/H41 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, Meta adapter contract diagnostics, and TikTok/LinkedIn adapter contract diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -397,6 +399,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Coordinator pipeline complete; modeling end-to-end; no execution, no platform integrations, no automation |
 | D11 Wave 1 (M1-M3 + H39) | Platform adapter architecture (registry + factory + capability replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Registry/factory/replay complete; architecture only; no OAuth, credentials, HTTP, real adapters, or execution |
 | D11 Wave 2 (M4-M6 + H40) | Meta platform adapter contract shell (Meta contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Meta contract/dry-run/replay complete; contract shell only; no Graph API, OAuth, credentials, HTTP, or publishing |
+| D11 Wave 3 alt (M7-M12 + H41) | TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, OAuth, credentials, HTTP, or publishing |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -603,7 +606,19 @@ What it does not introduce: D11 Wave 2 Meta contract shell, OAuth, credentials s
 - **D11 M6:** Meta adapter replay (`social-platform-meta-adapter-replay.ts`) computes Meta-ready/blocked jobs, Facebook-ready, Instagram-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
 - **D11 H40:** Execution admin now shows Meta adapter status, FB/IG channel support, dry-run output summaries, blocked reasons, missing media/refs, and capability diagnostics. It adds no run button, connect flow, credential form, HTTP client, POST handler, or external API call.
 
-What it does not introduce: D11 Wave 3, Meta Graph API, OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 2 is a contract shell only; real Meta integration remains future work.
+What it does not introduce: D11 Wave 3 alt, Meta Graph API, OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 2 is a contract shell only; real Meta integration remains future work.
+
+**D11 Wave 3 alt (M7-M12 + H41)** added the TikTok and LinkedIn Platform Adapter Contract Shells:
+
+- **D11 M7:** TikTok adapter contract (`social-platform-tiktok-adapter.ts`) models TikTok Business Account channel support, TikTok post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no TikTok API, SDK, OAuth, credentials, HTTP, or execution.
+- **D11 M8:** LinkedIn adapter contract (`social-platform-linkedin-adapter.ts`) models LinkedIn Company Page channel support, LinkedIn post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no LinkedIn API, SDK, OAuth, credentials, HTTP, or execution.
+- **D11 M9:** TikTok dry-run adapter (`social-platform-tiktok-adapter-dry-run.ts`) simulates what would be sent, channel used, media refs required, missing capabilities, and blocked reasons. Wired to D11 factory/registry selections. No real platform calls.
+- **D11 M10:** LinkedIn dry-run adapter (`social-platform-linkedin-adapter-dry-run.ts`) mirrors the TikTok dry-run pattern for LinkedIn contract shells only.
+- **D11 M11:** TikTok adapter replay (`social-platform-tiktok-adapter-replay.ts`) computes TikTok-ready/blocked jobs, video-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
+- **D11 M12:** LinkedIn adapter replay (`social-platform-linkedin-adapter-replay.ts`) computes LinkedIn-ready/blocked jobs, article-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
+- **D11 H41:** Execution admin now shows TikTok and LinkedIn adapter status, channel support, dry-run output summaries, blocked reasons, missing media/refs, and capability diagnostics. It adds no run button, connect flow, credential form, HTTP client, POST handler, or external API call.
+
+What it does not introduce: live OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 3 alt is contract-shell modeling only; real TikTok/LinkedIn integration remains future work.
 
 ## Long-Term Vision
 
