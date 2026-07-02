@@ -339,12 +339,12 @@ Platform Adapter Architecture (D11 Wave 1; registry + factory + capability repla
 ↓
 Meta Platform Adapter Contract Shell (D11 Wave 2; Meta contract + dry-run + replay + admin visibility; contract shell only, no Graph API/OAuth/credentials/publishing)
 ↓
-TikTok/LinkedIn Platform Adapter Contract Shells (D11 Wave 3 alt; TikTok/LinkedIn contract + dry-run + replay + H41 admin visibility; contract shells only, no APIs/OAuth/credentials/publishing)
+Credential/OAuth Boundary + TikTok/LinkedIn Platform Adapter Contract Shells (D11 Wave 3 alt; credential boundary + OAuth boundary + TikTok/LinkedIn contract + dry-run + replay + H41 admin visibility; contract shells only, no live OAuth/credentials/APIs/publishing)
 ↓
-Platform Readiness Gate (D11 Wave 4; readiness domain + replay + H42 admin visibility; read-only gate only, no OAuth/credentials/HTTP/real execution)
+Platform Readiness Gate (D11 Wave 4; readiness domain + replay + H42 admin visibility; read-only gate only, no live OAuth/credentials/HTTP/real execution)
 ```
 
-D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no TikTok/LinkedIn APIs, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
+D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: credential/OAuth architecture boundaries plus TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no live OAuth, credential storage, TikTok/LinkedIn APIs, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no live OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
 
 Next phase (not started): D11 Wave 5 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
 
@@ -401,8 +401,8 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Coordinator pipeline complete; modeling end-to-end; no execution, no platform integrations, no automation |
 | D11 Wave 1 (M1-M3 + H39) | Platform adapter architecture (registry + factory + capability replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Registry/factory/replay complete; architecture only; no OAuth, credentials, HTTP, real adapters, or execution |
 | D11 Wave 2 (M4-M6 + H40) | Meta platform adapter contract shell (Meta contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Meta contract/dry-run/replay complete; contract shell only; no Graph API, OAuth, credentials, HTTP, or publishing |
-| D11 Wave 3 alt (M7-M12 + H41) | TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, OAuth, credentials, HTTP, or publishing |
-| D11 Wave 4 (M13-M15 + H42) | Platform readiness gate (readiness domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Readiness gate complete; architecture/credential/capability/dry-run diagnostics only; no OAuth, credentials, HTTP, real execution |
+| D11 Wave 3 alt (M7-M15 + H41) | Credential/OAuth boundary and TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Credential/OAuth boundary plus TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, live OAuth, credential storage, HTTP, or publishing |
+| D11 Wave 4 (M16-M17 + H42) | Platform readiness gate (readiness domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Readiness gate complete; architecture/credential/capability/dry-run diagnostics only; no live OAuth, credentials, HTTP, real execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -611,17 +611,20 @@ What it does not introduce: D11 Wave 2 Meta contract shell, OAuth, credentials s
 
 What it does not introduce: D11 Wave 3 alt, Meta Graph API, OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 2 is a contract shell only; real Meta integration remains future work.
 
-**D11 Wave 3 alt (M7-M12 + H41)** added the TikTok and LinkedIn Platform Adapter Contract Shells:
+**D11 Wave 3 alt (M7-M15 + H41)** added the Credential/OAuth Boundary and TikTok/LinkedIn Platform Adapter Contract Shells:
 
-- **D11 M7:** TikTok adapter contract (`social-platform-tiktok-adapter.ts`) models TikTok Business Account channel support, TikTok post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no TikTok API, SDK, OAuth, credentials, HTTP, or execution.
-- **D11 M8:** LinkedIn adapter contract (`social-platform-linkedin-adapter.ts`) models LinkedIn Company Page channel support, LinkedIn post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no LinkedIn API, SDK, OAuth, credentials, HTTP, or execution.
-- **D11 M9:** TikTok dry-run adapter (`social-platform-tiktok-adapter-dry-run.ts`) simulates what would be sent, channel used, media refs required, missing capabilities, and blocked reasons. Wired to D11 factory/registry selections. No real platform calls.
-- **D11 M10:** LinkedIn dry-run adapter (`social-platform-linkedin-adapter-dry-run.ts`) mirrors the TikTok dry-run pattern for LinkedIn contract shells only.
-- **D11 M11:** TikTok adapter replay (`social-platform-tiktok-adapter-replay.ts`) computes TikTok-ready/blocked jobs, video-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
-- **D11 M12:** LinkedIn adapter replay (`social-platform-linkedin-adapter-replay.ts`) computes LinkedIn-ready/blocked jobs, article-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
+- **D11 M7:** Credential boundary contract (`social-platform-credential-boundary.ts`) models provider identity, credential-reference vocabulary, authorization-state vocabulary, redaction checks, and live-credential blocking. Contract-only; no credential storage, encryption, OAuth flow, network, or execution.
+- **D11 M8:** OAuth boundary contract (`social-platform-oauth-boundary.ts`) models provider scopes, OAuth phase vocabulary, state references, and blocked live OAuth endpoints. Contract-only; no authorize endpoint, token exchange, callback handler, network, or execution.
+- **D11 M9:** Credential boundary replay (`social-platform-credential-boundary-replay.ts`) composes capability, Meta, OAuth, and planner diagnostics into credential/OAuth readiness projections. Pure replay only.
+- **D11 M10:** TikTok adapter contract (`social-platform-tiktok-adapter.ts`) models TikTok Business Account channel support, TikTok post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no TikTok API, SDK, OAuth, credentials, HTTP, or execution.
+- **D11 M11:** LinkedIn adapter contract (`social-platform-linkedin-adapter.ts`) models LinkedIn Company Page channel support, LinkedIn post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no LinkedIn API, SDK, OAuth, credentials, HTTP, or execution.
+- **D11 M12:** TikTok dry-run adapter (`social-platform-tiktok-adapter-dry-run.ts`) simulates what would be sent, channel used, media refs required, missing capabilities, and blocked reasons. Wired to D11 factory/registry selections. No real platform calls.
+- **D11 M13:** LinkedIn dry-run adapter (`social-platform-linkedin-adapter-dry-run.ts`) mirrors the TikTok dry-run pattern for LinkedIn contract shells only.
+- **D11 M14:** TikTok adapter replay (`social-platform-tiktok-adapter-replay.ts`) computes TikTok-ready/blocked jobs, video-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
+- **D11 M15:** LinkedIn adapter replay (`social-platform-linkedin-adapter-replay.ts`) computes LinkedIn-ready/blocked jobs, article-post-ready, feed-post-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
 - **D11 H41:** Execution admin now shows TikTok and LinkedIn adapter status, channel support, dry-run output summaries, blocked reasons, missing media/refs, and capability diagnostics. It adds no run button, connect flow, credential form, HTTP client, POST handler, or external API call.
 
-What it does not introduce: live OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 3 alt is contract-shell modeling only; real TikTok/LinkedIn integration remains future work.
+What it does not introduce: live OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 3 alt is credential-boundary and contract-shell modeling only; real TikTok/LinkedIn integration remains future work.
 
 ## Long-Term Vision
 
