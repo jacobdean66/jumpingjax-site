@@ -421,6 +421,23 @@ Today, the system remains deterministic and manually driven for publication exec
 
 ## Planned Milestones
 
+### D13–D18: Credential Vault through Autonomous Marketing OS (planning complete)
+
+Status: **planning only** — no implementation authorized. Architecture frozen through D12 (`f3fad34`).
+
+| Milestone | Theme | Implementation |
+|-----------|-------|----------------|
+| D13 | Credential architecture (encrypted storage, rotation, audit) | Not started |
+| D14 | OAuth integration (connect, callback, token exchange) | Not started |
+| D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Not started |
+| D16 | Controlled execution (runner, publish pipeline, owner approval) | Not started |
+| D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
+| D18 | Autonomous Marketing OS (scheduler automation, recommendations, learning persistence) | Not started |
+
+Full technical execution plan (purpose, dependencies, diagrams, objects, security, database, replay, testing, admin diagnostics, rollback, failure modes, validation checklists, waves, risks): **`docs/D13_D18_EXECUTION_PLAN.md`**.
+
+Hard gate: each milestone requires explicit approval before the next begins. D12 `docs/D12_INTEGRATION_GATE.md` criteria must be satisfied per milestone.
+
 ### D4.8: Promotion Engine Test Harness
 
 Goal: protect deterministic learning behavior.
