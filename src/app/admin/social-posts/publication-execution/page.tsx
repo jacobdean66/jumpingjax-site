@@ -97,6 +97,18 @@ import {
   type SocialPublicationExecutionCoordinatorReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-coordinator-replay";
 import type { SocialPublicationExecutionPlanStep } from "@/lib/social-posts/social-publication-execution-planner";
+import {
+  SOCIAL_CREDENTIAL_DOMAIN_VERSION,
+} from "@/lib/social-posts/credentials/social-credential-domain";
+import {
+  SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+  SOCIAL_CREDENTIAL_STORAGE_CONTRACT,
+} from "@/lib/social-posts/credentials/social-credential-repository";
+import {
+  replaySocialCredentialReadiness,
+  type SocialCredentialProviderReadinessProjection,
+  type SocialCredentialReadinessReplayDiagnostic,
+} from "@/lib/social-posts/credentials/social-credential-readiness-replay";
 
 export const dynamic = "force-dynamic";
 
@@ -1297,6 +1309,96 @@ function PlatformReadinessGateDiagnosticsList({
   );
 }
 
+function D13CredentialProviderReadinessTable({
+  readiness,
+}: {
+  readiness: readonly SocialCredentialProviderReadinessProjection[];
+}) {
+  if (readiness.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No D13 credential provider readiness projections.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-[1400px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Provider</th>
+            <th className="px-3 py-2">Platforms</th>
+            <th className="px-3 py-2">Accounts</th>
+            <th className="px-3 py-2">Active Vault Records</th>
+            <th className="px-3 py-2">Lifecycle States</th>
+            <th className="px-3 py-2">Required Kinds</th>
+            <th className="px-3 py-2">Satisfied Kinds</th>
+            <th className="px-3 py-2">Missing Kinds</th>
+            <th className="px-3 py-2">Ready</th>
+            <th className="px-3 py-2">Missing Dependencies</th>
+            <th className="px-3 py-2">Blocking Reasons</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {readiness.map((item) => (
+            <tr key={item.provider}>
+              <td className="px-3 py-2 font-black">{item.provider}</td>
+              <td className="px-3 py-2"><PillList values={[...item.platforms]} /></td>
+              <td className="px-3 py-2 font-black">{item.providerAccountCount}</td>
+              <td className="px-3 py-2 font-black">{item.activeVaultRecordCount}</td>
+              <td className="px-3 py-2 font-black">{item.activeLifecycleCount}</td>
+              <td className="px-3 py-2"><PillList values={[...item.requiredCredentialKinds]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.satisfiedCredentialKinds]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.missingCredentialKinds]} /></td>
+              <td className="px-3 py-2 font-black">{String(item.credentialReady)}</td>
+              <td className="px-3 py-2"><PillList values={[...item.missingDependencies]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.blockingReasons]} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function D13CredentialReadinessDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialCredentialReadinessReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No D13 credential readiness replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+            {diagnostic.referenceId ? (
+              <p className="font-mono text-xs">{diagnostic.referenceId}</p>
+            ) : null}
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CredentialProviderReadinessTable({
   readiness,
 }: {
@@ -1796,6 +1898,7 @@ export default async function AdminPublicationExecutionPage({
   const linkedinAdapterReplay = replaySocialPlatformLinkedinAdapter(loaded.model).value;
   const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
   const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
+  const credentialReadinessReplay = replaySocialCredentialReadiness().value;
   const oauthRequestReplay = replaySocialPlatformOAuthRequests().value;
   const oauthCallbackReplay = replaySocialPlatformOAuthCallbacks().value;
   const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;
@@ -2566,6 +2669,79 @@ export default async function AdminPublicationExecutionPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D13 Credential Architecture Readiness
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {credentialReadinessReplay.validationSummary.allProvidersCredentialReady
+                        ? "All providers credential-ready (modeled)"
+                        : "Credential architecture blocked — dependencies missing"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D13 Wave 1 credential readiness diagnostics evaluate domain
+                      vocabulary, repository contracts, provider account references,
+                      vault record metadata, lifecycle states, and missing dependency
+                      reporting. This is diagnostic only: no connect or rotate controls,
+                      no OAuth, no encryption, no vault persistence, no secrets display,
+                      and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H43 credential readiness
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Domain Version" value={SOCIAL_CREDENTIAL_DOMAIN_VERSION} />
+                  <Field label="Repository Version" value={SOCIAL_CREDENTIAL_REPOSITORY_VERSION} />
+                  <Field label="Replay Version" value={credentialReadinessReplay.replayVersion} />
+                  <Field label="Storage Contract" value={SOCIAL_CREDENTIAL_STORAGE_CONTRACT.contractVersion} />
+                  <Field label="Total Providers" value={credentialReadinessReplay.summary.totalProviderCount} />
+                  <Field label="Credential Ready" value={credentialReadinessReplay.summary.credentialReadyProviderCount} />
+                  <Field label="Credential Blocked" value={credentialReadinessReplay.summary.credentialBlockedProviderCount} />
+                  <Field label="Missing Provider Accounts" value={credentialReadinessReplay.summary.missingProviderAccountCount} />
+                  <Field label="Missing Vault Records" value={credentialReadinessReplay.summary.missingVaultRecordCount} />
+                  <Field label="Missing Lifecycle States" value={credentialReadinessReplay.summary.missingLifecycleStateCount} />
+                  <Field label="Missing Key Versions" value={credentialReadinessReplay.summary.missingKeyVersionCount} />
+                  <Field label="Domain Contract Valid" value={String(credentialReadinessReplay.validationSummary.domainContractValid)} />
+                  <Field label="Persistence Model Valid" value={String(credentialReadinessReplay.validationSummary.persistenceModelValid)} />
+                  <Field label="Domain Mapping Valid" value={String(credentialReadinessReplay.validationSummary.domainMappingValid)} />
+                  <Field label="Replay Valid" value={String(credentialReadinessReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={credentialReadinessReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...credentialReadinessReplay.missingDependencyReport.map(
+                        (dependency) => `missing:${dependency}`,
+                      ),
+                      `liveCredentialsBlocked: true`,
+                      `encryptionBlocked: true`,
+                      `persistenceBlocked: true`,
+                      `connectControlsBlocked: true`,
+                      `rotateControlsBlocked: true`,
+                      `computedOnly: ${String(credentialReadinessReplay.computedOnly)}`,
+                      `readOnly: ${String(credentialReadinessReplay.readOnly)}`,
+                      `authoritative: ${String(credentialReadinessReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(credentialReadinessReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(credentialReadinessReplay.executesNothing)}`,
+                      `publishesNothing: ${String(credentialReadinessReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Credential Provider Readiness
+                </p>
+                <div className="mt-4">
+                  <D13CredentialProviderReadinessTable readiness={credentialReadinessReplay.providerReadiness} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
                       Execution Runbook Readiness
                     </p>
                     <h2 className="mt-2 text-2xl font-black text-slate-950">
@@ -2786,6 +2962,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <PlatformReadinessGateDiagnosticsList diagnostics={readinessGateReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Credential Readiness Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <D13CredentialReadinessDiagnosticsList diagnostics={credentialReadinessReplay.diagnostics} />
                 </div>
               </section>
 

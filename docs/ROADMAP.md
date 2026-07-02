@@ -427,7 +427,7 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 
 | Milestone | Theme | Implementation |
 |-----------|-------|----------------|
-| D13 | Credential architecture (encrypted storage, rotation, audit) | Not started |
+| D13 | Credential architecture (encrypted storage, rotation, audit) | W1 complete — domain + repository contract + H43 diagnostics |
 | D14 | OAuth integration (connect, callback, token exchange) | Not started |
 | D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Not started |
 | D16 | Controlled execution (runner, publish pipeline, owner approval) | Not started |
