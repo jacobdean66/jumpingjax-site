@@ -342,11 +342,13 @@ Meta Platform Adapter Contract Shell (D11 Wave 2; Meta contract + dry-run + repl
 Credential/OAuth Boundary + TikTok/LinkedIn Platform Adapter Contract Shells (D11 Wave 3 alt; credential boundary + OAuth boundary + TikTok/LinkedIn contract + dry-run + replay + H41 admin visibility; contract shells only, no live OAuth/credentials/APIs/publishing)
 ↓
 Platform Readiness Gate (D11 Wave 4; readiness domain + replay + H42 admin visibility; read-only gate only, no live OAuth/credentials/HTTP/real execution)
+↓
+Secretless OAuth Request Modeling (D12 Wave 1; authorization request intent + callback expectation + replay diagnostics; model-only, no real OAuth/credentials/HTTP/redirects/callback routes)
 ```
 
 D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: credential/OAuth architecture boundaries plus TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no live OAuth, credential storage, TikTok/LinkedIn APIs, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no live OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
 
-Next phase: D12 planning gate only. `docs/D12_INTEGRATION_GATE.md` defines the approval criteria, security requirements, rollback requirements, human approval requirements, validation requirements, risk register, and admin diagnostics required before any real platform integration can begin. OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
+D12 started with the integration planning gate, and D12 Wave 1 adds secretless OAuth request modeling only. `docs/D12_INTEGRATION_GATE.md` remains the approval boundary before any real platform integration can begin. The Wave 1 code models authorization request intent, redirect/callback expectations, scope vocabulary validation, and replayable diagnostics; OAuth implementation, credentials storage, secrets/tokens, HTTP/fetch to platform APIs, real redirects, callback routes, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -404,6 +406,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D11 Wave 3 alt (M7-M15 + H41) | Credential/OAuth boundary and TikTok/LinkedIn platform adapter contract shells (contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Credential/OAuth boundary plus TikTok/LinkedIn contract/dry-run/replay complete; contract shells only; no APIs, live OAuth, credential storage, HTTP, or publishing |
 | D11 Wave 4 (M16-M17 + H42) | Platform readiness gate (readiness domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Readiness gate complete; architecture/credential/capability/dry-run diagnostics only; no live OAuth, credentials, HTTP, real execution |
 | D12 planning gate | Real integration design criteria only (`docs/D12_INTEGRATION_GATE.md`) | Campaign Manager (name reused; orchestration not built) | Planning-only approval criteria complete; no OAuth implementation, credential storage, HTTP, API clients, publishing, execution runner, workers, cron, queues, or retries |
+| D12 Wave 1 (M1 + replay) | Secretless OAuth request modeling (`social-platform-oauth-request.ts`, `social-platform-oauth-request-replay.ts`) | Campaign Manager (name reused; orchestration not built) | Authorization request intent, callback expectation, scope validation, and replay diagnostics complete; no real OAuth, credentials, secrets/tokens, HTTP/fetch, redirects, callback routes, API clients, publishing, or execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
