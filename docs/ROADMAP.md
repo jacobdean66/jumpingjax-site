@@ -322,7 +322,21 @@ AI Operations Console (D9 Wave 11; unified read-only overview + cross-system exp
 Execution Boundary Design (D10 Wave 1; domain + repository contract + replay only; no execution, no platform APIs, no mutation)
 ↓
 Execution Durable Infrastructure (D10 Wave 2; append-only SQL + row mapping + production store; no execution, no platform APIs, no bridge, no admin UI)
+↓
+Execution Read Visibility (D10 Wave 3; bridge + read-only admin + navigation; no execution, no adapters, no workers/cron/retries)
+↓
+Execution Preflight Gate (D10 Wave 4; read-only diagnostics + replay + admin visibility; no execution, no adapters, no APIs)
+↓
+Execution Planner (D10 Wave 5; simulated plans + replay + admin visibility; no execution, no platform integrations)
+↓
+Execution Adapter Contract Layer (D10 Wave 6; adapter contracts + dry-run reference adapters + replay + admin visibility; no real adapters, OAuth, or credentials)
+↓
+Execution Runbook Readiness Layer (D10 Wave 7; runbook domain + replay + admin visibility; human checklist, no automation)
+↓
+Execution Coordinator (D10 Wave 8; coordinator domain + replay + admin visibility; pipeline modeled end-to-end, no execution)
 ```
+
+Next phase (not started): controlled real-adapter design — real platform adapters behind the existing contract layer, still without OAuth/credentials storage, workers, cron, queues, retries, or execution automation until explicitly approved.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -337,6 +351,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
+| `/admin/social-posts/publication-execution` | D10 + H32/H34/H35/H36/H37/H38 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, and coordinator diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -368,8 +383,12 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D9 | Autonomous scheduler (M1-M3 foundation + H9-H14 durable/read-visible storage and admin read) + Publisher read integration (M4-M6 foundation + H15-H17 durable persistence + H18-H20 bridge/admin/navigation) + passive Metrics durable read integration (M7-M9 + H21-H24) + Learning foundation and read layer (M10-M12 + H25-H27) + AI Operations Console (Wave 11) | Autonomous Scheduler / Publisher read integration / Metrics durable read integration / Learning foundation and read layer / Operations Console | Wave 11 complete; passive platform fully observable; no execution |
 | D10 Wave 1 (M1-M3) | Execution boundary design (domain + repository contract + replay) | Campaign Manager (name reused; orchestration not built) | Foundation complete; no execution, no platform APIs, no persistence, no bridge, no admin UI |
 | D10 Wave 2 (H28-H30) | Execution durable infrastructure (append-only SQL + row mapping + production store) | Campaign Manager (name reused; orchestration not built) | Durable persistence complete; still does not execute; no bridge, no admin UI, no platform adapters |
+| D10 Wave 3 (H31-H33) | Execution read visibility (bridge + read-only admin + navigation) | Campaign Manager (name reused; orchestration not built) | Read visibility complete; no execution, no adapters, no workers/cron/retries |
+| D10 Wave 4 (M4-M5 + H34) | Execution preflight gate (pure diagnostics + replay integration + admin visibility) | Campaign Manager (name reused; orchestration not built) | Preflight read visibility complete; no execution, no adapters, no workers/cron/queues/retries |
+| D10 Wave 5 (M6-M7 + H35) | Execution planner (pure plan domain + replay integration + admin visibility) | Campaign Manager (name reused; orchestration not built) | Simulated planning complete; no execution, no platform integrations |
 | D10 Wave 6 (M8-M10 + H36) | Execution adapter contract layer (adapter contracts + dry-run reference adapter + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Adapter contracts complete; only dry-run reference adapters exist; no real platform adapters, OAuth, credentials, or execution |
-| D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Runbook/readiness complete; human checklist exists; execution fully modeled but inactive; D10 execution implementation not started |
+| D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Runbook/readiness complete; human checklist exists; execution fully modeled but inactive |
+| D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Coordinator pipeline complete; modeling end-to-end; no execution, no platform integrations, no automation |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 

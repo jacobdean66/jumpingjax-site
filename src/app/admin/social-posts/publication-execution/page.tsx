@@ -1145,13 +1145,14 @@ export default async function AdminPublicationExecutionPage({
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
 
   const navItems: readonly [string, string][] = [
-    ["/admin/social-posts", "Social posts"],
+    ["/admin/social-posts", "Hub"],
     ["/admin/social-posts/publication-scheduler", "Scheduler"],
     ["/admin/social-posts/publication-publisher", "Publisher"],
     ["/admin/social-posts/publication-metrics", "Metrics"],
     ["/admin/social-posts/publication-learning", "Learning"],
     ["/admin/social-posts/publication-ledger", "Ledger"],
     ["/admin/social-posts/publication-manifest", "Manifest"],
+    ["/admin/social-posts/publication-execution", "Execution"],
     ["/admin/social-posts/operations", "AI Operations Console"],
   ];
 
