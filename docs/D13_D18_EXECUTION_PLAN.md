@@ -2,7 +2,7 @@
 
 Status: **planning only**. No OAuth, credentials, HTTP, SDKs, execution, workers, cron, queues, retries, or protected-system changes are authorized by this document.
 
-Accepted architecture HEAD: `f3fad34` — D12 Wave 4 OAuth admin diagnostics.
+Accepted architecture HEAD: `fae21ae` — D13–D18 technical execution plan (planning only).
 
 This document is the canonical technical execution plan for the remaining Jumping Jax AI Marketing Operating System milestones. It extends the frozen D1–D12 stack without modifying its behavior. Read alongside:
 
@@ -116,7 +116,7 @@ flowchart TB
 | `ProviderAccount` | Maps internal `publication_target_id` to external account identifier (page id, business account id) — reference ids only in durable rows. |
 | `CredentialReference` | Opaque `credential_ref_id` consumed by D11 boundary; redacted hint for admin (e.g. `meta:page:***1234`). |
 | `TokenLifecycleState` | Extends D11 `authorization_state` with durable timestamps: `issued_at`, `expires_at`, `last_rotated_at`, `revoked_at`. |
-| `CredentialAuditEvent` | Append-only: actor, action (create/rotate/revoke/read_attempt), credential_ref_id, outcome, sanitized reason. |
+| `CredentialAuditEvent` | Append-only: actor (admin id or system), action (`create`/`rotate`/`revoke`/`decrypt_attempt`/`read_metadata`), credential_ref_id, outcome, sanitized reason. |
 | `EncryptionKeyVersion` | Active/retired key ids for envelope encryption and re-encryption jobs. |
 | `ServiceRoleBoundary` | Explicit allowlist: only vault service module may decrypt; all other layers receive refs only. |
 
@@ -129,23 +129,42 @@ flowchart TB
 
 ### Security Model
 
-- **Encryption at rest:** AES-256-GCM envelope encryption; data key per record, master key from environment (Vercel env + rotation procedure documented).
-- **Service-role boundary:** Supabase RLS denies all credential tables to `authenticated` and `anon`; only server-side vault module uses service role.
-- **Redaction:** Logs, errors, tests, and admin UI never contain tokens, refresh tokens, app secrets, or authorization codes.
-- **Least privilege:** Credential kinds map to minimum scopes needed per provider (inventory in D14).
+- **Encryption at rest:** AES-256-GCM envelope encryption; data key per record, master key from environment (`CREDENTIAL_VAULT_MASTER_KEY` in Vercel env; never in repo). Envelope format: `{ version, key_version, nonce, ciphertext, tag }` stored as bytea/jsonb in `encrypted_payload`; no plaintext fields.
+- **Service-role boundary:** Supabase RLS denies all credential tables to `authenticated` and `anon`. The service role bypasses RLS, so isolation is enforced in application code: only `src/lib/social-posts/credentials/**` may import the vault store or call decrypt. All other layers (publisher, scheduler, metrics, execution, admin pages, replay) receive `credential_ref_id` and redacted hints only; they must not query credential tables directly. Code-review gate and eslint import-boundary checks enforce this.
+- **Redaction:** Logs, errors, tests, and admin UI never contain tokens, refresh tokens, app secrets, or authorization codes. `sanitized_detail` in audit rows is reference-only (ids, enums, counts).
+- **Least privilege:** Credential kinds map to minimum scopes needed per provider (scope inventory in D14).
 - **Local dev:** Reference-mode vault with deterministic fake refs; production tokens forbidden in `.env.local` commits.
-- **Incident response:** Documented revoke-all, key rotation, and audit export procedure before Wave 1 ships.
+- **Threat model:** OAuth hijack, credential theft, service-role misuse, audit tampering, and backup key co-location are in scope. Mitigations: envelope encryption, module allowlist, append-only audit, key/env separation, and incident runbook (D13 W6).
+- **Backup/restore:** Supabase backups include ciphertext only. Restoring a backup does not restore the master key; production restore requires the same `CREDENTIAL_VAULT_MASTER_KEY` (or retired key versions for historical rows). Document restore verification in D13 W6.
+- **Deletion policy:** Credential rows are never hard-deleted. Revocation sets lifecycle `revoked_at` and marks the vault record superseded; ciphertext remains for audit. Provider-account disable is a status change, not a row delete.
+- **Incident response:** Documented revoke-all, per-credential revoke, key rotation, and audit export procedure before Wave 1 ships.
+
+### Token Lifecycle
+
+D13 extends D11 `authorization_state` with durable lifecycle metadata. OAuth token exchange and refresh are **D14**; D13 defines storage and state vocabulary only.
+
+| Phase | D13 behavior | D14+ behavior |
+|-------|--------------|---------------|
+| Issue | Vault row created; `issued_at` set; audit `create` | OAuth callback writes encrypted bundle |
+| Active | Replay `authorized_reference` when not expired/revoked | Adapter reads via vault decrypt |
+| Expire | `expires_at` passed → replay `expired_reference` | Reauthorize via D14 connect |
+| Rotate | New vault row; prior row `superseded_at` set; audit `rotate` | Refresh token rotation (D14 W7) |
+| Revoke | `revoked_at` set; replay `revoked_reference`; audit `revoke` | Provider revoke + vault revoke |
+| Scope change | Replay `scope_insufficient` from metadata | Reauthorize with new scopes (D14) |
+
+**State machine (metadata-only in D13):** `pending` → `active` → (`expired` | `revoked` | `superseded`). Only one non-superseded active row per `(provider, kind, account_ref_id)` at a time. Transitions are append-only (new row or lifecycle update on dedicated lifecycle table); vault ciphertext rows are never updated in place.
 
 ### Database Requirements
 
 | Table | Shape | Notes |
 |-------|-------|-------|
-| `social_credential_vault_records` | id, provider, kind, account_ref_id, target_id (FK ref), encrypted_payload, key_version, created_at | Append-only create; rotate = new row + supersede flag |
-| `social_provider_accounts` | id, provider, external_account_id, publication_target_id, display_name_redacted, status | Links D7 targets to external identity |
-| `social_credential_audit_events` | id, credential_ref_id, actor_admin_id, action, outcome, sanitized_detail, created_at | Immutable trigger |
+| `social_credential_vault_records` | id, provider, kind, account_ref_id, publication_target_id (FK → `social_publication_targets`), credential_ref_id, encrypted_payload, key_version, superseded_at, revoked_at, created_at | Append-only insert; rotate = new row + `superseded_at` on prior; revoke sets `revoked_at` |
+| `social_credential_lifecycle_states` | id, credential_ref_id, account_ref_id, authorization_state, issued_at, expires_at, last_rotated_at, revoked_at, scope_fingerprint_redacted, created_at | One current row per credential_ref_id; append-only history via new rows |
+| `social_provider_accounts` | id, provider, external_account_id, publication_target_id (FK), display_name_redacted, status, created_at | Links D7 targets to external identity; unique `(provider, external_account_id)` |
+| `social_credential_audit_events` | id, credential_ref_id, actor_admin_id (nullable for system), action, outcome, sanitized_detail, created_at | Immutable trigger; actions: `create`, `rotate`, `revoke`, `decrypt_attempt`, `read_metadata` |
 | `social_credential_key_versions` | version, status, activated_at, retired_at | Key rotation metadata |
 
-**Migration rules:** Idempotent migrations; no destructive drops; backward compatible with D11 reference-only contracts.
+**Schema constraints (mirror H9–H28 patterns):** append-only/immutable triggers on vault and audit tables; FK `on delete restrict` to publication targets; provider/platform consistency checks; forbidden plaintext payload validators in mapper layer; idempotent migrations; no destructive drops.
 
 ### Replay Model
 
@@ -174,9 +193,10 @@ flowchart TB
 
 ### Rollback Strategy
 
-- **Disable vault writes:** Feature flag `CREDENTIAL_VAULT_ENABLED=false` — reads fail closed.
-- **Revoke all:** Mark all vault records `revoked` via audit-gated admin script (not UI button in D13).
-- **Key compromise:** Rotate master key, re-encrypt records in background job (planned Wave 3); old key version retained read-only for decrypt until migration completes.
+- **Disable vault writes:** Feature flag `CREDENTIAL_VAULT_ENABLED=false` — reads fail closed; decrypt returns `not_authorized`.
+- **Per-credential revoke:** Audit-gated admin script sets `revoked_at` and appends audit `revoke` (not UI in D13).
+- **Revoke all:** Same script with provider-wide or global scope; marks all active vault rows revoked.
+- **Key compromise:** Rotate master key in Vercel env, register new `social_credential_key_versions` row, run manual batch re-encrypt script (D13 W6 runbook; no cron/workers in D13). Retired key version retained for decrypt until all rows migrated.
 - **Schema rollback:** Migrations additive only; rollback = disable feature flag, not drop tables.
 
 ### Failure Modes
@@ -191,9 +211,9 @@ flowchart TB
 
 ### Validation Checklist
 
-- [ ] D12 credential storage approval criteria addressed in design review
+- [ ] D12 credential storage approval criteria addressed in design review (encryption, rotation, revocation, backup/restore, deletion, local dev, incident response)
 - [ ] No plaintext secrets in SQL, logs, or admin HTML
-- [ ] RLS denies non-service-role access to credential tables
+- [ ] RLS denies `authenticated`/`anon` on credential tables; vault module is sole decrypt/import path for service-role code
 - [ ] D11 boundary contract unchanged; new states are extensions only
 - [ ] Publication targets linkage documented and tested
 - [ ] Reference-mode works without Supabase vault
@@ -210,7 +230,7 @@ flowchart TB
 | D13 W3 | Production store + bridge + reference-mode fake vault |
 | D13 W4 | Credential replay + readiness gate composition update |
 | D13 W5 | Read-only admin diagnostics + navigation wiring |
-| D13 W6 | Audit export, key rotation docs, security test harness |
+| D13 W6 | Audit export, key rotation runbook, manual re-encrypt script docs, security test harness |
 
 ### Risk Assessment
 

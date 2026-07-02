@@ -423,7 +423,7 @@ Today, the system remains deterministic and manually driven for publication exec
 
 ### D13–D18: Credential Vault through Autonomous Marketing OS (planning complete)
 
-Status: **planning only** — no implementation authorized. Architecture frozen through D12 (`f3fad34`).
+Status: **planning only** — no implementation authorized. Architecture frozen through D12; execution plan at `fae21ae`.
 
 | Milestone | Theme | Implementation |
 |-----------|-------|----------------|
