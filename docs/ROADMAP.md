@@ -336,11 +336,13 @@ Execution Runbook Readiness Layer (D10 Wave 7; runbook domain + replay + admin v
 Execution Coordinator (D10 Wave 8; coordinator domain + replay + admin visibility; pipeline modeled end-to-end, no execution)
 ↓
 Platform Adapter Architecture (D11 Wave 1; registry + factory + capability replay + admin visibility; architecture only, no OAuth/credentials/HTTP/real execution)
+↓
+Meta Platform Adapter Contract Shell (D11 Wave 2; Meta contract + dry-run + replay + admin visibility; contract shell only, no Graph API/OAuth/credentials/publishing)
 ```
 
-D11 Wave 1 started: platform adapter registry, factory, and capability replay are complete. Wave 2 (OAuth, credentials, HTTP, real Facebook/Instagram/TikTok/LinkedIn integration, publish, execution) has not started.
+D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. Wave 3 (OAuth, credentials, HTTP, real platform SDK integrations, publish, execution) has not started.
 
-Next phase (not started): D11 Wave 2 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
+Next phase (not started): D11 Wave 3 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -355,7 +357,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1 + H32/H34/H35/H36/H37/H38/H39 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, and platform adapter registry diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-2 + H32/H34/H35/H36/H37/H38/H39/H40 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, and Meta adapter contract diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -394,6 +396,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Runbook/readiness complete; human checklist exists; execution fully modeled but inactive |
 | D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Coordinator pipeline complete; modeling end-to-end; no execution, no platform integrations, no automation |
 | D11 Wave 1 (M1-M3 + H39) | Platform adapter architecture (registry + factory + capability replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Registry/factory/replay complete; architecture only; no OAuth, credentials, HTTP, real adapters, or execution |
+| D11 Wave 2 (M4-M6 + H40) | Meta platform adapter contract shell (Meta contract + dry-run + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Meta contract/dry-run/replay complete; contract shell only; no Graph API, OAuth, credentials, HTTP, or publishing |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -591,7 +594,16 @@ What it does not introduce: actual execution, real platform adapters, OAuth, cre
 - **D11 M3:** Platform adapter capability replay (`social-platform-adapter-capability-replay.ts`) computes available adapters, supported/unsupported channels, dry-run availability, modeled execution capability flags, and platform readiness. Read-only replay may compose D10 execution adapter replay with D11 registry/factory output.
 - **D11 H39:** Execution admin now shows registered adapters, supported platforms, capabilities, unsupported channels, dry-run availability, feature flags, and platform readiness. It adds no run button, OAuth flow, credential field, HTTP client, POST handler, or external API call.
 
-What it does not introduce: D11 Wave 2, OAuth, credentials storage, HTTP/fetch, platform APIs, real Facebook/Instagram/TikTok/LinkedIn SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 1 is architecture only; real platform integration remains future work.
+What it does not introduce: D11 Wave 2 Meta contract shell, OAuth, credentials storage, HTTP/fetch, platform APIs, real Facebook/Instagram/TikTok/LinkedIn SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 1 is architecture only; real platform integration remains future work.
+
+**D11 Wave 2 (M4-M6 + H40)** added the Meta Platform Adapter Contract Shell:
+
+- **D11 M4:** Meta adapter contract (`social-platform-meta-adapter.ts`) models Facebook/Instagram channel support, Meta post/media request shapes, validation results, adapter diagnostics, capability flags, and forbidden-state detection. Contract-only; no Meta Graph API, SDK, OAuth, credentials, HTTP, or execution.
+- **D11 M5:** Meta dry-run adapter (`social-platform-meta-adapter-dry-run.ts`) simulates what would be sent, channel used, media refs required, missing capabilities, and blocked reasons. Wired to D11 factory/registry selections. No real platform calls.
+- **D11 M6:** Meta adapter replay (`social-platform-meta-adapter-replay.ts`) computes Meta-ready/blocked jobs, Facebook-ready, Instagram-ready, missing media, unsupported channel, and missing capability jobs. Pure replay only.
+- **D11 H40:** Execution admin now shows Meta adapter status, FB/IG channel support, dry-run output summaries, blocked reasons, missing media/refs, and capability diagnostics. It adds no run button, connect flow, credential form, HTTP client, POST handler, or external API call.
+
+What it does not introduce: D11 Wave 3, Meta Graph API, OAuth, credentials storage, HTTP/fetch, platform APIs, real SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 2 is a contract shell only; real Meta integration remains future work.
 
 ## Long-Term Vision
 
