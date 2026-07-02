@@ -334,9 +334,13 @@ Execution Adapter Contract Layer (D10 Wave 6; adapter contracts + dry-run refere
 Execution Runbook Readiness Layer (D10 Wave 7; runbook domain + replay + admin visibility; human checklist, no automation)
 ↓
 Execution Coordinator (D10 Wave 8; coordinator domain + replay + admin visibility; pipeline modeled end-to-end, no execution)
+↓
+Platform Adapter Architecture (D11 Wave 1; registry + factory + capability replay + admin visibility; architecture only, no OAuth/credentials/HTTP/real execution)
 ```
 
-Next phase (not started): controlled real-adapter design — real platform adapters behind the existing contract layer, still without OAuth/credentials storage, workers, cron, queues, retries, or execution automation until explicitly approved.
+D11 Wave 1 started: platform adapter registry, factory, and capability replay are complete. Wave 2 (OAuth, credentials, HTTP, real Facebook/Instagram/TikTok/LinkedIn integration, publish, execution) has not started.
+
+Next phase (not started): D11 Wave 2 and beyond — OAuth, credentials storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until approved.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -351,7 +355,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + H32/H34/H35/H36/H37/H38 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, and coordinator diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1 + H32/H34/H35/H36/H37/H38/H39 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, and platform adapter registry diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -389,6 +393,7 @@ Code phase numbers and original roadmap labels diverged after D6. Use this map w
 | D10 Wave 6 (M8-M10 + H36) | Execution adapter contract layer (adapter contracts + dry-run reference adapter + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Adapter contracts complete; only dry-run reference adapters exist; no real platform adapters, OAuth, credentials, or execution |
 | D10 Wave 7 (M11-M12 + H37) | Execution runbook readiness layer (runbook domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Runbook/readiness complete; human checklist exists; execution fully modeled but inactive |
 | D10 Wave 8 (M13-M14 + H38) | Execution coordinator (coordinator domain + replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Coordinator pipeline complete; modeling end-to-end; no execution, no platform integrations, no automation |
+| D11 Wave 1 (M1-M3 + H39) | Platform adapter architecture (registry + factory + capability replay + admin visibility) | Campaign Manager (name reused; orchestration not built) | Registry/factory/replay complete; architecture only; no OAuth, credentials, HTTP, real adapters, or execution |
 
 Today, the system remains deterministic and manually driven for publication execution. That is intentional.
 
@@ -578,6 +583,15 @@ What it does not introduce: actual execution, real platform adapters, OAuth, cre
 - **D10 H38:** Execution admin now shows execution pipeline, coordination stages, dependency graph, authority graph, adapter selection, pipeline readiness, and coordination diagnostics. It adds no run button, execute button, retry button, POST handler, or automation control.
 
 What it does not introduce: actual execution, real platform adapters, OAuth, credentials, HTTP/fetch, external APIs, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, platform integrations, or protected-system edits. The execution pipeline is fully modeled end-to-end but remains inactive by design.
+
+**D11 Wave 1 (M1-M3 + H39)** added the Platform Adapter Architecture:
+
+- **D11 M1:** Platform adapter registry (`social-platform-adapter-registry.ts`) models supported platforms, adapter discovery, capability registration, channel registration, adapter version, metadata, and feature flags. Pure registry only; no implementations, OAuth, credentials, HTTP, or execution.
+- **D11 M2:** Platform adapter factory (`social-platform-adapter-factory.ts`) chooses reference, dry-run, and unsupported adapter selections. Dry-run selections wire to D10 execution dry-run contracts. No real adapters, network, OAuth, or credentials.
+- **D11 M3:** Platform adapter capability replay (`social-platform-adapter-capability-replay.ts`) computes available adapters, supported/unsupported channels, dry-run availability, modeled execution capability flags, and platform readiness. Read-only replay may compose D10 execution adapter replay with D11 registry/factory output.
+- **D11 H39:** Execution admin now shows registered adapters, supported platforms, capabilities, unsupported channels, dry-run availability, feature flags, and platform readiness. It adds no run button, OAuth flow, credential field, HTTP client, POST handler, or external API call.
+
+What it does not introduce: D11 Wave 2, OAuth, credentials storage, HTTP/fetch, platform APIs, real Facebook/Instagram/TikTok/LinkedIn SDK integrations, publish, execution, workers, cron, queues, retries, POST handlers, API routes, SQL, persistence changes, lower-layer mutations, or protected-system edits. D11 Wave 1 is architecture only; real platform integration remains future work.
 
 ## Long-Term Vision
 
