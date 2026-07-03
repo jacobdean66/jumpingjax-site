@@ -109,6 +109,17 @@ import {
   type SocialCredentialProviderReadinessProjection,
   type SocialCredentialReadinessReplayDiagnostic,
 } from "@/lib/social-posts/credentials/social-credential-readiness-replay";
+import {
+  SOCIAL_CREDENTIAL_ENCRYPTION_DOMAIN_VERSION,
+} from "@/lib/social-posts/credentials/social-credential-encryption-domain";
+import {
+  SOCIAL_CREDENTIAL_ENCRYPTION_BOUNDARY_VERSION,
+} from "@/lib/social-posts/credentials/social-credential-encryption-boundary";
+import {
+  replaySocialCredentialEncryptionReadiness,
+  type SocialCredentialEncryptionProviderReadinessProjection,
+  type SocialCredentialEncryptionReadinessDiagnostic,
+} from "@/lib/social-posts/credentials/social-credential-encryption-readiness-replay";
 
 export const dynamic = "force-dynamic";
 
@@ -1362,6 +1373,90 @@ function D13CredentialProviderReadinessTable({
   );
 }
 
+function D13CredentialEncryptionReadinessDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialCredentialEncryptionReadinessDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No D13 encryption readiness replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+            {diagnostic.referenceId ? (
+              <p className="font-mono text-xs">{diagnostic.referenceId}</p>
+            ) : null}
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function D13CredentialEncryptionProviderReadinessTable({
+  readiness,
+}: {
+  readiness: readonly SocialCredentialEncryptionProviderReadinessProjection[];
+}) {
+  if (readiness.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No D13 encryption provider readiness projections.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-[1200px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Provider</th>
+            <th className="px-3 py-2">Key Refs</th>
+            <th className="px-3 py-2">Active Key Refs</th>
+            <th className="px-3 py-2">Vault Records</th>
+            <th className="px-3 py-2">Vault w/ Key Version</th>
+            <th className="px-3 py-2">Ready</th>
+            <th className="px-3 py-2">Missing Key Refs</th>
+            <th className="px-3 py-2">Blocking Reasons</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {readiness.map((item) => (
+            <tr key={item.provider}>
+              <td className="px-3 py-2 font-black">{item.provider}</td>
+              <td className="px-3 py-2 font-black">{item.registeredKeyReferenceCount}</td>
+              <td className="px-3 py-2 font-black">{item.activeKeyReferenceCount}</td>
+              <td className="px-3 py-2 font-black">{item.vaultRecordCount}</td>
+              <td className="px-3 py-2 font-black">{item.vaultRecordsWithKeyVersion}</td>
+              <td className="px-3 py-2 font-black">{String(item.encryptionReady)}</td>
+              <td className="px-3 py-2"><PillList values={[...item.missingKeyReferences]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.blockingReasons]} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function D13CredentialReadinessDiagnosticsList({
   diagnostics,
 }: {
@@ -1899,6 +1994,7 @@ export default async function AdminPublicationExecutionPage({
   const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
   const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
   const credentialReadinessReplay = replaySocialCredentialReadiness().value;
+  const credentialEncryptionReadinessReplay = replaySocialCredentialEncryptionReadiness().value;
   const oauthRequestReplay = replaySocialPlatformOAuthRequests().value;
   const oauthCallbackReplay = replaySocialPlatformOAuthCallbacks().value;
   const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;
@@ -2730,6 +2826,79 @@ export default async function AdminPublicationExecutionPage({
               </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D13 Encryption Boundary Architecture
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {credentialEncryptionReadinessReplay.summary.encryptionArchitectureReady
+                        ? "Encryption architecture boundary ready (implementation blocked)"
+                        : "Encryption architecture blocked — key references or contracts missing"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D13 Wave 4 encryption readiness diagnostics evaluate cipher metadata,
+                      envelope structure vocabulary, key reference objects, provider contracts,
+                      and rotation plan boundaries. This is diagnostic only: no encryption
+                      implementation, no decryption, no key material, no ciphertext, no crypto
+                      libraries, and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H44 encryption readiness
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Encryption Domain Version" value={SOCIAL_CREDENTIAL_ENCRYPTION_DOMAIN_VERSION} />
+                  <Field label="Encryption Boundary Version" value={SOCIAL_CREDENTIAL_ENCRYPTION_BOUNDARY_VERSION} />
+                  <Field label="Replay Version" value={credentialEncryptionReadinessReplay.summary.replayVersion} />
+                  <Field label="Architecture Ready" value={String(credentialEncryptionReadinessReplay.summary.encryptionArchitectureReady)} />
+                  <Field label="Encryption Ready Providers" value={credentialEncryptionReadinessReplay.summary.encryptionReadyProviderCount} />
+                  <Field label="Encryption Blocked Providers" value={credentialEncryptionReadinessReplay.summary.encryptionBlockedProviderCount} />
+                  <Field label="Missing Key References" value={credentialEncryptionReadinessReplay.summary.missingKeyReferenceCount} />
+                  <Field label="Missing Encryption Providers" value={credentialEncryptionReadinessReplay.summary.missingEncryptionProviderCount} />
+                  <Field label="Domain Contract Valid" value={String(credentialEncryptionReadinessReplay.validationSummary.domainContractValid)} />
+                  <Field label="Boundary Contract Valid" value={String(credentialEncryptionReadinessReplay.validationSummary.boundaryContractValid)} />
+                  <Field label="Provider Contract Valid" value={String(credentialEncryptionReadinessReplay.validationSummary.providerContractValid)} />
+                  <Field label="Active Key References" value={credentialEncryptionReadinessReplay.validationSummary.activeKeyReferenceCount} />
+                  <Field label="Vault Key Version Mismatches" value={credentialEncryptionReadinessReplay.validationSummary.vaultKeyVersionMismatchCount} />
+                  <Field label="Diagnostics" value={credentialEncryptionReadinessReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...credentialEncryptionReadinessReplay.missingKeyReferences.map(
+                        (reference) => `missing_key_ref:${reference}`,
+                      ),
+                      ...credentialEncryptionReadinessReplay.missingEncryptionProviders.map(
+                        (provider) => `missing_provider:${provider}`,
+                      ),
+                      `encryptionImplementationBlocked: true`,
+                      `decryptionImplementationBlocked: true`,
+                      `keyMaterialBlocked: true`,
+                      `ciphertextBlocked: true`,
+                      `cryptoLibraryBlocked: true`,
+                      `computedOnly: ${String(credentialEncryptionReadinessReplay.computedOnly)}`,
+                      `readOnly: ${String(credentialEncryptionReadinessReplay.readOnly)}`,
+                      `authoritative: ${String(credentialEncryptionReadinessReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(credentialEncryptionReadinessReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(credentialEncryptionReadinessReplay.executesNothing)}`,
+                      `publishesNothing: ${String(credentialEncryptionReadinessReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Encryption Provider Readiness
+                </p>
+                <div className="mt-4">
+                  <D13CredentialEncryptionProviderReadinessTable readiness={credentialEncryptionReadinessReplay.providerReadiness} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
                   D13 Credential Provider Readiness
                 </p>
@@ -2962,6 +3131,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <PlatformReadinessGateDiagnosticsList diagnostics={readinessGateReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Encryption Readiness Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <D13CredentialEncryptionReadinessDiagnosticsList diagnostics={credentialEncryptionReadinessReplay.diagnostics} />
                 </div>
               </section>
 
