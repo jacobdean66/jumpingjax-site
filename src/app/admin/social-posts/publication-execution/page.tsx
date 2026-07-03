@@ -120,6 +120,18 @@ import {
   type SocialCredentialEncryptionProviderReadinessProjection,
   type SocialCredentialEncryptionReadinessDiagnostic,
 } from "@/lib/social-posts/credentials/social-credential-encryption-readiness-replay";
+import {
+  SOCIAL_CREDENTIAL_CRYPTO_POLICY_DOMAIN_VERSION,
+  type SocialCredentialKeyLifecycleModel,
+} from "@/lib/social-posts/credentials/social-credential-cryptographic-policy-domain";
+import {
+  SOCIAL_CREDENTIAL_CRYPTO_POLICY_BOUNDARY_VERSION,
+} from "@/lib/social-posts/credentials/social-credential-cryptographic-policy-boundary";
+import {
+  replaySocialCredentialCryptographicPolicy,
+  type SocialCredentialCryptoPolicyProviderSelectionProjection,
+  type SocialCredentialCryptoPolicyReplayDiagnostic,
+} from "@/lib/social-posts/credentials/social-credential-cryptographic-policy-replay";
 
 export const dynamic = "force-dynamic";
 
@@ -1457,6 +1469,145 @@ function D13CredentialEncryptionProviderReadinessTable({
   );
 }
 
+function D13CryptographicPolicyDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialCredentialCryptoPolicyReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+        No D13 cryptographic policy replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+            {diagnostic.referenceId ? (
+              <p className="font-mono text-xs">{diagnostic.referenceId}</p>
+            ) : null}
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function D13CryptographicPolicyProviderSelectionTable({
+  selections,
+}: {
+  selections: readonly SocialCredentialCryptoPolicyProviderSelectionProjection[];
+}) {
+  if (selections.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No D13 cryptographic policy provider selection projections.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-[1400px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Provider</th>
+            <th className="px-3 py-2">Selected Contract</th>
+            <th className="px-3 py-2">Lifecycle Phase</th>
+            <th className="px-3 py-2">Active Key Refs</th>
+            <th className="px-3 py-2">Rotation Due</th>
+            <th className="px-3 py-2">Ready</th>
+            <th className="px-3 py-2">Capability Flags</th>
+            <th className="px-3 py-2">Blocking Reasons</th>
+            <th className="px-3 py-2">Rationale</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {selections.map((item) => (
+            <tr key={item.provider}>
+              <td className="px-3 py-2 font-black">{item.provider}</td>
+              <td className="px-3 py-2 font-mono text-xs">
+                {item.selectedProviderId ?? <EmptyValue />}
+              </td>
+              <td className="px-3 py-2 font-black">{item.lifecyclePhase ?? <EmptyValue />}</td>
+              <td className="px-3 py-2 font-black">{item.activeKeyReferenceCount}</td>
+              <td className="px-3 py-2 font-black">{item.rotationDueKeyReferenceCount}</td>
+              <td className="px-3 py-2 font-black">{String(item.selectionReady)}</td>
+              <td className="px-3 py-2"><PillList values={[...item.matchedCapabilityFlags]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.blockingReasons]} /></td>
+              <td className="px-3 py-2"><PillList values={[...item.rationale]} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function D13CryptographicPolicyLifecycleTable({
+  lifecycleModels,
+}: {
+  lifecycleModels: readonly SocialCredentialKeyLifecycleModel[];
+}) {
+  if (lifecycleModels.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No D13 cryptographic policy lifecycle models.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-[1300px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+          <tr>
+            <th className="px-3 py-2">Lifecycle Id</th>
+            <th className="px-3 py-2">Key Ref</th>
+            <th className="px-3 py-2">Scope</th>
+            <th className="px-3 py-2">Key Version</th>
+            <th className="px-3 py-2">Version Status</th>
+            <th className="px-3 py-2">Ref Status</th>
+            <th className="px-3 py-2">Phase</th>
+            <th className="px-3 py-2">Rotation Candidate</th>
+            <th className="px-3 py-2">Retired At</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {lifecycleModels.map((item) => (
+            <tr key={item.lifecycleModelId}>
+              <td className="px-3 py-2 font-mono text-xs">{item.lifecycleModelId}</td>
+              <td className="px-3 py-2 font-mono text-xs">{item.keyReferenceId}</td>
+              <td className="px-3 py-2 font-black">{item.providerScope}</td>
+              <td className="px-3 py-2 font-black">{item.keyVersion}</td>
+              <td className="px-3 py-2 font-black">{item.keyVersionStatus}</td>
+              <td className="px-3 py-2 font-black">{item.keyReferenceStatus}</td>
+              <td className="px-3 py-2 font-black">{item.lifecyclePhase}</td>
+              <td className="px-3 py-2 font-black">{String(item.rotationCandidate)}</td>
+              <td className="px-3 py-2 font-mono text-xs">
+                {item.retiredAt ?? <EmptyValue />}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function D13CredentialReadinessDiagnosticsList({
   diagnostics,
 }: {
@@ -1995,6 +2146,7 @@ export default async function AdminPublicationExecutionPage({
   const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
   const credentialReadinessReplay = replaySocialCredentialReadiness().value;
   const credentialEncryptionReadinessReplay = replaySocialCredentialEncryptionReadiness().value;
+  const cryptographicPolicyReplay = replaySocialCredentialCryptographicPolicy().value;
   const oauthRequestReplay = replaySocialPlatformOAuthRequests().value;
   const oauthCallbackReplay = replaySocialPlatformOAuthCallbacks().value;
   const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;
@@ -2899,6 +3051,84 @@ export default async function AdminPublicationExecutionPage({
               </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D13 Cryptographic Policy &amp; Lifecycle Architecture
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {cryptographicPolicyReplay.summary.policyArchitectureReady
+                        ? "Cryptographic policy architecture ready (human approval required)"
+                        : "Cryptographic policy architecture blocked"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D13 Wave 5 adds contract-only policy vocabulary, provider selection
+                      interfaces, lifecycle projections, and rotation policy diagnostics
+                      on top of the encryption boundary. This is read-only architecture:
+                      no crypto execution, no secrets, no keys, no provider APIs, and no
+                      execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    Wave 5 policy lifecycle
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Policy Domain Version" value={SOCIAL_CREDENTIAL_CRYPTO_POLICY_DOMAIN_VERSION} />
+                  <Field label="Policy Boundary Version" value={SOCIAL_CREDENTIAL_CRYPTO_POLICY_BOUNDARY_VERSION} />
+                  <Field label="Replay Version" value={cryptographicPolicyReplay.summary.replayVersion} />
+                  <Field label="Architecture Ready" value={String(cryptographicPolicyReplay.summary.policyArchitectureReady)} />
+                  <Field label="Valid Provider Contracts" value={cryptographicPolicyReplay.summary.validProviderCapabilityContractCount} />
+                  <Field label="Selection Ready Providers" value={cryptographicPolicyReplay.summary.selectionReadyProviderCount} />
+                  <Field label="Selection Blocked Providers" value={cryptographicPolicyReplay.summary.selectionBlockedProviderCount} />
+                  <Field label="Lifecycle Models" value={cryptographicPolicyReplay.summary.totalLifecycleModelCount} />
+                  <Field label="Rotation Due Key Refs" value={cryptographicPolicyReplay.summary.rotationDueKeyReferenceCount} />
+                  <Field label="Domain Contract Valid" value={String(cryptographicPolicyReplay.validationSummary.domainContractValid)} />
+                  <Field label="Boundary Contract Valid" value={String(cryptographicPolicyReplay.validationSummary.boundaryContractValid)} />
+                  <Field label="Rotation Policy Valid" value={String(cryptographicPolicyReplay.validationSummary.rotationPolicyValid)} />
+                  <Field label="Provider Contract Valid" value={String(cryptographicPolicyReplay.validationSummary.providerContractValid)} />
+                  <Field label="Diagnostics" value={cryptographicPolicyReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...cryptographicPolicyReplay.rotationDueKeyReferenceIds.map(
+                        (keyReferenceId) => `rotation_due:${keyReferenceId}`,
+                      ),
+                      `humanApprovalRequired: true`,
+                      `selectionInterfaceOnly: true`,
+                      `lifecycleProjectionOnly: true`,
+                      `rotationExecutionBlocked: true`,
+                      `computedOnly: ${String(cryptographicPolicyReplay.computedOnly)}`,
+                      `readOnly: ${String(cryptographicPolicyReplay.readOnly)}`,
+                      `authoritative: ${String(cryptographicPolicyReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(cryptographicPolicyReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(cryptographicPolicyReplay.executesNothing)}`,
+                      `publishesNothing: ${String(cryptographicPolicyReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Cryptographic Policy Provider Selection
+                </p>
+                <div className="mt-4">
+                  <D13CryptographicPolicyProviderSelectionTable selections={cryptographicPolicyReplay.providerSelections} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Key Lifecycle Projections
+                </p>
+                <div className="mt-4">
+                  <D13CryptographicPolicyLifecycleTable lifecycleModels={cryptographicPolicyReplay.lifecycleModels} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
                   D13 Credential Provider Readiness
                 </p>
@@ -3140,6 +3370,15 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <D13CredentialEncryptionReadinessDiagnosticsList diagnostics={credentialEncryptionReadinessReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  D13 Cryptographic Policy Replay Diagnostics
+                </p>
+                <div className="mt-4">
+                  <D13CryptographicPolicyDiagnosticsList diagnostics={cryptographicPolicyReplay.diagnostics} />
                 </div>
               </section>
 
