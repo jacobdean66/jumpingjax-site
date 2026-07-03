@@ -25,7 +25,8 @@ export type OperationsSubsystemKey =
   | "publication_scheduler"
   | "publication_publisher"
   | "publication_metrics"
-  | "publication_learning";
+  | "publication_learning"
+  | "credential_persistence";
 
 export type OperationsBridgeStatus =
   | "no_bridge"

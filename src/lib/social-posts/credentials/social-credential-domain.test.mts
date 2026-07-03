@@ -9,10 +9,14 @@ import {
   isLifecycleTransitionValid,
   serializeSocialCredentialDomainContract,
   validateSocialCredentialDomainContract,
+  validateSocialCredentialKeyVersion,
   validateSocialCredentialLifecycleState,
+  validateSocialCredentialMetadataModel,
   validateSocialCredentialProviderAccountReference,
   validateSocialCredentialReference,
+  validateSocialCredentialVaultRecordMetadata,
   type SocialCredentialLifecycleState,
+  type SocialCredentialMetadataModel,
   type SocialCredentialProviderAccountReference,
 } from "./social-credential-domain";
 
@@ -64,6 +68,112 @@ function validLifecycleState(): SocialCredentialLifecycleState {
   };
 }
 
+function validMetadataModel(): SocialCredentialMetadataModel {
+  const providerAccount = validProviderAccount();
+  const lifecycleState = validLifecycleState();
+  return {
+    providerAccounts: [providerAccount],
+    credentialIdentities: [
+      {
+        credentialRefId: "cred-ref-1",
+        provider: "meta",
+        credentialKind: "oauth_token_ref",
+        accountRefId: providerAccount.accountRefId,
+        providerAccountId: providerAccount.providerAccountId,
+        publicationTargetId: providerAccount.publicationTargetId,
+        domainVersion: SOCIAL_CREDENTIAL_DOMAIN_VERSION,
+        credentialBoundaryVersion: "d11-m7-v1",
+        referencesOnly: true,
+        containsSecretValue: false,
+        containsTokenValue: false,
+        grantsExecutionPermission: false,
+        executesNothing: true,
+        publishesNothing: true,
+      },
+    ],
+    credentialReferences: [
+      {
+        credentialRefId: "cred-ref-1",
+        provider: "meta",
+        credentialKind: "oauth_token_ref",
+        accountRefId: providerAccount.accountRefId,
+        redactedHint: "oauth-ref-****-1234",
+        referencesOnly: true,
+        containsSecretValue: false,
+        containsTokenValue: false,
+        containsRefreshToken: false,
+        grantsExecutionPermission: false,
+        executesNothing: true,
+        publishesNothing: true,
+      },
+    ],
+    vaultRecordMetadata: [
+      {
+        vaultRecordId: "vault-meta-1",
+        credentialRefId: "cred-ref-1",
+        provider: "meta",
+        credentialKind: "oauth_token_ref",
+        accountRefId: providerAccount.accountRefId,
+        providerAccountId: providerAccount.providerAccountId,
+        publicationTargetId: providerAccount.publicationTargetId,
+        encryptedPayloadRef: "metadata-ref-****-1234",
+        keyVersion: "key-version-1",
+        lifecyclePhase: "active",
+        supersededAt: null,
+        revokedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        metadataOnly: true,
+        containsPlaintext: false,
+        containsCiphertext: false,
+        grantsExecutionPermission: false,
+        executesNothing: true,
+        publishesNothing: true,
+      },
+    ],
+    lifecycleStates: [lifecycleState],
+    auditEvents: [
+      {
+        auditEventId: "audit-1",
+        credentialRefId: "cred-ref-1",
+        actorAdminId: null,
+        action: "read_metadata",
+        outcome: "success",
+        sanitizedDetail: "metadata read for credential reference",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        appendOnly: true,
+        containsSecrets: false,
+        containsTokens: false,
+        grantsExecutionPermission: false,
+        executesNothing: true,
+        publishesNothing: true,
+      },
+    ],
+    keyVersions: [
+      {
+        keyVersion: "key-version-1",
+        status: "active",
+        activatedAt: "2026-01-01T00:00:00.000Z",
+        retiredAt: null,
+        metadataOnly: true,
+        containsKeyMaterial: false,
+        grantsExecutionPermission: false,
+        executesNothing: true,
+        publishesNothing: true,
+      },
+    ],
+    metadataOnly: true,
+    referencesOnly: true,
+    containsSecrets: false,
+    containsTokens: false,
+    containsRefreshTokens: false,
+    containsPlaintext: false,
+    containsCiphertext: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
+}
+
 await test("exposes frozen credential domain contract", () => {
   assert.equal(SOCIAL_CREDENTIAL_DOMAIN_CONTRACT.identity.domainVersion, SOCIAL_CREDENTIAL_DOMAIN_VERSION);
   assert.equal(SOCIAL_CREDENTIAL_DOMAIN_CONTRACT.capabilities.allowsEncryption, false);
@@ -103,6 +213,31 @@ await test("validates lifecycle state phase alignment", () => {
   assert.equal(invalid.valid, false);
 });
 
+await test("validates metadata-only vault records and key versions", () => {
+  const vaultValidation = validateSocialCredentialVaultRecordMetadata(validMetadataModel().vaultRecordMetadata[0]);
+  assert.equal(vaultValidation.valid, true);
+
+  const invalidVaultTimestamp = validateSocialCredentialVaultRecordMetadata({
+    ...validMetadataModel().vaultRecordMetadata[0],
+    createdAt: "not-a-date",
+  });
+  assert.equal(invalidVaultTimestamp.valid, false);
+
+  const keyVersionValidation = validateSocialCredentialKeyVersion(validMetadataModel().keyVersions[0]);
+  assert.equal(keyVersionValidation.valid, true);
+});
+
+await test("validates complete credential metadata model", () => {
+  const valid = validateSocialCredentialMetadataModel(validMetadataModel());
+  assert.equal(valid.valid, true);
+
+  const invalid = validateSocialCredentialMetadataModel({
+    ...validMetadataModel(),
+    containsTokens: true,
+  });
+  assert.equal(invalid.valid, false);
+});
+
 await test("rejects secret-like credential references", () => {
   const invalid = validateSocialCredentialReference({
     credentialRefId: "cred-ref-1",
@@ -119,6 +254,31 @@ await test("rejects secret-like credential references", () => {
     publishesNothing: true,
   });
   assert.equal(invalid.valid, false);
+});
+
+await test("rejects token-bearing lifecycle and reference fields", () => {
+  const tokenState = validateSocialCredentialLifecycleState({
+    ...validLifecycleState(),
+    containsOAuthTokens: true,
+  });
+  assert.equal(tokenState.valid, false);
+
+  const rawSecretReference = validateSocialCredentialReference({
+    credentialRefId: "cred-ref-1",
+    provider: "meta",
+    credentialKind: "oauth_token_ref",
+    accountRefId: "account-ref-meta-1",
+    redactedHint: "oauth-ref-****-1234",
+    accessToken: "Bearer definitely-not-allowed",
+    referencesOnly: true,
+    containsSecretValue: false,
+    containsTokenValue: false,
+    containsRefreshToken: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  });
+  assert.equal(rawSecretReference.valid, false);
 });
 
 await test("detects forbidden credential states for missing kinds", () => {

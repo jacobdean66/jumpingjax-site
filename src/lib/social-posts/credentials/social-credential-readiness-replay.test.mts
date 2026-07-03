@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { replaySocialCredentialReadiness } from "./social-credential-readiness-replay";
 import {
   EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
-  type SocialCredentialPersistenceModel,
 } from "./social-credential-repository";
 import { SOCIAL_CREDENTIAL_DOMAIN_VERSION } from "./social-credential-domain";
 

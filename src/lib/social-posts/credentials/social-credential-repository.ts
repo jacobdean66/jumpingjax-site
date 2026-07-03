@@ -132,7 +132,7 @@ export type SocialCredentialPersistenceModel = Readonly<{
   key_versions: readonly SocialCredentialKeyVersionRecord[];
 }>;
 
-export const SOCIAL_CREDENTIAL_REPOSITORY_VERSION = "d13-w1-v1" as const;
+export const SOCIAL_CREDENTIAL_REPOSITORY_VERSION = "d13-w2-v1" as const;
 
 export const SOCIAL_CREDENTIAL_REPOSITORY_ERROR_CODES = [
   "validation_failed",
@@ -190,6 +190,10 @@ export type SocialCredentialPersistenceValidationResult = Readonly<
 
 export type SocialCredentialRepositoryIdentity = Readonly<{
   provider_account_id?: string;
+  vault_record_id?: string;
+  lifecycle_state_id?: string;
+  audit_event_id?: string;
+  key_version?: string;
   credential_ref_id?: string;
   publication_target_id?: string;
   provider?: SocialPlatformCredentialProvider;
@@ -197,6 +201,34 @@ export type SocialCredentialRepositoryIdentity = Readonly<{
 }>;
 
 export type SocialCredentialRepositorySnapshot = SocialCredentialPersistenceModel;
+
+export type SocialCredentialRepositoryRecordsByIdentity = SocialCredentialPersistenceModel;
+
+export type SocialCredentialProviderAccountMutationRequest = Readonly<{
+  providerAccount: SocialCredentialProviderAccountRecord;
+}>;
+
+export type SocialCredentialVaultRecordMutationRequest = Readonly<{
+  vaultRecord: SocialCredentialVaultRecordRow;
+}>;
+
+export type SocialCredentialLifecycleStateMutationRequest = Readonly<{
+  lifecycleState: SocialCredentialLifecycleStateRecord;
+}>;
+
+export type SocialCredentialAppendAuditEventRequest = Readonly<{
+  auditEvent: SocialCredentialAuditEventRecord;
+}>;
+
+export type SocialCredentialKeyVersionMutationRequest = Readonly<{
+  keyVersion: SocialCredentialKeyVersionRecord;
+}>;
+
+export type SocialCredentialPersistencePort = Readonly<{
+  load(): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
+  save(model: SocialCredentialPersistenceModel): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
+  snapshot(): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
+}>;
 
 export type SocialCredentialStorageContract = Readonly<{
   contractVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
@@ -227,6 +259,48 @@ export const SOCIAL_CREDENTIAL_STORAGE_CONTRACT: SocialCredentialStorageContract
 });
 
 export type SocialCredentialRepository = Readonly<{
+  createProviderAccount(
+    request: SocialCredentialProviderAccountMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialProviderAccountRecord>;
+  updateProviderAccount(
+    request: SocialCredentialProviderAccountMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialProviderAccountRecord>;
+  deleteProviderAccount(
+    identity: SocialCredentialRepositoryIdentity,
+  ): SocialCredentialRepositoryResult<SocialCredentialProviderAccountRecord>;
+  createVaultRecordMetadata(
+    request: SocialCredentialVaultRecordMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialVaultRecordRow>;
+  updateVaultRecordMetadata(
+    request: SocialCredentialVaultRecordMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialVaultRecordRow>;
+  deleteVaultRecordMetadata(
+    identity: SocialCredentialRepositoryIdentity,
+  ): SocialCredentialRepositoryResult<SocialCredentialVaultRecordRow>;
+  createLifecycleState(
+    request: SocialCredentialLifecycleStateMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialLifecycleStateRecord>;
+  updateLifecycleState(
+    request: SocialCredentialLifecycleStateMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialLifecycleStateRecord>;
+  deleteLifecycleState(
+    identity: SocialCredentialRepositoryIdentity,
+  ): SocialCredentialRepositoryResult<SocialCredentialLifecycleStateRecord>;
+  appendAuditEvent(
+    request: SocialCredentialAppendAuditEventRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialAuditEventRecord>;
+  createKeyVersion(
+    request: SocialCredentialKeyVersionMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialKeyVersionRecord>;
+  updateKeyVersion(
+    request: SocialCredentialKeyVersionMutationRequest,
+  ): SocialCredentialRepositoryResult<SocialCredentialKeyVersionRecord>;
+  deleteKeyVersion(
+    identity: SocialCredentialRepositoryIdentity,
+  ): SocialCredentialRepositoryResult<SocialCredentialKeyVersionRecord>;
+  getCredentialRecordsByIdentity(
+    identity: SocialCredentialRepositoryIdentity,
+  ): SocialCredentialRepositoryResult<SocialCredentialRepositoryRecordsByIdentity>;
   listProviderAccounts(
     identity?: SocialCredentialRepositoryIdentity,
   ): SocialCredentialRepositoryResult<readonly SocialCredentialProviderAccountRecord[]>;
@@ -250,6 +324,221 @@ export const EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL: SocialCredentialPersiste
   audit_events: [],
   key_versions: [],
 });
+
+export function createReferenceSocialCredentialPersistencePort(
+  seed: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+): SocialCredentialPersistencePort {
+  const validation = validateSocialCredentialPersistenceModel(seed);
+  if (!validation.ok) {
+    throw new Error(`Invalid credential persistence model: ${validation.errors[0]?.message ?? "unknown error"}`);
+  }
+
+  let state = clonePersistenceModel(seed);
+
+  return {
+    load() {
+      return ok(clonePersistenceModel(state));
+    },
+    save(model) {
+      const validation = validateSocialCredentialPersistenceModel(model);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Credential persistence model failed validation.", validation.errors);
+      }
+      state = clonePersistenceModel(model);
+      return ok(clonePersistenceModel(state));
+    },
+    snapshot() {
+      return ok(clonePersistenceModel(state));
+    },
+  };
+}
+
+export function createReferenceSocialCredentialRepository(
+  seed: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+): SocialCredentialRepository {
+  const port = createReferenceSocialCredentialPersistencePort(seed);
+  let state = unwrapOrThrow(port.load());
+
+  function commit(next: SocialCredentialPersistenceModel): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel> {
+    const validation = validateDomainMappingsFromPersistenceModel(next);
+    if (!validation.ok) {
+      return repositoryError("validation_failed", "Credential persistence model failed validation.", validation.errors);
+    }
+    const saved = port.save(next);
+    if (!saved.ok) return saved;
+    state = clonePersistenceModel(saved.value);
+    return ok(clonePersistenceModel(state));
+  }
+
+  return {
+    createProviderAccount(request) {
+      const validation = validateSocialCredentialProviderAccountRecord(request.providerAccount);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Provider account record failed validation.", validation.errors);
+      }
+      if (state.provider_accounts.some((record) => record.provider_account_id === request.providerAccount.provider_account_id)) {
+        return repositoryError("identity_collision", "Provider account identity already exists.");
+      }
+      const committed = commit({ ...state, provider_accounts: [...state.provider_accounts, request.providerAccount] });
+      return committed.ok ? ok(cloneProviderAccount(request.providerAccount)) : committed;
+    },
+    updateProviderAccount(request) {
+      const validation = validateSocialCredentialProviderAccountRecord(request.providerAccount);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Provider account record failed validation.", validation.errors);
+      }
+      const index = state.provider_accounts.findIndex((record) => record.provider_account_id === request.providerAccount.provider_account_id);
+      if (index < 0) return repositoryError("not_found", "Provider account identity was not found.");
+      const providerAccounts = replaceAt(state.provider_accounts, index, request.providerAccount);
+      const committed = commit({ ...state, provider_accounts: providerAccounts });
+      return committed.ok ? ok(cloneProviderAccount(request.providerAccount)) : committed;
+    },
+    deleteProviderAccount(identity) {
+      const resolved = findOne(state.provider_accounts, identity, matchesIdentity, "provider_account_id");
+      if (!resolved.ok) return resolved;
+      const committed = commit({
+        ...state,
+        provider_accounts: state.provider_accounts.filter((record) => record.provider_account_id !== resolved.value.provider_account_id),
+      });
+      return committed.ok ? ok(cloneProviderAccount(resolved.value)) : committed;
+    },
+    createVaultRecordMetadata(request) {
+      const validation = validateSocialCredentialVaultRecordRow(request.vaultRecord);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Vault record metadata failed validation.", validation.errors);
+      }
+      if (state.vault_records.some((record) => record.vault_record_id === request.vaultRecord.vault_record_id)) {
+        return repositoryError("identity_collision", "Vault record identity already exists.");
+      }
+      const committed = commit({ ...state, vault_records: [...state.vault_records, request.vaultRecord] });
+      return committed.ok ? ok(cloneVaultRecord(request.vaultRecord)) : committed;
+    },
+    updateVaultRecordMetadata(request) {
+      const validation = validateSocialCredentialVaultRecordRow(request.vaultRecord);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Vault record metadata failed validation.", validation.errors);
+      }
+      const index = state.vault_records.findIndex((record) => record.vault_record_id === request.vaultRecord.vault_record_id);
+      if (index < 0) return repositoryError("not_found", "Vault record identity was not found.");
+      const vaultRecords = replaceAt(state.vault_records, index, request.vaultRecord);
+      const committed = commit({ ...state, vault_records: vaultRecords });
+      return committed.ok ? ok(cloneVaultRecord(request.vaultRecord)) : committed;
+    },
+    deleteVaultRecordMetadata(identity) {
+      const resolved = findOne(state.vault_records, identity, matchesIdentity, "vault_record_id");
+      if (!resolved.ok) return resolved;
+      const committed = commit({
+        ...state,
+        vault_records: state.vault_records.filter((record) => record.vault_record_id !== resolved.value.vault_record_id),
+      });
+      return committed.ok ? ok(cloneVaultRecord(resolved.value)) : committed;
+    },
+    createLifecycleState(request) {
+      const validation = validateSocialCredentialLifecycleStateRecord(request.lifecycleState);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Lifecycle state record failed validation.", validation.errors);
+      }
+      if (state.lifecycle_states.some((record) => record.lifecycle_state_id === request.lifecycleState.lifecycle_state_id)) {
+        return repositoryError("identity_collision", "Lifecycle state identity already exists.");
+      }
+      const committed = commit({ ...state, lifecycle_states: [...state.lifecycle_states, request.lifecycleState] });
+      return committed.ok ? ok(cloneLifecycleState(request.lifecycleState)) : committed;
+    },
+    updateLifecycleState(request) {
+      const validation = validateSocialCredentialLifecycleStateRecord(request.lifecycleState);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Lifecycle state record failed validation.", validation.errors);
+      }
+      const index = state.lifecycle_states.findIndex((record) => record.lifecycle_state_id === request.lifecycleState.lifecycle_state_id);
+      if (index < 0) return repositoryError("not_found", "Lifecycle state identity was not found.");
+      const lifecycleStates = replaceAt(state.lifecycle_states, index, request.lifecycleState);
+      const committed = commit({ ...state, lifecycle_states: lifecycleStates });
+      return committed.ok ? ok(cloneLifecycleState(request.lifecycleState)) : committed;
+    },
+    deleteLifecycleState(identity) {
+      const resolved = findOne(state.lifecycle_states, identity, matchesIdentity, "lifecycle_state_id");
+      if (!resolved.ok) return resolved;
+      const committed = commit({
+        ...state,
+        lifecycle_states: state.lifecycle_states.filter((record) => record.lifecycle_state_id !== resolved.value.lifecycle_state_id),
+      });
+      return committed.ok ? ok(cloneLifecycleState(resolved.value)) : committed;
+    },
+    appendAuditEvent(request) {
+      const validation = validateSocialCredentialAuditEventRecord(request.auditEvent);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Audit event record failed validation.", validation.errors);
+      }
+      if (state.audit_events.some((record) => record.audit_event_id === request.auditEvent.audit_event_id)) {
+        return repositoryError("identity_collision", "Audit event identity already exists.");
+      }
+      const committed = commit({ ...state, audit_events: [...state.audit_events, request.auditEvent] });
+      return committed.ok ? ok(cloneAuditEvent(request.auditEvent)) : committed;
+    },
+    createKeyVersion(request) {
+      const validation = validateSocialCredentialKeyVersionRecord(request.keyVersion);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Key version record failed validation.", validation.errors);
+      }
+      if (state.key_versions.some((record) => record.key_version === request.keyVersion.key_version)) {
+        return repositoryError("identity_collision", "Key version identity already exists.");
+      }
+      const committed = commit({ ...state, key_versions: [...state.key_versions, request.keyVersion] });
+      return committed.ok ? ok(cloneKeyVersion(request.keyVersion)) : committed;
+    },
+    updateKeyVersion(request) {
+      const validation = validateSocialCredentialKeyVersionRecord(request.keyVersion);
+      if (!validation.ok) {
+        return repositoryError("validation_failed", "Key version record failed validation.", validation.errors);
+      }
+      const index = state.key_versions.findIndex((record) => record.key_version === request.keyVersion.key_version);
+      if (index < 0) return repositoryError("not_found", "Key version identity was not found.");
+      const keyVersions = replaceAt(state.key_versions, index, request.keyVersion);
+      const committed = commit({ ...state, key_versions: keyVersions });
+      return committed.ok ? ok(cloneKeyVersion(request.keyVersion)) : committed;
+    },
+    deleteKeyVersion(identity) {
+      const resolved = findOne(state.key_versions, identity, matchesIdentity, "key_version");
+      if (!resolved.ok) return resolved;
+      const committed = commit({
+        ...state,
+        key_versions: state.key_versions.filter((record) => record.key_version !== resolved.value.key_version),
+      });
+      return committed.ok ? ok(cloneKeyVersion(resolved.value)) : committed;
+    },
+    getCredentialRecordsByIdentity(identity) {
+      const validation = validateRepositoryIdentity(identity, true);
+      if (!validation.ok) return validation;
+      return ok(filterCredentialRecords(state, identity));
+    },
+    listProviderAccounts(identity = {}) {
+      const validation = validateRepositoryIdentity(identity, false);
+      if (!validation.ok) return validation;
+      return ok(state.provider_accounts.filter((record) => matchesIdentity(record, identity)).map(cloneProviderAccount));
+    },
+    listVaultRecordMetadata(identity = {}) {
+      const validation = validateRepositoryIdentity(identity, false);
+      if (!validation.ok) return validation;
+      return ok(state.vault_records.filter((record) => matchesIdentity(record, identity)).map(cloneVaultRecord));
+    },
+    listLifecycleStates(identity = {}) {
+      const validation = validateRepositoryIdentity(identity, false);
+      if (!validation.ok) return validation;
+      return ok(state.lifecycle_states.filter((record) => matchesIdentity(record, identity)).map(cloneLifecycleState));
+    },
+    listAuditEvents(identity = {}) {
+      const validation = validateRepositoryIdentity(identity, false);
+      if (!validation.ok) return validation;
+      return ok(state.audit_events.filter((record) => matchesIdentity(record, identity)).map(cloneAuditEvent));
+    },
+    listKeyVersions() {
+      return ok(state.key_versions.map(cloneKeyVersion));
+    },
+    snapshot() {
+      return ok(clonePersistenceModel(state));
+    },
+  };
+}
 
 const FORBIDDEN_SECRET_KEYS = new Set([
   "accessToken",
@@ -419,36 +708,11 @@ export function validateSocialCredentialPersistenceModel(
     return { ok: false, errors: [persistenceError("required_field_missing", "model", "Persistence model must be an object.")] };
   }
 
-  if (Array.isArray(model.provider_accounts)) {
-    model.provider_accounts.forEach((record, index) => {
-      const result = validateSocialCredentialProviderAccountRecord(record, `provider_accounts.${index}`);
-      if (!result.ok) errors.push(...result.errors);
-    });
-  }
-  if (Array.isArray(model.vault_records)) {
-    model.vault_records.forEach((record, index) => {
-      const result = validateSocialCredentialVaultRecordRow(record, `vault_records.${index}`);
-      if (!result.ok) errors.push(...result.errors);
-    });
-  }
-  if (Array.isArray(model.lifecycle_states)) {
-    model.lifecycle_states.forEach((record, index) => {
-      const result = validateSocialCredentialLifecycleStateRecord(record, `lifecycle_states.${index}`);
-      if (!result.ok) errors.push(...result.errors);
-    });
-  }
-  if (Array.isArray(model.audit_events)) {
-    model.audit_events.forEach((record, index) => {
-      const result = validateSocialCredentialAuditEventRecord(record, `audit_events.${index}`);
-      if (!result.ok) errors.push(...result.errors);
-    });
-  }
-  if (Array.isArray(model.key_versions)) {
-    model.key_versions.forEach((record, index) => {
-      const result = validateSocialCredentialKeyVersionRecord(record, `key_versions.${index}`);
-      if (!result.ok) errors.push(...result.errors);
-    });
-  }
+  validateRecordArray(model.provider_accounts, "provider_accounts", validateSocialCredentialProviderAccountRecord, errors);
+  validateRecordArray(model.vault_records, "vault_records", validateSocialCredentialVaultRecordRow, errors);
+  validateRecordArray(model.lifecycle_states, "lifecycle_states", validateSocialCredentialLifecycleStateRecord, errors);
+  validateRecordArray(model.audit_events, "audit_events", validateSocialCredentialAuditEventRecord, errors);
+  validateRecordArray(model.key_versions, "key_versions", validateSocialCredentialKeyVersionRecord, errors);
 
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
 }
@@ -564,6 +828,114 @@ export function validateDomainMappingsFromPersistenceModel(
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
 }
 
+function validateRepositoryIdentity(
+  identity: SocialCredentialRepositoryIdentity,
+  requireAnyField: boolean,
+): SocialCredentialRepositoryResult<SocialCredentialRepositoryIdentity> {
+  if (!isRecord(identity)) {
+    return repositoryError("identity_required", "Credential repository identity must be an object.");
+  }
+
+  const entries = Object.entries(identity).filter(([, value]) => value !== undefined);
+  if (requireAnyField && entries.length === 0) {
+    return repositoryError("identity_required", "Credential repository identity must include at least one field.");
+  }
+
+  for (const [key, value] of entries) {
+    if (key === "provider") {
+      if (!isSocialPlatformCredentialProvider(value)) {
+        return repositoryError("validation_failed", "Credential repository provider identity is unsupported.");
+      }
+      continue;
+    }
+    if (typeof value !== "string" || value.trim().length === 0) {
+      return repositoryError("identity_required", "Credential repository identity fields must be non-empty strings.");
+    }
+  }
+
+  return ok(identity);
+}
+
+function filterCredentialRecords(
+  model: SocialCredentialPersistenceModel,
+  identity: SocialCredentialRepositoryIdentity,
+): SocialCredentialPersistenceModel {
+  return deepFreeze({
+    provider_accounts: model.provider_accounts.filter((record) => matchesIdentity(record, identity)).map(cloneProviderAccount),
+    vault_records: model.vault_records.filter((record) => matchesIdentity(record, identity)).map(cloneVaultRecord),
+    lifecycle_states: model.lifecycle_states.filter((record) => matchesIdentity(record, identity)).map(cloneLifecycleState),
+    audit_events: model.audit_events.filter((record) => matchesIdentity(record, identity)).map(cloneAuditEvent),
+    key_versions: model.key_versions.filter((record) => matchesIdentity(record, identity)).map(cloneKeyVersion),
+  });
+}
+
+function matchesIdentity(record: object, identity: SocialCredentialRepositoryIdentity): boolean {
+  const values = record as Record<string, unknown>;
+  if (identity.provider_account_id !== undefined && values.provider_account_id !== identity.provider_account_id) return false;
+  if (identity.vault_record_id !== undefined && values.vault_record_id !== identity.vault_record_id) return false;
+  if (identity.lifecycle_state_id !== undefined && values.lifecycle_state_id !== identity.lifecycle_state_id) return false;
+  if (identity.audit_event_id !== undefined && values.audit_event_id !== identity.audit_event_id) return false;
+  if (identity.key_version !== undefined && values.key_version !== identity.key_version) return false;
+  if (identity.credential_ref_id !== undefined && values.credential_ref_id !== identity.credential_ref_id) return false;
+  if (identity.publication_target_id !== undefined && values.publication_target_id !== identity.publication_target_id) return false;
+  if (identity.provider !== undefined && values.provider !== identity.provider) return false;
+  if (identity.account_ref_id !== undefined && values.account_ref_id !== identity.account_ref_id) return false;
+  return true;
+}
+
+function findOne<TRecord extends object>(
+  records: readonly TRecord[],
+  identity: SocialCredentialRepositoryIdentity,
+  predicate: (record: TRecord, identity: SocialCredentialRepositoryIdentity) => boolean,
+  identityField: keyof TRecord & string,
+): SocialCredentialRepositoryResult<TRecord> {
+  const validation = validateRepositoryIdentity(identity, true);
+  if (!validation.ok) return validation;
+
+  const matches = records.filter((record) => predicate(record, identity));
+  if (matches.length === 0) return repositoryError("not_found", `${identityField} was not found.`);
+  if (matches.length > 1) return repositoryError("identity_collision", `${identityField} identity matched multiple records.`);
+  return ok(matches[0]);
+}
+
+function replaceAt<TRecord>(
+  records: readonly TRecord[],
+  index: number,
+  replacement: TRecord,
+): readonly TRecord[] {
+  return records.map((record, currentIndex) => (currentIndex === index ? replacement : record));
+}
+
+function clonePersistenceModel(model: SocialCredentialPersistenceModel): SocialCredentialPersistenceModel {
+  return deepFreeze({
+    provider_accounts: model.provider_accounts.map(cloneProviderAccount),
+    vault_records: model.vault_records.map(cloneVaultRecord),
+    lifecycle_states: model.lifecycle_states.map(cloneLifecycleState),
+    audit_events: model.audit_events.map(cloneAuditEvent),
+    key_versions: model.key_versions.map(cloneKeyVersion),
+  });
+}
+
+function cloneProviderAccount(record: SocialCredentialProviderAccountRecord): SocialCredentialProviderAccountRecord {
+  return deepFreeze({ ...record });
+}
+
+function cloneVaultRecord(record: SocialCredentialVaultRecordRow): SocialCredentialVaultRecordRow {
+  return deepFreeze({ ...record });
+}
+
+function cloneLifecycleState(record: SocialCredentialLifecycleStateRecord): SocialCredentialLifecycleStateRecord {
+  return deepFreeze({ ...record });
+}
+
+function cloneAuditEvent(record: SocialCredentialAuditEventRecord): SocialCredentialAuditEventRecord {
+  return deepFreeze({ ...record });
+}
+
+function cloneKeyVersion(record: SocialCredentialKeyVersionRecord): SocialCredentialKeyVersionRecord {
+  return deepFreeze({ ...record });
+}
+
 const LIFECYCLE_PHASE_SET = new Set<string>(SOCIAL_CREDENTIAL_LIFECYCLE_PHASES);
 const ACCOUNT_STATUS_SET = new Set<string>(SOCIAL_CREDENTIAL_PROVIDER_ACCOUNT_STATUSES);
 const AUDIT_ACTION_SET = new Set<string>(SOCIAL_CREDENTIAL_AUDIT_ACTIONS);
@@ -607,6 +979,22 @@ function requireText(
   errors.push(persistenceError("required_field_missing", path, "Required persistence field is missing."));
 }
 
+function validateRecordArray(
+  value: unknown,
+  path: string,
+  validator: (record: unknown, path: string) => SocialCredentialPersistenceValidationResult,
+  errors: SocialCredentialPersistenceError[],
+): void {
+  if (!Array.isArray(value)) {
+    errors.push(persistenceError("required_field_missing", path, "Persistence model collection must be an array."));
+    return;
+  }
+  value.forEach((record, index) => {
+    const result = validator(record, `${path}.${index}`);
+    if (!result.ok) errors.push(...result.errors);
+  });
+}
+
 function scanForbiddenKeys(
   value: unknown,
   path: string,
@@ -624,4 +1012,32 @@ function scanForbiddenKeys(
 
 function isRecord(value: unknown): value is UnknownRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepFreeze<T>(value: T): T {
+  if (!value || typeof value !== "object") return value;
+  Object.freeze(value);
+  for (const nested of Object.values(value)) {
+    if (nested && typeof nested === "object" && !Object.isFrozen(nested)) {
+      deepFreeze(nested);
+    }
+  }
+  return value;
+}
+
+function ok<T>(value: T): SocialCredentialRepositoryResult<T> {
+  return { ok: true, value };
+}
+
+function repositoryError(
+  code: SocialCredentialRepositoryErrorCode,
+  message: string,
+  validationErrors?: readonly SocialCredentialPersistenceError[],
+): SocialCredentialRepositoryResult<never> {
+  return { ok: false, error: { code, message, validationErrors } };
+}
+
+function unwrapOrThrow<T>(result: SocialCredentialRepositoryResult<T>): T {
+  if (result.ok) return result.value;
+  throw new Error(result.error.message);
 }

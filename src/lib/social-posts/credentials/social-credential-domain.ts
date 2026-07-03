@@ -12,7 +12,7 @@ import {
   isSocialPlatformAuthorizationState,
 } from "../social-platform-credential-boundary";
 
-export const SOCIAL_CREDENTIAL_DOMAIN_VERSION = "d13-w1-v1" as const;
+export const SOCIAL_CREDENTIAL_DOMAIN_VERSION = "d13-w2-v1" as const;
 
 export const SOCIAL_CREDENTIAL_LIFECYCLE_PHASES = [
   "pending",
@@ -20,6 +20,16 @@ export const SOCIAL_CREDENTIAL_LIFECYCLE_PHASES = [
   "expired",
   "revoked",
   "superseded",
+] as const;
+
+export const SOCIAL_CREDENTIAL_RECORD_TYPES = [
+  "provider_account",
+  "credential_identity",
+  "credential_reference",
+  "vault_record_metadata",
+  "lifecycle_state",
+  "audit_event",
+  "key_version",
 ] as const;
 
 export const SOCIAL_CREDENTIAL_PROVIDER_ACCOUNT_STATUSES = [
@@ -55,6 +65,7 @@ export const SOCIAL_CREDENTIAL_CAPABILITY_FLAGS = [
   "execution_blocked",
   "live_credentials_blocked",
   "persistence_blocked",
+  "persistence_architecture_only",
 ] as const;
 
 export const SOCIAL_CREDENTIAL_ERROR_CODES = [
@@ -91,6 +102,9 @@ export const SOCIAL_CREDENTIAL_ERROR_CODES = [
 
 export type SocialCredentialLifecyclePhase =
   (typeof SOCIAL_CREDENTIAL_LIFECYCLE_PHASES)[number];
+
+export type SocialCredentialRecordType =
+  (typeof SOCIAL_CREDENTIAL_RECORD_TYPES)[number];
 
 export type SocialCredentialProviderAccountStatus =
   (typeof SOCIAL_CREDENTIAL_PROVIDER_ACCOUNT_STATUSES)[number];
@@ -241,6 +255,35 @@ export type SocialCredentialKeyVersion = Readonly<{
   publishesNothing: true;
 }>;
 
+export type SocialCredentialMetadataModel = Readonly<{
+  providerAccounts: readonly SocialCredentialProviderAccountReference[];
+  credentialIdentities: readonly SocialCredentialIdentity[];
+  credentialReferences: readonly SocialCredentialReference[];
+  vaultRecordMetadata: readonly SocialCredentialVaultRecordMetadata[];
+  lifecycleStates: readonly SocialCredentialLifecycleState[];
+  auditEvents: readonly SocialCredentialAuditEvent[];
+  keyVersions: readonly SocialCredentialKeyVersion[];
+  metadataOnly: true;
+  referencesOnly: true;
+  containsSecrets: false;
+  containsTokens: false;
+  containsRefreshTokens: false;
+  containsPlaintext: false;
+  containsCiphertext: false;
+  grantsExecutionPermission: false;
+  executesNothing: true;
+  publishesNothing: true;
+}>;
+
+export type SocialCredentialRecord =
+  | SocialCredentialProviderAccountReference
+  | SocialCredentialIdentity
+  | SocialCredentialReference
+  | SocialCredentialVaultRecordMetadata
+  | SocialCredentialLifecycleState
+  | SocialCredentialAuditEvent
+  | SocialCredentialKeyVersion;
+
 export type SocialCredentialServiceRoleBoundary = Readonly<{
   boundaryId: string;
   domainVersion: typeof SOCIAL_CREDENTIAL_DOMAIN_VERSION;
@@ -263,6 +306,7 @@ export type SocialCredentialDomainCapabilities = Readonly<{
   allowsLiveCredentials: false;
   allowsNetwork: false;
   allowsPersistence: false;
+  allowsPersistenceArchitecture: true;
   grantsExecutionPermission: false;
   executesNothing: true;
   publishesNothing: true;
@@ -335,6 +379,7 @@ const SHARED_CAPABILITY_FLAGS: readonly SocialCredentialCapabilityFlag[] = [
   "execution_blocked",
   "live_credentials_blocked",
   "persistence_blocked",
+  "persistence_architecture_only",
 ];
 
 const SHARED_SAFETY: SocialCredentialDomainSafetyRequirements = {
@@ -398,6 +443,7 @@ export const SOCIAL_CREDENTIAL_DOMAIN_CONTRACT: SocialCredentialDomainContract =
     allowsLiveCredentials: false,
     allowsNetwork: false,
     allowsPersistence: false,
+    allowsPersistenceArchitecture: true,
     grantsExecutionPermission: false,
     executesNothing: true,
     publishesNothing: true,
@@ -535,6 +581,7 @@ export function validateSocialCredentialProviderAccountReference(
   if (
     reference.referencesOnly !== true ||
     reference.containsCredentials !== false ||
+    reference.containsOAuthTokens !== false ||
     reference.grantsExecutionPermission !== false
   ) {
     diagnostics.push(errorDiagnostic(
@@ -543,6 +590,7 @@ export function validateSocialCredentialProviderAccountReference(
       "Provider account reference must remain reference-only.",
     ));
   }
+  scanForbiddenCredentialState(reference, path, diagnostics);
 
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
@@ -585,6 +633,7 @@ export function validateSocialCredentialIdentity(
   if (
     identity.referencesOnly !== true ||
     identity.containsSecretValue !== false ||
+    identity.containsTokenValue !== false ||
     identity.grantsExecutionPermission !== false
   ) {
     diagnostics.push(errorDiagnostic(
@@ -593,6 +642,7 @@ export function validateSocialCredentialIdentity(
       "Credential identity must remain reference-only.",
     ));
   }
+  scanForbiddenCredentialState(identity, path, diagnostics);
 
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
@@ -618,6 +668,9 @@ export function validateSocialCredentialVaultRecordMetadata(
   requireText(record.credentialRefId, `${path}.credentialRefId`, "credential_ref_id_required", diagnostics);
   requireText(record.encryptedPayloadRef, `${path}.encryptedPayloadRef`, "encrypted_payload_ref_required", diagnostics);
   requireText(record.keyVersion, `${path}.keyVersion`, "key_version_required", diagnostics);
+  requireTimestamp(record.createdAt, `${path}.createdAt`, diagnostics);
+  requireNullableTimestamp(record.supersededAt, `${path}.supersededAt`, diagnostics);
+  requireNullableTimestamp(record.revokedAt, `${path}.revokedAt`, diagnostics);
 
   if (!isSocialPlatformCredentialProvider(record.provider)) {
     diagnostics.push(errorDiagnostic("provider_unknown", `${path}.provider`, "Credential provider is not supported."));
@@ -640,6 +693,7 @@ export function validateSocialCredentialVaultRecordMetadata(
       "Vault record metadata must remain metadata-only without plaintext or ciphertext.",
     ));
   }
+  scanForbiddenCredentialState(record, path, diagnostics);
 
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
@@ -664,6 +718,10 @@ export function validateSocialCredentialLifecycleState(
   requireText(state.lifecycleStateId, `${path}.lifecycleStateId`, "credential_ref_id_required", diagnostics);
   requireText(state.credentialRefId, `${path}.credentialRefId`, "credential_ref_id_required", diagnostics);
   requireText(state.accountRefId, `${path}.accountRefId`, "account_ref_id_required", diagnostics);
+  requireNullableTimestamp(state.issuedAt, `${path}.issuedAt`, diagnostics);
+  requireNullableTimestamp(state.expiresAt, `${path}.expiresAt`, diagnostics);
+  requireNullableTimestamp(state.lastRotatedAt, `${path}.lastRotatedAt`, diagnostics);
+  requireNullableTimestamp(state.revokedAt, `${path}.revokedAt`, diagnostics);
 
   if (!isSocialPlatformCredentialProvider(state.provider)) {
     diagnostics.push(errorDiagnostic("provider_unknown", `${path}.provider`, "Credential provider is not supported."));
@@ -697,6 +755,7 @@ export function validateSocialCredentialLifecycleState(
     state.modeledOnly !== true ||
     state.referencesOnly !== true ||
     state.containsCredentials !== false ||
+    state.containsOAuthTokens !== false ||
     state.grantsExecutionPermission !== false
   ) {
     diagnostics.push(errorDiagnostic(
@@ -705,6 +764,7 @@ export function validateSocialCredentialLifecycleState(
       "Lifecycle state must remain modeled and reference-only.",
     ));
   }
+  scanForbiddenCredentialState(state, path, diagnostics);
 
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
@@ -746,6 +806,8 @@ export function validateSocialCredentialReference(
   if (
     reference.referencesOnly !== true ||
     reference.containsSecretValue !== false ||
+    reference.containsTokenValue !== false ||
+    reference.containsRefreshToken !== false ||
     reference.grantsExecutionPermission !== false
   ) {
     diagnostics.push(errorDiagnostic(
@@ -754,6 +816,138 @@ export function validateSocialCredentialReference(
       "Credential reference must remain reference-only.",
     ));
   }
+  scanForbiddenCredentialState(reference, path, diagnostics);
+
+  return {
+    valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
+    diagnostics,
+  };
+}
+
+export function validateSocialCredentialMetadataModel(
+  model: unknown,
+  path = "credentialMetadataModel",
+): SocialCredentialValidationResult {
+  const diagnostics: SocialCredentialDiagnostic[] = [];
+  if (!isRecord(model)) {
+    return {
+      valid: false,
+      diagnostics: [
+        errorDiagnostic("serialization_invalid", path, "Credential metadata model must be an object."),
+      ],
+    };
+  }
+
+  validateRecordArray(model.providerAccounts, `${path}.providerAccounts`, validateSocialCredentialProviderAccountReference, diagnostics);
+  validateRecordArray(model.credentialIdentities, `${path}.credentialIdentities`, validateSocialCredentialIdentity, diagnostics);
+  validateRecordArray(model.credentialReferences, `${path}.credentialReferences`, validateSocialCredentialReference, diagnostics);
+  validateRecordArray(model.vaultRecordMetadata, `${path}.vaultRecordMetadata`, validateSocialCredentialVaultRecordMetadata, diagnostics);
+  validateRecordArray(model.lifecycleStates, `${path}.lifecycleStates`, validateSocialCredentialLifecycleState, diagnostics);
+  validateRecordArray(model.auditEvents, `${path}.auditEvents`, validateSocialCredentialAuditEvent, diagnostics);
+  validateRecordArray(model.keyVersions, `${path}.keyVersions`, validateSocialCredentialKeyVersion, diagnostics);
+
+  if (
+    model.metadataOnly !== true ||
+    model.referencesOnly !== true ||
+    model.containsSecrets !== false ||
+    model.containsTokens !== false ||
+    model.containsRefreshTokens !== false ||
+    model.containsPlaintext !== false ||
+    model.containsCiphertext !== false ||
+    model.grantsExecutionPermission !== false
+  ) {
+    diagnostics.push(errorDiagnostic(
+      "contract_invariant_failed",
+      path,
+      "Credential metadata model must remain secretless, tokenless, metadata-only, and non-executing.",
+    ));
+  }
+  scanForbiddenCredentialState(model, path, diagnostics);
+
+  return {
+    valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
+    diagnostics,
+  };
+}
+
+export function validateSocialCredentialAuditEvent(
+  event: unknown,
+  path = "auditEvent",
+): SocialCredentialValidationResult {
+  const diagnostics: SocialCredentialDiagnostic[] = [];
+  if (!isRecord(event)) {
+    return {
+      valid: false,
+      diagnostics: [
+        errorDiagnostic("serialization_invalid", path, "Credential audit event must be an object."),
+      ],
+    };
+  }
+
+  requireText(event.auditEventId, `${path}.auditEventId`, "credential_ref_id_required", diagnostics);
+  requireText(event.credentialRefId, `${path}.credentialRefId`, "credential_ref_id_required", diagnostics);
+  requireText(event.sanitizedDetail, `${path}.sanitizedDetail`, "redacted_hint_required", diagnostics);
+  requireTimestamp(event.createdAt, `${path}.createdAt`, diagnostics);
+
+  if (!isSocialCredentialAuditAction(event.action)) {
+    diagnostics.push(errorDiagnostic("audit_action_unknown", `${path}.action`, "Audit action is not supported."));
+  }
+  if (!isSocialCredentialAuditOutcome(event.outcome)) {
+    diagnostics.push(errorDiagnostic("audit_outcome_unknown", `${path}.outcome`, "Audit outcome is not supported."));
+  }
+  if (
+    event.appendOnly !== true ||
+    event.containsSecrets !== false ||
+    event.containsTokens !== false ||
+    event.grantsExecutionPermission !== false
+  ) {
+    diagnostics.push(errorDiagnostic(
+      "contract_invariant_failed",
+      path,
+      "Credential audit event must remain sanitized, append-only, and non-executing.",
+    ));
+  }
+  scanForbiddenCredentialState(event, path, diagnostics);
+
+  return {
+    valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
+    diagnostics,
+  };
+}
+
+export function validateSocialCredentialKeyVersion(
+  keyVersion: unknown,
+  path = "keyVersion",
+): SocialCredentialValidationResult {
+  const diagnostics: SocialCredentialDiagnostic[] = [];
+  if (!isRecord(keyVersion)) {
+    return {
+      valid: false,
+      diagnostics: [
+        errorDiagnostic("serialization_invalid", path, "Credential key version must be an object."),
+      ],
+    };
+  }
+
+  requireText(keyVersion.keyVersion, `${path}.keyVersion`, "key_version_required", diagnostics);
+  requireTimestamp(keyVersion.activatedAt, `${path}.activatedAt`, diagnostics);
+  requireNullableTimestamp(keyVersion.retiredAt, `${path}.retiredAt`, diagnostics);
+
+  if (!isSocialCredentialKeyVersionStatus(keyVersion.status)) {
+    diagnostics.push(errorDiagnostic("key_version_status_unknown", `${path}.status`, "Key version status is not supported."));
+  }
+  if (
+    keyVersion.metadataOnly !== true ||
+    keyVersion.containsKeyMaterial !== false ||
+    keyVersion.grantsExecutionPermission !== false
+  ) {
+    diagnostics.push(errorDiagnostic(
+      "contract_invariant_failed",
+      path,
+      "Credential key version must remain metadata-only without key material.",
+    ));
+  }
+  scanForbiddenCredentialState(keyVersion, path, diagnostics);
 
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity !== "error"),
@@ -889,6 +1083,7 @@ function validateCapabilities(
     capabilities.allowsLiveCredentials !== false ||
     capabilities.allowsNetwork !== false ||
     capabilities.allowsPersistence !== false ||
+    capabilities.allowsPersistenceArchitecture !== true ||
     capabilities.grantsExecutionPermission !== false
   ) {
     diagnostics.push(errorDiagnostic(
@@ -946,6 +1141,40 @@ function requireText(
   diagnostics.push(errorDiagnostic(code, path, "Required credential domain text field is missing."));
 }
 
+function requireTimestamp(
+  value: unknown,
+  path: string,
+  diagnostics: SocialCredentialDiagnostic[],
+): void {
+  if (typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value))) return;
+  diagnostics.push(errorDiagnostic("timestamp_invalid", path, "Required credential domain timestamp is invalid."));
+}
+
+function requireNullableTimestamp(
+  value: unknown,
+  path: string,
+  diagnostics: SocialCredentialDiagnostic[],
+): void {
+  if (value === null || value === undefined) return;
+  requireTimestamp(value, path, diagnostics);
+}
+
+function validateRecordArray(
+  value: unknown,
+  path: string,
+  validator: (record: unknown, path?: string) => SocialCredentialValidationResult,
+  diagnostics: SocialCredentialDiagnostic[],
+): void {
+  if (!Array.isArray(value)) {
+    diagnostics.push(errorDiagnostic("serialization_invalid", path, "Credential metadata collection must be an array."));
+    return;
+  }
+  value.forEach((record, index) => {
+    const validation = validator(record, `${path}.${index}`);
+    diagnostics.push(...validation.diagnostics);
+  });
+}
+
 function errorDiagnostic(
   code: SocialCredentialErrorCode,
   path: string,
@@ -972,6 +1201,43 @@ function looksLikeSecretValue(value: string): boolean {
   if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(trimmed)) return true;
   if (/^[A-Za-z0-9+/=]{32,}$/.test(trimmed) && !trimmed.includes("*")) return true;
   return false;
+}
+
+const FORBIDDEN_SECRET_KEYS = new Set([
+  "accessToken",
+  "access_token",
+  "apiKey",
+  "api_key",
+  "clientSecret",
+  "client_secret",
+  "credential",
+  "credentials",
+  "password",
+  "refreshToken",
+  "refresh_token",
+  "secret",
+  "token",
+  "tokens",
+  "plaintext",
+  "ciphertext",
+]);
+
+function scanForbiddenCredentialState(
+  value: unknown,
+  path: string,
+  diagnostics: SocialCredentialDiagnostic[],
+  depth = 0,
+): void {
+  if (depth > 4 || !isRecord(value)) return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (FORBIDDEN_SECRET_KEYS.has(key)) {
+      diagnostics.push(errorDiagnostic("secret_forbidden", `${path}.${key}`, "Forbidden secret, token, or plaintext key detected."));
+    }
+    if (typeof nested === "string" && looksLikeSecretValue(nested)) {
+      diagnostics.push(errorDiagnostic("secret_forbidden", `${path}.${key}`, "Forbidden secret-like value detected."));
+    }
+    scanForbiddenCredentialState(nested, `${path}.${key}`, diagnostics, depth + 1);
+  }
 }
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
