@@ -15,14 +15,19 @@ import {
 } from "./social-credential-readiness-replay";
 import type { SocialPlatformCredentialProvider } from "../social-platform-credential-boundary";
 
-export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTICS_VERSION = "d13-w2-v1" as const;
+export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTICS_VERSION = "d13-w3-v1" as const;
 
 export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTIC_CODES = [
   "credential_persistence_ready",
   "credential_persistence_blocked",
+  "storage_schema_ready",
+  "storage_schema_blocked",
+  "repository_contract_complete",
+  "repository_contract_incomplete",
   "repository_validation_failed",
   "domain_mapping_failed",
   "storage_dependency_missing",
+  "schema_validation_summary_computed",
   "lifecycle_summary_computed",
 ] as const;
 
@@ -50,6 +55,46 @@ export type SocialCredentialLifecycleSummary = Readonly<{
   authoritative: false;
 }>;
 
+export type SocialCredentialStorageSchemaReadinessSummary = Readonly<{
+  schemaVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  requiredCollectionCount: number;
+  presentCollectionCount: number;
+  missingCollections: readonly string[];
+  referenceOnlyCollections: readonly string[];
+  storageSchemaReady: boolean;
+  allowsSql: false;
+  allowsSupabase: false;
+  allowsEncryption: false;
+  readOnly: true;
+  authoritative: false;
+}>;
+
+export type SocialCredentialRepositoryCompletenessSummary = Readonly<{
+  repositoryVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  requiredReadOperationCount: number;
+  modeledMutationOperationCount: number;
+  missingReadOperations: readonly string[];
+  repositoryContractComplete: boolean;
+  readOnlyDiagnosticsOnly: true;
+  invokesMutationOperations: false;
+  authoritative: false;
+}>;
+
+export type SocialCredentialSchemaValidationSummary = Readonly<{
+  persistenceErrorCount: number;
+  domainMappingErrorCount: number;
+  readinessDiagnosticCount: number;
+  blockCount: number;
+  errorCount: number;
+  warningCount: number;
+  validationErrorCodes: Readonly<Record<string, number>>;
+  readinessDiagnosticCodes: Readonly<Record<string, number>>;
+  validForReadiness: boolean;
+  computedOnly: true;
+  readOnly: true;
+  authoritative: false;
+}>;
+
 export type SocialCredentialPersistenceReadinessSummary = Readonly<{
   diagnosticsVersion: typeof SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTICS_VERSION;
   domainVersion: typeof SOCIAL_CREDENTIAL_DOMAIN_VERSION;
@@ -67,6 +112,9 @@ export type SocialCredentialPersistenceReadinessSummary = Readonly<{
   readyProviderCount: number;
   blockedProviderCount: number;
   credentialPersistenceReady: boolean;
+  storageSchemaSummary: SocialCredentialStorageSchemaReadinessSummary;
+  repositoryCompletenessSummary: SocialCredentialRepositoryCompletenessSummary;
+  schemaValidationSummary: SocialCredentialSchemaValidationSummary;
   lifecycleSummary: SocialCredentialLifecycleSummary;
   readinessDiagnostics: readonly SocialCredentialReadinessReplayDiagnostic[];
   diagnostics: readonly SocialCredentialAdminDiagnostic[];
@@ -78,6 +126,40 @@ export type SocialCredentialPersistenceReadinessSummary = Readonly<{
   publishesNothing: true;
 }>;
 
+const REQUIRED_SCHEMA_COLLECTIONS = [
+  "provider_accounts",
+  "vault_records",
+  "lifecycle_states",
+  "audit_events",
+  "key_versions",
+] as const;
+
+const REQUIRED_REPOSITORY_READ_OPERATIONS = [
+  "getCredentialRecordsByIdentity",
+  "listProviderAccounts",
+  "listVaultRecordMetadata",
+  "listLifecycleStates",
+  "listAuditEvents",
+  "listKeyVersions",
+  "snapshot",
+] as const;
+
+const MODELED_REPOSITORY_MUTATION_OPERATIONS = [
+  "createProviderAccount",
+  "updateProviderAccount",
+  "deleteProviderAccount",
+  "createVaultRecordMetadata",
+  "updateVaultRecordMetadata",
+  "deleteVaultRecordMetadata",
+  "createLifecycleState",
+  "updateLifecycleState",
+  "deleteLifecycleState",
+  "appendAuditEvent",
+  "createKeyVersion",
+  "updateKeyVersion",
+  "deleteKeyVersion",
+] as const;
+
 export function replaySocialCredentialAdminDiagnostics(
   model: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
 ): SocialCredentialPersistenceReadinessSummary {
@@ -85,6 +167,13 @@ export function replaySocialCredentialAdminDiagnostics(
   const mappingValidation = validateDomainMappingsFromPersistenceModel(model);
   const readiness = replaySocialCredentialReadiness(model).value;
   const missingStorageDependencies = unique(readiness.missingDependencyReport);
+  const storageSchemaSummary = buildStorageSchemaReadinessSummary(model);
+  const repositoryCompletenessSummary = buildRepositoryCompletenessSummary();
+  const schemaValidationSummary = buildSchemaValidationSummary(
+    persistenceValidation.errors,
+    mappingValidation.errors,
+    readiness.diagnostics,
+  );
   const diagnostics: SocialCredentialAdminDiagnostic[] = [];
 
   if (!persistenceValidation.ok) {
@@ -121,9 +210,43 @@ export function replaySocialCredentialAdminDiagnostics(
     });
   }
 
+  diagnostics.push({
+    code: storageSchemaSummary.storageSchemaReady
+      ? "storage_schema_ready"
+      : "storage_schema_blocked",
+    severity: storageSchemaSummary.storageSchemaReady ? "info" : "error",
+    path: "credential_storage_schema",
+    message: storageSchemaSummary.storageSchemaReady
+      ? "Credential storage schema contract is ready for reference-only diagnostics."
+      : `Credential storage schema contract is missing ${storageSchemaSummary.missingCollections.length} required collection(s).`,
+    referenceId: null,
+  });
+
+  diagnostics.push({
+    code: repositoryCompletenessSummary.repositoryContractComplete
+      ? "repository_contract_complete"
+      : "repository_contract_incomplete",
+    severity: repositoryCompletenessSummary.repositoryContractComplete ? "info" : "error",
+    path: "credential_repository_contract",
+    message: repositoryCompletenessSummary.repositoryContractComplete
+      ? "Credential repository read contract is complete for diagnostics."
+      : `Credential repository read contract is missing ${repositoryCompletenessSummary.missingReadOperations.length} operation(s).`,
+    referenceId: null,
+  });
+
+  diagnostics.push({
+    code: "schema_validation_summary_computed",
+    severity: schemaValidationSummary.validForReadiness ? "info" : "warning",
+    path: "credential_schema_validation",
+    message: `Credential schema validation summary computed with ${schemaValidationSummary.persistenceErrorCount} persistence error(s), ${schemaValidationSummary.domainMappingErrorCount} mapping error(s), and ${schemaValidationSummary.readinessDiagnosticCount} readiness diagnostic(s).`,
+    referenceId: null,
+  });
+
   const credentialPersistenceReady =
     persistenceValidation.ok &&
     mappingValidation.ok &&
+    storageSchemaSummary.storageSchemaReady &&
+    repositoryCompletenessSummary.repositoryContractComplete &&
     readiness.validationSummary.allProvidersCredentialReady &&
     missingStorageDependencies.length === 0 &&
     SOCIAL_CREDENTIAL_STORAGE_CONTRACT.referenceOnly === true &&
@@ -168,6 +291,9 @@ export function replaySocialCredentialAdminDiagnostics(
     readyProviderCount: readiness.summary.credentialReadyProviderCount,
     blockedProviderCount: readiness.summary.credentialBlockedProviderCount,
     credentialPersistenceReady,
+    storageSchemaSummary,
+    repositoryCompletenessSummary,
+    schemaValidationSummary,
     lifecycleSummary: buildLifecycleSummary(model),
     readinessDiagnostics: readiness.diagnostics,
     diagnostics: Object.freeze(diagnostics),
@@ -177,6 +303,77 @@ export function replaySocialCredentialAdminDiagnostics(
     grantsExecutionPermission: false,
     executesNothing: true,
     publishesNothing: true,
+  });
+}
+
+function buildStorageSchemaReadinessSummary(
+  model: SocialCredentialPersistenceModel,
+): SocialCredentialStorageSchemaReadinessSummary {
+  const presentCollections = REQUIRED_SCHEMA_COLLECTIONS.filter((collection) =>
+    Array.isArray(model[collection]),
+  );
+  const missingCollections = REQUIRED_SCHEMA_COLLECTIONS.filter((collection) =>
+    !presentCollections.includes(collection),
+  );
+  const storageSchemaReady =
+    missingCollections.length === 0 &&
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.referenceOnly === true &&
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSql === false &&
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSupabase === false &&
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsEncryption === false;
+
+  return Object.freeze({
+    schemaVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+    requiredCollectionCount: REQUIRED_SCHEMA_COLLECTIONS.length,
+    presentCollectionCount: presentCollections.length,
+    missingCollections: Object.freeze([...missingCollections]),
+    referenceOnlyCollections: Object.freeze([...presentCollections]),
+    storageSchemaReady,
+    allowsSql: SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSql,
+    allowsSupabase: SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSupabase,
+    allowsEncryption: SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsEncryption,
+    readOnly: true,
+    authoritative: false,
+  });
+}
+
+function buildRepositoryCompletenessSummary(): SocialCredentialRepositoryCompletenessSummary {
+  return Object.freeze({
+    repositoryVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+    requiredReadOperationCount: REQUIRED_REPOSITORY_READ_OPERATIONS.length,
+    modeledMutationOperationCount: MODELED_REPOSITORY_MUTATION_OPERATIONS.length,
+    missingReadOperations: Object.freeze([]),
+    repositoryContractComplete: true,
+    readOnlyDiagnosticsOnly: true,
+    invokesMutationOperations: false,
+    authoritative: false,
+  });
+}
+
+function buildSchemaValidationSummary(
+  persistenceErrors: readonly { code: string }[],
+  mappingErrors: readonly { code: string }[],
+  readinessDiagnostics: readonly SocialCredentialReadinessReplayDiagnostic[],
+): SocialCredentialSchemaValidationSummary {
+  return Object.freeze({
+    persistenceErrorCount: persistenceErrors.length,
+    domainMappingErrorCount: mappingErrors.length,
+    readinessDiagnosticCount: readinessDiagnostics.length,
+    blockCount: readinessDiagnostics.filter((diagnostic) => diagnostic.severity === "block").length,
+    errorCount:
+      persistenceErrors.length +
+      mappingErrors.length +
+      readinessDiagnostics.filter((diagnostic) => diagnostic.severity === "error").length,
+    warningCount: readinessDiagnostics.filter((diagnostic) => diagnostic.severity === "warning").length,
+    validationErrorCodes: Object.freeze(countBy([...persistenceErrors, ...mappingErrors].map((error) => error.code))),
+    readinessDiagnosticCodes: Object.freeze(countBy(readinessDiagnostics.map((diagnostic) => diagnostic.code))),
+    validForReadiness:
+      persistenceErrors.length === 0 &&
+      mappingErrors.length === 0 &&
+      readinessDiagnostics.every((diagnostic) => diagnostic.severity === "warning"),
+    computedOnly: true,
+    readOnly: true,
+    authoritative: false,
   });
 }
 

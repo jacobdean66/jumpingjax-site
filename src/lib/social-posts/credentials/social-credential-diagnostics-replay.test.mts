@@ -107,6 +107,11 @@ await test("computes blocked persistence readiness without storage access", () =
   assert.equal(diagnostics.storageContractAllowsSql, false);
   assert.equal(diagnostics.storageContractAllowsSupabase, false);
   assert.equal(diagnostics.storageContractAllowsEncryption, false);
+  assert.equal(diagnostics.storageSchemaSummary.storageSchemaReady, true);
+  assert.equal(diagnostics.storageSchemaSummary.requiredCollectionCount, 5);
+  assert.equal(diagnostics.storageSchemaSummary.missingCollections.length, 0);
+  assert.equal(diagnostics.repositoryCompletenessSummary.repositoryContractComplete, true);
+  assert.equal(diagnostics.repositoryCompletenessSummary.invokesMutationOperations, false);
   assert.equal(diagnostics.grantsExecutionPermission, false);
   assert.ok(diagnostics.missingStorageDependencies.includes("provider_account:meta"));
 });
@@ -129,6 +134,21 @@ await test("summarizes lifecycle rows from reference-only model", () => {
   assert.equal(diagnostics.lifecycleSummary.keyVersionStatusCounts.active, 1);
 });
 
+await test("computes schema validation summaries without authoritative readiness", () => {
+  const diagnostics = replaySocialCredentialAdminDiagnostics();
+
+  assert.equal(diagnostics.schemaValidationSummary.persistenceErrorCount, 0);
+  assert.equal(diagnostics.schemaValidationSummary.domainMappingErrorCount, 0);
+  assert.equal(diagnostics.schemaValidationSummary.blockCount > 0, true);
+  assert.equal(diagnostics.schemaValidationSummary.validForReadiness, false);
+  assert.equal(diagnostics.schemaValidationSummary.readOnly, true);
+  assert.equal(diagnostics.schemaValidationSummary.authoritative, false);
+  assert.equal(
+    diagnostics.diagnostics.some((diagnostic) => diagnostic.code === "schema_validation_summary_computed"),
+    true,
+  );
+});
+
 await test("surfaces repository validation failures as diagnostics", () => {
   const diagnostics = replaySocialCredentialAdminDiagnostics(
     model({
@@ -142,6 +162,8 @@ await test("surfaces repository validation failures as diagnostics", () => {
   );
 
   assert.equal(diagnostics.persistenceModelValid, false);
+  assert.equal(diagnostics.schemaValidationSummary.persistenceErrorCount > 0, true);
+  assert.equal(diagnostics.schemaValidationSummary.validForReadiness, false);
   assert.equal(
     diagnostics.diagnostics.some((diagnostic) => diagnostic.code === "repository_validation_failed"),
     true,

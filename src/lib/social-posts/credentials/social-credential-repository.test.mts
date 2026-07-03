@@ -1,20 +1,29 @@
 import assert from "node:assert/strict";
 
+import { SOCIAL_CREDENTIAL_DOMAIN_VERSION } from "./social-credential-domain";
 import {
   EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+  SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY,
   SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
   SOCIAL_CREDENTIAL_STORAGE_CONTRACT,
-  createReferenceSocialCredentialPersistencePort,
-  createReferenceSocialCredentialRepository,
+  createSocialCredentialRepository,
+  mapAuditEventRecordToDomain,
+  mapKeyVersionRecordToDomain,
   mapProviderAccountRecordToReference,
   mapVaultRecordRowToMetadata,
+  mapVaultRecordRowToCredentialIdentity,
+  mapVaultRecordRowToCredentialReference,
   validateDomainMappingsFromPersistenceModel,
+  validateSocialCredentialPersistenceAdapterContract,
   validateSocialCredentialPersistenceModel,
   validateSocialCredentialProviderAccountRecord,
   validateSocialCredentialVaultRecordRow,
   type SocialCredentialAuditEventRecord,
   type SocialCredentialKeyVersionRecord,
   type SocialCredentialLifecycleStateRecord,
+  type SocialCredentialPersistenceAdapterBoundary,
+  type SocialCredentialPersistenceAdapterContract,
+  type SocialCredentialPersistenceModel,
   type SocialCredentialProviderAccountRecord,
   type SocialCredentialRepositoryResult,
   type SocialCredentialVaultRecordRow,
@@ -128,11 +137,81 @@ function assertOk<T>(result: SocialCredentialRepositoryResult<T>): T {
   assert.fail(result.error.message);
 }
 
+const VALID_ADAPTER_CONTRACT: SocialCredentialPersistenceAdapterContract = {
+  adapterId: "test-credential-persistence-adapter",
+  repositoryVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+  domainVersion: SOCIAL_CREDENTIAL_DOMAIN_VERSION,
+  capabilities: {
+    adapterBoundaryOnly: true,
+    referenceOnly: true,
+    metadataOnly: true,
+    storesNoSecrets: true,
+    storesNoTokens: true,
+    storesNoPlaintext: true,
+    exposesNoSql: true,
+    usesNoSupabase: true,
+    usesNoNetwork: true,
+    performsNoEncryption: true,
+    performsNoDecryption: true,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  },
+};
+
+function createTestCredentialPersistenceAdapter(
+  seed: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+): SocialCredentialPersistenceAdapterBoundary {
+  let snapshot = seed;
+
+  return {
+    contract: VALID_ADAPTER_CONTRACT,
+    loadSnapshot() {
+      return { ok: true, value: snapshot };
+    },
+    persistSnapshot(model) {
+      snapshot = model;
+      return { ok: true, value: snapshot };
+    },
+  };
+}
+
 await test("exposes reference-only storage contract", () => {
   assert.equal(SOCIAL_CREDENTIAL_STORAGE_CONTRACT.contractVersion, SOCIAL_CREDENTIAL_REPOSITORY_VERSION);
+  assert.equal(SOCIAL_CREDENTIAL_STORAGE_CONTRACT.adapterBoundaryOnly, true);
   assert.equal(SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSql, false);
   assert.equal(SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSupabase, false);
   assert.equal(SOCIAL_CREDENTIAL_STORAGE_CONTRACT.grantsExecutionPermission, false);
+});
+
+await test("preserves append-only audit boundary without update or delete operations", () => {
+  assert.equal(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.version, SOCIAL_CREDENTIAL_REPOSITORY_VERSION);
+  assert.deepEqual(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyCollections, ["audit_events"]);
+  assert.deepEqual(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyOperations, ["appendAuditEvent"]);
+  assert.deepEqual(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.forbiddenAuditMutations, [
+    "updateAuditEvent",
+    "deleteAuditEvent",
+  ]);
+  assert.equal(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.auditEventsImmutable, true);
+  assert.equal(SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.preservesW2AppendOnlySemantics, true);
+
+  const repository = createSocialCredentialRepository(createTestCredentialPersistenceAdapter());
+  assert.equal("appendAuditEvent" in repository, true);
+  assert.equal("updateAuditEvent" in repository, false);
+  assert.equal("deleteAuditEvent" in repository, false);
+});
+
+await test("validates abstract persistence adapter contract boundaries", () => {
+  assert.equal(validateSocialCredentialPersistenceAdapterContract(VALID_ADAPTER_CONTRACT).ok, true);
+
+  const invalid = validateSocialCredentialPersistenceAdapterContract({
+    ...VALID_ADAPTER_CONTRACT,
+    capabilities: {
+      ...VALID_ADAPTER_CONTRACT.capabilities,
+      usesNoNetwork: false,
+    },
+  });
+  assert.equal(invalid.ok, false);
 });
 
 await test("validates empty persistence model", () => {
@@ -177,25 +256,42 @@ await test("maps persistence records to domain references", () => {
   const metadata = mapVaultRecordRowToMetadata(validVaultRecordRow());
   assert.equal(metadata.metadataOnly, true);
   assert.equal(metadata.containsPlaintext, false);
+
+  const identity = mapVaultRecordRowToCredentialIdentity(validVaultRecordRow());
+  assert.equal(identity.referencesOnly, true);
+  assert.equal(identity.containsTokenValue, false);
+
+  const credentialReference = mapVaultRecordRowToCredentialReference(validVaultRecordRow());
+  assert.equal(credentialReference.containsRefreshToken, false);
+
+  const auditEvent = mapAuditEventRecordToDomain(validAuditEventRecord());
+  assert.equal(auditEvent.containsTokens, false);
+
+  const keyVersion = mapKeyVersionRecordToDomain(validKeyVersionRecord());
+  assert.equal(keyVersion.containsKeyMaterial, false);
 });
 
-await test("reference persistence port snapshots validated metadata only state", () => {
-  const port = createReferenceSocialCredentialPersistencePort();
-  const saved = assertOk(port.save({
-    ...EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
-    provider_accounts: [validProviderAccountRecord()],
-  }));
-  assert.equal(saved.provider_accounts.length, 1);
-
-  const rejected = port.save({
-    ...EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
-    provider_accounts: [{ ...validProviderAccountRecord(), accessToken: "forbidden" } as SocialCredentialProviderAccountRecord],
+await test("repository rejects unavailable or unsafe persistence adapters", () => {
+  const invalidAdapter = createTestCredentialPersistenceAdapter();
+  const unsafeContract = {
+    ...VALID_ADAPTER_CONTRACT,
+    capabilities: {
+      ...VALID_ADAPTER_CONTRACT.capabilities,
+      storesNoTokens: false,
+    },
+  } as unknown as SocialCredentialPersistenceAdapterContract;
+  const repository = createSocialCredentialRepository({
+    ...invalidAdapter,
+    contract: unsafeContract,
   });
-  assert.equal(rejected.ok, false);
+
+  const listed = repository.listProviderAccounts();
+  assert.equal(listed.ok, false);
+  if (!listed.ok) assert.equal(listed.error.code, "adapter_contract_invalid");
 });
 
-await test("reference repository supports provider account CRUD contracts", () => {
-  const repository = createReferenceSocialCredentialRepository();
+await test("adapter-backed repository supports provider account CRUD boundary validation", () => {
+  const repository = createSocialCredentialRepository(createTestCredentialPersistenceAdapter());
   const created = assertOk(repository.createProviderAccount({ providerAccount: validProviderAccountRecord() }));
   assert.equal(created.provider_account_id, "pa-meta-1");
 
@@ -215,8 +311,8 @@ await test("reference repository supports provider account CRUD contracts", () =
   assert.equal(assertOk(repository.listProviderAccounts()).length, 0);
 });
 
-await test("reference repository validates credential metadata CRUD and append-only audit", () => {
-  const repository = createReferenceSocialCredentialRepository();
+await test("adapter-backed repository validates credential metadata CRUD and append-only audit", () => {
+  const repository = createSocialCredentialRepository(createTestCredentialPersistenceAdapter());
   assertOk(repository.createVaultRecordMetadata({ vaultRecord: validVaultRecordRow() }));
   assertOk(repository.createLifecycleState({ lifecycleState: validLifecycleStateRecord() }));
   assertOk(repository.appendAuditEvent({ auditEvent: validAuditEventRecord() }));

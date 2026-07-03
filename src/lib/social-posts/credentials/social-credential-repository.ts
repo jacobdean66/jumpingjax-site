@@ -6,18 +6,27 @@ import {
   SOCIAL_CREDENTIAL_LIFECYCLE_PHASES,
   SOCIAL_CREDENTIAL_PROVIDER_ACCOUNT_STATUSES,
   validateSocialCredentialLifecycleState,
+  validateSocialCredentialAuditEvent,
+  validateSocialCredentialIdentity,
+  validateSocialCredentialKeyVersion,
   validateSocialCredentialProviderAccountReference,
+  validateSocialCredentialReference,
   validateSocialCredentialVaultRecordMetadata,
+  type SocialCredentialAuditEvent,
   type SocialCredentialAuditAction,
   type SocialCredentialAuditOutcome,
+  type SocialCredentialIdentity,
+  type SocialCredentialKeyVersion,
   type SocialCredentialKeyVersionStatus,
   type SocialCredentialLifecyclePhase,
   type SocialCredentialLifecycleState,
+  type SocialCredentialReference,
   type SocialCredentialProviderAccountReference,
   type SocialCredentialProviderAccountStatus,
   type SocialCredentialVaultRecordMetadata,
 } from "./social-credential-domain";
 import {
+  SOCIAL_PLATFORM_CREDENTIAL_BOUNDARY_VERSION,
   type SocialPlatformCredentialKind,
   type SocialPlatformCredentialProvider,
   isSocialPlatformCredentialKind,
@@ -132,12 +141,14 @@ export type SocialCredentialPersistenceModel = Readonly<{
   key_versions: readonly SocialCredentialKeyVersionRecord[];
 }>;
 
-export const SOCIAL_CREDENTIAL_REPOSITORY_VERSION = "d13-w2-v1" as const;
+export const SOCIAL_CREDENTIAL_REPOSITORY_VERSION = "d13-w3-v1" as const;
 
 export const SOCIAL_CREDENTIAL_REPOSITORY_ERROR_CODES = [
   "validation_failed",
   "identity_required",
   "identity_collision",
+  "adapter_contract_invalid",
+  "adapter_unavailable",
   "serialization_invalid",
   "contract_only",
   "not_found",
@@ -224,16 +235,43 @@ export type SocialCredentialKeyVersionMutationRequest = Readonly<{
   keyVersion: SocialCredentialKeyVersionRecord;
 }>;
 
-export type SocialCredentialPersistencePort = Readonly<{
-  load(): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
-  save(model: SocialCredentialPersistenceModel): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
-  snapshot(): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
+export type SocialCredentialPersistenceAdapterCapabilities = Readonly<{
+  adapterBoundaryOnly: true;
+  referenceOnly: true;
+  metadataOnly: true;
+  storesNoSecrets: true;
+  storesNoTokens: true;
+  storesNoPlaintext: true;
+  exposesNoSql: true;
+  usesNoSupabase: true;
+  usesNoNetwork: true;
+  performsNoEncryption: true;
+  performsNoDecryption: true;
+  grantsExecutionPermission: false;
+  executesNothing: true;
+  publishesNothing: true;
+}>;
+
+export type SocialCredentialPersistenceAdapterContract = Readonly<{
+  adapterId: string;
+  repositoryVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  domainVersion: typeof SOCIAL_CREDENTIAL_DOMAIN_VERSION;
+  capabilities: SocialCredentialPersistenceAdapterCapabilities;
+}>;
+
+export type SocialCredentialPersistenceAdapterBoundary = Readonly<{
+  contract: SocialCredentialPersistenceAdapterContract;
+  loadSnapshot(): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
+  persistSnapshot(
+    model: SocialCredentialPersistenceModel,
+  ): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel>;
 }>;
 
 export type SocialCredentialStorageContract = Readonly<{
   contractVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
   domainVersion: typeof SOCIAL_CREDENTIAL_DOMAIN_VERSION;
   referenceOnly: true;
+  adapterBoundaryOnly: true;
   implementsNothing: true;
   allowsSql: false;
   allowsSupabase: false;
@@ -248,6 +286,7 @@ export const SOCIAL_CREDENTIAL_STORAGE_CONTRACT: SocialCredentialStorageContract
   contractVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
   domainVersion: SOCIAL_CREDENTIAL_DOMAIN_VERSION,
   referenceOnly: true,
+  adapterBoundaryOnly: true,
   implementsNothing: true,
   allowsSql: false,
   allowsSupabase: false,
@@ -257,6 +296,38 @@ export const SOCIAL_CREDENTIAL_STORAGE_CONTRACT: SocialCredentialStorageContract
   executesNothing: true,
   publishesNothing: true,
 });
+
+export const SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_COLLECTIONS = [
+  "audit_events",
+] as const;
+
+export const SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_OPERATIONS = [
+  "appendAuditEvent",
+] as const;
+
+export const SOCIAL_CREDENTIAL_REPOSITORY_FORBIDDEN_AUDIT_MUTATIONS = [
+  "updateAuditEvent",
+  "deleteAuditEvent",
+] as const;
+
+export type SocialCredentialRepositoryAppendOnlyBoundary = Readonly<{
+  version: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  appendOnlyCollections: readonly (typeof SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_COLLECTIONS)[number][];
+  appendOnlyOperations: readonly (typeof SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_OPERATIONS)[number][];
+  forbiddenAuditMutations: readonly (typeof SOCIAL_CREDENTIAL_REPOSITORY_FORBIDDEN_AUDIT_MUTATIONS)[number][];
+  auditEventsImmutable: true;
+  preservesW2AppendOnlySemantics: true;
+}>;
+
+export const SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY: SocialCredentialRepositoryAppendOnlyBoundary =
+  Object.freeze({
+    version: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+    appendOnlyCollections: Object.freeze([...SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_COLLECTIONS]),
+    appendOnlyOperations: Object.freeze([...SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_OPERATIONS]),
+    forbiddenAuditMutations: Object.freeze([...SOCIAL_CREDENTIAL_REPOSITORY_FORBIDDEN_AUDIT_MUTATIONS]),
+    auditEventsImmutable: true,
+    preservesW2AppendOnlySemantics: true,
+  });
 
 export type SocialCredentialRepository = Readonly<{
   createProviderAccount(
@@ -325,47 +396,86 @@ export const EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL: SocialCredentialPersiste
   key_versions: [],
 });
 
-export function createReferenceSocialCredentialPersistencePort(
-  seed: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
-): SocialCredentialPersistencePort {
-  const validation = validateSocialCredentialPersistenceModel(seed);
-  if (!validation.ok) {
-    throw new Error(`Invalid credential persistence model: ${validation.errors[0]?.message ?? "unknown error"}`);
+export function validateSocialCredentialPersistenceAdapterContract(
+  contract: unknown,
+): SocialCredentialRepositoryResult<SocialCredentialPersistenceAdapterContract> {
+  if (!isRecord(contract)) {
+    return repositoryError("adapter_contract_invalid", "Credential persistence adapter contract must be an object.");
+  }
+  if (typeof contract.adapterId !== "string" || contract.adapterId.trim().length === 0) {
+    return repositoryError("adapter_contract_invalid", "Credential persistence adapter contract must include adapterId.");
+  }
+  if (
+    contract.repositoryVersion !== SOCIAL_CREDENTIAL_REPOSITORY_VERSION ||
+    contract.domainVersion !== SOCIAL_CREDENTIAL_DOMAIN_VERSION ||
+    !isRecord(contract.capabilities)
+  ) {
+    return repositoryError("adapter_contract_invalid", "Credential persistence adapter contract version or capabilities are invalid.");
   }
 
-  let state = clonePersistenceModel(seed);
+  const capabilities = contract.capabilities;
+  const trueFlags = [
+    "adapterBoundaryOnly",
+    "referenceOnly",
+    "metadataOnly",
+    "storesNoSecrets",
+    "storesNoTokens",
+    "storesNoPlaintext",
+    "exposesNoSql",
+    "usesNoSupabase",
+    "usesNoNetwork",
+    "performsNoEncryption",
+    "performsNoDecryption",
+    "executesNothing",
+    "publishesNothing",
+  ] as const;
 
-  return {
-    load() {
-      return ok(clonePersistenceModel(state));
-    },
-    save(model) {
-      const validation = validateSocialCredentialPersistenceModel(model);
-      if (!validation.ok) {
-        return repositoryError("validation_failed", "Credential persistence model failed validation.", validation.errors);
-      }
-      state = clonePersistenceModel(model);
-      return ok(clonePersistenceModel(state));
-    },
-    snapshot() {
-      return ok(clonePersistenceModel(state));
-    },
-  };
+  for (const flag of trueFlags) {
+    if (capabilities[flag] !== true) {
+      return repositoryError("adapter_contract_invalid", `Credential persistence adapter capability ${flag} is invalid.`);
+    }
+  }
+  if (capabilities.grantsExecutionPermission !== false) {
+    return repositoryError("adapter_contract_invalid", "Credential persistence adapter must not grant execution permission.");
+  }
+
+  return ok(contract as SocialCredentialPersistenceAdapterContract);
 }
 
-export function createReferenceSocialCredentialRepository(
-  seed: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+export function createSocialCredentialRepository(
+  adapter: SocialCredentialPersistenceAdapterBoundary,
 ): SocialCredentialRepository {
-  const port = createReferenceSocialCredentialPersistencePort(seed);
-  let state = unwrapOrThrow(port.load());
+  const adapterValidation = validateSocialCredentialPersistenceAdapterContract(adapter.contract);
+  if (!adapterValidation.ok) {
+    return createUnavailableSocialCredentialRepository(adapterValidation.error);
+  }
+
+  const loaded = adapter.loadSnapshot();
+  if (!loaded.ok) {
+    return createUnavailableSocialCredentialRepository(loaded.error);
+  }
+  const loadedValidation = validateDomainMappingsFromPersistenceModel(loaded.value);
+  if (!loadedValidation.ok) {
+    return createUnavailableSocialCredentialRepository(repositoryErrorValue(
+      "validation_failed",
+      "Credential persistence adapter snapshot failed validation.",
+      loadedValidation.errors,
+    ));
+  }
+
+  let state = clonePersistenceModel(loaded.value);
 
   function commit(next: SocialCredentialPersistenceModel): SocialCredentialRepositoryResult<SocialCredentialPersistenceModel> {
     const validation = validateDomainMappingsFromPersistenceModel(next);
     if (!validation.ok) {
       return repositoryError("validation_failed", "Credential persistence model failed validation.", validation.errors);
     }
-    const saved = port.save(next);
+    const saved = adapter.persistSnapshot(next);
     if (!saved.ok) return saved;
+    const savedValidation = validateDomainMappingsFromPersistenceModel(saved.value);
+    if (!savedValidation.ok) {
+      return repositoryError("validation_failed", "Credential persistence adapter returned invalid state.", savedValidation.errors);
+    }
     state = clonePersistenceModel(saved.value);
     return ok(clonePersistenceModel(state));
   }
@@ -537,6 +647,40 @@ export function createReferenceSocialCredentialRepository(
     snapshot() {
       return ok(clonePersistenceModel(state));
     },
+  };
+}
+
+function createUnavailableSocialCredentialRepository(
+  error: SocialCredentialRepositoryError,
+): SocialCredentialRepository {
+  const unavailable = <T>(): SocialCredentialRepositoryResult<T> => ({
+    ok: false,
+    error: error.code === "adapter_contract_invalid"
+      ? error
+      : repositoryErrorValue("adapter_unavailable", error.message, error.validationErrors),
+  });
+
+  return {
+    createProviderAccount: unavailable,
+    updateProviderAccount: unavailable,
+    deleteProviderAccount: unavailable,
+    createVaultRecordMetadata: unavailable,
+    updateVaultRecordMetadata: unavailable,
+    deleteVaultRecordMetadata: unavailable,
+    createLifecycleState: unavailable,
+    updateLifecycleState: unavailable,
+    deleteLifecycleState: unavailable,
+    appendAuditEvent: unavailable,
+    createKeyVersion: unavailable,
+    updateKeyVersion: unavailable,
+    deleteKeyVersion: unavailable,
+    getCredentialRecordsByIdentity: unavailable,
+    listProviderAccounts: unavailable,
+    listVaultRecordMetadata: unavailable,
+    listLifecycleStates: unavailable,
+    listAuditEvents: unavailable,
+    listKeyVersions: unavailable,
+    snapshot: unavailable,
   };
 }
 
@@ -763,6 +907,46 @@ export function mapVaultRecordRowToMetadata(
   };
 }
 
+export function mapVaultRecordRowToCredentialIdentity(
+  record: SocialCredentialVaultRecordRow,
+): SocialCredentialIdentity {
+  return {
+    credentialRefId: record.credential_ref_id,
+    provider: record.provider,
+    credentialKind: record.credential_kind,
+    accountRefId: record.account_ref_id,
+    providerAccountId: record.provider_account_id,
+    publicationTargetId: record.publication_target_id,
+    domainVersion: SOCIAL_CREDENTIAL_DOMAIN_VERSION,
+    credentialBoundaryVersion: SOCIAL_PLATFORM_CREDENTIAL_BOUNDARY_VERSION,
+    referencesOnly: true,
+    containsSecretValue: false,
+    containsTokenValue: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
+}
+
+export function mapVaultRecordRowToCredentialReference(
+  record: SocialCredentialVaultRecordRow,
+): SocialCredentialReference {
+  return {
+    credentialRefId: record.credential_ref_id,
+    provider: record.provider,
+    credentialKind: record.credential_kind,
+    accountRefId: record.account_ref_id,
+    redactedHint: record.encrypted_payload_ref,
+    referencesOnly: true,
+    containsSecretValue: false,
+    containsTokenValue: false,
+    containsRefreshToken: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
+}
+
 export function mapLifecycleStateRecordToDomain(
   record: SocialCredentialLifecycleStateRecord,
 ): SocialCredentialLifecycleState {
@@ -788,6 +972,42 @@ export function mapLifecycleStateRecordToDomain(
   };
 }
 
+export function mapAuditEventRecordToDomain(
+  record: SocialCredentialAuditEventRecord,
+): SocialCredentialAuditEvent {
+  return {
+    auditEventId: record.audit_event_id,
+    credentialRefId: record.credential_ref_id,
+    actorAdminId: record.actor_admin_id,
+    action: record.action,
+    outcome: record.outcome,
+    sanitizedDetail: record.sanitized_detail,
+    createdAt: record.created_at,
+    appendOnly: true,
+    containsSecrets: false,
+    containsTokens: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
+}
+
+export function mapKeyVersionRecordToDomain(
+  record: SocialCredentialKeyVersionRecord,
+): SocialCredentialKeyVersion {
+  return {
+    keyVersion: record.key_version,
+    status: record.status,
+    activatedAt: record.activated_at,
+    retiredAt: record.retired_at,
+    metadataOnly: true,
+    containsKeyMaterial: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
+}
+
 export function validateDomainMappingsFromPersistenceModel(
   model: SocialCredentialPersistenceModel,
 ): SocialCredentialPersistenceValidationResult {
@@ -807,25 +1027,40 @@ export function validateDomainMappingsFromPersistenceModel(
 
   for (const [index, record] of model.vault_records.entries()) {
     const metadata = mapVaultRecordRowToMetadata(record);
-    const domainValidation = validateSocialCredentialVaultRecordMetadata(metadata);
-    if (!domainValidation.valid) {
-      for (const diagnostic of domainValidation.diagnostics) {
-        errors.push(persistenceError("contract_invariant_failed", `vault_records.${index}`, diagnostic.message));
-      }
-    }
+    const identity = mapVaultRecordRowToCredentialIdentity(record);
+    const reference = mapVaultRecordRowToCredentialReference(record);
+    appendDomainValidationErrors(validateSocialCredentialVaultRecordMetadata(metadata), `vault_records.${index}`, errors);
+    appendDomainValidationErrors(validateSocialCredentialIdentity(identity), `vault_records.${index}.identity`, errors);
+    appendDomainValidationErrors(validateSocialCredentialReference(reference), `vault_records.${index}.reference`, errors);
   }
 
   for (const [index, record] of model.lifecycle_states.entries()) {
     const state = mapLifecycleStateRecordToDomain(record);
-    const domainValidation = validateSocialCredentialLifecycleState(state);
-    if (!domainValidation.valid) {
-      for (const diagnostic of domainValidation.diagnostics) {
-        errors.push(persistenceError("contract_invariant_failed", `lifecycle_states.${index}`, diagnostic.message));
-      }
-    }
+    appendDomainValidationErrors(validateSocialCredentialLifecycleState(state), `lifecycle_states.${index}`, errors);
+  }
+
+  for (const [index, record] of model.audit_events.entries()) {
+    const auditEvent = mapAuditEventRecordToDomain(record);
+    appendDomainValidationErrors(validateSocialCredentialAuditEvent(auditEvent), `audit_events.${index}`, errors);
+  }
+
+  for (const [index, record] of model.key_versions.entries()) {
+    const keyVersion = mapKeyVersionRecordToDomain(record);
+    appendDomainValidationErrors(validateSocialCredentialKeyVersion(keyVersion), `key_versions.${index}`, errors);
   }
 
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
+}
+
+function appendDomainValidationErrors(
+  validation: { valid: boolean; diagnostics: readonly { message: string }[] },
+  path: string,
+  errors: SocialCredentialPersistenceError[],
+): void {
+  if (validation.valid) return;
+  for (const diagnostic of validation.diagnostics) {
+    errors.push(persistenceError("contract_invariant_failed", path, diagnostic.message));
+  }
 }
 
 function validateRepositoryIdentity(
@@ -1034,10 +1269,13 @@ function repositoryError(
   message: string,
   validationErrors?: readonly SocialCredentialPersistenceError[],
 ): SocialCredentialRepositoryResult<never> {
-  return { ok: false, error: { code, message, validationErrors } };
+  return { ok: false, error: repositoryErrorValue(code, message, validationErrors) };
 }
 
-function unwrapOrThrow<T>(result: SocialCredentialRepositoryResult<T>): T {
-  if (result.ok) return result.value;
-  throw new Error(result.error.message);
+function repositoryErrorValue(
+  code: SocialCredentialRepositoryErrorCode,
+  message: string,
+  validationErrors?: readonly SocialCredentialPersistenceError[],
+): SocialCredentialRepositoryError {
+  return { code, message, validationErrors };
 }
