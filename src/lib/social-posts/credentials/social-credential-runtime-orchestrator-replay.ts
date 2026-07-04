@@ -29,6 +29,10 @@ import {
 } from "../social-platform-credential-boundary";
 import { replaySocialPlatformCredentialBoundary } from "../social-platform-credential-boundary-replay";
 import { replaySocialPlatformReadinessGate } from "../social-platform-readiness-gate-replay";
+import {
+  evaluateSocialProviderIntegrationOrchestrationCompatibility,
+  type SocialProviderIntegrationOrchestrationCompatibilityResult,
+} from "./social-provider-integration-orchestration-compatibility";
 
 export const SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_REPLAY_VERSION =
   SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_VERSION;
@@ -108,6 +112,7 @@ export type SocialCredentialRuntimeOrchestratorReadModel = Readonly<{
     computedOnly: true;
     authoritative: false;
   }>;
+  providerIntegrationCompatibility: SocialProviderIntegrationOrchestrationCompatibilityResult;
   computedOnly: true;
   readOnly: true;
   authoritative: false;
@@ -259,6 +264,8 @@ export function replaySocialCredentialRuntimeOrchestrator(
     (provider) => provider.auditIntegration.appendOnlyCompatible,
   );
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
+  const providerIntegrationCompatibility =
+    evaluateSocialProviderIntegrationOrchestrationCompatibility(plan);
 
   return {
     ok: true,
@@ -298,6 +305,7 @@ export function replaySocialCredentialRuntimeOrchestrator(
         computedOnly: true,
         authoritative: false,
       },
+      providerIntegrationCompatibility,
       computedOnly: true,
       readOnly: true,
       authoritative: false,

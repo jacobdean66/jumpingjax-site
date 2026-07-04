@@ -143,6 +143,12 @@ import {
   type SocialCredentialRuntimeOrchestratorReplayDiagnostic,
 } from "@/lib/social-posts/credentials/social-credential-runtime-orchestrator-replay";
 import { SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_VERSION } from "@/lib/social-posts/credentials/social-credential-runtime-orchestrator";
+import {
+  replaySocialProviderIntegrationPlanning,
+  type SocialProviderIntegrationPlanningProviderProjection,
+  type SocialProviderIntegrationPlanningReplayDiagnostic,
+} from "@/lib/social-posts/credentials/social-provider-integration-planning-replay";
+import { SOCIAL_PROVIDER_INTEGRATION_PLANNING_VERSION } from "@/lib/social-posts/credentials/social-provider-integration-planning";
 
 export const dynamic = "force-dynamic";
 
@@ -2207,6 +2213,117 @@ function OrchestratorProviderTable({
   );
 }
 
+function ProviderIntegrationPlanningProviderTable({
+  title,
+  empty,
+  providers,
+}: {
+  title: string;
+  empty: string;
+  providers: readonly SocialProviderIntegrationPlanningProviderProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {providers.length}
+        </span>
+      </div>
+      {providers.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1400px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Compatibility Status</th>
+                <th className="px-3 py-2">Contract Coverage</th>
+                <th className="px-3 py-2">Orchestration Aligned</th>
+                <th className="px-3 py-2">Supported Capabilities</th>
+                <th className="px-3 py-2">Unsupported Capabilities</th>
+                <th className="px-3 py-2">Forbidden Capabilities</th>
+                <th className="px-3 py-2">Readiness Impact Blocked</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((provider) => (
+                <tr key={provider.provider} className="border-t border-slate-200 align-top">
+                  <td className="px-3 py-2 font-black">{provider.provider}</td>
+                  <td className="px-3 py-2 font-semibold">
+                    {provider.orchestrationCompatibility.status}
+                  </td>
+                  <td className="px-3 py-2 font-semibold">
+                    {String(provider.contractCoverageComplete)}
+                  </td>
+                  <td className="px-3 py-2 font-semibold">
+                    {String(provider.orchestrationCompatibility.orchestrationContractAligned)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={provider.supportedCapabilities} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={provider.unsupportedCapabilities} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={provider.forbiddenCapabilities} />
+                  </td>
+                  <td className="px-3 py-2 font-semibold">
+                    {String(provider.orchestrationCompatibility.readinessImpactBlocked)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={provider.blockingReasons} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProviderIntegrationPlanningDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialProviderIntegrationPlanningReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No provider integration planning replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function OrchestratorDiagnosticsList({
   diagnostics,
 }: {
@@ -2334,6 +2451,9 @@ export default async function AdminPublicationExecutionPage({
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
   const credentialRuntimeOrchestratorReplay = replaySocialCredentialRuntimeOrchestrator(
+    credentialModel,
+  ).value;
+  const providerIntegrationPlanningReplay = replaySocialProviderIntegrationPlanning(
     credentialModel,
   ).value;
 
@@ -3460,6 +3580,99 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <OrchestratorDiagnosticsList diagnostics={credentialRuntimeOrchestratorReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D15 Provider Integration Planning
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {providerIntegrationPlanningReplay.summary.contractCoverageCompleteCount > 0
+                        ? "Provider integration contract coverage found"
+                        : "No provider integration contract coverage"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D15 Wave 2 provider integration planning defines connection, capability,
+                      authorization, and communication boundary contracts plus orchestration
+                      compatibility summaries against D15 Wave 1 runtime orchestration.
+                      This is GET-only diagnostic planning: no OAuth, no HTTP, no SDKs,
+                      no secret material, and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H46 integration planning
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Planning Version" value={SOCIAL_PROVIDER_INTEGRATION_PLANNING_VERSION} />
+                  <Field label="Replay Version" value={providerIntegrationPlanningReplay.replayVersion} />
+                  <Field label="Total Providers" value={providerIntegrationPlanningReplay.summary.totalProviderCount} />
+                  <Field label="Contract Coverage Complete" value={providerIntegrationPlanningReplay.summary.contractCoverageCompleteCount} />
+                  <Field label="Compatible Providers" value={providerIntegrationPlanningReplay.summary.compatibleProviderCount} />
+                  <Field label="Waiting Providers" value={providerIntegrationPlanningReplay.summary.waitingProviderCount} />
+                  <Field label="Incompatible Providers" value={providerIntegrationPlanningReplay.summary.incompatibleProviderCount} />
+                  <Field label="Forbidden Providers" value={providerIntegrationPlanningReplay.summary.forbiddenProviderCount} />
+                  <Field label="Orchestration Aligned" value={providerIntegrationPlanningReplay.summary.orchestrationAlignedCount} />
+                  <Field label="Unsupported Capabilities" value={providerIntegrationPlanningReplay.summary.unsupportedCapabilityTotal} />
+                  <Field label="Forbidden Capabilities" value={providerIntegrationPlanningReplay.summary.forbiddenCapabilityTotal} />
+                  <Field label="Readiness Impact Blocked" value={providerIntegrationPlanningReplay.summary.readinessImpactBlockedCount} />
+                  <Field label="Replay Valid" value={String(providerIntegrationPlanningReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={providerIntegrationPlanningReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `compatibilityVersion: ${providerIntegrationPlanningReplay.orchestrationCompatibility.compatibilityVersion}`,
+                      `planId: ${providerIntegrationPlanningReplay.orchestrationCompatibility.planId ?? "none"}`,
+                      `contractSnapshots: ${providerIntegrationPlanningReplay.contractSnapshots.length}`,
+                      `replayCompatible: ${String(providerIntegrationPlanningReplay.replayIntegrity.replayCompatible)}`,
+                      `computedOnly: ${String(providerIntegrationPlanningReplay.computedOnly)}`,
+                      `readOnly: ${String(providerIntegrationPlanningReplay.readOnly)}`,
+                      `authoritative: ${String(providerIntegrationPlanningReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(providerIntegrationPlanningReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(providerIntegrationPlanningReplay.executesNothing)}`,
+                      `publishesNothing: ${String(providerIntegrationPlanningReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <ProviderIntegrationPlanningProviderTable
+                title="Contract Coverage Complete Providers"
+                empty="No providers have complete integration planning contract coverage."
+                providers={providerIntegrationPlanningReplay.providerProjections.filter(
+                  (provider) => provider.contractCoverageComplete,
+                )}
+              />
+              <ProviderIntegrationPlanningProviderTable
+                title="Orchestration Compatible Providers"
+                empty="No providers are orchestration-compatible with integration planning contracts."
+                providers={providerIntegrationPlanningReplay.compatibleProviders}
+              />
+              <ProviderIntegrationPlanningProviderTable
+                title="Waiting Integration Providers"
+                empty="No providers are waiting on orchestration prerequisites for integration planning."
+                providers={providerIntegrationPlanningReplay.waitingProviders}
+              />
+              <ProviderIntegrationPlanningProviderTable
+                title="Forbidden Capability Providers"
+                empty="No providers document forbidden integration capabilities."
+                providers={providerIntegrationPlanningReplay.providerProjections.filter(
+                  (provider) => provider.forbiddenCapabilities.length > 0,
+                )}
+              />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Provider Integration Planning Diagnostics
+                </p>
+                <div className="mt-4">
+                  <ProviderIntegrationPlanningDiagnosticsList
+                    diagnostics={providerIntegrationPlanningReplay.diagnostics}
+                  />
                 </div>
               </section>
 
