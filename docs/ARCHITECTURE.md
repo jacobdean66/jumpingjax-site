@@ -381,6 +381,21 @@ Current components:
 - **D16 SQL** (`supabase/migrations/20260704200000_create_social_oauth.sql`) — `social_oauth_authorization_intents`, append-only `social_oauth_callback_events`, and `social_oauth_sessions` with execution/publish prohibition constraints.
 - **D16 admin visibility** — live OAuth connection status, session lifecycle, callback audit trail, owner connect control, and D15 eligibility orchestration diagnostics on `/admin/social-posts/publication-execution`.
 
+### Layer 19: Meta Asset Discovery & Publication Target Binding (D16 Wave 2, complete)
+
+D16 Wave 2 extends the secure OAuth connection by discovering authorized Meta Facebook Pages and linked Instagram Business accounts, normalizing them into provider-independent asset models, and binding selected assets to existing `social_publication_targets` records. This wave performs identity mapping only. It does not publish, schedule, execute, refresh tokens, or grant execution authority.
+
+Current components:
+
+- **D16 W2 asset domain** (`social-oauth-asset-domain.ts`) — provider-independent discovered asset models and deterministic validation.
+- **D16 W2 discovery client** (`social-meta-asset-discovery-client.ts`) — Graph API read of `/me/accounts` with Bearer authorization (no client secret in URL).
+- **D16 W2 token loader** (`social-oauth-token-loader.ts`) — decrypt connected session access tokens from D13 vault metadata for discovery reads only.
+- **D16 W2 discovery service** (`social-meta-asset-discovery-service.ts`) — discovery orchestration and durable asset snapshots.
+- **D16 W2 binding service** (`social-meta-asset-binding-service.ts`) — reconnect-safe supersede bindings, publication target updates via `social-publication-target-store`, append-only binding audit events.
+- **D16 W2 replay** (`social-meta-asset-replay.ts`) — GET-only binding health, discovered asset visibility, and diagnostics.
+- **D16 W2 API routes** — `POST /api/admin/social-oauth/discover`, `POST /api/admin/social-oauth/bind` (owner-gated).
+- **D16 W2 SQL** (`supabase/migrations/20260704210000_create_social_meta_asset_bindings.sql`) — discovery runs, discovered assets, publication target bindings, append-only binding audit.
+
 ## Admin Read-Only Surfaces
 
 All implemented marketing-platform admin pages are auth-gated and read-only for inspection:

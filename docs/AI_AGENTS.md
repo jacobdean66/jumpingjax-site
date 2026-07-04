@@ -88,6 +88,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 1 Meta live OAuth connect:** Owner-gated Meta authorization redirect, OAuth state, callback route, authorization code exchange, encrypted vault persistence via D13 bridge, and admin diagnostics. No publishing, scheduling, or execution.
 
+**D16 Wave 2 Meta asset discovery & binding:** Discover authorized Facebook Pages and Instagram Business accounts, bind selected assets to existing publication targets, append-only binding audit, and GET-only diagnostics. Identity mapping only.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:

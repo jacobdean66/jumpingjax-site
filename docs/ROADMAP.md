@@ -360,6 +360,8 @@ Provider Integration Planning + Resolution Bridge (D15 Wave 2; planning contract
 Publication Execution Eligibility Preflight (D15 Wave 3; composes D10 preflight + credential/orchestration readiness)
 ↓
 Meta Live OAuth Connect (D16 Wave 1; owner redirect + callback + code exchange + encrypted vault persistence; no publishing/execution)
+↓
+Meta Asset Discovery & Publication Target Binding (D16 Wave 2; Page/Instagram discovery + target binding; identity mapping only)
 ```
 
 D13 complete: credential vault metadata persistence, encryption boundary contracts, cryptographic policy contracts, and read-only admin diagnostics — envelope encryption execution is limited to D16 OAuth runtime token envelopes only. D15 Waves 1–3 complete: credential runtime orchestration, provider integration planning, credential resolution execution bridge, and publication execution eligibility preflight — still no live HTTP/SDK adapters, publishing, or execution authority. **D16 Wave 1** adds owner-initiated Meta OAuth connect with encrypted vault persistence and admin diagnostics only. See `docs/D15_ARCHITECTURE_BASELINE.md` for the authoritative D1–D15 reference and `docs/ARCHITECTURE.md` for D16 Wave 1.
@@ -438,7 +440,7 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 | D13 | Credential architecture (encrypted storage, rotation, audit) | Waves 1–5 complete — domain, repository, metadata store, encryption boundary, cryptographic policy; H43–H44 diagnostics; no encryption execution |
 | D14 | OAuth integration (connect, callback, token exchange) | Superseded for Meta by D16 Wave 1 live connect; TikTok/LinkedIn OAuth not started |
 | D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Credential runtime orchestration complete (D15 W1); provider integration planning contracts complete (D15 W2a); credential resolution execution bridge complete (D15 W2b); publication execution eligibility preflight complete (D15 W3); live HTTP/SDK adapters not started |
-| D16 | Controlled execution (runner, publish pipeline, owner approval) | Wave 1 Meta live OAuth connect complete; runner/publish pipeline not started |
+| D16 | Controlled execution (runner, publish pipeline, owner approval) | Wave 1 Meta live OAuth connect complete; Wave 2 Meta asset discovery and publication target binding complete; runner/publish pipeline not started |
 | D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
 | D18 | Autonomous Marketing OS (scheduler automation, recommendations, learning persistence) | Not started |
 

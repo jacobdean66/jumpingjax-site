@@ -163,6 +163,7 @@ import {
 } from "@/lib/social-posts/social-publication-execution-eligibility-preflight-replay";
 import { SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION } from "@/lib/social-posts/social-publication-execution-eligibility-preflight";
 import { replaySocialOAuthConnections } from "@/lib/social-posts/oauth/social-oauth-connection-replay";
+import { replaySocialMetaAssetBindings } from "@/lib/social-posts/oauth/social-meta-asset-replay";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -196,6 +197,12 @@ type Props = {
     oauth?: string;
     oauth_error?: string;
     oauth_message?: string;
+    meta_assets?: string;
+    meta_assets_error?: string;
+    meta_assets_message?: string;
+    meta_assets_pages?: string;
+    meta_assets_instagram?: string;
+    meta_assets_binding_id?: string;
   }>;
 };
 
@@ -2726,10 +2733,13 @@ export default async function AdminPublicationExecutionPage({
     credentialModel,
   ).value;
   const oauthConnectionReplay = await replaySocialOAuthConnections();
+  const metaAssetReplay = await replaySocialMetaAssetBindings();
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
   const oauthStatusMessage = resolved.oauth_message ?? "";
+  const metaAssetsStatus = resolved.meta_assets ?? "";
+  const metaAssetsStatusMessage = resolved.meta_assets_message ?? "";
   const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
     oauthConnectionReplay,
     eligibilityPreflightReplay.eligibilityPassJobs
@@ -3522,6 +3532,195 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2">{item.lifecycleState}</td>
                             <td className="px-3 py-2 font-black">{String(item.connected)}</td>
                             <td className="px-3 py-2 font-mono text-xs">{item.accessCredentialRefId ?? "—"}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      D16 Wave 2 Meta Asset Discovery & Target Binding
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Discover Pages and bind publication targets
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Live Meta asset discovery lists authorized Facebook Pages and linked
+                      Instagram Business accounts, then binds a selected asset to an existing
+                      publication target. Identity mapping only — no publishing, scheduling,
+                      or execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+                    D16 W2 identity only
+                  </span>
+                </div>
+
+                {metaAssetsStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Asset result: {metaAssetsStatus}
+                    {metaAssetsStatusMessage ? ` — ${metaAssetsStatusMessage}` : ""}
+                    {resolved.meta_assets_error ? ` (${resolved.meta_assets_error})` : ""}
+                    {resolved.meta_assets_pages
+                      ? ` — pages: ${resolved.meta_assets_pages}, instagram: ${resolved.meta_assets_instagram ?? "0"}`
+                      : ""}
+                    {resolved.meta_assets_binding_id
+                      ? ` — binding: ${resolved.meta_assets_binding_id}`
+                      : ""}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={metaAssetReplay.replayVersion} />
+                  <Field label="Connected Sessions" value={metaAssetReplay.summary.connectedSessionCount} />
+                  <Field label="Discovery Runs" value={metaAssetReplay.summary.discoveryRunCount} />
+                  <Field label="Discovered Assets" value={metaAssetReplay.summary.discoveredAssetCount} />
+                  <Field label="Facebook Pages" value={metaAssetReplay.summary.facebookPageCount} />
+                  <Field label="Instagram Accounts" value={metaAssetReplay.summary.instagramAccountCount} />
+                  <Field label="Active Bindings" value={metaAssetReplay.summary.activeBindingCount} />
+                  <Field label="Bound Targets" value={metaAssetReplay.summary.boundTargetCount} />
+                  <Field label="Unbound Connected" value={metaAssetReplay.summary.unboundConnectedTargetCount} />
+                  <Field label="Binding Audit Events" value={metaAssetReplay.summary.bindingAuditEventCount} />
+                </div>
+
+                {auth.role === "owner" && filters.publicationTargetId ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-oauth/discover"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 py-2 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!oauthConnectConfigured}
+                    >
+                      Discover Meta Assets
+                    </button>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Set a publication target filter to discover assets for a connected OAuth session.
+                  </p>
+                )}
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={metaAssetReplay.diagnostics}
+                    emptyMessage="No D16 Wave 2 asset binding diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">Connected</th>
+                        <th className="px-3 py-2">Bound</th>
+                        <th className="px-3 py-2">Asset Kind</th>
+                        <th className="px-3 py-2">External Ref</th>
+                        <th className="px-3 py-2">Bind</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metaAssetReplay.bindingStatuses.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No connected Meta OAuth sessions for binding visibility.
+                          </td>
+                        </tr>
+                      ) : (
+                        metaAssetReplay.bindingStatuses.map((item) => (
+                          <tr key={item.publicationTargetId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2 font-black">{String(item.connected)}</td>
+                            <td className="px-3 py-2 font-black">{String(item.bound)}</td>
+                            <td className="px-3 py-2">{item.assetKind ?? "—"}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.externalAssetIdRedacted ?? "—"}</td>
+                            <td className="px-3 py-2">
+                              {auth.role === "owner" &&
+                              filters.publicationTargetId === item.publicationTargetId ? (
+                                <div className="space-y-2">
+                                  {metaAssetReplay.discoveredAssets
+                                    .filter(
+                                      (asset) =>
+                                        asset.oauth_session_id === item.oauthSessionId,
+                                    )
+                                    .map((asset) => (
+                                      <form
+                                        key={asset.discovered_asset_id}
+                                        action="/api/admin/social-oauth/bind"
+                                        method="post"
+                                        className="inline-flex"
+                                      >
+                                        <input type="hidden" name="token" value={token} />
+                                        <input
+                                          type="hidden"
+                                          name="publication_target_id"
+                                          value={item.publicationTargetId}
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="discovered_asset_id"
+                                          value={asset.discovered_asset_id}
+                                        />
+                                        <button
+                                          type="submit"
+                                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-900 hover:bg-emerald-100"
+                                        >
+                                          Bind {asset.asset_kind}
+                                        </button>
+                                      </form>
+                                    ))}
+                                </div>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Asset Kind</th>
+                        <th className="px-3 py-2">Display</th>
+                        <th className="px-3 py-2">External Ref</th>
+                        <th className="px-3 py-2">Platform</th>
+                        <th className="px-3 py-2">Session</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metaAssetReplay.discoveredAssets.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={5}>
+                            No discovered Meta assets recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        metaAssetReplay.discoveredAssets.map((asset) => (
+                          <tr key={asset.discovered_asset_id} className="border-b border-slate-100">
+                            <td className="px-3 py-2">{asset.asset_kind}</td>
+                            <td className="px-3 py-2">{asset.display_name_redacted}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{asset.external_asset_id_redacted}</td>
+                            <td className="px-3 py-2">{asset.publication_target_platform}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{asset.oauth_session_id}</td>
                           </tr>
                         ))
                       )}
