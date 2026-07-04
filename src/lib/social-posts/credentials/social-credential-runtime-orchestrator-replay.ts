@@ -33,6 +33,10 @@ import {
   evaluateSocialProviderIntegrationOrchestrationCompatibility,
   type SocialProviderIntegrationOrchestrationCompatibilityResult,
 } from "./social-provider-integration-orchestration-compatibility";
+import {
+  composeCredentialResolutionExecutionBridgeReadModel,
+  type SocialCredentialResolutionExecutionBridgeReadModel,
+} from "./social-credential-resolution-execution-bridge-replay";
 
 export const SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_REPLAY_VERSION =
   SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_VERSION;
@@ -113,6 +117,7 @@ export type SocialCredentialRuntimeOrchestratorReadModel = Readonly<{
     authoritative: false;
   }>;
   providerIntegrationCompatibility: SocialProviderIntegrationOrchestrationCompatibilityResult;
+  credentialResolutionExecution: SocialCredentialResolutionExecutionBridgeReadModel;
   computedOnly: true;
   readOnly: true;
   authoritative: false;
@@ -266,6 +271,11 @@ export function replaySocialCredentialRuntimeOrchestrator(
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
   const providerIntegrationCompatibility =
     evaluateSocialProviderIntegrationOrchestrationCompatibility(plan);
+  const credentialResolutionExecution = composeCredentialResolutionExecutionBridgeReadModel(
+    model,
+    plan,
+    now,
+  );
 
   return {
     ok: true,
@@ -306,6 +316,7 @@ export function replaySocialCredentialRuntimeOrchestrator(
         authoritative: false,
       },
       providerIntegrationCompatibility,
+      credentialResolutionExecution,
       computedOnly: true,
       readOnly: true,
       authoritative: false,

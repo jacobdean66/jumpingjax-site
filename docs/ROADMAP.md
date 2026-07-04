@@ -429,7 +429,7 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 |-----------|-------|----------------|
 | D13 | Credential architecture (encrypted storage, rotation, audit) | W4 complete — encryption boundary architecture + H44 diagnostics |
 | D14 | OAuth integration (connect, callback, token exchange) | Not started |
-| D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Not started |
+| D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Credential runtime orchestration complete (D15 W1); provider integration planning contracts complete (D15 W2a); credential resolution execution bridge complete (D15 W2b); live HTTP/SDK adapters not started |
 | D16 | Controlled execution (runner, publish pipeline, owner approval) | Not started |
 | D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
 | D18 | Autonomous Marketing OS (scheduler automation, recommendations, learning persistence) | Not started |

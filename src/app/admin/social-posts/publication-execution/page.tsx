@@ -149,6 +149,12 @@ import {
   type SocialProviderIntegrationPlanningReplayDiagnostic,
 } from "@/lib/social-posts/credentials/social-provider-integration-planning-replay";
 import { SOCIAL_PROVIDER_INTEGRATION_PLANNING_VERSION } from "@/lib/social-posts/credentials/social-provider-integration-planning";
+import {
+  replaySocialCredentialResolutionExecutionBridge,
+  type SocialCredentialResolutionExecutionBridgeReplayDiagnostic,
+  type SocialCredentialResolutionExecutionProviderProjection,
+} from "@/lib/social-posts/credentials/social-credential-resolution-execution-bridge-replay";
+import { SOCIAL_CREDENTIAL_RESOLUTION_EXECUTION_BRIDGE_VERSION } from "@/lib/social-posts/credentials/social-credential-resolution-execution-bridge";
 
 export const dynamic = "force-dynamic";
 
@@ -2290,6 +2296,103 @@ function ProviderIntegrationPlanningProviderTable({
   );
 }
 
+function ResolutionExecutionBridgeDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialCredentialResolutionExecutionBridgeReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No credential resolution execution bridge replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResolutionExecutionBridgeProviderTable({
+  title,
+  empty,
+  providers,
+}: {
+  title: string;
+  empty: string;
+  providers: readonly SocialCredentialResolutionExecutionProviderProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {providers.length}
+        </span>
+      </div>
+      {providers.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1600px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Plan Status</th>
+                <th className="px-3 py-2">Reference Coverage</th>
+                <th className="px-3 py-2">Planning Complete</th>
+                <th className="px-3 py-2">Orchestration Aligned</th>
+                <th className="px-3 py-2">Audit Compatible</th>
+                <th className="px-3 py-2">Provider Reference</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((provider) => (
+                <tr key={provider.provider} className="border-t border-slate-200 align-top">
+                  <td className="px-3 py-2 font-black">{provider.provider}</td>
+                  <td className="px-3 py-2">{provider.providerPlan.status}</td>
+                  <td className="px-3 py-2">{String(provider.referenceCoverageComplete)}</td>
+                  <td className="px-3 py-2">{String(provider.planningComplete)}</td>
+                  <td className="px-3 py-2">{String(provider.orchestrationAligned)}</td>
+                  <td className="px-3 py-2">{String(provider.auditCompatible)}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {provider.providerPlan.providerReference?.accountRefId ?? "none"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={provider.blockingReasons} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ProviderIntegrationPlanningDiagnosticsList({
   diagnostics,
 }: {
@@ -2455,6 +2558,10 @@ export default async function AdminPublicationExecutionPage({
   ).value;
   const providerIntegrationPlanningReplay = replaySocialProviderIntegrationPlanning(
     credentialModel,
+  ).value;
+  const credentialResolutionExecutionReplay = replaySocialCredentialResolutionExecutionBridge(
+    credentialModel,
+    { orchestrationPlan: credentialRuntimeOrchestratorReplay.plan },
   ).value;
 
   const navItems: readonly [string, string][] = [
@@ -3580,6 +3687,89 @@ export default async function AdminPublicationExecutionPage({
                 </p>
                 <div className="mt-4">
                   <OrchestratorDiagnosticsList diagnostics={credentialRuntimeOrchestratorReplay.diagnostics} />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D15 Credential Resolution Execution Bridge
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {credentialResolutionExecutionReplay.summary.referenceCoverageCompleteCount > 0
+                        ? "Provider reference coverage found"
+                        : "No provider reference coverage"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D15 Wave 2 credential resolution execution bridge performs deterministic
+                      provider reference selection, repository-backed reference lookup, and
+                      orchestration-aware resolution planning against D15 Wave 1 runtime
+                      orchestration. This is GET-only diagnostic planning: no OAuth, no HTTP,
+                      no SDKs, no secret material, and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H47 resolution execution bridge
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Bridge Version" value={SOCIAL_CREDENTIAL_RESOLUTION_EXECUTION_BRIDGE_VERSION} />
+                  <Field label="Replay Version" value={credentialResolutionExecutionReplay.replayVersion} />
+                  <Field label="Total Providers" value={credentialResolutionExecutionReplay.summary.totalProviderCount} />
+                  <Field label="Reference Coverage Complete" value={credentialResolutionExecutionReplay.summary.referenceCoverageCompleteCount} />
+                  <Field label="Planning Complete" value={credentialResolutionExecutionReplay.summary.planningCompleteCount} />
+                  <Field label="Planned Providers" value={credentialResolutionExecutionReplay.summary.plannedProviderCount} />
+                  <Field label="Waiting Providers" value={credentialResolutionExecutionReplay.summary.waitingProviderCount} />
+                  <Field label="Blocked Providers" value={credentialResolutionExecutionReplay.summary.blockedProviderCount} />
+                  <Field label="Orchestration Aligned" value={credentialResolutionExecutionReplay.summary.orchestrationAlignedCount} />
+                  <Field label="Audit Compatible" value={credentialResolutionExecutionReplay.summary.auditCompatibleCount} />
+                  <Field label="Plan Status" value={credentialResolutionExecutionReplay.plan.status} />
+                  <Field label="Replay Valid" value={String(credentialResolutionExecutionReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={credentialResolutionExecutionReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `orchestratorVersion: ${credentialResolutionExecutionReplay.plan.orchestratorVersion}`,
+                      `planId: ${credentialResolutionExecutionReplay.plan.planId}`,
+                      `mode: ${credentialResolutionExecutionReplay.plan.mode}`,
+                      `replayCompatible: ${String(credentialResolutionExecutionReplay.replayIntegrity.replayCompatible)}`,
+                      `computedOnly: ${String(credentialResolutionExecutionReplay.computedOnly)}`,
+                      `readOnly: ${String(credentialResolutionExecutionReplay.readOnly)}`,
+                      `authoritative: ${String(credentialResolutionExecutionReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(credentialResolutionExecutionReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(credentialResolutionExecutionReplay.executesNothing)}`,
+                      `publishesNothing: ${String(credentialResolutionExecutionReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <ResolutionExecutionBridgeProviderTable
+                title="Reference Coverage Complete Providers"
+                empty="No providers have complete repository-backed reference coverage."
+                providers={credentialResolutionExecutionReplay.referenceCoverageCompleteProviders}
+              />
+              <ResolutionExecutionBridgeProviderTable
+                title="Orchestration Aligned Providers"
+                empty="No providers are aligned with D15 Wave 1 orchestration readiness."
+                providers={credentialResolutionExecutionReplay.orchestrationAlignedProviders}
+              />
+              <ResolutionExecutionBridgeProviderTable
+                title="Blocked Resolution Providers"
+                empty="No providers are blocked by resolution execution planning."
+                providers={credentialResolutionExecutionReplay.blockedProviders}
+              />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Credential Resolution Execution Bridge Diagnostics
+                </p>
+                <div className="mt-4">
+                  <ResolutionExecutionBridgeDiagnosticsList
+                    diagnostics={credentialResolutionExecutionReplay.diagnostics}
+                  />
                 </div>
               </section>
 
