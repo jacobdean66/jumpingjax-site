@@ -137,6 +137,12 @@ import {
   type SocialCredentialCryptoPolicyProviderSelectionProjection,
   type SocialCredentialCryptoPolicyReplayDiagnostic,
 } from "@/lib/social-posts/credentials/social-credential-cryptographic-policy-replay";
+import {
+  replaySocialCredentialRuntimeOrchestrator,
+  type SocialCredentialRuntimeOrchestratorProviderProjection,
+  type SocialCredentialRuntimeOrchestratorReplayDiagnostic,
+} from "@/lib/social-posts/credentials/social-credential-runtime-orchestrator-replay";
+import { SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_VERSION } from "@/lib/social-posts/credentials/social-credential-runtime-orchestrator";
 
 export const dynamic = "force-dynamic";
 
@@ -2090,6 +2096,151 @@ function CoordinatorJobTable({
   );
 }
 
+function OrchestratorProviderTable({
+  title,
+  empty,
+  providers,
+}: {
+  title: string;
+  empty: string;
+  providers: readonly SocialCredentialRuntimeOrchestratorProviderProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {providers.length}
+        </span>
+      </div>
+      {providers.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1800px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Orchestration Status</th>
+                <th className="px-3 py-2">Fully Orchestrated</th>
+                <th className="px-3 py-2">Pipeline Phases</th>
+                <th className="px-3 py-2">Dependency Graph</th>
+                <th className="px-3 py-2">Readiness</th>
+                <th className="px-3 py-2">Capabilities</th>
+                <th className="px-3 py-2">Audit Integration</th>
+                <th className="px-3 py-2">Resolution Flow</th>
+                <th className="px-3 py-2">Blocked Reasons</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {providers.map((provider) => (
+                <tr key={provider.provider}>
+                  <td className="px-3 py-2 font-black">{provider.provider}</td>
+                  <td className="px-3 py-2 font-black">{provider.orchestrationStatus}</td>
+                  <td className="px-3 py-2 font-black">{String(provider.fullyOrchestrated)}</td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={provider.pipelinePhases.map(
+                        (phase) => `${phase.kind}:${phase.status}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={provider.dependencyGraph.map(
+                        (node) => `${node.dependencyType}:${String(node.present)}`,
+                      )}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `credentialReady: ${String(provider.readinessAggregation.credentialReady)}`,
+                        `archReady: ${provider.readinessAggregation.architecturallyReadyPlatformCount}`,
+                        `archBlocked: ${provider.readinessAggregation.architecturallyBlockedPlatformCount}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        ...provider.capabilityAggregation.satisfiedCapabilityFlags.map(
+                          (flag) => `satisfied:${flag}`,
+                        ),
+                        ...provider.capabilityAggregation.missingCapabilityFlags.map(
+                          (flag) => `missing:${flag}`,
+                        ),
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `appendOnly: ${String(provider.auditIntegration.appendOnlyCompatible)}`,
+                        `auditEvents: ${provider.auditIntegration.auditEventCount}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList
+                      values={[
+                        `complete: ${String(provider.resolutionFlow.resolutionComplete)}`,
+                        `resolved: ${provider.resolutionFlow.resolvedStepCount}`,
+                        `unresolved: ${provider.resolutionFlow.unresolvedStepCount}`,
+                      ]}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillList values={[...provider.blockingReasons]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OrchestratorDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialCredentialRuntimeOrchestratorReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No credential runtime orchestrator replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CoordinatorDiagnosticsList({
   diagnostics,
 }: {
@@ -2182,6 +2333,9 @@ export default async function AdminPublicationExecutionPage({
   const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;
   const runbookReplay = replaySocialPublicationExecutionRunbooks(loaded.model).value;
   const coordinatorReplay = replaySocialPublicationExecutionCoordinator(loaded.model).value;
+  const credentialRuntimeOrchestratorReplay = replaySocialCredentialRuntimeOrchestrator(
+    credentialModel,
+  ).value;
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Hub"],
@@ -3223,6 +3377,91 @@ export default async function AdminPublicationExecutionPage({
               <RunbookJobTable title="Missing Adapter Prerequisite Runbooks" empty="No jobs are missing adapter prerequisites." jobs={runbookReplay.missingAdapterPrerequisiteRunbooks} />
               <RunbookJobTable title="Missing Authority Runbooks" empty="No jobs are missing authority evidence." jobs={runbookReplay.missingAuthorityRunbooks} />
               <RunbookJobTable title="Manual Confirmation Runbooks" empty="No jobs require manual confirmations." jobs={runbookReplay.manualConfirmationRunbooks} />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D15 Credential Runtime Orchestration
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {credentialRuntimeOrchestratorReplay.summary.fullyOrchestratedProviderCount > 0
+                        ? "Fully orchestrated credential providers found"
+                        : "No fully orchestrated credential providers"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D15 Wave 1 runtime orchestration assembles persistence validation,
+                      dependency composition, readiness aggregation, capability aggregation,
+                      append-only audit compatibility, and provider-agnostic resolution flow.
+                      This is GET-only diagnostic orchestration: no OAuth, no encryption,
+                      no external APIs, no secret material, and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H45 runtime orchestration
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Orchestrator Version" value={SOCIAL_CREDENTIAL_RUNTIME_ORCHESTRATOR_VERSION} />
+                  <Field label="Replay Version" value={credentialRuntimeOrchestratorReplay.replayVersion} />
+                  <Field label="Total Providers" value={credentialRuntimeOrchestratorReplay.summary.totalProviderCount} />
+                  <Field label="Fully Orchestrated" value={credentialRuntimeOrchestratorReplay.summary.fullyOrchestratedProviderCount} />
+                  <Field label="Waiting Providers" value={credentialRuntimeOrchestratorReplay.summary.waitingProviderCount} />
+                  <Field label="Blocked Providers" value={credentialRuntimeOrchestratorReplay.summary.blockedProviderCount} />
+                  <Field label="Dependency Failures" value={credentialRuntimeOrchestratorReplay.summary.dependencyFailureCount} />
+                  <Field label="Resolution Complete" value={credentialRuntimeOrchestratorReplay.summary.resolutionCompleteCount} />
+                  <Field label="Readiness Ready" value={credentialRuntimeOrchestratorReplay.summary.readinessReadyCount} />
+                  <Field label="Audit Compatible" value={credentialRuntimeOrchestratorReplay.summary.auditCompatibleCount} />
+                  <Field label="Replay Valid" value={String(credentialRuntimeOrchestratorReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={credentialRuntimeOrchestratorReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      ...credentialRuntimeOrchestratorReplay.plan.orderedPipeline.map(
+                        (phase) => `phase:${phase}`,
+                      ),
+                      `planStatus: ${credentialRuntimeOrchestratorReplay.plan.status}`,
+                      `computedOnly: ${String(credentialRuntimeOrchestratorReplay.computedOnly)}`,
+                      `readOnly: ${String(credentialRuntimeOrchestratorReplay.readOnly)}`,
+                      `authoritative: ${String(credentialRuntimeOrchestratorReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(credentialRuntimeOrchestratorReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(credentialRuntimeOrchestratorReplay.executesNothing)}`,
+                      `publishesNothing: ${String(credentialRuntimeOrchestratorReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <OrchestratorProviderTable
+                title="Fully Orchestrated Providers"
+                empty="No providers are fully orchestrated across all runtime pipeline layers."
+                providers={credentialRuntimeOrchestratorReplay.fullyOrchestratedProviders}
+              />
+              <OrchestratorProviderTable
+                title="Waiting Providers"
+                empty="No providers are waiting on runtime orchestration prerequisites."
+                providers={credentialRuntimeOrchestratorReplay.waitingProviders}
+              />
+              <OrchestratorProviderTable
+                title="Blocked Providers"
+                empty="No providers are blocked by runtime orchestration diagnostics."
+                providers={credentialRuntimeOrchestratorReplay.blockedProviders}
+              />
+              <OrchestratorProviderTable
+                title="Resolution Complete Providers"
+                empty="No providers have completed provider-agnostic resolution flow."
+                providers={credentialRuntimeOrchestratorReplay.resolutionCompleteProviders}
+              />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Credential Runtime Orchestrator Diagnostics
+                </p>
+                <div className="mt-4">
+                  <OrchestratorDiagnosticsList diagnostics={credentialRuntimeOrchestratorReplay.diagnostics} />
+                </div>
+              </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

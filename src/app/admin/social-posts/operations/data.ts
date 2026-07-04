@@ -49,6 +49,7 @@ import {
   type SocialCredentialBridgeError,
 } from "@/lib/social-posts/credentials/social-credential-bridge";
 import { replaySocialCredentialAdminDiagnostics } from "@/lib/social-posts/credentials/social-credential-diagnostics-replay";
+import { replaySocialCredentialRuntimeOrchestrator } from "@/lib/social-posts/credentials/social-credential-runtime-orchestrator-replay";
 
 import type {
   OperationsAvailability,
@@ -331,6 +332,7 @@ async function credentialPersistenceOverview(): Promise<{
     }
 
     const replay = replaySocialCredentialAdminDiagnostics(modelResult.value);
+    const orchestratorReplay = replaySocialCredentialRuntimeOrchestrator(modelResult.value).value;
     const availabilityMessage = replay.credentialPersistenceReady
       ? "Credential persistence readiness is satisfied by stored reference-only records."
       : `${replay.missingDependencyCount} credential storage dependency diagnostic(s) are present in the stored reference model.`;
@@ -375,6 +377,9 @@ async function credentialPersistenceOverview(): Promise<{
           lifecycleStates: replay.lifecycleSummary.lifecycleStateCount,
           auditEvents: replay.lifecycleSummary.auditEventCount,
           keyVersions: replay.lifecycleSummary.keyVersionCount,
+          orchestratedProviders: orchestratorReplay.summary.fullyOrchestratedProviderCount,
+          blockedOrchestrationProviders: orchestratorReplay.summary.blockedProviderCount,
+          runtimeOrchestrationDiagnostics: orchestratorReplay.summary.diagnosticCount,
         },
         replaySummary: {
           persistenceModelValid: replay.persistenceModelValid ? 1 : 0,
@@ -385,6 +390,9 @@ async function credentialPersistenceOverview(): Promise<{
           replayCompatibilityComplete: replay.repositoryCompletenessSummary.replayCompatibility.complete ? 1 : 0,
           appendOnlyAuditCompatible: replay.repositoryCompletenessSummary.appendOnlyAuditCompatibility.complete ? 1 : 0,
           getOnlyDiagnostics: replay.repositoryCompletenessSummary.getOnlyDiagnostics.complete ? 1 : 0,
+          runtimeOrchestratorValid: orchestratorReplay.replayIntegrity.valid ? 1 : 0,
+          fullyOrchestratedProviders: orchestratorReplay.summary.fullyOrchestratedProviderCount,
+          runtimeOrchestrationBlockedProviders: orchestratorReplay.summary.blockedProviderCount,
           validationErrorCount: replay.schemaValidationSummary.errorCount,
           validationWarningCount: replay.schemaValidationSummary.warningCount,
           validationBlockCount: replay.schemaValidationSummary.blockCount,
