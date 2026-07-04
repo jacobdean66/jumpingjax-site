@@ -5,6 +5,8 @@
 **Audit date:** 2026-07-04  
 **Scope:** Read-only architecture freeze for D1–D15. No runtime behavior changes.
 
+**Post-baseline note:** D16 Wave 1 (Meta live OAuth connect) was implemented after this baseline. See `docs/ARCHITECTURE.md` Layer 18 for the live OAuth connect scope and boundaries. This document remains the authoritative D1–D15 freeze.
+
 This document is the authoritative architecture reference for the Jumping Jax AI Marketing Platform at the D15 milestone. It supersedes informal summaries in commit messages and should be read alongside:
 
 - `docs/ARCHITECTURE.md` — constitutional layer definitions

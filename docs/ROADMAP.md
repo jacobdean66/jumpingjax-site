@@ -358,11 +358,11 @@ Credential Runtime Orchestration (D15 Wave 1; orchestrator + replay)
 Provider Integration Planning + Resolution Bridge (D15 Wave 2; planning contracts + resolution execution bridge)
 ↓
 Publication Execution Eligibility Preflight (D15 Wave 3; composes D10 preflight + credential/orchestration readiness)
+↓
+Meta Live OAuth Connect (D16 Wave 1; owner redirect + callback + code exchange + encrypted vault persistence; no publishing/execution)
 ```
 
-D13 complete: credential vault metadata persistence, encryption boundary contracts, cryptographic policy contracts, and read-only admin diagnostics — still no envelope encryption execution, OAuth token exchange, or HTTP to platforms. D15 Waves 1–3 complete: credential runtime orchestration, provider integration planning, credential resolution execution bridge, and publication execution eligibility preflight — still no live HTTP/SDK adapters, publishing, or execution authority. See `docs/D15_ARCHITECTURE_BASELINE.md` for the authoritative D1–D15 reference.
-
-D12 `docs/D12_INTEGRATION_GATE.md` remains the approval boundary before live OAuth, HTTP, or execution. OAuth implementation, callback routes, authorization code exchange, live token storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
+D13 complete: credential vault metadata persistence, encryption boundary contracts, cryptographic policy contracts, and read-only admin diagnostics — envelope encryption execution is limited to D16 OAuth runtime token envelopes only. D15 Waves 1–3 complete: credential runtime orchestration, provider integration planning, credential resolution execution bridge, and publication execution eligibility preflight — still no live HTTP/SDK adapters, publishing, or execution authority. **D16 Wave 1** adds owner-initiated Meta OAuth connect with encrypted vault persistence and admin diagnostics only. See `docs/D15_ARCHITECTURE_BASELINE.md` for the authoritative D1–D15 reference and `docs/ARCHITECTURE.md` for D16 Wave 1.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -377,7 +377,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, and eligibility diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, eligibility, and live Meta OAuth connect diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -436,9 +436,9 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 | Milestone | Theme | Implementation |
 |-----------|-------|----------------|
 | D13 | Credential architecture (encrypted storage, rotation, audit) | Waves 1–5 complete — domain, repository, metadata store, encryption boundary, cryptographic policy; H43–H44 diagnostics; no encryption execution |
-| D14 | OAuth integration (connect, callback, token exchange) | Not started (one admin diagnostics replay module exists; no live OAuth) |
+| D14 | OAuth integration (connect, callback, token exchange) | Superseded for Meta by D16 Wave 1 live connect; TikTok/LinkedIn OAuth not started |
 | D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Credential runtime orchestration complete (D15 W1); provider integration planning contracts complete (D15 W2a); credential resolution execution bridge complete (D15 W2b); publication execution eligibility preflight complete (D15 W3); live HTTP/SDK adapters not started |
-| D16 | Controlled execution (runner, publish pipeline, owner approval) | Not started |
+| D16 | Controlled execution (runner, publish pipeline, owner approval) | Wave 1 Meta live OAuth connect complete; runner/publish pipeline not started |
 | D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
 | D18 | Autonomous Marketing OS (scheduler automation, recommendations, learning persistence) | Not started |
 

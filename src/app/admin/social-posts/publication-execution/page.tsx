@@ -162,6 +162,12 @@ import {
   type SocialPublicationExecutionEligibilityPreflightReplayDiagnostic,
 } from "@/lib/social-posts/social-publication-execution-eligibility-preflight-replay";
 import { SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION } from "@/lib/social-posts/social-publication-execution-eligibility-preflight";
+import { replaySocialOAuthConnections } from "@/lib/social-posts/oauth/social-oauth-connection-replay";
+import {
+  isSocialOAuthConnectConfigured,
+  resolveSocialOAuthRuntimeConfig,
+} from "@/lib/social-posts/oauth/social-oauth-config";
+import { buildSocialOAuthOrchestrationDiagnostics } from "@/lib/social-posts/oauth/social-oauth-orchestration-integration";
 
 export const dynamic = "force-dynamic";
 
@@ -187,6 +193,9 @@ type Props = {
     learningInsightId?: string;
     campaignMemoryId?: string;
     decisionHistoryId?: string;
+    oauth?: string;
+    oauth_error?: string;
+    oauth_message?: string;
   }>;
 };
 
@@ -2337,6 +2346,47 @@ function ResolutionExecutionBridgeDiagnosticsList({
   );
 }
 
+function OAuthDiagnosticsList({
+  diagnostics,
+  emptyMessage,
+}: {
+  diagnostics: readonly Readonly<{
+    code: string;
+    severity: "info" | "warning" | "error";
+    path: string;
+    message: string;
+  }>[];
+  emptyMessage: string;
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EligibilityPreflightDiagnosticsList({
   diagnostics,
 }: {
@@ -2675,6 +2725,18 @@ export default async function AdminPublicationExecutionPage({
     loaded.model,
     credentialModel,
   ).value;
+  const oauthConnectionReplay = await replaySocialOAuthConnections();
+  const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
+  const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
+  const oauthStatus = resolved.oauth ?? "";
+  const oauthStatusMessage = resolved.oauth_message ?? "";
+  const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
+    oauthConnectionReplay,
+    eligibilityPreflightReplay.eligibilityPassJobs
+      .concat(eligibilityPreflightReplay.eligibilityBlockedJobs)
+      .map((job) => job.publicationTargetId)
+      .filter((targetId): targetId is string => Boolean(targetId)),
+  );
 
   const navItems: readonly [string, string][] = [
     ["/admin/social-posts", "Hub"],
@@ -3359,6 +3421,115 @@ export default async function AdminPublicationExecutionPage({
                 </div>
               </section>
 
+              <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      D16 Wave 1 Meta Live OAuth Connect
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Owner-authorized Meta account connection
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Live Meta OAuth connect stores encrypted access tokens in the D13
+                      credential vault only. This wave does not publish, schedule, execute,
+                      or call Graph publishing APIs.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+                    D16 W1 connect only
+                  </span>
+                </div>
+
+                {oauthStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    OAuth result: {oauthStatus}
+                    {oauthStatusMessage ? ` — ${oauthStatusMessage}` : ""}
+                    {resolved.oauth_error ? ` (${resolved.oauth_error})` : ""}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={oauthConnectionReplay.replayVersion} />
+                  <Field label="OAuth Configured" value={String(oauthConnectConfigured)} />
+                  <Field label="Live OAuth Enabled" value={String(oauthConnectionReplay.summary.liveOAuthEnabled)} />
+                  <Field label="Connected Sessions" value={oauthConnectionReplay.summary.connectedCount} />
+                  <Field label="Awaiting Callback" value={oauthConnectionReplay.summary.awaitingCallbackCount} />
+                  <Field label="Failed Sessions" value={oauthConnectionReplay.summary.failedCount} />
+                  <Field label="Intent Count" value={oauthConnectionReplay.summary.intentCount} />
+                  <Field label="Callback Events" value={oauthConnectionReplay.summary.callbackEventCount} />
+                </div>
+
+                {auth.role === "owner" && filters.publicationTargetId ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-oauth/connect"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 py-2 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!oauthConnectConfigured}
+                    >
+                      Connect Meta Account
+                    </button>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Owner-only. Target: {filters.publicationTargetId}
+                    </p>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Set a publication target filter to enable the owner connect control.
+                  </p>
+                )}
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={oauthConnectionReplay.diagnostics}
+                    emptyMessage="No D16 OAuth connection diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Provider</th>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">Lifecycle</th>
+                        <th className="px-3 py-2">Connected</th>
+                        <th className="px-3 py-2">Credential Ref</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {oauthConnectionReplay.connectionStatuses.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={5}>
+                            No live OAuth sessions recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        oauthConnectionReplay.connectionStatuses.map((item) => (
+                          <tr key={`${item.sessionId ?? item.publicationTargetId}:${item.lifecycleState}`} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-semibold">{item.provider}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2">{item.lifecycleState}</td>
+                            <td className="px-3 py-2 font-black">{String(item.connected)}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.accessCredentialRefId ?? "—"}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
@@ -3965,6 +4136,18 @@ export default async function AdminPublicationExecutionPage({
                 empty="No jobs have unresolved publication target providers."
                 jobs={eligibilityPreflightReplay.providerUnresolvedJobs}
               />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                  D16 OAuth + D15 Eligibility Orchestration Diagnostics
+                </p>
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={oauthOrchestrationDiagnostics}
+                    emptyMessage="No D16 OAuth orchestration diagnostics for current eligibility jobs."
+                  />
+                </div>
+              </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
