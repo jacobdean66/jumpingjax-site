@@ -44,6 +44,10 @@ import {
   type SocialPublicationLearningBridgeError,
 } from "@/lib/social-posts/social-publication-learning-bridge";
 import { replaySocialPublicationLearning } from "@/lib/social-posts/social-publication-learning-replay";
+import {
+  createSocialCredentialBridge,
+  type SocialCredentialBridgeError,
+} from "@/lib/social-posts/credentials/social-credential-bridge";
 import { replaySocialCredentialAdminDiagnostics } from "@/lib/social-posts/credentials/social-credential-diagnostics-replay";
 
 import type {
@@ -147,7 +151,7 @@ export async function loadOperationsOverview(): Promise<OperationsOverviewResult
     diagnostics.push(...subDiagnostics);
   }
   {
-    const { overview, diagnostics: subDiagnostics } = credentialPersistenceOverview();
+    const { overview, diagnostics: subDiagnostics } = await credentialPersistenceOverview();
     subsystems.push(overview);
     diagnostics.push(...subDiagnostics);
   }
@@ -288,64 +292,124 @@ function ownerApprovalOverview(): OperationsSubsystemOverview {
   };
 }
 
-function credentialPersistenceOverview(): {
+async function credentialPersistenceOverview(): Promise<{
   overview: OperationsSubsystemOverview;
   diagnostics: OperationsDiagnostic[];
-} {
-  const replay = replaySocialCredentialAdminDiagnostics();
+}> {
   const description =
     "Credential persistence architecture diagnostics: reference-only repository validation, missing storage dependencies, provider readiness, and lifecycle summaries. No credential material is read.";
+  const bridgeResult = createSocialCredentialBridge({ mode: bridgeMode() });
+  if (!bridgeResult.ok) {
+    const error = bridgeResult.error as SocialCredentialBridgeError;
+    return {
+      overview: baseUnavailableOverview(
+        "credential_persistence",
+        "Credential Persistence",
+        description,
+        "/admin/social-posts/publication-execution",
+        error,
+      ),
+      diagnostics: [diagnosticFromError("credential_persistence", error)],
+    };
+  }
 
-  return {
-    overview: {
-      key: "credential_persistence",
-      label: "Credential Persistence",
-      description,
-      bridgeStatus: "no_bridge",
-      availability: replay.credentialPersistenceReady
-        ? {
-            kind: "available",
-            message:
-              "Credential persistence readiness is satisfied by the computed reference model.",
-          }
-        : {
-            kind: "empty",
-            message: `${replay.missingDependencyCount} credential storage dependency diagnostic(s) are present; this check is computed only.`,
-            code: "credential_persistence_blocked",
-          },
-      recordCounts: {
-        readyProviders: replay.readyProviderCount,
-        blockedProviders: replay.blockedProviderCount,
-        missingDependencies: replay.missingDependencyCount,
-        schemaCollections: replay.storageSchemaSummary.presentCollectionCount,
-        repositoryReadOperations: replay.repositoryCompletenessSummary.requiredReadOperationCount,
-        lifecycleStates: replay.lifecycleSummary.lifecycleStateCount,
-        auditEvents: replay.lifecycleSummary.auditEventCount,
-        keyVersions: replay.lifecycleSummary.keyVersionCount,
+  try {
+    const bridge = bridgeResult.value;
+    const modelResult = await bridge.snapshot();
+    if (!modelResult.ok) {
+      const error = modelResult.error as SocialCredentialBridgeError;
+      return {
+        overview: baseUnavailableOverview(
+          "credential_persistence",
+          "Credential Persistence",
+          description,
+          "/admin/social-posts/publication-execution",
+          error,
+        ),
+        diagnostics: [diagnosticFromError("credential_persistence", error)],
+      };
+    }
+
+    const replay = replaySocialCredentialAdminDiagnostics(modelResult.value);
+    const availabilityMessage = replay.credentialPersistenceReady
+      ? "Credential persistence readiness is satisfied by stored reference-only records."
+      : `${replay.missingDependencyCount} credential storage dependency diagnostic(s) are present in the stored reference model.`;
+
+    return {
+      overview: {
+        key: "credential_persistence",
+        label: "Credential Persistence",
+        description,
+        bridgeStatus: bridge.mode,
+        availability:
+          modelResult.value.provider_accounts.length === 0 &&
+            modelResult.value.vault_records.length === 0 &&
+            modelResult.value.lifecycle_states.length === 0 &&
+            modelResult.value.audit_events.length === 0 &&
+            modelResult.value.key_versions.length === 0
+            ? {
+                kind: "empty",
+                message: availabilityMessage,
+                code: "credential_persistence_blocked",
+              }
+            : replay.credentialPersistenceReady
+              ? { kind: "available", message: availabilityMessage }
+              : {
+                  kind: "read_error",
+                  message: availabilityMessage,
+                  code: "credential_persistence_blocked",
+                },
+        recordCounts: {
+          readyProviders: replay.readyProviderCount,
+          blockedProviders: replay.blockedProviderCount,
+          missingDependencies: replay.missingDependencyCount,
+          schemaCollections: replay.storageSchemaSummary.presentCollectionCount,
+          repositoryReadOperations: replay.repositoryCompletenessSummary.requiredReadOperationCount,
+          providerAccounts: modelResult.value.provider_accounts.length,
+          vaultRecords: modelResult.value.vault_records.length,
+          lifecycleStates: replay.lifecycleSummary.lifecycleStateCount,
+          auditEvents: replay.lifecycleSummary.auditEventCount,
+          keyVersions: replay.lifecycleSummary.keyVersionCount,
+        },
+        replaySummary: {
+          persistenceModelValid: replay.persistenceModelValid ? 1 : 0,
+          domainMappingValid: replay.domainMappingValid ? 1 : 0,
+          storageContractReferenceOnly: replay.storageContractReferenceOnly ? 1 : 0,
+          storageSchemaReady: replay.storageSchemaSummary.storageSchemaReady ? 1 : 0,
+          repositoryContractComplete: replay.repositoryCompletenessSummary.repositoryContractComplete ? 1 : 0,
+          validationErrorCount: replay.schemaValidationSummary.errorCount,
+          validationWarningCount: replay.schemaValidationSummary.warningCount,
+          validationBlockCount: replay.schemaValidationSummary.blockCount,
+          allowsSql: replay.storageContractAllowsSql ? 1 : 0,
+          allowsSupabase: replay.storageContractAllowsSupabase ? 1 : 0,
+          allowsEncryption: replay.storageContractAllowsEncryption ? 1 : 0,
+          diagnosticCount: replay.diagnostics.length,
+        },
+        detailHref: "/admin/social-posts/publication-execution",
       },
-      replaySummary: {
-        persistenceModelValid: replay.persistenceModelValid ? 1 : 0,
-        domainMappingValid: replay.domainMappingValid ? 1 : 0,
-        storageContractReferenceOnly: replay.storageContractReferenceOnly ? 1 : 0,
-        storageSchemaReady: replay.storageSchemaSummary.storageSchemaReady ? 1 : 0,
-        repositoryContractComplete: replay.repositoryCompletenessSummary.repositoryContractComplete ? 1 : 0,
-        validationErrorCount: replay.schemaValidationSummary.errorCount,
-        validationWarningCount: replay.schemaValidationSummary.warningCount,
-        validationBlockCount: replay.schemaValidationSummary.blockCount,
-        allowsSql: replay.storageContractAllowsSql ? 1 : 0,
-        allowsSupabase: replay.storageContractAllowsSupabase ? 1 : 0,
-        allowsEncryption: replay.storageContractAllowsEncryption ? 1 : 0,
-        diagnosticCount: replay.diagnostics.length,
-      },
-      detailHref: "/admin/social-posts/publication-execution",
-    },
-    diagnostics: replay.diagnostics.map((diagnostic) => ({
-      subsystem: "credential_persistence",
-      severity: diagnostic.severity,
-      code: diagnostic.code,
-      message: diagnostic.message,
-    })),
-  };
+      diagnostics: replay.diagnostics.map((diagnostic) => ({
+        subsystem: "credential_persistence",
+        severity: diagnostic.severity,
+        code: diagnostic.code,
+        message: diagnostic.message,
+      })),
+    };
+  } catch (error) {
+    const described = describeThrown(
+      error,
+      "Credential persistence could not be read.",
+    );
+    return {
+      overview: baseUnavailableOverview(
+        "credential_persistence",
+        "Credential Persistence",
+        description,
+        "/admin/social-posts/publication-execution",
+        described,
+      ),
+      diagnostics: [diagnosticFromError("credential_persistence", described)],
+    };
+  }
 }
 
 async function publicationTargetsOverview(): Promise<{

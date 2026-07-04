@@ -98,11 +98,16 @@ import {
 } from "@/lib/social-posts/social-publication-execution-coordinator-replay";
 import type { SocialPublicationExecutionPlanStep } from "@/lib/social-posts/social-publication-execution-planner";
 import {
+  createSocialCredentialBridge,
+} from "@/lib/social-posts/credentials/social-credential-bridge";
+import {
   SOCIAL_CREDENTIAL_DOMAIN_VERSION,
 } from "@/lib/social-posts/credentials/social-credential-domain";
 import {
+  EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
   SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
   SOCIAL_CREDENTIAL_STORAGE_CONTRACT,
+  type SocialCredentialPersistenceModel,
 } from "@/lib/social-posts/credentials/social-credential-repository";
 import {
   replaySocialCredentialReadiness,
@@ -354,6 +359,22 @@ async function loadExecution(filters: ExecutionFilters): Promise<
     },
     model,
   };
+}
+
+async function loadCredentialPersistenceModel(): Promise<SocialCredentialPersistenceModel> {
+  const bridgeResult = createSocialCredentialBridge({
+    mode: isSupabaseServiceConfigured() ? "production" : "environment",
+  });
+  if (!bridgeResult.ok) {
+    return EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL;
+  }
+
+  const snapshot = await bridgeResult.value.snapshot();
+  if (!snapshot.ok) {
+    return EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL;
+  }
+
+  return snapshot.value;
 }
 
 function StatusPanel({ loadState }: { loadState: ExecutionLoadState }) {
@@ -2134,6 +2155,7 @@ export default async function AdminPublicationExecutionPage({
   };
 
   const loaded = await loadExecution(filters);
+  const credentialModel = await loadCredentialPersistenceModel();
   const replay = replaySocialPublicationExecution(loaded.model).value;
   const preflightReplay = replaySocialPublicationExecutionPreflight(loaded.model).value;
   const plannerReplay = replaySocialPublicationExecutionPlanner(loaded.model).value;
@@ -2142,11 +2164,19 @@ export default async function AdminPublicationExecutionPage({
   const metaAdapterReplay = replaySocialPlatformMetaAdapter(loaded.model).value;
   const tiktokAdapterReplay = replaySocialPlatformTiktokAdapter(loaded.model).value;
   const linkedinAdapterReplay = replaySocialPlatformLinkedinAdapter(loaded.model).value;
-  const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model).value;
-  const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model).value;
-  const credentialReadinessReplay = replaySocialCredentialReadiness().value;
-  const credentialEncryptionReadinessReplay = replaySocialCredentialEncryptionReadiness().value;
-  const cryptographicPolicyReplay = replaySocialCredentialCryptographicPolicy().value;
+  const credentialBoundaryReplay = replaySocialPlatformCredentialBoundary(loaded.model, {
+    credentialModel,
+  }).value;
+  const readinessGateReplay = replaySocialPlatformReadinessGate(loaded.model, {
+    credentialModel,
+  }).value;
+  const credentialReadinessReplay = replaySocialCredentialReadiness(credentialModel).value;
+  const credentialEncryptionReadinessReplay = replaySocialCredentialEncryptionReadiness({
+    model: credentialModel,
+  }).value;
+  const cryptographicPolicyReplay = replaySocialCredentialCryptographicPolicy({
+    model: credentialModel,
+  }).value;
   const oauthRequestReplay = replaySocialPlatformOAuthRequests().value;
   const oauthCallbackReplay = replaySocialPlatformOAuthCallbacks().value;
   const oauthSessionReplay = replaySocialPlatformOAuthSessions().value;

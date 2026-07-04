@@ -12,6 +12,7 @@ import {
 } from "./social-platform-tiktok-adapter";
 import { replaySocialPlatformTiktokAdapter } from "./social-platform-tiktok-adapter-replay";
 import { replaySocialPlatformCredentialBoundary } from "./social-platform-credential-boundary-replay";
+import type { SocialCredentialPersistenceModel } from "./credentials/social-credential-repository";
 import {
   defaultAdapterContractIdForPlatform,
   defaultProviderForPlatform,
@@ -207,6 +208,9 @@ function buildPlatformGateInput(
 
 export function replaySocialPlatformReadinessGate(
   model: SocialPublicationExecutionPersistenceModel = EMPTY_EXECUTION_MODEL,
+  input: Readonly<{
+    credentialModel?: SocialCredentialPersistenceModel;
+  }> = {},
 ): SocialPlatformReadinessGateReplayResult {
   const diagnostics: SocialPlatformReadinessGateReplayDiagnostic[] = [];
   const registry = getSocialPlatformAdapterRegistrySnapshot();
@@ -222,7 +226,9 @@ export function replaySocialPlatformReadinessGate(
     });
   }
 
-  const credentialReplay = replaySocialPlatformCredentialBoundary(model).value;
+  const credentialReplay = replaySocialPlatformCredentialBoundary(model, {
+    credentialModel: input.credentialModel,
+  }).value;
   for (const diagnostic of credentialReplay.diagnostics) {
     if (diagnostic.severity !== "error") continue;
     diagnostics.push({

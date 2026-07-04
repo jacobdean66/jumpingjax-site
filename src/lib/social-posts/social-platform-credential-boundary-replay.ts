@@ -12,6 +12,10 @@ import {
   createSocialPlatformOAuthBoundaryContract,
   oauthScopesForProvider,
 } from "./social-platform-oauth-boundary";
+import {
+  replaySocialCredentialReadiness,
+} from "./credentials/social-credential-readiness-replay";
+import type { SocialCredentialPersistenceModel } from "./credentials/social-credential-repository";
 import { replaySocialPlatformMetaAdapter } from "./social-platform-meta-adapter-replay";
 import type { SocialPublicationExecutionPersistenceModel } from "./social-publication-execution-repository";
 import { replaySocialPublicationExecutionPlanner } from "./social-publication-execution-planner-replay";
@@ -160,10 +164,14 @@ export function replaySocialPlatformCredentialBoundary(
   model: SocialPublicationExecutionPersistenceModel = EMPTY_EXECUTION_MODEL,
   input: Readonly<{
     jobHints?: readonly SocialPlatformCredentialBoundaryJobHint[];
+    credentialModel?: SocialCredentialPersistenceModel;
   }> = {},
 ): SocialPlatformCredentialBoundaryReplayResult {
   const diagnostics: SocialPlatformCredentialBoundaryReplayDiagnostic[] = [];
   const jobHints = input.jobHints ?? [];
+  const credentialReadiness = replaySocialCredentialReadiness(
+    input.credentialModel,
+  ).value;
 
   const capabilityReplay = replaySocialPlatformAdapterCapabilities(model).value;
   for (const diagnostic of capabilityReplay.diagnostics) {
@@ -198,7 +206,10 @@ export function replaySocialPlatformCredentialBoundary(
     });
   }
 
-  const providerReadiness = projectProviderReadiness(diagnostics);
+  const providerReadiness = projectProviderReadiness(credentialReadiness, diagnostics);
+  const storedReadinessByProvider = new Map(
+    credentialReadiness.providerReadiness.map((readiness) => [readiness.provider, readiness]),
+  );
   const hintByJobId = new Map(jobHints.map((hint) => [hint.executionJobId, hint]));
   const hintByTargetId = new Map(jobHints.map((hint) => [hint.publicationTargetId, hint]));
   const intentsByJobId = new Map(
@@ -211,6 +222,7 @@ export function replaySocialPlatformCredentialBoundary(
       hintByJobId,
       hintByTargetId,
       intentsByJobId,
+      storedReadinessByProvider,
       diagnostics,
     ),
   );
@@ -287,6 +299,7 @@ export function replaySocialPlatformCredentialBoundary(
 }
 
 function projectProviderReadiness(
+  credentialReadiness: ReturnType<typeof replaySocialCredentialReadiness>["value"],
   diagnostics: SocialPlatformCredentialBoundaryReplayDiagnostic[],
 ): readonly SocialPlatformCredentialProviderReadiness[] {
   const providers: SocialPlatformCredentialProvider[] = ["meta", "tiktok", "linkedin"];
@@ -306,12 +319,16 @@ function projectProviderReadiness(
       });
     }
 
-    const blockingReasons = [
+    const credentialProjection = credentialReadiness.providerReadiness.find(
+      (readiness) => readiness.provider === provider,
+    );
+    const blockingReasons = unique([
+      ...(credentialProjection?.blockingReasons ?? ["credential_readiness_missing"]),
       "live_oauth_blocked",
       "live_credentials_blocked",
       "authorization_not_modeled",
-      "no_stored_credentials",
-    ];
+      credentialProjection?.credentialReady ? "" : "no_stored_credentials",
+    ]);
 
     return {
       provider,
@@ -344,6 +361,10 @@ function projectCredentialJob(
     string,
     SocialPublicationExecutionPersistenceModel["intents"][number]
   >,
+  readinessByProvider: ReadonlyMap<
+    SocialPlatformCredentialProvider,
+    ReturnType<typeof replaySocialCredentialReadiness>["value"]["providerReadiness"][number]
+  >,
   diagnostics: SocialPlatformCredentialBoundaryReplayDiagnostic[],
 ): SocialPlatformCredentialBoundaryJobProjection {
   const intent = intentsByJobId.get(step.executionJobId);
@@ -365,6 +386,9 @@ function projectCredentialJob(
 
   let requiredCredentialKinds: readonly SocialPlatformCredentialKind[] = [];
   let requiredOAuthScopes: readonly string[] = [];
+  const credentialProviderReadiness = provider
+    ? readinessByProvider.get(provider) ?? null
+    : null;
   if (provider) {
     try {
       createSocialPlatformCredentialBoundaryContract(provider);
@@ -384,25 +408,26 @@ function projectCredentialJob(
 
   blockingReasons.push("live_oauth_blocked");
   blockingReasons.push("live_credentials_blocked");
-  blockingReasons.push("authorization_not_modeled");
-  blockingReasons.push("no_stored_credentials");
-
-  if (requiredCredentialKinds.length > 0) {
-    blockingReasons.push("missing_credential_kinds");
-  }
+  blockingReasons.push(
+    ...(credentialProviderReadiness?.blockingReasons ?? ["authorization_not_modeled", "no_stored_credentials"]),
+  );
 
   if (step.status !== "ready") {
     blockingReasons.push(`planner_status:${step.status}`);
   }
   blockingReasons.push(...step.blockingReasons);
 
-  const missingAuthorization = true;
-  const missingCredentialKinds = requiredCredentialKinds.length > 0;
+  const missingAuthorization = Boolean(
+    credentialProviderReadiness && credentialProviderReadiness.activeLifecycleCount === 0,
+  ) || credentialProviderReadiness === null;
+  const missingCredentialKinds = credentialProviderReadiness
+    ? credentialProviderReadiness.missingCredentialKinds.length > 0
+    : requiredCredentialKinds.length > 0;
   const liveOAuthBlocked = true;
   const liveCredentialsBlocked = true;
 
-  const credentialReady = false;
-  const credentialBlocked = true;
+  const credentialReady = credentialProviderReadiness?.credentialReady ?? false;
+  const credentialBlocked = !credentialReady;
   const oauthReady = false;
   const oauthBlocked = true;
 
