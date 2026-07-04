@@ -155,6 +155,13 @@ import {
   type SocialCredentialResolutionExecutionProviderProjection,
 } from "@/lib/social-posts/credentials/social-credential-resolution-execution-bridge-replay";
 import { SOCIAL_CREDENTIAL_RESOLUTION_EXECUTION_BRIDGE_VERSION } from "@/lib/social-posts/credentials/social-credential-resolution-execution-bridge";
+import {
+  replaySocialPublicationExecutionEligibilityPreflight,
+  SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_REPLAY_VERSION,
+  type SocialPublicationExecutionEligibilityJobProjection,
+  type SocialPublicationExecutionEligibilityPreflightReplayDiagnostic,
+} from "@/lib/social-posts/social-publication-execution-eligibility-preflight-replay";
+import { SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION } from "@/lib/social-posts/social-publication-execution-eligibility-preflight";
 
 export const dynamic = "force-dynamic";
 
@@ -2330,6 +2337,107 @@ function ResolutionExecutionBridgeDiagnosticsList({
   );
 }
 
+function EligibilityPreflightDiagnosticsList({
+  diagnostics,
+}: {
+  diagnostics: readonly SocialPublicationExecutionEligibilityPreflightReplayDiagnostic[];
+}) {
+  if (diagnostics.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+        No publication execution eligibility preflight replay diagnostics.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {diagnostics.map((diagnostic, index) => (
+        <div
+          key={`${diagnostic.code}-${diagnostic.path}-${index}`}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-current px-2 py-0.5 text-[11px] font-black uppercase tracking-wide">
+              {diagnostic.severity}
+            </span>
+            <p className="font-black">{diagnostic.code}</p>
+          </div>
+          <p className="mt-1 font-mono text-xs">{diagnostic.path}</p>
+          <p className="mt-1 font-semibold">{diagnostic.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EligibilityPreflightJobTable({
+  title,
+  empty,
+  jobs,
+}: {
+  title: string;
+  empty: string;
+  jobs: readonly SocialPublicationExecutionEligibilityJobProjection[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+          {title}
+        </p>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+          {jobs.length}
+        </span>
+      </div>
+      {jobs.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+          {empty}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[1600px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2">Eligibility</th>
+                <th className="px-3 py-2">D10 Preflight</th>
+                <th className="px-3 py-2">Providers</th>
+                <th className="px-3 py-2">Credential Ready</th>
+                <th className="px-3 py-2">Orchestration Ready</th>
+                <th className="px-3 py-2">Capability Ready</th>
+                <th className="px-3 py-2">Audit Compatible</th>
+                <th className="px-3 py-2">Blocking Reasons</th>
+                <th className="px-3 py-2">Could Run Later</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {jobs.map((job) => (
+                <tr key={job.executionJobId} className="align-top">
+                  <td className="px-3 py-2 font-mono text-xs">{job.executionJobId}</td>
+                  <td className="px-3 py-2 font-black">{job.eligibilityStatus}</td>
+                  <td className="px-3 py-2">{job.d10PreflightStatus}</td>
+                  <td className="px-3 py-2">
+                    <PillList values={job.resolvedProviders.map((provider) => provider)} />
+                  </td>
+                  <td className="px-3 py-2">{String(job.credentialReady)}</td>
+                  <td className="px-3 py-2">{String(job.orchestrationReady)}</td>
+                  <td className="px-3 py-2">{String(job.providerCapabilityReady)}</td>
+                  <td className="px-3 py-2">{String(job.auditAppendCompatible)}</td>
+                  <td className="px-3 py-2">
+                    <PillList values={job.aggregatedBlockingCodes} />
+                  </td>
+                  <td className="px-3 py-2">{String(job.couldRunLater)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ResolutionExecutionBridgeProviderTable({
   title,
   empty,
@@ -2562,6 +2670,10 @@ export default async function AdminPublicationExecutionPage({
   const credentialResolutionExecutionReplay = replaySocialCredentialResolutionExecutionBridge(
     credentialModel,
     { orchestrationPlan: credentialRuntimeOrchestratorReplay.plan },
+  ).value;
+  const eligibilityPreflightReplay = replaySocialPublicationExecutionEligibilityPreflight(
+    loaded.model,
+    credentialModel,
   ).value;
 
   const navItems: readonly [string, string][] = [
@@ -3769,6 +3881,98 @@ export default async function AdminPublicationExecutionPage({
                 <div className="mt-4">
                   <ResolutionExecutionBridgeDiagnosticsList
                     diagnostics={credentialResolutionExecutionReplay.diagnostics}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                      D15 Publication Execution Eligibility Preflight
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {eligibilityPreflightReplay.summary.eligibilityPassJobCount > 0
+                        ? "Execution eligibility preflight passes found"
+                        : "No execution eligibility preflight passes"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D15 Wave 3 publication execution eligibility preflight composes
+                      D10 execution preflight with credential readiness, orchestration
+                      readiness, provider capability summaries, and append-only audit
+                      compatibility from D15 runtime orchestration and resolution planning.
+                      This is GET-only diagnostic planning: no OAuth, no HTTP, no SDKs,
+                      no secret material, and no execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    H48 eligibility preflight
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Preflight Version" value={SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION} />
+                  <Field label="Replay Version" value={SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_REPLAY_VERSION} />
+                  <Field label="Total Jobs" value={eligibilityPreflightReplay.summary.totalJobCount} />
+                  <Field label="Eligibility Pass" value={eligibilityPreflightReplay.summary.eligibilityPassJobCount} />
+                  <Field label="Eligibility Blocked" value={eligibilityPreflightReplay.summary.eligibilityBlockedJobCount} />
+                  <Field label="D10 Blocked" value={eligibilityPreflightReplay.summary.d10BlockedJobCount} />
+                  <Field label="Credential Blocked" value={eligibilityPreflightReplay.summary.credentialBlockedJobCount} />
+                  <Field label="Orchestration Blocked" value={eligibilityPreflightReplay.summary.orchestrationBlockedJobCount} />
+                  <Field label="Capability Blocked" value={eligibilityPreflightReplay.summary.providerCapabilityBlockedJobCount} />
+                  <Field label="Provider Unresolved" value={eligibilityPreflightReplay.summary.providerUnresolvedJobCount} />
+                  <Field label="Audit Incompatible" value={eligibilityPreflightReplay.summary.auditIncompatibleJobCount} />
+                  <Field label="Replay Valid" value={String(eligibilityPreflightReplay.replayIntegrity.valid)} />
+                  <Field label="Diagnostics" value={eligibilityPreflightReplay.summary.diagnosticCount} />
+                </div>
+                <div className="mt-4">
+                  <PillList
+                    values={[
+                      `replayCompatible: ${String(eligibilityPreflightReplay.replayIntegrity.replayCompatible)}`,
+                      `auditAppendCompatible: ${String(eligibilityPreflightReplay.replayIntegrity.auditAppendCompatible)}`,
+                      `computedOnly: ${String(eligibilityPreflightReplay.computedOnly)}`,
+                      `readOnly: ${String(eligibilityPreflightReplay.readOnly)}`,
+                      `authoritative: ${String(eligibilityPreflightReplay.authoritative)}`,
+                      `grantsExecutionPermission: ${String(eligibilityPreflightReplay.grantsExecutionPermission)}`,
+                      `executesNothing: ${String(eligibilityPreflightReplay.executesNothing)}`,
+                      `publishesNothing: ${String(eligibilityPreflightReplay.publishesNothing)}`,
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <EligibilityPreflightJobTable
+                title="Eligibility-Pass Jobs"
+                empty="No jobs currently pass publication execution eligibility preflight."
+                jobs={eligibilityPreflightReplay.eligibilityPassJobs}
+              />
+              <EligibilityPreflightJobTable
+                title="Eligibility-Blocked Jobs"
+                empty="No jobs are blocked by publication execution eligibility preflight."
+                jobs={eligibilityPreflightReplay.eligibilityBlockedJobs}
+              />
+              <EligibilityPreflightJobTable
+                title="Credential-Blocked Jobs"
+                empty="No jobs are blocked by credential readiness."
+                jobs={eligibilityPreflightReplay.credentialBlockedJobs}
+              />
+              <EligibilityPreflightJobTable
+                title="Orchestration-Blocked Jobs"
+                empty="No jobs are blocked by orchestration readiness."
+                jobs={eligibilityPreflightReplay.orchestrationBlockedJobs}
+              />
+              <EligibilityPreflightJobTable
+                title="Provider-Unresolved Jobs"
+                empty="No jobs have unresolved publication target providers."
+                jobs={eligibilityPreflightReplay.providerUnresolvedJobs}
+              />
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                  Publication Execution Eligibility Preflight Diagnostics
+                </p>
+                <div className="mt-4">
+                  <EligibilityPreflightDiagnosticsList
+                    diagnostics={eligibilityPreflightReplay.diagnostics}
                   />
                 </div>
               </section>
