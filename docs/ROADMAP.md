@@ -350,11 +350,19 @@ Secretless OAuth Callback Modeling (D12 Wave 2; callback outcome + error/denied/
 Secretless OAuth Session Replay (D12 Wave 3; request/callback correlation + lifecycle summaries; replay-only, no OAuth/routes/code exchange/tokens/credentials)
 ↓
 Secretless OAuth Admin Diagnostics (D12 Wave 4; request/callback/session replay summaries on existing publication-execution admin; GET-only/read-only/non-authoritative, no OAuth/routes/code exchange/tokens/credentials)
+↓
+Credential Architecture (D13 Waves 1–5; domain, repository, metadata store, encryption/crypto policy boundaries; H43–H44 diagnostics; no encryption execution)
+↓
+Credential Runtime Orchestration (D15 Wave 1; orchestrator + replay)
+↓
+Provider Integration Planning + Resolution Bridge (D15 Wave 2; planning contracts + resolution execution bridge)
+↓
+Publication Execution Eligibility Preflight (D15 Wave 3; composes D10 preflight + credential/orchestration readiness)
 ```
 
-D11 Wave 1 complete: platform adapter registry, factory, and capability replay. D11 Wave 2 complete: Meta (Facebook/Instagram) adapter contract shell, dry-run simulation, and replay — still no real Meta Graph API, OAuth, credentials, HTTP/fetch, or publishing. D11 Wave 3 alt complete: credential/OAuth architecture boundaries plus TikTok and LinkedIn adapter contract shells, dry-run simulation, and replay — still no live OAuth, credential storage, TikTok/LinkedIn APIs, HTTP/fetch, or publishing. D11 Wave 4 complete: platform readiness gate composing registry, capability replay, credential/OAuth boundary, and per-platform adapter diagnostics — still no live OAuth, credentials storage, HTTP/fetch, real platform SDK integrations, publish, or execution automation.
+D13 complete: credential vault metadata persistence, encryption boundary contracts, cryptographic policy contracts, and read-only admin diagnostics — still no envelope encryption execution, OAuth token exchange, or HTTP to platforms. D15 Waves 1–3 complete: credential runtime orchestration, provider integration planning, credential resolution execution bridge, and publication execution eligibility preflight — still no live HTTP/SDK adapters, publishing, or execution authority. See `docs/D15_ARCHITECTURE_BASELINE.md` for the authoritative D1–D15 reference.
 
-D12 started with the integration planning gate. D12 Wave 1 adds secretless OAuth request modeling, D12 Wave 2 adds secretless OAuth callback outcome modeling, D12 Wave 3 adds secretless OAuth session replay, and D12 Wave 4 surfaces those replay summaries on the existing read-only publication-execution admin page. `docs/D12_INTEGRATION_GATE.md` remains the approval boundary before any real platform integration can begin. The Wave 1 code models authorization request intent, redirect/callback expectations, scope vocabulary validation, and replayable diagnostics. The Wave 2 code models callback outcomes including success intent, denial, cancellation, provider error, state mismatch, and expiry diagnostics. The Wave 3 code correlates modeled requests and callback outcomes into lifecycle summaries. The Wave 4 admin visibility remains GET-only, read-only, diagnostic-only, and non-authoritative. OAuth implementation, callback routes, authorization code exchange, credentials storage, secrets/tokens, HTTP/fetch to platform APIs, real redirects, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
+D12 `docs/D12_INTEGRATION_GATE.md` remains the approval boundary before live OAuth, HTTP, or execution. OAuth implementation, callback routes, authorization code exchange, live token storage, HTTP/fetch to platform APIs, real platform SDK integrations, publish, and execution automation remain explicitly forbidden until a later approved milestone.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -369,7 +377,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42 | Execution request/result records, computed replay, preflight, planner, adapter, runbook, coordinator, platform adapter registry, Meta adapter contract diagnostics, TikTok/LinkedIn adapter contract diagnostics, platform readiness gate diagnostics, and D12 OAuth request/callback/session replay diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, and eligibility diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -427,8 +435,8 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 
 | Milestone | Theme | Implementation |
 |-----------|-------|----------------|
-| D13 | Credential architecture (encrypted storage, rotation, audit) | W4 complete — encryption boundary architecture + H44 diagnostics |
-| D14 | OAuth integration (connect, callback, token exchange) | Not started |
+| D13 | Credential architecture (encrypted storage, rotation, audit) | Waves 1–5 complete — domain, repository, metadata store, encryption boundary, cryptographic policy; H43–H44 diagnostics; no encryption execution |
+| D14 | OAuth integration (connect, callback, token exchange) | Not started (one admin diagnostics replay module exists; no live OAuth) |
 | D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Credential runtime orchestration complete (D15 W1); provider integration planning contracts complete (D15 W2a); credential resolution execution bridge complete (D15 W2b); publication execution eligibility preflight complete (D15 W3); live HTTP/SDK adapters not started |
 | D16 | Controlled execution (runner, publish pipeline, owner approval) | Not started |
 | D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
