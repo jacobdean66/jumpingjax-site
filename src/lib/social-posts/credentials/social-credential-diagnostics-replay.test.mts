@@ -111,6 +111,27 @@ await test("computes blocked persistence readiness without storage access", () =
   assert.equal(diagnostics.storageSchemaSummary.requiredCollectionCount, 5);
   assert.equal(diagnostics.storageSchemaSummary.missingCollections.length, 0);
   assert.equal(diagnostics.repositoryCompletenessSummary.repositoryContractComplete, true);
+  assert.equal(
+    diagnostics.repositoryCompletenessSummary.availableReadOperations.length,
+    diagnostics.repositoryCompletenessSummary.requiredReadOperationCount,
+  );
+  assert.equal(diagnostics.repositoryCompletenessSummary.failingReadOperations.length, 0);
+  assert.equal(diagnostics.repositoryCompletenessSummary.missingMutationOperations.length, 0);
+  assert.equal(diagnostics.repositoryCompletenessSummary.verificationIssueCount, 0);
+  assert.equal(diagnostics.repositoryCompletenessSummary.capabilityCoverage.complete, true);
+  assert.equal(diagnostics.repositoryCompletenessSummary.readinessCoverage.requiredCount, 3);
+  assert.equal(diagnostics.repositoryCompletenessSummary.readinessCoverage.complete, true);
+  assert.equal(diagnostics.repositoryCompletenessSummary.adapterCoverage.complete, true);
+  assert.equal(diagnostics.repositoryCompletenessSummary.replayCompatibility.complete, true);
+  assert.equal(
+    diagnostics.repositoryCompletenessSummary.appendOnlyAuditCompatibility.complete,
+    true,
+  );
+  assert.equal(diagnostics.repositoryCompletenessSummary.getOnlyDiagnostics.complete, true);
+  assert.equal(
+    diagnostics.repositoryCompletenessSummary.getOnlyDiagnostics.inspectedMutationOperationCount,
+    0,
+  );
   assert.equal(diagnostics.repositoryCompletenessSummary.invokesMutationOperations, false);
   assert.equal(diagnostics.grantsExecutionPermission, false);
   assert.ok(diagnostics.missingStorageDependencies.includes("provider_account:meta"));
@@ -168,6 +189,24 @@ await test("surfaces repository validation failures as diagnostics", () => {
     diagnostics.diagnostics.some((diagnostic) => diagnostic.code === "repository_validation_failed"),
     true,
   );
+});
+
+await test("keeps repository verification deterministic when row validation fails", () => {
+  const diagnostics = replaySocialCredentialAdminDiagnostics(
+    model({
+      provider_accounts: [
+        {
+          ...providerAccount(),
+          provider: "unsupported",
+        } as unknown as SocialCredentialProviderAccountRecord,
+      ],
+    }),
+  );
+
+  assert.equal(diagnostics.persistenceModelValid, false);
+  assert.equal(diagnostics.repositoryCompletenessSummary.repositoryContractComplete, true);
+  assert.equal(diagnostics.repositoryCompletenessSummary.verificationIssueCount, 0);
+  assert.equal(diagnostics.repositoryCompletenessSummary.availableMutationOperations.length > 0, true);
 });
 
 console.log("social-credential-diagnostics-replay tests passed");

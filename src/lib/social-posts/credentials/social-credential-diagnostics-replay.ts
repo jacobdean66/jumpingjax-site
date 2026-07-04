@@ -3,19 +3,27 @@ import {
 } from "./social-credential-domain";
 import {
   EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+  SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY,
   SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
   SOCIAL_CREDENTIAL_STORAGE_CONTRACT,
+  createSocialCredentialRepository,
   validateDomainMappingsFromPersistenceModel,
+  validateSocialCredentialPersistenceAdapterContract,
   validateSocialCredentialPersistenceModel,
+  type SocialCredentialPersistenceAdapterBoundary,
   type SocialCredentialPersistenceModel,
+  type SocialCredentialRepository,
 } from "./social-credential-repository";
 import {
   replaySocialCredentialReadiness,
   type SocialCredentialReadinessReplayDiagnostic,
 } from "./social-credential-readiness-replay";
-import type { SocialPlatformCredentialProvider } from "../social-platform-credential-boundary";
+import {
+  SOCIAL_PLATFORM_CREDENTIAL_PROVIDERS,
+  type SocialPlatformCredentialProvider,
+} from "../social-platform-credential-boundary";
 
-export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTICS_VERSION = "d13-w3-v1" as const;
+export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTICS_VERSION = "d14-w3-v1" as const;
 
 export const SOCIAL_CREDENTIAL_ADMIN_DIAGNOSTIC_CODES = [
   "credential_persistence_ready",
@@ -69,12 +77,76 @@ export type SocialCredentialStorageSchemaReadinessSummary = Readonly<{
   authoritative: false;
 }>;
 
+export type SocialCredentialCoverageSummary = Readonly<{
+  requiredCount: number;
+  satisfiedCount: number;
+  missingKeys: readonly string[];
+  complete: boolean;
+}>;
+
+export type SocialCredentialProviderCoverageSummary = Readonly<{
+  requiredCount: number;
+  satisfiedCount: number;
+  coveredProviders: readonly SocialPlatformCredentialProvider[];
+  missingProviders: readonly SocialPlatformCredentialProvider[];
+  complete: boolean;
+}>;
+
+export type SocialCredentialAdapterCoverageSummary = Readonly<{
+  requiredCount: number;
+  satisfiedCount: number;
+  missingChecks: readonly string[];
+  contractValid: boolean;
+  loadSnapshotAvailable: boolean;
+  persistSnapshotAvailable: boolean;
+  complete: boolean;
+}>;
+
+export type SocialCredentialReplayCompatibilitySummary = Readonly<{
+  deterministic: boolean;
+  repositoryVersionMatchesReadiness: boolean;
+  repositoryVersionMatchesStorageContract: boolean;
+  storageContractMatchesReadiness: boolean;
+  sourceMatchesReadinessReplay: boolean;
+  complete: boolean;
+}>;
+
+export type SocialCredentialAppendOnlyAuditCompatibilitySummary = Readonly<{
+  appendOnlyCollections: readonly string[];
+  appendOnlyOperations: readonly string[];
+  forbiddenAuditMutations: readonly string[];
+  appendAuditEventAvailable: boolean;
+  forbiddenAuditMutationsPresent: readonly string[];
+  preservesAppendOnlyHistory: boolean;
+  complete: boolean;
+}>;
+
+export type SocialCredentialGetOnlyDiagnosticsSummary = Readonly<{
+  inspectedReadOperations: readonly string[];
+  failedReadOperations: readonly string[];
+  inspectedMutationOperationCount: 0;
+  invokesMutationOperations: false;
+  complete: boolean;
+}>;
+
 export type SocialCredentialRepositoryCompletenessSummary = Readonly<{
   repositoryVersion: typeof SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
   requiredReadOperationCount: number;
   modeledMutationOperationCount: number;
+  availableReadOperations: readonly string[];
+  failingReadOperations: readonly string[];
+  availableMutationOperations: readonly string[];
   missingReadOperations: readonly string[];
+  missingMutationOperations: readonly string[];
+  verificationIssueCount: number;
+  verificationIssues: readonly string[];
   repositoryContractComplete: boolean;
+  capabilityCoverage: SocialCredentialCoverageSummary;
+  readinessCoverage: SocialCredentialProviderCoverageSummary;
+  adapterCoverage: SocialCredentialAdapterCoverageSummary;
+  replayCompatibility: SocialCredentialReplayCompatibilitySummary;
+  appendOnlyAuditCompatibility: SocialCredentialAppendOnlyAuditCompatibilitySummary;
+  getOnlyDiagnostics: SocialCredentialGetOnlyDiagnosticsSummary;
   readOnlyDiagnosticsOnly: true;
   invokesMutationOperations: false;
   authoritative: false;
@@ -160,6 +232,64 @@ const MODELED_REPOSITORY_MUTATION_OPERATIONS = [
   "deleteKeyVersion",
 ] as const;
 
+const DIAGNOSTIC_ADAPTER_CONTRACT = Object.freeze({
+  adapterId: "credential-diagnostics-reference-adapter",
+  repositoryVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
+  domainVersion: SOCIAL_CREDENTIAL_DOMAIN_VERSION,
+  capabilities: {
+    adapterBoundaryOnly: true as const,
+    referenceOnly: true as const,
+    metadataOnly: true as const,
+    storesNoSecrets: true as const,
+    storesNoTokens: true as const,
+    storesNoPlaintext: true as const,
+    exposesNoSql: true as const,
+    usesNoSupabase: true as const,
+    usesNoNetwork: true as const,
+    performsNoEncryption: true as const,
+    performsNoDecryption: true as const,
+    grantsExecutionPermission: false as const,
+    executesNothing: true as const,
+    publishesNothing: true as const,
+  },
+});
+
+const REPOSITORY_READ_OPERATION_CHECKS = [
+  {
+    name: "getCredentialRecordsByIdentity",
+    invoke: (repository: SocialCredentialRepository) =>
+      repository.getCredentialRecordsByIdentity({ provider: "meta" }),
+  },
+  {
+    name: "listProviderAccounts",
+    invoke: (repository: SocialCredentialRepository) =>
+      repository.listProviderAccounts(),
+  },
+  {
+    name: "listVaultRecordMetadata",
+    invoke: (repository: SocialCredentialRepository) =>
+      repository.listVaultRecordMetadata(),
+  },
+  {
+    name: "listLifecycleStates",
+    invoke: (repository: SocialCredentialRepository) =>
+      repository.listLifecycleStates(),
+  },
+  {
+    name: "listAuditEvents",
+    invoke: (repository: SocialCredentialRepository) =>
+      repository.listAuditEvents(),
+  },
+  {
+    name: "listKeyVersions",
+    invoke: (repository: SocialCredentialRepository) => repository.listKeyVersions(),
+  },
+  {
+    name: "snapshot",
+    invoke: (repository: SocialCredentialRepository) => repository.snapshot(),
+  },
+] as const;
+
 export function replaySocialCredentialAdminDiagnostics(
   model: SocialCredentialPersistenceModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
 ): SocialCredentialPersistenceReadinessSummary {
@@ -168,7 +298,9 @@ export function replaySocialCredentialAdminDiagnostics(
   const readiness = replaySocialCredentialReadiness(model).value;
   const missingStorageDependencies = unique(readiness.missingDependencyReport);
   const storageSchemaSummary = buildStorageSchemaReadinessSummary(model);
-  const repositoryCompletenessSummary = buildRepositoryCompletenessSummary();
+  const repositoryCompletenessSummary = buildRepositoryCompletenessSummary(
+    readiness,
+  );
   const schemaValidationSummary = buildSchemaValidationSummary(
     persistenceValidation.errors,
     mappingValidation.errors,
@@ -229,8 +361,8 @@ export function replaySocialCredentialAdminDiagnostics(
     severity: repositoryCompletenessSummary.repositoryContractComplete ? "info" : "error",
     path: "credential_repository_contract",
     message: repositoryCompletenessSummary.repositoryContractComplete
-      ? "Credential repository read contract is complete for diagnostics."
-      : `Credential repository read contract is missing ${repositoryCompletenessSummary.missingReadOperations.length} operation(s).`,
+      ? "Credential repository verification is complete for deterministic diagnostics."
+      : `Credential repository verification found ${repositoryCompletenessSummary.verificationIssueCount} issue(s).`,
     referenceId: null,
   });
 
@@ -337,16 +469,282 @@ function buildStorageSchemaReadinessSummary(
   });
 }
 
-function buildRepositoryCompletenessSummary(): SocialCredentialRepositoryCompletenessSummary {
+function buildRepositoryCompletenessSummary(
+  readiness: ReturnType<typeof replaySocialCredentialReadiness>["value"],
+): SocialCredentialRepositoryCompletenessSummary {
+  const verificationAdapter = createDiagnosticsVerificationAdapter();
+  const adapterValidation = validateSocialCredentialPersistenceAdapterContract(
+    verificationAdapter.contract,
+  );
+  const repository = createSocialCredentialRepository(verificationAdapter);
+  const repositoryRecord = repository as Record<string, unknown>;
+
+  const readOperationResults = REPOSITORY_READ_OPERATION_CHECKS.map((operation) => {
+    const available = hasFunction(repositoryRecord, operation.name);
+    if (!available) {
+      return { name: operation.name, available: false, ok: false };
+    }
+    try {
+      const result = operation.invoke(repository);
+      return { name: operation.name, available: true, ok: result.ok };
+    } catch {
+      return { name: operation.name, available: true, ok: false };
+    }
+  });
+
+  const availableReadOperations = readOperationResults
+    .filter((operation) => operation.available && operation.ok)
+    .map((operation) => operation.name);
+  const missingReadOperations = readOperationResults
+    .filter((operation) => !operation.available)
+    .map((operation) => operation.name);
+  const failingReadOperations = readOperationResults
+    .filter((operation) => operation.available && !operation.ok)
+    .map((operation) => operation.name);
+  const availableMutationOperations = MODELED_REPOSITORY_MUTATION_OPERATIONS.filter(
+    (operation) => hasFunction(repositoryRecord, operation),
+  );
+  const missingMutationOperations = MODELED_REPOSITORY_MUTATION_OPERATIONS.filter(
+    (operation) => !availableMutationOperations.includes(operation),
+  );
+  const capabilityCoverage = buildCapabilityCoverageSummary();
+  const readinessCoverage = buildReadinessCoverageSummary(readiness);
+  const adapterCoverage = buildAdapterCoverageSummary(
+    verificationAdapter,
+    adapterValidation.ok,
+  );
+  const replayCompatibility = buildReplayCompatibilitySummary(readiness);
+  const appendOnlyAuditCompatibility = buildAppendOnlyAuditCompatibilitySummary(
+    repositoryRecord,
+  );
+  const getOnlyDiagnostics = buildGetOnlyDiagnosticsSummary(
+    availableReadOperations,
+    failingReadOperations,
+  );
+  const verificationIssues = unique([
+    ...missingReadOperations.map(
+      (operation) => `missing_read_operation:${operation}`,
+    ),
+    ...failingReadOperations.map(
+      (operation) => `failing_read_operation:${operation}`,
+    ),
+    ...missingMutationOperations.map(
+      (operation) => `missing_mutation_operation:${operation}`,
+    ),
+    ...capabilityCoverage.missingKeys.map((key) => `capability:${key}`),
+    ...readinessCoverage.missingProviders.map(
+      (provider) => `readiness_provider:${provider}`,
+    ),
+    ...adapterCoverage.missingChecks.map((check) => `adapter:${check}`),
+    ...(replayCompatibility.complete ? [] : ["replay_compatibility"]),
+    ...(appendOnlyAuditCompatibility.complete
+      ? []
+      : ["append_only_audit_compatibility"]),
+    ...(getOnlyDiagnostics.complete ? [] : ["get_only_diagnostics"]),
+  ]);
+  const repositoryContractComplete = verificationIssues.length === 0;
+
   return Object.freeze({
     repositoryVersion: SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
     requiredReadOperationCount: REQUIRED_REPOSITORY_READ_OPERATIONS.length,
     modeledMutationOperationCount: MODELED_REPOSITORY_MUTATION_OPERATIONS.length,
-    missingReadOperations: Object.freeze([]),
-    repositoryContractComplete: true,
+    availableReadOperations: Object.freeze([...availableReadOperations]),
+    failingReadOperations: Object.freeze([...failingReadOperations]),
+    availableMutationOperations: Object.freeze([...availableMutationOperations]),
+    missingReadOperations: Object.freeze([...missingReadOperations]),
+    missingMutationOperations: Object.freeze([...missingMutationOperations]),
+    verificationIssueCount: verificationIssues.length,
+    verificationIssues: Object.freeze([...verificationIssues]),
+    repositoryContractComplete,
+    capabilityCoverage,
+    readinessCoverage,
+    adapterCoverage,
+    replayCompatibility,
+    appendOnlyAuditCompatibility,
+    getOnlyDiagnostics,
     readOnlyDiagnosticsOnly: true,
     invokesMutationOperations: false,
     authoritative: false,
+  });
+}
+
+function buildCapabilityCoverageSummary(): SocialCredentialCoverageSummary {
+  const checks = [
+    [
+      "storage.adapterBoundaryOnly",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.adapterBoundaryOnly === true,
+    ],
+    [
+      "storage.referenceOnly",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.referenceOnly === true,
+    ],
+    [
+      "storage.implementsNothing",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.implementsNothing === true,
+    ],
+    ["storage.allowsSql", SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSql === false],
+    [
+      "storage.allowsSupabase",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsSupabase === false,
+    ],
+    [
+      "storage.allowsEncryption",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsEncryption === false,
+    ],
+    [
+      "storage.allowsDecryption",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.allowsDecryption === false,
+    ],
+    [
+      "storage.grantsExecutionPermission",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.grantsExecutionPermission === false,
+    ],
+    [
+      "storage.executesNothing",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.executesNothing === true,
+    ],
+    [
+      "storage.publishesNothing",
+      SOCIAL_CREDENTIAL_STORAGE_CONTRACT.publishesNothing === true,
+    ],
+  ] as const;
+  const missingKeys = checks
+    .filter(([, satisfied]) => !satisfied)
+    .map(([key]) => key);
+
+  return Object.freeze({
+    requiredCount: checks.length,
+    satisfiedCount: checks.length - missingKeys.length,
+    missingKeys: Object.freeze([...missingKeys]),
+    complete: missingKeys.length === 0,
+  });
+}
+
+function buildReadinessCoverageSummary(
+  readiness: ReturnType<typeof replaySocialCredentialReadiness>["value"],
+): SocialCredentialProviderCoverageSummary {
+  const coveredProviders = SOCIAL_PLATFORM_CREDENTIAL_PROVIDERS.filter((provider) =>
+    readiness.providerReadiness.some(
+      (projection) => projection.provider === provider,
+    ),
+  );
+  const missingProviders = SOCIAL_PLATFORM_CREDENTIAL_PROVIDERS.filter(
+    (provider) => !coveredProviders.includes(provider),
+  );
+
+  return Object.freeze({
+    requiredCount: SOCIAL_PLATFORM_CREDENTIAL_PROVIDERS.length,
+    satisfiedCount: coveredProviders.length,
+    coveredProviders: Object.freeze([...coveredProviders]),
+    missingProviders: Object.freeze([...missingProviders]),
+    complete: missingProviders.length === 0,
+  });
+}
+
+function buildAdapterCoverageSummary(
+  adapter: SocialCredentialPersistenceAdapterBoundary,
+  contractValid: boolean,
+): SocialCredentialAdapterCoverageSummary {
+  const loadSnapshotAvailable = typeof adapter.loadSnapshot === "function";
+  const persistSnapshotAvailable = typeof adapter.persistSnapshot === "function";
+  const missingChecks = [
+    ...(contractValid ? [] : ["contract_valid"]),
+    ...(loadSnapshotAvailable ? [] : ["loadSnapshot"]),
+    ...(persistSnapshotAvailable ? [] : ["persistSnapshot"]),
+  ];
+
+  return Object.freeze({
+    requiredCount: 3,
+    satisfiedCount: 3 - missingChecks.length,
+    missingChecks: Object.freeze([...missingChecks]),
+    contractValid,
+    loadSnapshotAvailable,
+    persistSnapshotAvailable,
+    complete: missingChecks.length === 0,
+  });
+}
+
+function buildReplayCompatibilitySummary(
+  readiness: ReturnType<typeof replaySocialCredentialReadiness>["value"],
+): SocialCredentialReplayCompatibilitySummary {
+  const deterministic = readiness.replayIntegrity.deterministic === true;
+  const repositoryVersionMatchesReadiness =
+    readiness.repositoryVersion === SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  const repositoryVersionMatchesStorageContract =
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.contractVersion ===
+    SOCIAL_CREDENTIAL_REPOSITORY_VERSION;
+  const storageContractMatchesReadiness =
+    readiness.storageContractVersion ===
+    SOCIAL_CREDENTIAL_STORAGE_CONTRACT.contractVersion;
+  const sourceMatchesReadinessReplay =
+    readiness.replayIntegrity.source === "social_credential_readiness_replay";
+
+  return Object.freeze({
+    deterministic,
+    repositoryVersionMatchesReadiness,
+    repositoryVersionMatchesStorageContract,
+    storageContractMatchesReadiness,
+    sourceMatchesReadinessReplay,
+    complete:
+      deterministic &&
+      repositoryVersionMatchesReadiness &&
+      repositoryVersionMatchesStorageContract &&
+      storageContractMatchesReadiness &&
+      sourceMatchesReadinessReplay,
+  });
+}
+
+function buildAppendOnlyAuditCompatibilitySummary(
+  repository: Readonly<Record<string, unknown>>,
+): SocialCredentialAppendOnlyAuditCompatibilitySummary {
+  const appendAuditEventAvailable = hasFunction(repository, "appendAuditEvent");
+  const forbiddenAuditMutationsPresent =
+    SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.forbiddenAuditMutations.filter(
+      (operation) => hasFunction(repository, operation),
+    );
+  const preservesAppendOnlyHistory =
+    SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.auditEventsImmutable &&
+    SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.preservesW2AppendOnlySemantics;
+  const complete =
+    appendAuditEventAvailable &&
+    forbiddenAuditMutationsPresent.length === 0 &&
+    SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyCollections.includes(
+      "audit_events",
+    ) &&
+    SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyOperations.includes(
+      "appendAuditEvent",
+    ) &&
+    preservesAppendOnlyHistory;
+
+  return Object.freeze({
+    appendOnlyCollections: Object.freeze([
+      ...SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyCollections,
+    ]),
+    appendOnlyOperations: Object.freeze([
+      ...SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.appendOnlyOperations,
+    ]),
+    forbiddenAuditMutations: Object.freeze([
+      ...SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY.forbiddenAuditMutations,
+    ]),
+    appendAuditEventAvailable,
+    forbiddenAuditMutationsPresent: Object.freeze([
+      ...forbiddenAuditMutationsPresent,
+    ]),
+    preservesAppendOnlyHistory,
+    complete,
+  });
+}
+
+function buildGetOnlyDiagnosticsSummary(
+  availableReadOperations: readonly string[],
+  failingReadOperations: readonly string[],
+): SocialCredentialGetOnlyDiagnosticsSummary {
+  return Object.freeze({
+    inspectedReadOperations: Object.freeze([...availableReadOperations]),
+    failedReadOperations: Object.freeze([...failingReadOperations]),
+    inspectedMutationOperationCount: 0,
+    invokesMutationOperations: false,
+    complete: failingReadOperations.length === 0,
   });
 }
 
@@ -403,6 +801,27 @@ function countBy<T extends string>(values: readonly T[]): Record<T, number> {
     counts[value] = (counts[value] ?? 0) + 1;
     return counts;
   }, {} as Record<T, number>);
+}
+
+function createDiagnosticsVerificationAdapter(): SocialCredentialPersistenceAdapterBoundary {
+  let snapshot = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL;
+  return {
+    contract: DIAGNOSTIC_ADAPTER_CONTRACT,
+    loadSnapshot() {
+      return { ok: true, value: snapshot };
+    },
+    persistSnapshot(model) {
+      snapshot = model;
+      return { ok: true, value: snapshot };
+    },
+  };
+}
+
+function hasFunction(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+): boolean {
+  return typeof record[key] === "function";
 }
 
 function unique(values: readonly string[]): readonly string[] {
