@@ -15,6 +15,7 @@ import {
   buildMetaAuthorizeUrl,
   exchangeMetaAuthorizationCode,
   redactMetaAccountId,
+  validateMetaRedirectUri,
 } from "./social-meta-oauth-client";
 import {
   constantTimeEqual,
@@ -264,6 +265,7 @@ export async function handleMetaOAuthCallback(input: {
   const intent = intentRow as SocialOAuthAuthorizationIntentRow;
   if (!constantTimeEqual(intent.oauth_state, input.oauthState)) {
     return recordAndReturn(client, intent, {
+      redirectBase,
       redirectPath: `${redirectBase}?oauth=state_mismatch`,
       outcome: "state_mismatch",
       message: "OAuth state mismatch.",
@@ -271,7 +273,16 @@ export async function handleMetaOAuthCallback(input: {
   }
 
   if (intent.consumed_at) {
-    return recordAndReturn(client, intent, {
+    const idempotentSuccess = await loadConnectedOAuthCallbackSuccess(
+      client,
+      intent.intent_id,
+      redirectBase,
+    );
+    if (idempotentSuccess) {
+      return idempotentSuccess;
+    }
+
+    return finalizeCallback({
       redirectPath: `${redirectBase}?oauth=provider_error`,
       outcome: "provider_error",
       message: "OAuth intent was already consumed.",
@@ -280,9 +291,19 @@ export async function handleMetaOAuthCallback(input: {
 
   if (Date.parse(intent.expires_at) < Date.now()) {
     return recordAndReturn(client, intent, {
+      redirectBase,
       redirectPath: `${redirectBase}?oauth=expired`,
       outcome: "expired",
       message: "OAuth intent expired before callback completed.",
+    });
+  }
+
+  if (!validateMetaRedirectUri(intent.redirect_uri, config)) {
+    return recordAndReturn(client, intent, {
+      redirectBase,
+      redirectPath: `${redirectBase}?oauth=provider_error`,
+      outcome: "provider_error",
+      message: "OAuth redirect URI is not allowlisted.",
     });
   }
 
@@ -295,6 +316,7 @@ export async function handleMetaOAuthCallback(input: {
 
   if (!exchange.ok) {
     return recordAndReturn(client, intent, {
+      redirectBase,
       redirectPath: `${redirectBase}?oauth=exchange_failed`,
       outcome: "exchange_failed",
       message: exchange.message,
@@ -312,6 +334,7 @@ export async function handleMetaOAuthCallback(input: {
 
   if (!vaultWrite.ok) {
     return recordAndReturn(client, intent, {
+      redirectBase,
       redirectPath: `${redirectBase}?oauth=vault_write_failed`,
       outcome: "vault_write_failed",
       message: vaultWrite.message,
@@ -358,16 +381,54 @@ export async function handleMetaOAuthCallback(input: {
   };
 }
 
+async function loadConnectedOAuthCallbackSuccess(
+  client: ReturnType<typeof createServiceRoleClient>,
+  intentId: string,
+  redirectBase: string,
+): Promise<SocialOAuthCallbackResult | null> {
+  const { data: sessionRow } = await client
+    .from("social_oauth_sessions")
+    .select("session_id, lifecycle_state, access_credential_ref_id")
+    .eq("intent_id", intentId)
+    .maybeSingle();
+
+  if (
+    !sessionRow ||
+    sessionRow.lifecycle_state !== "connected" ||
+    !sessionRow.access_credential_ref_id
+  ) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    outcome: "success",
+    redirectPath: `${redirectBase}?oauth=connected&provider=meta`,
+    sessionId: sessionRow.session_id,
+    accessCredentialRefId: sessionRow.access_credential_ref_id,
+  };
+}
+
 async function recordAndReturn(
   client: ReturnType<typeof createServiceRoleClient>,
   intent: SocialOAuthAuthorizationIntentRow,
   input: {
+    redirectBase: string;
     redirectPath: string;
     outcome: Exclude<SocialOAuthCallbackOutcome, "success">;
     message: string;
     errorCode?: string;
   },
 ): Promise<SocialOAuthCallbackResult> {
+  const idempotentSuccess = await loadConnectedOAuthCallbackSuccess(
+    client,
+    intent.intent_id,
+    input.redirectBase,
+  );
+  if (idempotentSuccess) {
+    return idempotentSuccess;
+  }
+
   const callbackEventId = `oauth-callback:${intent.intent_id}:${input.outcome}`;
   await client.from("social_oauth_callback_events").insert({
     callback_event_id: callbackEventId,

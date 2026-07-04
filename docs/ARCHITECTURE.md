@@ -376,7 +376,7 @@ D16 Wave 1 introduces the first live external integration: owner-initiated Meta 
 
 Current components:
 
-- **D16 OAuth runtime** (`src/lib/social-posts/oauth/*`) — runtime config gate (`OAUTH_ENABLED`, `META_OAUTH_ENABLED`), OAuth state material, Meta authorize URL builder, authorization code exchange via Graph API, AES-256-GCM envelope encryption for token storage (runtime only; separate from D13 contract-only encryption boundary), vault integration via `createSocialCredentialBridge({ mode: "production" })`, and connection replay diagnostics.
+- **D16 OAuth runtime** (`src/lib/social-posts/oauth/*`) — runtime config gate (`OAUTH_ENABLED`, `META_OAUTH_ENABLED`), OAuth state material, Meta authorize URL builder, authorization code exchange via Graph API POST form body (client credentials not sent in URL query strings), AES-256-GCM envelope encryption for token storage (runtime only; separate from D13 contract-only encryption boundary), idempotent callback replay protection for connected sessions, vault integration via `createSocialCredentialBridge({ mode: "production" })`, and connection replay diagnostics.
 - **D16 API routes** — `GET/POST /api/admin/social-oauth/connect` (owner-gated redirect) and `GET /api/admin/social-oauth/callback` (code exchange + vault write + admin redirect).
 - **D16 SQL** (`supabase/migrations/20260704200000_create_social_oauth.sql`) — `social_oauth_authorization_intents`, append-only `social_oauth_callback_events`, and `social_oauth_sessions` with execution/publish prohibition constraints.
 - **D16 admin visibility** — live OAuth connection status, session lifecycle, callback audit trail, owner connect control, and D15 eligibility orchestration diagnostics on `/admin/social-posts/publication-execution`.

@@ -54,15 +54,20 @@ export async function exchangeMetaAuthorizationCode(input: {
   const url = new URL(
     `https://graph.facebook.com/${SOCIAL_META_OAUTH_GRAPH_VERSION}/oauth/access_token`,
   );
-  url.searchParams.set("client_id", input.appId);
-  url.searchParams.set("client_secret", input.appSecret);
-  url.searchParams.set("redirect_uri", input.redirectUri);
-  url.searchParams.set("code", input.authorizationCode);
 
   try {
     const response = await fetchImpl(url.toString(), {
-      method: "GET",
-      headers: { Accept: "application/json" },
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: input.appId,
+        client_secret: input.appSecret,
+        redirect_uri: input.redirectUri,
+        code: input.authorizationCode,
+      }).toString(),
       cache: "no-store",
     });
     const payload = (await response.json()) as

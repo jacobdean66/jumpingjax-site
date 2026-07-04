@@ -42,4 +42,28 @@ test("exchangeMetaAuthorizationCode surfaces provider errors", async () => {
   }
 });
 
+test("exchangeMetaAuthorizationCode uses POST body for client credentials", async () => {
+  let observedMethod = "";
+  let observedBody = "";
+
+  await exchangeMetaAuthorizationCode({
+    appId: "app",
+    appSecret: "secret",
+    redirectUri: "https://example.com/callback",
+    authorizationCode: "code",
+    fetchImpl: async (_url, init) => {
+      observedMethod = init?.method ?? "";
+      observedBody = String(init?.body ?? "");
+      return new Response(
+        JSON.stringify({ access_token: "token-123", expires_in: 3600, token_type: "bearer" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+  });
+
+  assert.equal(observedMethod, "POST");
+  assert.match(observedBody, /client_secret=secret/);
+  assert.match(observedBody, /code=code/);
+});
+
 console.log("social-meta-oauth-client tests passed");
