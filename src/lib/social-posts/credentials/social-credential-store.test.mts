@@ -84,7 +84,7 @@ function lifecycleState(
     credential_ref_id: "cred-ref-1" as SocialCredentialLifecycleStateRecord["credential_ref_id"],
     account_ref_id: "account-ref-meta-1",
     provider: "meta",
-    authorization_state: "authorized",
+    authorization_state: "authorized_reference",
     lifecycle_phase: "active",
     issued_at: "2026-01-01T00:00:00.000Z",
     expires_at: null,

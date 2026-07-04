@@ -16,6 +16,7 @@ import {
   validateDomainMappingsFromPersistenceModel,
   validateSocialCredentialPersistenceAdapterContract,
   validateSocialCredentialPersistenceModel,
+  validateSocialCredentialLifecycleStateRecord,
   validateSocialCredentialProviderAccountRecord,
   validateSocialCredentialVaultRecordRow,
   type SocialCredentialAuditEventRecord,
@@ -239,6 +240,20 @@ await test("validates vault record rows as metadata-only", () => {
     ciphertext: "forbidden",
   });
   assert.equal(invalid.ok, false);
+});
+
+await test("validates lifecycle state records and rejects unsupported authorization_state", () => {
+  const valid = validateSocialCredentialLifecycleStateRecord(validLifecycleStateRecord());
+  assert.equal(valid.ok, true);
+
+  const invalid = validateSocialCredentialLifecycleStateRecord({
+    ...validLifecycleStateRecord(),
+    authorization_state: "authorized" as SocialCredentialLifecycleStateRecord["authorization_state"],
+  });
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) {
+    assert.equal(invalid.errors.some((error) => error.code === "authorization_state_invalid"), true);
+  }
 });
 
 await test("maps persistence records to domain references", () => {

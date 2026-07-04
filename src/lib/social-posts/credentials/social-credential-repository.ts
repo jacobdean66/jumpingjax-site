@@ -27,8 +27,10 @@ import {
 } from "./social-credential-domain";
 import {
   SOCIAL_PLATFORM_CREDENTIAL_BOUNDARY_VERSION,
+  type SocialPlatformAuthorizationState,
   type SocialPlatformCredentialKind,
   type SocialPlatformCredentialProvider,
+  isSocialPlatformAuthorizationState,
   isSocialPlatformCredentialKind,
   isSocialPlatformCredentialProvider,
 } from "../social-platform-credential-boundary";
@@ -90,7 +92,7 @@ export type SocialCredentialLifecycleStateRecord = Readonly<{
   credential_ref_id: SocialCredentialRefId;
   account_ref_id: string;
   provider: SocialPlatformCredentialProvider;
-  authorization_state: string;
+  authorization_state: SocialPlatformAuthorizationState;
   lifecycle_phase: SocialCredentialLifecyclePhase;
   issued_at: string | null;
   expires_at: string | null;
@@ -160,6 +162,7 @@ export const SOCIAL_CREDENTIAL_PERSISTENCE_ERROR_CODES = [
   "provider_invalid",
   "credential_kind_invalid",
   "lifecycle_phase_invalid",
+  "authorization_state_invalid",
   "account_status_invalid",
   "audit_action_invalid",
   "audit_outcome_invalid",
@@ -782,6 +785,15 @@ export function validateSocialCredentialLifecycleStateRecord(
   if (!isSocialPlatformCredentialProvider(record.provider)) {
     errors.push(persistenceError("provider_invalid", `${path}.provider`, "Provider is not supported."));
   }
+  if (!isSocialPlatformAuthorizationState(record.authorization_state)) {
+    errors.push(
+      persistenceError(
+        "authorization_state_invalid",
+        `${path}.authorization_state`,
+        "Authorization state is not supported.",
+      ),
+    );
+  }
   if (!isLifecyclePhase(record.lifecycle_phase)) {
     errors.push(persistenceError("lifecycle_phase_invalid", `${path}.lifecycle_phase`, "Lifecycle phase is not supported."));
   }
@@ -955,7 +967,7 @@ export function mapLifecycleStateRecordToDomain(
     credentialRefId: record.credential_ref_id,
     accountRefId: record.account_ref_id,
     provider: record.provider,
-    authorizationState: record.authorization_state as SocialCredentialLifecycleState["authorizationState"],
+    authorizationState: record.authorization_state,
     lifecyclePhase: record.lifecycle_phase,
     issuedAt: record.issued_at,
     expiresAt: record.expires_at,
