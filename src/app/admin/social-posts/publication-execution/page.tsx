@@ -170,6 +170,7 @@ import { replaySocialOAuthManualRefresh } from "@/lib/social-posts/oauth/social-
 import { replaySocialExecutionAuthorization } from "@/lib/social-posts/execution-authorization/social-execution-authorization-replay";
 import { loadSocialExecutionAuthorizationSnapshot } from "@/lib/social-posts/execution-authorization/social-execution-authorization-store";
 import { replaySocialExecutionAttempt } from "@/lib/social-posts/execution-attempt/social-execution-attempt-replay";
+import { replaySocialExecutionAttemptCreation } from "@/lib/social-posts/execution-attempt/social-execution-attempt-creation-replay";
 import { loadSocialExecutionAttemptSnapshot } from "@/lib/social-posts/execution-attempt/social-execution-attempt-store";
 import {
   isSocialOAuthConnectConfigured,
@@ -221,6 +222,13 @@ type Props = {
     exec_auth_session_id?: string;
     exec_auth_correlation_id?: string;
     exec_auth_cancellation_id?: string;
+    exec_attempt?: string;
+    exec_attempt_error?: string;
+    exec_attempt_message?: string;
+    exec_attempt_id?: string;
+    exec_attempt_correlation_id?: string;
+    exec_attempt_idempotency_key?: string;
+    exec_attempt_session_id?: string;
   }>;
 };
 
@@ -2764,6 +2772,10 @@ export default async function AdminPublicationExecutionPage({
     attemptSnapshot,
     authorizationSnapshot,
   });
+  const executionAttemptCreationReplay = await replaySocialExecutionAttemptCreation({
+    attemptSnapshot,
+    authorizationSnapshot,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -2774,6 +2786,8 @@ export default async function AdminPublicationExecutionPage({
   const oauthRefreshStatusMessage = resolved.oauth_refresh_message ?? "";
   const execAuthStatus = resolved.exec_auth ?? "";
   const execAuthStatusMessage = resolved.exec_auth_message ?? "";
+  const execAttemptStatus = resolved.exec_attempt ?? "";
+  const execAttemptStatusMessage = resolved.exec_attempt_message ?? "";
   const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
     oauthConnectionReplay,
     eligibilityPreflightReplay.eligibilityPassJobs
@@ -4266,24 +4280,90 @@ export default async function AdminPublicationExecutionPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">
-                      D16 Wave 6 Execution Attempt Modeling
+                      D16 Wave 6–7 Execution Attempt Modeling & Creation
                     </p>
                     <h2 className="mt-2 text-2xl font-black text-slate-950">
-                      Durable execution attempt metadata and idempotency replay
+                      Durable execution attempt metadata, idempotency replay, and owner-gated creation
                     </h2>
                     <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
                       Execution attempts model future-authorized runs subordinate to D16 Wave 5
-                      authorization. GET-only diagnostics expose attempt history, authorization and
-                      session linkage, idempotency keys, replay visibility, and derived attempt status.
+                      authorization. D16 Wave 7 adds owner-gated attempt creation only — immutable
+                      append-only records with lifecycle history and audit. GET diagnostics expose
+                      attempt history, authorization/session linkage, idempotency keys, and replay.
                       No execution, publishing, scheduler work, or automatic attempt creation.
                     </p>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-teal-800">
-                    D16 W6 attempts
+                    D16 W6–W7 attempts
                   </span>
                 </div>
 
+                {execAttemptStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Attempt creation result: {execAttemptStatus}
+                    {execAttemptStatusMessage ? ` — ${execAttemptStatusMessage}` : ""}
+                    {resolved.exec_attempt_error ? ` (${resolved.exec_attempt_error})` : ""}
+                    {resolved.exec_attempt_correlation_id
+                      ? ` — correlation: ${resolved.exec_attempt_correlation_id}`
+                      : ""}
+                    {resolved.exec_attempt_idempotency_key
+                      ? ` — idempotency: ${resolved.exec_attempt_idempotency_key}`
+                      : ""}
+                  </div>
+                ) : null}
+
+                {auth.role === "owner" &&
+                filters.executionIntentId &&
+                filters.publicationTargetId &&
+                resolved.exec_auth_id ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-execution/create-attempt"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input type="hidden" name="authorization_id" value={resolved.exec_auth_id} />
+                    <input
+                      type="hidden"
+                      name="execution_intent_id"
+                      value={filters.executionIntentId}
+                    />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-5 py-2 text-sm font-black text-white hover:bg-teal-800"
+                    >
+                      Create Execution Attempt
+                    </button>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Owner-only. Authorization: {resolved.exec_auth_id}
+                    </p>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Authorize future execution and set execution intent and publication target filters
+                    to enable owner-gated attempt creation.
+                  </p>
+                )}
+
                 <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Creation Replay" value={executionAttemptCreationReplay.replayVersion} />
+                  <Field
+                    label="Created Attempts"
+                    value={executionAttemptCreationReplay.summary.createdAttemptCount}
+                  />
+                  <Field
+                    label="Successful Creations"
+                    value={executionAttemptCreationReplay.summary.successfulCreationCount}
+                  />
+                  <Field
+                    label="Failed Creations"
+                    value={executionAttemptCreationReplay.summary.failedCreationCount}
+                  />
                   <Field label="Replay Version" value={executionAttemptReplay.replayVersion} />
                   <Field label="Attempt Count" value={executionAttemptReplay.summary.attemptCount} />
                   <Field label="Active Attempts" value={executionAttemptReplay.summary.activeAttemptCount} />
@@ -4368,6 +4448,43 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{event.attemptId}</td>
                             <td className="px-3 py-2 font-black">{event.lifecycleState}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.correlationId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Creation Audit</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Action</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Detail</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptCreationReplay.recentCreationAuditEvents.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No execution attempt creation audit events recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptCreationReplay.recentCreationAuditEvents.map((event) => (
+                          <tr key={event.auditEventId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{event.auditEventId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.attemptId ?? "—"}</td>
+                            <td className="px-3 py-2">{event.action}</td>
+                            <td className="px-3 py-2">{event.outcome}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.correlationId ?? "—"}</td>
+                            <td className="px-3 py-2">{event.sanitizedDetail}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
                           </tr>
                         ))

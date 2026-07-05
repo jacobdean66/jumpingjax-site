@@ -7,8 +7,18 @@ export type SocialExecutionAttemptAuditEventRow = Readonly<{
   attempt_id: string | null;
   attempt_identity: string | null;
   correlation_id: string | null;
-  action: "append_attempt" | "append_lifecycle" | "validation_failed";
-  outcome: "success" | "validation_failed" | "duplicate_identity" | "storage_error";
+  action:
+    | "append_attempt"
+    | "append_lifecycle"
+    | "validation_failed"
+    | "create_attempt"
+    | "create_validation_failed";
+  outcome:
+    | "success"
+    | "validation_failed"
+    | "duplicate_identity"
+    | "not_found"
+    | "storage_error";
   sanitized_detail: string;
   created_at: string;
 }>;

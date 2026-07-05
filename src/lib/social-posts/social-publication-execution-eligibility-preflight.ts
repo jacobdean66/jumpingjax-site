@@ -42,6 +42,7 @@ export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_BLOCKED_REASON_CATEGORIES 
   "provider_resolution",
   "token_lifecycle",
   "execution_authorization",
+  "execution_attempt",
   "audit_compatibility",
   "unsafe",
 ] as const;
@@ -115,6 +116,11 @@ export type SocialPublicationExecutionAttemptReadinessSummary = Readonly<{
   attemptFingerprint: string | null;
   derivedLifecycleState: SocialExecutionAttemptPreflightSummary["derivedLifecycleState"] | null;
   duplicateDetected: boolean;
+  attemptCreationAvailable: boolean;
+  duplicateAttempt: boolean;
+  authorizationUnavailable: boolean;
+  sessionUnavailable: boolean;
+  creationBlockingCodes: readonly string[];
   informationalOnly: true;
 }>;
 
@@ -237,6 +243,7 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     capabilitySummary,
     tokenLifecycleSummary,
     authorizationSummary,
+    attemptSummary,
     auditAppendCompatible,
   });
   const aggregatedBlockingCodes = uniqueSorted(
@@ -296,6 +303,11 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         attemptFingerprint: attemptSummary.attemptFingerprint,
         derivedLifecycleState: attemptSummary.derivedLifecycleState,
         duplicateDetected: attemptSummary.duplicateDetected,
+        attemptCreationAvailable: attemptSummary.attemptCreationAvailable,
+        duplicateAttempt: attemptSummary.duplicateAttempt,
+        authorizationUnavailable: attemptSummary.authorizationUnavailable,
+        sessionUnavailable: attemptSummary.sessionUnavailable,
+        creationBlockingCodes: attemptSummary.creationBlockingCodes,
         informationalOnly: true,
       },
       auditAppendCompatible,
@@ -418,6 +430,11 @@ function summarizeExecutionAttemptReadiness(
       attemptFingerprint: null,
       derivedLifecycleState: null,
       duplicateDetected: false,
+      attemptCreationAvailable: false,
+      duplicateAttempt: false,
+      authorizationUnavailable: true,
+      sessionUnavailable: true,
+      creationBlockingCodes: [],
       informationalOnly: true,
     };
   }
@@ -442,6 +459,11 @@ function summarizeExecutionAttemptReadiness(
       attemptFingerprint: null,
       derivedLifecycleState: null,
       duplicateDetected: false,
+      attemptCreationAvailable: false,
+      duplicateAttempt: false,
+      authorizationUnavailable: true,
+      sessionUnavailable: true,
+      creationBlockingCodes: [],
       informationalOnly: true,
     };
   }
@@ -458,6 +480,11 @@ function summarizeExecutionAttemptReadiness(
     attemptFingerprint: preflight.attemptFingerprint,
     derivedLifecycleState: preflight.derivedLifecycleState,
     duplicateDetected: preflight.duplicateDetected,
+    attemptCreationAvailable: preflight.attemptCreationAvailable,
+    duplicateAttempt: preflight.duplicateAttempt,
+    authorizationUnavailable: preflight.authorizationUnavailable,
+    sessionUnavailable: preflight.sessionUnavailable,
+    creationBlockingCodes: preflight.creationBlockingCodes,
     informationalOnly: true,
   };
 }
@@ -541,6 +568,7 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
   authorizationSummary: SocialPublicationExecutionAuthorizationReadinessSummary & {
     couldRunLater: boolean;
   };
+  attemptSummary: SocialPublicationExecutionAttemptReadinessSummary;
   auditAppendCompatible: boolean;
 }>): SocialPublicationExecutionEligibilityBlockedReason[] {
   const reasons: SocialPublicationExecutionEligibilityBlockedReason[] = [];
@@ -611,6 +639,16 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
       code,
       path: "readiness.executionAuthorization",
       message: `Execution authorization blocked publication execution eligibility: ${code}.`,
+      severity: "block",
+    });
+  }
+
+  for (const code of input.attemptSummary.creationBlockingCodes) {
+    reasons.push({
+      category: "execution_attempt",
+      code,
+      path: "readiness.executionAttempt",
+      message: `Execution attempt creation blocked publication execution eligibility: ${code}.`,
       severity: "block",
     });
   }

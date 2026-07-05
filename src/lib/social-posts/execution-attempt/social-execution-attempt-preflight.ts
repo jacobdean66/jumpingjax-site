@@ -4,6 +4,7 @@ import {
   type SocialExecutionAttemptDerivedAwarenessStatus,
 } from "./social-execution-attempt-domain";
 import { detectExecutionAttemptDuplicates } from "./social-execution-attempt-idempotency-domain";
+import { evaluateExecutionAttemptCreationAvailability } from "./social-execution-attempt-creation-replay";
 import {
   replaySocialExecutionAttemptForIntent,
   type SocialExecutionAttemptReplayProjection,
@@ -28,6 +29,11 @@ export type SocialExecutionAttemptPreflightSummary = Readonly<{
   attemptFingerprint: string | null;
   derivedLifecycleState: SocialExecutionAttemptReplayProjection["derivedLifecycleState"];
   duplicateDetected: boolean;
+  attemptCreationAvailable: boolean;
+  duplicateAttempt: boolean;
+  authorizationUnavailable: boolean;
+  sessionUnavailable: boolean;
+  creationBlockingCodes: readonly string[];
   informationalOnly: true;
   computedOnly: true;
   readOnly: true;
@@ -59,6 +65,13 @@ export function evaluateExecutionAttemptPreflightForIntent(input: {
   });
 
   const primaryAttempt = replay.attempts[0] ?? null;
+  const creationAvailability = evaluateExecutionAttemptCreationAvailability({
+    executionIntentId: input.executionIntentId,
+    publicationTargetId: input.publicationTargetId,
+    authorizationSnapshot: input.authorizationSnapshot,
+    attemptSnapshot,
+    now: input.now,
+  });
 
   return {
     preflightVersion: SOCIAL_EXECUTION_ATTEMPT_PREFLIGHT_VERSION,
@@ -75,6 +88,11 @@ export function evaluateExecutionAttemptPreflightForIntent(input: {
     attemptFingerprint: primaryAttempt?.attemptFingerprint ?? null,
     derivedLifecycleState: primaryAttempt?.derivedLifecycleState ?? "missing",
     duplicateDetected: duplicateDetection.hasDuplicates,
+    attemptCreationAvailable: creationAvailability.attemptCreationAvailable,
+    duplicateAttempt: creationAvailability.duplicateAttempt,
+    authorizationUnavailable: creationAvailability.authorizationUnavailable,
+    sessionUnavailable: creationAvailability.sessionUnavailable,
+    creationBlockingCodes: creationAvailability.creationBlockingCodes,
     informationalOnly: true,
     computedOnly: true,
     readOnly: true,
