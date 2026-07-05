@@ -13,12 +13,14 @@ import {
 } from "./social-execution-runtime-session-domain";
 import type { SocialExecutionAuthorizationPersistenceSnapshot } from "./social-execution-authorization-store";
 
-export const SOCIAL_EXECUTION_AUTHORIZATION_PREFLIGHT_VERSION = "d16-w5-v1" as const;
+export const SOCIAL_EXECUTION_AUTHORIZATION_PREFLIGHT_VERSION = "d16-w10-v1" as const;
 
 export const SOCIAL_EXECUTION_AUTHORIZATION_PREFLIGHT_BLOCKING_CODES = [
   "authorization_missing",
   "authorization_expired",
   "authorization_cancelled",
+  "owner_approval_reference_missing",
+  "owner_approval_verification_failed",
 ] as const;
 
 export type SocialExecutionAuthorizationPreflightBlockingCode =
@@ -36,6 +38,14 @@ export type SocialExecutionAuthorizationPreflightSummary = Readonly<{
   derivedIntentState: SocialExecutionAuthorizationIntentState | "missing";
   derivedSessionStatus: SocialExecutionRuntimeSessionStatus | "missing";
   authorizationValid: boolean;
+  ownerApprovalId: string | null;
+  ownerApprovalReferencePresent: boolean;
+  ownerApprovalVerificationStatus:
+    | "verified"
+    | "not_verified"
+    | "missing_reference"
+    | "not_evaluated";
+  ownerApprovalVerificationCode: string | null;
   preflightBlockingCodes: readonly SocialExecutionAuthorizationPreflightBlockingCode[];
   blockingReasons: readonly string[];
   couldRunLater: boolean;
@@ -52,6 +62,10 @@ export function evaluateExecutionAuthorizationPreflightForIntent(input: {
   publicationTargetId: string | null;
   snapshot: SocialExecutionAuthorizationPersistenceSnapshot;
   now?: Date;
+  ownerApprovalVerification?: Readonly<{
+    status: "verified" | "not_verified" | "missing_reference";
+    code: string | null;
+  }> | null;
 }): SocialExecutionAuthorizationPreflightSummary | null {
   if (!hasText(input.executionIntentId) || !hasText(input.publicationTargetId)) {
     return null;
@@ -98,8 +112,40 @@ export function evaluateExecutionAuthorizationPreflightForIntent(input: {
     now: input.now,
   });
 
-  const preflightBlockingCodes = blockingCodesForState(derivedAuthorizationState);
-  const authorizationValid = preflightBlockingCodes.length === 0;
+  const preflightBlockingCodes: SocialExecutionAuthorizationPreflightBlockingCode[] = [
+    ...blockingCodesForState(derivedAuthorizationState),
+  ];
+  const ownerApprovalId = authorization?.ownerApprovalId ?? null;
+  const ownerApprovalReferencePresent = hasText(ownerApprovalId);
+  const ownerApprovalVerificationStatus =
+    input.ownerApprovalVerification?.status ??
+    (authorization
+      ? ownerApprovalReferencePresent
+        ? "not_evaluated"
+        : "missing_reference"
+      : "not_evaluated");
+  const ownerApprovalVerificationCode =
+    input.ownerApprovalVerification?.code ??
+    (authorization && !ownerApprovalReferencePresent
+      ? "owner_approval_reference_missing"
+      : null);
+
+  if (authorization && !ownerApprovalReferencePresent) {
+    preflightBlockingCodes.push("owner_approval_reference_missing");
+  } else if (
+    input.ownerApprovalVerification &&
+    input.ownerApprovalVerification.status === "not_verified" &&
+    input.ownerApprovalVerification.code
+  ) {
+    preflightBlockingCodes.push("owner_approval_verification_failed");
+  }
+
+  const authorizationValid =
+    preflightBlockingCodes.length === 0 &&
+    derivedAuthorizationState === "valid" &&
+    (!authorization || ownerApprovalReferencePresent) &&
+    (!input.ownerApprovalVerification ||
+      input.ownerApprovalVerification.status === "verified");
 
   return {
     preflightVersion: SOCIAL_EXECUTION_AUTHORIZATION_PREFLIGHT_VERSION,
@@ -113,6 +159,10 @@ export function evaluateExecutionAuthorizationPreflightForIntent(input: {
     derivedIntentState,
     derivedSessionStatus,
     authorizationValid,
+    ownerApprovalId,
+    ownerApprovalReferencePresent,
+    ownerApprovalVerificationStatus,
+    ownerApprovalVerificationCode,
     preflightBlockingCodes,
     blockingReasons: [...preflightBlockingCodes],
     couldRunLater:

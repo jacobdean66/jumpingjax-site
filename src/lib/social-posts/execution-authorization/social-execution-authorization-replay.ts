@@ -16,6 +16,9 @@ import {
 } from "./social-execution-runtime-session-domain";
 import { evaluateExecutionAuthorizationPreflightForIntent } from "./social-execution-authorization-preflight";
 import {
+  evaluateOwnerApprovalVerificationForAuthorizationRecord,
+} from "./social-execution-authorization-owner-approval";
+import {
   EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
   loadSocialExecutionAuthorizationSnapshot,
   type SocialExecutionAuthorizationPersistenceSnapshot,
@@ -39,6 +42,13 @@ export type SocialExecutionAuthorizationReplayProjection = Readonly<{
   expiresAt: string;
   cancelledAt: string | null;
   authorizationValid: boolean;
+  ownerApprovalVerificationStatus:
+    | "verified"
+    | "not_verified"
+    | "missing_reference"
+    | "not_evaluated";
+  ownerApprovalVerificationCode: string | null;
+  ownerApprovalVerificationMessage: string | null;
 }>;
 
 export type SocialExecutionAuthorizationReplaySummary = Readonly<{
@@ -189,7 +199,8 @@ export async function replaySocialExecutionAuthorization(
     }
   }
 
-  const authorizations = persistence.authorizations.map((authorization) => {
+  const authorizations = await Promise.all(
+    persistence.authorizations.map(async (authorization) => {
     const cancellation =
       persistence.cancellations.find(
         (record) => record.authorizationId === authorization.authorizationId,
@@ -217,11 +228,23 @@ export async function replaySocialExecutionAuthorization(
       derivedAuthorizationState,
       now,
     });
+    const ownerApprovalVerification =
+      await evaluateOwnerApprovalVerificationForAuthorizationRecord({
+        ownerApprovalId: authorization.ownerApprovalId,
+        executionIntentId: authorization.executionIntentId,
+        publicationTargetId: authorization.publicationTargetId,
+        socialPostId: authorization.scope.socialPostId,
+        approvalId: authorization.scope.approvalId,
+      });
     const preflight = evaluateExecutionAuthorizationPreflightForIntent({
       executionIntentId: authorization.executionIntentId,
       publicationTargetId: authorization.publicationTargetId,
       snapshot: persistence,
       now,
+      ownerApprovalVerification: {
+        status: ownerApprovalVerification.ownerApprovalVerificationStatus,
+        code: ownerApprovalVerification.ownerApprovalVerificationCode,
+      },
     });
 
     if (derivedAuthorizationState === "valid") {
@@ -240,6 +263,26 @@ export async function replaySocialExecutionAuthorization(
       });
     }
 
+    if (ownerApprovalVerification.ownerApprovalVerificationStatus === "verified") {
+      diagnostics.push({
+        code: "owner_approval_verification_verified",
+        severity: "info",
+        path: `d16.w10.authorization.${authorization.authorizationIdentity}.ownerApproval`,
+        message: `Owner approval verification passed for ${authorization.ownerApprovalId}.`,
+      });
+    } else {
+      diagnostics.push({
+        code:
+          ownerApprovalVerification.ownerApprovalVerificationCode ??
+          "owner_approval_verification_failed",
+        severity: "warning",
+        path: `d16.w10.authorization.${authorization.authorizationIdentity}.ownerApproval`,
+        message:
+          ownerApprovalVerification.ownerApprovalVerificationMessage ??
+          "Owner approval verification failed for execution authorization.",
+      });
+    }
+
     return {
       authorizationId: authorization.authorizationId,
       authorizationIdentity: authorization.authorizationIdentity,
@@ -255,8 +298,15 @@ export async function replaySocialExecutionAuthorization(
       expiresAt: authorization.expiresAt,
       cancelledAt: cancellation?.cancelledAt ?? null,
       authorizationValid: preflight?.authorizationValid ?? false,
+      ownerApprovalVerificationStatus:
+        ownerApprovalVerification.ownerApprovalVerificationStatus,
+      ownerApprovalVerificationCode:
+        ownerApprovalVerification.ownerApprovalVerificationCode,
+      ownerApprovalVerificationMessage:
+        ownerApprovalVerification.ownerApprovalVerificationMessage,
     } satisfies SocialExecutionAuthorizationReplayProjection;
-  });
+  }),
+  );
 
   const validAuthorizations = authorizations.filter(
     (record) => record.derivedAuthorizationState === "valid",
@@ -395,7 +445,16 @@ export function replaySocialExecutionAuthorizationByCorrelationId(
       expiresAt: authorization.expiresAt,
       cancelledAt: cancellation?.cancelledAt ?? null,
       authorizationValid: derivedAuthorizationState === "valid",
-    };
+      ownerApprovalVerificationStatus: (authorization.ownerApprovalId
+        ? "not_evaluated"
+        : "missing_reference") as SocialExecutionAuthorizationReplayProjection["ownerApprovalVerificationStatus"],
+      ownerApprovalVerificationCode: authorization.ownerApprovalId
+        ? null
+        : "owner_approval_reference_missing",
+      ownerApprovalVerificationMessage: authorization.ownerApprovalId
+        ? null
+        : "Execution authorization is missing a durable owner approval reference.",
+    } satisfies SocialExecutionAuthorizationReplayProjection;
   });
 
   const sessions = snapshot.sessions.filter((session) => session.correlationId === correlationId);

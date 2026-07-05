@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { replaySocialExecutionAuthorization, replaySocialExecutionAuthorizationByCorrelationId } from "./social-execution-authorization-replay";
+import { configureSocialExecutionAuthorizationOwnerApprovalVerificationTestDependencies } from "./social-execution-authorization-owner-approval";
 import { SOCIAL_EXECUTION_AUTHORIZATION_VERSION, buildExecutionAuthorizationIdentity, type SocialExecutionAuthorizationRecord } from "./social-execution-authorization-domain";
 import type { SocialExecutionRuntimeSessionRecord } from "./social-execution-runtime-session-domain";
 import { EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT, type SocialExecutionAuthorizationPersistenceSnapshot } from "./social-execution-authorization-store";
@@ -67,9 +68,19 @@ test("replaySocialExecutionAuthorization returns deterministic read model", asyn
     sessions: [session],
   };
 
+  configureSocialExecutionAuthorizationOwnerApprovalVerificationTestDependencies({
+    verifyApproved: async () => ({ ok: true }),
+    loadOwnerApprovalProposal: async () => ({
+      ok: true,
+      value: { socialPostId: "post-1", approvalId: "owner-approval-1" },
+    }),
+    loadExecutionIntent: async () => ({ ok: true, value: null }),
+  });
+
   const replay = await replaySocialExecutionAuthorization(snapshot, new Date("2026-07-05T13:00:00.000Z"));
   assert.equal(replay.summary.validAuthorizationCount, 1);
   assert.equal(replay.sessions[0]?.derivedSessionStatus, "active");
+  assert.equal(replay.authorizations[0]?.ownerApprovalVerificationStatus, "verified");
 
   const correlationReplay = replaySocialExecutionAuthorizationByCorrelationId(
     "corr:test-1",
@@ -78,4 +89,6 @@ test("replaySocialExecutionAuthorization returns deterministic read model", asyn
   );
   assert.equal(correlationReplay.authorizations.length, 1);
   assert.equal(correlationReplay.sessions.length, 1);
+
+  configureSocialExecutionAuthorizationOwnerApprovalVerificationTestDependencies(null);
 });

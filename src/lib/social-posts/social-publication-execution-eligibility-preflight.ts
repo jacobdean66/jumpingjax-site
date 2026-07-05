@@ -18,6 +18,7 @@ import {
   evaluateExecutionAuthorizationPreflightForIntent,
   type SocialExecutionAuthorizationPreflightSummary,
 } from "./execution-authorization/social-execution-authorization-preflight";
+import { buildExecutionAuthorizationIdentity } from "./execution-authorization/social-execution-authorization-domain";
 import {
   evaluateTokenLifecyclePreflightForPublicationTarget,
   type SocialOAuthTokenLifecyclePreflightSummary,
@@ -109,6 +110,11 @@ export type SocialPublicationExecutionAuthorizationReadinessSummary = Readonly<{
   derivedIntentState: SocialExecutionAuthorizationPreflightSummary["derivedIntentState"] | null;
   derivedSessionStatus: SocialExecutionAuthorizationPreflightSummary["derivedSessionStatus"] | null;
   correlationId: string | null;
+  ownerApprovalId: string | null;
+  ownerApprovalReferencePresent: boolean;
+  ownerApprovalVerificationStatus:
+    SocialExecutionAuthorizationPreflightSummary["ownerApprovalVerificationStatus"];
+  ownerApprovalVerificationCode: string | null;
   preflightBlockingCodes: readonly string[];
   blockingReasons: readonly string[];
 }>;
@@ -188,6 +194,15 @@ export type SocialPublicationExecutionEligibilityProviderContext = Readonly<{
 export type SocialPublicationExecutionEligibilityPreflightContext = Readonly<{
   credentialModel: SocialCredentialPersistenceModel;
   authorizationSnapshot?: SocialExecutionAuthorizationPersistenceSnapshot;
+  authorizationOwnerApprovalVerificationByIdentity?: Readonly<
+    Record<
+      string,
+      Readonly<{
+        status: "verified" | "not_verified" | "missing_reference";
+        code: string | null;
+      }>
+    >
+  >;
   attemptSnapshot?: SocialExecutionAttemptPersistenceSnapshot;
   attemptEvidenceSnapshot?: SocialExecutionAttemptEvidencePersistenceSnapshot;
   providerContexts: Readonly<
@@ -247,6 +262,7 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     intent.execution_intent_id,
     publicationTargetId,
     context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
+    context.authorizationOwnerApprovalVerificationByIdentity,
   );
   const authorizationCouldRunLater = authorizationSummary.couldRunLater;
   const attemptSummary = summarizeExecutionAttemptReadiness(
@@ -319,6 +335,10 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         derivedIntentState: authorizationSummary.derivedIntentState,
         derivedSessionStatus: authorizationSummary.derivedSessionStatus,
         correlationId: authorizationSummary.correlationId,
+        ownerApprovalId: authorizationSummary.ownerApprovalId,
+        ownerApprovalReferencePresent: authorizationSummary.ownerApprovalReferencePresent,
+        ownerApprovalVerificationStatus: authorizationSummary.ownerApprovalVerificationStatus,
+        ownerApprovalVerificationCode: authorizationSummary.ownerApprovalVerificationCode,
         preflightBlockingCodes: authorizationSummary.preflightBlockingCodes,
         blockingReasons: authorizationSummary.blockingReasons,
       },
@@ -612,13 +632,33 @@ function summarizeExecutionAuthorizationReadiness(
   executionIntentId: string,
   publicationTargetId: string | null,
   snapshot: SocialExecutionAuthorizationPersistenceSnapshot,
+  ownerApprovalVerificationByIdentity?: Readonly<
+    Record<
+      string,
+      Readonly<{
+        status: "verified" | "not_verified" | "missing_reference";
+        code: string | null;
+      }>
+    >
+  >,
 ): SocialPublicationExecutionAuthorizationReadinessSummary & {
   couldRunLater: boolean;
 } {
+  const authorizationIdentity =
+    hasText(executionIntentId) && hasText(publicationTargetId)
+      ? buildExecutionAuthorizationIdentity({
+          executionIntentId,
+          publicationTargetId,
+        })
+      : null;
   const preflight = evaluateExecutionAuthorizationPreflightForIntent({
     executionIntentId,
     publicationTargetId,
     snapshot,
+    ownerApprovalVerification:
+      authorizationIdentity && ownerApprovalVerificationByIdentity
+        ? ownerApprovalVerificationByIdentity[authorizationIdentity] ?? null
+        : null,
   });
 
   if (!preflight) {
@@ -628,6 +668,10 @@ function summarizeExecutionAuthorizationReadiness(
       derivedIntentState: null,
       derivedSessionStatus: null,
       correlationId: null,
+      ownerApprovalId: null,
+      ownerApprovalReferencePresent: false,
+      ownerApprovalVerificationStatus: "missing_reference",
+      ownerApprovalVerificationCode: "owner_approval_reference_missing",
       preflightBlockingCodes: ["authorization_missing"],
       blockingReasons: ["authorization_missing"],
       couldRunLater: true,
@@ -640,6 +684,10 @@ function summarizeExecutionAuthorizationReadiness(
     derivedIntentState: preflight.derivedIntentState,
     derivedSessionStatus: preflight.derivedSessionStatus,
     correlationId: preflight.correlationId,
+    ownerApprovalId: preflight.ownerApprovalId,
+    ownerApprovalReferencePresent: preflight.ownerApprovalReferencePresent,
+    ownerApprovalVerificationStatus: preflight.ownerApprovalVerificationStatus,
+    ownerApprovalVerificationCode: preflight.ownerApprovalVerificationCode,
     preflightBlockingCodes: preflight.preflightBlockingCodes,
     blockingReasons: preflight.blockingReasons,
     couldRunLater: preflight.couldRunLater,

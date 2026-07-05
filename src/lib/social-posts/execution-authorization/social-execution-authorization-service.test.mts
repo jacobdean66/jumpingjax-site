@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   authorizeExecutionForOwner,
   cancelExecutionAuthorizationForOwner,
+  configureSocialExecutionAuthorizationServiceTestDependencies,
   createExecutionAuthorizationId,
 } from "./social-execution-authorization-service";
 import {
@@ -58,6 +59,9 @@ function createMemoryStore(): SocialExecutionAuthorizationStoreStorage {
 test("authorizeExecutionForOwner appends authorization, session, intents, and audit", async () => {
   const store = createMemoryStore();
   configureSocialExecutionAuthorizationStoreTestDependencies(store);
+  configureSocialExecutionAuthorizationServiceTestDependencies({
+    verifyOwnerApprovalForAuthorization: async () => ({ ok: true }),
+  });
 
   const result = await authorizeExecutionForOwner({
     executionIntentId: "execution-intent-1",
@@ -75,6 +79,44 @@ test("authorizeExecutionForOwner appends authorization, session, intents, and au
   assert.ok(snapshot.auditEvents.some((event) => event.action === "authorize" && event.outcome === "success"));
 
   configureSocialExecutionAuthorizationStoreTestDependencies(null);
+  configureSocialExecutionAuthorizationServiceTestDependencies(null);
+});
+
+test("authorizeExecutionForOwner blocks unapproved owner approval references", async () => {
+  const store = createMemoryStore();
+  configureSocialExecutionAuthorizationStoreTestDependencies(store);
+  configureSocialExecutionAuthorizationServiceTestDependencies({
+    verifyOwnerApprovalForAuthorization: async () => ({
+      ok: false,
+      code: "owner_approval_not_approved",
+      message: "Owner approval must be in approved state before execution authorization.",
+    }),
+  });
+
+  const result = await authorizeExecutionForOwner({
+    executionIntentId: "execution-intent-1",
+    publicationTargetId: "target-1",
+    ownerApprovalId: "owner-approval-1",
+    adminActorId: "owner-admin-1",
+    now: new Date("2026-07-05T12:00:00.000Z"),
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.code, "owner_approval_not_approved");
+  }
+  const snapshot = await store.loadSnapshot();
+  assert.equal(snapshot.authorizations.length, 0);
+  assert.ok(
+    snapshot.auditEvents.some(
+      (event) =>
+        event.action === "authorize_validation_failed" &&
+        event.outcome === "owner_approval_verification_failed",
+    ),
+  );
+
+  configureSocialExecutionAuthorizationStoreTestDependencies(null);
+  configureSocialExecutionAuthorizationServiceTestDependencies(null);
 });
 
 test("cancelExecutionAuthorizationForOwner appends cancellation without deleting authorization", async () => {

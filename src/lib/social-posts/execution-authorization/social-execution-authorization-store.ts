@@ -10,7 +10,7 @@ export type SocialExecutionAuthorizationAuditEventRow = Readonly<{
   authorization_identity: string | null;
   correlation_id: string | null;
   action: "authorize" | "cancel" | "authorize_validation_failed" | "cancel_validation_failed";
-  outcome: "success" | "validation_failed" | "duplicate_identity" | "not_found" | "storage_error";
+  outcome: "success" | "validation_failed" | "duplicate_identity" | "not_found" | "storage_error" | "owner_approval_verification_failed";
   sanitized_detail: string;
   admin_actor_id: string;
   created_at: string;

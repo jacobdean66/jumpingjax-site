@@ -4109,9 +4109,11 @@ export default async function AdminPublicationExecutionPage({
                     </h2>
                     <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
                       Owner-initiated execution authorization authorizes future execution only.
+                      Durable owner approval must be verified and approved before authorization append.
                       Runtime sessions remain metadata-only with correlation ids. GET-only diagnostics
-                      expose authorization history, session status, replay visibility, and cancellation
-                      visibility. No execution, publishing, OAuth mutation, or secret exposure.
+                      expose authorization history, owner approval verification status, session status,
+                      replay visibility, and cancellation visibility. No execution, publishing, OAuth
+                      mutation, or secret exposure.
                     </p>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-800">
@@ -4238,6 +4240,7 @@ export default async function AdminPublicationExecutionPage({
                         <th className="px-3 py-2">Target</th>
                         <th className="px-3 py-2">State</th>
                         <th className="px-3 py-2">Session</th>
+                        <th className="px-3 py-2">Owner Approval</th>
                         <th className="px-3 py-2">Correlation</th>
                         <th className="px-3 py-2">Expires</th>
                       </tr>
@@ -4245,7 +4248,7 @@ export default async function AdminPublicationExecutionPage({
                     <tbody>
                       {executionAuthorizationReplay.authorizations.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                          <td className="px-3 py-3 text-slate-500" colSpan={8}>
                             No execution authorization records computed yet.
                           </td>
                         </tr>
@@ -4257,6 +4260,14 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
                             <td className="px-3 py-2 font-black">{item.derivedAuthorizationState}</td>
                             <td className="px-3 py-2">{item.derivedSessionStatus}</td>
+                            <td className="px-3 py-2">
+                              <span className="font-black">{item.ownerApprovalVerificationStatus}</span>
+                              {item.ownerApprovalVerificationCode ? (
+                                <span className="mt-1 block font-mono text-xs text-slate-600">
+                                  {item.ownerApprovalVerificationCode}
+                                </span>
+                              ) : null}
+                            </td>
                             <td className="px-3 py-2 font-mono text-xs">{item.correlationId}</td>
                             <td className="px-3 py-2 font-mono text-xs">{item.expiresAt}</td>
                           </tr>

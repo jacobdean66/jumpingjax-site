@@ -17,6 +17,10 @@ import {
   type SocialExecutionRuntimeSessionRecord,
 } from "./social-execution-runtime-session-domain";
 import { validateExecutionAuthorizationCancellationRequest } from "./social-execution-authorization-cancellation-request";
+import {
+  verifyOwnerApprovalForExecutionAuthorization,
+  type SocialExecutionAuthorizationOwnerApprovalVerificationResult,
+} from "./social-execution-authorization-owner-approval";
 import { validateExecutionAuthorizationRequest } from "./social-execution-authorization-request";
 import {
   appendSocialExecutionAuthorizationAuditEvent,
@@ -29,6 +33,34 @@ import {
 } from "./social-execution-authorization-store";
 
 export const SOCIAL_EXECUTION_AUTHORIZATION_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type SocialExecutionAuthorizationServiceDependencies = Readonly<{
+  verifyOwnerApprovalForAuthorization: (
+    input: Readonly<{
+      ownerApprovalId: string;
+      executionIntentId: string;
+      publicationTargetId: string;
+      socialPostId: string | null;
+      approvalId: string | null;
+    }>,
+  ) => Promise<SocialExecutionAuthorizationOwnerApprovalVerificationResult>;
+}>;
+
+let testDependencies: SocialExecutionAuthorizationServiceDependencies | null = null;
+
+export function configureSocialExecutionAuthorizationServiceTestDependencies(
+  dependencies: SocialExecutionAuthorizationServiceDependencies | null,
+): void {
+  testDependencies = dependencies;
+}
+
+function dependencies(): SocialExecutionAuthorizationServiceDependencies {
+  return (
+    testDependencies ?? {
+      verifyOwnerApprovalForAuthorization: verifyOwnerApprovalForExecutionAuthorization,
+    }
+  );
+}
 
 export type SocialExecutionAuthorizationServiceResult = Readonly<
   | {
@@ -126,6 +158,33 @@ export async function authorizeExecutionForOwner(input: {
     executionIntentId: validation.executionIntentId,
     publicationTargetId: validation.publicationTargetId,
   });
+
+  const ownerApprovalVerification = await dependencies().verifyOwnerApprovalForAuthorization({
+    ownerApprovalId: validation.ownerApprovalId,
+    executionIntentId: validation.executionIntentId,
+    publicationTargetId: validation.publicationTargetId,
+    socialPostId: validation.socialPostId,
+    approvalId: validation.approvalId,
+  });
+  if (!ownerApprovalVerification.ok) {
+    await appendSocialExecutionAuthorizationAuditEvent({
+      audit_event_id: createExecutionAuthorizationAuditEventId(),
+      authorization_id: null,
+      authorization_identity: authorizationIdentity,
+      correlation_id: null,
+      action: "authorize_validation_failed",
+      outcome: "owner_approval_verification_failed",
+      sanitized_detail: ownerApprovalVerification.code,
+      admin_actor_id: input.adminActorId,
+      created_at: nowIso,
+    }).catch(() => undefined);
+
+    return {
+      ok: false,
+      code: ownerApprovalVerification.code,
+      message: ownerApprovalVerification.message,
+    };
+  }
 
   const snapshot = await loadSocialExecutionAuthorizationSnapshot();
   if (snapshot.authorizations.some((record) => record.authorizationIdentity === authorizationIdentity)) {
