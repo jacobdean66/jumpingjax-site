@@ -90,6 +90,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 2 Meta asset discovery & binding:** Discover authorized Facebook Pages and Instagram Business accounts, bind selected assets to existing publication targets, append-only binding audit, and GET-only diagnostics. Identity mapping only.
 
+**D16 Wave 3 Token lifecycle & binding health:** Token expiry models, controlled refresh service (manual only), vault rotation with append-only `rotate` audit events, refresh validation, and GET-only lifecycle/binding health diagnostics. No automatic refresh, publishing, scheduling, or execution.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:
@@ -113,7 +115,7 @@ When reading commits or admin labels, use the code-phase meaning above. Separate
 | `/admin/social-posts/publication-publisher` | D9 Publisher records and replay via H18 bridge |
 | `/admin/social-posts/publication-metrics` | D9 Metrics observations and replay via H24 bridge |
 | `/admin/social-posts/publication-learning` | D9 Learning candidate/blocked/accepted/rejected insights and explainable replay via H25 bridge |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D15 Wave 1-3 + D16 Wave 1 Execution records, replay, read-only preflight diagnostics, simulated planner visibility, adapter/runbook/coordinator diagnostics, platform adapter registry diagnostics, Meta/TikTok/LinkedIn adapter diagnostics, credential/OAuth boundary diagnostics, platform readiness gate diagnostics, OAuth request/callback/session replay diagnostics, D15 credential runtime orchestration diagnostics, D15 provider integration planning diagnostics, D15 credential resolution execution bridge diagnostics, D15 publication execution eligibility preflight diagnostics, and D16 live Meta OAuth connect diagnostics via H31 bridge |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D15 Wave 1-3 + D16 Wave 1-3 Execution records, replay, read-only preflight diagnostics, simulated planner visibility, adapter/runbook/coordinator diagnostics, platform adapter registry diagnostics, Meta/TikTok/LinkedIn adapter diagnostics, credential/OAuth boundary diagnostics, platform readiness gate diagnostics, OAuth request/callback/session replay diagnostics, D15 credential runtime orchestration diagnostics, D15 provider integration planning diagnostics, D15 credential resolution execution bridge diagnostics, D15 publication execution eligibility preflight diagnostics, D16 live Meta OAuth connect diagnostics, D16 Meta asset binding diagnostics, and D16 token lifecycle/binding health diagnostics via H31 bridge |
 | `/admin/social-posts/operations` | D9 Wave 11 AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics — composed entirely from the bridges/replay above |
 
 Agents must treat admin replay, scheduler replay, publisher replay, learning replay, and computed manifest/readiness output as **non-authoritative**. Decision History, append-only ledger rows, append-only scheduler intent rows, and append-only Publisher request/result/evidence rows are durable records; none of them grant publish authority. The Learning layer has no production store at all — `storage_unavailable` on `/admin/social-posts/publication-learning` in production is expected, not a bug. The Operations Console reuses that same signal for its own Learning row and must never be treated as an error requiring repair.

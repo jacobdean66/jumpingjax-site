@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { exchangeMetaAuthorizationCode } from "./social-meta-oauth-client";
+import {
+  exchangeMetaAuthorizationCode,
+  exchangeMetaLongLivedAccessToken,
+  refreshMetaOAuthAccessToken,
+} from "./social-meta-oauth-client";
 
 test("exchangeMetaAuthorizationCode returns token on success", async () => {
   const result = await exchangeMetaAuthorizationCode({
@@ -64,6 +68,52 @@ test("exchangeMetaAuthorizationCode uses POST body for client credentials", asyn
   assert.equal(observedMethod, "POST");
   assert.match(observedBody, /client_secret=secret/);
   assert.match(observedBody, /code=code/);
+});
+
+test("exchangeMetaLongLivedAccessToken uses POST body for fb_exchange_token", async () => {
+  let observedMethod = "";
+  let observedBody = "";
+
+  await exchangeMetaLongLivedAccessToken({
+    appId: "app",
+    appSecret: "secret",
+    currentAccessToken: "short-token",
+    fetchImpl: async (_url, init) => {
+      observedMethod = init?.method ?? "";
+      observedBody = String(init?.body ?? "");
+      return new Response(
+        JSON.stringify({ access_token: "long-token", expires_in: 5184000 }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+  });
+
+  assert.equal(observedMethod, "POST");
+  assert.match(observedBody, /grant_type=fb_exchange_token/);
+  assert.match(observedBody, /fb_exchange_token=short-token/);
+});
+
+test("refreshMetaOAuthAccessToken uses POST body for refresh_token grant", async () => {
+  let observedMethod = "";
+  let observedBody = "";
+
+  await refreshMetaOAuthAccessToken({
+    appId: "app",
+    appSecret: "secret",
+    refreshToken: "refresh-abc",
+    fetchImpl: async (_url, init) => {
+      observedMethod = init?.method ?? "";
+      observedBody = String(init?.body ?? "");
+      return new Response(
+        JSON.stringify({ access_token: "new-token", expires_in: 3600 }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+  });
+
+  assert.equal(observedMethod, "POST");
+  assert.match(observedBody, /grant_type=refresh_token/);
+  assert.match(observedBody, /refresh_token=refresh-abc/);
 });
 
 console.log("social-meta-oauth-client tests passed");

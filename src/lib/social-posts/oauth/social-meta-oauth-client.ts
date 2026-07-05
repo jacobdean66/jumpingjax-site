@@ -50,6 +50,79 @@ export async function exchangeMetaAuthorizationCode(input: {
   authorizationCode: string;
   fetchImpl?: typeof fetch;
 }): Promise<SocialMetaOAuthExchangeResult> {
+  return exchangeMetaAccessToken({
+    appId: input.appId,
+    appSecret: input.appSecret,
+    body: new URLSearchParams({
+      client_id: input.appId,
+      client_secret: input.appSecret,
+      redirect_uri: input.redirectUri,
+      code: input.authorizationCode,
+    }),
+    fetchImpl: input.fetchImpl,
+    missingTokenCode: "missing_access_token",
+    missingTokenMessage: "Meta token exchange returned no access token.",
+    failureMessage: "Meta token exchange failed.",
+    networkMessage: "Meta token exchange network error.",
+  });
+}
+
+export async function exchangeMetaLongLivedAccessToken(input: {
+  appId: string;
+  appSecret: string;
+  currentAccessToken: string;
+  fetchImpl?: typeof fetch;
+}): Promise<SocialMetaOAuthExchangeResult> {
+  return exchangeMetaAccessToken({
+    appId: input.appId,
+    appSecret: input.appSecret,
+    body: new URLSearchParams({
+      grant_type: "fb_exchange_token",
+      client_id: input.appId,
+      client_secret: input.appSecret,
+      fb_exchange_token: input.currentAccessToken,
+    }),
+    fetchImpl: input.fetchImpl,
+    missingTokenCode: "missing_access_token",
+    missingTokenMessage: "Meta long-lived token exchange returned no access token.",
+    failureMessage: "Meta long-lived token exchange failed.",
+    networkMessage: "Meta long-lived token exchange network error.",
+  });
+}
+
+export async function refreshMetaOAuthAccessToken(input: {
+  appId: string;
+  appSecret: string;
+  refreshToken: string;
+  fetchImpl?: typeof fetch;
+}): Promise<SocialMetaOAuthExchangeResult> {
+  return exchangeMetaAccessToken({
+    appId: input.appId,
+    appSecret: input.appSecret,
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: input.appId,
+      client_secret: input.appSecret,
+      refresh_token: input.refreshToken,
+    }),
+    fetchImpl: input.fetchImpl,
+    missingTokenCode: "missing_access_token",
+    missingTokenMessage: "Meta refresh token exchange returned no access token.",
+    failureMessage: "Meta refresh token exchange failed.",
+    networkMessage: "Meta refresh token exchange network error.",
+  });
+}
+
+async function exchangeMetaAccessToken(input: {
+  appId: string;
+  appSecret: string;
+  body: URLSearchParams;
+  fetchImpl?: typeof fetch;
+  missingTokenCode: string;
+  missingTokenMessage: string;
+  failureMessage: string;
+  networkMessage: string;
+}): Promise<SocialMetaOAuthExchangeResult> {
   const fetchImpl = input.fetchImpl ?? fetch;
   const url = new URL(
     `https://graph.facebook.com/${SOCIAL_META_OAUTH_GRAPH_VERSION}/oauth/access_token`,
@@ -62,12 +135,7 @@ export async function exchangeMetaAuthorizationCode(input: {
         Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        client_id: input.appId,
-        client_secret: input.appSecret,
-        redirect_uri: input.redirectUri,
-        code: input.authorizationCode,
-      }).toString(),
+      body: input.body.toString(),
       cache: "no-store",
     });
     const payload = (await response.json()) as
@@ -79,7 +147,7 @@ export async function exchangeMetaAuthorizationCode(input: {
       return {
         ok: false,
         errorCode: error?.type ?? "provider_error",
-        message: error?.message ?? "Meta token exchange failed.",
+        message: error?.message ?? input.failureMessage,
       };
     }
 
@@ -87,8 +155,8 @@ export async function exchangeMetaAuthorizationCode(input: {
     if (!tokenPayload.access_token?.trim()) {
       return {
         ok: false,
-        errorCode: "missing_access_token",
-        message: "Meta token exchange returned no access token.",
+        errorCode: input.missingTokenCode,
+        message: input.missingTokenMessage,
       };
     }
 
@@ -103,8 +171,7 @@ export async function exchangeMetaAuthorizationCode(input: {
     return {
       ok: false,
       errorCode: "network_error",
-      message:
-        error instanceof Error ? error.message : "Meta token exchange network error.",
+      message: error instanceof Error ? error.message : input.networkMessage,
     };
   }
 }

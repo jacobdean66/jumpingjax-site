@@ -164,6 +164,8 @@ import {
 import { SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION } from "@/lib/social-posts/social-publication-execution-eligibility-preflight";
 import { replaySocialOAuthConnections } from "@/lib/social-posts/oauth/social-oauth-connection-replay";
 import { replaySocialMetaAssetBindings } from "@/lib/social-posts/oauth/social-meta-asset-replay";
+import { replaySocialOAuthTokenLifecycle } from "@/lib/social-posts/oauth/social-oauth-token-lifecycle-replay";
+import { replaySocialOAuthBindingHealth } from "@/lib/social-posts/oauth/social-oauth-binding-health-replay";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -2734,6 +2736,8 @@ export default async function AdminPublicationExecutionPage({
   ).value;
   const oauthConnectionReplay = await replaySocialOAuthConnections();
   const metaAssetReplay = await replaySocialMetaAssetBindings();
+  const tokenLifecycleReplay = await replaySocialOAuthTokenLifecycle();
+  const bindingHealthReplay = await replaySocialOAuthBindingHealth();
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -3721,6 +3725,135 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{asset.external_asset_id_redacted}</td>
                             <td className="px-3 py-2">{asset.publication_target_platform}</td>
                             <td className="px-3 py-2 font-mono text-xs">{asset.oauth_session_id}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      D16 Wave 3 Token Lifecycle & Binding Health
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Token expiry visibility and binding health diagnostics
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      GET-only diagnostics for Meta access token expiry, controlled refresh
+                      eligibility, credential lifecycle audit visibility, and binding health
+                      correlation. No automatic refresh, no publishing, no scheduling, and no
+                      execution authority.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+                    D16 W3 lifecycle only
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={tokenLifecycleReplay.replayVersion} />
+                  <Field label="Connected Sessions" value={tokenLifecycleReplay.summary.connectedSessionCount} />
+                  <Field label="Valid Tokens" value={tokenLifecycleReplay.summary.validTokenCount} />
+                  <Field label="Expiring Soon" value={tokenLifecycleReplay.summary.expiringSoonCount} />
+                  <Field label="Expired Tokens" value={tokenLifecycleReplay.summary.expiredTokenCount} />
+                  <Field label="Unknown Expiry" value={tokenLifecycleReplay.summary.unknownExpiryCount} />
+                  <Field label="Refresh Eligible" value={tokenLifecycleReplay.summary.refreshEligibleCount} />
+                  <Field label="Refresh Blocked" value={tokenLifecycleReplay.summary.refreshBlockedCount} />
+                  <Field label="Rotate Audit Events" value={tokenLifecycleReplay.summary.lifecycleAuditRotateCount} />
+                  <Field label="Healthy Bindings" value={bindingHealthReplay.summary.healthyCount} />
+                  <Field label="Binding Missing" value={bindingHealthReplay.summary.bindingMissingCount} />
+                  <Field label="Token Expired (Health)" value={bindingHealthReplay.summary.tokenExpiredCount} />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={tokenLifecycleReplay.diagnostics}
+                    emptyMessage="No D16 Wave 3 token lifecycle diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={bindingHealthReplay.diagnostics}
+                    emptyMessage="No D16 Wave 3 binding health diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">Expiry State</th>
+                        <th className="px-3 py-2">Expires At</th>
+                        <th className="px-3 py-2">Refresh Mode</th>
+                        <th className="px-3 py-2">Refresh Eligible</th>
+                        <th className="px-3 py-2">Blocking Reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tokenLifecycleReplay.lifecycleStatuses.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No connected Meta OAuth sessions for token lifecycle visibility.
+                          </td>
+                        </tr>
+                      ) : (
+                        tokenLifecycleReplay.lifecycleStatuses.map((item) => (
+                          <tr key={item.publicationTargetId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2">{item.expiryAssessment.expiryState}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.expiresAt ?? "—"}</td>
+                            <td className="px-3 py-2">{item.refreshEligibility.refreshMode}</td>
+                            <td className="px-3 py-2 font-black">{String(item.refreshEligibility.eligible)}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {item.tokenBlockingReasons.length > 0
+                                ? item.tokenBlockingReasons.join(", ")
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">Health</th>
+                        <th className="px-3 py-2">Connected</th>
+                        <th className="px-3 py-2">Bound</th>
+                        <th className="px-3 py-2">Expiry</th>
+                        <th className="px-3 py-2">Blocking Reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bindingHealthReplay.bindingHealthStatuses.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No binding health records computed yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        bindingHealthReplay.bindingHealthStatuses.map((item) => (
+                          <tr key={item.publicationTargetId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2 font-black">{item.healthState}</td>
+                            <td className="px-3 py-2">{String(item.connected)}</td>
+                            <td className="px-3 py-2">{String(item.bound)}</td>
+                            <td className="px-3 py-2">{item.expiryState}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {item.blockingReasons.length > 0
+                                ? item.blockingReasons.join(", ")
+                                : "—"}
+                            </td>
                           </tr>
                         ))
                       )}
