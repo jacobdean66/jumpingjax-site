@@ -1,4 +1,6 @@
 import { EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL } from "./credentials/social-credential-repository";
+import { EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT } from "./execution-authorization/social-execution-authorization-store";
+import type { SocialExecutionAuthorizationPersistenceSnapshot } from "./execution-authorization/social-execution-authorization-store";
 import { replaySocialCredentialResolutionExecutionBridge } from "./credentials/social-credential-resolution-execution-bridge-replay";
 import { replaySocialCredentialRuntimeOrchestrator } from "./credentials/social-credential-runtime-orchestrator-replay";
 import { replaySocialCredentialReadiness } from "./credentials/social-credential-readiness-replay";
@@ -119,11 +121,20 @@ export type SocialPublicationExecutionEligibilityPreflightReplayResult = Readonl
 
 export function buildSocialPublicationExecutionEligibilityPreflightContext(
   credentialModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+  authorizationSnapshotOrNow:
+    | SocialExecutionAuthorizationPersistenceSnapshot
+    | string = EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
   now = "2026-07-01T00:00:00.000Z",
 ): Readonly<{
   context: SocialPublicationExecutionEligibilityPreflightContext;
   diagnostics: SocialPublicationExecutionEligibilityPreflightReplayDiagnostic[];
 }> {
+  const authorizationSnapshot =
+    typeof authorizationSnapshotOrNow === "string"
+      ? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT
+      : authorizationSnapshotOrNow;
+  const resolvedNow =
+    typeof authorizationSnapshotOrNow === "string" ? authorizationSnapshotOrNow : now;
   const diagnostics: SocialPublicationExecutionEligibilityPreflightReplayDiagnostic[] = [];
 
   const credentialReadiness = replaySocialCredentialReadiness(credentialModel).value;
@@ -137,7 +148,7 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
     });
   }
 
-  const orchestratorReplay = replaySocialCredentialRuntimeOrchestrator(credentialModel, { now }).value;
+  const orchestratorReplay = replaySocialCredentialRuntimeOrchestrator(credentialModel, { now: resolvedNow }).value;
   for (const diagnostic of orchestratorReplay.diagnostics) {
     if (diagnostic.severity !== "error") continue;
     diagnostics.push({
@@ -150,7 +161,7 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
 
   const resolutionBridgeReplay = replaySocialCredentialResolutionExecutionBridge(credentialModel, {
     orchestrationPlan: orchestratorReplay.plan,
-    now,
+    now: resolvedNow,
   }).value;
   for (const diagnostic of resolutionBridgeReplay.diagnostics) {
     if (diagnostic.severity !== "error") continue;
@@ -190,6 +201,7 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
   return {
     context: {
       credentialModel,
+      authorizationSnapshot,
       providerContexts,
     },
     diagnostics,
@@ -199,8 +211,17 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
 export function replaySocialPublicationExecutionEligibilityPreflight(
   executionModel: SocialPublicationExecutionPersistenceModel,
   credentialModel = EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
+  authorizationSnapshotOrNow:
+    | SocialExecutionAuthorizationPersistenceSnapshot
+    | string = EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
   now = "2026-07-01T00:00:00.000Z",
 ): SocialPublicationExecutionEligibilityPreflightReplayResult {
+  const authorizationSnapshot =
+    typeof authorizationSnapshotOrNow === "string"
+      ? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT
+      : authorizationSnapshotOrNow;
+  const resolvedNow =
+    typeof authorizationSnapshotOrNow === "string" ? authorizationSnapshotOrNow : now;
   const diagnostics: SocialPublicationExecutionEligibilityPreflightReplayDiagnostic[] = [];
   const validation = validateSocialPublicationExecutionPersistenceModel(executionModel);
   if (!validation.ok) {
@@ -216,7 +237,11 @@ export function replaySocialPublicationExecutionEligibilityPreflight(
 
   const readableModel = readableExecutionModel(executionModel);
   const { context, diagnostics: contextDiagnostics } =
-    buildSocialPublicationExecutionEligibilityPreflightContext(credentialModel, now);
+    buildSocialPublicationExecutionEligibilityPreflightContext(
+      credentialModel,
+      authorizationSnapshot,
+      resolvedNow,
+    );
   diagnostics.push(...contextDiagnostics);
 
   const executionReplay = readableModel

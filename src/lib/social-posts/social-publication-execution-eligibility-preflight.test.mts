@@ -335,3 +335,21 @@ await test("blocks publication execution eligibility when meta oauth token is ex
   );
   assert.equal(evaluation.readiness.tokenLifecycle.expiryState, "expired");
 });
+
+test("evaluateSocialPublicationExecutionEligibilityPreflight blocks missing execution authorization", async () => {
+  const { context } = buildSocialPublicationExecutionEligibilityPreflightContext(credentialModel());
+  const evaluation = evaluateSocialPublicationExecutionEligibilityPreflight(
+    intentRecord(),
+    null,
+    context,
+  );
+
+  assert.equal(
+    evaluation.blockingReasons.some(
+      (reason) =>
+        reason.category === "execution_authorization" && reason.code === "authorization_missing",
+    ),
+    true,
+  );
+  assert.equal(evaluation.readiness.executionAuthorization.authorizationReady, false);
+});

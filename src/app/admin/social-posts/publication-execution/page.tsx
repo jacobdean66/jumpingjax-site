@@ -167,6 +167,8 @@ import { replaySocialMetaAssetBindings } from "@/lib/social-posts/oauth/social-m
 import { replaySocialOAuthTokenLifecycle } from "@/lib/social-posts/oauth/social-oauth-token-lifecycle-replay";
 import { replaySocialOAuthBindingHealth } from "@/lib/social-posts/oauth/social-oauth-binding-health-replay";
 import { replaySocialOAuthManualRefresh } from "@/lib/social-posts/oauth/social-oauth-manual-refresh-replay";
+import { replaySocialExecutionAuthorization } from "@/lib/social-posts/execution-authorization/social-execution-authorization-replay";
+import { loadSocialExecutionAuthorizationSnapshot } from "@/lib/social-posts/execution-authorization/social-execution-authorization-store";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -210,6 +212,13 @@ type Props = {
     oauth_refresh_error?: string;
     oauth_refresh_message?: string;
     oauth_refresh_mode?: string;
+    exec_auth?: string;
+    exec_auth_error?: string;
+    exec_auth_message?: string;
+    exec_auth_id?: string;
+    exec_auth_session_id?: string;
+    exec_auth_correlation_id?: string;
+    exec_auth_cancellation_id?: string;
   }>;
 };
 
@@ -2735,15 +2744,18 @@ export default async function AdminPublicationExecutionPage({
     credentialModel,
     { orchestrationPlan: credentialRuntimeOrchestratorReplay.plan },
   ).value;
+  const authorizationSnapshot = await loadSocialExecutionAuthorizationSnapshot();
   const eligibilityPreflightReplay = replaySocialPublicationExecutionEligibilityPreflight(
     loaded.model,
     credentialModel,
+    authorizationSnapshot,
   ).value;
   const oauthConnectionReplay = await replaySocialOAuthConnections();
   const metaAssetReplay = await replaySocialMetaAssetBindings();
   const tokenLifecycleReplay = await replaySocialOAuthTokenLifecycle();
   const bindingHealthReplay = await replaySocialOAuthBindingHealth();
   const manualRefreshReplay = await replaySocialOAuthManualRefresh();
+  const executionAuthorizationReplay = await replaySocialExecutionAuthorization(authorizationSnapshot);
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -2752,6 +2764,8 @@ export default async function AdminPublicationExecutionPage({
   const metaAssetsStatusMessage = resolved.meta_assets_message ?? "";
   const oauthRefreshStatus = resolved.oauth_refresh ?? "";
   const oauthRefreshStatusMessage = resolved.oauth_refresh_message ?? "";
+  const execAuthStatus = resolved.exec_auth ?? "";
+  const execAuthStatusMessage = resolved.exec_auth_message ?? "";
   const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
     oauthConnectionReplay,
     eligibilityPreflightReplay.eligibilityPassJobs
@@ -4026,6 +4040,210 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{event.auditEventId}</td>
                             <td className="px-3 py-2">{event.action}</td>
                             <td className="px-3 py-2">{event.outcome}</td>
+                            <td className="px-3 py-2">{event.sanitizedDetail}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-indigo-700">
+                      D16 Wave 5 Execution Authorization & Runtime Session
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Owner-gated execution authorization and session metadata
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Owner-initiated execution authorization authorizes future execution only.
+                      Runtime sessions remain metadata-only with correlation ids. GET-only diagnostics
+                      expose authorization history, session status, replay visibility, and cancellation
+                      visibility. No execution, publishing, OAuth mutation, or secret exposure.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-800">
+                    D16 W5 authorization
+                  </span>
+                </div>
+
+                {execAuthStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Authorization result: {execAuthStatus}
+                    {execAuthStatusMessage ? ` — ${execAuthStatusMessage}` : ""}
+                    {resolved.exec_auth_error ? ` (${resolved.exec_auth_error})` : ""}
+                    {resolved.exec_auth_correlation_id
+                      ? ` — correlation: ${resolved.exec_auth_correlation_id}`
+                      : ""}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={executionAuthorizationReplay.replayVersion} />
+                  <Field
+                    label="Valid Authorizations"
+                    value={executionAuthorizationReplay.summary.validAuthorizationCount}
+                  />
+                  <Field
+                    label="Expired Authorizations"
+                    value={executionAuthorizationReplay.summary.expiredAuthorizationCount}
+                  />
+                  <Field
+                    label="Cancelled Authorizations"
+                    value={executionAuthorizationReplay.summary.cancelledAuthorizationCount}
+                  />
+                  <Field
+                    label="Active Sessions"
+                    value={executionAuthorizationReplay.summary.activeSessionCount}
+                  />
+                  <Field
+                    label="Intent Records"
+                    value={executionAuthorizationReplay.summary.intentRecordCount}
+                  />
+                  <Field
+                    label="Audit Events"
+                    value={executionAuthorizationReplay.summary.auditEventCount}
+                  />
+                </div>
+
+                {auth.role === "owner" &&
+                filters.executionIntentId &&
+                filters.publicationTargetId &&
+                filters.ownerApprovalId ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-execution/authorize"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input
+                      type="hidden"
+                      name="execution_intent_id"
+                      value={filters.executionIntentId}
+                    />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <input type="hidden" name="owner_approval_id" value={filters.ownerApprovalId} />
+                    {filters.approvalId ? (
+                      <input type="hidden" name="approval_id" value={filters.approvalId} />
+                    ) : null}
+                    {filters.socialPostId ? (
+                      <input type="hidden" name="social_post_id" value={filters.socialPostId} />
+                    ) : null}
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-700 px-5 py-2 text-sm font-black text-white hover:bg-indigo-800"
+                    >
+                      Authorize Future Execution
+                    </button>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Owner-only. Intent: {filters.executionIntentId}
+                    </p>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Set execution intent, publication target, and owner approval filters to enable
+                    owner execution authorization.
+                  </p>
+                )}
+
+                {auth.role === "owner" && resolved.exec_auth_id ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-execution/cancel-authorization"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input type="hidden" name="authorization_id" value={resolved.exec_auth_id} />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-rose-300 bg-rose-50 px-5 py-2 text-sm font-black text-rose-800 hover:bg-rose-100"
+                    >
+                      Cancel Authorization
+                    </button>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Owner-only cancellation append. Authorization: {resolved.exec_auth_id}
+                    </p>
+                  </form>
+                ) : null}
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionAuthorizationReplay.diagnostics}
+                    emptyMessage="No D16 Wave 5 execution authorization diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Authorization</th>
+                        <th className="px-3 py-2">Intent</th>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">State</th>
+                        <th className="px-3 py-2">Session</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Expires</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAuthorizationReplay.authorizations.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No execution authorization records computed yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAuthorizationReplay.authorizations.map((item) => (
+                          <tr key={item.authorizationId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.authorizationId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.executionIntentId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2 font-black">{item.derivedAuthorizationState}</td>
+                            <td className="px-3 py-2">{item.derivedSessionStatus}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.correlationId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.expiresAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Audit Event</th>
+                        <th className="px-3 py-2">Action</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Detail</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAuthorizationReplay.recentAuditEvents.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No execution authorization audit events recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAuthorizationReplay.recentAuditEvents.map((event) => (
+                          <tr key={event.auditEventId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{event.auditEventId}</td>
+                            <td className="px-3 py-2">{event.action}</td>
+                            <td className="px-3 py-2">{event.outcome}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.correlationId ?? "—"}</td>
                             <td className="px-3 py-2">{event.sanitizedDetail}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
                           </tr>

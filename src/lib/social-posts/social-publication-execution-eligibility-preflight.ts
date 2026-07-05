@@ -15,9 +15,15 @@ import type {
   SocialPublicationExecutionResultRecord,
 } from "./social-publication-execution-repository";
 import {
+  evaluateExecutionAuthorizationPreflightForIntent,
+  type SocialExecutionAuthorizationPreflightSummary,
+} from "./execution-authorization/social-execution-authorization-preflight";
+import {
   evaluateTokenLifecyclePreflightForPublicationTarget,
   type SocialOAuthTokenLifecyclePreflightSummary,
 } from "./oauth/social-oauth-token-lifecycle-preflight";
+import type { SocialExecutionAuthorizationPersistenceSnapshot } from "./execution-authorization/social-execution-authorization-store";
+import { EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT } from "./execution-authorization/social-execution-authorization-store";
 
 export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION =
   "d15-w3-v1" as const;
@@ -29,6 +35,7 @@ export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_BLOCKED_REASON_CATEGORIES 
   "provider_capability",
   "provider_resolution",
   "token_lifecycle",
+  "execution_authorization",
   "audit_compatibility",
   "unsafe",
 ] as const;
@@ -80,11 +87,22 @@ export type SocialPublicationExecutionTokenLifecycleReadinessSummary = Readonly<
   blockingReasons: readonly string[];
 }>;
 
+export type SocialPublicationExecutionAuthorizationReadinessSummary = Readonly<{
+  authorizationReady: boolean;
+  derivedAuthorizationState: SocialExecutionAuthorizationPreflightSummary["derivedAuthorizationState"] | null;
+  derivedIntentState: SocialExecutionAuthorizationPreflightSummary["derivedIntentState"] | null;
+  derivedSessionStatus: SocialExecutionAuthorizationPreflightSummary["derivedSessionStatus"] | null;
+  correlationId: string | null;
+  preflightBlockingCodes: readonly string[];
+  blockingReasons: readonly string[];
+}>;
+
 export type SocialPublicationExecutionEligibilityReadinessSummaries = Readonly<{
   credential: SocialPublicationExecutionCredentialReadinessSummary;
   orchestration: SocialPublicationExecutionOrchestrationReadinessSummary;
   providerCapability: SocialPublicationExecutionProviderCapabilitySummary;
   tokenLifecycle: SocialPublicationExecutionTokenLifecycleReadinessSummary;
+  executionAuthorization: SocialPublicationExecutionAuthorizationReadinessSummary;
   auditAppendCompatible: boolean;
 }>;
 
@@ -118,6 +136,7 @@ export type SocialPublicationExecutionEligibilityProviderContext = Readonly<{
 
 export type SocialPublicationExecutionEligibilityPreflightContext = Readonly<{
   credentialModel: SocialCredentialPersistenceModel;
+  authorizationSnapshot?: SocialExecutionAuthorizationPersistenceSnapshot;
   providerContexts: Readonly<
     Partial<Record<SocialPlatformCredentialProvider, SocialPublicationExecutionEligibilityProviderContext>>
   >;
@@ -171,6 +190,12 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     context.credentialModel,
   );
   const tokenLifecycleCouldRunLater = tokenLifecycleSummary.couldRunLater;
+  const authorizationSummary = summarizeExecutionAuthorizationReadiness(
+    intent.execution_intent_id,
+    publicationTargetId,
+    context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
+  );
+  const authorizationCouldRunLater = authorizationSummary.couldRunLater;
   const auditAppendCompatible =
     (providerContext.orchestratorProvider?.auditIntegration.appendOnlyCompatible ?? false) &&
     (providerContext.resolutionProvider?.auditCompatible ?? false);
@@ -182,6 +207,7 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     orchestrationSummary,
     capabilitySummary,
     tokenLifecycleSummary,
+    authorizationSummary,
     auditAppendCompatible,
   });
   const aggregatedBlockingCodes = uniqueSorted(
@@ -193,7 +219,9 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     blockingReasons.every((reason) => reason.category !== "unsafe") &&
     blockingReasons.every((reason) => reason.category !== "audit_compatibility") &&
     (tokenLifecycleCouldRunLater ||
-      tokenLifecycleSummary.preflightBlockingCodes.length === 0);
+      tokenLifecycleSummary.preflightBlockingCodes.length === 0) &&
+    (authorizationCouldRunLater ||
+      authorizationSummary.preflightBlockingCodes.length === 0);
 
   return deepFreeze({
     preflightVersion: SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION,
@@ -217,6 +245,15 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         expiryState: tokenLifecycleSummary.expiryState,
         preflightBlockingCodes: tokenLifecycleSummary.preflightBlockingCodes,
         blockingReasons: tokenLifecycleSummary.blockingReasons,
+      },
+      executionAuthorization: {
+        authorizationReady: authorizationSummary.authorizationReady,
+        derivedAuthorizationState: authorizationSummary.derivedAuthorizationState,
+        derivedIntentState: authorizationSummary.derivedIntentState,
+        derivedSessionStatus: authorizationSummary.derivedSessionStatus,
+        correlationId: authorizationSummary.correlationId,
+        preflightBlockingCodes: authorizationSummary.preflightBlockingCodes,
+        blockingReasons: authorizationSummary.blockingReasons,
       },
       auditAppendCompatible,
     },
@@ -319,6 +356,44 @@ function summarizeTokenLifecycleReadiness(
   };
 }
 
+function summarizeExecutionAuthorizationReadiness(
+  executionIntentId: string,
+  publicationTargetId: string | null,
+  snapshot: SocialExecutionAuthorizationPersistenceSnapshot,
+): SocialPublicationExecutionAuthorizationReadinessSummary & {
+  couldRunLater: boolean;
+} {
+  const preflight = evaluateExecutionAuthorizationPreflightForIntent({
+    executionIntentId,
+    publicationTargetId,
+    snapshot,
+  });
+
+  if (!preflight) {
+    return {
+      authorizationReady: false,
+      derivedAuthorizationState: null,
+      derivedIntentState: null,
+      derivedSessionStatus: null,
+      correlationId: null,
+      preflightBlockingCodes: ["authorization_missing"],
+      blockingReasons: ["authorization_missing"],
+      couldRunLater: true,
+    };
+  }
+
+  return {
+    authorizationReady: preflight.authorizationValid,
+    derivedAuthorizationState: preflight.derivedAuthorizationState,
+    derivedIntentState: preflight.derivedIntentState,
+    derivedSessionStatus: preflight.derivedSessionStatus,
+    correlationId: preflight.correlationId,
+    preflightBlockingCodes: preflight.preflightBlockingCodes,
+    blockingReasons: preflight.blockingReasons,
+    couldRunLater: preflight.couldRunLater,
+  };
+}
+
 function summarizeProviderCapability(
   provider: SocialPlatformCredentialProvider | null,
   context: SocialPublicationExecutionEligibilityProviderContext,
@@ -355,6 +430,9 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
   orchestrationSummary: SocialPublicationExecutionOrchestrationReadinessSummary;
   capabilitySummary: SocialPublicationExecutionProviderCapabilitySummary;
   tokenLifecycleSummary: SocialPublicationExecutionTokenLifecycleReadinessSummary & {
+    couldRunLater: boolean;
+  };
+  authorizationSummary: SocialPublicationExecutionAuthorizationReadinessSummary & {
     couldRunLater: boolean;
   };
   auditAppendCompatible: boolean;
@@ -417,6 +495,16 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
       code,
       path: "readiness.tokenLifecycle",
       message: `Meta OAuth token lifecycle blocked publication execution eligibility: ${code}.`,
+      severity: "block",
+    });
+  }
+
+  for (const code of input.authorizationSummary.blockingReasons) {
+    reasons.push({
+      category: "execution_authorization",
+      code,
+      path: "readiness.executionAuthorization",
+      message: `Execution authorization blocked publication execution eligibility: ${code}.`,
       severity: "block",
     });
   }
