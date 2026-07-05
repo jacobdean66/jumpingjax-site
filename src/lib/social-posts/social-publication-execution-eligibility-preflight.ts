@@ -24,6 +24,12 @@ import {
 } from "./oauth/social-oauth-token-lifecycle-preflight";
 import type { SocialExecutionAuthorizationPersistenceSnapshot } from "./execution-authorization/social-execution-authorization-store";
 import { EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT } from "./execution-authorization/social-execution-authorization-store";
+import {
+  evaluateExecutionAttemptPreflightForIntent,
+  type SocialExecutionAttemptPreflightSummary,
+} from "./execution-attempt/social-execution-attempt-preflight";
+import type { SocialExecutionAttemptPersistenceSnapshot } from "./execution-attempt/social-execution-attempt-store";
+import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-store";
 
 export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION =
   "d15-w3-v1" as const;
@@ -97,12 +103,28 @@ export type SocialPublicationExecutionAuthorizationReadinessSummary = Readonly<{
   blockingReasons: readonly string[];
 }>;
 
+export type SocialPublicationExecutionAttemptReadinessSummary = Readonly<{
+  derivedAwarenessStatus: SocialExecutionAttemptPreflightSummary["derivedAwarenessStatus"] | null;
+  attemptCount: number;
+  attemptId: string | null;
+  authorizationId: string | null;
+  sessionId: string | null;
+  correlationId: string | null;
+  idempotencyKey: string | null;
+  replayKey: string | null;
+  attemptFingerprint: string | null;
+  derivedLifecycleState: SocialExecutionAttemptPreflightSummary["derivedLifecycleState"] | null;
+  duplicateDetected: boolean;
+  informationalOnly: true;
+}>;
+
 export type SocialPublicationExecutionEligibilityReadinessSummaries = Readonly<{
   credential: SocialPublicationExecutionCredentialReadinessSummary;
   orchestration: SocialPublicationExecutionOrchestrationReadinessSummary;
   providerCapability: SocialPublicationExecutionProviderCapabilitySummary;
   tokenLifecycle: SocialPublicationExecutionTokenLifecycleReadinessSummary;
   executionAuthorization: SocialPublicationExecutionAuthorizationReadinessSummary;
+  executionAttempt: SocialPublicationExecutionAttemptReadinessSummary;
   auditAppendCompatible: boolean;
 }>;
 
@@ -137,6 +159,7 @@ export type SocialPublicationExecutionEligibilityProviderContext = Readonly<{
 export type SocialPublicationExecutionEligibilityPreflightContext = Readonly<{
   credentialModel: SocialCredentialPersistenceModel;
   authorizationSnapshot?: SocialExecutionAuthorizationPersistenceSnapshot;
+  attemptSnapshot?: SocialExecutionAttemptPersistenceSnapshot;
   providerContexts: Readonly<
     Partial<Record<SocialPlatformCredentialProvider, SocialPublicationExecutionEligibilityProviderContext>>
   >;
@@ -196,6 +219,12 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
   );
   const authorizationCouldRunLater = authorizationSummary.couldRunLater;
+  const attemptSummary = summarizeExecutionAttemptReadiness(
+    intent.execution_intent_id,
+    publicationTargetId,
+    context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
+    context.attemptSnapshot ?? EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+  );
   const auditAppendCompatible =
     (providerContext.orchestratorProvider?.auditIntegration.appendOnlyCompatible ?? false) &&
     (providerContext.resolutionProvider?.auditCompatible ?? false);
@@ -254,6 +283,20 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         correlationId: authorizationSummary.correlationId,
         preflightBlockingCodes: authorizationSummary.preflightBlockingCodes,
         blockingReasons: authorizationSummary.blockingReasons,
+      },
+      executionAttempt: {
+        derivedAwarenessStatus: attemptSummary.derivedAwarenessStatus,
+        attemptCount: attemptSummary.attemptCount,
+        attemptId: attemptSummary.attemptId,
+        authorizationId: attemptSummary.authorizationId,
+        sessionId: attemptSummary.sessionId,
+        correlationId: attemptSummary.correlationId,
+        idempotencyKey: attemptSummary.idempotencyKey,
+        replayKey: attemptSummary.replayKey,
+        attemptFingerprint: attemptSummary.attemptFingerprint,
+        derivedLifecycleState: attemptSummary.derivedLifecycleState,
+        duplicateDetected: attemptSummary.duplicateDetected,
+        informationalOnly: true,
       },
       auditAppendCompatible,
     },
@@ -353,6 +396,69 @@ function summarizeTokenLifecycleReadiness(
     preflightBlockingCodes: tokenLifecycle.preflightBlockingCodes,
     blockingReasons,
     couldRunLater: tokenLifecycle.couldRunLater,
+  };
+}
+
+function summarizeExecutionAttemptReadiness(
+  executionIntentId: string,
+  publicationTargetId: string | null,
+  authorizationSnapshot: SocialExecutionAuthorizationPersistenceSnapshot,
+  attemptSnapshot: SocialExecutionAttemptPersistenceSnapshot,
+): SocialPublicationExecutionAttemptReadinessSummary {
+  if (!hasText(publicationTargetId)) {
+    return {
+      derivedAwarenessStatus: null,
+      attemptCount: 0,
+      attemptId: null,
+      authorizationId: null,
+      sessionId: null,
+      correlationId: null,
+      idempotencyKey: null,
+      replayKey: null,
+      attemptFingerprint: null,
+      derivedLifecycleState: null,
+      duplicateDetected: false,
+      informationalOnly: true,
+    };
+  }
+
+  const preflight = evaluateExecutionAttemptPreflightForIntent({
+    executionIntentId,
+    publicationTargetId,
+    attemptSnapshot,
+    authorizationSnapshot,
+  });
+
+  if (!preflight) {
+    return {
+      derivedAwarenessStatus: null,
+      attemptCount: 0,
+      attemptId: null,
+      authorizationId: null,
+      sessionId: null,
+      correlationId: null,
+      idempotencyKey: null,
+      replayKey: null,
+      attemptFingerprint: null,
+      derivedLifecycleState: null,
+      duplicateDetected: false,
+      informationalOnly: true,
+    };
+  }
+
+  return {
+    derivedAwarenessStatus: preflight.derivedAwarenessStatus,
+    attemptCount: preflight.attemptCount,
+    attemptId: preflight.attemptId,
+    authorizationId: preflight.authorizationId,
+    sessionId: preflight.sessionId,
+    correlationId: preflight.correlationId,
+    idempotencyKey: preflight.idempotencyKey,
+    replayKey: preflight.replayKey,
+    attemptFingerprint: preflight.attemptFingerprint,
+    derivedLifecycleState: preflight.derivedLifecycleState,
+    duplicateDetected: preflight.duplicateDetected,
+    informationalOnly: true,
   };
 }
 

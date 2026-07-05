@@ -96,6 +96,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 5 Execution authorization & runtime session:** Owner-gated `POST /api/admin/social-execution/authorize` and `POST /api/admin/social-execution/cancel-authorization`, immutable authorization/intent/session domain models, append-only authorization audit, deterministic GET-only replay (authorization, session, correlation), D15 eligibility preflight `execution_authorization` blocking (`authorization_missing`, `authorization_expired`, `authorization_cancelled`), and GET-only admin diagnostics. Authorizes future execution only; no execution, publishing, OAuth mutation, or secret exposure.
 
+**D16 Wave 6 Execution attempt modeling:** Immutable execution attempt domain models subordinate to Wave 5 authorization, idempotency vocabulary (idempotency key, replay key, attempt fingerprint, duplicate detection), metadata-only lifecycle states via append-only history, append-only attempt store, GET-only replay (attempt history, authorization/session linkage, correlation/idempotency replay, derived status), D15 eligibility preflight informational attempt awareness (`no_attempt`, `attempt_exists`, `attempt_expired`, `duplicate_attempt_detected`), and GET-only admin diagnostics. No execution runner, scheduler, publishing, platform adapters, automatic attempt creation, or automatic execution.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:

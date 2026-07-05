@@ -353,3 +353,16 @@ test("evaluateSocialPublicationExecutionEligibilityPreflight blocks missing exec
   );
   assert.equal(evaluation.readiness.executionAuthorization.authorizationReady, false);
 });
+
+test("evaluateSocialPublicationExecutionEligibilityPreflight surfaces informational execution attempt awareness", async () => {
+  const { context } = buildSocialPublicationExecutionEligibilityPreflightContext(credentialModel());
+  const evaluation = evaluateSocialPublicationExecutionEligibilityPreflight(
+    intentRecord(),
+    null,
+    context,
+  );
+
+  assert.equal(evaluation.readiness.executionAttempt.informationalOnly, true);
+  assert.equal(evaluation.readiness.executionAttempt.derivedAwarenessStatus, "no_attempt");
+  assert.equal(evaluation.status, "block");
+});

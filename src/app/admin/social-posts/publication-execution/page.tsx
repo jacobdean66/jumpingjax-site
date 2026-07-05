@@ -169,6 +169,8 @@ import { replaySocialOAuthBindingHealth } from "@/lib/social-posts/oauth/social-
 import { replaySocialOAuthManualRefresh } from "@/lib/social-posts/oauth/social-oauth-manual-refresh-replay";
 import { replaySocialExecutionAuthorization } from "@/lib/social-posts/execution-authorization/social-execution-authorization-replay";
 import { loadSocialExecutionAuthorizationSnapshot } from "@/lib/social-posts/execution-authorization/social-execution-authorization-store";
+import { replaySocialExecutionAttempt } from "@/lib/social-posts/execution-attempt/social-execution-attempt-replay";
+import { loadSocialExecutionAttemptSnapshot } from "@/lib/social-posts/execution-attempt/social-execution-attempt-store";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -2745,10 +2747,12 @@ export default async function AdminPublicationExecutionPage({
     { orchestrationPlan: credentialRuntimeOrchestratorReplay.plan },
   ).value;
   const authorizationSnapshot = await loadSocialExecutionAuthorizationSnapshot();
+  const attemptSnapshot = await loadSocialExecutionAttemptSnapshot();
   const eligibilityPreflightReplay = replaySocialPublicationExecutionEligibilityPreflight(
     loaded.model,
     credentialModel,
     authorizationSnapshot,
+    attemptSnapshot,
   ).value;
   const oauthConnectionReplay = await replaySocialOAuthConnections();
   const metaAssetReplay = await replaySocialMetaAssetBindings();
@@ -2756,6 +2760,10 @@ export default async function AdminPublicationExecutionPage({
   const bindingHealthReplay = await replaySocialOAuthBindingHealth();
   const manualRefreshReplay = await replaySocialOAuthManualRefresh();
   const executionAuthorizationReplay = await replaySocialExecutionAuthorization(authorizationSnapshot);
+  const executionAttemptReplay = await replaySocialExecutionAttempt({
+    attemptSnapshot,
+    authorizationSnapshot,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -4245,6 +4253,121 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2">{event.outcome}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.correlationId ?? "—"}</td>
                             <td className="px-3 py-2">{event.sanitizedDetail}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-teal-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">
+                      D16 Wave 6 Execution Attempt Modeling
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Durable execution attempt metadata and idempotency replay
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Execution attempts model future-authorized runs subordinate to D16 Wave 5
+                      authorization. GET-only diagnostics expose attempt history, authorization and
+                      session linkage, idempotency keys, replay visibility, and derived attempt status.
+                      No execution, publishing, scheduler work, or automatic attempt creation.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-teal-800">
+                    D16 W6 attempts
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={executionAttemptReplay.replayVersion} />
+                  <Field label="Attempt Count" value={executionAttemptReplay.summary.attemptCount} />
+                  <Field label="Active Attempts" value={executionAttemptReplay.summary.activeAttemptCount} />
+                  <Field label="Expired Attempts" value={executionAttemptReplay.summary.expiredAttemptCount} />
+                  <Field label="Cancelled Attempts" value={executionAttemptReplay.summary.cancelledAttemptCount} />
+                  <Field label="Superseded Attempts" value={executionAttemptReplay.summary.supersededAttemptCount} />
+                  <Field
+                    label="Duplicate Detected"
+                    value={String(executionAttemptReplay.summary.duplicateDetected)}
+                  />
+                  <Field label="Lifecycle Events" value={executionAttemptReplay.summary.lifecycleEventCount} />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionAttemptReplay.diagnostics}
+                    emptyMessage="No D16 Wave 6 execution attempt diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Authorization</th>
+                        <th className="px-3 py-2">Session</th>
+                        <th className="px-3 py-2">Derived Status</th>
+                        <th className="px-3 py-2">Awareness</th>
+                        <th className="px-3 py-2">Idempotency Key</th>
+                        <th className="px-3 py-2">Replay Key</th>
+                        <th className="px-3 py-2">Correlation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptReplay.attempts.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={8}>
+                            No execution attempt records computed yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptReplay.attempts.map((item) => (
+                          <tr key={item.attemptId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.authorizationId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.sessionId}</td>
+                            <td className="px-3 py-2 font-black">{item.derivedLifecycleState}</td>
+                            <td className="px-3 py-2 font-black">{item.derivedAwarenessStatus}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.idempotencyKey}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.replayKey}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.correlationId}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Lifecycle Event</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">State</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptReplay.lifecycleEvents.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={5}>
+                            No execution attempt lifecycle history recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptReplay.lifecycleEvents.map((event) => (
+                          <tr key={event.lifecycleEventId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{event.lifecycleEventId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.attemptId}</td>
+                            <td className="px-3 py-2 font-black">{event.lifecycleState}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.correlationId}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
                           </tr>
                         ))
