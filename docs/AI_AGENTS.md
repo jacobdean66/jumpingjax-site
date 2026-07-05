@@ -100,6 +100,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 7 Owner-gated execution attempt creation:** Owner-gated `POST /api/admin/social-execution/create-attempt`, deterministic creation service validating authorization/runtime session/idempotency, append-only attempt + initial lifecycle + audit writes, GET-only creation replay, D15 eligibility informational creation availability fields with `duplicate_attempt` blocking only, and admin Create Attempt action with creation result diagnostics. Creates immutable attempts only; no execution, publishing, OAuth mutation, or privilege escalation.
 
+**D16 Wave 8 Execution attempt evidence & state modeling:** Immutable execution attempt evidence domain, attempt state transition vocabulary, append-only evidence persistence, GET-only evidence replay, derived attempt state computation, D15 informational evidence coverage integration, and admin evidence/state diagnostics. Models metadata evidence and transitions only; no execution, publishing, evidence mutation routes, or automatic evidence creation.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:

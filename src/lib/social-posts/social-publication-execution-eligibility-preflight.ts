@@ -30,6 +30,12 @@ import {
 } from "./execution-attempt/social-execution-attempt-preflight";
 import type { SocialExecutionAttemptPersistenceSnapshot } from "./execution-attempt/social-execution-attempt-store";
 import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-store";
+import {
+  evaluateExecutionAttemptEvidencePreflightForIntent,
+  type SocialExecutionAttemptEvidencePreflightSummary,
+} from "./execution-attempt/social-execution-attempt-evidence-preflight";
+import type { SocialExecutionAttemptEvidencePersistenceSnapshot } from "./execution-attempt/social-execution-attempt-evidence-store";
+import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-evidence-store";
 
 export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION =
   "d15-w3-v1" as const;
@@ -124,6 +130,17 @@ export type SocialPublicationExecutionAttemptReadinessSummary = Readonly<{
   informationalOnly: true;
 }>;
 
+export type SocialPublicationExecutionAttemptEvidenceReadinessSummary = Readonly<{
+  evidenceCount: number;
+  transitionCount: number;
+  evidenceCoverageStatus: SocialExecutionAttemptEvidencePreflightSummary["evidenceCoverageStatus"] | null;
+  latestEvidenceKind: string | null;
+  latestTransitionKind: SocialExecutionAttemptEvidencePreflightSummary["latestTransitionKind"] | null;
+  derivedTransitionState: string | null;
+  evidenceAligned: boolean;
+  informationalOnly: true;
+}>;
+
 export type SocialPublicationExecutionEligibilityReadinessSummaries = Readonly<{
   credential: SocialPublicationExecutionCredentialReadinessSummary;
   orchestration: SocialPublicationExecutionOrchestrationReadinessSummary;
@@ -131,6 +148,7 @@ export type SocialPublicationExecutionEligibilityReadinessSummaries = Readonly<{
   tokenLifecycle: SocialPublicationExecutionTokenLifecycleReadinessSummary;
   executionAuthorization: SocialPublicationExecutionAuthorizationReadinessSummary;
   executionAttempt: SocialPublicationExecutionAttemptReadinessSummary;
+  executionAttemptEvidence: SocialPublicationExecutionAttemptEvidenceReadinessSummary;
   auditAppendCompatible: boolean;
 }>;
 
@@ -166,6 +184,7 @@ export type SocialPublicationExecutionEligibilityPreflightContext = Readonly<{
   credentialModel: SocialCredentialPersistenceModel;
   authorizationSnapshot?: SocialExecutionAuthorizationPersistenceSnapshot;
   attemptSnapshot?: SocialExecutionAttemptPersistenceSnapshot;
+  attemptEvidenceSnapshot?: SocialExecutionAttemptEvidencePersistenceSnapshot;
   providerContexts: Readonly<
     Partial<Record<SocialPlatformCredentialProvider, SocialPublicationExecutionEligibilityProviderContext>>
   >;
@@ -230,6 +249,13 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     publicationTargetId,
     context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
     context.attemptSnapshot ?? EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+  );
+  const attemptEvidenceSummary = summarizeExecutionAttemptEvidenceReadiness(
+    intent.execution_intent_id,
+    publicationTargetId,
+    context.authorizationSnapshot ?? EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
+    context.attemptSnapshot ?? EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+    context.attemptEvidenceSnapshot ?? EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT,
   );
   const auditAppendCompatible =
     (providerContext.orchestratorProvider?.auditIntegration.appendOnlyCompatible ?? false) &&
@@ -308,6 +334,16 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         authorizationUnavailable: attemptSummary.authorizationUnavailable,
         sessionUnavailable: attemptSummary.sessionUnavailable,
         creationBlockingCodes: attemptSummary.creationBlockingCodes,
+        informationalOnly: true,
+      },
+      executionAttemptEvidence: {
+        evidenceCount: attemptEvidenceSummary.evidenceCount,
+        transitionCount: attemptEvidenceSummary.transitionCount,
+        evidenceCoverageStatus: attemptEvidenceSummary.evidenceCoverageStatus,
+        latestEvidenceKind: attemptEvidenceSummary.latestEvidenceKind,
+        latestTransitionKind: attemptEvidenceSummary.latestTransitionKind,
+        derivedTransitionState: attemptEvidenceSummary.derivedTransitionState,
+        evidenceAligned: attemptEvidenceSummary.evidenceAligned,
         informationalOnly: true,
       },
       auditAppendCompatible,
@@ -485,6 +521,59 @@ function summarizeExecutionAttemptReadiness(
     authorizationUnavailable: preflight.authorizationUnavailable,
     sessionUnavailable: preflight.sessionUnavailable,
     creationBlockingCodes: preflight.creationBlockingCodes,
+    informationalOnly: true,
+  };
+}
+
+function summarizeExecutionAttemptEvidenceReadiness(
+  executionIntentId: string,
+  publicationTargetId: string | null,
+  authorizationSnapshot: SocialExecutionAuthorizationPersistenceSnapshot,
+  attemptSnapshot: SocialExecutionAttemptPersistenceSnapshot,
+  attemptEvidenceSnapshot: SocialExecutionAttemptEvidencePersistenceSnapshot,
+): SocialPublicationExecutionAttemptEvidenceReadinessSummary {
+  if (!hasText(publicationTargetId)) {
+    return {
+      evidenceCount: 0,
+      transitionCount: 0,
+      evidenceCoverageStatus: null,
+      latestEvidenceKind: null,
+      latestTransitionKind: null,
+      derivedTransitionState: null,
+      evidenceAligned: false,
+      informationalOnly: true,
+    };
+  }
+
+  const preflight = evaluateExecutionAttemptEvidencePreflightForIntent({
+    executionIntentId,
+    publicationTargetId,
+    attemptSnapshot,
+    evidenceSnapshot: attemptEvidenceSnapshot,
+    authorizationSnapshot,
+  });
+
+  if (!preflight) {
+    return {
+      evidenceCount: 0,
+      transitionCount: 0,
+      evidenceCoverageStatus: "no_evidence",
+      latestEvidenceKind: null,
+      latestTransitionKind: null,
+      derivedTransitionState: null,
+      evidenceAligned: false,
+      informationalOnly: true,
+    };
+  }
+
+  return {
+    evidenceCount: preflight.evidenceCount,
+    transitionCount: preflight.transitionCount,
+    evidenceCoverageStatus: preflight.evidenceCoverageStatus,
+    latestEvidenceKind: preflight.latestEvidenceKind,
+    latestTransitionKind: preflight.latestTransitionKind,
+    derivedTransitionState: preflight.derivedTransitionState,
+    evidenceAligned: preflight.evidenceAligned,
     informationalOnly: true,
   };
 }

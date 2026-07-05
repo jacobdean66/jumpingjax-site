@@ -171,7 +171,12 @@ import { replaySocialExecutionAuthorization } from "@/lib/social-posts/execution
 import { loadSocialExecutionAuthorizationSnapshot } from "@/lib/social-posts/execution-authorization/social-execution-authorization-store";
 import { replaySocialExecutionAttempt } from "@/lib/social-posts/execution-attempt/social-execution-attempt-replay";
 import { replaySocialExecutionAttemptCreation } from "@/lib/social-posts/execution-attempt/social-execution-attempt-creation-replay";
-import { loadSocialExecutionAttemptSnapshot } from "@/lib/social-posts/execution-attempt/social-execution-attempt-store";
+import { replaySocialExecutionAttemptEvidence } from "@/lib/social-posts/execution-attempt/social-execution-attempt-evidence-replay";
+import {
+  loadSocialExecutionAttemptSnapshot,
+  EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+} from "@/lib/social-posts/execution-attempt/social-execution-attempt-store";
+import { loadSocialExecutionAttemptEvidenceSnapshot } from "@/lib/social-posts/execution-attempt/social-execution-attempt-evidence-store";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -2756,11 +2761,14 @@ export default async function AdminPublicationExecutionPage({
   ).value;
   const authorizationSnapshot = await loadSocialExecutionAuthorizationSnapshot();
   const attemptSnapshot = await loadSocialExecutionAttemptSnapshot();
+  const attemptEvidenceSnapshot = await loadSocialExecutionAttemptEvidenceSnapshot();
   const eligibilityPreflightReplay = replaySocialPublicationExecutionEligibilityPreflight(
     loaded.model,
     credentialModel,
     authorizationSnapshot,
     attemptSnapshot,
+    EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+    attemptEvidenceSnapshot,
   ).value;
   const oauthConnectionReplay = await replaySocialOAuthConnections();
   const metaAssetReplay = await replaySocialMetaAssetBindings();
@@ -2774,6 +2782,11 @@ export default async function AdminPublicationExecutionPage({
   });
   const executionAttemptCreationReplay = await replaySocialExecutionAttemptCreation({
     attemptSnapshot,
+    authorizationSnapshot,
+  });
+  const executionAttemptEvidenceReplay = await replaySocialExecutionAttemptEvidence({
+    attemptSnapshot,
+    evidenceSnapshot: attemptEvidenceSnapshot,
     authorizationSnapshot,
   });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
@@ -4486,6 +4499,167 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{event.correlationId ?? "—"}</td>
                             <td className="px-3 py-2">{event.sanitizedDetail}</td>
                             <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-cyan-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-700">
+                      D16 Wave 8 Execution Attempt Evidence & State Modeling
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Immutable attempt evidence, state transitions, and derived attempt state
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D16 Wave 8 models append-only execution attempt evidence and state
+                      transition vocabulary subordinate to D16 Waves 6–7. GET diagnostics expose
+                      evidence records, transition history, derived attempt state, and D15
+                      informational evidence coverage. No execution, publishing, evidence mutation
+                      routes, or automatic evidence creation.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-cyan-800">
+                    D16 W8 evidence
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={executionAttemptEvidenceReplay.replayVersion} />
+                  <Field label="Evidence Count" value={executionAttemptEvidenceReplay.summary.evidenceCount} />
+                  <Field label="Transition Count" value={executionAttemptEvidenceReplay.summary.transitionCount} />
+                  <Field
+                    label="Attempts With Evidence"
+                    value={executionAttemptEvidenceReplay.summary.attemptCountWithEvidence}
+                  />
+                  <Field
+                    label="Attempts With Transitions"
+                    value={executionAttemptEvidenceReplay.summary.attemptCountWithTransitions}
+                  />
+                  <Field
+                    label="Evidence Aligned"
+                    value={executionAttemptEvidenceReplay.summary.evidenceAlignedAttemptCount}
+                  />
+                  <Field
+                    label="Evidence Gaps"
+                    value={executionAttemptEvidenceReplay.summary.evidenceGapDetectedCount}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionAttemptEvidenceReplay.diagnostics}
+                    emptyMessage="No D16 Wave 8 execution attempt evidence diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Lifecycle State</th>
+                        <th className="px-3 py-2">Transition State</th>
+                        <th className="px-3 py-2">Coverage</th>
+                        <th className="px-3 py-2">Evidence</th>
+                        <th className="px-3 py-2">Transitions</th>
+                        <th className="px-3 py-2">Latest Transition</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptEvidenceReplay.derivedAttemptStates.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No derived attempt state projections computed yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptEvidenceReplay.derivedAttemptStates.map((item) => (
+                          <tr key={item.attemptId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2">{item.derivedLifecycleState}</td>
+                            <td className="px-3 py-2">{item.derivedTransitionState}</td>
+                            <td className="px-3 py-2">{item.evidenceCoverageStatus}</td>
+                            <td className="px-3 py-2">{item.evidenceCount}</td>
+                            <td className="px-3 py-2">{item.transitionCount}</td>
+                            <td className="px-3 py-2">{item.latestTransitionKind ?? "—"}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Evidence</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Kind</th>
+                        <th className="px-3 py-2">Summary</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Recorded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptEvidenceReplay.evidenceRecords.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No execution attempt evidence records persisted yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptEvidenceReplay.evidenceRecords.map((item) => (
+                          <tr key={item.evidenceId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.evidenceId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2">{item.evidenceKind}</td>
+                            <td className="px-3 py-2">{item.sanitizedSummary}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.correlationId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.recordedAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Transition</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">From</th>
+                        <th className="px-3 py-2">To</th>
+                        <th className="px-3 py-2">Kind</th>
+                        <th className="px-3 py-2">Evidence</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptEvidenceReplay.stateTransitions.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No execution attempt state transitions persisted yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptEvidenceReplay.stateTransitions.map((item) => (
+                          <tr key={item.transitionId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.transitionId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2">{item.fromState}</td>
+                            <td className="px-3 py-2">{item.toState}</td>
+                            <td className="px-3 py-2">{item.transitionKind}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.evidenceId ?? "—"}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.createdAt}</td>
                           </tr>
                         ))
                       )}

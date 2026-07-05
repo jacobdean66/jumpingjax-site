@@ -3,6 +3,8 @@ import { EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT } from "./exe
 import type { SocialExecutionAuthorizationPersistenceSnapshot } from "./execution-authorization/social-execution-authorization-store";
 import type { SocialExecutionAttemptPersistenceSnapshot } from "./execution-attempt/social-execution-attempt-store";
 import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-store";
+import type { SocialExecutionAttemptEvidencePersistenceSnapshot } from "./execution-attempt/social-execution-attempt-evidence-store";
+import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-evidence-store";
 import { replaySocialCredentialResolutionExecutionBridge } from "./credentials/social-credential-resolution-execution-bridge-replay";
 import { replaySocialCredentialRuntimeOrchestrator } from "./credentials/social-credential-runtime-orchestrator-replay";
 import { replaySocialCredentialReadiness } from "./credentials/social-credential-readiness-replay";
@@ -128,6 +130,7 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
     | string = EMPTY_SOCIAL_EXECUTION_AUTHORIZATION_PERSISTENCE_SNAPSHOT,
   now = "2026-07-01T00:00:00.000Z",
   attemptSnapshot: SocialExecutionAttemptPersistenceSnapshot = EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+  attemptEvidenceSnapshot: SocialExecutionAttemptEvidencePersistenceSnapshot = EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT,
 ): Readonly<{
   context: SocialPublicationExecutionEligibilityPreflightContext;
   diagnostics: SocialPublicationExecutionEligibilityPreflightReplayDiagnostic[];
@@ -206,6 +209,7 @@ export function buildSocialPublicationExecutionEligibilityPreflightContext(
       credentialModel,
       authorizationSnapshot,
       attemptSnapshot,
+      attemptEvidenceSnapshot,
       providerContexts,
     },
     diagnostics,
@@ -222,6 +226,7 @@ export function replaySocialPublicationExecutionEligibilityPreflight(
     | SocialExecutionAttemptPersistenceSnapshot
     | string = "2026-07-01T00:00:00.000Z",
   attemptSnapshot: SocialExecutionAttemptPersistenceSnapshot = EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
+  attemptEvidenceSnapshot: SocialExecutionAttemptEvidencePersistenceSnapshot = EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT,
 ): SocialPublicationExecutionEligibilityPreflightReplayResult {
   const authorizationSnapshot =
     typeof authorizationSnapshotOrNow === "string"
@@ -255,6 +260,7 @@ export function replaySocialPublicationExecutionEligibilityPreflight(
       authorizationSnapshot,
       resolvedNow,
       resolvedAttemptSnapshot,
+      attemptEvidenceSnapshot,
     );
   diagnostics.push(...contextDiagnostics);
 
