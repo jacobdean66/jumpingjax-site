@@ -14,6 +14,10 @@ import type {
   SocialPublicationExecutionIntentRecord,
   SocialPublicationExecutionResultRecord,
 } from "./social-publication-execution-repository";
+import {
+  evaluateTokenLifecyclePreflightForPublicationTarget,
+  type SocialOAuthTokenLifecyclePreflightSummary,
+} from "./oauth/social-oauth-token-lifecycle-preflight";
 
 export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION =
   "d15-w3-v1" as const;
@@ -24,6 +28,7 @@ export const SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_BLOCKED_REASON_CATEGORIES 
   "orchestration_readiness",
   "provider_capability",
   "provider_resolution",
+  "token_lifecycle",
   "audit_compatibility",
   "unsafe",
 ] as const;
@@ -67,10 +72,19 @@ export type SocialPublicationExecutionProviderCapabilitySummary = Readonly<{
   blockingReasons: readonly string[];
 }>;
 
+export type SocialPublicationExecutionTokenLifecycleReadinessSummary = Readonly<{
+  provider: SocialPlatformCredentialProvider | null;
+  tokenLifecycleReady: boolean;
+  expiryState: SocialOAuthTokenLifecyclePreflightSummary["expiryState"] | null;
+  preflightBlockingCodes: readonly string[];
+  blockingReasons: readonly string[];
+}>;
+
 export type SocialPublicationExecutionEligibilityReadinessSummaries = Readonly<{
   credential: SocialPublicationExecutionCredentialReadinessSummary;
   orchestration: SocialPublicationExecutionOrchestrationReadinessSummary;
   providerCapability: SocialPublicationExecutionProviderCapabilitySummary;
+  tokenLifecycle: SocialPublicationExecutionTokenLifecycleReadinessSummary;
   auditAppendCompatible: boolean;
 }>;
 
@@ -151,6 +165,12 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
   const credentialSummary = summarizeCredentialReadiness(primaryProvider, providerContext);
   const orchestrationSummary = summarizeOrchestrationReadiness(primaryProvider, providerContext);
   const capabilitySummary = summarizeProviderCapability(primaryProvider, providerContext);
+  const tokenLifecycleSummary = summarizeTokenLifecycleReadiness(
+    publicationTargetId,
+    primaryProvider,
+    context.credentialModel,
+  );
+  const tokenLifecycleCouldRunLater = tokenLifecycleSummary.couldRunLater;
   const auditAppendCompatible =
     (providerContext.orchestratorProvider?.auditIntegration.appendOnlyCompatible ?? false) &&
     (providerContext.resolutionProvider?.auditCompatible ?? false);
@@ -161,6 +181,7 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
     credentialSummary,
     orchestrationSummary,
     capabilitySummary,
+    tokenLifecycleSummary,
     auditAppendCompatible,
   });
   const aggregatedBlockingCodes = uniqueSorted(
@@ -170,7 +191,9 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
   const couldRunLater =
     d10Preflight.couldRunLater &&
     blockingReasons.every((reason) => reason.category !== "unsafe") &&
-    blockingReasons.every((reason) => reason.category !== "audit_compatibility");
+    blockingReasons.every((reason) => reason.category !== "audit_compatibility") &&
+    (tokenLifecycleCouldRunLater ||
+      tokenLifecycleSummary.preflightBlockingCodes.length === 0);
 
   return deepFreeze({
     preflightVersion: SOCIAL_PUBLICATION_EXECUTION_ELIGIBILITY_PREFLIGHT_VERSION,
@@ -188,6 +211,13 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
       credential: credentialSummary,
       orchestration: orchestrationSummary,
       providerCapability: capabilitySummary,
+      tokenLifecycle: {
+        provider: tokenLifecycleSummary.provider,
+        tokenLifecycleReady: tokenLifecycleSummary.tokenLifecycleReady,
+        expiryState: tokenLifecycleSummary.expiryState,
+        preflightBlockingCodes: tokenLifecycleSummary.preflightBlockingCodes,
+        blockingReasons: tokenLifecycleSummary.blockingReasons,
+      },
       auditAppendCompatible,
     },
     couldRunLater,
@@ -244,6 +274,51 @@ function summarizeOrchestrationReadiness(
   };
 }
 
+function summarizeTokenLifecycleReadiness(
+  publicationTargetId: string | null,
+  provider: SocialPlatformCredentialProvider | null,
+  credentialModel: SocialCredentialPersistenceModel,
+): SocialPublicationExecutionTokenLifecycleReadinessSummary & {
+  couldRunLater: boolean;
+} {
+  if (provider !== "meta") {
+    return {
+      provider,
+      tokenLifecycleReady: true,
+      expiryState: null,
+      preflightBlockingCodes: [],
+      blockingReasons: [],
+      couldRunLater: true,
+    };
+  }
+
+  const tokenLifecycle = evaluateTokenLifecyclePreflightForPublicationTarget({
+    publicationTargetId,
+    credentialModel,
+  });
+
+  if (!tokenLifecycle) {
+    return {
+      provider,
+      tokenLifecycleReady: true,
+      expiryState: null,
+      preflightBlockingCodes: [],
+      blockingReasons: [],
+      couldRunLater: true,
+    };
+  }
+
+  const blockingReasons = [...tokenLifecycle.preflightBlockingCodes];
+  return {
+    provider,
+    tokenLifecycleReady: !tokenLifecycle.blocksExecutionEligibility,
+    expiryState: tokenLifecycle.expiryState,
+    preflightBlockingCodes: tokenLifecycle.preflightBlockingCodes,
+    blockingReasons,
+    couldRunLater: tokenLifecycle.couldRunLater,
+  };
+}
+
 function summarizeProviderCapability(
   provider: SocialPlatformCredentialProvider | null,
   context: SocialPublicationExecutionEligibilityProviderContext,
@@ -279,6 +354,9 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
   credentialSummary: SocialPublicationExecutionCredentialReadinessSummary;
   orchestrationSummary: SocialPublicationExecutionOrchestrationReadinessSummary;
   capabilitySummary: SocialPublicationExecutionProviderCapabilitySummary;
+  tokenLifecycleSummary: SocialPublicationExecutionTokenLifecycleReadinessSummary & {
+    couldRunLater: boolean;
+  };
   auditAppendCompatible: boolean;
 }>): SocialPublicationExecutionEligibilityBlockedReason[] {
   const reasons: SocialPublicationExecutionEligibilityBlockedReason[] = [];
@@ -329,6 +407,16 @@ function aggregateEligibilityBlockingReasons(input: Readonly<{
       code,
       path: "readiness.providerCapability",
       message: `Provider capability blocked publication execution eligibility: ${code}.`,
+      severity: "block",
+    });
+  }
+
+  for (const code of input.tokenLifecycleSummary.blockingReasons) {
+    reasons.push({
+      category: "token_lifecycle",
+      code,
+      path: "readiness.tokenLifecycle",
+      message: `Meta OAuth token lifecycle blocked publication execution eligibility: ${code}.`,
       severity: "block",
     });
   }

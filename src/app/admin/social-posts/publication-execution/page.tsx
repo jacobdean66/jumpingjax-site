@@ -166,6 +166,7 @@ import { replaySocialOAuthConnections } from "@/lib/social-posts/oauth/social-oa
 import { replaySocialMetaAssetBindings } from "@/lib/social-posts/oauth/social-meta-asset-replay";
 import { replaySocialOAuthTokenLifecycle } from "@/lib/social-posts/oauth/social-oauth-token-lifecycle-replay";
 import { replaySocialOAuthBindingHealth } from "@/lib/social-posts/oauth/social-oauth-binding-health-replay";
+import { replaySocialOAuthManualRefresh } from "@/lib/social-posts/oauth/social-oauth-manual-refresh-replay";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -205,6 +206,10 @@ type Props = {
     meta_assets_pages?: string;
     meta_assets_instagram?: string;
     meta_assets_binding_id?: string;
+    oauth_refresh?: string;
+    oauth_refresh_error?: string;
+    oauth_refresh_message?: string;
+    oauth_refresh_mode?: string;
   }>;
 };
 
@@ -2738,12 +2743,15 @@ export default async function AdminPublicationExecutionPage({
   const metaAssetReplay = await replaySocialMetaAssetBindings();
   const tokenLifecycleReplay = await replaySocialOAuthTokenLifecycle();
   const bindingHealthReplay = await replaySocialOAuthBindingHealth();
+  const manualRefreshReplay = await replaySocialOAuthManualRefresh();
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
   const oauthStatusMessage = resolved.oauth_message ?? "";
   const metaAssetsStatus = resolved.meta_assets ?? "";
   const metaAssetsStatusMessage = resolved.meta_assets_message ?? "";
+  const oauthRefreshStatus = resolved.oauth_refresh ?? "";
+  const oauthRefreshStatusMessage = resolved.oauth_refresh_message ?? "";
   const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
     oauthConnectionReplay,
     eligibilityPreflightReplay.eligibilityPassJobs
@@ -3854,6 +3862,172 @@ export default async function AdminPublicationExecutionPage({
                                 ? item.blockingReasons.join(", ")
                                 : "—"}
                             </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      D16 Wave 4 Owner-Gated Manual Token Refresh
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Controlled manual refresh and preflight integration
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      Owner-initiated manual refresh uses the existing D16 W3 refresh service
+                      and vault rotation path only. GET-only diagnostics show refresh
+                      eligibility, recent rotate audit events, and D15 eligibility preflight
+                      token lifecycle blocking reasons. No automatic refresh.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+                    D16 W4 manual refresh
+                  </span>
+                </div>
+
+                {oauthRefreshStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Refresh result: {oauthRefreshStatus}
+                    {oauthRefreshStatusMessage ? ` — ${oauthRefreshStatusMessage}` : ""}
+                    {resolved.oauth_refresh_error ? ` (${resolved.oauth_refresh_error})` : ""}
+                    {resolved.oauth_refresh_mode ? ` — mode: ${resolved.oauth_refresh_mode}` : ""}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Replay Version" value={manualRefreshReplay.replayVersion} />
+                  <Field
+                    label="Manual Refresh Eligible"
+                    value={manualRefreshReplay.summary.manualRefreshEligibleCount}
+                  />
+                  <Field
+                    label="Manual Refresh Blocked"
+                    value={manualRefreshReplay.summary.manualRefreshBlockedCount}
+                  />
+                  <Field
+                    label="Recent Rotate Audits"
+                    value={manualRefreshReplay.summary.recentRefreshAuditEventCount}
+                  />
+                  <Field
+                    label="Successful Rotate Audits"
+                    value={manualRefreshReplay.summary.successfulRefreshAuditCount}
+                  />
+                </div>
+
+                {auth.role === "owner" && filters.publicationTargetId ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3"
+                    action="/api/admin/social-oauth/refresh"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 py-2 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={
+                        !oauthConnectConfigured ||
+                        !manualRefreshReplay.manualRefreshTargetStatuses.some(
+                          (status) =>
+                            status.publicationTargetId === filters.publicationTargetId &&
+                            status.manualRefreshEligible,
+                        )
+                      }
+                    >
+                      Refresh Meta Token
+                    </button>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Owner-only. Target: {filters.publicationTargetId}
+                    </p>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Set a publication target filter to enable owner manual refresh when eligible.
+                  </p>
+                )}
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={manualRefreshReplay.diagnostics}
+                    emptyMessage="No D16 Wave 4 manual refresh diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Target</th>
+                        <th className="px-3 py-2">Eligible</th>
+                        <th className="px-3 py-2">Mode</th>
+                        <th className="px-3 py-2">Expiry</th>
+                        <th className="px-3 py-2">Last Audit</th>
+                        <th className="px-3 py-2">Blocking Reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {manualRefreshReplay.manualRefreshTargetStatuses.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No manual refresh eligibility records computed yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        manualRefreshReplay.manualRefreshTargetStatuses.map((item) => (
+                          <tr key={item.publicationTargetId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.publicationTargetId}</td>
+                            <td className="px-3 py-2 font-black">{String(item.manualRefreshEligible)}</td>
+                            <td className="px-3 py-2">{item.refreshMode}</td>
+                            <td className="px-3 py-2">{item.expiryState}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.lastRefreshAuditAt ?? "—"}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {item.refreshBlockingReasons.length > 0
+                                ? item.refreshBlockingReasons.join(", ")
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Audit Event</th>
+                        <th className="px-3 py-2">Action</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Detail</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {manualRefreshReplay.recentRefreshAuditEvents.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={5}>
+                            No manual refresh rotate audit events recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        manualRefreshReplay.recentRefreshAuditEvents.map((event) => (
+                          <tr key={event.auditEventId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{event.auditEventId}</td>
+                            <td className="px-3 py-2">{event.action}</td>
+                            <td className="px-3 py-2">{event.outcome}</td>
+                            <td className="px-3 py-2">{event.sanitizedDetail}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
                           </tr>
                         ))
                       )}

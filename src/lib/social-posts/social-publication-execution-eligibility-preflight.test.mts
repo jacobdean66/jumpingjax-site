@@ -285,3 +285,53 @@ await test("builds orchestration-aware eligibility context from runtime replays"
   assert.equal(orchestrator.summary.totalProviderCount, 3);
   assert.equal(Array.isArray(diagnostics), true);
 });
+
+await test("blocks publication execution eligibility when meta oauth token is expired", () => {
+  const record = intentRecord();
+  const model = credentialModel({
+    provider_accounts: [providerAccount()],
+    vault_records: [
+      vaultRecord({
+        credential_kind: "oauth_token_ref",
+      }),
+    ],
+    lifecycle_states: [
+      {
+        lifecycle_state_id:
+          "lifecycle:test" as import("./credentials/social-credential-repository").SocialCredentialLifecycleStateRecord["lifecycle_state_id"],
+        credential_ref_id:
+          "cred-ref-meta-1" as import("./credentials/social-credential-repository").SocialCredentialLifecycleStateRecord["credential_ref_id"],
+        account_ref_id: "account-ref-meta-1",
+        provider: "meta",
+        authorization_state: "authorized_reference",
+        lifecycle_phase: "active",
+        issued_at: "2026-07-01T00:00:00.000Z",
+        expires_at: "2026-07-02T00:00:00.000Z",
+        last_rotated_at: null,
+        revoked_at: null,
+        scope_fingerprint_redacted: "meta-live-oauth",
+        created_at: "2026-07-01T00:00:00.000Z",
+        modeled_only: true,
+        references_only: true,
+        contains_credentials: false,
+        grants_execution_permission: false,
+        executes_nothing: true,
+        publishes_nothing: true,
+      },
+    ],
+  });
+  const { context } = buildSocialPublicationExecutionEligibilityPreflightContext(
+    model,
+    "2026-07-05T00:00:00.000Z",
+  );
+  const evaluation = evaluateSocialPublicationExecutionEligibilityPreflight(record, null, context);
+
+  assert.equal(evaluation.status, "block");
+  assert.equal(
+    evaluation.blockingReasons.some(
+      (reason) => reason.category === "token_lifecycle" && reason.code === "token_expired",
+    ),
+    true,
+  );
+  assert.equal(evaluation.readiness.tokenLifecycle.expiryState, "expired");
+});

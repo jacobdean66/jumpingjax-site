@@ -412,6 +412,19 @@ Current components:
 - **D16 W3 binding health replay** (`social-oauth-binding-health-replay.ts`) — GET-only binding health correlation (OAuth + binding + token expiry).
 - **D16 W3 admin visibility** — token lifecycle and binding health tables/diagnostics on `/admin/social-posts/publication-execution` (GET-only; no refresh trigger on admin page).
 
+### Layer 21: Owner-Gated Manual Token Refresh & Preflight Integration (D16 Wave 4, complete)
+
+D16 Wave 4 wires the D16 W3 controlled refresh service into an owner-gated manual refresh action and surfaces Meta OAuth token lifecycle state in D15 publication execution eligibility preflight. No automatic refresh, publishing, scheduling, or execution authority.
+
+Current components:
+
+- **D16 W4 refresh request validation** (`social-oauth-token-refresh-request.ts`) — manual refresh request validation for `publication_target_id`.
+- **D16 W4 token lifecycle preflight** (`social-oauth-token-lifecycle-preflight.ts`) — derives `token_expired`, `token_expiring_soon`, and `token_unknown` blocking codes from credential lifecycle metadata.
+- **D16 W4 manual refresh replay** (`social-oauth-manual-refresh-replay.ts`) — GET-only manual refresh eligibility, recent rotate audit visibility, and diagnostics.
+- **D16 W4 API route** — `POST /api/admin/social-oauth/refresh` (owner-gated; uses existing W3 refresh service and vault rotation only).
+- **D16 W4 preflight integration** — `social-publication-execution-eligibility-preflight.ts` adds `token_lifecycle` blocking category.
+- **D16 W4 admin visibility** — manual refresh control, result banner, eligibility table, and rotate audit table on `/admin/social-posts/publication-execution`.
+
 ## Admin Read-Only Surfaces
 
 All implemented marketing-platform admin pages are auth-gated and read-only for inspection:
@@ -425,7 +438,7 @@ All implemented marketing-platform admin pages are auth-gated and read-only for 
 - **Publication Publisher (D9 + H19)** — durable Publisher request/result records and computed replay through H18 bridge.
 - **Publication Metrics (D9 + H24)** — durable metric observation records and computed replay through H24 bridge.
 - **Publication Learning (D9 + H26)** — candidate/blocked/accepted-for-review/rejected learning insight records and computed, explainable replay through the H25 bridge. No production store; storage-unavailable is an expected state.
-- **Publication Execution (D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1-3 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H45/H46/H47/H48)** — durable Execution request/result records, computed replay, read-only preflight diagnostics, simulated planner visibility, adapter contract diagnostics, runbook readiness diagnostics, coordinator pipeline diagnostics, platform adapter registry diagnostics, Meta/TikTok/LinkedIn adapter contract diagnostics, credential/OAuth boundary diagnostics, platform readiness gate diagnostics, D12 OAuth request/callback/session replay diagnostics, D15 credential runtime orchestration diagnostics, D15 provider integration planning diagnostics, D15 credential resolution execution bridge diagnostics, D15 publication execution eligibility preflight diagnostics, D16 live Meta OAuth connect diagnostics, D16 Meta asset binding diagnostics, and D16 token lifecycle/binding health diagnostics through H31 bridge; owner connect/discover/bind remain the mutation surfaces. D12 OAuth diagnostics remain read-only modeling.
+- **Publication Execution (D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1-4 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H45/H46/H47/H48)** — durable Execution request/result records, computed replay, read-only preflight diagnostics, simulated planner visibility, adapter contract diagnostics, runbook readiness diagnostics, coordinator pipeline diagnostics, platform adapter registry diagnostics, Meta/TikTok/LinkedIn adapter contract diagnostics, credential/OAuth boundary diagnostics, platform readiness gate diagnostics, D12 OAuth request/callback/session replay diagnostics, D15 credential runtime orchestration diagnostics, D15 provider integration planning diagnostics, D15 credential resolution execution bridge diagnostics, D15 publication execution eligibility preflight diagnostics (including D16 token lifecycle blocking), D16 live Meta OAuth connect diagnostics, D16 Meta asset binding diagnostics, D16 token lifecycle/binding health diagnostics, and D16 owner-gated manual refresh diagnostics through H31 bridge; owner connect/discover/bind/refresh remain the mutation surfaces. D12 OAuth diagnostics remain read-only modeling.
 - **AI Operations Console (D9 Wave 11)** — unified, GET-only overview of all read-visible subsystems, a cross-system pipeline trace scoped by social post id, and passive health diagnostics. Composes existing bridges/replay only; introduces no new persistence or mutation.
 
 H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces. H20 added Publisher links between the hub, Publisher, scheduler, ledger, and manifest read surfaces. H27 added Learning links between the hub, Metrics, Publisher, Scheduler, Ledger, and Manifest read surfaces. Wave 11 added the Operations Console link from the social-posts hub. The D9 Final Architecture Audit (pre-D10) closed the remaining Operations Console back-link gap. H33 adds Execution links between the hub, Scheduler, Publisher, Metrics, Learning, Ledger, Manifest, and Operations Console.
