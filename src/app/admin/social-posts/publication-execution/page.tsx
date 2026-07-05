@@ -172,6 +172,7 @@ import { loadSocialExecutionAuthorizationSnapshot } from "@/lib/social-posts/exe
 import { replaySocialExecutionAttempt } from "@/lib/social-posts/execution-attempt/social-execution-attempt-replay";
 import { replaySocialExecutionAttemptCreation } from "@/lib/social-posts/execution-attempt/social-execution-attempt-creation-replay";
 import { replaySocialExecutionAttemptEvidence } from "@/lib/social-posts/execution-attempt/social-execution-attempt-evidence-replay";
+import { replaySocialExecutionAttemptEvidenceAppend } from "@/lib/social-posts/execution-attempt/social-execution-attempt-evidence-append-replay";
 import {
   loadSocialExecutionAttemptSnapshot,
   EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
@@ -234,6 +235,12 @@ type Props = {
     exec_attempt_correlation_id?: string;
     exec_attempt_idempotency_key?: string;
     exec_attempt_session_id?: string;
+    exec_evidence?: string;
+    exec_evidence_error?: string;
+    exec_evidence_message?: string;
+    exec_evidence_id?: string;
+    exec_evidence_correlation_id?: string;
+    exec_evidence_transition_id?: string;
   }>;
 };
 
@@ -2789,6 +2796,10 @@ export default async function AdminPublicationExecutionPage({
     evidenceSnapshot: attemptEvidenceSnapshot,
     authorizationSnapshot,
   });
+  const executionAttemptEvidenceAppendReplay = await replaySocialExecutionAttemptEvidenceAppend({
+    attemptSnapshot,
+    evidenceSnapshot: attemptEvidenceSnapshot,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -2801,6 +2812,8 @@ export default async function AdminPublicationExecutionPage({
   const execAuthStatusMessage = resolved.exec_auth_message ?? "";
   const execAttemptStatus = resolved.exec_attempt ?? "";
   const execAttemptStatusMessage = resolved.exec_attempt_message ?? "";
+  const execEvidenceStatus = resolved.exec_evidence ?? "";
+  const execEvidenceStatusMessage = resolved.exec_evidence_message ?? "";
   const oauthOrchestrationDiagnostics = buildSocialOAuthOrchestrationDiagnostics(
     oauthConnectionReplay,
     eligibilityPreflightReplay.eligibilityPassJobs
@@ -4662,6 +4675,190 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{item.createdAt}</td>
                           </tr>
                         ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-sky-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                      D16 Wave 9 Owner-Gated Evidence Append
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      Manual execution attempt evidence append and append replay
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D16 Wave 9 adds owner-gated evidence append subordinate to D16 Waves 6–8.
+                      Append-only metadata evidence and optional aligned state transitions only.
+                      Owner approval is verified against durable owner-approval records before
+                      append. No execution, publishing, automatic evidence creation, or vault
+                      access.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-sky-800">
+                    D16 W9 evidence append
+                  </span>
+                </div>
+
+                {execEvidenceStatus ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Evidence append result: {execEvidenceStatus}
+                    {execEvidenceStatusMessage ? ` — ${execEvidenceStatusMessage}` : ""}
+                    {resolved.exec_evidence_error ? ` (${resolved.exec_evidence_error})` : ""}
+                    {resolved.exec_evidence_correlation_id
+                      ? ` — correlation: ${resolved.exec_evidence_correlation_id}`
+                      : ""}
+                    {resolved.exec_evidence_transition_id
+                      ? ` — transition: ${resolved.exec_evidence_transition_id}`
+                      : ""}
+                  </div>
+                ) : null}
+
+                {auth.role === "owner" &&
+                resolved.exec_attempt_id &&
+                filters.ownerApprovalId ? (
+                  <form
+                    className="mt-4 grid gap-3 md:grid-cols-2"
+                    action="/api/admin/social-execution/append-evidence"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input type="hidden" name="attempt_id" value={resolved.exec_attempt_id} />
+                    <input
+                      type="hidden"
+                      name="owner_approval_id"
+                      value={filters.ownerApprovalId}
+                    />
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Evidence kind
+                      <select
+                        name="evidence_kind"
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                        defaultValue="operator_note"
+                      >
+                        <option value="operator_note">operator_note</option>
+                        <option value="correlation_evidence">correlation_evidence</option>
+                        <option value="lifecycle_alignment_evidence">
+                          lifecycle_alignment_evidence
+                        </option>
+                        <option value="authorization_linkage_evidence">
+                          authorization_linkage_evidence
+                        </option>
+                        <option value="state_transition_evidence">
+                          state_transition_evidence
+                        </option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Optional transition kind
+                      <select
+                        name="transition_kind"
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                        defaultValue=""
+                      >
+                        <option value="">None</option>
+                        <option value="evidence_aligned">evidence_aligned</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-semibold text-slate-700 md:col-span-2">
+                      Sanitized summary
+                      <textarea
+                        name="sanitized_summary"
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                        rows={3}
+                        placeholder="Metadata-only operator note for this attempt."
+                        required
+                      />
+                    </label>
+                    <div className="md:col-span-2">
+                      <button
+                        type="submit"
+                        className="inline-flex min-h-11 items-center justify-center rounded-full bg-sky-700 px-5 py-2 text-sm font-black text-white hover:bg-sky-800"
+                      >
+                        Append Execution Attempt Evidence
+                      </button>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        Owner-only. Attempt: {resolved.exec_attempt_id} — owner approval:{" "}
+                        {filters.ownerApprovalId}
+                      </p>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-slate-500">
+                    Set owner approval filter and create or select an execution attempt to enable
+                    owner-gated evidence append.
+                  </p>
+                )}
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field
+                    label="Append Replay"
+                    value={executionAttemptEvidenceAppendReplay.replayVersion}
+                  />
+                  <Field
+                    label="Appended Evidence"
+                    value={executionAttemptEvidenceAppendReplay.summary.appendedEvidenceCount}
+                  />
+                  <Field
+                    label="Successful Appends"
+                    value={executionAttemptEvidenceAppendReplay.summary.successfulAppendCount}
+                  />
+                  <Field
+                    label="Failed Appends"
+                    value={executionAttemptEvidenceAppendReplay.summary.failedAppendCount}
+                  />
+                  <Field
+                    label="Transition Appends"
+                    value={executionAttemptEvidenceAppendReplay.summary.transitionAppendCount}
+                  />
+                  <Field
+                    label="Append Audit Events"
+                    value={executionAttemptEvidenceAppendReplay.summary.auditEventCount}
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Audit</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Action</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Correlation</th>
+                        <th className="px-3 py-2">Detail</th>
+                        <th className="px-3 py-2">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionAttemptEvidenceAppendReplay.recentAppendAuditEvents.length ===
+                      0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No execution attempt evidence append audit events recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionAttemptEvidenceAppendReplay.recentAppendAuditEvents.map(
+                          (event) => (
+                            <tr key={event.auditEventId} className="border-b border-slate-100">
+                              <td className="px-3 py-2 font-mono text-xs">{event.auditEventId}</td>
+                              <td className="px-3 py-2 font-mono text-xs">
+                                {event.attemptId ?? "—"}
+                              </td>
+                              <td className="px-3 py-2">{event.action}</td>
+                              <td className="px-3 py-2">{event.outcome}</td>
+                              <td className="px-3 py-2 font-mono text-xs">
+                                {event.correlationId ?? "—"}
+                              </td>
+                              <td className="px-3 py-2">{event.sanitizedDetail}</td>
+                              <td className="px-3 py-2 font-mono text-xs">{event.createdAt}</td>
+                            </tr>
+                          ),
+                        )
                       )}
                     </tbody>
                   </table>

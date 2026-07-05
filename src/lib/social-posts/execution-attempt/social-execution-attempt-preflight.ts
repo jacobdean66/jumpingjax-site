@@ -4,7 +4,7 @@ import {
   type SocialExecutionAttemptDerivedAwarenessStatus,
 } from "./social-execution-attempt-domain";
 import { detectExecutionAttemptDuplicates } from "./social-execution-attempt-idempotency-domain";
-import { evaluateExecutionAttemptCreationAvailability } from "./social-execution-attempt-creation-replay";
+import { evaluateExecutionAttemptCreationAvailability } from "./social-execution-attempt-creation-preflight";
 import {
   replaySocialExecutionAttemptForIntent,
   type SocialExecutionAttemptReplayProjection,

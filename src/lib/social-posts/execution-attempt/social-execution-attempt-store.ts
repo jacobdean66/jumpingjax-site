@@ -12,7 +12,9 @@ export type SocialExecutionAttemptAuditEventRow = Readonly<{
     | "append_lifecycle"
     | "validation_failed"
     | "create_attempt"
-    | "create_validation_failed";
+    | "create_validation_failed"
+    | "append_evidence"
+    | "append_evidence_validation_failed";
   outcome:
     | "success"
     | "validation_failed"

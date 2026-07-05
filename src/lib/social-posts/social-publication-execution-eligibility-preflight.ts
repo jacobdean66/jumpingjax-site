@@ -34,6 +34,9 @@ import {
   evaluateExecutionAttemptEvidencePreflightForIntent,
   type SocialExecutionAttemptEvidencePreflightSummary,
 } from "./execution-attempt/social-execution-attempt-evidence-preflight";
+import {
+  evaluateExecutionAttemptEvidenceAppendPreflightForAttempt,
+} from "./execution-attempt/social-execution-attempt-evidence-append-preflight";
 import type { SocialExecutionAttemptEvidencePersistenceSnapshot } from "./execution-attempt/social-execution-attempt-evidence-store";
 import { EMPTY_SOCIAL_EXECUTION_ATTEMPT_EVIDENCE_PERSISTENCE_SNAPSHOT } from "./execution-attempt/social-execution-attempt-evidence-store";
 
@@ -138,6 +141,8 @@ export type SocialPublicationExecutionAttemptEvidenceReadinessSummary = Readonly
   latestTransitionKind: SocialExecutionAttemptEvidencePreflightSummary["latestTransitionKind"] | null;
   derivedTransitionState: string | null;
   evidenceAligned: boolean;
+  evidenceAppendAvailable: boolean;
+  appendBlockingCodes: readonly string[];
   informationalOnly: true;
 }>;
 
@@ -344,6 +349,8 @@ export function evaluateSocialPublicationExecutionEligibilityPreflight(
         latestTransitionKind: attemptEvidenceSummary.latestTransitionKind,
         derivedTransitionState: attemptEvidenceSummary.derivedTransitionState,
         evidenceAligned: attemptEvidenceSummary.evidenceAligned,
+        evidenceAppendAvailable: attemptEvidenceSummary.evidenceAppendAvailable,
+        appendBlockingCodes: attemptEvidenceSummary.appendBlockingCodes,
         informationalOnly: true,
       },
       auditAppendCompatible,
@@ -541,6 +548,8 @@ function summarizeExecutionAttemptEvidenceReadiness(
       latestTransitionKind: null,
       derivedTransitionState: null,
       evidenceAligned: false,
+      evidenceAppendAvailable: false,
+      appendBlockingCodes: [],
       informationalOnly: true,
     };
   }
@@ -562,9 +571,28 @@ function summarizeExecutionAttemptEvidenceReadiness(
       latestTransitionKind: null,
       derivedTransitionState: null,
       evidenceAligned: false,
+      evidenceAppendAvailable: false,
+      appendBlockingCodes: [],
       informationalOnly: true,
     };
   }
+
+  const authorization =
+    authorizationSnapshot.authorizations.find(
+      (record) =>
+        record.executionIntentId === executionIntentId &&
+        record.publicationTargetId === publicationTargetId,
+    ) ?? null;
+
+  const appendPreflight = preflight.attemptId
+    ? evaluateExecutionAttemptEvidenceAppendPreflightForAttempt({
+        attemptId: preflight.attemptId,
+        ownerApprovalId: authorization?.ownerApprovalId ?? null,
+        attemptSnapshot,
+        evidenceSnapshot: attemptEvidenceSnapshot,
+        authorizationSnapshot,
+      })
+    : null;
 
   return {
     evidenceCount: preflight.evidenceCount,
@@ -574,6 +602,8 @@ function summarizeExecutionAttemptEvidenceReadiness(
     latestTransitionKind: preflight.latestTransitionKind,
     derivedTransitionState: preflight.derivedTransitionState,
     evidenceAligned: preflight.evidenceAligned,
+    evidenceAppendAvailable: appendPreflight?.evidenceAppendAvailable ?? false,
+    appendBlockingCodes: appendPreflight?.appendBlockingCodes ?? [],
     informationalOnly: true,
   };
 }

@@ -379,7 +379,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, eligibility, and live Meta OAuth connect diagnostics |
+| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1-9 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, eligibility, live Meta OAuth connect, token lifecycle, execution authorization, execution attempt, and evidence append diagnostics |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.
@@ -440,7 +440,7 @@ Status: **planning only** — no implementation authorized. Architecture frozen 
 | D13 | Credential architecture (encrypted storage, rotation, audit) | Waves 1–5 complete — domain, repository, metadata store, encryption boundary, cryptographic policy; H43–H44 diagnostics; no encryption execution |
 | D14 | OAuth integration (connect, callback, token exchange) | Superseded for Meta by D16 Wave 1 live connect; TikTok/LinkedIn OAuth not started |
 | D15 | Platform API layer (Meta, TikTok, LinkedIn live adapters) | Credential runtime orchestration complete (D15 W1); provider integration planning contracts complete (D15 W2a); credential resolution execution bridge complete (D15 W2b); publication execution eligibility preflight complete (D15 W3); live HTTP/SDK adapters not started |
-| D16 | Controlled execution (runner, publish pipeline, owner approval) | Wave 1 Meta live OAuth connect complete; Wave 2 Meta asset discovery and publication target binding complete; runner/publish pipeline not started |
+| D16 | Controlled execution (runner, publish pipeline, owner approval) | Waves 1–9 complete: Meta OAuth connect, asset binding, token lifecycle, manual refresh, execution authorization, attempt modeling, attempt creation, evidence modeling, owner-gated evidence append; runner/publish pipeline not started |
 | D17 | Production operations (metrics collection, retry, alerts, DLQ) | Not started |
 | D18 | Autonomous Marketing OS (scheduler automation, recommendations, learning persistence) | Not started |
 

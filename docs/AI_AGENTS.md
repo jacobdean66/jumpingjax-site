@@ -102,6 +102,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 8 Execution attempt evidence & state modeling:** Immutable execution attempt evidence domain, attempt state transition vocabulary, append-only evidence persistence, GET-only evidence replay, derived attempt state computation, D15 informational evidence coverage integration, and admin evidence/state diagnostics. Models metadata evidence and transitions only; no execution, publishing, evidence mutation routes, or automatic evidence creation.
 
+**D16 Wave 9 Owner-gated execution attempt evidence append:** W7-owned creation preflight extracted to fix W6 upward dependency (audit R1), owner-gated `POST /api/admin/social-execution/append-evidence`, evidence append request validation, append service using W8 append-only store with durable owner-approval verification, optional aligned state transition append, append audit visibility, GET-only append replay, D15 informational evidence append availability fields, and admin Append Evidence control with append replay diagnostics. Appends metadata evidence only; no execution, publishing, automatic evidence creation, vault access, or credential mutation.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:
