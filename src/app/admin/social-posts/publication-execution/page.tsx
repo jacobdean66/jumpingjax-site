@@ -178,6 +178,10 @@ import {
   EMPTY_SOCIAL_EXECUTION_ATTEMPT_PERSISTENCE_SNAPSHOT,
 } from "@/lib/social-posts/execution-attempt/social-execution-attempt-store";
 import { loadSocialExecutionAttemptEvidenceSnapshot } from "@/lib/social-posts/execution-attempt/social-execution-attempt-evidence-store";
+import { buildExecutionRunnerDiagnostics } from "@/lib/social-posts/execution-runner/social-execution-runner-diagnostics";
+import { SOCIAL_EXECUTION_RUNNER_VERSION } from "@/lib/social-posts/execution-runner/social-execution-runner-domain";
+import { replaySocialExecutionRunner } from "@/lib/social-posts/execution-runner/social-execution-runner-replay";
+import { getPublicationTargetById } from "@/lib/social-posts/social-publication-target-store";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -2800,6 +2804,22 @@ export default async function AdminPublicationExecutionPage({
     attemptSnapshot,
     evidenceSnapshot: attemptEvidenceSnapshot,
   });
+  const publicationTargetLookup =
+    filters.publicationTargetId.trim().length > 0
+      ? await getPublicationTargetById(filters.publicationTargetId)
+      : null;
+  const publicationTargetForRunner =
+    publicationTargetLookup?.ok ? publicationTargetLookup.value : null;
+  const executionRunnerReplay = await replaySocialExecutionRunner({
+    attemptId: resolved.exec_attempt_id ?? null,
+    attemptSnapshot,
+    authorizationSnapshot,
+    evidenceSnapshot: attemptEvidenceSnapshot,
+    publicationTarget: publicationTargetForRunner,
+  });
+  const executionRunnerDiagnostics = buildExecutionRunnerDiagnostics({
+    replay: executionRunnerReplay,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -4870,6 +4890,101 @@ export default async function AdminPublicationExecutionPage({
                             </tr>
                           ),
                         )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      Dry-Run Execution Runner
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {executionRunnerDiagnostics.summary.runnerReady
+                        ? "Dry-run runner preflight ready"
+                        : "Dry-run runner preflight blocked"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D16 Wave 11 dry-run execution runner composes authorization, attempt,
+                      evidence, publication target, and dry-run adapter simulation only. This is
+                      orchestration and in-memory simulation — no publishing, no HTTP, no OAuth,
+                      no credential access, and no run button.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    D16 W11 runner
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Runner Version" value={SOCIAL_EXECUTION_RUNNER_VERSION} />
+                  <Field label="Replay Version" value={executionRunnerReplay.replayVersion} />
+                  <Field
+                    label="Runner Ready"
+                    value={String(executionRunnerDiagnostics.summary.runnerReady)}
+                  />
+                  <Field
+                    label="Preflight Blocking Codes"
+                    value={executionRunnerDiagnostics.summary.preflightBlockingCodeCount}
+                  />
+                  <Field
+                    label="Transcript Count"
+                    value={executionRunnerDiagnostics.summary.transcriptCount}
+                  />
+                  <Field
+                    label="Simulated Transcripts"
+                    value={executionRunnerDiagnostics.summary.simulatedTranscriptCount}
+                  />
+                  <Field
+                    label="Blocked Transcripts"
+                    value={executionRunnerDiagnostics.summary.blockedTranscriptCount}
+                  />
+                  <Field
+                    label="Diagnostics"
+                    value={executionRunnerDiagnostics.summary.diagnosticCount}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionRunnerDiagnostics.diagnostics}
+                    emptyMessage="No D16 Wave 11 dry-run runner diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Transcript</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Platform</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Summary</th>
+                        <th className="px-3 py-2">Recorded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionRunnerReplay.transcripts.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No dry-run execution runner transcripts recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionRunnerReplay.transcripts.map((item) => (
+                          <tr key={item.transcriptId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.transcriptId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2">{item.platform}</td>
+                            <td className="px-3 py-2">{item.outcomeStatus}</td>
+                            <td className="px-3 py-2">{item.sanitizedSummary}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.recordedAt}</td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
