@@ -14,6 +14,12 @@ import { evaluateExecutionSessionPreflight } from "./social-execution-session-pr
 import type { SocialExecutionSessionBridgeMode } from "./social-execution-session-bridge";
 import { loadSocialExecutionSessionBridgeSnapshot } from "./social-execution-session-bridge";
 import type { SocialExecutionSessionPersistenceSnapshot } from "./social-execution-session-store";
+import type {
+  SocialExecutionSessionCorrelationContext,
+  SocialExecutionSessionQueryOptions,
+  SocialExecutionSessionRepositoryIdentity,
+} from "./social-execution-session-repository";
+import { querySocialExecutionSessionRecords } from "./social-execution-session-repository";
 
 export const SOCIAL_EXECUTION_SESSION_REPLAY_VERSION = SOCIAL_EXECUTION_SESSION_VERSION;
 
@@ -35,6 +41,11 @@ export type SocialExecutionSessionReplaySummary = Readonly<{
   storageConfigured: boolean;
   durableHistoryAvailable: boolean;
   bridgeMode: SocialExecutionSessionBridgeMode | "unconfigured";
+  queryTotalCount: number;
+  queryReturnedCount: number;
+  queryLimit: number;
+  queryOffset: number;
+  queryHasMore: boolean;
 }>;
 
 export type SocialExecutionSessionReplayProjection = Readonly<{
@@ -75,6 +86,9 @@ export type SocialExecutionSessionReplayResult = Readonly<{
 export async function replaySocialExecutionSession(input: {
   sessionId?: string | null;
   attemptId?: string | null;
+  identity?: SocialExecutionSessionRepositoryIdentity;
+  correlationContext?: SocialExecutionSessionCorrelationContext;
+  queryOptions?: SocialExecutionSessionQueryOptions;
   sessionSnapshot?: SocialExecutionSessionPersistenceSnapshot;
   runnerSnapshot?: SocialExecutionRunnerPersistenceSnapshot;
   preflightInput?: Readonly<{
@@ -85,45 +99,55 @@ export async function replaySocialExecutionSession(input: {
     publicationTarget?: Parameters<typeof evaluateExecutionSessionPreflight>[0]["publicationTarget"];
   }>;
 } = {}): Promise<SocialExecutionSessionReplayResult> {
-  const bridgeLoad = input.sessionSnapshot
+  const identity = mergeReplayIdentity(input);
+  const queryResult = input.sessionSnapshot
     ? {
         ok: true as const,
-        value: {
-          mode: "reference" as const,
+        value: querySocialExecutionSessionRecords({
+          snapshot: input.sessionSnapshot,
+          identity,
+          correlationContext: input.correlationContext,
+          queryOptions: input.queryOptions,
+        }),
+        bridge: {
           storageConfigured: true,
           durableHistoryAvailable:
             input.sessionSnapshot.sessions.length > 0 ||
             input.sessionSnapshot.auditEvents.length > 0,
-          snapshot: input.sessionSnapshot,
+          mode: "reference" as const,
         },
       }
-    : await loadSocialExecutionSessionBridgeSnapshot();
+    : await loadReplayQueryResult({
+        identity,
+        correlationContext: input.correlationContext,
+        queryOptions: input.queryOptions,
+      });
 
-  if (!bridgeLoad.ok) {
+  if (!queryResult.ok) {
     return buildEmptyReplayResult({
       diagnostics: [
         {
-          code: bridgeLoad.error.code,
+          code: queryResult.error.code,
           severity: "error",
-          path: "bridge.loadSnapshot",
-          message: bridgeLoad.error.message,
+          path: "repository.query",
+          message: queryResult.error.message,
         },
       ],
     });
   }
 
-  const sessionSnapshot = bridgeLoad.value.snapshot;
+  const filteredSessions = queryResult.value.sessions;
   const runnerSnapshot = input.runnerSnapshot ?? (await loadSocialExecutionRunnerSnapshot());
   const diagnostics: SocialExecutionSessionReplayDiagnostic[] = [];
 
-  if (!bridgeLoad.value.storageConfigured) {
+  if (!queryResult.bridge.storageConfigured) {
     diagnostics.push({
       code: "durable_storage_unconfigured",
       severity: "info",
       path: "bridge.storageConfigured",
       message: "Execution session durable storage is not configured; replay uses empty durable history.",
     });
-  } else if (!bridgeLoad.value.durableHistoryAvailable) {
+  } else if (!queryResult.bridge.durableHistoryAvailable) {
     diagnostics.push({
       code: "durable_history_empty",
       severity: "info",
@@ -132,7 +156,7 @@ export async function replaySocialExecutionSession(input: {
     });
   }
 
-  for (const [index, record] of sessionSnapshot.sessions.entries()) {
+  for (const [index, record] of filteredSessions.entries()) {
     const validation = validateExecutionSessionRecord(record, `sessions.${index}`);
     if (!validation.ok) {
       for (const error of validation.errors) {
@@ -146,24 +170,14 @@ export async function replaySocialExecutionSession(input: {
     }
   }
 
-  const filteredSessions = sessionSnapshot.sessions.filter((session) => {
-    if (hasText(input.sessionId) && session.sessionId !== input.sessionId) {
-      return false;
-    }
-
-    if (hasText(input.attemptId) && !session.attemptIds.includes(input.attemptId)) {
-      return false;
-    }
-
-    return true;
-  });
+  const filteredSessionsForReplay = filteredSessions;
 
   const transcriptLookup = new Map<string, SocialExecutionRunnerTranscriptRecord>(
     runnerSnapshot.transcripts.map((transcript) => [transcript.transcriptId, transcript]),
   );
 
   const timelineEntries: SocialExecutionSessionTimelineEntry[] = [];
-  for (const session of filteredSessions) {
+  for (const session of filteredSessionsForReplay) {
     const sessionTranscripts = session.transcriptIds
       .map((transcriptId) => transcriptLookup.get(transcriptId) ?? null)
       .filter((transcript): transcript is SocialExecutionRunnerTranscriptRecord => transcript !== null);
@@ -196,7 +210,7 @@ export async function replaySocialExecutionSession(input: {
     ? evaluateExecutionSessionPreflight(input.preflightInput)
     : null;
 
-  const sessions = filteredSessions.map((session) => ({
+  const sessions = filteredSessionsForReplay.map((session) => ({
     sessionId: session.sessionId,
     correlationId: session.correlationId,
     summaryStatus: session.summaryStatus,
@@ -207,16 +221,7 @@ export async function replaySocialExecutionSession(input: {
     completedAt: session.completedAt,
   }));
 
-  const recentAuditEvents = sessionSnapshot.auditEvents
-    .filter((event) => {
-      if (hasText(input.sessionId) && event.sessionId !== input.sessionId) {
-        return false;
-      }
-
-      return true;
-    })
-    .slice(0, 20)
-    .map((event) => ({
+  const recentAuditEvents = queryResult.value.auditEvents.map((event) => ({
       auditEventId: event.auditEventId,
       sessionId: event.sessionId,
       correlationId: event.correlationId,
@@ -226,7 +231,7 @@ export async function replaySocialExecutionSession(input: {
       createdAt: event.createdAt,
     }));
 
-  const transcriptCount = filteredSessions.reduce(
+  const transcriptCount = filteredSessionsForReplay.reduce(
     (total, session) => total + session.transcriptIds.length,
     0,
   );
@@ -235,18 +240,23 @@ export async function replaySocialExecutionSession(input: {
     replayVersion: SOCIAL_EXECUTION_SESSION_REPLAY_VERSION,
     summary: {
       replayVersion: SOCIAL_EXECUTION_SESSION_REPLAY_VERSION,
-      sessionCount: filteredSessions.length,
+      sessionCount: filteredSessionsForReplay.length,
       transcriptCount,
-      simulatedSessionCount: filteredSessions.filter((session) => session.summaryStatus === "simulated")
+      simulatedSessionCount: filteredSessionsForReplay.filter((session) => session.summaryStatus === "simulated")
         .length,
-      blockedSessionCount: filteredSessions.filter((session) => session.summaryStatus === "blocked").length,
-      validationFailedSessionCount: filteredSessions.filter(
+      blockedSessionCount: filteredSessionsForReplay.filter((session) => session.summaryStatus === "blocked").length,
+      validationFailedSessionCount: filteredSessionsForReplay.filter(
         (session) => session.summaryStatus === "validation_failed",
       ).length,
       auditEventCount: recentAuditEvents.length,
-      storageConfigured: bridgeLoad.value.storageConfigured,
-      durableHistoryAvailable: bridgeLoad.value.durableHistoryAvailable,
-      bridgeMode: bridgeLoad.value.storageConfigured ? bridgeLoad.value.mode : "unconfigured",
+      storageConfigured: queryResult.bridge.storageConfigured,
+      durableHistoryAvailable: queryResult.bridge.durableHistoryAvailable,
+      bridgeMode: queryResult.bridge.storageConfigured ? queryResult.bridge.mode : "unconfigured",
+      queryTotalCount: queryResult.value.pagination.totalCount,
+      queryReturnedCount: queryResult.value.pagination.returnedCount,
+      queryLimit: queryResult.value.pagination.limit,
+      queryOffset: queryResult.value.pagination.offset,
+      queryHasMore: queryResult.value.pagination.hasMore,
     },
     preflight,
     sessions,
@@ -260,6 +270,66 @@ export async function replaySocialExecutionSession(input: {
     executesNothing: true,
     publishesNothing: true,
   };
+}
+
+function mergeReplayIdentity(input: {
+  sessionId?: string | null;
+  attemptId?: string | null;
+  identity?: SocialExecutionSessionRepositoryIdentity;
+}): SocialExecutionSessionRepositoryIdentity {
+  return {
+    ...input.identity,
+    sessionId: pickIdentityValue(input.identity?.sessionId, input.sessionId),
+    attemptId: pickIdentityValue(input.identity?.attemptId, input.attemptId),
+  };
+}
+
+async function loadReplayQueryResult(input: {
+  identity: SocialExecutionSessionRepositoryIdentity;
+  correlationContext?: SocialExecutionSessionCorrelationContext;
+  queryOptions?: SocialExecutionSessionQueryOptions;
+}): Promise<
+  | {
+      ok: true;
+      value: ReturnType<typeof querySocialExecutionSessionRecords>;
+      bridge: Readonly<{
+        storageConfigured: boolean;
+        durableHistoryAvailable: boolean;
+        mode: SocialExecutionSessionBridgeMode;
+      }>;
+    }
+  | { ok: false; error: Readonly<{ code: string; message: string }> }
+> {
+  const bridgeLoad = await loadSocialExecutionSessionBridgeSnapshot();
+  if (!bridgeLoad.ok) {
+    return bridgeLoad;
+  }
+
+  return {
+    ok: true,
+    value: querySocialExecutionSessionRecords({
+      snapshot: bridgeLoad.value.snapshot,
+      identity: input.identity,
+      correlationContext: input.correlationContext,
+      queryOptions: input.queryOptions,
+    }),
+    bridge: {
+      storageConfigured: bridgeLoad.value.storageConfigured,
+      durableHistoryAvailable: bridgeLoad.value.durableHistoryAvailable,
+      mode: bridgeLoad.value.mode,
+    },
+  };
+}
+
+function pickIdentityValue(
+  primary: string | undefined,
+  fallback: string | null | undefined,
+): string | undefined {
+  if (hasText(primary)) {
+    return primary;
+  }
+
+  return hasText(fallback) ? fallback : undefined;
 }
 
 function hasText(value: string | null | undefined): value is string {
@@ -282,6 +352,11 @@ function buildEmptyReplayResult(input: {
       storageConfigured: false,
       durableHistoryAvailable: false,
       bridgeMode: "unconfigured",
+      queryTotalCount: 0,
+      queryReturnedCount: 0,
+      queryLimit: 0,
+      queryOffset: 0,
+      queryHasMore: false,
     },
     preflight: null,
     sessions: [],

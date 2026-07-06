@@ -24,6 +24,11 @@ export type SocialExecutionSessionDiagnosticsSummary = Readonly<{
   storageConfigured: boolean;
   durableHistoryAvailable: boolean;
   bridgeMode: string;
+  queryTotalCount: number;
+  queryReturnedCount: number;
+  queryLimit: number;
+  queryOffset: number;
+  queryHasMore: boolean;
   computedOnly: true;
   readOnly: true;
   authoritative: false;
@@ -110,6 +115,11 @@ export function buildExecutionSessionDiagnostics(input: {
       storageConfigured: input.replay.summary.storageConfigured,
       durableHistoryAvailable: input.replay.summary.durableHistoryAvailable,
       bridgeMode: input.replay.summary.bridgeMode,
+      queryTotalCount: input.replay.summary.queryTotalCount,
+      queryReturnedCount: input.replay.summary.queryReturnedCount,
+      queryLimit: input.replay.summary.queryLimit,
+      queryOffset: input.replay.summary.queryOffset,
+      queryHasMore: input.replay.summary.queryHasMore,
       computedOnly: true,
       readOnly: true,
       authoritative: false,

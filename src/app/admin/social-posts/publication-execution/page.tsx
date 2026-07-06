@@ -2824,7 +2824,16 @@ export default async function AdminPublicationExecutionPage({
     replay: executionRunnerReplay,
   });
   const executionSessionReplay = await replaySocialExecutionSession({
-    attemptId: resolved.exec_attempt_id ?? null,
+    identity: {
+      attemptId: resolved.exec_attempt_id || undefined,
+      authorizationId: resolved.exec_auth_id || undefined,
+      executionIntentId: filters.executionIntentId || undefined,
+      socialPostId: filters.socialPostId || undefined,
+    },
+    correlationContext: {
+      attemptSnapshot,
+      authorizationSnapshot,
+    },
     preflightInput: resolved.exec_attempt_id
       ? {
           attemptIds: [resolved.exec_attempt_id],
@@ -5065,6 +5074,20 @@ export default async function AdminPublicationExecutionPage({
                     value={String(executionSessionDiagnostics.summary.durableHistoryAvailable)}
                   />
                   <Field label="Bridge Mode" value={executionSessionDiagnostics.summary.bridgeMode} />
+                  <Field
+                    label="Query Total Count"
+                    value={executionSessionDiagnostics.summary.queryTotalCount}
+                  />
+                  <Field
+                    label="Query Returned Count"
+                    value={executionSessionDiagnostics.summary.queryReturnedCount}
+                  />
+                  <Field label="Query Limit" value={executionSessionDiagnostics.summary.queryLimit} />
+                  <Field label="Query Offset" value={executionSessionDiagnostics.summary.queryOffset} />
+                  <Field
+                    label="Query Has More"
+                    value={String(executionSessionDiagnostics.summary.queryHasMore)}
+                  />
                 </div>
 
                 <div className="mt-4">

@@ -5,6 +5,13 @@ import {
   isSocialExecutionSessionStoreConfigured,
   loadSocialExecutionSessionSnapshot,
 } from "./social-execution-session-store";
+import type {
+  SocialExecutionSessionCorrelationContext,
+  SocialExecutionSessionQueryOptions,
+  SocialExecutionSessionQueryResult,
+  SocialExecutionSessionRepositoryIdentity,
+} from "./social-execution-session-repository";
+import { querySocialExecutionSessionRecords } from "./social-execution-session-repository";
 
 export const SOCIAL_EXECUTION_SESSION_BRIDGE_MODES = ["production", "reference"] as const;
 
@@ -108,4 +115,31 @@ export function resolveSocialExecutionSessionBridgeMode(input?: {
   }
 
   return isSupabaseServiceConfigured() ? "production" : "reference";
+}
+
+export async function querySocialExecutionSessionBridgeRecords(input?: {
+  snapshot?: SocialExecutionSessionPersistenceSnapshot;
+  identity?: SocialExecutionSessionRepositoryIdentity;
+  correlationContext?: SocialExecutionSessionCorrelationContext;
+  queryOptions?: SocialExecutionSessionQueryOptions;
+  storageConfigured?: boolean;
+}): Promise<SocialExecutionSessionBridgeResult<SocialExecutionSessionQueryResult>> {
+  const bridgeLoad = await loadSocialExecutionSessionBridgeSnapshot({
+    snapshot: input?.snapshot,
+    storageConfigured: input?.storageConfigured,
+  });
+
+  if (!bridgeLoad.ok) {
+    return bridgeLoad;
+  }
+
+  return {
+    ok: true,
+    value: querySocialExecutionSessionRecords({
+      snapshot: bridgeLoad.value.snapshot,
+      identity: input?.identity,
+      correlationContext: input?.correlationContext,
+      queryOptions: input?.queryOptions,
+    }),
+  };
 }
