@@ -1,4 +1,14 @@
 import type { SocialExecutionRunnerOutcomeStatus } from "../execution-runner/social-execution-runner-domain";
+import {
+  SOCIAL_EXECUTION_CORRELATION_ID_PATTERN,
+  SOCIAL_EXECUTION_REFERENCE_ID_PATTERN,
+} from "../execution-core/social-execution-core-invariants";
+import {
+  collectSimulatedRecordInvariantErrors,
+  hasExecutionText,
+  hasMatchingExecutionText,
+  rejectForbiddenExecutionRecordKeys,
+} from "../execution-core/social-execution-core-validation";
 
 export const SOCIAL_EXECUTION_SESSION_VERSION = "d16-w12-v1" as const;
 
@@ -82,23 +92,8 @@ export type SocialExecutionSessionAuditEventRecord = Readonly<{
 }>;
 
 const SESSION_ID_PATTERN = /^exec-execution-session:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const CORRELATION_ID_PATTERN = /^corr:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const REFERENCE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-
-const FORBIDDEN_SESSION_KEYS = new Set([
-  "fetch",
-  "http",
-  "publish",
-  "execute",
-  "credential",
-  "token",
-  "oauth",
-  "vault",
-  "worker",
-  "queue",
-  "cron",
-  "retry",
-]);
+const CORRELATION_ID_PATTERN = SOCIAL_EXECUTION_CORRELATION_ID_PATTERN;
+const REFERENCE_ID_PATTERN = SOCIAL_EXECUTION_REFERENCE_ID_PATTERN;
 
 export function deriveExecutionSessionSummaryStatus(
   outcomeStatuses: readonly SocialExecutionRunnerOutcomeStatus[],
@@ -157,7 +152,7 @@ export function validateExecutionSessionRecord(
   }
 
   const candidate = record as Record<string, unknown>;
-  rejectForbiddenKeys(candidate, pathPrefix, errors);
+  rejectForbiddenExecutionRecordKeys(candidate, pathPrefix, errors, "execution session");
 
   if (candidate.sessionVersion !== SOCIAL_EXECUTION_SESSION_VERSION) {
     errors.push({
@@ -167,7 +162,7 @@ export function validateExecutionSessionRecord(
     });
   }
 
-  if (!hasMatchingText(candidate.sessionId, SESSION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.sessionId, SESSION_ID_PATTERN)) {
     errors.push({
       code: "session_id_required",
       path: `${pathPrefix}.sessionId`,
@@ -175,7 +170,7 @@ export function validateExecutionSessionRecord(
     });
   }
 
-  if (!hasMatchingText(candidate.correlationId, CORRELATION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.correlationId, CORRELATION_ID_PATTERN)) {
     errors.push({
       code: "correlation_id_required",
       path: `${pathPrefix}.correlationId`,
@@ -195,7 +190,7 @@ export function validateExecutionSessionRecord(
     });
   }
 
-  if (!hasText(candidate.sanitizedSummary)) {
+  if (!hasExecutionText(candidate.sanitizedSummary)) {
     errors.push({
       code: "sanitized_summary_required",
       path: `${pathPrefix}.sanitizedSummary`,
@@ -211,7 +206,7 @@ export function validateExecutionSessionRecord(
     });
   } else {
     for (const [index, transcriptId] of candidate.transcriptIds.entries()) {
-      if (!hasMatchingText(transcriptId, REFERENCE_ID_PATTERN)) {
+      if (!hasMatchingExecutionText(transcriptId, REFERENCE_ID_PATTERN)) {
         errors.push({
           code: "transcript_ids_required",
           path: `${pathPrefix}.transcriptIds.${index}`,
@@ -229,7 +224,7 @@ export function validateExecutionSessionRecord(
     });
   } else {
     for (const [index, attemptId] of candidate.attemptIds.entries()) {
-      if (!hasMatchingText(attemptId, REFERENCE_ID_PATTERN)) {
+      if (!hasMatchingExecutionText(attemptId, REFERENCE_ID_PATTERN)) {
         errors.push({
           code: "attempt_ids_required",
           path: `${pathPrefix}.attemptIds.${index}`,
@@ -239,21 +234,12 @@ export function validateExecutionSessionRecord(
     }
   }
 
-  if (candidate.grantsExecutionPermission !== false) {
-    errors.push({
-      code: "grants_execution_permission_forbidden",
-      path: `${pathPrefix}.grantsExecutionPermission`,
-      message: "Execution session must not grant execution permission.",
-    });
-  }
-
-  if (candidate.simulatedOnly !== true) {
-    errors.push({
-      code: "simulated_only_required",
-      path: `${pathPrefix}.simulatedOnly`,
-      message: "Execution session must remain simulated only.",
-    });
-  }
+  collectSimulatedRecordInvariantErrors(
+    candidate,
+    pathPrefix,
+    errors,
+    "Execution session",
+  );
 
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
 }
@@ -267,30 +253,6 @@ export function detectForbiddenExecutionSessionState(input: unknown): Readonly<{
     forbidden: !validation.ok,
     diagnostics: validation.ok ? [] : validation.errors,
   };
-}
-
-function rejectForbiddenKeys(
-  value: Record<string, unknown>,
-  path: string,
-  errors: SocialExecutionSessionValidationError[],
-): void {
-  for (const key of Object.keys(value)) {
-    if (FORBIDDEN_SESSION_KEYS.has(key.toLowerCase())) {
-      errors.push({
-        code: "forbidden_key_detected",
-        path: `${path}.${key}`,
-        message: `Forbidden execution session key detected: ${key}.`,
-      });
-    }
-  }
-}
-
-function hasText(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasMatchingText(value: unknown, pattern: RegExp): value is string {
-  return hasText(value) && pattern.test(value);
 }
 
 function invalid(

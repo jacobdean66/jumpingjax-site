@@ -1,4 +1,13 @@
 import {
+  SOCIAL_EXECUTION_CORRELATION_ID_PATTERN,
+  SOCIAL_EXECUTION_REFERENCE_ID_PATTERN,
+} from "../execution-core/social-execution-core-invariants";
+import {
+  hasExecutionText,
+  hasMatchingExecutionText,
+  rejectForbiddenExecutionRecordKeys,
+} from "../execution-core/social-execution-core-validation";
+import {
   SOCIAL_EXECUTION_SESSION_SUMMARY_STATUSES,
   SOCIAL_EXECUTION_SESSION_VERSION,
   type SocialExecutionSessionSummaryStatus,
@@ -77,23 +86,8 @@ export type SocialExecutionSessionAuditEventRow = Readonly<{
 }>;
 
 const SESSION_ID_PATTERN = /^exec-execution-session:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const CORRELATION_ID_PATTERN = /^corr:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const REFERENCE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-
-const FORBIDDEN_ROW_KEYS = new Set([
-  "fetch",
-  "http",
-  "publish",
-  "execute",
-  "credential",
-  "token",
-  "oauth",
-  "vault",
-  "worker",
-  "queue",
-  "cron",
-  "retry",
-]);
+const CORRELATION_ID_PATTERN = SOCIAL_EXECUTION_CORRELATION_ID_PATTERN;
+const REFERENCE_ID_PATTERN = SOCIAL_EXECUTION_REFERENCE_ID_PATTERN;
 
 export function validateSocialExecutionSessionRow(
   row: unknown,
@@ -106,9 +100,9 @@ export function validateSocialExecutionSessionRow(
   }
 
   const candidate = row as Record<string, unknown>;
-  rejectForbiddenKeys(candidate, pathPrefix, errors);
+  rejectForbiddenExecutionRecordKeys(candidate, pathPrefix, errors, "execution session row");
 
-  if (!hasMatchingText(candidate.session_id, SESSION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.session_id, SESSION_ID_PATTERN)) {
     errors.push({
       code: "session_id_required",
       path: `${pathPrefix}.session_id`,
@@ -124,7 +118,7 @@ export function validateSocialExecutionSessionRow(
     });
   }
 
-  if (!hasMatchingText(candidate.correlation_id, CORRELATION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.correlation_id, CORRELATION_ID_PATTERN)) {
     errors.push({
       code: "correlation_id_required",
       path: `${pathPrefix}.correlation_id`,
@@ -144,7 +138,7 @@ export function validateSocialExecutionSessionRow(
     });
   }
 
-  if (!hasText(candidate.sanitized_summary)) {
+  if (!hasExecutionText(candidate.sanitized_summary)) {
     errors.push({
       code: "sanitized_summary_required",
       path: `${pathPrefix}.sanitized_summary`,
@@ -171,9 +165,9 @@ export function validateSocialExecutionSessionAuditEventRow(
   }
 
   const candidate = row as Record<string, unknown>;
-  rejectForbiddenKeys(candidate, pathPrefix, errors);
+  rejectForbiddenExecutionRecordKeys(candidate, pathPrefix, errors, "execution session row");
 
-  if (!hasMatchingText(candidate.audit_event_id, REFERENCE_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.audit_event_id, REFERENCE_ID_PATTERN)) {
     errors.push({
       code: "audit_event_id_required",
       path: `${pathPrefix}.audit_event_id`,
@@ -181,7 +175,7 @@ export function validateSocialExecutionSessionAuditEventRow(
     });
   }
 
-  if (!hasMatchingText(candidate.session_id, SESSION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.session_id, SESSION_ID_PATTERN)) {
     errors.push({
       code: "session_id_required",
       path: `${pathPrefix}.session_id`,
@@ -192,7 +186,7 @@ export function validateSocialExecutionSessionAuditEventRow(
   if (
     candidate.correlation_id !== null &&
     candidate.correlation_id !== undefined &&
-    !hasMatchingText(candidate.correlation_id, CORRELATION_ID_PATTERN)
+    !hasMatchingExecutionText(candidate.correlation_id, CORRELATION_ID_PATTERN)
   ) {
     errors.push({
       code: "correlation_id_required",
@@ -225,7 +219,7 @@ export function validateSocialExecutionSessionAuditEventRow(
     });
   }
 
-  if (!hasText(candidate.sanitized_detail)) {
+  if (!hasExecutionText(candidate.sanitized_detail)) {
     errors.push({
       code: "sanitized_summary_required",
       path: `${pathPrefix}.sanitized_detail`,
@@ -253,27 +247,11 @@ function validateReferenceIdArray(
   }
 
   for (const [index, item] of value.entries()) {
-    if (!hasMatchingText(item, REFERENCE_ID_PATTERN)) {
+    if (!hasMatchingExecutionText(item, REFERENCE_ID_PATTERN)) {
       errors.push({
         code: path.endsWith("transcript_ids") ? "transcript_ids_invalid" : "attempt_ids_invalid",
         path: `${path}.${index}`,
         message: `${path}.${index} format is invalid.`,
-      });
-    }
-  }
-}
-
-function rejectForbiddenKeys(
-  value: Record<string, unknown>,
-  path: string,
-  errors: SocialExecutionSessionRowValidationError[],
-): void {
-  for (const key of Object.keys(value)) {
-    if (FORBIDDEN_ROW_KEYS.has(key.toLowerCase())) {
-      errors.push({
-        code: "forbidden_key_detected",
-        path: `${path}.${key}`,
-        message: `Forbidden execution session row key detected: ${key}.`,
       });
     }
   }
@@ -284,21 +262,13 @@ function requireTimestamp(
   path: string,
   errors: SocialExecutionSessionRowValidationError[],
 ): void {
-  if (!hasText(value) || Number.isNaN(Date.parse(value))) {
+  if (!hasExecutionText(value) || Number.isNaN(Date.parse(value))) {
     errors.push({
       code: "timestamp_invalid",
       path,
       message: `${path} must be a valid ISO timestamp.`,
     });
   }
-}
-
-function hasText(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasMatchingText(value: unknown, pattern: RegExp): value is string {
-  return hasText(value) && pattern.test(value);
 }
 
 function invalid(

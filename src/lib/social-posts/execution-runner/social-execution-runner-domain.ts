@@ -1,3 +1,13 @@
+import {
+  SOCIAL_EXECUTION_CORRELATION_ID_PATTERN,
+  SOCIAL_EXECUTION_REFERENCE_ID_PATTERN,
+} from "../execution-core/social-execution-core-invariants";
+import {
+  collectSimulatedRecordInvariantErrors,
+  hasExecutionText,
+  hasMatchingExecutionText,
+  rejectForbiddenExecutionRecordKeys,
+} from "../execution-core/social-execution-core-validation";
 import type { SocialPublicationExecutionAdapterPlatform } from "../social-publication-execution-adapter";
 import type { SocialPublicationExecutionDryRunAdapterSimulation } from "../social-publication-execution-adapter-dry-run";
 
@@ -89,23 +99,8 @@ export type SocialExecutionRunnerAuditEventRecord = Readonly<{
 }>;
 
 const TRANSCRIPT_ID_PATTERN = /^exec-runner-transcript:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const REFERENCE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const CORRELATION_ID_PATTERN = /^corr:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-
-const FORBIDDEN_TRANSCRIPT_KEYS = new Set([
-  "fetch",
-  "http",
-  "publish",
-  "execute",
-  "credential",
-  "token",
-  "oauth",
-  "vault",
-  "worker",
-  "queue",
-  "cron",
-  "retry",
-]);
+const REFERENCE_ID_PATTERN = SOCIAL_EXECUTION_REFERENCE_ID_PATTERN;
+const CORRELATION_ID_PATTERN = SOCIAL_EXECUTION_CORRELATION_ID_PATTERN;
 
 export function isSocialExecutionRunnerSupportedPlatform(
   platform: string,
@@ -124,7 +119,12 @@ export function validateExecutionRunnerTranscriptRecord(
   }
 
   const candidate = record as Record<string, unknown>;
-  rejectForbiddenKeys(candidate, pathPrefix, errors);
+  rejectForbiddenExecutionRecordKeys(
+    candidate,
+    pathPrefix,
+    errors,
+    "runner transcript",
+  );
 
   if (candidate.runnerVersion !== SOCIAL_EXECUTION_RUNNER_VERSION) {
     errors.push({
@@ -134,7 +134,7 @@ export function validateExecutionRunnerTranscriptRecord(
     });
   }
 
-  if (!hasMatchingText(candidate.transcriptId, TRANSCRIPT_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.transcriptId, TRANSCRIPT_ID_PATTERN)) {
     errors.push({
       code: "transcript_id_required",
       path: `${pathPrefix}.transcriptId`,
@@ -142,7 +142,7 @@ export function validateExecutionRunnerTranscriptRecord(
     });
   }
 
-  if (!hasMatchingText(candidate.attemptId, REFERENCE_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.attemptId, REFERENCE_ID_PATTERN)) {
     errors.push({
       code: "attempt_id_required",
       path: `${pathPrefix}.attemptId`,
@@ -150,7 +150,7 @@ export function validateExecutionRunnerTranscriptRecord(
     });
   }
 
-  if (!hasMatchingText(candidate.correlationId, CORRELATION_ID_PATTERN)) {
+  if (!hasMatchingExecutionText(candidate.correlationId, CORRELATION_ID_PATTERN)) {
     errors.push({
       code: "correlation_id_required",
       path: `${pathPrefix}.correlationId`,
@@ -181,7 +181,7 @@ export function validateExecutionRunnerTranscriptRecord(
     });
   }
 
-  if (!hasText(candidate.sanitizedSummary)) {
+  if (!hasExecutionText(candidate.sanitizedSummary)) {
     errors.push({
       code: "sanitized_summary_required",
       path: `${pathPrefix}.sanitizedSummary`,
@@ -189,29 +189,13 @@ export function validateExecutionRunnerTranscriptRecord(
     });
   }
 
-  if (candidate.grantsExecutionPermission !== false) {
-    errors.push({
-      code: "grants_execution_permission_forbidden",
-      path: `${pathPrefix}.grantsExecutionPermission`,
-      message: "Runner transcript must not grant execution permission.",
-    });
-  }
-
-  if (candidate.provesExecution !== false) {
-    errors.push({
-      code: "proves_execution_forbidden",
-      path: `${pathPrefix}.provesExecution`,
-      message: "Runner transcript must not prove execution.",
-    });
-  }
-
-  if (candidate.simulatedOnly !== true) {
-    errors.push({
-      code: "simulated_only_required",
-      path: `${pathPrefix}.simulatedOnly`,
-      message: "Runner transcript must remain simulated only.",
-    });
-  }
+  collectSimulatedRecordInvariantErrors(
+    candidate,
+    pathPrefix,
+    errors,
+    "Runner transcript",
+    { requireProvesExecutionFalse: true },
+  );
 
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
 }
@@ -225,30 +209,6 @@ export function detectForbiddenExecutionRunnerState(input: unknown): Readonly<{
     forbidden: !validation.ok,
     diagnostics: validation.ok ? [] : validation.errors,
   };
-}
-
-function rejectForbiddenKeys(
-  value: Record<string, unknown>,
-  path: string,
-  errors: SocialExecutionRunnerValidationError[],
-): void {
-  for (const key of Object.keys(value)) {
-    if (FORBIDDEN_TRANSCRIPT_KEYS.has(key.toLowerCase())) {
-      errors.push({
-        code: "forbidden_key_detected",
-        path: `${path}.${key}`,
-        message: `Forbidden runner transcript key detected: ${key}.`,
-      });
-    }
-  }
-}
-
-function hasText(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasMatchingText(value: unknown, pattern: RegExp): value is string {
-  return hasText(value) && pattern.test(value);
 }
 
 function invalid(
