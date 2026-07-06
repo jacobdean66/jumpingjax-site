@@ -181,6 +181,9 @@ import { loadSocialExecutionAttemptEvidenceSnapshot } from "@/lib/social-posts/e
 import { buildExecutionRunnerDiagnostics } from "@/lib/social-posts/execution-runner/social-execution-runner-diagnostics";
 import { SOCIAL_EXECUTION_RUNNER_VERSION } from "@/lib/social-posts/execution-runner/social-execution-runner-domain";
 import { replaySocialExecutionRunner } from "@/lib/social-posts/execution-runner/social-execution-runner-replay";
+import { buildExecutionPlanDiagnostics } from "@/lib/social-posts/execution-plan/social-execution-plan-diagnostics";
+import { SOCIAL_EXECUTION_PLAN_VERSION } from "@/lib/social-posts/execution-plan/social-execution-plan-domain";
+import { replaySocialExecutionPlan } from "@/lib/social-posts/execution-plan/social-execution-plan-replay";
 import { buildExecutionSessionDiagnostics } from "@/lib/social-posts/execution-session/social-execution-session-diagnostics";
 import { SOCIAL_EXECUTION_SESSION_VERSION } from "@/lib/social-posts/execution-session/social-execution-session-domain";
 import { replaySocialExecutionSession } from "@/lib/social-posts/execution-session/social-execution-session-replay";
@@ -2847,6 +2850,24 @@ export default async function AdminPublicationExecutionPage({
   const executionSessionDiagnostics = buildExecutionSessionDiagnostics({
     replay: executionSessionReplay,
   });
+  const executionPlanSessionId =
+    executionSessionReplay.sessions[0]?.sessionId ??
+    (resolved.exec_auth_id && resolved.exec_attempt_id
+      ? "exec-execution-session:admin-diagnostic"
+      : null);
+  const executionPlanReplay = await replaySocialExecutionPlan({
+    sessionId: executionPlanSessionId ?? undefined,
+    authorizationId: resolved.exec_auth_id || undefined,
+    attemptId: resolved.exec_attempt_id ?? undefined,
+    attemptIds: resolved.exec_attempt_id ? [resolved.exec_attempt_id] : undefined,
+    attemptSnapshot,
+    authorizationSnapshot,
+    evidenceSnapshot: attemptEvidenceSnapshot,
+    publicationTarget: publicationTargetForRunner,
+  });
+  const executionPlanDiagnostics = buildExecutionPlanDiagnostics({
+    replay: executionPlanReplay,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -5163,6 +5184,140 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2">{item.outcomeStatus}</td>
                             <td className="px-3 py-2">{item.sanitizedSummary}</td>
                             <td className="px-3 py-2 font-mono text-xs">{item.recordedAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                      Execution Plan Modeling
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {executionPlanDiagnostics.summary.planReady
+                        ? "Execution plan preflight ready"
+                        : "Execution plan preflight blocked"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D16 Wave 15 execution plan modeling describes deterministic dry-run
+                      operations that would be executed across authorization, session, attempts,
+                      and publication targets. Planning only — no publishing, no HTTP, no runner
+                      invocation, no scheduler execution, and no run button.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    D16 W15 plan
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Plan Version" value={SOCIAL_EXECUTION_PLAN_VERSION} />
+                  <Field label="Replay Version" value={executionPlanReplay.replayVersion} />
+                  <Field
+                    label="Plan Preflight Ready"
+                    value={String(executionPlanDiagnostics.summary.planReady)}
+                  />
+                  <Field
+                    label="Preflight Blocking Codes"
+                    value={executionPlanDiagnostics.summary.preflightBlockingCodeCount}
+                  />
+                  <Field label="Plan Count" value={executionPlanDiagnostics.summary.planCount} />
+                  <Field
+                    label="Planned Records"
+                    value={executionPlanDiagnostics.summary.plannedCount}
+                  />
+                  <Field
+                    label="Execution Steps"
+                    value={executionPlanDiagnostics.summary.executionStepCount}
+                  />
+                  <Field
+                    label="Expected Dry-Run Ops"
+                    value={executionPlanDiagnostics.summary.expectedOperationCount}
+                  />
+                  <Field
+                    label="Diagnostics"
+                    value={executionPlanDiagnostics.summary.diagnosticCount}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionPlanDiagnostics.diagnostics}
+                    emptyMessage="No D16 Wave 15 execution plan diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Plan</th>
+                        <th className="px-3 py-2">Session</th>
+                        <th className="px-3 py-2">Summary</th>
+                        <th className="px-3 py-2">Platform</th>
+                        <th className="px-3 py-2">Adapter</th>
+                        <th className="px-3 py-2">Attempts</th>
+                        <th className="px-3 py-2">Planned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionPlanReplay.plans.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={7}>
+                            No execution plans recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionPlanReplay.plans.map((item) => (
+                          <tr key={item.executionPlanId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.executionPlanId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.sessionId}</td>
+                            <td className="px-3 py-2">{item.summaryStatus}</td>
+                            <td className="px-3 py-2">{item.platform}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.adapterId}</td>
+                            <td className="px-3 py-2">{item.attemptCount}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.plannedAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Seq</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Operation</th>
+                        <th className="px-3 py-2">Adapter</th>
+                        <th className="px-3 py-2">Summary</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionPlanReplay.expectedDryRunOperations.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={5}>
+                            No expected dry-run operations modeled yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionPlanReplay.expectedDryRunOperations.map((item) => (
+                          <tr
+                            key={`${item.sequence}:${item.attemptId}:${item.operationKind}`}
+                            className="border-b border-slate-100"
+                          >
+                            <td className="px-3 py-2">{item.sequence}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
+                            <td className="px-3 py-2">{item.operationKind}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.adapterId}</td>
+                            <td className="px-3 py-2">{item.sanitizedSummary}</td>
                           </tr>
                         ))
                       )}
