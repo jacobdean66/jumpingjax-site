@@ -108,6 +108,8 @@ D10 Wave 4, D10 Wave 5, D10 Wave 6, D10 Wave 7, and D10 Wave 8 extend that visib
 
 **D16 Wave 11 Dry-run execution runner (model only):** Append-only in-memory runner transcript history, runner preflight composing authorization/attempt/evidence/target/dry-run adapter gates, in-memory dry-run orchestration via D10 dry-run adapter simulation, GET-only runner replay and diagnostics, and admin dry-run runner preflight/transcript visibility on `/admin/social-posts/publication-execution`. Orchestration and simulation only; no publishing, HTTP, OAuth mutation, vault access, credential mutation, scheduler execution, workers, queues, cron, retries, or automatic execution.
 
+**D16 Wave 12 Execution session orchestration (model only):** Immutable execution session identity, append-only in-memory session store, session preflight for attempt grouping, session orchestration service grouping dry-run runner transcripts, deterministic session timeline and summary status (`blocked` / `simulated` / `validation_failed`), GET-only session replay and diagnostics, and admin session preflight/timeline visibility on `/admin/social-posts/publication-execution`. Session modeling only; no publishing, HTTP, OAuth mutation, vault access, credential mutation, scheduler execution, workers, queues, cron, retries, or automatic execution.
+
 ### Implementation phase naming note
 
 Code phases D7 and D8 reuse earlier roadmap labels for different subsystems:

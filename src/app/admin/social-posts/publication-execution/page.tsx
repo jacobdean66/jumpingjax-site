@@ -181,6 +181,9 @@ import { loadSocialExecutionAttemptEvidenceSnapshot } from "@/lib/social-posts/e
 import { buildExecutionRunnerDiagnostics } from "@/lib/social-posts/execution-runner/social-execution-runner-diagnostics";
 import { SOCIAL_EXECUTION_RUNNER_VERSION } from "@/lib/social-posts/execution-runner/social-execution-runner-domain";
 import { replaySocialExecutionRunner } from "@/lib/social-posts/execution-runner/social-execution-runner-replay";
+import { buildExecutionSessionDiagnostics } from "@/lib/social-posts/execution-session/social-execution-session-diagnostics";
+import { SOCIAL_EXECUTION_SESSION_VERSION } from "@/lib/social-posts/execution-session/social-execution-session-domain";
+import { replaySocialExecutionSession } from "@/lib/social-posts/execution-session/social-execution-session-replay";
 import { getPublicationTargetById } from "@/lib/social-posts/social-publication-target-store";
 import {
   isSocialOAuthConnectConfigured,
@@ -2820,6 +2823,21 @@ export default async function AdminPublicationExecutionPage({
   const executionRunnerDiagnostics = buildExecutionRunnerDiagnostics({
     replay: executionRunnerReplay,
   });
+  const executionSessionReplay = await replaySocialExecutionSession({
+    attemptId: resolved.exec_attempt_id ?? null,
+    preflightInput: resolved.exec_attempt_id
+      ? {
+          attemptIds: [resolved.exec_attempt_id],
+          attemptSnapshot,
+          authorizationSnapshot,
+          evidenceSnapshot: attemptEvidenceSnapshot,
+          publicationTarget: publicationTargetForRunner,
+        }
+      : undefined,
+  });
+  const executionSessionDiagnostics = buildExecutionSessionDiagnostics({
+    replay: executionSessionReplay,
+  });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
   const oauthStatus = resolved.oauth ?? "";
@@ -4980,6 +4998,136 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{item.transcriptId}</td>
                             <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
                             <td className="px-3 py-2">{item.platform}</td>
+                            <td className="px-3 py-2">{item.outcomeStatus}</td>
+                            <td className="px-3 py-2">{item.sanitizedSummary}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.recordedAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                      Execution Session Orchestration
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">
+                      {executionSessionDiagnostics.summary.sessionOrchestrationReady
+                        ? "Execution session preflight ready"
+                        : "Execution session preflight blocked"}
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+                      D16 Wave 12 execution session orchestration groups one or more dry-run
+                      runner transcripts into a replayable session with deterministic timeline and
+                      summary status. Session modeling only — no publishing, no HTTP, no OAuth, no
+                      credential access, no scheduler execution, and no run button.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-700">
+                    D16 W12 session
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <Field label="Session Version" value={SOCIAL_EXECUTION_SESSION_VERSION} />
+                  <Field label="Replay Version" value={executionSessionReplay.replayVersion} />
+                  <Field
+                    label="Session Orchestration Ready"
+                    value={String(executionSessionDiagnostics.summary.sessionOrchestrationReady)}
+                  />
+                  <Field
+                    label="Preflight Blocking Codes"
+                    value={executionSessionDiagnostics.summary.preflightBlockingCodeCount}
+                  />
+                  <Field label="Session Count" value={executionSessionDiagnostics.summary.sessionCount} />
+                  <Field
+                    label="Grouped Transcripts"
+                    value={executionSessionDiagnostics.summary.transcriptCount}
+                  />
+                  <Field
+                    label="Simulated Sessions"
+                    value={executionSessionDiagnostics.summary.simulatedSessionCount}
+                  />
+                  <Field
+                    label="Diagnostics"
+                    value={executionSessionDiagnostics.summary.diagnosticCount}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <OAuthDiagnosticsList
+                    diagnostics={executionSessionDiagnostics.diagnostics}
+                    emptyMessage="No D16 Wave 12 execution session diagnostics."
+                  />
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Session</th>
+                        <th className="px-3 py-2">Summary</th>
+                        <th className="px-3 py-2">Attempts</th>
+                        <th className="px-3 py-2">Transcripts</th>
+                        <th className="px-3 py-2">Created</th>
+                        <th className="px-3 py-2">Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionSessionReplay.sessions.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No execution sessions recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionSessionReplay.sessions.map((item) => (
+                          <tr key={item.sessionId} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono text-xs">{item.sessionId}</td>
+                            <td className="px-3 py-2">{item.summaryStatus}</td>
+                            <td className="px-3 py-2">{item.attemptCount}</td>
+                            <td className="px-3 py-2">{item.transcriptCount}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.createdAt}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.completedAt}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Seq</th>
+                        <th className="px-3 py-2">Transcript</th>
+                        <th className="px-3 py-2">Attempt</th>
+                        <th className="px-3 py-2">Outcome</th>
+                        <th className="px-3 py-2">Summary</th>
+                        <th className="px-3 py-2">Recorded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {executionSessionReplay.timeline.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                            No execution session timeline entries recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        executionSessionReplay.timeline.map((item) => (
+                          <tr
+                            key={`${item.sequence}:${item.transcriptId}`}
+                            className="border-b border-slate-100"
+                          >
+                            <td className="px-3 py-2">{item.sequence}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.transcriptId}</td>
+                            <td className="px-3 py-2 font-mono text-xs">{item.attemptId}</td>
                             <td className="px-3 py-2">{item.outcomeStatus}</td>
                             <td className="px-3 py-2">{item.sanitizedSummary}</td>
                             <td className="px-3 py-2 font-mono text-xs">{item.recordedAt}</td>
