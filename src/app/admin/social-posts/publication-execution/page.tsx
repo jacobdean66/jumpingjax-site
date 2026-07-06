@@ -5056,6 +5056,15 @@ export default async function AdminPublicationExecutionPage({
                     label="Diagnostics"
                     value={executionSessionDiagnostics.summary.diagnosticCount}
                   />
+                  <Field
+                    label="Durable Storage Configured"
+                    value={String(executionSessionDiagnostics.summary.storageConfigured)}
+                  />
+                  <Field
+                    label="Durable History Available"
+                    value={String(executionSessionDiagnostics.summary.durableHistoryAvailable)}
+                  />
+                  <Field label="Bridge Mode" value={executionSessionDiagnostics.summary.bridgeMode} />
                 </div>
 
                 <div className="mt-4">

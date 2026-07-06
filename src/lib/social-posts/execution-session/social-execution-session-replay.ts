@@ -11,10 +11,9 @@ import {
 } from "./social-execution-session-domain";
 import type { SocialExecutionSessionPreflightSummary } from "./social-execution-session-preflight";
 import { evaluateExecutionSessionPreflight } from "./social-execution-session-preflight";
-import {
-  loadSocialExecutionSessionSnapshot,
-  type SocialExecutionSessionPersistenceSnapshot,
-} from "./social-execution-session-store";
+import type { SocialExecutionSessionBridgeMode } from "./social-execution-session-bridge";
+import { loadSocialExecutionSessionBridgeSnapshot } from "./social-execution-session-bridge";
+import type { SocialExecutionSessionPersistenceSnapshot } from "./social-execution-session-store";
 
 export const SOCIAL_EXECUTION_SESSION_REPLAY_VERSION = SOCIAL_EXECUTION_SESSION_VERSION;
 
@@ -33,6 +32,9 @@ export type SocialExecutionSessionReplaySummary = Readonly<{
   blockedSessionCount: number;
   validationFailedSessionCount: number;
   auditEventCount: number;
+  storageConfigured: boolean;
+  durableHistoryAvailable: boolean;
+  bridgeMode: SocialExecutionSessionBridgeMode | "unconfigured";
 }>;
 
 export type SocialExecutionSessionReplayProjection = Readonly<{
@@ -83,10 +85,52 @@ export async function replaySocialExecutionSession(input: {
     publicationTarget?: Parameters<typeof evaluateExecutionSessionPreflight>[0]["publicationTarget"];
   }>;
 } = {}): Promise<SocialExecutionSessionReplayResult> {
-  const sessionSnapshot =
-    input.sessionSnapshot ?? (await loadSocialExecutionSessionSnapshot());
+  const bridgeLoad = input.sessionSnapshot
+    ? {
+        ok: true as const,
+        value: {
+          mode: "reference" as const,
+          storageConfigured: true,
+          durableHistoryAvailable:
+            input.sessionSnapshot.sessions.length > 0 ||
+            input.sessionSnapshot.auditEvents.length > 0,
+          snapshot: input.sessionSnapshot,
+        },
+      }
+    : await loadSocialExecutionSessionBridgeSnapshot();
+
+  if (!bridgeLoad.ok) {
+    return buildEmptyReplayResult({
+      diagnostics: [
+        {
+          code: bridgeLoad.error.code,
+          severity: "error",
+          path: "bridge.loadSnapshot",
+          message: bridgeLoad.error.message,
+        },
+      ],
+    });
+  }
+
+  const sessionSnapshot = bridgeLoad.value.snapshot;
   const runnerSnapshot = input.runnerSnapshot ?? (await loadSocialExecutionRunnerSnapshot());
   const diagnostics: SocialExecutionSessionReplayDiagnostic[] = [];
+
+  if (!bridgeLoad.value.storageConfigured) {
+    diagnostics.push({
+      code: "durable_storage_unconfigured",
+      severity: "info",
+      path: "bridge.storageConfigured",
+      message: "Execution session durable storage is not configured; replay uses empty durable history.",
+    });
+  } else if (!bridgeLoad.value.durableHistoryAvailable) {
+    diagnostics.push({
+      code: "durable_history_empty",
+      severity: "info",
+      path: "bridge.durableHistoryAvailable",
+      message: "Execution session durable storage is configured but no durable session history exists yet.",
+    });
+  }
 
   for (const [index, record] of sessionSnapshot.sessions.entries()) {
     const validation = validateExecutionSessionRecord(record, `sessions.${index}`);
@@ -200,6 +244,9 @@ export async function replaySocialExecutionSession(input: {
         (session) => session.summaryStatus === "validation_failed",
       ).length,
       auditEventCount: recentAuditEvents.length,
+      storageConfigured: bridgeLoad.value.storageConfigured,
+      durableHistoryAvailable: bridgeLoad.value.durableHistoryAvailable,
+      bridgeMode: bridgeLoad.value.storageConfigured ? bridgeLoad.value.mode : "unconfigured",
     },
     preflight,
     sessions,
@@ -217,4 +264,35 @@ export async function replaySocialExecutionSession(input: {
 
 function hasText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function buildEmptyReplayResult(input: {
+  diagnostics: readonly SocialExecutionSessionReplayDiagnostic[];
+}): SocialExecutionSessionReplayResult {
+  return {
+    replayVersion: SOCIAL_EXECUTION_SESSION_REPLAY_VERSION,
+    summary: {
+      replayVersion: SOCIAL_EXECUTION_SESSION_REPLAY_VERSION,
+      sessionCount: 0,
+      transcriptCount: 0,
+      simulatedSessionCount: 0,
+      blockedSessionCount: 0,
+      validationFailedSessionCount: 0,
+      auditEventCount: 0,
+      storageConfigured: false,
+      durableHistoryAvailable: false,
+      bridgeMode: "unconfigured",
+    },
+    preflight: null,
+    sessions: [],
+    timeline: [],
+    recentAuditEvents: [],
+    diagnostics: input.diagnostics,
+    computedOnly: true,
+    readOnly: true,
+    authoritative: false,
+    grantsExecutionPermission: false,
+    executesNothing: true,
+    publishesNothing: true,
+  };
 }

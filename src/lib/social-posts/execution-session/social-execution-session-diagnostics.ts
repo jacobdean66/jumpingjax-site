@@ -21,6 +21,9 @@ export type SocialExecutionSessionDiagnosticsSummary = Readonly<{
   validationFailedSessionCount: number;
   diagnosticCount: number;
   preflightBlockingCodeCount: number;
+  storageConfigured: boolean;
+  durableHistoryAvailable: boolean;
+  bridgeMode: string;
   computedOnly: true;
   readOnly: true;
   authoritative: false;
@@ -76,6 +79,22 @@ export function buildExecutionSessionDiagnostics(input: {
     });
   }
 
+  if (!input.replay.summary.storageConfigured) {
+    diagnostics.push({
+      code: "durable_storage_unconfigured",
+      severity: "info",
+      path: "summary.storageConfigured",
+      message: "Execution session durable storage is not configured.",
+    });
+  } else if (!input.replay.summary.durableHistoryAvailable) {
+    diagnostics.push({
+      code: "durable_history_empty",
+      severity: "info",
+      path: "summary.durableHistoryAvailable",
+      message: "Execution session durable storage is configured but durable history is empty.",
+    });
+  }
+
   return {
     diagnosticsVersion: SOCIAL_EXECUTION_SESSION_DIAGNOSTICS_VERSION,
     summary: {
@@ -88,6 +107,9 @@ export function buildExecutionSessionDiagnostics(input: {
       validationFailedSessionCount: input.replay.summary.validationFailedSessionCount,
       diagnosticCount: diagnostics.length,
       preflightBlockingCodeCount: input.replay.preflight?.preflightBlockingCodes.length ?? 0,
+      storageConfigured: input.replay.summary.storageConfigured,
+      durableHistoryAvailable: input.replay.summary.durableHistoryAvailable,
+      bridgeMode: input.replay.summary.bridgeMode,
       computedOnly: true,
       readOnly: true,
       authoritative: false,

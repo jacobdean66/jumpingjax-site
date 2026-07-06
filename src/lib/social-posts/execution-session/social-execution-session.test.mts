@@ -47,6 +47,7 @@ import {
 import { evaluateExecutionSessionPreflight } from "./social-execution-session-preflight";
 import {
   configureSocialExecutionSessionStoreTestDependencies,
+  createInMemoryExecutionSessionStore,
   resetSocialExecutionSessionInMemoryStoreForTests,
   type SocialExecutionSessionStoreStorage,
 } from "./social-execution-session-store";
@@ -337,22 +338,7 @@ function createRunnerStore(): SocialExecutionRunnerStoreStorage {
 }
 
 function createSessionStore(): SocialExecutionSessionStoreStorage {
-  const sessions: Parameters<SocialExecutionSessionStoreStorage["insertSession"]>[0][] = [];
-  const auditEvents: Parameters<SocialExecutionSessionStoreStorage["insertAuditEvent"]>[0][] = [];
-
-  return {
-    async loadSnapshot() {
-      return { sessions, auditEvents };
-    },
-    async insertSession(record) {
-      sessions.push(record);
-      return record;
-    },
-    async insertAuditEvent(record) {
-      auditEvents.push(record);
-      return record;
-    },
-  };
+  return createInMemoryExecutionSessionStore();
 }
 
 function readyFixtures() {
