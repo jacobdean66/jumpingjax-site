@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DirectorPreviewResult } from "@/lib/social-posts/director-console";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
+import {
+  formatVariantDimensionsLabel,
+  resolvePostMediaFormat,
+} from "@/lib/social-posts/social-media-format-variants";
+import type { SocialMediaImageVerificationResult } from "@/lib/social-posts/social-media-image-verification-core";
+import PlacementFormatPanel from "./PlacementFormatPanel";
 import type { SocialPost } from "@/lib/social-posts/social-post-data";
 import {
   estimateImageDirectorCost,
@@ -82,6 +88,7 @@ type ImageStatusResponse = {
   status?: string | null;
   generatedImageUrl?: string | null;
   predictionId?: string | null;
+  verification?: SocialMediaImageVerificationResult | null;
 };
 
 type PatchResponse = {
@@ -206,6 +213,8 @@ export default function DirectorsConsole({
     generatedImageUrl: string | null;
   } | null>(null);
   const [imageActionPending, setImageActionPending] = useState(false);
+  const [imageVerification, setImageVerification] =
+    useState<SocialMediaImageVerificationResult | null>(null);
 
   const imageStatus =
     activeImageGeneration?.status ?? post.image_generation_status;
@@ -254,6 +263,15 @@ export default function DirectorsConsole({
   const originalSourceImageUrl = post.original_image_url ?? post.source_image_url ?? "";
 
   const imageCategory = sourceImageCategory(post.source_image_url);
+  const mediaFormat = useMemo(
+    () =>
+      resolvePostMediaFormat({
+        platforms: post.platforms,
+        placement: post.post_placement,
+        formatVariantId: post.format_variant_id,
+      }),
+    [post.platforms, post.post_placement, post.format_variant_id],
+  );
 
   const imagePreviewKey = useMemo(
     () =>
@@ -261,6 +279,8 @@ export default function DirectorsConsole({
         post.campaign_id,
         post.prompt,
         post.source_image_url,
+        post.post_placement,
+        post.format_variant_id,
         imageCategory,
         imageDirectionPreset,
       ].join("|"),
@@ -268,6 +288,8 @@ export default function DirectorsConsole({
       post.campaign_id,
       post.prompt,
       post.source_image_url,
+      post.post_placement,
+      post.format_variant_id,
       imageCategory,
       imageDirectionPreset,
     ],
@@ -291,6 +313,7 @@ export default function DirectorsConsole({
       status: data.status ?? null,
       generatedImageUrl: data.generatedImageUrl ?? null,
     });
+    setImageVerification(data.verification ?? null);
     return data;
   }, [post.id, token]);
 
@@ -302,6 +325,7 @@ export default function DirectorsConsole({
         .then((data) => {
           if (data.status === "succeeded") {
             setActiveImageGeneration(null);
+            setImageVerification(data.verification ?? null);
             onGenerateComplete();
           }
         })
@@ -314,6 +338,28 @@ export default function DirectorsConsole({
 
     return () => window.clearInterval(timer);
   }, [imageStatus, onError, onGenerateComplete, pollImageStatus]);
+
+  useEffect(() => {
+    if (imageStatus !== "succeeded" || !generatedImageUrl || imageVerification) return;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/social-posts/${post.id}/verify-image`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, imageUrl: generatedImageUrl }),
+        });
+        const data = (await response.json()) as {
+          verification?: SocialMediaImageVerificationResult | null;
+        };
+        if (data.verification) {
+          setImageVerification(data.verification);
+        }
+      } catch {
+        // Verification will run again after the next status poll.
+      }
+    })();
+  }, [post.id, imageStatus, generatedImageUrl, token, imageVerification]);
 
   const fetchPreview = useCallback(async () => {
     setPreviewLoading(true);
@@ -414,6 +460,7 @@ export default function DirectorsConsole({
 
     setImageGenerating(true);
     onError("");
+    setImageVerification(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}/generate-image`, {
@@ -442,6 +489,7 @@ export default function DirectorsConsole({
         await pollImageStatus();
       } else {
         setActiveImageGeneration(null);
+        setImageVerification(null);
         onGenerateComplete();
       }
     } catch (caught) {
@@ -769,6 +817,16 @@ export default function DirectorsConsole({
                 ))}
               </select>
             </label>
+            <PlacementFormatPanel
+              placement={post.post_placement}
+              formatVariantId={post.format_variant_id}
+              platforms={post.platforms}
+              compact
+            />
+            <p className="text-xs font-semibold text-slate-600">
+              Target: {formatVariantDimensionsLabel(mediaFormat.variant)} for {post.post_placement}{" "}
+              on {post.platforms.join(", ")}.
+            </p>
 
             <button
               type="button"
@@ -912,6 +970,51 @@ export default function DirectorsConsole({
                       alt="Generated image preview"
                       className="max-h-56 w-full rounded-lg object-contain"
                     />
+                    {imageVerification ? (
+                      <div
+                        className={`mt-2 rounded-lg border p-2 ${
+                          imageVerification.ok
+                            ? "border-emerald-200 bg-emerald-50"
+                            : "border-rose-200 bg-rose-50"
+                        }`}
+                      >
+                        <p
+                          className={`text-xs font-black uppercase tracking-wide ${
+                            imageVerification.ok ? "text-emerald-800" : "text-rose-800"
+                          }`}
+                        >
+                          {imageVerification.ok
+                            ? "Image verified"
+                            : "Image verification failed"}
+                          {" — "}
+                          {imageVerification.width}×{imageVerification.height} (
+                          {imageVerification.actualAspectRatio})
+                        </p>
+                        {imageVerification.issues.length > 0 ? (
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-xs font-semibold text-slate-700">
+                            {imageVerification.issues.map((issue) => (
+                              <li
+                                key={`${issue.code}-${issue.message}`}
+                                className={
+                                  issue.severity === "error" ? "text-rose-900" : "text-amber-900"
+                                }
+                              >
+                                {issue.message}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 text-xs font-semibold text-emerald-800">
+                            Dimensions match {imageVerification.expectedVariant.label} and content
+                            looks like a real photo.
+                          </p>
+                        )}
+                      </div>
+                    ) : imageStatus === "succeeded" ? (
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        Verifying image dimensions and content…
+                      </p>
+                    ) : null}
                   </div>
                 ) : imageStatus === "processing" ? (
                   <p className="text-sm font-semibold text-slate-600">
@@ -974,7 +1077,10 @@ export default function DirectorsConsole({
             />
             <ReadOnlyRow
               label="Aspect Ratio"
-              value={preview?.generationSettings.aspectRatio ?? "9:16 (vertical social ad)"}
+              value={
+                preview?.generationSettings.aspectRatio ??
+                `${mediaFormat.aspectRatio} (${formatVariantDimensionsLabel(mediaFormat.variant)})`
+              }
             />
             <ReadOnlyRow
               label="Motion Preset"

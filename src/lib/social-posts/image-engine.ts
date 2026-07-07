@@ -12,6 +12,7 @@ export type ImageEngineStartInput = {
   sourceImageUrl: string | null;
   mode: ImageGenerationMode;
   provider?: ImageProvider;
+  aspectRatio?: string | null;
 };
 
 export type ImageEngineStartResult = ImageProviderStartResult;
@@ -65,6 +66,7 @@ export async function startImageGeneration(
     prompt: input.prompt.trim(),
     sourceImageUrl: input.sourceImageUrl,
     mode,
+    aspectRatio: input.aspectRatio,
   });
 }
 

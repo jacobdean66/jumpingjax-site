@@ -6,6 +6,7 @@ import {
   normalizeImageStudioPresetValue,
 } from "@/lib/social-posts/image-director";
 import { resolveImageGenerationMode, startImageGeneration } from "@/lib/social-posts/image-engine";
+import { resolvePostMediaFormat } from "@/lib/social-posts/social-media-format-variants";
 import {
   createSocialPostAsset,
   findOrCreateSocialPostSourceAsset,
@@ -85,9 +86,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       postPrompt: post.prompt ?? "",
       sourceImageCategory: category,
       imageStudioPreset: preset,
+      platforms: post.platforms,
+      postPlacement: post.post_placement,
+      formatVariantId: post.format_variant_id,
     });
 
     const generationPrompt = body.finalImagePrompt?.trim() || builtPrompt;
+    const mediaFormat = resolvePostMediaFormat({
+      platforms: post.platforms,
+      placement: post.post_placement,
+      formatVariantId: post.format_variant_id,
+    });
     const mode = resolveImageGenerationMode({
       mode: body.mode,
       sourceImageUrl: resolvedSourceImageUrl,
@@ -97,6 +106,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       prompt: generationPrompt,
       sourceImageUrl: resolvedSourceImageUrl,
       mode,
+      aspectRatio: mediaFormat.replicateAspectRatio,
     });
 
     const sourceAsset = resolvedSourceImageUrl
@@ -133,7 +143,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
         generationStatus: normalizeProviderStatus(result.status),
         generationPrompt,
         createdBy: "image_director",
-        metadata: { mode, source_image_url: resolvedSourceImageUrl },
+        metadata: {
+          mode,
+          source_image_url: resolvedSourceImageUrl,
+          post_placement: post.post_placement,
+          format_variant_id: mediaFormat.variantId,
+          aspect_ratio: mediaFormat.aspectRatio,
+          recommended_width: mediaFormat.recommendedWidth,
+          recommended_height: mediaFormat.recommendedHeight,
+        },
       });
     }
 
@@ -158,6 +176,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       provider: result.provider,
       model: result.model,
       mode,
+      aspectRatio: mediaFormat.aspectRatio,
+      formatVariantId: mediaFormat.variantId,
+      recommendedDimensions: `${mediaFormat.recommendedWidth}x${mediaFormat.recommendedHeight}`,
     });
   } catch (error) {
     return NextResponse.json(

@@ -12,6 +12,10 @@ import {
   aiVideoAppUrl,
   socialPostEffectiveSourceImageUrl,
 } from "./social-video-utils";
+import {
+  formatDimensionsLabel,
+  resolveSocialMediaFormat,
+} from "./social-media-format-specs";
 import type { SocialPostBusinessFocus } from "./social-post-data";
 
 export type CreativeSource = "openai" | "rule-fallback" | "unknown";
@@ -26,6 +30,8 @@ export type DirectorPreviewInput = {
   motionPreset?: string | null;
   cameraPreset?: string | null;
   creativeSource?: string | null;
+  platforms?: readonly string[];
+  postPlacement?: string | null;
 };
 
 export type GenerationSettings = {
@@ -197,13 +203,19 @@ export function getDirectorSafetyWarnings(input: {
 export function getGenerationSettings(
   motionPreset: MotionPreset,
   cameraPreset: CameraPreset,
+  input?: Readonly<{ platforms?: readonly string[]; postPlacement?: string | null }>,
 ): GenerationSettings {
+  const format = resolveSocialMediaFormat({
+    platforms: input?.platforms ?? ["facebook", "instagram"],
+    placement: input?.postPlacement,
+  });
+
   return {
     aiVideoAppUrl: aiVideoAppUrl(),
     model: process.env.AI_VIDEO_MODEL?.trim() || "Configured by AI Video App",
     qualityMode: "draft",
     durationSeconds: 5,
-    aspectRatio: "9:16 (vertical social ad)",
+    aspectRatio: `${format.aspectRatio} (${formatDimensionsLabel(format)})`,
     motionPreset,
     cameraPreset,
   };
@@ -248,7 +260,10 @@ export function buildDirectorPreview(
     cameraPreset,
   });
 
-  const generationSettings = getGenerationSettings(motionPreset, cameraPreset);
+  const generationSettings = getGenerationSettings(motionPreset, cameraPreset, {
+    platforms: input.platforms,
+    postPlacement: input.postPlacement,
+  });
   const safetyWarnings = getDirectorSafetyWarnings({
     finalPrompt: improvedPrompt,
     campaignId: input.campaignId,

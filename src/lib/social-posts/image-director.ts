@@ -3,6 +3,12 @@
  * No video motion, camera, or animation instructions belong here.
  */
 
+import {
+  formatVariantDimensionsLabel,
+  resolvePostMediaFormat,
+} from "./social-media-format-variants";
+import { verifyImageDimensionsAgainstVariant } from "./social-media-image-verification-core";
+
 export type ImageStudioPreset =
   | "original-rental-photo"
   | "kids-playing"
@@ -55,6 +61,9 @@ export type ImageDirectorInput = {
   postPrompt: string;
   sourceImageCategory: string | null;
   imageStudioPreset: ImageStudioPreset;
+  platforms?: readonly string[];
+  postPlacement?: string | null;
+  formatVariantId?: string | null;
   /** @deprecated */
   imageDirectionPreset?: ImageStudioPreset;
 };
@@ -71,7 +80,11 @@ export type ImageQualityWarningCode =
   | "low-resolution"
   | "faces-distorted"
   | "unsafe-positioning"
-  | "background-clutter";
+  | "background-clutter"
+  | "aspect-ratio-mismatch"
+  | "platform-crop-risk"
+  | "likely-blank-or-solid"
+  | "likely-letterboxed";
 
 export type ImageQualityWarning = {
   code: ImageQualityWarningCode;
@@ -105,12 +118,30 @@ const CHILD_EXPECTING_PRESETS = new Set<ImageStudioPreset>([
   "comedy",
 ]);
 
-const STILL_IMAGE_SUFFIX =
-  "Photorealistic still photograph for a vertical 9:16 social ad starting frame. No text, logos, watermarks, or captions. No motion blur, no video frames, no animation.";
+type ImageDirectorFormat = Readonly<{
+  framingLabel: string;
+  recommendedWidth: number;
+  recommendedHeight: number;
+  aspectRatio: string;
+  compositionGuidance: string;
+}>;
+
+function stillImageSuffix(format: ImageDirectorFormat): string {
+  return `${format.compositionGuidance} Photorealistic still photograph for ${format.framingLabel} (${formatVariantDimensionsLabel(format)}). No text, logos, watermarks, or captions. No motion blur, no video frames, no animation.`;
+}
+
+function resolveImageDirectorFormat(input: ImageDirectorInput): ImageDirectorFormat {
+  const resolved = resolvePostMediaFormat({
+    platforms: input.platforms ?? ["facebook", "instagram"],
+    placement: input.postPlacement,
+    formatVariantId: input.formatVariantId,
+  });
+  return resolved;
+}
 
 const PRESET_PROMPTS: Record<Exclude<ImageStudioPreset, "custom">, string> = {
   "original-rental-photo":
-    "A photorealistic vertical 9:16 still of the exact inflatable rental from the source image, preserved with the same colors, shape, vinyl details, slide lanes, and pool. Clean backyard daylight, premium product clarity, no added people unless already present.",
+    "A photorealistic still of the exact inflatable rental from the source image, preserved with the same colors, shape, vinyl details, slide lanes, and pool. Clean backyard daylight, premium product clarity, no added people unless already present.",
   "kids-playing":
     "A realistic still photograph of young children ages 3–7 with proper child-sized bodies playing safely on the exact inflatable from the source image. Supervised backyard fun, bright summer colors, natural smiles, the inflatable unchanged in color and shape.",
   "parents-watching":
@@ -124,7 +155,7 @@ const PRESET_PROMPTS: Record<Exclude<ImageStudioPreset, "custom">, string> = {
   "toddler-play":
     "A realistic still photograph of a 3–4 year old child with proper toddler proportions at the top of the exact inflatable waterslide from the source image, smiling naturally, sunny backyard, parents watching nearby, inflatable colors and shape preserved.",
   "commercial-hero-shot":
-    "A premium commercial hero still of the exact inflatable from the source image, crisp product detail, clean composition, bright natural light, scroll-stopping vertical 9:16 framing, minimal distraction.",
+    "A premium commercial hero still of the exact inflatable from the source image, crisp product detail, clean composition, bright natural light, scroll-stopping framing, minimal distraction.",
   comedy:
     "A playful but realistic still photograph with young children ages 3–7 and child-sized bodies having wholesome funny moments on the exact inflatable from the source image. Lighthearted energy, safe supervised play, inflatable preserved exactly.",
 };
@@ -158,7 +189,10 @@ function campaignContext(campaignName: string | null): string {
   return `Campaign theme: ${campaignName.trim()}.`;
 }
 
-function buildCustomPrompt(input: ImageDirectorInput): string {
+function buildCustomPrompt(
+  input: ImageDirectorInput,
+  format: ImageDirectorFormat,
+): string {
   const brief = input.postPrompt.trim();
   const parts = [
     brief ||
@@ -166,7 +200,7 @@ function buildCustomPrompt(input: ImageDirectorInput): string {
     categoryContext(input.sourceImageCategory),
     campaignContext(input.campaignName),
     "Preserve the exact inflatable from the source image — same product, colors, shape, and visible details.",
-    STILL_IMAGE_SUFFIX,
+    stillImageSuffix(format),
   ].filter(Boolean);
   return parts.join(" ");
 }
@@ -175,16 +209,17 @@ export function buildImageDirectorPrompt(input: ImageDirectorInput): ImageDirect
   const preset = normalizeImageStudioPreset(
     input.imageStudioPreset ?? input.imageDirectionPreset,
   );
+  const format = resolveImageDirectorFormat(input);
 
   if (preset === "custom") {
-    return { prompt: buildCustomPrompt(input) };
+    return { prompt: buildCustomPrompt(input, format) };
   }
 
   const parts = [
     PRESET_PROMPTS[preset],
     categoryContext(input.sourceImageCategory),
     campaignContext(input.campaignName),
-    STILL_IMAGE_SUFFIX,
+    stillImageSuffix(format),
   ].filter(Boolean);
 
   return { prompt: parts.join(" ") };
@@ -203,6 +238,9 @@ export function getImageQualityWarnings(input: {
   prompt: string;
   sourceImageCategory: string | null;
   imageStudioPreset: ImageStudioPreset;
+  platforms?: readonly string[];
+  postPlacement?: string | null;
+  formatVariantId?: string | null;
   imageWidth?: number | null;
   imageHeight?: number | null;
 }): ImageQualityWarning[] {
@@ -253,6 +291,34 @@ export function getImageQualityWarnings(input: {
       code: "low-resolution",
       message: `Low resolution (${width || "?"} × ${height || "?"}) — higher source images produce better edits.`,
     });
+  }
+
+  if (width > 0 && height > 0 && input.postPlacement) {
+    const mediaFormat = resolvePostMediaFormat({
+      platforms: input.platforms ?? ["facebook", "instagram"],
+      placement: input.postPlacement,
+      formatVariantId: input.formatVariantId,
+    });
+    const dimensionCheck = verifyImageDimensionsAgainstVariant({
+      width,
+      height,
+      variant: mediaFormat.variant,
+      platforms: input.platforms ?? ["facebook", "instagram"],
+      placement: mediaFormat.placement,
+    });
+    for (const issue of dimensionCheck.issues) {
+      if (issue.code === "aspect_ratio_mismatch") {
+        warnings.push({
+          code: "aspect-ratio-mismatch",
+          message: issue.message,
+        });
+      } else if (issue.code === "platform_crop_risk") {
+        warnings.push({
+          code: "platform-crop-risk",
+          message: issue.message,
+        });
+      }
+    }
   }
 
   if (/distort|warped face|melted face|extra limb|deformed/.test(promptLower)) {

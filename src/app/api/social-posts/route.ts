@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
       media_url: clean(form.get("media_url")),
       source_image_url: clean(form.get("source_image_url")),
       platforms: platformsFromForm(form),
+      post_placement: clean(form.get("post_placement")) || "feed",
     });
     revalidatePath("/admin/social-posts");
     return formRedirect(req, token, { message: "Social post draft created" });

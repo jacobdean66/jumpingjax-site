@@ -53,6 +53,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       motionPreset: body.motionPreset ?? post.motion_preset,
       cameraPreset: body.cameraPreset ?? post.camera_preset,
       creativeSource: post.creative_source,
+      platforms: post.platforms,
+      postPlacement: post.post_placement,
     });
 
     return NextResponse.json({ ok: true, preview });

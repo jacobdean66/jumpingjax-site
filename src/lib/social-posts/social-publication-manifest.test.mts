@@ -55,6 +55,8 @@ function post(input: Partial<SocialPost> & { id: string }): SocialPost {
     camera_preset: input.camera_preset ?? null,
     creative_source: input.creative_source ?? null,
     platforms: input.platforms ?? ["facebook", "instagram"],
+    post_placement: input.post_placement ?? "feed",
+    format_variant_id: input.format_variant_id ?? null,
     status: input.status ?? "draft",
     scheduled_for: input.scheduled_for ?? null,
     posted_at: input.posted_at ?? null,

@@ -243,6 +243,19 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
                 <option value="video">Video</option>
               </select>
             </Field>
+            <Field label="Post placement">
+              <select
+                name="post_placement"
+                defaultValue="feed"
+                className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
+              >
+                <option value="feed">Feed (4:5 portrait recommended)</option>
+                <option value="story">Story (9:16)</option>
+                <option value="reel">Reel (9:16)</option>
+                <option value="carousel">Carousel (4:5 first slide)</option>
+                <option value="search">Search / ad placement (1:1)</option>
+              </select>
+            </Field>
             <div>
               <p className="text-sm font-black text-slate-700">Platforms</p>
               <div className="mt-2 flex flex-wrap gap-3">

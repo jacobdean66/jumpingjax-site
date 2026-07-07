@@ -4,6 +4,7 @@ export type ImageProviderStartInput = {
   prompt: string;
   sourceImageUrl: string | null;
   mode: ImageGenerationMode;
+  aspectRatio?: string | null;
 };
 
 export type ImageProviderStartResult = {
@@ -100,10 +101,23 @@ async function replicateRequest(
   return data;
 }
 
+function resolveReplicateAspectRatio(value: string | null | undefined): string {
+  const cleaned = value?.trim();
+  if (
+    cleaned &&
+    ["1:1", "4:5", "3:4", "9:16", "16:9", "4:3", "3:2", "2:3", "21:9"].includes(cleaned)
+  ) {
+    return cleaned;
+  }
+  return "4:5";
+}
+
 function buildReplicateInput(
   input: ImageProviderStartInput,
   mode: ImageGenerationMode,
 ): Record<string, unknown> {
+  const aspectRatio = resolveReplicateAspectRatio(input.aspectRatio);
+
   if (mode === "edit") {
     if (!input.sourceImageUrl?.trim()) {
       throw new Error("Image edit mode requires a source image URL.");
@@ -112,14 +126,14 @@ function buildReplicateInput(
     return {
       prompt: input.prompt,
       input_image: input.sourceImageUrl.trim(),
-      aspect_ratio: "9:16",
+      aspect_ratio: aspectRatio,
       output_format: "jpg",
     };
   }
 
   return {
     prompt: input.prompt,
-    aspect_ratio: "9:16",
+    aspect_ratio: aspectRatio,
     output_format: "jpg",
   };
 }

@@ -10,6 +10,10 @@ import {
 import { listImageProviderIds } from "@/lib/social-posts/image-provider";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import { getSocialPostById } from "@/lib/social-posts/social-post-data";
+import {
+  formatVariantDimensionsLabel,
+  resolvePostMediaFormat,
+} from "@/lib/social-posts/social-media-format-variants";
 import { socialVideoSourceImageUrl } from "@/lib/social-posts/social-video-utils";
 import { sourceImageCategory } from "@/lib/social-posts/video-director";
 
@@ -68,6 +72,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
       postPrompt: post.prompt ?? "",
       sourceImageCategory: category,
       imageStudioPreset: preset,
+      platforms: post.platforms,
+      postPlacement: post.post_placement,
+      formatVariantId: post.format_variant_id,
+    });
+    const mediaFormat = resolvePostMediaFormat({
+      platforms: post.platforms,
+      placement: post.post_placement,
+      formatVariantId: post.format_variant_id,
     });
 
     const warnings = getImageDirectorSafetyWarnings({
@@ -82,6 +94,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       imageStudioPreset: preset,
       imageWidth: body.imageWidth,
       imageHeight: body.imageHeight,
+      platforms: post.platforms,
+      postPlacement: post.post_placement,
+      formatVariantId: post.format_variant_id,
     });
     const costEstimate = estimateImageDirectorCost(4, body.providerId ?? undefined);
 
@@ -94,6 +109,21 @@ export async function POST(req: NextRequest, context: RouteContext) {
       preset,
       sourceImageCategory: category,
       availableProviders: listImageProviderIds(),
+      mediaFormat: {
+        placement: mediaFormat.placement,
+        variantId: mediaFormat.variantId,
+        variantLabel: mediaFormat.variant.label,
+        aspectRatio: mediaFormat.aspectRatio,
+        recommendedDimensions: formatVariantDimensionsLabel(mediaFormat.variant),
+        replicateAspectRatio: mediaFormat.replicateAspectRatio,
+        compositionGuidance: mediaFormat.compositionGuidance,
+        variantOptions: mediaFormat.variantOptions.map((variant) => ({
+          id: variant.id,
+          label: variant.label,
+          dimensions: formatVariantDimensionsLabel(variant),
+          compositionGuidance: variant.compositionGuidance,
+        })),
+      },
     });
   } catch (error) {
     return NextResponse.json(

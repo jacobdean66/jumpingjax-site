@@ -340,6 +340,9 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
               : stringValue(body.source_image_url) || existing.source_image_url,
           platforms:
             body.action === "regenerate_all" ? plan.platforms : arrayValue(body.platforms),
+          post_placement: stringValue(body.post_placement) || existing.post_placement,
+          format_variant_id:
+            stringValue(body.format_variant_id) || existing.format_variant_id,
           status: stringValue(body.status) || existing.status,
           scheduled_for: stringValue(body.scheduled_for) || null,
         });
@@ -369,6 +372,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         business_focus: stringValue(body.business_focus),
         source_image_url: stringValue(body.source_image_url),
         platforms: arrayValue(body.platforms),
+        post_placement: stringValue(body.post_placement),
+        format_variant_id: stringValue(body.format_variant_id) || null,
         status: stringValue(body.status),
         scheduled_for: stringValue(body.scheduled_for) || null,
       });

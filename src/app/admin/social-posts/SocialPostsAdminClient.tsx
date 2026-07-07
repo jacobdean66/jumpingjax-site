@@ -3,14 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import DirectorsConsole from "./DirectorsConsole";
+import PlacementFormatPanel from "./PlacementFormatPanel";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type {
   SocialPost,
   SocialPostBusinessFocus,
   SocialPostMediaType,
+  SocialPostPlacement,
   SocialPostPlatform,
   SocialPostStatus,
 } from "@/lib/social-posts/social-post-data";
+import type { SocialMediaFormatVariantId } from "@/lib/social-posts/social-media-format-variants";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 
 type Props = {
@@ -31,6 +34,8 @@ type EditorDraft = {
   prompt: string;
   business_focus: SocialPostBusinessFocus;
   media_type: SocialPostMediaType;
+  post_placement: SocialPostPlacement;
+  format_variant_id: SocialMediaFormatVariantId | null;
   platforms: SocialPostPlatform[];
   source_image_url: string;
   status: SocialPostStatus;
@@ -76,6 +81,8 @@ function draftFromPost(post: SocialPost): EditorDraft {
     prompt: post.prompt ?? "",
     business_focus: post.business_focus ?? "both",
     media_type: post.media_type,
+    post_placement: post.post_placement,
+    format_variant_id: post.format_variant_id,
     platforms: post.platforms.length ? post.platforms : ["facebook", "instagram"],
     source_image_url: post.source_image_url ?? "",
     status: post.status,
@@ -195,6 +202,8 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
       prompt: draft.prompt,
       business_focus: draft.business_focus,
       media_type: draft.media_type,
+      post_placement: draft.post_placement,
+      format_variant_id: draft.format_variant_id,
       platforms: draft.platforms,
       source_image_url: draft.source_image_url,
       status: draft.status,
@@ -524,6 +533,22 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
                             <option value="video">Video</option>
                           </select>
                         </Field>
+                        <div className="md:col-span-2">
+                          <PlacementFormatPanel
+                            placement={draft.post_placement}
+                            formatVariantId={draft.format_variant_id}
+                            platforms={draft.platforms}
+                            onPlacementChange={(post_placement) =>
+                              updateDraft(post.id, {
+                                post_placement,
+                                format_variant_id: null,
+                              })
+                            }
+                            onVariantChange={(format_variant_id) =>
+                              updateDraft(post.id, { format_variant_id })
+                            }
+                          />
+                        </div>
                         <div className="md:col-span-2">
                           <p className="text-sm font-black text-slate-700">Platforms</p>
                           <div className="mt-2 flex flex-wrap gap-3">

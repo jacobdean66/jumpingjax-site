@@ -14,6 +14,7 @@ import {
   getSocialPostById,
   updateSocialPostImageGenerationStatus,
 } from "@/lib/social-posts/social-post-data";
+import { verifySocialMediaImageFromUrl } from "@/lib/social-posts/social-media-image-verification";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -49,14 +50,27 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     if (!post.image_prediction_id) {
+      const generatedImageUrl = post.generated_image_url;
+      const status = post.image_generation_status;
+      const verification =
+        status === "succeeded" && generatedImageUrl
+          ? await verifySocialMediaImageFromUrl({
+              imageUrl: generatedImageUrl,
+              placement: post.post_placement,
+              formatVariantId: post.format_variant_id,
+              platforms: post.platforms,
+            })
+          : null;
+
       return NextResponse.json({
         ok: true,
         post,
-        status: post.image_generation_status,
-        generatedImageUrl: post.generated_image_url,
+        status,
+        generatedImageUrl,
         provider: post.image_generation_provider,
         model: post.image_generation_model,
         predictionId: null,
+        verification,
       });
     }
 
@@ -119,6 +133,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
       revalidatePath("/admin/social-posts");
     }
 
+    let verification = null;
+    if (normalizedStatus === "succeeded" && generatedImageUrl) {
+      verification = await verifySocialMediaImageFromUrl({
+        imageUrl: generatedImageUrl,
+        placement: updatedPost.post_placement,
+        formatVariantId: updatedPost.format_variant_id,
+        platforms: updatedPost.platforms,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       post: updatedPost,
@@ -128,6 +152,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       model: statusResult.model,
       predictionId: statusResult.predictionId,
       error: statusResult.error,
+      verification,
     });
   } catch (error) {
     return NextResponse.json(

@@ -2,6 +2,14 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   type ImageConceptId,
 } from "@/lib/social-posts/image-director";
+import {
+  normalizeSocialPostPlacement,
+  type SocialPostPlacement,
+} from "@/lib/social-posts/social-media-format-specs";
+import {
+  normalizeFormatVariantId,
+  type SocialMediaFormatVariantId,
+} from "@/lib/social-posts/social-media-format-variants";
 
 const CONCEPT_LABELS: Record<ImageConceptId, string> = {
   A: "Concept A",
@@ -36,11 +44,19 @@ export const SOCIAL_POST_STATUSES = [
 ] as const;
 export const SOCIAL_POST_PLATFORMS = ["facebook", "instagram"] as const;
 export const SOCIAL_POST_BUSINESS_FOCUS = ["rentals", "facility-parties", "both"] as const;
+export const SOCIAL_POST_PLACEMENTS = [
+  "feed",
+  "story",
+  "reel",
+  "carousel",
+  "search",
+] as const;
 
 export type SocialPostMediaType = (typeof SOCIAL_POST_MEDIA_TYPES)[number];
 export type SocialPostStatus = (typeof SOCIAL_POST_STATUSES)[number];
 export type SocialPostPlatform = (typeof SOCIAL_POST_PLATFORMS)[number];
 export type SocialPostBusinessFocus = (typeof SOCIAL_POST_BUSINESS_FOCUS)[number];
+export type { SocialPostPlacement, SocialMediaFormatVariantId };
 
 export type SocialPost = {
   id: string;
@@ -71,6 +87,8 @@ export type SocialPost = {
   camera_preset: string | null;
   creative_source: string | null;
   platforms: SocialPostPlatform[];
+  post_placement: SocialPostPlacement;
+  format_variant_id: SocialMediaFormatVariantId | null;
   status: SocialPostStatus;
   scheduled_for: string | null;
   posted_at: string | null;
@@ -91,6 +109,8 @@ export type CreateSocialPostInput = {
   camera_preset?: string | null;
   creative_source?: string | null;
   platforms?: string[] | null;
+  post_placement?: string | null;
+  format_variant_id?: string | null;
 };
 
 export type UpdateSocialPostDraftInput = {
@@ -106,12 +126,14 @@ export type UpdateSocialPostDraftInput = {
   camera_preset?: string | null;
   creative_source?: string | null;
   platforms?: string[] | null;
+  post_placement?: string | null;
+  format_variant_id?: string | null;
   status?: string | null;
   scheduled_for?: string | null;
 };
 
 const SOCIAL_POST_SELECT =
-  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, media_source_url, source_image_url, original_image_url, approved_image_url, generated_image_url, generated_image_source_url, image_generation_provider, image_generation_model, image_prediction_id, image_generation_created_at, image_generation_prompt, image_generation_status, image_concepts, motion_preset, camera_preset, creative_source, platforms, status, scheduled_for, posted_at, error_message";
+  "id, created_at, updated_at, title, campaign_id, goal, prompt, caption, media_type, business_focus, media_url, media_source_url, source_image_url, original_image_url, approved_image_url, generated_image_url, generated_image_source_url, image_generation_provider, image_generation_model, image_prediction_id, image_generation_created_at, image_generation_prompt, image_generation_status, image_concepts, motion_preset, camera_preset, creative_source, platforms, post_placement, format_variant_id, status, scheduled_for, posted_at, error_message";
 
 function isImageConceptId(value: unknown): value is ImageConceptId {
   return value === "A" || value === "B" || value === "C" || value === "D";
@@ -170,10 +192,19 @@ export function normalizeSocialPostImageConcepts(
 }
 
 function mapSocialPostRow(
-  data: SocialPost & { image_concepts?: unknown },
+  data: SocialPost & {
+    image_concepts?: unknown;
+    post_placement?: string | null;
+    format_variant_id?: string | null;
+  },
 ): SocialPost {
+  const placement = normalizeSocialPostPlacement(data.post_placement);
   return {
     ...data,
+    post_placement: placement,
+    format_variant_id: data.format_variant_id
+      ? normalizeFormatVariantId(placement, data.format_variant_id)
+      : null,
     image_concepts: normalizeSocialPostImageConcepts(data.image_concepts),
   };
 }
@@ -280,6 +311,13 @@ export async function createSocialPost(
       camera_preset: cleanText(input.camera_preset),
       creative_source: cleanText(input.creative_source),
       platforms: normalizePlatforms(input.platforms),
+      post_placement: normalizeSocialPostPlacement(input.post_placement),
+      format_variant_id: input.format_variant_id
+        ? normalizeFormatVariantId(
+            normalizeSocialPostPlacement(input.post_placement),
+            input.format_variant_id,
+          )
+        : null,
       status: "draft",
     })
     .select(SOCIAL_POST_SELECT)
@@ -711,6 +749,13 @@ export async function updateSocialPostDraft(
     camera_preset: cleanText(input.camera_preset),
     creative_source: cleanText(input.creative_source),
     platforms: normalizePlatforms(input.platforms),
+    post_placement: normalizeSocialPostPlacement(input.post_placement),
+    format_variant_id: input.format_variant_id
+      ? normalizeFormatVariantId(
+          normalizeSocialPostPlacement(input.post_placement),
+          input.format_variant_id,
+        )
+      : null,
     status: (input.status ?? "draft") as SocialPostStatus,
     scheduled_for: nextScheduledFor,
   };
@@ -763,6 +808,8 @@ export async function duplicateSocialPostDraft(id: string): Promise<SocialPost> 
     camera_preset: post.camera_preset,
     creative_source: post.creative_source,
     platforms: post.platforms,
+    post_placement: post.post_placement,
+    format_variant_id: post.format_variant_id,
   });
 }
 

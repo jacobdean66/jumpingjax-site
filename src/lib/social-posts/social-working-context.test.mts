@@ -62,6 +62,8 @@ function post(input: {
     camera_preset: null,
     creative_source: null,
     platforms: ["facebook", "instagram"],
+    post_placement: "feed",
+    format_variant_id: null,
     status: input.status ?? "draft",
     scheduled_for: null,
     posted_at: null,
