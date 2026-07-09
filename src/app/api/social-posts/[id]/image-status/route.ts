@@ -2,6 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import {
+  socialPostGetAuthErrorResponse,
+  socialPostGetClientErrorResponse,
+  socialPostGetErrorResponse,
+} from "@/lib/social-posts/social-post-get-api-response";
 import { getImageGenerationStatus } from "@/lib/social-posts/image-engine";
 import {
   findSocialPostAssetByPrediction,
@@ -29,15 +34,14 @@ function normalizeProviderStatus(status: string): string {
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/image-status";
+
   try {
     const token = req.nextUrl.searchParams.get("token");
     const auth = await verifyAdminAccess(token);
 
     if (!auth.ok) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid admin login" },
-        { status: 401 },
-      );
+      return socialPostGetAuthErrorResponse(route);
     }
 
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
@@ -49,9 +53,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const post = await getSocialPostById(id);
 
     if (!post) {
-      return NextResponse.json(
-        { ok: false, error: "Social post not found" },
-        { status: 404 },
+      return socialPostGetClientErrorResponse(
+        "Social post not found",
+        route,
+        "post_not_found",
+        404,
       );
     }
 
@@ -161,13 +167,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       verification,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error ? error.message : "Image status check failed.",
-      },
-      { status: 500 },
-    );
+    return socialPostGetErrorResponse(error, route, 500, "image_status_failed");
   }
 }

@@ -26,6 +26,7 @@ import {
   type MotionPreset,
 } from "@/lib/social-posts/video-director";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
+import AdminLocalizedStatusPanel from "./AdminLocalizedStatusPanel";
 
 type Props = {
   post: SocialPost;
@@ -33,7 +34,6 @@ type Props = {
   sourceImages: SocialSourceImage[];
   onSourceImageChange: (url: string) => void;
   onGenerateComplete: () => void;
-  onError: (message: string) => void;
   onMessage: (message: string) => void;
 };
 
@@ -179,9 +179,12 @@ export default function DirectorsConsole({
   sourceImages,
   onSourceImageChange,
   onGenerateComplete,
-  onError,
   onMessage,
 }: Props) {
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [imageStatusError, setImageStatusError] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [presetOverride, setPresetOverride] = useState<{
     motion?: MotionPreset;
@@ -309,6 +312,7 @@ export default function DirectorsConsole({
       throw new Error(data.error ?? "Image status check failed");
     }
 
+    setImageStatusError(null);
     setActiveImageGeneration({
       status: data.status ?? null,
       generatedImageUrl: data.generatedImageUrl ?? null,
@@ -330,14 +334,14 @@ export default function DirectorsConsole({
           }
         })
         .catch((caught) => {
-          onError(
+          setImageStatusError(
             caught instanceof Error ? caught.message : "Image status check failed",
           );
         });
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [imageStatus, onError, onGenerateComplete, pollImageStatus]);
+  }, [imageStatus, onGenerateComplete, pollImageStatus]);
 
   useEffect(() => {
     if (imageStatus !== "succeeded" || !generatedImageUrl || imageVerification) return;
@@ -354,16 +358,20 @@ export default function DirectorsConsole({
         };
         if (data.verification) {
           setImageVerification(data.verification);
+          setVerificationError(null);
         }
-      } catch {
-        // Verification will run again after the next status poll.
+      } catch (caught) {
+        setVerificationError(
+          caught instanceof Error ? caught.message : "Image verification failed",
+        );
       }
     })();
   }, [post.id, imageStatus, generatedImageUrl, token, imageVerification]);
 
   const fetchPreview = useCallback(async () => {
     setPreviewLoading(true);
-    onError("");
+    setPreviewError(null);
+    setLocalError(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}/director-preview`, {
@@ -386,12 +394,14 @@ export default function DirectorsConsole({
       setFinalPrompt(nextPreview.finalVideoPrompt);
       return nextPreview;
     } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Director preview failed");
+      setPreviewError(
+        caught instanceof Error ? caught.message : "Director preview failed",
+      );
       return null;
     } finally {
       setPreviewLoading(false);
     }
-  }, [post.id, token, motionPreset, cameraPreset, previewKey, onError]);
+  }, [post.id, token, motionPreset, cameraPreset, previewKey]);
 
   async function copyPrompt() {
     if (!finalPrompt.trim()) return;
@@ -409,7 +419,7 @@ export default function DirectorsConsole({
 
   const fetchImagePreview = useCallback(async () => {
     setImagePreviewLoading(true);
-    onError("");
+    setLocalError(null);
 
     try {
       const response = await fetch(
@@ -437,7 +447,7 @@ export default function DirectorsConsole({
         costEstimate: data.costEstimate ?? estimateImageDirectorCost(),
       });
     } catch (caught) {
-      onError(
+      setLocalError(
         caught instanceof Error ? caught.message : "Image director preview failed",
       );
     } finally {
@@ -449,17 +459,16 @@ export default function DirectorsConsole({
     token,
     imageDirectionPreset,
     imagePreviewKey,
-    onError,
   ]);
 
   async function generateImage() {
     if (!imagePrompt.trim()) {
-      onError("Preview the image prompt before generating.");
+      setLocalError("Preview the image prompt before generating.");
       return;
     }
 
     setImageGenerating(true);
-    onError("");
+    setLocalError(null);
     setImageVerification(null);
 
     try {
@@ -493,7 +502,7 @@ export default function DirectorsConsole({
         onGenerateComplete();
       }
     } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Image generation failed");
+      setLocalError(caught instanceof Error ? caught.message : "Image generation failed");
     } finally {
       setImageGenerating(false);
     }
@@ -501,7 +510,7 @@ export default function DirectorsConsole({
 
   async function acceptGeneratedImage() {
     setImageActionPending(true);
-    onError("");
+    setLocalError(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}`, {
@@ -521,7 +530,7 @@ export default function DirectorsConsole({
       onMessage("Approved image saved");
       onGenerateComplete();
     } catch (caught) {
-      onError(
+      setLocalError(
         caught instanceof Error ? caught.message : "Could not accept generated image",
       );
     } finally {
@@ -531,7 +540,7 @@ export default function DirectorsConsole({
 
   async function rejectGeneratedImage() {
     setImageActionPending(true);
-    onError("");
+    setLocalError(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}`, {
@@ -552,7 +561,7 @@ export default function DirectorsConsole({
       onMessage("Generated image rejected");
       onGenerateComplete();
     } catch (caught) {
-      onError(
+      setLocalError(
         caught instanceof Error ? caught.message : "Could not reject generated image",
       );
     } finally {
@@ -589,12 +598,12 @@ export default function DirectorsConsole({
 
   async function generateVideo() {
     if (!finalPrompt.trim()) {
-      onError("Preview the final prompt before generating video.");
+      setLocalError("Preview the final prompt before generating video.");
       return;
     }
 
     setGenerating(true);
-    onError("");
+    setLocalError(null);
 
     try {
       await savePresets();
@@ -649,7 +658,7 @@ export default function DirectorsConsole({
       onMessage("Video generated");
       onGenerateComplete();
     } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Video generation failed");
+      setLocalError(caught instanceof Error ? caught.message : "Video generation failed");
     } finally {
       setGenerating(false);
     }
@@ -684,6 +693,35 @@ export default function DirectorsConsole({
 
       {expanded ? (
         <div className="space-y-3 border-t border-violet-200 p-4">
+          {localError ? (
+            <AdminLocalizedStatusPanel
+              title="Director console"
+              message={localError}
+              onDismiss={() => setLocalError(null)}
+            />
+          ) : null}
+          {previewError ? (
+            <AdminLocalizedStatusPanel
+              title="Video preview"
+              message={previewError}
+              onDismiss={() => setPreviewError(null)}
+            />
+          ) : null}
+          {imageStatusError ? (
+            <AdminLocalizedStatusPanel
+              title="Image status poll"
+              message={imageStatusError}
+              onDismiss={() => setImageStatusError(null)}
+            />
+          ) : null}
+          {verificationError ? (
+            <AdminLocalizedStatusPanel
+              tone="warning"
+              title="Image verification"
+              message={verificationError}
+              onDismiss={() => setVerificationError(null)}
+            />
+          ) : null}
           <Section title="1. Creative Director">
             <ReadOnlyRow label="Campaign" value={campaignLabel} />
             <ReadOnlyRow label="Goal" value={preview?.goal ?? post.goal ?? "—"} />

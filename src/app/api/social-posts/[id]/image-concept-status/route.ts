@@ -2,6 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import {
+  socialPostGetAuthErrorResponse,
+  socialPostGetClientErrorResponse,
+  socialPostGetErrorResponse,
+} from "@/lib/social-posts/social-post-get-api-response";
 import type { ImageConceptId } from "@/lib/social-posts/image-director";
 import { getImageGenerationStatus } from "@/lib/social-posts/image-engine";
 import {
@@ -33,6 +38,8 @@ function parseConceptId(value: string | null): ImageConceptId | null {
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/image-concept-status";
+
   try {
     const token = req.nextUrl.searchParams.get("token");
     const predictionId = req.nextUrl.searchParams.get("predictionId");
@@ -40,10 +47,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const auth = await verifyAdminAccess(token);
 
     if (!auth.ok) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid admin login" },
-        { status: 401 },
-      );
+      return socialPostGetAuthErrorResponse(route);
     }
 
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
@@ -52,16 +56,18 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     if (!predictionId?.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "predictionId is required." },
-        { status: 400 },
+      return socialPostGetClientErrorResponse(
+        "predictionId is required.",
+        route,
+        "missing_prediction_id",
       );
     }
 
     if (!conceptId) {
-      return NextResponse.json(
-        { ok: false, error: "conceptId is required." },
-        { status: 400 },
+      return socialPostGetClientErrorResponse(
+        "conceptId is required.",
+        route,
+        "missing_concept_id",
       );
     }
 
@@ -127,13 +133,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       post: updatedPost,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error ? error.message : "Image concept status check failed.",
-      },
-      { status: 500 },
-    );
+    return socialPostGetErrorResponse(error, route, 500, "image_concept_status_failed");
   }
 }

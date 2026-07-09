@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import DirectorsConsole from "./DirectorsConsole";
 import PlacementFormatPanel from "./PlacementFormatPanel";
+import { SocialPostAdminErrorBoundary } from "./SocialPostAdminErrorBoundary";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type {
   SocialPost,
@@ -348,12 +349,19 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
             const draft = drafts[post.id] ?? draftFromPost(post);
             const isEditing = editingId === post.id;
             return (
-              <article
+              <SocialPostAdminErrorBoundary
                 key={post.id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                postId={post.id}
+                componentName="SocialPostCard"
               >
-                <MediaPreview post={post} />
-                <div className="space-y-4 p-4">
+                <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <SocialPostAdminErrorBoundary
+                    postId={post.id}
+                    componentName="MediaPreview"
+                  >
+                    <MediaPreview post={post} />
+                  </SocialPostAdminErrorBoundary>
+                  <div className="space-y-4 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
@@ -694,15 +702,19 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
                     </div>
                   ) : null}
 
-                  <DirectorsConsole
-                    post={post}
-                    token={token}
-                    sourceImages={sourceImages}
-                    onSourceImageChange={(url) => void updatePostSourceImage(post.id, url)}
-                    onGenerateComplete={() => router.refresh()}
-                    onError={setError}
-                    onMessage={setMessage}
-                  />
+                  <SocialPostAdminErrorBoundary
+                    postId={post.id}
+                    componentName="DirectorsConsole"
+                  >
+                    <DirectorsConsole
+                      post={post}
+                      token={token}
+                      sourceImages={sourceImages}
+                      onSourceImageChange={(url) => void updatePostSourceImage(post.id, url)}
+                      onGenerateComplete={() => router.refresh()}
+                      onMessage={setMessage}
+                    />
+                  </SocialPostAdminErrorBoundary>
 
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
@@ -740,6 +752,7 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
                   </form>
                 </div>
               </article>
+              </SocialPostAdminErrorBoundary>
             );
           })}
         </div>

@@ -6,6 +6,10 @@ import {
   type CreateSocialPostInput,
 } from "@/lib/social-posts/social-post-data";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import {
+  socialPostGetAuthErrorResponse,
+  socialPostGetErrorResponse,
+} from "@/lib/social-posts/social-post-get-api-response";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 function clean(value: FormDataEntryValue | null): string {
@@ -28,20 +32,26 @@ function platformsFromForm(form: FormData): string[] {
 }
 
 export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token");
-  const auth = await verifyAdminAccess(token);
+  const route = "/api/social-posts";
 
-  if (!auth.ok) {
-    return NextResponse.json({ error: "Invalid admin login" }, { status: 401 });
+  try {
+    const token = req.nextUrl.searchParams.get("token");
+    const auth = await verifyAdminAccess(token);
+
+    if (!auth.ok) {
+      return socialPostGetAuthErrorResponse(route);
+    }
+
+    const schemaGuard = await socialPostAdminSchemaGuardResponse();
+    if (schemaGuard) {
+      return schemaGuard;
+    }
+
+    const posts = await listSocialPosts();
+    return NextResponse.json({ ok: true, posts });
+  } catch (error) {
+    return socialPostGetErrorResponse(error, route, 500, "list_social_posts_failed");
   }
-
-  const schemaGuard = await socialPostAdminSchemaGuardResponse();
-  if (schemaGuard) {
-    return schemaGuard;
-  }
-
-  const posts = await listSocialPosts();
-  return NextResponse.json({ posts });
 }
 
 export async function POST(req: NextRequest) {
