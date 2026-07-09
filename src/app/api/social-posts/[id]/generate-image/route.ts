@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import {
   buildImageDirectorPrompt,
   normalizeImageStudioPresetValue,
@@ -50,6 +51,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { ok: false, error: "Invalid admin login" },
         { status: 401 },
       );
+    }
+
+    const schemaGuard = await socialPostAdminSchemaGuardResponse();
+    if (schemaGuard) {
+      return schemaGuard;
     }
 
     const { id } = await context.params;

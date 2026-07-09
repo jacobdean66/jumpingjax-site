@@ -75,6 +75,11 @@ export type PublicationManifestDestinations = {
   platforms: SocialPost["platforms"];
 };
 
+export type PublicationManifestPlacement = {
+  postPlacement: SocialPost["post_placement"];
+  formatVariantId: SocialPost["format_variant_id"];
+};
+
 export type PublicationManifestDecisionSummary = {
   totalCount: number;
   byStage: Record<string, number>;
@@ -115,6 +120,7 @@ export type PublicationManifest = {
   content: PublicationManifestContent;
   assets: PublicationManifestAssets;
   destinations: PublicationManifestDestinations;
+  placement: PublicationManifestPlacement;
   decisionSummary: PublicationManifestDecisionSummary;
   workingContextSummary: PublicationManifestWorkingContextSummary;
   constraints: PublicationManifestConstraints;
@@ -247,6 +253,10 @@ export async function buildPublicationManifest(
     },
     destinations: {
       platforms: post.platforms,
+    },
+    placement: {
+      postPlacement: post.post_placement,
+      formatVariantId: post.format_variant_id,
     },
     decisionSummary: {
       totalCount: sortedDecisions.length,

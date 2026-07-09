@@ -219,6 +219,31 @@ await test("builds a deterministic read-only manifest summary", async () => {
   assert.equal("approval" in manifest, false);
 });
 
+await test("includes placement and format variant metadata", async () => {
+  configurePublicationManifestTestDependencies({
+    getPostById: async () =>
+      post({
+        id: "post-1",
+        post_placement: "story",
+        format_variant_id: "story_vertical_9_16",
+      }),
+    listAssets: async () => [],
+    listDecisions: async () => [],
+    buildWorkingContext: async () => workingContext(),
+    getCampaign: () => null,
+  });
+
+  const manifest = await buildPublicationManifest("post-1");
+
+  assert.deepEqual(manifest.placement, {
+    postPlacement: "story",
+    formatVariantId: "story_vertical_9_16",
+  });
+  assert.equal(manifest.constraints.readOnly, true);
+  assert.equal(manifest.constraints.publishesNothing, true);
+  assert.equal(manifest.constraints.schedulesNothing, true);
+});
+
 await test("keeps decision history summary-only", async () => {
   configurePublicationManifestTestDependencies({
     getPostById: async () => post({ id: "post-1" }),

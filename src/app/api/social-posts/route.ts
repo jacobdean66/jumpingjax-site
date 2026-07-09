@@ -5,6 +5,7 @@ import {
   listSocialPosts,
   type CreateSocialPostInput,
 } from "@/lib/social-posts/social-post-data";
+import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 function clean(value: FormDataEntryValue | null): string {
@@ -34,6 +35,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid admin login" }, { status: 401 });
   }
 
+  const schemaGuard = await socialPostAdminSchemaGuardResponse();
+  if (schemaGuard) {
+    return schemaGuard;
+  }
+
   const posts = await listSocialPosts();
   return NextResponse.json({ posts });
 }
@@ -49,6 +55,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid admin login" }, { status: 401 });
     }
 
+    const schemaGuard = await socialPostAdminSchemaGuardResponse();
+    if (schemaGuard) {
+      return schemaGuard;
+    }
+
     const post = await createSocialPost(body);
     revalidatePath("/admin/social-posts");
     return NextResponse.json({ post }, { status: 201 });
@@ -60,6 +71,14 @@ export async function POST(req: NextRequest) {
 
   if (!auth.ok) {
     return formRedirect(req, token, { error: "Invalid admin login" });
+  }
+
+  const schemaGuard = await socialPostAdminSchemaGuardResponse();
+  if (schemaGuard) {
+    const payload = (await schemaGuard.json()) as { error?: string };
+    return formRedirect(req, token, {
+      error: payload.error ?? "Social posts database schema is not ready.",
+    });
   }
 
   try {

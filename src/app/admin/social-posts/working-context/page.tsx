@@ -13,6 +13,7 @@ import {
   type SocialWorkingContextMemory,
   type SocialWorkingContextPost,
 } from "@/lib/social-posts/social-working-context";
+import { getSocialPostAdminSchemaLoadError } from "@/lib/social-posts/social-post-schema-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -362,7 +363,10 @@ export default async function AdminSocialWorkingContextPage({
   let context: SocialWorkingContext | null = null;
   let loadError = "";
 
-  if (hasCampaignSelection) {
+  const schemaLoadError = await getSocialPostAdminSchemaLoadError();
+  if (schemaLoadError) {
+    loadError = schemaLoadError;
+  } else if (hasCampaignSelection) {
     try {
       context = await buildSocialWorkingContext({ campaignId: campaignId ?? null });
     } catch (error) {

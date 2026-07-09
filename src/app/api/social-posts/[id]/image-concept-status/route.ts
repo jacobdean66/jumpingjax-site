@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import type { ImageConceptId } from "@/lib/social-posts/image-director";
 import { getImageGenerationStatus } from "@/lib/social-posts/image-engine";
 import {
@@ -43,6 +44,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
         { ok: false, error: "Invalid admin login" },
         { status: 401 },
       );
+    }
+
+    const schemaGuard = await socialPostAdminSchemaGuardResponse();
+    if (schemaGuard) {
+      return schemaGuard;
     }
 
     if (!predictionId?.trim()) {

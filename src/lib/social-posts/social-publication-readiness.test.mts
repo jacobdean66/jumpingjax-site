@@ -19,6 +19,7 @@ type ManifestInput = Partial<
     | "content"
     | "assets"
     | "destinations"
+    | "placement"
     | "decisionSummary"
     | "workingContextSummary"
     | "constraints"
@@ -30,6 +31,7 @@ type ManifestInput = Partial<
   content?: Partial<PublicationManifest["content"]>;
   assets?: Partial<PublicationManifest["assets"]>;
   destinations?: Partial<PublicationManifest["destinations"]>;
+  placement?: Partial<PublicationManifest["placement"]>;
   decisionSummary?: Partial<PublicationManifest["decisionSummary"]>;
   workingContextSummary?: Partial<
     PublicationManifest["workingContextSummary"]
@@ -97,6 +99,11 @@ function manifest(input: ManifestInput = {}): PublicationManifest {
     destinations: {
       platforms: ["facebook"],
       ...input.destinations,
+    },
+    placement: {
+      postPlacement: "feed",
+      formatVariantId: null,
+      ...input.placement,
     },
     decisionSummary: {
       totalCount: 1,

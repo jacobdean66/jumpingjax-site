@@ -5,6 +5,7 @@ import {
   listSocialPosts,
   type SocialPost,
 } from "@/lib/social-posts/social-post-data";
+import { getSocialPostAdminSchemaLoadError } from "@/lib/social-posts/social-post-schema-readiness";
 import { SOCIAL_SOURCE_IMAGES } from "@/lib/social-posts/social-source-images";
 import AgentDraftForm from "./AgentDraftForm";
 import SourceImageField from "./SourceImageField";
@@ -46,11 +47,16 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
   let posts: SocialPost[] = [];
   let loadError = "";
 
-  try {
-    posts = await listSocialPosts();
-  } catch (error) {
-    loadError =
-      error instanceof Error ? error.message : "Social posts could not be loaded.";
+  const schemaLoadError = await getSocialPostAdminSchemaLoadError();
+  if (schemaLoadError) {
+    loadError = schemaLoadError;
+  } else {
+    try {
+      posts = await listSocialPosts();
+    } catch (error) {
+      loadError =
+        error instanceof Error ? error.message : "Social posts could not be loaded.";
+    }
   }
 
   return (

@@ -6,6 +6,7 @@ import {
 } from "@/lib/social-posts/social-agent";
 import { createSocialPost } from "@/lib/social-posts/social-post-data";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 
 const VALID_PLATFORMS = ["facebook", "instagram", "both"] as const;
 const VALID_MEDIA_TYPES = ["image", "video"] as const;
@@ -73,6 +74,11 @@ export async function POST(req: Request) {
         { ok: false, error: "Invalid admin login" },
         { status: 401 },
       );
+    }
+
+    const schemaGuard = await socialPostAdminSchemaGuardResponse();
+    if (schemaGuard) {
+      return schemaGuard;
     }
 
     const input = validateInput(body);
