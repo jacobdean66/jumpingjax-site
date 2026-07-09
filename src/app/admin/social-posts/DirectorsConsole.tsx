@@ -26,6 +26,14 @@ import {
   type MotionPreset,
 } from "@/lib/social-posts/video-director";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
+import type { SocialPostAdminRateLimitCategory } from "@/lib/social-posts/social-post-admin-rate-limit-core";
+import {
+  createSocialPostRateLimitCooldown,
+  isSocialPostRateLimitCooldownActive,
+  parseSocialPostApiFailure,
+  socialPostRateLimitSecondsRemaining,
+  type SocialPostRateLimitCooldown,
+} from "@/lib/social-posts/social-post-admin-rate-limit-client";
 import AdminLocalizedStatusPanel from "./AdminLocalizedStatusPanel";
 
 type Props = {
@@ -173,6 +181,49 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+type LocalizedFailure = {
+  message: string;
+  rateLimitCategory?: SocialPostAdminRateLimitCategory;
+};
+
+type RateLimitCooldownMap = Partial<
+  Record<SocialPostAdminRateLimitCategory, SocialPostRateLimitCooldown>
+>;
+
+function renderLocalizedStatusPanel(
+  failure: LocalizedFailure | null,
+  cooldowns: RateLimitCooldownMap,
+  nowMs: number,
+  onDismiss: () => void,
+  title?: string,
+  tone: "error" | "warning" = "error",
+) {
+  if (!failure) return null;
+
+  const cooldown = failure.rateLimitCategory
+    ? cooldowns[failure.rateLimitCategory]
+    : undefined;
+  const secondsRemaining = socialPostRateLimitSecondsRemaining(cooldown, nowMs);
+
+  return (
+    <AdminLocalizedStatusPanel
+      title={title}
+      tone={tone}
+      message={failure.message}
+      rateLimit={
+        failure.rateLimitCategory && secondsRemaining > 0
+          ? {
+              category: failure.rateLimitCategory,
+              retryAfterSeconds: secondsRemaining,
+              secondsRemaining,
+            }
+          : undefined
+      }
+      onDismiss={onDismiss}
+    />
+  );
+}
+
 export default function DirectorsConsole({
   post,
   token,
@@ -181,10 +232,12 @@ export default function DirectorsConsole({
   onGenerateComplete,
   onMessage,
 }: Props) {
-  const [localError, setLocalError] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [imageStatusError, setImageStatusError] = useState<string | null>(null);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [localFailure, setLocalFailure] = useState<LocalizedFailure | null>(null);
+  const [previewFailure, setPreviewFailure] = useState<LocalizedFailure | null>(null);
+  const [imageStatusFailure, setImageStatusFailure] = useState<LocalizedFailure | null>(null);
+  const [verificationFailure, setVerificationFailure] = useState<LocalizedFailure | null>(null);
+  const [rateLimitCooldowns, setRateLimitCooldowns] = useState<RateLimitCooldownMap>({});
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [expanded, setExpanded] = useState(false);
   const [presetOverride, setPresetOverride] = useState<{
     motion?: MotionPreset;
@@ -301,7 +354,86 @@ export default function DirectorsConsole({
   const imagePreviewStale =
     imagePreview !== null && imagePreviewKey !== imagePreview.cacheKey;
 
+  const previewRateLimited = isSocialPostRateLimitCooldownActive(
+    rateLimitCooldowns.preview,
+    nowMs,
+  );
+  const generationRateLimited = isSocialPostRateLimitCooldownActive(
+    rateLimitCooldowns.generation,
+    nowMs,
+  );
+  const pollingRateLimited = isSocialPostRateLimitCooldownActive(
+    rateLimitCooldowns.polling,
+    nowMs,
+  );
+  const verificationRateLimited = isSocialPostRateLimitCooldownActive(
+    rateLimitCooldowns.verification,
+    nowMs,
+  );
+
+  const applyApiFailure = useCallback(
+    (
+      response: Response,
+      body: unknown,
+      category: SocialPostAdminRateLimitCategory,
+      setFailure: (failure: LocalizedFailure | null) => void,
+      fallbackMessage: string,
+    ): boolean => {
+      const failure = parseSocialPostApiFailure(response.status, body, fallbackMessage);
+      if (!failure) {
+        if (!response.ok) {
+          setFailure({ message: fallbackMessage });
+          return true;
+        }
+        return false;
+      }
+
+      if (failure.kind === "rate_limited") {
+        setRateLimitCooldowns((current) => ({
+          ...current,
+          [category]: createSocialPostRateLimitCooldown(
+            category,
+            failure.retryAfterSeconds,
+            Date.now(),
+          ),
+        }));
+        setFailure({
+          message: failure.message,
+          rateLimitCategory: category,
+        });
+        return true;
+      }
+
+      setFailure({ message: failure.message });
+      return true;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const nextNow = Date.now();
+      setNowMs(nextNow);
+      setRateLimitCooldowns((current) => {
+        let changed = false;
+        const next = { ...current };
+        for (const key of Object.keys(next) as SocialPostAdminRateLimitCategory[]) {
+          if (next[key] && next[key]!.blockedUntilMs <= nextNow) {
+            delete next[key];
+            changed = true;
+          }
+        }
+        return changed ? next : current;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const pollImageStatus = useCallback(async () => {
+    if (pollingRateLimited) {
+      return null;
+    }
+
     const response = await fetch(
       `/api/social-posts/${post.id}/image-status?token=${encodeURIComponent(token)}`,
       { cache: "no-store" },
@@ -309,42 +441,61 @@ export default function DirectorsConsole({
     const data = (await response.json()) as ImageStatusResponse;
 
     if (!response.ok) {
-      throw new Error(data.error ?? "Image status check failed");
+      applyApiFailure(
+        response,
+        data,
+        "polling",
+        setImageStatusFailure,
+        data.error ?? "Image status check failed",
+      );
+      return null;
     }
 
-    setImageStatusError(null);
+    setImageStatusFailure(null);
     setActiveImageGeneration({
       status: data.status ?? null,
       generatedImageUrl: data.generatedImageUrl ?? null,
     });
     setImageVerification(data.verification ?? null);
     return data;
-  }, [post.id, token]);
+  }, [applyApiFailure, pollingRateLimited, post.id, token]);
 
   useEffect(() => {
-    if (imageStatus !== "processing") return undefined;
+    if (imageStatus !== "processing" || pollingRateLimited) return undefined;
 
     const timer = window.setInterval(() => {
-      void pollImageStatus()
-        .then((data) => {
-          if (data.status === "succeeded") {
-            setActiveImageGeneration(null);
-            setImageVerification(data.verification ?? null);
-            onGenerateComplete();
-          }
-        })
-        .catch((caught) => {
-          setImageStatusError(
-            caught instanceof Error ? caught.message : "Image status check failed",
-          );
-        });
+      if (isSocialPostRateLimitCooldownActive(rateLimitCooldowns.polling, Date.now())) {
+        return;
+      }
+
+      void pollImageStatus().then((data) => {
+        if (!data) return;
+        if (data.status === "succeeded") {
+          setActiveImageGeneration(null);
+          setImageVerification(data.verification ?? null);
+          onGenerateComplete();
+        }
+      });
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [imageStatus, onGenerateComplete, pollImageStatus]);
+  }, [
+    imageStatus,
+    onGenerateComplete,
+    pollImageStatus,
+    pollingRateLimited,
+    rateLimitCooldowns.polling,
+  ]);
 
   useEffect(() => {
-    if (imageStatus !== "succeeded" || !generatedImageUrl || imageVerification) return;
+    if (
+      imageStatus !== "succeeded" ||
+      !generatedImageUrl ||
+      imageVerification ||
+      verificationRateLimited
+    ) {
+      return;
+    }
 
     void (async () => {
       try {
@@ -355,23 +506,37 @@ export default function DirectorsConsole({
         });
         const data = (await response.json()) as {
           verification?: SocialMediaImageVerificationResult | null;
+          error?: string;
         };
+
+        if (!response.ok) {
+          applyApiFailure(
+            response,
+            data,
+            "verification",
+            setVerificationFailure,
+            data.error ?? "Image verification failed",
+          );
+          return;
+        }
+
         if (data.verification) {
           setImageVerification(data.verification);
-          setVerificationError(null);
+          setVerificationFailure(null);
         }
       } catch (caught) {
-        setVerificationError(
-          caught instanceof Error ? caught.message : "Image verification failed",
-        );
+        setVerificationFailure({
+          message:
+            caught instanceof Error ? caught.message : "Image verification failed",
+        });
       }
     })();
-  }, [post.id, imageStatus, generatedImageUrl, token, imageVerification]);
+  }, [post.id, imageStatus, generatedImageUrl, token, imageVerification, verificationRateLimited, applyApiFailure]);
 
   const fetchPreview = useCallback(async () => {
     setPreviewLoading(true);
-    setPreviewError(null);
-    setLocalError(null);
+    setPreviewFailure(null);
+    setLocalFailure(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}/director-preview`, {
@@ -386,7 +551,19 @@ export default function DirectorsConsole({
       const data = (await response.json()) as PreviewResponse;
 
       if (!response.ok || !data.preview) {
-        throw new Error(data.error ?? "Director preview failed");
+        if (
+          applyApiFailure(
+            response,
+            data,
+            "preview",
+            setPreviewFailure,
+            data.error ?? "Director preview failed",
+          )
+        ) {
+          return null;
+        }
+        setPreviewFailure({ message: data.error ?? "Director preview failed" });
+        return null;
       }
 
       const nextPreview = { ...data.preview, cacheKey: previewKey };
@@ -394,14 +571,14 @@ export default function DirectorsConsole({
       setFinalPrompt(nextPreview.finalVideoPrompt);
       return nextPreview;
     } catch (caught) {
-      setPreviewError(
-        caught instanceof Error ? caught.message : "Director preview failed",
-      );
+      setPreviewFailure({
+        message: caught instanceof Error ? caught.message : "Director preview failed",
+      });
       return null;
     } finally {
       setPreviewLoading(false);
     }
-  }, [post.id, token, motionPreset, cameraPreset, previewKey]);
+  }, [post.id, token, motionPreset, cameraPreset, previewKey, applyApiFailure]);
 
   async function copyPrompt() {
     if (!finalPrompt.trim()) return;
@@ -419,7 +596,7 @@ export default function DirectorsConsole({
 
   const fetchImagePreview = useCallback(async () => {
     setImagePreviewLoading(true);
-    setLocalError(null);
+    setLocalFailure(null);
 
     try {
       const response = await fetch(
@@ -437,7 +614,19 @@ export default function DirectorsConsole({
       const data = (await response.json()) as ImageDirectorPreviewResponse;
 
       if (!response.ok || !data.finalImagePrompt) {
-        throw new Error(data.error ?? "Image director preview failed");
+        if (
+          applyApiFailure(
+            response,
+            data,
+            "preview",
+            setLocalFailure,
+            data.error ?? "Image director preview failed",
+          )
+        ) {
+          return;
+        }
+        setLocalFailure({ message: data.error ?? "Image director preview failed" });
+        return;
       }
 
       setImagePrompt(data.finalImagePrompt);
@@ -447,9 +636,10 @@ export default function DirectorsConsole({
         costEstimate: data.costEstimate ?? estimateImageDirectorCost(),
       });
     } catch (caught) {
-      setLocalError(
-        caught instanceof Error ? caught.message : "Image director preview failed",
-      );
+      setLocalFailure({
+        message:
+          caught instanceof Error ? caught.message : "Image director preview failed",
+      });
     } finally {
       setImagePreviewLoading(false);
     }
@@ -459,16 +649,21 @@ export default function DirectorsConsole({
     token,
     imageDirectionPreset,
     imagePreviewKey,
+    applyApiFailure,
   ]);
 
   async function generateImage() {
     if (!imagePrompt.trim()) {
-      setLocalError("Preview the image prompt before generating.");
+      setLocalFailure({ message: "Preview the image prompt before generating." });
+      return;
+    }
+
+    if (generationRateLimited) {
       return;
     }
 
     setImageGenerating(true);
-    setLocalError(null);
+    setLocalFailure(null);
     setImageVerification(null);
 
     try {
@@ -485,7 +680,14 @@ export default function DirectorsConsole({
       const data = (await response.json()) as ImageGenerateResponse;
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Image generation failed");
+        applyApiFailure(
+          response,
+          data,
+          "generation",
+          setLocalFailure,
+          data.error ?? "Image generation failed",
+        );
+        return;
       }
 
       setActiveImageGeneration({
@@ -502,7 +704,9 @@ export default function DirectorsConsole({
         onGenerateComplete();
       }
     } catch (caught) {
-      setLocalError(caught instanceof Error ? caught.message : "Image generation failed");
+      setLocalFailure({
+        message: caught instanceof Error ? caught.message : "Image generation failed",
+      });
     } finally {
       setImageGenerating(false);
     }
@@ -510,7 +714,7 @@ export default function DirectorsConsole({
 
   async function acceptGeneratedImage() {
     setImageActionPending(true);
-    setLocalError(null);
+    setLocalFailure(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}`, {
@@ -530,9 +734,10 @@ export default function DirectorsConsole({
       onMessage("Approved image saved");
       onGenerateComplete();
     } catch (caught) {
-      setLocalError(
-        caught instanceof Error ? caught.message : "Could not accept generated image",
-      );
+      setLocalFailure({
+        message:
+          caught instanceof Error ? caught.message : "Could not accept generated image",
+      });
     } finally {
       setImageActionPending(false);
     }
@@ -540,7 +745,7 @@ export default function DirectorsConsole({
 
   async function rejectGeneratedImage() {
     setImageActionPending(true);
-    setLocalError(null);
+    setLocalFailure(null);
 
     try {
       const response = await fetch(`/api/social-posts/${post.id}`, {
@@ -561,9 +766,10 @@ export default function DirectorsConsole({
       onMessage("Generated image rejected");
       onGenerateComplete();
     } catch (caught) {
-      setLocalError(
-        caught instanceof Error ? caught.message : "Could not reject generated image",
-      );
+      setLocalFailure({
+        message:
+          caught instanceof Error ? caught.message : "Could not reject generated image",
+      });
     } finally {
       setImageActionPending(false);
     }
@@ -598,12 +804,16 @@ export default function DirectorsConsole({
 
   async function generateVideo() {
     if (!finalPrompt.trim()) {
-      setLocalError("Preview the final prompt before generating video.");
+      setLocalFailure({ message: "Preview the final prompt before generating video." });
+      return;
+    }
+
+    if (generationRateLimited) {
       return;
     }
 
     setGenerating(true);
-    setLocalError(null);
+    setLocalFailure(null);
 
     try {
       await savePresets();
@@ -621,14 +831,36 @@ export default function DirectorsConsole({
       const data = (await response.json()) as GenerateResponse;
 
       if (!response.ok || !data.predictionId) {
-        throw new Error(data.error ?? "Video generation failed");
+        if (
+          applyApiFailure(
+            response,
+            data,
+            "generation",
+            setLocalFailure,
+            data.error ?? "Video generation failed",
+          )
+        ) {
+          return;
+        }
+        setLocalFailure({ message: data.error ?? "Video generation failed" });
+        return;
       }
 
       onMessage("Video generation started — rendering…");
 
       const predictionId = data.predictionId;
       let finished = false;
+      let pollingBlocked = false;
       for (let attempt = 0; attempt < VIDEO_POLL_ATTEMPTS; attempt += 1) {
+        if (isSocialPostRateLimitCooldownActive(rateLimitCooldowns.polling, Date.now())) {
+          pollingBlocked = true;
+          setImageStatusFailure({
+            message: "Status polling is temporarily rate-limited. Wait for the retry window.",
+            rateLimitCategory: "polling",
+          });
+          break;
+        }
+
         await delay(VIDEO_POLL_INTERVAL_MS);
 
         const statusResponse = await fetch(
@@ -639,8 +871,30 @@ export default function DirectorsConsole({
         );
         const statusData = (await statusResponse.json()) as MediaStatusResponse;
 
-        if (!statusResponse.ok || statusData.status === "failed") {
-          throw new Error(statusData.error ?? "Video generation failed");
+        if (!statusResponse.ok) {
+          if (
+            applyApiFailure(
+              statusResponse,
+              statusData,
+              "polling",
+              setImageStatusFailure,
+              statusData.error ?? "Video status check failed",
+            )
+          ) {
+            pollingBlocked = statusResponse.status === 429;
+            break;
+          }
+          setImageStatusFailure({
+            message: statusData.error ?? "Video status check failed",
+          });
+          break;
+        }
+
+        if (statusData.status === "failed") {
+          setLocalFailure({
+            message: statusData.error ?? "Video generation failed",
+          });
+          break;
         }
 
         if (statusData.status === "succeeded") {
@@ -650,15 +904,20 @@ export default function DirectorsConsole({
       }
 
       if (!finished) {
-        throw new Error(
-          "Video is still rendering. It will appear once finished — refresh in a moment.",
-        );
+        if (!pollingBlocked) {
+          setLocalFailure({
+            message:
+              "Video is still rendering. It will appear once finished — refresh in a moment.",
+          });
+        }
+      } else {
+        onMessage("Video generated");
+        onGenerateComplete();
       }
-
-      onMessage("Video generated");
-      onGenerateComplete();
     } catch (caught) {
-      setLocalError(caught instanceof Error ? caught.message : "Video generation failed");
+      setLocalFailure({
+        message: caught instanceof Error ? caught.message : "Video generation failed",
+      });
     } finally {
       setGenerating(false);
     }
@@ -693,35 +952,35 @@ export default function DirectorsConsole({
 
       {expanded ? (
         <div className="space-y-3 border-t border-violet-200 p-4">
-          {localError ? (
-            <AdminLocalizedStatusPanel
-              title="Director console"
-              message={localError}
-              onDismiss={() => setLocalError(null)}
-            />
-          ) : null}
-          {previewError ? (
-            <AdminLocalizedStatusPanel
-              title="Video preview"
-              message={previewError}
-              onDismiss={() => setPreviewError(null)}
-            />
-          ) : null}
-          {imageStatusError ? (
-            <AdminLocalizedStatusPanel
-              title="Image status poll"
-              message={imageStatusError}
-              onDismiss={() => setImageStatusError(null)}
-            />
-          ) : null}
-          {verificationError ? (
-            <AdminLocalizedStatusPanel
-              tone="warning"
-              title="Image verification"
-              message={verificationError}
-              onDismiss={() => setVerificationError(null)}
-            />
-          ) : null}
+          {renderLocalizedStatusPanel(
+            localFailure,
+            rateLimitCooldowns,
+            nowMs,
+            () => setLocalFailure(null),
+            "Director console",
+          )}
+          {renderLocalizedStatusPanel(
+            previewFailure,
+            rateLimitCooldowns,
+            nowMs,
+            () => setPreviewFailure(null),
+            "Video preview",
+          )}
+          {renderLocalizedStatusPanel(
+            imageStatusFailure,
+            rateLimitCooldowns,
+            nowMs,
+            () => setImageStatusFailure(null),
+            "Image status poll",
+          )}
+          {renderLocalizedStatusPanel(
+            verificationFailure,
+            rateLimitCooldowns,
+            nowMs,
+            () => setVerificationFailure(null),
+            "Image verification",
+            "warning",
+          )}
           <Section title="1. Creative Director">
             <ReadOnlyRow label="Campaign" value={campaignLabel} />
             <ReadOnlyRow label="Goal" value={preview?.goal ?? post.goal ?? "—"} />
@@ -868,11 +1127,15 @@ export default function DirectorsConsole({
 
             <button
               type="button"
-              disabled={imagePreviewLoading}
+              disabled={imagePreviewLoading || previewRateLimited}
               onClick={() => void fetchImagePreview()}
               className="min-h-10 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
             >
-              {imagePreviewLoading ? "Previewing..." : "Preview Image Prompt"}
+              {imagePreviewLoading
+                ? "Previewing..."
+                : previewRateLimited
+                  ? "Preview rate-limited"
+                  : "Preview Image Prompt"}
             </button>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -985,16 +1248,28 @@ export default function DirectorsConsole({
 
                 <button
                   type="button"
-                  disabled={imageGenerating || imagePreviewLoading || imagePreviewStale || !imagePrompt.trim()}
+                  disabled={
+                    imageGenerating ||
+                    imagePreviewLoading ||
+                    imagePreviewStale ||
+                    !imagePrompt.trim() ||
+                    generationRateLimited
+                  }
                   onClick={() => void generateImage()}
                   className="min-h-10 w-full rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
                   title={
-                    imagePreviewStale
-                      ? "Preview again after changing presets or source image"
-                      : undefined
+                    generationRateLimited
+                      ? "Generation is temporarily rate-limited"
+                      : imagePreviewStale
+                        ? "Preview again after changing presets or source image"
+                        : undefined
                   }
                 >
-                  {imageGenerating ? "Generating..." : "Generate Image"}
+                  {imageGenerating
+                    ? "Generating..."
+                    : generationRateLimited
+                      ? "Rate-limited"
+                      : "Generate Image"}
                 </button>
 
                 {generatedImageUrl ? (
@@ -1080,7 +1355,12 @@ export default function DirectorsConsole({
                     </button>
                     <button
                       type="button"
-                      disabled={imageGenerating || imagePreviewStale || !imagePrompt.trim()}
+                      disabled={
+                        imageGenerating ||
+                        imagePreviewStale ||
+                        !imagePrompt.trim() ||
+                        generationRateLimited
+                      }
                       onClick={() => void generateImage()}
                       className="min-h-10 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
                     >
@@ -1257,26 +1537,41 @@ export default function DirectorsConsole({
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                disabled={previewLoading}
+                disabled={previewLoading || previewRateLimited}
                 onClick={() => void fetchPreview()}
                 className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
               >
-                {previewLoading ? "Previewing..." : "Preview Final Prompt"}
+                {previewLoading
+                  ? "Previewing..."
+                  : previewRateLimited
+                    ? "Preview rate-limited"
+                    : "Preview Final Prompt"}
               </button>
               {!post.media_url &&
               (post.status === "draft" || post.status === "approved") ? (
                 <button
                   type="button"
-                  disabled={generating || !finalPrompt.trim() || previewStale}
+                  disabled={
+                    generating ||
+                    !finalPrompt.trim() ||
+                    previewStale ||
+                    generationRateLimited
+                  }
                   onClick={() => void generateVideo()}
                   className="min-h-11 flex-1 rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
                   title={
-                    previewStale
-                      ? "Preview again after changing presets or source image"
-                      : undefined
+                    generationRateLimited
+                      ? "Generation is temporarily rate-limited"
+                      : previewStale
+                        ? "Preview again after changing presets or source image"
+                        : undefined
                   }
                 >
-                  {generating ? "Generating..." : "Generate Video"}
+                  {generating
+                    ? "Generating..."
+                    : generationRateLimited
+                      ? "Rate-limited"
+                      : "Generate Video"}
                 </button>
               ) : null}
             </div>
