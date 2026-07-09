@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import { getSocialPostById } from "@/lib/social-posts/social-post-data";
 import { verifySocialMediaImageFromUrl } from "@/lib/social-posts/social-media-image-verification";
 
@@ -14,6 +15,8 @@ type VerifyImageRequest = {
 };
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/verify-image";
+
   try {
     const body = (await req.json()) as VerifyImageRequest;
     const auth = await verifyAdminAccess(body.token);
@@ -28,6 +31,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "verification",
+      token: body.token,
+    });
+    if (limited) {
+      return limited;
     }
 
     const { id } = await context.params;

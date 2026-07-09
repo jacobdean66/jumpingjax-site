@@ -3,6 +3,7 @@ import { buildDirectorPreview } from "@/lib/social-posts/director-console";
 import { getSocialPostById } from "@/lib/social-posts/social-post-data";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -15,6 +16,8 @@ type PreviewRequest = {
 };
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/director-preview";
+
   try {
     const body = (await req.json()) as PreviewRequest;
     const auth = await verifyAdminAccess(body.token);
@@ -29,6 +32,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "preview",
+      token: body.token,
+    });
+    if (limited) {
+      return limited;
     }
 
     const { id } = await context.params;

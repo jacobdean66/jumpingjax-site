@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import {
   socialPostGetAuthErrorResponse,
   socialPostGetClientErrorResponse,
@@ -53,6 +54,15 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "polling",
+      token,
+    });
+    if (limited) {
+      return limited;
     }
 
     if (!predictionId?.trim()) {

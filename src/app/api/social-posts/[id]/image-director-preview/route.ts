@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import {
   buildImageDirectorPrompt,
   estimateImageDirectorCost,
@@ -33,6 +34,8 @@ type ImageDirectorPreviewRequest = {
 };
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/image-director-preview";
+
   try {
     const body = (await req.json()) as ImageDirectorPreviewRequest;
     const auth = await verifyAdminAccess(body.token);
@@ -47,6 +50,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "preview",
+      token: body.token,
+    });
+    if (limited) {
+      return limited;
     }
 
     const { id } = await context.params;

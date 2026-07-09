@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
+import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import {
   buildImageDirectorPrompt,
   normalizeImageStudioPresetValue,
@@ -42,6 +43,8 @@ function normalizeProviderStatus(status: string): string {
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const route = "/api/social-posts/[id]/generate-image";
+
   try {
     const body = (await req.json()) as GenerateImageRequest;
     const auth = await verifyAdminAccess(body.token);
@@ -56,6 +59,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "generation",
+      token: body.token,
+    });
+    if (limited) {
+      return limited;
     }
 
     const { id } = await context.params;
