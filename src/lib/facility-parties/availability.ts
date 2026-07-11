@@ -56,8 +56,6 @@ function listPublicSlotsForDate(date: string): PublicSlotDefinition[] {
 
   const day = localDate.getDay();
 
-  console.log("DATE:", date, "DAY:", day);
-
   let openMinutes = null;
   let closeMinutes = null;
 
@@ -96,9 +94,6 @@ function listPublicSlotsForDate(date: string): PublicSlotDefinition[] {
     // move forward by full cycle (90 + 30 break)
     start += 120;
   }
-
-  console.log("RAW SLOTS:", slots);
-  console.log("FINAL SLOTS:", slots);
 
   return slots;
 }
@@ -210,9 +205,7 @@ export function listPrivateSlotDispositions(
     return [];
   }
 
-  const { day, startWindow, endWindow } = window;
-  console.log("PRIVATE DAY:", day);
-  console.log("PRIVATE WINDOW:", startWindow, endWindow);
+  const { startWindow, endWindow } = window;
 
   const slots: FacilitySlotDisposition[] = [];
 
@@ -224,8 +217,6 @@ export function listPrivateSlotDispositions(
     const end = start + duration;
     const startTime = formatTime(start);
     const endTime = formatTime(end);
-
-    console.log("TEST SLOT:", startTime, "→", endTime);
 
     slots.push({
       startMinutes: start,

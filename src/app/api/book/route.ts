@@ -108,7 +108,9 @@ export async function POST(req: Request) {
   const mileageFee = estimateMileageFee(distanceMiles);
   const deliveryFee = estimateRentalDeliveryFee(distanceMiles);
   const setupLocation =
-    typeof body.setup_location === "string" ? body.setup_location.trim() : "";
+    typeof body.setup_location === "string" && body.setup_location.trim()
+      ? body.setup_location.trim()
+      : eventAddress;
   const setupSurface =
     typeof body.setup_surface === "string" ? body.setup_surface.trim() : "";
   const setupAccess =
@@ -131,11 +133,11 @@ export async function POST(req: Request) {
   const savedSetupNotes = Array.from(new Set(setupNoteLines)).join("\n");
   const paymentMethod =
     typeof body.payment_method === "string" ? body.payment_method.trim() : "";
-  if (!eventAddress || !setupLocation || !setupSurface || !setupAccess || !paymentMethod) {
+  if (!eventAddress || !setupSurface || !setupAccess || !paymentMethod) {
     return new Response(
       JSON.stringify({
         error:
-          "event_address, setup_location, setup_surface, setup_access, and payment_method are required",
+          "event_address, setup_surface, setup_access, and payment_method are required",
       }),
       { status: 400 },
     );
@@ -182,12 +184,18 @@ export async function POST(req: Request) {
   if (!result.ok) {
     const error = result.message ?? result.code ?? result;
     console.error("BOOK API ERROR:", error);
+    const status =
+      result.code === "conflict"
+        ? 409
+        : result.code === "invalid_input"
+          ? 400
+          : 500;
     return NextResponse.json(
       {
         ok: false,
         error: String(error),
       },
-      { status: 500 },
+      { status },
     );
   }
 

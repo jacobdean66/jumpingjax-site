@@ -20,6 +20,7 @@ import {
   priceFacilityParty,
 } from "@/lib/facility-parties/pricing";
 import { getFacilityOwnerEmail, getResendFromAddress } from "@/lib/email/resend";
+import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     const resendApiKey = process.env.RESEND_API_KEY?.trim();
     const facilityOwnerEmail = getFacilityOwnerEmail();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    const siteUrl = resolveRentalEmailSiteUrl(req.url);
 
     if (!resendApiKey || !facilityOwnerEmail || !siteUrl) {
       return NextResponse.json(
@@ -322,6 +323,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let emailsSent = false;
+
     try {
       const resend = new Resend(resendApiKey);
       const confirmLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=confirm`;
@@ -370,10 +373,8 @@ export async function POST(req: NextRequest) {
 
       if (adminEmailError) {
         console.error("BOOKING EMAIL ERROR", adminEmailError);
-        return NextResponse.json(
-          { error: "Booking was saved but admin notification failed" },
-          { status: 500 },
-        );
+      } else {
+        emailsSent = true;
       }
 
       const { error: customerEmailError } = await resend.emails.send({
@@ -405,20 +406,14 @@ export async function POST(req: NextRequest) {
 
       if (customerEmailError) {
         console.error("CUSTOMER BOOKING REQUEST EMAIL ERROR", customerEmailError);
-        return NextResponse.json(
-          { error: "Booking was saved but customer notification failed" },
-          { status: 500 },
-        );
+      } else {
+        emailsSent = true;
       }
     } catch (emailError) {
       console.error("BOOKING EMAIL ERROR", emailError);
-      return NextResponse.json(
-        { error: "Booking was saved but notification failed" },
-        { status: 500 },
-      );
     }
 
-    return NextResponse.json({ success: true, id: data?.id });
+    return NextResponse.json({ success: true, id: data?.id, emailsSent });
   } catch {
     return NextResponse.json(
       { error: "Server error" },

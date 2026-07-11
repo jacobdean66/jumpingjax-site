@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-import { createGoogleCalendarEvent } from "@/lib/google/calendar";
+import {
+  createGoogleCalendarEvent,
+  summarizeGoogleCalendarError,
+} from "@/lib/google/calendar";
 import {
   buildRentalCalendarDescription,
   buildRentalListWithPrices,
@@ -237,7 +240,7 @@ async function createMissingFoamCalendarEvent(input: {
   return savedBooking?.google_foam_calendar_event_id ? "created" : "failed";
 }
 
-export async function GET(req: Request) {
+async function handleRentalConfirm(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const action = searchParams.get("action") ?? "confirm";
@@ -246,23 +249,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  if (action !== "confirm" && action !== "reject") {
+  if (action !== "confirm" && action !== "reject" && action !== "cancel") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  const status = action === "reject" ? "rejected" : "approved";
+  const status =
+    action === "reject" ? "rejected" : action === "cancel" ? "cancelled" : "approved";
   const successMessage =
-    action === "reject" ? "Rental rejected" : "Rental confirmed";
+    action === "reject"
+      ? "Rental rejected"
+      : action === "cancel"
+        ? "Rental cancelled"
+        : "Rental confirmed";
 
   const supabase = createServiceRoleClient();
 
-  const { data: updatedBooking, error } = await supabase
+  let updateQuery = supabase
     .from("bookings")
     .update({ status })
     .eq("id", id)
-    .eq("status", "pending")
-    .select(RENTAL_BOOKING_SELECT)
-    .maybeSingle<RentalBookingRow>();
+    .select(RENTAL_BOOKING_SELECT);
+
+  updateQuery =
+    action === "cancel"
+      ? updateQuery.in("status", ["pending", "approved"])
+      : updateQuery.eq("status", "pending");
+
+  const { data: updatedBooking, error } =
+    await updateQuery.maybeSingle<RentalBookingRow>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -295,6 +309,10 @@ export async function GET(req: Request) {
       { error: "Booking not found or already processed" },
       { status: 409 },
     );
+  }
+
+  if (action === "cancel") {
+    return new Response(successMessage);
   }
 
   const customerEmail = booking.customer_email?.trim() ?? null;
@@ -350,7 +368,10 @@ export async function GET(req: Request) {
         rentalLabel,
       });
     } catch (calendarError) {
-      console.error("[api/rentals/confirm] rental calendar error", calendarError);
+      console.error(
+        "[api/rentals/confirm] rental calendar error",
+        summarizeGoogleCalendarError(calendarError),
+      );
       rentalCalendarResult = "failed";
     }
 
@@ -368,7 +389,10 @@ export async function GET(req: Request) {
         customerEmail,
       });
     } catch (calendarError) {
-      console.error("[api/rentals/confirm] foam calendar error", calendarError);
+      console.error(
+        "[api/rentals/confirm] foam calendar error",
+        summarizeGoogleCalendarError(calendarError),
+      );
       foamCalendarResult = "failed";
     }
   }
@@ -488,4 +512,12 @@ export async function GET(req: Request) {
   }
 
   return new Response(successMessage);
+}
+
+export async function GET(req: Request) {
+  return handleRentalConfirm(req);
+}
+
+export async function POST(req: Request) {
+  return handleRentalConfirm(req);
 }

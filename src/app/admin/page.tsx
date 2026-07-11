@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { AdminTokenGate } from "./AdminTokenGate";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,13 @@ function AuthError({
         <h1 className="mt-3 text-3xl font-black">
           {reason === "missing_config"
             ? "Admin token not configured"
-            : "Invalid admin link"}
+            : "Staff sign in"}
         </h1>
+        {reason === "invalid_token" ? (
+          <div className="mt-6">
+            <AdminTokenGate />
+          </div>
+        ) : null}
       </section>
     </main>
   );

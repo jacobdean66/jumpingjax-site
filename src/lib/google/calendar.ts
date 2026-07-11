@@ -124,3 +124,55 @@ export async function createGoogleCalendarEvent(input: {
 
   return event.data.id;
 }
+
+export function summarizeGoogleCalendarError(error: unknown): {
+  message: string;
+  code?: string | number;
+  status?: string | number;
+} {
+  if (!error || typeof error !== "object") {
+    return { message: error instanceof Error ? error.message : String(error) };
+  }
+
+  const record = error as {
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+    cause?: unknown;
+    response?: { status?: unknown; statusText?: unknown; data?: unknown };
+  };
+  const responseData =
+    record.response?.data && typeof record.response.data === "object"
+      ? (record.response.data as { error?: unknown; error_description?: unknown })
+      : null;
+  const cause =
+    record.cause && typeof record.cause === "object"
+      ? (record.cause as { message?: unknown; code?: unknown; status?: unknown })
+      : null;
+
+  return {
+    message:
+      typeof responseData?.error === "string"
+        ? responseData.error
+        : typeof cause?.message === "string"
+          ? cause.message
+          : typeof record.message === "string"
+            ? record.message
+            : "Google Calendar request failed",
+    code:
+      typeof record.code === "string" || typeof record.code === "number"
+        ? record.code
+        : typeof cause?.code === "string" || typeof cause?.code === "number"
+          ? cause.code
+          : undefined,
+    status:
+      typeof record.status === "string" || typeof record.status === "number"
+        ? record.status
+        : typeof record.response?.status === "string" ||
+            typeof record.response?.status === "number"
+          ? record.response.status
+          : typeof cause?.status === "string" || typeof cause?.status === "number"
+            ? cause.status
+            : undefined,
+  };
+}

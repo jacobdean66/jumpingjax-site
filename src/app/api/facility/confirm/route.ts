@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-import { createGoogleCalendarEvent } from "@/lib/google/calendar";
+import {
+  createGoogleCalendarEvent,
+  summarizeGoogleCalendarError,
+} from "@/lib/google/calendar";
 import {
   formatStoredFacilityAddons,
   type ResolvedFacilityAddonLine,
@@ -171,7 +174,7 @@ function formatFacilityCalendarDescription(
   return sections.join("\n");
 }
 
-export async function GET(req: Request) {
+async function handleFacilityConfirm(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const action = searchParams.get("action") ?? "confirm";
@@ -218,11 +221,6 @@ export async function GET(req: Request) {
   }
 
   if (action === "confirm") {
-    console.log("=== CONFIRM HIT ===");
-    console.log("BOOKING ID:", id);
-    console.log("CUSTOMER EMAIL:", booking.email);
-    console.log("CUSTOMER NAME:", booking.customer_name);
-
     try {
       if (!booking.google_calendar_event_id) {
         const eventId = await createGoogleCalendarEvent({
@@ -244,7 +242,10 @@ export async function GET(req: Request) {
         }
       }
     } catch (calendarError) {
-      console.error("GOOGLE CALENDAR ERROR", calendarError);
+      console.error(
+        "GOOGLE CALENDAR ERROR",
+        summarizeGoogleCalendarError(calendarError),
+      );
     }
   }
 
@@ -259,8 +260,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    console.log("SENDING CUSTOMER EMAIL...");
-
     const resend = new Resend(process.env.RESEND_API_KEY?.trim());
     const emailSubject =
       action === "reject"
@@ -309,8 +308,6 @@ export async function GET(req: Request) {
         { status: 500 },
       );
     }
-
-    console.log("EMAIL SENT SUCCESS");
   } catch (emailError) {
     console.error("EMAIL ERROR:", emailError);
     console.error("CUSTOMER STATUS EMAIL ERROR", emailError);
@@ -321,4 +318,12 @@ export async function GET(req: Request) {
   }
 
   return new Response(successMessage);
+}
+
+export async function GET(req: Request) {
+  return handleFacilityConfirm(req);
+}
+
+export async function POST(req: Request) {
+  return handleFacilityConfirm(req);
 }

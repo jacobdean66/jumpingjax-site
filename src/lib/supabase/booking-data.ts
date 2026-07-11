@@ -7,7 +7,7 @@ import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
 
 const ACTIVE_RENTAL_STATUSES = ["pending", "approved", "blocked"] as const;
 
-function rentalDateRangesOverlap(
+export function rentalDateRangesOverlap(
   existingStartYmd: string,
   existingSpanDays: number,
   newStartYmd: string,
@@ -28,6 +28,34 @@ function formatRentalUnavailableMessage(unavailableNames: string[]): string {
     return `${unavailableNames[0]} is unavailable for the selected dates.`;
   }
   return `These rentals are unavailable for the selected dates: ${unavailableNames.join(", ")}.`;
+}
+
+type ExistingRentalBookingRow = {
+  id?: string | number;
+  event_date: string;
+  span_days: number | null;
+};
+
+function bookingRowOverlapsRequestedRange(
+  row: ExistingRentalBookingRow,
+  eventDateYmd: string,
+  spanDays: number,
+): boolean {
+  const existingStartYmd =
+    typeof row.event_date === "string"
+      ? row.event_date.slice(0, 10)
+      : String(row.event_date);
+  const existingSpanDays =
+    typeof row.span_days === "number" && row.span_days >= 1
+      ? row.span_days
+      : 1;
+
+  return rentalDateRangesOverlap(
+    existingStartYmd,
+    existingSpanDays,
+    eventDateYmd,
+    spanDays,
+  );
 }
 
 export type CreateBookingInput = {
@@ -98,7 +126,7 @@ export async function insertPendingBooking(
     for (const item of input.rental_items) {
       const { data: existingRows, error: conflictQueryError } = await supabase
         .from("bookings")
-        .select("event_date, span_days")
+        .select("id, event_date, span_days")
         .eq("rental_item", item.rental_item)
         .in("status", [...ACTIVE_RENTAL_STATUSES]);
 
@@ -111,31 +139,66 @@ export async function insertPendingBooking(
         };
       }
 
-      const displayName = item.rental_name?.trim() || item.rental_item;
-      let itemUnavailable = false;
+      const { data: childRows, error: childConflictQueryError } = await supabase
+        .from("booking_rental_items")
+        .select("booking_id")
+        .eq("rental_item", item.rental_item);
 
-      for (const row of existingRows ?? []) {
-        const existingStartYmd =
-          typeof row.event_date === "string"
-            ? row.event_date.slice(0, 10)
-            : String(row.event_date);
-        const existingSpanDays =
-          typeof row.span_days === "number" && row.span_days >= 1
-            ? row.span_days
-            : 1;
-
-        if (
-          rentalDateRangesOverlap(
-            existingStartYmd,
-            existingSpanDays,
-            input.eventDateYmd,
-            spanDays,
-          )
-        ) {
-          itemUnavailable = true;
-          break;
-        }
+      if (childConflictQueryError) {
+        console.error(
+          "[bookings] child item conflict check failed",
+          childConflictQueryError,
+        );
+        return {
+          ok: false,
+          code: "write_failed",
+          message: childConflictQueryError.message,
+        };
       }
+
+      const childBookingIds = Array.from(
+        new Set(
+          (childRows ?? [])
+            .map((row) => row.booking_id)
+            .filter((id): id is string | number => id !== null && id !== undefined),
+        ),
+      );
+      let childBookingRows: ExistingRentalBookingRow[] = [];
+
+      if (childBookingIds.length > 0) {
+        const { data: childBookings, error: childBookingError } = await supabase
+          .from("bookings")
+          .select("id, event_date, span_days")
+          .in("id", childBookingIds)
+          .in("status", [...ACTIVE_RENTAL_STATUSES]);
+
+        if (childBookingError) {
+          console.error(
+            "[bookings] child booking conflict check failed",
+            childBookingError,
+          );
+          return {
+            ok: false,
+            code: "write_failed",
+            message: childBookingError.message,
+          };
+        }
+
+        childBookingRows = (childBookings ?? []) as ExistingRentalBookingRow[];
+      }
+
+      const existingById = new Map<string, ExistingRentalBookingRow>();
+      for (const row of (existingRows ?? []) as ExistingRentalBookingRow[]) {
+        existingById.set(String(row.id ?? `${row.event_date}:${row.span_days}`), row);
+      }
+      for (const row of childBookingRows) {
+        existingById.set(String(row.id ?? `${row.event_date}:${row.span_days}`), row);
+      }
+
+      const displayName = item.rental_name?.trim() || item.rental_item;
+      const itemUnavailable = [...existingById.values()].some((row) =>
+        bookingRowOverlapsRequestedRange(row, input.eventDateYmd, spanDays),
+      );
 
       if (itemUnavailable && !unavailableNames.includes(displayName)) {
         unavailableNames.push(displayName);
@@ -205,8 +268,6 @@ export async function insertPendingBooking(
       .insert([bookingData])
       .select()
       .single();
-
-    console.log("[bookings] supabase insert response", { data, error });
 
     if (error) {
       console.error("SUPABASE INSERT ERROR FULL:", error);

@@ -28,8 +28,8 @@ function resolveVercelSiteUrl(): string {
 
 /**
  * Base URL for rental admin email links (confirm/reject).
- * Prefers non-local NEXT_PUBLIC_SITE_URL; on Vercel, uses deployment URL when
- * config is localhost. Localhost links only in development without Vercel host.
+ * Prefers non-local NEXT_PUBLIC_SITE_URL, then the current request origin, then
+ * Vercel deployment metadata. Localhost links only in development.
  */
 export function resolveRentalEmailSiteUrl(requestUrl?: string): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim()
@@ -38,6 +38,17 @@ export function resolveRentalEmailSiteUrl(requestUrl?: string): string {
 
   if (configured && !isLocalSiteUrl(configured)) {
     return configured;
+  }
+
+  if (requestUrl) {
+    try {
+      const requestOrigin = normalizeSiteUrl(new URL(requestUrl).origin);
+      if (!isLocalSiteUrl(requestOrigin)) {
+        return requestOrigin;
+      }
+    } catch {
+      /* ignore invalid request URL */
+    }
   }
 
   const vercelSiteUrl = resolveVercelSiteUrl();
@@ -49,14 +60,6 @@ export function resolveRentalEmailSiteUrl(requestUrl?: string): string {
 
   if (configured && isDevelopment) {
     return configured;
-  }
-
-  if (requestUrl && isDevelopment) {
-    try {
-      return normalizeSiteUrl(new URL(requestUrl).origin);
-    } catch {
-      /* ignore invalid request URL */
-    }
   }
 
   return "";
