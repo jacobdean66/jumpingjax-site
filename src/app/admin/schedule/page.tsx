@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+import { verifyAdminAccess } from "@/lib/admin/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   ScheduleCalendar,
@@ -339,7 +339,7 @@ function groupEventsByDate(events: CalendarEvent[]) {
 export default async function AdminSchedulePage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
-  const auth = verifyAdminDeliveryToken(token);
+  const auth = await verifyAdminAccess(token);
 
   if (!auth.ok) return <AuthError reason={auth.reason} />;
 
