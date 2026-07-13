@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 import {
@@ -46,6 +45,130 @@ type RentalBookingRow = {
 };
 
 type CalendarRepairResult = "already_exists" | "created" | "failed" | "skipped";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function ownerResultPage(input: {
+  title: string;
+  message: string;
+  tone?: "success" | "warning" | "error";
+  bookingId?: string | number | null;
+  status?: number;
+}) {
+  const tone = input.tone ?? "success";
+  const colors =
+    tone === "error"
+      ? {
+          bg: "#fff1f2",
+          border: "#fecdd3",
+          accent: "#be123c",
+          badgeBg: "#ffe4e6",
+        }
+      : tone === "warning"
+        ? {
+            bg: "#fffbeb",
+            border: "#fde68a",
+            accent: "#b45309",
+            badgeBg: "#fef3c7",
+          }
+        : {
+            bg: "#f0fdf4",
+            border: "#bbf7d0",
+            accent: "#15803d",
+            badgeBg: "#dcfce7",
+          };
+  const bookingLine =
+    input.bookingId === null || input.bookingId === undefined
+      ? ""
+      : `<p class="booking">Booking ID: <strong>${escapeHtml(String(input.bookingId))}</strong></p>`;
+
+  return new Response(
+    `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(input.title)} - Jumping Jax</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #eef3f8;
+        color: #0f172a;
+        font-family: Arial, Helvetica, sans-serif;
+        padding: 24px;
+      }
+      main {
+        width: min(100%, 620px);
+        border: 1px solid ${colors.border};
+        border-radius: 18px;
+        background: ${colors.bg};
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+        padding: 28px;
+      }
+      .badge {
+        display: inline-flex;
+        border-radius: 999px;
+        background: ${colors.badgeBg};
+        color: ${colors.accent};
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        padding: 8px 12px;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 18px 0 10px;
+        font-size: clamp(30px, 8vw, 44px);
+        line-height: 1;
+      }
+      p {
+        color: #334155;
+        font-size: 18px;
+        line-height: 1.55;
+        margin: 0;
+      }
+      .booking {
+        margin-top: 18px;
+        color: #0f172a;
+      }
+      .hint {
+        margin-top: 20px;
+        color: #64748b;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge">Jumping Jax Booking</span>
+      <h1>${escapeHtml(input.title)}</h1>
+      <p>${escapeHtml(input.message)}</p>
+      ${bookingLine}
+      <p class="hint">You can close this page and return to Gmail.</p>
+    </main>
+  </body>
+</html>`,
+    {
+      status: input.status ?? 200,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    },
+  );
+}
 
 async function loadRentalItems(
   supabase: ReturnType<typeof createServiceRoleClient>,
@@ -150,7 +273,17 @@ async function createMissingRentalCalendarEvent(input: {
     return "failed";
   }
 
-  return savedBooking?.google_calendar_event_id ? "created" : "failed";
+  if (savedBooking?.google_calendar_event_id) {
+    return "created";
+  }
+
+  const { data: existingBooking } = await input.supabase
+    .from("bookings")
+    .select("google_calendar_event_id")
+    .eq("id", input.id)
+    .maybeSingle<{ google_calendar_event_id: string | null }>();
+
+  return existingBooking?.google_calendar_event_id ? "already_exists" : "failed";
 }
 
 async function createMissingFoamCalendarEvent(input: {
@@ -237,7 +370,17 @@ async function createMissingFoamCalendarEvent(input: {
     return "failed";
   }
 
-  return savedBooking?.google_foam_calendar_event_id ? "created" : "failed";
+  if (savedBooking?.google_foam_calendar_event_id) {
+    return "created";
+  }
+
+  const { data: existingBooking } = await input.supabase
+    .from("bookings")
+    .select("google_foam_calendar_event_id")
+    .eq("id", input.id)
+    .maybeSingle<{ google_foam_calendar_event_id: string | null }>();
+
+  return existingBooking?.google_foam_calendar_event_id ? "already_exists" : "failed";
 }
 
 async function handleRentalConfirm(req: Request) {
@@ -246,11 +389,22 @@ async function handleRentalConfirm(req: Request) {
   const action = searchParams.get("action") ?? "confirm";
 
   if (!id) {
-    return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    return ownerResultPage({
+      title: "Missing Booking",
+      message: "This confirmation link is missing its booking ID.",
+      tone: "error",
+      status: 400,
+    });
   }
 
   if (action !== "confirm" && action !== "reject" && action !== "cancel") {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    return ownerResultPage({
+      title: "Invalid Action",
+      message: "This confirmation link is not valid.",
+      tone: "error",
+      bookingId: id,
+      status: 400,
+    });
   }
 
   const status =
@@ -261,6 +415,12 @@ async function handleRentalConfirm(req: Request) {
       : action === "cancel"
         ? "Rental cancelled"
         : "Rental confirmed";
+  const successTitle =
+    action === "reject"
+      ? "Rental Rejected"
+      : action === "cancel"
+        ? "Rental Cancelled"
+        : "Rental Confirmed";
 
   const supabase = createServiceRoleClient();
 
@@ -279,7 +439,15 @@ async function handleRentalConfirm(req: Request) {
     await updateQuery.maybeSingle<RentalBookingRow>();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[api/rentals/confirm] status update error", error);
+    return ownerResultPage({
+      title: "Something Went Wrong",
+      message:
+        "The booking could not be updated. Please check the admin dashboard before trying again.",
+      tone: "error",
+      bookingId: id,
+      status: 500,
+    });
   }
 
   let booking = updatedBooking;
@@ -291,11 +459,17 @@ async function handleRentalConfirm(req: Request) {
       .select(RENTAL_BOOKING_SELECT)
       .eq("id", id)
       .eq("status", "approved")
-      .or("google_calendar_event_id.is.null,google_foam_calendar_event_id.is.null")
       .maybeSingle<RentalBookingRow>();
 
     if (existingError) {
-      return NextResponse.json({ error: existingError.message }, { status: 500 });
+      console.error("[api/rentals/confirm] existing booking load error", existingError);
+      return ownerResultPage({
+        title: "Already Confirmed",
+        message:
+          "This rental appears to be approved already, but the confirmation page could not reload the booking details.",
+        tone: "warning",
+        bookingId: id,
+      });
     }
 
     if (existingBooking) {
@@ -305,14 +479,21 @@ async function handleRentalConfirm(req: Request) {
   }
 
   if (!booking) {
-    return NextResponse.json(
-      { error: "Booking not found or already processed" },
-      { status: 409 },
-    );
+    return ownerResultPage({
+      title: "Already Processed",
+      message:
+        "This booking has already been handled or could not be found. Check the admin dashboard for the current status.",
+      tone: "warning",
+      bookingId: id,
+    });
   }
 
   if (action === "cancel") {
-    return new Response(successMessage);
+    return ownerResultPage({
+      title: successTitle,
+      message: "The rental has been cancelled.",
+      bookingId: booking.id,
+    });
   }
 
   const customerEmail = booking.customer_email?.trim() ?? null;
@@ -402,42 +583,66 @@ async function handleRentalConfirm(req: Request) {
       rentalCalendarResult === "created" ||
       foamCalendarResult === "created"
     ) {
-      return new Response("Rental calendar event repaired");
+      return ownerResultPage({
+        title: "Rental Confirmed",
+        message:
+          "This rental was already approved, and the missing calendar event has been repaired.",
+        bookingId: booking.id,
+      });
     }
 
     if (
       rentalCalendarResult === "failed" ||
       foamCalendarResult === "failed"
     ) {
-      return NextResponse.json(
-        { error: "Rental is approved, but calendar repair failed" },
-        { status: 500 },
-      );
+      return ownerResultPage({
+        title: "Rental Already Confirmed",
+        message:
+          "This rental is approved. The calendar repair did not finish, so check Schedule View or Google Calendar before relying on the calendar entry.",
+        tone: "warning",
+        bookingId: booking.id,
+      });
     }
 
-    return new Response("Rental calendar event already exists");
+    return ownerResultPage({
+      title: "Rental Already Confirmed",
+      message:
+        "This rental was already approved and the calendar entry is already handled.",
+      bookingId: booking.id,
+    });
   }
 
   if (
     action === "confirm" &&
     (rentalCalendarResult === "failed" || foamCalendarResult === "failed")
   ) {
-    return NextResponse.json(
-      { error: "Rental approved, but Google Calendar event creation failed" },
-      { status: 500 },
-    );
+    return ownerResultPage({
+      title: "Rental Confirmed",
+      message:
+        "The rental was approved, but Google Calendar did not finish. The booking will still show in Schedule View; please check Google Calendar when you have a moment.",
+      tone: "warning",
+      bookingId: booking.id,
+    });
   }
 
   if (!customerEmail || !customerName) {
-    return new Response(`${successMessage}. No customer email sent (missing data).`);
+    return ownerResultPage({
+      title: successTitle,
+      message: `${successMessage}. No customer email was sent because customer contact details are missing.`,
+      tone: "warning",
+      bookingId: booking.id,
+    });
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   if (!resendApiKey) {
-    return NextResponse.json(
-      { error: "Status changed but email is not configured" },
-      { status: 500 },
-    );
+    return ownerResultPage({
+      title: successTitle,
+      message:
+        "The rental status was updated, but customer email is not configured.",
+      tone: "warning",
+      bookingId: booking.id,
+    });
   }
 
   try {
@@ -498,20 +703,33 @@ async function handleRentalConfirm(req: Request) {
 
     if (emailError) {
       console.error("[api/rentals/confirm] customer email error", emailError);
-      return NextResponse.json(
-        { error: "Status changed but customer email failed" },
-        { status: 500 },
-      );
+      return ownerResultPage({
+        title: successTitle,
+        message:
+          "The rental status was updated, but the customer email did not send. Please contact the customer manually.",
+        tone: "warning",
+        bookingId: booking.id,
+      });
     }
   } catch (emailError) {
     console.error("[api/rentals/confirm] customer email error", emailError);
-    return NextResponse.json(
-      { error: "Status changed but customer email failed" },
-      { status: 500 },
-    );
+    return ownerResultPage({
+      title: successTitle,
+      message:
+        "The rental status was updated, but the customer email did not send. Please contact the customer manually.",
+      tone: "warning",
+      bookingId: booking.id,
+    });
   }
 
-  return new Response(successMessage);
+  return ownerResultPage({
+    title: successTitle,
+    message:
+      action === "confirm"
+        ? "The rental is approved, the customer email was sent, and the calendar has been handled."
+        : successMessage,
+    bookingId: booking.id,
+  });
 }
 
 export async function GET(req: Request) {
