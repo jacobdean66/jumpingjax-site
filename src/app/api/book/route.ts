@@ -285,12 +285,13 @@ export async function POST(req: Request) {
           "[api/book] rental admin confirm links skipped: set NEXT_PUBLIC_SITE_URL (non-localhost) or deploy on Vercel",
         );
       }
-      try {
-        const { error: emailError } = await resend.emails.send({
-          from: fromAddress,
-          to: facilityOwnerEmails,
-          subject: "New Jumping Jax rental request",
-          text: [
+      for (const ownerEmail of facilityOwnerEmails) {
+        try {
+          const { error: emailError } = await resend.emails.send({
+            from: fromAddress,
+            to: ownerEmail,
+            subject: "New Jumping Jax rental request",
+            text: [
             "New rental request — manual review required.",
             "This rental still needs manual review.",
             "",
@@ -336,16 +337,23 @@ export async function POST(req: Request) {
               : [
                   "Confirm/reject links unavailable — set NEXT_PUBLIC_SITE_URL on Vercel.",
                 ]),
-          ].join("\n"),
-        });
+            ].join("\n"),
+          });
 
-        if (emailError) {
-          console.error("[api/book] rental admin email error", emailError);
-        } else {
-          emailsSent = true;
+          if (emailError) {
+            console.error("[api/book] rental admin email error", {
+              ownerEmail,
+              emailError,
+            });
+          } else {
+            emailsSent = true;
+          }
+        } catch (emailError) {
+          console.error("[api/book] rental admin email error", {
+            ownerEmail,
+            emailError,
+          });
         }
-      } catch (emailError) {
-        console.error("[api/book] rental admin email error", emailError);
       }
     }
   }

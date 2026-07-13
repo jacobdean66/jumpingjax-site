@@ -331,50 +331,57 @@ export async function POST(req: NextRequest) {
       const rejectLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=reject`;
       const fromAddress = getResendFromAddress();
 
-      const { error: adminEmailError } = await resend.emails.send({
-        from: fromAddress,
-        to: facilityOwnerEmails,
-        subject: "New facility booking request",
-        text: [
-          "New facility booking request",
-          "",
-          `Booking ID: ${data.id}`,
-          `Customer: ${customer_name}`,
-          `Parent name: ${String(parent_name).trim()}`,
-          `Email: ${email}`,
-          `Phone: ${phone}`,
-          `Child name: ${String(child_name).trim()}`,
-          `Child gender: ${String(child_gender).trim()}`,
-          `Child age: ${String(child_age).trim()}`,
-          `Party theme: ${String(party_theme).trim()}`,
-          `Balloon colors: ${String(balloon_colors).trim()}`,
-          `Table cloth colors: ${String(table_cloth_colors).trim()}`,
-          `Drink choice: ${String(drink_choice).trim()}`,
-          `Payment method: ${String(payment_method).trim()}`,
-          `Deposit acknowledgement: ${
-            deposit_acknowledged === true ? "Checked" : "Not checked"
-          }`,
-          `Party: ${party_label}`,
-          `Date: ${readable_date}`,
-          `Time: ${readable_time}`,
-          `Party kind: ${party_kind}`,
-          `Room: ${room}`,
-          `Start time: ${startIso}`,
-          `End time: ${endIso}`,
-          notes?.trim() ? `Notes: ${String(notes).trim()}` : "Notes: (none)",
-          "",
-          addonsEmailText,
-          ...pricingLines,
-          "",
-          `Confirm link: ${confirmLink}`,
-          `Reject link: ${rejectLink}`,
-        ].join("\n"),
-      });
+      const adminEmailText = [
+        "New facility booking request",
+        "",
+        `Booking ID: ${data.id}`,
+        `Customer: ${customer_name}`,
+        `Parent name: ${String(parent_name).trim()}`,
+        `Email: ${email}`,
+        `Phone: ${phone}`,
+        `Child name: ${String(child_name).trim()}`,
+        `Child gender: ${String(child_gender).trim()}`,
+        `Child age: ${String(child_age).trim()}`,
+        `Party theme: ${String(party_theme).trim()}`,
+        `Balloon colors: ${String(balloon_colors).trim()}`,
+        `Table cloth colors: ${String(table_cloth_colors).trim()}`,
+        `Drink choice: ${String(drink_choice).trim()}`,
+        `Payment method: ${String(payment_method).trim()}`,
+        `Deposit acknowledgement: ${
+          deposit_acknowledged === true ? "Checked" : "Not checked"
+        }`,
+        `Party: ${party_label}`,
+        `Date: ${readable_date}`,
+        `Time: ${readable_time}`,
+        `Party kind: ${party_kind}`,
+        `Room: ${room}`,
+        `Start time: ${startIso}`,
+        `End time: ${endIso}`,
+        notes?.trim() ? `Notes: ${String(notes).trim()}` : "Notes: (none)",
+        "",
+        addonsEmailText,
+        ...pricingLines,
+        "",
+        `Confirm link: ${confirmLink}`,
+        `Reject link: ${rejectLink}`,
+      ].join("\n");
 
-      if (adminEmailError) {
-        console.error("BOOKING EMAIL ERROR", adminEmailError);
-      } else {
-        emailsSent = true;
+      for (const ownerEmail of facilityOwnerEmails) {
+        const { error: adminEmailError } = await resend.emails.send({
+          from: fromAddress,
+          to: ownerEmail,
+          subject: "New facility booking request",
+          text: adminEmailText,
+        });
+
+        if (adminEmailError) {
+          console.error("BOOKING EMAIL ERROR", {
+            ownerEmail,
+            adminEmailError,
+          });
+        } else {
+          emailsSent = true;
+        }
       }
 
       const { error: customerEmailError } = await resend.emails.send({
