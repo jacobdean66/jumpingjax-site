@@ -14,7 +14,7 @@ import {
   rentalConfirmLink,
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
-import { getFacilityOwnerEmail, getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/rate-limit";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 
@@ -200,7 +200,7 @@ export async function POST(req: Request) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const facilityOwnerEmail = getFacilityOwnerEmail();
+  const facilityOwnerEmails = getFacilityOwnerEmails();
   const fromAddress = getResendFromAddress();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
@@ -279,7 +279,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (facilityOwnerEmail) {
+    if (facilityOwnerEmails.length > 0) {
       if (!siteUrl) {
         console.error(
           "[api/book] rental admin confirm links skipped: set NEXT_PUBLIC_SITE_URL (non-localhost) or deploy on Vercel",
@@ -288,7 +288,7 @@ export async function POST(req: Request) {
       try {
         const { error: emailError } = await resend.emails.send({
           from: fromAddress,
-          to: facilityOwnerEmail,
+          to: facilityOwnerEmails,
           subject: "New Jumping Jax rental request",
           text: [
             "New rental request — manual review required.",

@@ -19,7 +19,7 @@ import {
   formatFacilityPricingLines,
   priceFacilityParty,
 } from "@/lib/facility-parties/pricing";
-import { getFacilityOwnerEmail, getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
 import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -147,10 +147,10 @@ export async function POST(req: NextRequest) {
     }
 
     const resendApiKey = process.env.RESEND_API_KEY?.trim();
-    const facilityOwnerEmail = getFacilityOwnerEmail();
+    const facilityOwnerEmails = getFacilityOwnerEmails();
     const siteUrl = resolveRentalEmailSiteUrl(req.url);
 
-    if (!resendApiKey || !facilityOwnerEmail || !siteUrl) {
+    if (!resendApiKey || facilityOwnerEmails.length === 0 || !siteUrl) {
       return NextResponse.json(
         { error: "Missing facility notification configuration" },
         { status: 500 },
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
 
       const { error: adminEmailError } = await resend.emails.send({
         from: fromAddress,
-        to: facilityOwnerEmail,
+        to: facilityOwnerEmails,
         subject: "New facility booking request",
         text: [
           "New facility booking request",
