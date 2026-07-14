@@ -77,7 +77,7 @@ function listPublicSlotsForDate(date: string): PublicSlotDefinition[] {
 
   const slots: PublicSlotDefinition[] = [];
 
-  let start = openMinutes + 30;
+  let start = openMinutes;
 
   while (true) {
     const end = start + 90;
