@@ -150,6 +150,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       description:
         "Use this section to review the live baseline facility party prices before requesting a price update.",
       actionLabel: "Review current prices",
+      href: "#facility-prices",
     },
     {
       title: "Hours",
@@ -157,6 +158,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       description:
         "Review the current public business hours shown on the website.",
       actionLabel: "Review current hours",
+      href: "#business-hours",
     },
     {
       title: "Website Text",
@@ -164,6 +166,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       description:
         "Review the main public website text, including homepage, rentals, facility parties, and contact descriptions.",
       actionLabel: "Review current text",
+      href: "#website-text",
     },
   ];
 
@@ -193,7 +196,10 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       </section>
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div
+          id="facility-prices"
+          className="scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
           <div className="border-b border-slate-200 pb-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Facility Party Prices
@@ -224,7 +230,10 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div
+          id="business-hours"
+          className="scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
           <div className="border-b border-slate-200 pb-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Hours
@@ -253,7 +262,10 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
       </section>
 
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section
+        id="website-text"
+        className="mt-8 scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      >
         <div className="border-b border-slate-200 pb-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
             Website Text
