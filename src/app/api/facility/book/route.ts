@@ -17,8 +17,9 @@ import {
 } from "@/lib/facility-parties/addons";
 import {
   formatFacilityPricingLines,
-  priceFacilityParty,
+  priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
+import { loadSiteSettings } from "@/lib/admin/site-settings";
 import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
 import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
@@ -162,13 +163,17 @@ export async function POST(req: NextRequest) {
     const endIso = endDate.toISOString();
     const startParts = getFacilityDateParts(startDate);
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
-    const pricing = priceFacilityParty({
-      partyKind: party_kind,
-      roomId: room as FacilityRoomId,
-      date: startParts.date,
-      durationMinutes,
-      addonSubtotal: resolvedAddons.subtotal,
-    });
+    const siteSettings = await loadSiteSettings();
+    const pricing = priceFacilityPartyWithConfig(
+      {
+        partyKind: party_kind,
+        roomId: room as FacilityRoomId,
+        date: startParts.date,
+        durationMinutes,
+        addonSubtotal: resolvedAddons.subtotal,
+      },
+      siteSettings.facilityPricing,
+    );
 
     if (pricing.missingPrice) {
       return NextResponse.json(

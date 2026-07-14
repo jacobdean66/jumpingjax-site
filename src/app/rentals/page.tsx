@@ -5,11 +5,16 @@ import {
   CATEGORY_COPY,
   categoryPreviewRental,
 } from "@/data/rentals";
+import { loadSiteSettings } from "@/lib/admin/site-settings";
 
 const CATEGORY_CARD_IMAGE_SIZES =
   "(max-width: 640px) 94vw, (max-width: 1024px) 46vw, 360px";
 
-export default function RentalsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RentalsPage() {
+  const settings = await loadSiteSettings();
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-pink-50 px-4 pb-24 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">
       <section className="mx-auto max-w-6xl">
@@ -18,11 +23,10 @@ export default function RentalsPage() {
             Rentals
           </span>
           <h1 className="mt-5 text-balance text-4xl font-black tracking-tight sm:text-5xl">
-            Browse Jumping Jax Rentals
+            {settings.websiteText.rentalsTitle}
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
-            Pick a category, compare units, then open any card for full details and
-            booking.
+            {settings.websiteText.rentalsDescription}
           </p>
         </header>
 

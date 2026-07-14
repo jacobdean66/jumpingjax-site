@@ -3,6 +3,30 @@ import { getLocalDayOfWeek } from "./time";
 
 export const FACILITY_TAX_RATE = 0.07;
 
+export type FacilityPricingConfig = {
+  publicRoom10: number;
+  publicRoom20Weekday: number;
+  publicRoom20Weekend: number;
+  privateWeekday90: number;
+  privateWeekday120: number;
+  privateWeekend90: number;
+  privateWeekend120: number;
+  privateAny180: number;
+  taxRate: number;
+};
+
+export const DEFAULT_FACILITY_PRICING: FacilityPricingConfig = {
+  publicRoom10: 120,
+  publicRoom20Weekday: 165,
+  publicRoom20Weekend: 190,
+  privateWeekday90: 195,
+  privateWeekday120: 210,
+  privateWeekend90: 220,
+  privateWeekend120: 255,
+  privateAny180: 380,
+  taxRate: FACILITY_TAX_RATE,
+};
+
 export type FacilityPricingInput = {
   partyKind: FacilityPartyKind;
   roomId: FacilityRoomId;
@@ -25,19 +49,23 @@ function money(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function privateBasePrice(day: number, durationMinutes: number): number | null {
+function privateBasePrice(
+  day: number,
+  durationMinutes: number,
+  config: FacilityPricingConfig,
+): number | null {
   if (durationMinutes === 180) {
-    return 380;
+    return config.privateAny180;
   }
 
   if (day === 1 || day === 2) {
-    if (durationMinutes === 90) return 195;
-    if (durationMinutes === 120) return 210;
+    if (durationMinutes === 90) return config.privateWeekday90;
+    if (durationMinutes === 120) return config.privateWeekday120;
   }
 
   if (day === 0 || day === 5 || day === 6) {
-    if (durationMinutes === 90) return 220;
-    if (durationMinutes === 120) return 255;
+    if (durationMinutes === 90) return config.privateWeekend90;
+    if (durationMinutes === 120) return config.privateWeekend120;
   }
 
   return null;
@@ -47,39 +75,41 @@ function publicBasePrice(
   day: number,
   roomId: FacilityRoomId,
   durationMinutes: number,
+  config: FacilityPricingConfig,
 ): number | null {
   if (durationMinutes !== 90) {
     return null;
   }
 
   if (roomId === "room-10") {
-    return 120;
+    return config.publicRoom10;
   }
 
   if (day === 3 || day === 4) {
-    return 165;
+    return config.publicRoom20Weekday;
   }
 
   if (day === 5 || day === 6) {
-    return 190;
+    return config.publicRoom20Weekend;
   }
 
   return null;
 }
 
-export function priceFacilityParty(
+export function priceFacilityPartyWithConfig(
   input: FacilityPricingInput,
+  config: FacilityPricingConfig = DEFAULT_FACILITY_PRICING,
 ): FacilityPricingResult {
   const day = getLocalDayOfWeek(input.date);
   const packagePrice =
     input.partyKind === "private"
-      ? privateBasePrice(day, input.durationMinutes)
-      : publicBasePrice(day, input.roomId, input.durationMinutes);
+      ? privateBasePrice(day, input.durationMinutes, config)
+      : publicBasePrice(day, input.roomId, input.durationMinutes, config);
 
   const resolvedPackagePrice = packagePrice ?? 0;
   const addonSubtotal = money(input.addonSubtotal);
   const subtotal = money(resolvedPackagePrice + addonSubtotal);
-  const tax = money(subtotal * FACILITY_TAX_RATE);
+  const tax = money(subtotal * config.taxRate);
 
   return {
     packagePrice: resolvedPackagePrice,
@@ -87,9 +117,15 @@ export function priceFacilityParty(
     subtotal,
     tax,
     total: money(subtotal + tax),
-    taxRate: FACILITY_TAX_RATE,
+    taxRate: config.taxRate,
     missingPrice: packagePrice === null ? "Missing facility package price" : null,
   };
+}
+
+export function priceFacilityParty(
+  input: FacilityPricingInput,
+): FacilityPricingResult {
+  return priceFacilityPartyWithConfig(input, DEFAULT_FACILITY_PRICING);
 }
 
 export function formatUsd(value: number): string {

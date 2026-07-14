@@ -21,7 +21,8 @@ import {
 } from "@/lib/facility-parties/addons";
 import {
   formatFacilityPricingLines,
-  priceFacilityParty,
+  priceFacilityPartyWithConfig,
+  type FacilityPricingConfig,
 } from "@/lib/facility-parties/pricing";
 import type {
   FacilityPartyBookingBlock,
@@ -153,7 +154,13 @@ function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
 }
 
-export function FacilityPartyBookingForm() {
+type FacilityPartyBookingFormProps = {
+  pricingConfig: FacilityPricingConfig;
+};
+
+export function FacilityPartyBookingForm({
+  pricingConfig,
+}: FacilityPartyBookingFormProps) {
   const confirmationRef = useRef<HTMLDivElement | null>(null);
   const [blocks, setBlocks] = useState<FacilityPartyBookingBlock[]>([]);
   const [partyKind, setPartyKind] = useState<FacilityPartyKind | null>(null);
@@ -294,15 +301,25 @@ export function FacilityPartyBookingForm() {
       return null;
     }
 
-    return priceFacilityParty({
-      partyKind,
-      roomId: partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID,
-      date,
-      durationMinutes:
-        selectedDisposition.endMinutes - selectedDisposition.startMinutes,
-      addonSubtotal: addonSubtotalPreview,
-    });
-  }, [addonSubtotalPreview, date, partyKind, roomId, selectedDisposition]);
+    return priceFacilityPartyWithConfig(
+      {
+        partyKind,
+        roomId: partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID,
+        date,
+        durationMinutes:
+          selectedDisposition.endMinutes - selectedDisposition.startMinutes,
+        addonSubtotal: addonSubtotalPreview,
+      },
+      pricingConfig,
+    );
+  }, [
+    addonSubtotalPreview,
+    date,
+    partyKind,
+    pricingConfig,
+    roomId,
+    selectedDisposition,
+  ]);
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
     setPartyKind(next);

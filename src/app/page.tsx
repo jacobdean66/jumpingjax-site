@@ -7,6 +7,7 @@ import {
   homeFeaturedRentals,
   rentalDetailPath,
 } from "@/data/rentals";
+import { loadSiteSettings } from "@/lib/admin/site-settings";
 
 const FEATURED_IMAGE_SIZES =
   "(max-width: 768px) 94vw, (max-width: 1200px) 33vw, 400px";
@@ -22,8 +23,15 @@ const SERVICE_AREAS = [
   "Saluda",
 ];
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const settings = await loadSiteSettings();
   const featured = homeFeaturedRentals();
+  const phoneHref = `tel:${settings.websiteText.contactPhone.replace(/\D/g, "")}`;
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    settings.websiteText.contactAddress,
+  )}`;
 
   return (
     <main className="overflow-x-hidden bg-[#fff8e8] text-slate-950">
@@ -56,25 +64,23 @@ export default function Home() {
             />
           </div>
           <div className="mx-auto mb-5 flex max-w-3xl flex-col items-center justify-center gap-2 rounded-3xl border border-white/50 bg-white/90 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-sky-950/20 sm:flex-row sm:gap-5 sm:text-base">
-            <a href="tel:8649331420" className="hover:text-pink-700">
-              864-933-1420
+            <a href={phoneHref} className="hover:text-pink-700">
+              {settings.websiteText.contactPhone}
             </a>
             <span className="hidden h-5 w-px bg-slate-300 sm:block" />
             <a
-              href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
+              href={mapsHref}
               className="hover:text-pink-700"
             >
-              559 Beaudrot Rd, Greenwood, SC
+              {settings.websiteText.contactAddress}
             </a>
           </div>
           <h1 className="mb-6 text-3xl font-black leading-tight tracking-tight drop-shadow-md sm:text-5xl md:text-6xl">
-            Indoor Play Area, Parties & Rentals
+            {settings.websiteText.homeTitle}
           </h1>
 
           <p className="mx-auto mb-10 max-w-3xl text-pretty text-lg font-semibold leading-snug text-white drop-shadow sm:text-xl md:text-2xl">
-            Open play hours, party rooms, foam parties, water slides, bounce
-            houses, and clean rental delivery across Greenwood and nearby
-            communities.
+            {settings.websiteText.homeDescription}
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
@@ -117,11 +123,11 @@ export default function Home() {
           <div className="rounded-3xl border-2 border-white bg-white/80 p-5 shadow-[0_14px_36px_rgba(6,182,212,0.16)] sm:p-6">
             <h3 className="text-2xl font-black">Open Play Hours</h3>
             <div className="mt-5 grid gap-3 text-base font-semibold text-slate-800">
-              <p>Wednesday: 12:00 PM - 5:00 PM</p>
-              <p>Thursday: 12:00 PM - 5:00 PM</p>
-              <p>Friday: 12:00 PM - 6:00 PM</p>
-              <p>Saturday: 10:00 AM - 6:00 PM</p>
-              <p>Sunday: Private parties all day</p>
+              {settings.businessHours.map((row) => (
+                <p key={row.day}>
+                  {row.day}: {row.hours}
+                </p>
+              ))}
             </div>
             <Link
               href="/facility-parties"
@@ -302,22 +308,22 @@ export default function Home() {
           </h2>
           <div className="mt-8 grid gap-4 text-lg font-bold sm:grid-cols-3">
             <a
-              href="tel:8649331420"
+              href={phoneHref}
               className="rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-5 py-6 text-cyan-900 transition hover:bg-cyan-100"
             >
-              864-933-1420
+              {settings.websiteText.contactPhone}
             </a>
             <a
-              href="mailto:info@jumpingjaxllc.com"
+              href={`mailto:${settings.websiteText.contactEmail}`}
               className="rounded-3xl border-2 border-pink-100 bg-pink-50 px-5 py-6 text-pink-900 transition hover:bg-pink-100"
             >
-              info@jumpingjaxllc.com
+              {settings.websiteText.contactEmail}
             </a>
             <a
-              href="https://www.google.com/maps/search/?api=1&query=559%20Beaudrot%20Rd%2C%20Greenwood%2C%20SC%2029649"
+              href={mapsHref}
               className="rounded-3xl border-2 border-yellow-100 bg-yellow-50 px-5 py-6 text-yellow-950 transition hover:bg-yellow-100"
             >
-              559 Beaudrot Rd
+              {settings.websiteText.contactAddress}
             </a>
           </div>
         </div>
