@@ -84,6 +84,7 @@ export function AdminNav({
     | "driver"
     | "ai-ads"
     | "inventory"
+    | "site-settings"
     | "damage-log"
     | "staff"
     | "employee-schedule"
@@ -108,6 +109,13 @@ export function AdminNav({
     { id: "driver", label: "Driver App", href: `/driver${query}` },
     role === "owner"
       ? { id: "inventory", label: "Inventory", href: `/admin/inventory${query}` }
+      : null,
+    role === "owner"
+      ? {
+          id: "site-settings",
+          label: "Website Settings",
+          href: `/admin/site-settings${query}`,
+        }
       : null,
     { id: "damage-log", label: "Damage Log", href: `/admin/damage-log${query}` },
     role === "owner"

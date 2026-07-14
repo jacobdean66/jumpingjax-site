@@ -106,6 +106,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
       cta: "Open inventory",
       tone: "bg-amber-300 text-slate-950",
     },
+    {
+      title: "Website Settings",
+      eyebrow: "Owner Tools",
+      description:
+        "Find rental item editing, facility party prices, business hours, and website text in one place.",
+      href: `/admin/site-settings?${query}`,
+      cta: "Open settings",
+      tone: "bg-cyan-300 text-slate-950",
+    },
   ];
 
   const quickLinks = [
@@ -114,6 +123,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
     { label: "Damage Log", href: `/admin/damage-log?${query}` },
     { label: "Staff Access", href: `/admin/staff?${query}` },
     { label: "Employee Schedule", href: `/admin/employee-schedule?${query}` },
+    { label: "Website Settings", href: `/admin/site-settings?${query}` },
     { label: "Recovery Snapshot", href: `/admin/recovery-snapshot?${query}` },
   ];
 
