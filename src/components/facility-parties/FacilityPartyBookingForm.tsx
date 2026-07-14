@@ -123,7 +123,7 @@ function bookingRangeToBlock(
   booking: FacilityBookingRangeResponse,
 ): FacilityPartyBookingBlock | null {
   if (
-    booking.status !== "confirmed" ||
+    (booking.status !== "pending" && booking.status !== "confirmed") ||
     !isFacilityPartyKind(booking.party_kind)
   ) {
     return null;

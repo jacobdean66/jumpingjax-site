@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from("facility_bookings")
       .select("id, party_kind, room, start_time, end_time, status")
-      .eq("status", "confirmed")
+      .in("status", ["pending", "confirmed"])
       .gte("start_time", bounds.start)
       .lt("start_time", bounds.end);
 

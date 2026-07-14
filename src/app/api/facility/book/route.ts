@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id")
-        .eq("status", "confirmed")
+        .in("status", ["pending", "confirmed"])
         .eq("room", room)
         .lt("start_time", endIso)
         .gt("end_time", startIso)
@@ -257,12 +257,15 @@ export async function POST(req: NextRequest) {
       const bufferedStartIso = new Date(
         startDate.getTime() - FACILITY_PARTY_BUFFER_MINUTES * 60 * 1000,
       ).toISOString();
+      const bufferedEndIso = new Date(
+        endDate.getTime() + FACILITY_PARTY_BUFFER_MINUTES * 60 * 1000,
+      ).toISOString();
 
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id")
-        .eq("status", "confirmed")
-        .lt("start_time", endIso)
+        .in("status", ["pending", "confirmed"])
+        .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso)
         .limit(1);
 

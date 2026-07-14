@@ -40,10 +40,10 @@ function collidesWithAnyFacilityBooking(
       isActiveBlock(b) &&
       b.date === date &&
       intervalsOverlap(
-        start,
-        end,
+        start - FACILITY_PARTY_BUFFER_MINUTES,
+        end + FACILITY_PARTY_BUFFER_MINUTES,
         b.startMinutes,
-        b.endMinutes + FACILITY_PARTY_BUFFER_MINUTES,
+        b.endMinutes,
       ),
   );
 }
