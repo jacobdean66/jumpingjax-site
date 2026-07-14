@@ -18,6 +18,7 @@ export type CalendarEvent = {
   displayTime: string;
   title: string;
   customer: string;
+  phone: string | null;
   status: string;
   location: string | null;
   room: string | null;
@@ -234,6 +235,7 @@ function clean(value: string | null | undefined): string | null {
 
 function formatTime(value: string | null): string {
   if (!value) return "Time not set";
+  if (isPlaceholderMidnight(value)) return "Time not set";
   const match = value.match(/^(\d{1,2}):(\d{2})/);
   if (!match) return value;
   const hourRaw = Number(match[1]);
@@ -241,6 +243,23 @@ function formatTime(value: string | null): string {
   const hour = hourRaw % 12 || 12;
   const suffix = hourRaw >= 12 ? "PM" : "AM";
   return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function isPlaceholderMidnight(value: string | null | undefined): boolean {
+  const normalized = value?.trim().toLowerCase().replace(/\s+/g, "");
+  return (
+    normalized === "0:00am" ||
+    normalized === "00:00" ||
+    normalized === "00:00:00" ||
+    normalized === "12:00am" ||
+    normalized === "12:00:00am"
+  );
+}
+
+function cleanTime(value: string | null | undefined): string | null {
+  const trimmed = clean(value);
+  if (!trimmed || isPlaceholderMidnight(trimmed)) return null;
+  return trimmed;
 }
 
 function money(value: number | string | null): string | null {
@@ -274,7 +293,10 @@ function roomLabel(room: string | null) {
 export function rentalRowsToEvents(rows: readonly RentalRow[]): CalendarEvent[] {
   return rows.map((row) => {
     const date = String(row.event_date).slice(0, 10);
-    const time = clean(row.event_start_time) ?? clean(row.requested_delivery_window);
+    const time =
+      cleanTime(row.event_start_time) ??
+      cleanTime(row.requested_delivery_window) ??
+      cleanTime(row.delivery_time);
     const title = clean(row.rental_name) ?? clean(row.rental_item) ?? "Rental";
     return {
       id: `rental-${row.id}`,
@@ -284,6 +306,7 @@ export function rentalRowsToEvents(rows: readonly RentalRow[]): CalendarEvent[] 
       displayTime: formatTime(time),
       title,
       customer: clean(row.customer_name) ?? "Guest",
+      phone: clean(row.customer_phone),
       status: clean(row.status) ?? "pending",
       location: clean(row.event_address) ?? rentalCity(clean(row.event_address)),
       room: null,
@@ -295,7 +318,7 @@ export function rentalRowsToEvents(rows: readonly RentalRow[]): CalendarEvent[] 
         { label: "Time", value: formatTime(time) },
         {
           label: "Delivery window",
-          value: clean(row.requested_delivery_window) ?? clean(row.delivery_time),
+          value: cleanTime(row.requested_delivery_window) ?? cleanTime(row.delivery_time),
         },
         { label: "Address", value: clean(row.event_address) },
         { label: "City", value: rentalCity(clean(row.event_address)) },
@@ -321,16 +344,18 @@ export function facilityRowsToEvents(
       row.party_kind === "private" ? "private-party" : "public-party";
     const date = clean(row.readable_date) ?? String(row.start_time).slice(0, 10);
     const room = roomLabel(clean(row.room));
+    const readableTime = cleanTime(row.readable_time);
     return {
       id: `facility-${row.id}`,
       type,
       date,
-      sortTime: clean(row.start_time) ?? clean(row.readable_time) ?? "",
-      displayTime: clean(row.readable_time) ?? formatTime(clean(row.start_time)),
+      sortTime: clean(row.start_time) ?? readableTime ?? "",
+      displayTime: readableTime ?? formatTime(clean(row.start_time)),
       title:
         clean(row.party_label) ??
         (type === "private-party" ? "Private facility party" : "Public facility party"),
       customer: clean(row.customer_name) ?? "Guest",
+      phone: clean(row.phone),
       status: clean(row.status) ?? "pending",
       location: null,
       room,
@@ -340,7 +365,7 @@ export function facilityRowsToEvents(
         { label: "Party", value: clean(row.party_label) },
         { label: "Room", value: room },
         { label: "Date", value: date },
-        { label: "Time", value: clean(row.readable_time) },
+        { label: "Time", value: readableTime },
         { label: "Start", value: row.start_time },
         { label: "End", value: row.end_time },
         { label: "Parent", value: clean(row.parent_name) },

@@ -227,6 +227,24 @@ await test("print data uses the same filtered record set", () => {
   assert.equal(printGroups[saturday]?.length, 1);
 });
 
+await test("schedule events expose customer phone for print output", () => {
+  const [event] = rentalRowsToEvents([rental(99)]);
+  assert.equal(event?.phone, "864-555-0100");
+});
+
+await test("midnight import placeholders display as unset time", () => {
+  const [event] = rentalRowsToEvents([
+    {
+      ...rental(100),
+      event_start_time: null,
+      requested_delivery_window: "0:00AM",
+      delivery_time: null,
+    },
+  ]);
+  assert.equal(event?.displayTime, "Time not set");
+  assert.equal(event?.sortTime, "");
+});
+
 await test("long booking content is not assigned CSS that forces horizontal overflow", () => {
   const source = readFileSync(
     join(

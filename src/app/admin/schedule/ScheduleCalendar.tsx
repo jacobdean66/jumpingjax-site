@@ -81,6 +81,11 @@ function EventCard({ event }: { event: CalendarEvent }) {
         {event.customer}
       </h3>
       <p className="mt-1 break-words text-sm font-bold">{event.title}</p>
+      {event.phone ? (
+        <p className="mt-2 break-words text-xs font-black text-slate-700 print:text-black">
+          Phone: {event.phone}
+        </p>
+      ) : null}
       <dl className="mt-3 grid gap-2 text-xs font-semibold leading-relaxed text-slate-700 print:text-black">
         <div>
           <dt className="font-black uppercase tracking-wide text-slate-500 print:text-black">
@@ -181,6 +186,12 @@ function PrintAgenda({
                       <span className="font-black">{typeLabel(event.type)}</span>
                       {" - "}
                       <span>{event.customer}</span>
+                      {event.phone ? (
+                        <>
+                          {" - "}
+                          <span>{event.phone}</span>
+                        </>
+                      ) : null}
                       {" - "}
                       <span>{event.title}</span>
                       {" - "}
