@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 
 import {
   listPrivateSlotDispositions,
@@ -20,13 +19,21 @@ import {
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
-import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import {
   facilityConfirmLink,
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { facilityLocalDateTimeToUtc } from "@/lib/facility-parties/zoned-time";
+import { formatMinutesLabel } from "@/lib/facility-parties/time";
+import {
+  initializeBookingWorkflow,
+  recordWorkflowOutcome,
+} from "@/lib/bookings/workflow-state";
+import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
+import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 const FACILITY_TIME_ZONE = "America/New_York";
 
@@ -73,14 +80,20 @@ export async function POST(req: NextRequest) {
   });
   if (limited) return limited;
 
+  const contentLength = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
+    return NextResponse.json({ error: "Request body is too large" }, { status: 413 });
+  }
+
   try {
     const body = await req.json();
 
     const {
       party_kind,
       room,
-      start_time,
-      end_time,
+      booking_date,
+      start_minutes,
+      end_minutes,
       customer_name,
       email,
       phone,
@@ -95,21 +108,29 @@ export async function POST(req: NextRequest) {
       payment_method,
       deposit_acknowledged,
       notes,
-      readable_date,
-      readable_time,
-      party_label,
       addon_selections,
+      idempotency_key,
     } = body;
 
     const resolvedAddons = resolveFacilityAddons(addon_selections);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
+    const bookingContactName = isNonEmptyString(parent_name)
+      ? parent_name.trim()
+      : isNonEmptyString(customer_name)
+        ? customer_name.trim()
+        : "";
 
     if (
       (party_kind !== "public" && party_kind !== "private") ||
       typeof room !== "string" ||
-      !start_time ||
-      !end_time
+      !isNonEmptyString(booking_date) ||
+      !Number.isInteger(start_minutes) ||
+      !Number.isInteger(end_minutes) ||
+      start_minutes < 0 ||
+      end_minutes > 24 * 60 ||
+      !isNonEmptyString(idempotency_key) ||
+      idempotency_key.length > 128
     ) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -118,18 +139,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (
-      !isNonEmptyString(customer_name) ||
+      !bookingContactName ||
       !isValidEmail(email) ||
       !isNonEmptyString(phone) ||
-      !isNonEmptyString(parent_name) ||
       !isNonEmptyString(child_name) ||
       !isNonEmptyString(child_gender) ||
       !isNonEmptyString(child_age) ||
       !isNonEmptyString(drink_choice) ||
       !isNonEmptyString(payment_method) ||
-      !isNonEmptyString(readable_date) ||
-      !isNonEmptyString(readable_time) ||
-      !isNonEmptyString(party_label)
+      bookingContactName.length > 120 ||
+      email.length > 254 ||
+      phone.length > 40 ||
+      String(notes ?? "").length > 2000
     ) {
       return NextResponse.json(
         { error: "Missing or invalid customer booking fields" },
@@ -137,11 +158,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const startDate = new Date(start_time);
-    const endDate = new Date(end_time);
+    const startDate = facilityLocalDateTimeToUtc(booking_date, start_minutes);
+    const endDate = facilityLocalDateTimeToUtc(booking_date, end_minutes);
     if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime()) ||
+      !startDate ||
+      !endDate ||
       startDate >= endDate
     ) {
       return NextResponse.json(
@@ -150,16 +171,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY?.trim();
     const facilityOwnerEmails = getFacilityOwnerEmails();
     const siteUrl = resolveRentalEmailSiteUrl(req.url);
-
-    if (!resendApiKey || facilityOwnerEmails.length === 0 || !siteUrl) {
-      return NextResponse.json(
-        { error: "Missing facility notification configuration" },
-        { status: 500 },
-      );
-    }
 
     const supabase = createServiceRoleClient();
     const startIso = startDate.toISOString();
@@ -186,6 +199,9 @@ export async function POST(req: NextRequest) {
     }
 
     const pricingLines = formatFacilityPricingLines(pricing);
+    const storedReadableDate = booking_date;
+    const storedReadableTime = `${formatMinutesLabel(start_minutes)} - ${formatMinutesLabel(end_minutes)}`;
+    const storedPartyLabel = party_kind === "private" ? "Private Party" : "Public Play Party";
 
     if (party_kind === "public") {
       if (!isFacilityRoomId(room)) {
@@ -212,23 +228,35 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const bufferedStartIso = new Date(
+        startDate.getTime() - FACILITY_PARTY_BUFFER_MINUTES * 60 * 1000,
+      ).toISOString();
+      const bufferedEndIso = new Date(
+        endDate.getTime() + FACILITY_PARTY_BUFFER_MINUTES * 60 * 1000,
+      ).toISOString();
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
-        .select("id")
+        .select("id,party_kind,room,start_time,end_time")
         .in("status", ["pending", "confirmed"])
-        .eq("room", room)
-        .lt("start_time", endIso)
-        .gt("end_time", startIso)
-        .limit(1);
+        .lt("start_time", bufferedEndIso)
+        .gt("end_time", bufferedStartIso);
 
       if (conflictError) {
         return NextResponse.json(
-          { error: conflictError.message },
-          { status: 500 },
+          { error: "Unable to verify facility availability" },
+          { status: 503 },
         );
       }
 
-      if (conflicts && conflicts.length > 0) {
+      const hasConflict = (conflicts ?? []).some((booking) => {
+        if (booking.party_kind === "private") return true;
+        return (
+          booking.room === room &&
+          new Date(booking.start_time).getTime() < endDate.getTime() &&
+          new Date(booking.end_time).getTime() > startDate.getTime()
+        );
+      });
+      if (hasConflict) {
         return NextResponse.json(
           { error: "Booking window is unavailable" },
           { status: 409 },
@@ -274,8 +302,8 @@ export async function POST(req: NextRequest) {
 
       if (conflictError) {
         return NextResponse.json(
-          { error: conflictError.message },
-          { status: 500 },
+          { error: "Unable to verify facility availability" },
+          { status: 503 },
         );
       }
 
@@ -287,18 +315,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
-      .from("facility_bookings")
-      .insert([
-        {
+    const bookingData = {
           party_kind,
           room,
           start_time: startIso,
           end_time: endIso,
-          customer_name,
+          customer_name: bookingContactName,
           email,
           phone,
-          parent_name: String(parent_name).trim(),
+          parent_name: bookingContactName,
           child_name: String(child_name).trim(),
           child_gender: String(child_gender).trim(),
           child_age: String(child_age).trim(),
@@ -309,9 +334,9 @@ export async function POST(req: NextRequest) {
           payment_method: String(payment_method).trim(),
           deposit_acknowledged: deposit_acknowledged === true,
           notes,
-          readable_date,
-          readable_time,
-          party_label,
+          readable_date: storedReadableDate,
+          readable_time: storedReadableTime,
+          party_label: storedPartyLabel,
           addon_selections: storedAddons,
           facility_package_price: pricing.packagePrice,
           addon_subtotal: pricing.addonSubtotal,
@@ -322,32 +347,56 @@ export async function POST(req: NextRequest) {
             taxRate: pricing.taxRate,
             source: "facility-party-price-sheet",
           },
-        },
-      ])
-      .select()
-      .single();
+        };
+    const { data, error } = await supabase.rpc("create_facility_booking_atomic", {
+      p_booking: bookingData,
+      p_idempotency_key: idempotency_key.trim(),
+    });
 
     if (error) {
+      if (error.message?.includes("booking_conflict")) {
+        return NextResponse.json(
+          { error: "Booking window is unavailable" },
+          { status: 409 },
+        );
+      }
+      console.error("[facility] atomic booking RPC failed", {
+        code: error.code,
+        details: error.details,
+      });
       return NextResponse.json(
-        { error: error.message },
-        { status: 500 },
+        { error: "Unable to save facility booking" },
+        { status: 503 },
       );
     }
+    const bookingId = typeof data === "string" ? data : "";
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: "Unable to save facility booking" },
+        { status: 503 },
+      );
+    }
+    await initializeBookingWorkflow(supabase, "facility", bookingId);
 
     let emailsSent = false;
+    let ownerNotificationFailed = facilityOwnerEmails.length === 0;
+    let ownerNotificationSent = false;
+    let customerReceiptFailed = false;
 
     try {
-      const resend = new Resend(resendApiKey);
-      const confirmLink = facilityConfirmLink(siteUrl, String(data.id), "confirm");
-      const rejectLink = facilityConfirmLink(siteUrl, String(data.id), "reject");
-      const fromAddress = getResendFromAddress();
+      const confirmLink = siteUrl
+        ? facilityConfirmLink(siteUrl, bookingId, "confirm")
+        : "Unavailable - use the authenticated admin dashboard";
+      const rejectLink = siteUrl
+        ? facilityConfirmLink(siteUrl, bookingId, "reject")
+        : "Unavailable - use the authenticated admin dashboard";
 
       const adminEmailText = [
         "New facility booking request",
         "",
-        `Booking ID: ${data.id}`,
-        `Customer: ${customer_name}`,
-        `Parent name: ${String(parent_name).trim()}`,
+        `Booking ID: ${bookingId}`,
+        `Customer: ${bookingContactName}`,
+        `Parent name: ${bookingContactName}`,
         `Email: ${email}`,
         `Phone: ${phone}`,
         `Child name: ${String(child_name).trim()}`,
@@ -361,9 +410,9 @@ export async function POST(req: NextRequest) {
         `Deposit acknowledgement: ${
           deposit_acknowledged === true ? "Checked" : "Not checked"
         }`,
-        `Party: ${party_label}`,
-        `Date: ${readable_date}`,
-        `Time: ${readable_time}`,
+        `Party: ${storedPartyLabel}`,
+        `Date: ${storedReadableDate}`,
+        `Time: ${storedReadableTime}`,
         `Party kind: ${party_kind}`,
         `Room: ${room}`,
         `Start time: ${startIso}`,
@@ -378,36 +427,46 @@ export async function POST(req: NextRequest) {
       ].join("\n");
 
       for (const ownerEmail of facilityOwnerEmails) {
-        const { error: adminEmailError } = await resend.emails.send({
-          from: fromAddress,
+        const { error: adminEmailError } = await sendDurableBookingEmail({
+          supabase,
+          messageKey: `facility-${bookingId}-owner-${ownerEmail}-v1`,
+          kind: "facility",
+          bookingId,
+          purpose: "owner_notification",
           to: ownerEmail,
           subject: "New facility booking request",
           text: adminEmailText,
         });
 
         if (adminEmailError) {
+          ownerNotificationFailed = true;
           console.error("BOOKING EMAIL ERROR", {
             ownerEmail,
             adminEmailError,
           });
         } else {
+          ownerNotificationSent = true;
           emailsSent = true;
         }
       }
 
-      const { error: customerEmailError } = await resend.emails.send({
-        from: fromAddress,
+      const { error: customerEmailError } = await sendDurableBookingEmail({
+        supabase,
+        messageKey: `facility-${bookingId}-customer-receipt-v1`,
+        kind: "facility",
+        bookingId,
+        purpose: "initial_customer_receipt",
         to: email,
         subject: "Your Jumping Jax facility booking request was received",
         text: [
-          `Hi ${customer_name},`,
+          `Hi ${bookingContactName},`,
           "",
           "We received your facility booking request. It is waiting for confirmation from Jumping Jax.",
           "",
-          `Party: ${party_label}`,
-          `Date: ${readable_date}`,
-          `Time: ${readable_time}`,
-          `Parent name: ${String(parent_name).trim()}`,
+          `Party: ${storedPartyLabel}`,
+          `Date: ${storedReadableDate}`,
+          `Time: ${storedReadableTime}`,
+          `Parent name: ${bookingContactName}`,
           `Child name: ${String(child_name).trim()}`,
           `Child age: ${String(child_age).trim()}`,
           `Party theme: ${String(party_theme).trim()}`,
@@ -423,15 +482,54 @@ export async function POST(req: NextRequest) {
       });
 
       if (customerEmailError) {
+        customerReceiptFailed = true;
         console.error("CUSTOMER BOOKING REQUEST EMAIL ERROR", customerEmailError);
       } else {
         emailsSent = true;
       }
     } catch (emailError) {
+      customerReceiptFailed = true;
+      ownerNotificationFailed = true;
       console.error("BOOKING EMAIL ERROR", emailError);
     }
 
-    return NextResponse.json({ success: true, id: data?.id, emailsSent });
+    await recordWorkflowOutcome({
+      supabase,
+      kind: "facility",
+      bookingId,
+      step: "initial_customer_email",
+      outcome: customerReceiptFailed ? "failed" : "sent",
+      safeErrorClass: customerReceiptFailed ? "email_delivery_failed" : undefined,
+    });
+    await recordWorkflowOutcome({
+      supabase,
+      kind: "facility",
+      bookingId,
+      step: "owner_notification",
+      outcome: ownerNotificationFailed || !ownerNotificationSent ? "failed" : "sent",
+      safeErrorClass:
+        ownerNotificationFailed || !ownerNotificationSent
+          ? "owner_notification_failed"
+          : undefined,
+    });
+    if (customerReceiptFailed) {
+      await sendBookingOperationalAlert({
+        kind: "facility",
+        bookingId,
+        step: "initial_customer_email",
+        safeErrorClass: "email_delivery_failed",
+      });
+    }
+    if (ownerNotificationFailed || !ownerNotificationSent) {
+      await sendBookingOperationalAlert({
+        kind: "facility",
+        bookingId,
+        step: "owner_notification",
+        safeErrorClass: "owner_notification_failed",
+      });
+    }
+
+    return NextResponse.json({ success: true, id: bookingId, emailsSent });
   } catch {
     return NextResponse.json(
       { error: "Server error" },

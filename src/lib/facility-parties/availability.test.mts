@@ -115,6 +115,14 @@ await test("Sunday private sequence supports 2hr, buffer, 1.5hr, buffer, 3hr", (
   assert.equal(slotAvailability(180, 14 * 60 + 30, blocks), false);
 });
 
+await test("July 19 2026: 1:30-3:00 is blocked by the 3:00-5:00 booking", () => {
+  const blocks = [
+    privateBlock({ id: "eleven-to-one", startMinutes: 11 * 60, endMinutes: 13 * 60 }),
+    privateBlock({ id: "three-to-five", startMinutes: 15 * 60, endMinutes: 17 * 60 }),
+  ];
+  assert.equal(slotAvailability(90, 13 * 60 + 30, blocks), false);
+});
+
 await test("pending private requests also hold their Sunday buffer", () => {
   const blocks = [
     privateBlock({
@@ -127,4 +135,54 @@ await test("pending private requests also hold their Sunday buffer", () => {
 
   assert.equal(slotAvailability(90, 12 * 60 + 30, blocks), false);
   assert.equal(slotAvailability(90, 13 * 60, blocks), true);
+});
+
+await test("Saturday private parties begin at 6:30 PM", () => {
+  const slots = listPrivateSlotDispositions("2026-07-18", 90, []);
+  assert.equal(slots[0]?.startMinutes, 18 * 60 + 30);
+  assert.equal(slots.some((slot) => slot.startMinutes === 18 * 60), false);
+});
+
+await test("a private buyout blocks public Room 10 while public rooms stay independent", () => {
+  const privateBuyout = privateBlock({
+    id: "private-buyout",
+    date: "2026-07-18",
+    startMinutes: 12 * 60,
+    endMinutes: 13 * 60 + 30,
+    status: "pending",
+  });
+  const room10 = listPublicSaturdaySlotDispositions(
+    "2026-07-18",
+    "room-10",
+    [privateBuyout],
+  );
+  assert.equal(room10.find((slot) => slot.startMinutes === 12 * 60)?.available, false);
+
+  const publicRoom10: FacilityPartyBookingBlock = {
+    id: "public-room-10",
+    kind: "public",
+    date: "2026-07-18",
+    roomId: "room-10",
+    startMinutes: 12 * 60,
+    endMinutes: 13 * 60 + 30,
+    status: "confirmed",
+  };
+  const room20 = listPublicSaturdaySlotDispositions(
+    "2026-07-18",
+    "room-20",
+    [publicRoom10],
+  );
+  assert.equal(room20.find((slot) => slot.startMinutes === 12 * 60)?.available, true);
+});
+
+await test("rejected and cancelled facility rows do not block", () => {
+  for (const status of ["rejected", "cancelled"] as const) {
+    const block = privateBlock({
+      id: status,
+      status,
+      startMinutes: 10 * 60 + 30,
+      endMinutes: 12 * 60,
+    });
+    assert.equal(slotAvailability(90, 10 * 60 + 30, [block]), true);
+  }
 });

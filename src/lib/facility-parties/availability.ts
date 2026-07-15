@@ -1,6 +1,7 @@
 import {
   FACILITY_PARTY_BUFFER_MINUTES,
   FACILITY_HOURS,
+  SATURDAY_PRIVATE_START,
   SLOT_INTERVAL_MINUTES,
 } from "./constants";
 import {
@@ -17,7 +18,7 @@ import type {
 } from "./types";
 
 function isActiveBlock(b: FacilityPartyBookingBlock): boolean {
-  return b.status !== "cancelled";
+  return b.status === "pending" || b.status === "confirmed";
 }
 
 function intervalsOverlap(
@@ -113,8 +114,15 @@ export function listAvailablePublicSaturdaySlots(
     (b) =>
       isActiveBlock(b) &&
       b.date === date &&
-      intervalsOverlap(slot.startMinutes, slot.endMinutes, b.startMinutes, b.endMinutes) &&
-      (b.kind === "private" || (b.kind === "public" && b.roomId === roomId)),
+      (b.kind === "private"
+        ? intervalsOverlap(
+            slot.startMinutes - FACILITY_PARTY_BUFFER_MINUTES,
+            slot.endMinutes + FACILITY_PARTY_BUFFER_MINUTES,
+            b.startMinutes,
+            b.endMinutes,
+          )
+        : b.roomId === roomId &&
+          intervalsOverlap(slot.startMinutes, slot.endMinutes, b.startMinutes, b.endMinutes)),
   )).map((slot) => ({
     startMinutes: slot.startMinutes,
     endMinutes: slot.endMinutes,
@@ -172,6 +180,14 @@ function getPrivateAvailabilityWindow(date: string) {
       day,
       startWindow: timeToMinutes("00:00"),
       endWindow: timeToMinutes("23:59"),
+    };
+  }
+
+  if (day === 6) {
+    return {
+      day,
+      startWindow: timeToMinutes(SATURDAY_PRIVATE_START),
+      endWindow: timeToMinutes("24:00"),
     };
   }
 

@@ -65,6 +65,7 @@ export const SLOT_INTERVAL_MINUTES = 30;
 export const PRIVATE_AFTER_CLOSE_BUFFER = 30;
 export const PRIVATE_BEFORE_OPEN_BUFFER = 30;
 export const SUNDAY_PRIVATE_START = "10:30";
+export const SATURDAY_PRIVATE_START = "18:30";
 export const PRIVATE_LATE_END = "24:00"; // midnight cap
 export const PRIVATE_START_AFTER_CLOSE_MINUTES = 30;
 

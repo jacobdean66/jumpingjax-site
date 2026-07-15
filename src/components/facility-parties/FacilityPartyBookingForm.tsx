@@ -32,6 +32,7 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
+import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -99,24 +100,11 @@ function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
   return true;
 }
 
-function minutesToIsoDateTime(date: string, minutes: number) {
-  const [year, month, day] = date.split("-").map(Number);
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-
-  return new Date(year, month - 1, day, h, m).toISOString();
-}
-
 function dateToYmd(value: Date) {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function dateTimeToMinutes(value: string) {
-  const date = new Date(value);
-  return date.getHours() * 60 + date.getMinutes();
 }
 
 function bookingRangeToBlock(
@@ -129,23 +117,19 @@ function bookingRangeToBlock(
     return null;
   }
 
-  const startDate = new Date(booking.start_time);
-  const endDate = new Date(booking.end_time);
-
-  if (
-    Number.isNaN(startDate.getTime()) ||
-    Number.isNaN(endDate.getTime())
-  ) {
+  const start = facilityDateAndMinutes(booking.start_time);
+  const end = facilityDateAndMinutes(booking.end_time);
+  if (!start || !end) {
     return null;
   }
 
   return {
     id: booking.id,
     kind: booking.party_kind,
-    date: dateToYmd(startDate),
+    date: start.date,
     roomId: isFacilityRoomId(booking.room) ? booking.room : null,
-    startMinutes: dateTimeToMinutes(booking.start_time),
-    endMinutes: dateTimeToMinutes(booking.end_time),
+    startMinutes: start.minutes,
+    endMinutes: end.minutes,
     status: "confirmed",
   };
 }
@@ -169,7 +153,6 @@ export function FacilityPartyBookingForm({
     useState<PrivateDurationMinutes>(90);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
-  const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [parentName, setParentName] = useState("");
@@ -195,6 +178,7 @@ export function FacilityPartyBookingForm({
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
+  const submitIdempotencyKey = useRef<string | null>(null);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -376,7 +360,7 @@ export function FacilityPartyBookingForm({
       setFormError("Select which room you want.");
       return;
     }
-    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
+    if (!parentName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
       setFormError("Add your name, email, and phone so we can follow up.");
       return;
     }
@@ -406,7 +390,7 @@ export function FacilityPartyBookingForm({
         selectedDisposition.endMinutes - selectedDisposition.startMinutes,
       startMinutes: selectedDisposition.startMinutes,
       endMinutes: selectedDisposition.endMinutes,
-      customerName: customerName.trim(),
+      customerName: parentName.trim(),
       customerEmail: customerEmail.trim(),
       customerPhone: customerPhone.trim(),
       notes: notes.trim(),
@@ -415,16 +399,19 @@ export function FacilityPartyBookingForm({
     };
 
     try {
+      submitIdempotencyKey.current ??= crypto.randomUUID();
       const res = await fetch("/api/facility/book", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          idempotency_key: submitIdempotencyKey.current,
           party_kind: request.kind,
           room: request.roomId,
-          start_time: minutesToIsoDateTime(request.date, request.startMinutes),
-          end_time: minutesToIsoDateTime(request.date, request.endMinutes),
+          booking_date: request.date,
+          start_minutes: request.startMinutes,
+          end_minutes: request.endMinutes,
           customer_name: request.customerName,
           email: request.customerEmail,
           phone: request.customerPhone,
@@ -819,21 +806,7 @@ export function FacilityPartyBookingForm({
               <div className="grid gap-4">
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Full name
-                  </span>
-                  <input
-                    type="text"
-                    name="customerName"
-                    autoComplete="name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className={inputClassName}
-                    placeholder="Jordan Lee"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Parent name
+                    Parent/Guardian Full Name
                   </span>
                   <input
                     type="text"
@@ -842,7 +815,7 @@ export function FacilityPartyBookingForm({
                     value={parentName}
                     onChange={(e) => setParentName(e.target.value)}
                     className={inputClassName}
-                    placeholder="Parent or guardian"
+                    placeholder="Parent or guardian full name"
                   />
                 </label>
                 <label className="block">
@@ -876,7 +849,7 @@ export function FacilityPartyBookingForm({
                 <div className="grid gap-4 sm:grid-cols-3">
                   <label className="block sm:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Child&apos;s name
+                      Birthday Child&apos;s Full Name
                     </span>
                     <input
                       type="text"

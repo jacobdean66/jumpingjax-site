@@ -5,8 +5,6 @@ import {
 import { parseYMD } from "@/lib/mockBooking";
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
 
-const ACTIVE_RENTAL_STATUSES = ["pending", "approved", "blocked"] as const;
-
 export function rentalDateRangesOverlap(
   existingStartYmd: string,
   existingSpanDays: number,
@@ -30,35 +28,8 @@ function formatRentalUnavailableMessage(unavailableNames: string[]): string {
   return `These rentals are unavailable for the selected dates: ${unavailableNames.join(", ")}.`;
 }
 
-type ExistingRentalBookingRow = {
-  id?: string | number;
-  event_date: string;
-  span_days: number | null;
-};
-
-function bookingRowOverlapsRequestedRange(
-  row: ExistingRentalBookingRow,
-  eventDateYmd: string,
-  spanDays: number,
-): boolean {
-  const existingStartYmd =
-    typeof row.event_date === "string"
-      ? row.event_date.slice(0, 10)
-      : String(row.event_date);
-  const existingSpanDays =
-    typeof row.span_days === "number" && row.span_days >= 1
-      ? row.span_days
-      : 1;
-
-  return rentalDateRangesOverlap(
-    existingStartYmd,
-    existingSpanDays,
-    eventDateYmd,
-    spanDays,
-  );
-}
-
 export type CreateBookingInput = {
+  idempotencyKey: string;
   rental_items: { rental_item: string; rental_name?: string }[];
   customerName: string;
   email: string;
@@ -110,108 +81,20 @@ export async function insertPendingBooking(
   }
 
   try {
-    const supabase = createServiceRoleClient();
     if (!input.rental_items || input.rental_items.length === 0) {
       return { ok: false, code: "invalid_input" };
     }
+    if (!input.idempotencyKey.trim()) {
+      return { ok: false, code: "invalid_input", message: "Missing idempotency key" };
+    }
+
+    const supabase = createServiceRoleClient();
 
     const primaryRentalItem = input.rental_items[0]!;
     const rental_item = primaryRentalItem.rental_item;
     const rentalName = primaryRentalItem.rental_name ?? primaryRentalItem.rental_item;
 
     const spanDays = input.spanDays >= 1 ? input.spanDays : 1;
-
-    const unavailableNames: string[] = [];
-
-    for (const item of input.rental_items) {
-      const { data: existingRows, error: conflictQueryError } = await supabase
-        .from("bookings")
-        .select("id, event_date, span_days")
-        .eq("rental_item", item.rental_item)
-        .in("status", [...ACTIVE_RENTAL_STATUSES]);
-
-      if (conflictQueryError) {
-        console.error("[bookings] conflict check failed", conflictQueryError);
-        return {
-          ok: false,
-          code: "write_failed",
-          message: conflictQueryError.message,
-        };
-      }
-
-      const { data: childRows, error: childConflictQueryError } = await supabase
-        .from("booking_rental_items")
-        .select("booking_id")
-        .eq("rental_item", item.rental_item);
-
-      if (childConflictQueryError) {
-        console.error(
-          "[bookings] child item conflict check failed",
-          childConflictQueryError,
-        );
-        return {
-          ok: false,
-          code: "write_failed",
-          message: childConflictQueryError.message,
-        };
-      }
-
-      const childBookingIds = Array.from(
-        new Set(
-          (childRows ?? [])
-            .map((row) => row.booking_id)
-            .filter((id): id is string | number => id !== null && id !== undefined),
-        ),
-      );
-      let childBookingRows: ExistingRentalBookingRow[] = [];
-
-      if (childBookingIds.length > 0) {
-        const { data: childBookings, error: childBookingError } = await supabase
-          .from("bookings")
-          .select("id, event_date, span_days")
-          .in("id", childBookingIds)
-          .in("status", [...ACTIVE_RENTAL_STATUSES]);
-
-        if (childBookingError) {
-          console.error(
-            "[bookings] child booking conflict check failed",
-            childBookingError,
-          );
-          return {
-            ok: false,
-            code: "write_failed",
-            message: childBookingError.message,
-          };
-        }
-
-        childBookingRows = (childBookings ?? []) as ExistingRentalBookingRow[];
-      }
-
-      const existingById = new Map<string, ExistingRentalBookingRow>();
-      for (const row of (existingRows ?? []) as ExistingRentalBookingRow[]) {
-        existingById.set(String(row.id ?? `${row.event_date}:${row.span_days}`), row);
-      }
-      for (const row of childBookingRows) {
-        existingById.set(String(row.id ?? `${row.event_date}:${row.span_days}`), row);
-      }
-
-      const displayName = item.rental_name?.trim() || item.rental_item;
-      const itemUnavailable = [...existingById.values()].some((row) =>
-        bookingRowOverlapsRequestedRange(row, input.eventDateYmd, spanDays),
-      );
-
-      if (itemUnavailable && !unavailableNames.includes(displayName)) {
-        unavailableNames.push(displayName);
-      }
-    }
-
-    if (unavailableNames.length > 0) {
-      return {
-        ok: false,
-        code: "conflict",
-        message: formatRentalUnavailableMessage(unavailableNames),
-      };
-    }
 
     const bookingData: {
       rental_item: string;
@@ -263,22 +146,38 @@ export async function insertPendingBooking(
       status: "pending" as const,
     };
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .insert([bookingData])
-      .select()
-      .single();
+    const rentalItemRows = input.rental_items.map((item) => ({
+      rental_item: item.rental_item,
+      rental_name: item.rental_name ?? item.rental_item,
+    }));
+    const { data, error } = await supabase.rpc("create_rental_booking_atomic", {
+      p_booking: bookingData,
+      p_items: rentalItemRows,
+      p_idempotency_key: input.idempotencyKey.trim(),
+    });
 
     if (error) {
-      console.error("SUPABASE INSERT ERROR FULL:", error);
+      if (error.message?.includes("booking_conflict")) {
+        return {
+          ok: false,
+          code: "conflict",
+          message: formatRentalUnavailableMessage(
+            input.rental_items.map((item) => item.rental_name?.trim() || item.rental_item),
+          ),
+        };
+      }
+      console.error("[bookings] atomic booking RPC failed", {
+        code: error.code,
+        details: error.details,
+      });
       return {
         ok: false,
         code: "write_failed",
-        message: error.message,
+        message: "Unable to save the rental request",
       };
     }
 
-    const id = data?.id;
+    const id = data;
     if (!id) {
       console.error("[bookings] supabase insert returned no booking id", {
         data,
@@ -287,28 +186,10 @@ export async function insertPendingBooking(
       return {
         ok: false,
         code: "write_failed",
-        message: `Supabase returned success but no id (data: ${JSON.stringify(data)})`,
+        message: "Booking persistence returned no reference",
       };
     }
-
-    const rentalItemRows = input.rental_items.map((item) => ({
-      booking_id: id,
-      rental_item: item.rental_item,
-      rental_name: item.rental_name ?? item.rental_item,
-    }));
-
-    const { error: rentalItemError } = await supabase
-      .from("booking_rental_items")
-      .insert(rentalItemRows);
-
-    if (rentalItemError) {
-      console.error(
-        "[bookings] booking_rental_items insert failed",
-        rentalItemError,
-      );
-    }
-
-    return { ok: true, id };
+    return { ok: true, id: String(id) };
   } catch (e) {
     console.error("[bookings] insertPendingBooking threw", e);
     return {

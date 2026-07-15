@@ -325,6 +325,7 @@ export function RentalBookingPanel({
   availabilityLoadError,
 }: RentalBookingPanelProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitIdempotencyKey = useRef<string | null>(null);
 
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
@@ -634,6 +635,7 @@ export function RentalBookingPanel({
     }
 
     setIsSubmitting(true);
+    submitIdempotencyKey.current ??= crypto.randomUUID();
 
     try {
       const res = await fetch("/api/book", {
@@ -642,6 +644,7 @@ export function RentalBookingPanel({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          idempotency_key: submitIdempotencyKey.current,
           customer_name,
           customer_phone,
           customer_email,

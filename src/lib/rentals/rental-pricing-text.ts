@@ -13,6 +13,9 @@ export const JUMPING_JAX_FACILITY_ADDRESS =
 export const RENTAL_DELIVERY_BASE_FEE = MOCK_SERVICE_FEE;
 export const RENTAL_INCLUDED_DELIVERY_MILES = 25;
 export const RENTAL_EXTRA_MILE_RATE = 2;
+// Owner-confirmed policy: catalog rental prices are tax-inclusive. Do not add a
+// second percentage surcharge unless a future configured tax model replaces it.
+export const RENTAL_PRICES_INCLUDE_TAX = true;
 
 export type RentalLineInput = {
   rental_item?: string;
@@ -213,7 +216,7 @@ export function formatEstimatedTotalLine(total: number | null | undefined): stri
   if (total == null || !Number.isFinite(Number(total))) {
     return "Estimated total: —";
   }
-  return `Estimated total: ${formatUsd(Number(total))}`;
+  return `Estimated total (rental prices include tax): ${formatUsd(Number(total))}`;
 }
 
 export function buildRentalCalendarDescription(input: {

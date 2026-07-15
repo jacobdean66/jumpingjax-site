@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import {
   buildRentalListWithPrices,
   estimateCartGrandTotal,
@@ -15,11 +14,29 @@ import {
   rentalConfirmLink,
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
-import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
+import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/rate-limit";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
+import { getRentalBySlug } from "@/data/rentals";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  initializeBookingWorkflow,
+  recordWorkflowOutcome,
+} from "@/lib/bookings/workflow-state";
+import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
+import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 export const dynamic = "force-dynamic";
+
+function isValidYmd(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function isValidClockTime(value: string): boolean {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
 
 export async function POST(req: Request) {
   const limited = rateLimit(req, {
@@ -29,17 +46,18 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
+  const contentLength = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
+    return NextResponse.json({ ok: false, error: "Request body is too large" }, { status: 413 });
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
-  } catch (error) {
-    console.error("BOOK API ERROR:", error);
+  } catch {
     return NextResponse.json(
-      {
-        ok: false,
-        error: String(error),
-      },
-      { status: 500 },
+      { ok: false, error: "Invalid JSON request body" },
+      { status: 400 },
     );
   }
 
@@ -50,14 +68,31 @@ export async function POST(req: Request) {
       ? body.rental_item.trim()
       : null;
 
-  const normalizedRentalItems =
+  const requestedRentalItems =
     Array.isArray(rental_items) && rental_items.length > 0
       ? rental_items
       : rental_item
         ? [{ rental_item, rental_name: rental_item }]
         : [];
 
-  if (normalizedRentalItems.length === 0) {
+  if (requestedRentalItems.length > 20) {
+    return NextResponse.json({ error: "Too many rental items" }, { status: 400 });
+  }
+
+  const normalizedRentalItems = requestedRentalItems.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const slug = (item as { rental_item?: unknown }).rental_item;
+    if (typeof slug !== "string") return [];
+    const rental = getRentalBySlug(slug.trim());
+    return rental ? [{ rental_item: rental.slug, rental_name: rental.title }] : [];
+  });
+
+  if (
+    normalizedRentalItems.length === 0 ||
+    normalizedRentalItems.length !== requestedRentalItems.length ||
+    new Set(normalizedRentalItems.map((item) => item.rental_item)).size !==
+      normalizedRentalItems.length
+  ) {
     return new Response(
       JSON.stringify({ error: "rental_items is required" }),
       { status: 400 },
@@ -82,6 +117,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (requestedDeliveryWindow.length > 100 || !isValidClockTime(eventStartTime)) {
+    return NextResponse.json({ error: "Invalid delivery or event time" }, { status: 400 });
+  }
 
   const customerName =
     typeof body.customer_name === "string" && body.customer_name.trim()
@@ -91,12 +129,28 @@ export async function POST(req: Request) {
     typeof body.customer_email === "string" && body.customer_email.trim()
       ? body.customer_email.trim()
       : "";
+  const idempotencyKey =
+    typeof body.idempotency_key === "string" ? body.idempotency_key.trim() : "";
   const customerPhone =
     typeof body.customer_phone === "string" ? body.customer_phone.trim() : "";
   const eventDateYmd =
     typeof body.event_date === "string" && body.event_date.trim()
       ? body.event_date.trim()
-      : new Date().toISOString().slice(0, 10);
+      : "";
+  if (
+    !isValidYmd(eventDateYmd) ||
+    !idempotencyKey ||
+    idempotencyKey.length > 128 ||
+    !customerName || customerName === "Guest" || customerName.length > 120 ||
+    !customerPhone || customerPhone.length > 40 ||
+    !customerEmail || customerEmail.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+  ) {
+    return NextResponse.json(
+      { error: "A valid event date, email, and request key are required" },
+      { status: 400 },
+    );
+  }
   const requestedDurationLabel =
     typeof body.duration === "string" ? body.duration.trim() : "";
   const resolvedDuration = resolveNewRentalDuration(
@@ -136,7 +190,14 @@ export async function POST(req: Request) {
   const savedSetupNotes = Array.from(new Set(setupNoteLines)).join("\n");
   const paymentMethod =
     typeof body.payment_method === "string" ? body.payment_method.trim() : "";
-  if (!eventAddress || !setupSurface || !setupAccess || !paymentMethod) {
+  if (
+    !eventAddress || eventAddress.length > 500 ||
+    !setupSurface || setupSurface.length > 120 ||
+    !setupAccess || setupAccess.length > 500 ||
+    !paymentMethod || paymentMethod.length > 80 ||
+    savedSetupNotes.length > 2000 ||
+    (distanceMiles != null && distanceMiles > 500)
+  ) {
     return new Response(
       JSON.stringify({
         error:
@@ -162,6 +223,7 @@ export async function POST(req: Request) {
   );
 
   const result = await insertPendingBooking({
+    idempotencyKey,
     rental_items: normalizedRentalItems,
     customerName,
     email: customerEmail || "unknown@example.com",
@@ -196,15 +258,21 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: String(error),
+        error:
+          result.code === "conflict"
+            ? String(error)
+            : result.code === "invalid_input"
+              ? "Invalid booking request"
+              : "Unable to save the rental request",
       },
       { status },
     );
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const workflowSupabase = createServiceRoleClient();
+  await initializeBookingWorkflow(workflowSupabase, "rental", result.id);
+
   const facilityOwnerEmails = getFacilityOwnerEmails();
-  const fromAddress = getResendFromAddress();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
     "[api/book] rental admin email site URL",
@@ -231,14 +299,18 @@ export async function POST(req: Request) {
   });
 
   let emailsSent = false;
+  let customerReceiptFailed = false;
+  let ownerNotificationFailed = facilityOwnerEmails.length === 0;
+  let ownerNotificationSent = false;
 
-  if (resendApiKey) {
-    const resend = new Resend(resendApiKey);
-
-    if (customerEmail) {
+  if (customerEmail) {
       try {
-        const { error: emailError } = await resend.emails.send({
-          from: fromAddress,
+        const { error: emailError } = await sendDurableBookingEmail({
+          supabase: workflowSupabase,
+          messageKey: `rental-${result.id}-customer-receipt-v1`,
+          kind: "rental",
+          bookingId: result.id,
+          purpose: "initial_customer_receipt",
           to: customerEmail,
           subject: "We received your Jumping Jax rental request",
           text: [
@@ -273,16 +345,19 @@ export async function POST(req: Request) {
         });
 
         if (emailError) {
+          customerReceiptFailed = true;
           console.error("[api/book] rental customer email error", emailError);
         } else {
+          customerReceiptFailed = false;
           emailsSent = true;
         }
       } catch (emailError) {
+        customerReceiptFailed = true;
         console.error("[api/book] rental customer email error", emailError);
       }
-    }
+  }
 
-    if (facilityOwnerEmails.length > 0) {
+  if (facilityOwnerEmails.length > 0) {
       if (!siteUrl) {
         console.error(
           "[api/book] rental admin confirm links skipped: set NEXT_PUBLIC_SITE_URL (non-localhost) or deploy on Vercel",
@@ -290,8 +365,12 @@ export async function POST(req: Request) {
       }
       for (const ownerEmail of facilityOwnerEmails) {
         try {
-          const { error: emailError } = await resend.emails.send({
-            from: fromAddress,
+          const { error: emailError } = await sendDurableBookingEmail({
+            supabase: workflowSupabase,
+            messageKey: `rental-${result.id}-owner-${ownerEmail}-v1`,
+            kind: "rental",
+            bookingId: result.id,
+            purpose: "owner_notification",
             to: ownerEmail,
             subject: "New Jumping Jax rental request",
             text: [
@@ -344,21 +423,59 @@ export async function POST(req: Request) {
           });
 
           if (emailError) {
+            ownerNotificationFailed = true;
             console.error("[api/book] rental admin email error", {
               ownerEmail,
               emailError,
             });
           } else {
+            ownerNotificationSent = true;
             emailsSent = true;
           }
         } catch (emailError) {
+          ownerNotificationFailed = true;
           console.error("[api/book] rental admin email error", {
             ownerEmail,
             emailError,
           });
         }
       }
-    }
+  }
+
+  await recordWorkflowOutcome({
+    supabase: workflowSupabase,
+    kind: "rental",
+    bookingId: result.id,
+    step: "initial_customer_email",
+    outcome: customerReceiptFailed ? "failed" : "sent",
+    safeErrorClass: customerReceiptFailed ? "email_delivery_failed" : undefined,
+  });
+  await recordWorkflowOutcome({
+    supabase: workflowSupabase,
+    kind: "rental",
+    bookingId: result.id,
+    step: "owner_notification",
+    outcome: ownerNotificationFailed || !ownerNotificationSent ? "failed" : "sent",
+    safeErrorClass:
+      ownerNotificationFailed || !ownerNotificationSent
+        ? "owner_notification_failed"
+        : undefined,
+  });
+  if (customerReceiptFailed) {
+    await sendBookingOperationalAlert({
+      kind: "rental",
+      bookingId: result.id,
+      step: "initial_customer_email",
+      safeErrorClass: "email_delivery_failed",
+    });
+  }
+  if (ownerNotificationFailed || !ownerNotificationSent) {
+    await sendBookingOperationalAlert({
+      kind: "rental",
+      bookingId: result.id,
+      step: "owner_notification",
+      safeErrorClass: "owner_notification_failed",
+    });
   }
 
   return NextResponse.json({ ok: true, id: result.id, emailsSent });

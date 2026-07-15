@@ -126,7 +126,9 @@ export function BookingSummary({
           </div>
         )}
         <div className="flex justify-between gap-3 pt-1">
-          <dt className="text-base font-black text-cyan-100">Estimated total</dt>
+          <dt className="text-base font-black text-cyan-100">
+            Estimated total (tax included)
+          </dt>
           <dd className="text-xl font-black tabular-nums text-cyan-300">
             {total != null ? `$${total}` : "—"}
           </dd>
