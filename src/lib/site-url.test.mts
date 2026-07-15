@@ -18,6 +18,7 @@ const ORIGINAL_ENV = {
   VERCEL_ENV: process.env.VERCEL_ENV,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   VERCEL_URL: process.env.VERCEL_URL,
+  APPROVAL_TOKEN_SECRET: process.env.APPROVAL_TOKEN_SECRET,
 };
 
 function restoreEnvironment() {
@@ -30,7 +31,7 @@ function restoreEnvironment() {
 test.afterEach(restoreEnvironment);
 
 test("production URL resolution is HTTPS and pinned to the apex .com", () => {
-  process.env.NODE_ENV = "production";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "production";
   process.env.VERCEL_ENV = "production";
   process.env.NEXT_PUBLIC_SITE_URL = "https://jumpingjaxllc.net";
   process.env.VERCEL_URL = "jumpingjax-site-example.vercel.app";
@@ -46,7 +47,7 @@ test("production URL resolution is HTTPS and pinned to the apex .com", () => {
 });
 
 test("local development can use localhost", () => {
-  process.env.NODE_ENV = "development";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "development";
   delete process.env.VERCEL_ENV;
   process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000/";
 
@@ -54,6 +55,7 @@ test("local development can use localhost", () => {
 });
 
 test("rental and facility action links use canonical encoded URLs without duplicate slashes", () => {
+  process.env.APPROVAL_TOKEN_SECRET = "test-only-approval-secret-that-is-over-32-characters";
   const rentalConfirm = rentalConfirmLink(
     "https://jumpingjaxllc.com///",
     "rental / 42",
@@ -80,8 +82,11 @@ test("rental and facility action links use canonical encoded URLs without duplic
     assert.doesNotMatch(url.replace("https://", ""), /\/\//);
     assert.doesNotMatch(url, /jumpingjaxllc\.net/);
   }
-  assert.equal(new URL(rentalConfirm).searchParams.get("id"), "rental / 42");
-  assert.equal(new URL(facilityConfirm).searchParams.get("id"), "facility / 7");
+  for (const url of [rentalConfirm, rentalReject, facilityConfirm, facilityReject]) {
+    assert.ok(new URL(url).searchParams.get("token"));
+    assert.equal(new URL(url).searchParams.has("id"), false);
+    assert.equal(new URL(url).searchParams.has("action"), false);
+  }
 });
 
 test("canonical metadata and SEO URLs use the apex .com", () => {

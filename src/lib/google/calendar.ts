@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { createHash } from "node:crypto";
 
 /**
  * Server-only Google Calendar client (OAuth refresh token).
@@ -100,15 +101,18 @@ export async function createGoogleCalendarEvent(input: {
   start: string;
   end: string;
   calendarId?: string;
+  idempotencyKey?: string;
 }) {
   const calendar = createCalendarClient();
 
   const calendarId =
     input.calendarId?.trim() || process.env.GOOGLE_CALENDAR_ID || "primary";
 
-  const event = await calendar.events.insert({
-    calendarId,
-    requestBody: {
+  const deterministicEventId = input.idempotencyKey
+    ? createHash("sha256").update(input.idempotencyKey).digest("hex")
+    : undefined;
+  const requestBody = {
+      id: deterministicEventId,
       summary: buildEventSummary(input.title, input.description),
       description: input.description,
       start: {
@@ -119,10 +123,26 @@ export async function createGoogleCalendarEvent(input: {
         dateTime: input.end,
         timeZone: "America/New_York",
       },
-    },
-  });
+    };
 
-  return event.data.id;
+  try {
+    const event = await calendar.events.insert({ calendarId, requestBody });
+    return event.data.id;
+  } catch (error) {
+    const status =
+      error && typeof error === "object"
+        ? (error as { code?: unknown; response?: { status?: unknown } }).response?.status ??
+          (error as { code?: unknown }).code
+        : undefined;
+    if (deterministicEventId && status === 409) {
+      const existing = await calendar.events.get({
+        calendarId,
+        eventId: deterministicEventId,
+      });
+      return existing.data.id ?? deterministicEventId;
+    }
+    throw error;
+  }
 }
 
 export function summarizeGoogleCalendarError(error: unknown): {

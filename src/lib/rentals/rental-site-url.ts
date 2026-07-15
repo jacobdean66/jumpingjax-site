@@ -1,4 +1,9 @@
 import { buildAbsoluteUrl, resolveEmailSiteUrl } from "@/lib/site-url";
+import {
+  createApprovalToken,
+  type ApprovalAction,
+  type ApprovalBookingKind,
+} from "@/lib/bookings/approval-token";
 
 /**
  * Base URL for rental admin email links (confirm/reject).
@@ -14,10 +19,7 @@ export function rentalConfirmLink(
   bookingId: string,
   action: "confirm" | "reject",
 ): string {
-  return buildAbsoluteUrl("/api/rentals/confirm", siteUrl, {
-    id: bookingId,
-    action,
-  });
+  return approvalReviewLink(siteUrl, "rental", bookingId, action);
 }
 
 export function facilityConfirmLink(
@@ -25,8 +27,17 @@ export function facilityConfirmLink(
   bookingId: string,
   action: "confirm" | "reject",
 ): string {
-  return buildAbsoluteUrl("/api/facility/confirm", siteUrl, {
-    id: bookingId,
-    action,
+  return approvalReviewLink(siteUrl, "facility", bookingId, action);
+}
+
+function approvalReviewLink(
+  siteUrl: string,
+  bookingKind: ApprovalBookingKind,
+  bookingId: string,
+  action: ApprovalAction,
+): string {
+  const path = bookingKind === "facility" ? "/api/facility/confirm" : "/api/rentals/confirm";
+  return buildAbsoluteUrl(path, siteUrl, {
+    token: createApprovalToken({ bookingKind, bookingId, action }),
   });
 }

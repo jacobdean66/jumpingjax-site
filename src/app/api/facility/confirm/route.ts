@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 
 import {
   createGoogleCalendarEvent,
@@ -13,10 +12,18 @@ import {
   formatFacilityPricingLines,
   type FacilityPricingResult,
 } from "@/lib/facility-parties/pricing";
-import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  renderApprovalReview,
+  resolveDecisionRequest,
+  type BookingDecision,
+} from "@/lib/bookings/approval-review";
+import { recordWorkflowOutcome } from "@/lib/bookings/workflow-state";
+import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
+import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 type FacilityBookingCalendarFields = {
+  id: string;
   customer_name: string;
   email: string | null;
   phone: string | null;
@@ -44,7 +51,11 @@ type FacilityBookingCalendarFields = {
   tax: number | null;
   total: number | null;
   pricing_details: unknown;
+  google_calendar_event_id: string | null;
 };
+
+const FACILITY_BOOKING_SELECT =
+  "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id";
 
 function numberOrZero(value: number | null): number {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -174,10 +185,13 @@ function formatFacilityCalendarDescription(
   return sections.join("\n");
 }
 
-async function handleFacilityConfirm(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  const action = searchParams.get("action") ?? "confirm";
+async function handleFacilityConfirm(
+  req: Request,
+  decision: BookingDecision,
+  allowRepair: boolean,
+) {
+  const id = decision.bookingId;
+  const action = decision.action;
   const facilityCalendarId =
     process.env.GOOGLE_FACILITY_CALENDAR_ID?.trim() ||
     process.env.GOOGLE_CALENDAR_ID?.trim() ||
@@ -199,18 +213,31 @@ async function handleFacilityConfirm(req: Request) {
 
   const supabase = createServiceRoleClient();
 
-  const { data: booking, error } = await supabase
+  const { data: updatedBooking, error } = await supabase
     .from("facility_bookings")
     .update({ status })
     .eq("id", id)
     .eq("status", "pending")
-    .select(
-      "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id",
-    )
-    .maybeSingle();
+    .select(FACILITY_BOOKING_SELECT)
+    .maybeSingle<FacilityBookingCalendarFields>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  let booking = updatedBooking;
+  let calendarRepairOnly = false;
+  if (!booking && action === "confirm" && allowRepair) {
+    const { data: existingBooking } = await supabase
+      .from("facility_bookings")
+      .select(FACILITY_BOOKING_SELECT)
+      .eq("id", id)
+      .eq("status", "confirmed")
+      .maybeSingle<FacilityBookingCalendarFields>();
+    if (existingBooking) {
+      booking = existingBooking;
+      calendarRepairOnly = true;
+    }
   }
 
   if (!booking) {
@@ -220,6 +247,8 @@ async function handleFacilityConfirm(req: Request) {
     );
   }
 
+  let calendarFailed = false;
+  let calendarEventId = booking.google_calendar_event_id as string | null;
   if (action === "confirm") {
     try {
       if (!booking.google_calendar_event_id) {
@@ -229,12 +258,15 @@ async function handleFacilityConfirm(req: Request) {
           start: booking.start_time,
           end: booking.end_time,
           calendarId: facilityCalendarId,
+          idempotencyKey: `facility-${id}-calendar-v1`,
         });
+        calendarEventId = eventId ?? null;
         const { error: calendarIdError } = await supabase
           .from("facility_bookings")
           .update({ google_calendar_event_id: eventId })
           .eq("id", booking.id);
         if (calendarIdError) {
+          calendarFailed = true;
           console.error(
             "[api/facility/confirm] facility calendar id save error",
             calendarIdError,
@@ -242,11 +274,37 @@ async function handleFacilityConfirm(req: Request) {
         }
       }
     } catch (calendarError) {
+      calendarFailed = true;
       console.error(
         "GOOGLE CALENDAR ERROR",
         summarizeGoogleCalendarError(calendarError),
       );
     }
+  }
+  await recordWorkflowOutcome({
+    supabase,
+    kind: "facility",
+    bookingId: id,
+    step: "calendar",
+    outcome: action === "reject" ? "not_required" : calendarFailed ? "failed" : "sent",
+    safeErrorClass: calendarFailed ? "calendar_projection_failed" : undefined,
+    calendarEventId: calendarEventId ?? undefined,
+  });
+  if (calendarFailed) {
+    await sendBookingOperationalAlert({
+      kind: "facility",
+      bookingId: id,
+      step: "calendar",
+      safeErrorClass: "calendar_projection_failed",
+    });
+  }
+  if (calendarRepairOnly) {
+    return new Response(
+      calendarFailed
+        ? "Booking is confirmed, but the Calendar repair still needs attention."
+        : "Booking is confirmed and its Calendar projection is complete.",
+      { status: calendarFailed ? 503 : 200 },
+    );
   }
 
   if (
@@ -256,11 +314,18 @@ async function handleFacilityConfirm(req: Request) {
     !booking.readable_time ||
     !booking.party_label
   ) {
+    await recordWorkflowOutcome({
+      supabase, kind: "facility", bookingId: id, step: "decision_email",
+      outcome: "failed", safeErrorClass: "customer_contact_missing",
+    });
+    await sendBookingOperationalAlert({
+      kind: "facility", bookingId: id, step: "decision_email",
+      safeErrorClass: "customer_contact_missing",
+    });
     return new Response("Status updated. No customer email sent (missing data).");
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY?.trim());
     const emailSubject =
       action === "reject"
         ? "Your Jumping Jax facility booking request"
@@ -271,8 +336,12 @@ async function handleFacilityConfirm(req: Request) {
         : "Your facility booking has been confirmed.";
     const pricingLines = formatFacilityPricingLines(pricingFromBooking(booking));
 
-    const { error: emailError } = await resend.emails.send({
-      from: getResendFromAddress(),
+    const { error: emailError } = await sendDurableBookingEmail({
+      supabase,
+      messageKey: `facility-${id}-decision-${action}-v1`,
+      kind: "facility",
+      bookingId: id,
+      purpose: `decision_${action}`,
       to: booking.email,
       subject: emailSubject,
       text: [
@@ -302,6 +371,14 @@ async function handleFacilityConfirm(req: Request) {
     });
 
     if (emailError) {
+      await recordWorkflowOutcome({
+        supabase, kind: "facility", bookingId: id, step: "decision_email",
+        outcome: "failed", safeErrorClass: "decision_email_failed",
+      });
+      await sendBookingOperationalAlert({
+        kind: "facility", bookingId: id, step: "decision_email",
+        safeErrorClass: "decision_email_failed",
+      });
       console.error("CUSTOMER STATUS EMAIL ERROR", emailError);
       return NextResponse.json(
         { error: "Status changed but customer email failed" },
@@ -311,19 +388,51 @@ async function handleFacilityConfirm(req: Request) {
   } catch (emailError) {
     console.error("EMAIL ERROR:", emailError);
     console.error("CUSTOMER STATUS EMAIL ERROR", emailError);
+    await recordWorkflowOutcome({
+      supabase, kind: "facility", bookingId: id, step: "decision_email",
+      outcome: "failed", safeErrorClass: "decision_email_failed",
+    });
+    await sendBookingOperationalAlert({
+      kind: "facility", bookingId: id, step: "decision_email",
+      safeErrorClass: "decision_email_failed",
+    });
     return NextResponse.json(
       { error: "Status changed but customer email failed" },
       { status: 500 },
     );
   }
 
-  return new Response(successMessage);
+  await recordWorkflowOutcome({
+    supabase,
+    kind: "facility",
+    bookingId: id,
+    step: "decision_email",
+    outcome: "sent",
+  });
+
+  return new Response(
+    calendarFailed
+      ? `${successMessage} Customer email was sent, but Calendar still requires attention.`
+      : successMessage,
+    { status: calendarFailed ? 207 : 200 },
+  );
 }
 
 export async function GET(req: Request) {
-  return handleFacilityConfirm(req);
+  const token = new URL(req.url).searchParams.get("token");
+  return renderApprovalReview({
+    bookingKind: "facility",
+    token,
+    postPath: "/api/facility/confirm",
+  });
 }
 
 export async function POST(req: Request) {
-  return handleFacilityConfirm(req);
+  const resolved = await resolveDecisionRequest(req, "facility");
+  if (!resolved.ok) return resolved.response;
+  return handleFacilityConfirm(
+    req,
+    resolved.decision,
+    resolved.authorization === "admin",
+  );
 }

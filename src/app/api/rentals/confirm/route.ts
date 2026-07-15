@@ -1,4 +1,3 @@
-import { Resend } from "resend";
 
 import {
   createGoogleCalendarEvent,
@@ -11,8 +10,15 @@ import {
   isFoamPartyRentalItem,
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
-import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  renderApprovalReview,
+  resolveDecisionRequest,
+  type BookingDecision,
+} from "@/lib/bookings/approval-review";
+import { recordWorkflowOutcome } from "@/lib/bookings/workflow-state";
+import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
+import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 const RENTAL_BOOKING_SELECT =
   "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_foam_calendar_event_id";
@@ -251,6 +257,7 @@ async function createMissingRentalCalendarEvent(input: {
     description,
     start,
     end,
+    idempotencyKey: `rental-${input.id}-calendar-v1`,
   });
 
   if (!eventId) {
@@ -348,6 +355,7 @@ async function createMissingFoamCalendarEvent(input: {
     start,
     end,
     calendarId: foamCalendarId,
+    idempotencyKey: `rental-${input.id}-foam-calendar-v1`,
   });
 
   if (!eventId) {
@@ -383,10 +391,13 @@ async function createMissingFoamCalendarEvent(input: {
   return existingBooking?.google_foam_calendar_event_id ? "already_exists" : "failed";
 }
 
-async function handleRentalConfirm(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  const action = searchParams.get("action") ?? "confirm";
+async function handleRentalConfirm(
+  req: Request,
+  decision: BookingDecision,
+  allowRepair: boolean,
+) {
+  const id = decision.bookingId;
+  const action = decision.action;
 
   if (!id) {
     return ownerResultPage({
@@ -453,7 +464,7 @@ async function handleRentalConfirm(req: Request) {
   let booking = updatedBooking;
   let calendarRepairOnly = false;
 
-  if (!booking && action === "confirm") {
+  if (!booking && action === "confirm" && allowRepair) {
     const { data: existingBooking, error: existingError } = await supabase
       .from("bookings")
       .select(RENTAL_BOOKING_SELECT)
@@ -578,6 +589,25 @@ async function handleRentalConfirm(req: Request) {
     }
   }
 
+  const calendarFailed =
+    rentalCalendarResult === "failed" || foamCalendarResult === "failed";
+  await recordWorkflowOutcome({
+    supabase,
+    kind: "rental",
+    bookingId: id,
+    step: "calendar",
+    outcome: action === "reject" ? "not_required" : calendarFailed ? "failed" : "sent",
+    safeErrorClass: calendarFailed ? "calendar_projection_failed" : undefined,
+  });
+  if (calendarFailed) {
+    await sendBookingOperationalAlert({
+      kind: "rental",
+      bookingId: id,
+      step: "calendar",
+      safeErrorClass: "calendar_projection_failed",
+    });
+  }
+
   if (calendarRepairOnly) {
     if (
       rentalCalendarResult === "created" ||
@@ -612,20 +642,15 @@ async function handleRentalConfirm(req: Request) {
     });
   }
 
-  if (
-    action === "confirm" &&
-    (rentalCalendarResult === "failed" || foamCalendarResult === "failed")
-  ) {
-    return ownerResultPage({
-      title: "Rental Confirmed",
-      message:
-        "The rental was approved, but Google Calendar did not finish. The booking will still show in Schedule View; please check Google Calendar when you have a moment.",
-      tone: "warning",
-      bookingId: booking.id,
-    });
-  }
-
   if (!customerEmail || !customerName) {
+    await recordWorkflowOutcome({
+      supabase, kind: "rental", bookingId: id, step: "decision_email",
+      outcome: "failed", safeErrorClass: "customer_contact_missing",
+    });
+    await sendBookingOperationalAlert({
+      kind: "rental", bookingId: id, step: "decision_email",
+      safeErrorClass: "customer_contact_missing",
+    });
     return ownerResultPage({
       title: successTitle,
       message: `${successMessage}. No customer email was sent because customer contact details are missing.`,
@@ -634,19 +659,7 @@ async function handleRentalConfirm(req: Request) {
     });
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  if (!resendApiKey) {
-    return ownerResultPage({
-      title: successTitle,
-      message:
-        "The rental status was updated, but customer email is not configured.",
-      tone: "warning",
-      bookingId: booking.id,
-    });
-  }
-
   try {
-    const resend = new Resend(resendApiKey);
     const emailSubject =
       action === "reject"
         ? "Your rental request was declined"
@@ -656,8 +669,12 @@ async function handleRentalConfirm(req: Request) {
         ? "We are sorry, but we are unable to approve your rental request for the selected dates."
         : "Your rental booking has been approved.";
 
-    const { error: emailError } = await resend.emails.send({
-      from: getResendFromAddress(),
+    const { error: emailError } = await sendDurableBookingEmail({
+      supabase,
+      messageKey: `rental-${id}-decision-${action}-v1`,
+      kind: "rental",
+      bookingId: id,
+      purpose: `decision_${action}`,
       to: customerEmail,
       subject: emailSubject,
       text: [
@@ -702,6 +719,14 @@ async function handleRentalConfirm(req: Request) {
     });
 
     if (emailError) {
+      await recordWorkflowOutcome({
+        supabase, kind: "rental", bookingId: id, step: "decision_email",
+        outcome: "failed", safeErrorClass: "decision_email_failed",
+      });
+      await sendBookingOperationalAlert({
+        kind: "rental", bookingId: id, step: "decision_email",
+        safeErrorClass: "decision_email_failed",
+      });
       console.error("[api/rentals/confirm] customer email error", emailError);
       return ownerResultPage({
         title: successTitle,
@@ -713,6 +738,14 @@ async function handleRentalConfirm(req: Request) {
     }
   } catch (emailError) {
     console.error("[api/rentals/confirm] customer email error", emailError);
+    await recordWorkflowOutcome({
+      supabase, kind: "rental", bookingId: id, step: "decision_email",
+      outcome: "failed", safeErrorClass: "decision_email_failed",
+    });
+    await sendBookingOperationalAlert({
+      kind: "rental", bookingId: id, step: "decision_email",
+      safeErrorClass: "decision_email_failed",
+    });
     return ownerResultPage({
       title: successTitle,
       message:
@@ -722,20 +755,40 @@ async function handleRentalConfirm(req: Request) {
     });
   }
 
+  await recordWorkflowOutcome({
+    supabase,
+    kind: "rental",
+    bookingId: id,
+    step: "decision_email",
+    outcome: "sent",
+  });
+
   return ownerResultPage({
     title: successTitle,
     message:
       action === "confirm"
-        ? "The rental is approved, the customer email was sent, and the calendar has been handled."
+        ? calendarFailed
+          ? "The rental is approved and the customer email was sent, but Calendar still requires attention."
+          : "The rental is approved, the customer email was sent, and the calendar has been handled."
         : successMessage,
+    tone: calendarFailed ? "warning" : "success",
     bookingId: booking.id,
   });
 }
 
 export async function GET(req: Request) {
-  return handleRentalConfirm(req);
+  const token = new URL(req.url).searchParams.get("token");
+  return renderApprovalReview({
+    bookingKind: "rental",
+    token,
+    postPath: "/api/rentals/confirm",
+  });
 }
 
 export async function POST(req: Request) {
-  return handleRentalConfirm(req);
+  const resolved = await resolveDecisionRequest(req, "rental", {
+    allowCancel: true,
+  });
+  if (!resolved.ok) return resolved.response;
+  return handleRentalConfirm(req, resolved.decision, resolved.authorization === "admin");
 }
