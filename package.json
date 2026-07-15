@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:booking": "node --import tsx --test src/proxy.test.mts src/lib/site-url.test.mts src/lib/rentals/rental-pricing-text.test.mts src/lib/facility-parties/availability.test.mts src/lib/admin/booking-admin-boundary.test.mts",
     "inventory:sync": "node scripts/sync-rental-inventory.mjs"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "eslint-config-next": "16.2.5",
     "supabase": "^2.101.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

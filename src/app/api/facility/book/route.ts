@@ -21,7 +21,10 @@ import {
 } from "@/lib/facility-parties/pricing";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import { getFacilityOwnerEmails, getResendFromAddress } from "@/lib/email/resend";
-import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
+import {
+  facilityConfirmLink,
+  resolveRentalEmailSiteUrl,
+} from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -335,8 +338,8 @@ export async function POST(req: NextRequest) {
 
     try {
       const resend = new Resend(resendApiKey);
-      const confirmLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=confirm`;
-      const rejectLink = `${siteUrl}/api/facility/confirm?id=${data.id}&action=reject`;
+      const confirmLink = facilityConfirmLink(siteUrl, String(data.id), "confirm");
+      const rejectLink = facilityConfirmLink(siteUrl, String(data.id), "reject");
       const fromAddress = getResendFromAddress();
 
       const adminEmailText = [

@@ -10,6 +10,7 @@ import {
 import {
   FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
+  ONE_DAY_RENTAL_DURATION,
   enumerateRange,
   formatDisplayDate,
   rangeHasBlocked,
@@ -327,7 +328,7 @@ export function RentalBookingPanel({
 
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
-  const [durationId, setDurationId] = useState(MOCK_DURATION_OPTIONS[1]!.id);
+  const [durationId, setDurationId] = useState(ONE_DAY_RENTAL_DURATION.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
   const [eventStartTime, setEventStartTime] = useState("");
@@ -381,15 +382,12 @@ export function RentalBookingPanel({
     ];
   }, [rentalCartItems, slug, rentalTitle]);
 
-  const durationOptions = useMemo(
-    () =>
-      selectedRentalItems.some((item) =>
-        isFoamPartyRentalItem(item.rental_item),
-      )
-        ? FOAM_DURATION_OPTIONS
-        : MOCK_DURATION_OPTIONS,
-    [selectedRentalItems],
+  const isFoamOnlyCart = selectedRentalItems.every((item) =>
+    isFoamPartyRentalItem(item.rental_item),
   );
+  const durationOptions = isFoamOnlyCart
+    ? FOAM_DURATION_OPTIONS
+    : MOCK_DURATION_OPTIONS;
 
   const selectedDurationId = durationOptions.some(
     (option) => option.id === durationId,
@@ -512,7 +510,7 @@ export function RentalBookingPanel({
     if (!selectedYmd) return "Pick a start date to see your estimate.";
     if (!duration) return undefined;
     if (!selectionValid) {
-      return "That duration overlaps an unavailable date. Choose another start date or shorter duration.";
+      return "That rental date is unavailable. Choose another date.";
     }
     return "Looks good — complete checkout below and submit your request.";
   }, [selectedYmd, duration, selectionValid]);
@@ -570,7 +568,7 @@ export function RentalBookingPanel({
     totalAmount !== null ? `$${totalAmount}` : null;
 
   const reserveReason = !selectionValid
-    ? "Complete a valid date and duration first."
+    ? "Complete a valid rental date first."
       : selectedRentalItems.length === 0
         ? "Add at least one rental to your request."
       : !customerOk
@@ -941,14 +939,20 @@ export function RentalBookingPanel({
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    2. {durationOptions === FOAM_DURATION_OPTIONS ? "Foam time" : "Duration"}
+                    2. {isFoamOnlyCart ? "Foam time" : "Rental duration"}
                   </h3>
                   <div className="mt-3">
-                    <DurationSelector
-                      options={durationOptions}
-                      value={selectedDurationId}
-                      onChange={setDurationId}
-                    />
+                    {isFoamOnlyCart ? (
+                      <DurationSelector
+                        options={durationOptions}
+                        value={selectedDurationId}
+                        onChange={setDurationId}
+                      />
+                    ) : (
+                      <p className="rounded-2xl border border-cyan-300/40 bg-cyan-400/10 px-4 py-4 text-sm font-bold text-cyan-50">
+                        Rental duration: {ONE_DAY_RENTAL_DURATION.label}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

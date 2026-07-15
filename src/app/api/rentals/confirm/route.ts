@@ -223,7 +223,7 @@ async function createMissingRentalCalendarEvent(input: {
   const rentalDurationLabel =
     rentalOnlyItems.length === input.calendarItems.length
       ? input.durationLabel
-      : "Full day";
+      : "One Day";
   const description = buildRentalCalendarDescription({
     items: rentalOnlyItems,
     durationLabel: rentalDurationLabel,

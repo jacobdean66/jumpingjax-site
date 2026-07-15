@@ -11,6 +11,7 @@ import {
   seoDefaults,
   pageSEO,
 } from "@/data/site";
+import { absoluteSeoUrl, getSeoBaseUrl } from "@/lib/seo/site-url";
 
 // ============================================================================
 // Types
@@ -39,7 +40,6 @@ export interface PageMetadataOptions extends MetadataOptions {
 // ============================================================================
 
 const DEFAULT_OG_IMAGE = seoDefaults.ogImage || "/og-image.jpg";
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://jumpingjax.com";
 
 // ============================================================================
 // Utility Functions
@@ -49,8 +49,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://jumpingjax.com";
  * Generate canonical URL for a page
  */
 export const getCanonicalUrl = (path: string = ""): string => {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return `${BASE_URL}${cleanPath}`;
+  return absoluteSeoUrl(path || "/");
 };
 
 /**
@@ -59,7 +58,7 @@ export const getCanonicalUrl = (path: string = ""): string => {
 export const getOgImageUrl = (imagePath?: string): string => {
   const image = imagePath || DEFAULT_OG_IMAGE;
   if (image.startsWith("http")) return image;
-  return `${BASE_URL}${image}`;
+  return absoluteSeoUrl(image);
 };
 
 /**
@@ -111,6 +110,7 @@ export const generateMetadata = (
         },
       ],
       siteName: business.name,
+      url: canonicalUrl || getCanonicalUrl(),
     },
     twitter: {
       card: twitterCard,
@@ -214,7 +214,7 @@ export const generateOrganizationSchema = () => {
     "@type": "LocalBusiness",
     name: business.name,
     description: business.description,
-    image: `${BASE_URL}${business.logo || "/logo.png"}`,
+    image: absoluteSeoUrl(business.logo || "/logo.png"),
     telephone: contact.phone,
     email: contact.email,
     address: {
@@ -224,7 +224,7 @@ export const generateOrganizationSchema = () => {
       addressCountry: location.country,
     },
     areaServed: location.serviceAreas,
-    url: BASE_URL,
+    url: getSeoBaseUrl(),
     sameAs: [
       "https://facebook.com/jumpingjax",
       "https://instagram.com/jumpingjax",

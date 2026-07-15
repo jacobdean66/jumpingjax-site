@@ -9,6 +9,7 @@ import {
   formatDeliveryFeeLines,
   formatEstimatedTotalLine,
   normalizeDistanceMiles,
+  resolveNewRentalDuration,
 } from "@/lib/rentals/rental-pricing-text";
 import {
   rentalConfirmLink,
@@ -96,12 +97,14 @@ export async function POST(req: Request) {
     typeof body.event_date === "string" && body.event_date.trim()
       ? body.event_date.trim()
       : new Date().toISOString().slice(0, 10);
-  const durationLabel =
+  const requestedDurationLabel =
     typeof body.duration === "string" ? body.duration.trim() : "";
-  const spanDays =
-    typeof body.span_days === "number" && body.span_days >= 1
-      ? body.span_days
-      : 1;
+  const resolvedDuration = resolveNewRentalDuration(
+    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    requestedDurationLabel,
+  );
+  const durationLabel = resolvedDuration.label;
+  const spanDays = resolvedDuration.spanDays;
   const eventAddress =
     typeof body.event_address === "string" ? body.event_address.trim() : "";
   const distanceMiles = normalizeDistanceMiles(body.distance_miles);
@@ -148,12 +151,12 @@ export async function POST(req: Request) {
       : "";
   const subtotal = estimateCartRentalSubtotal(
     normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
-    durationLabel || "Standard",
+    durationLabel,
     spanDays,
   );
   const total = estimateCartGrandTotal(
     normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
-    durationLabel || "Standard",
+    durationLabel,
     spanDays,
     deliveryFee,
   );
@@ -164,7 +167,7 @@ export async function POST(req: Request) {
     email: customerEmail || "unknown@example.com",
     phone: customerPhone,
     eventDateYmd,
-    durationLabel: durationLabel || "Standard",
+    durationLabel,
     spanDays,
     eventAddress,
     event_start_time: eventStartTime,
@@ -217,7 +220,7 @@ export async function POST(req: Request) {
 
   const rentalListText = buildRentalListWithPrices(
     normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
-    durationLabel || "Standard",
+    durationLabel,
     spanDays,
   );
   const estimatedTotalLine = formatEstimatedTotalLine(total);

@@ -14,6 +14,7 @@ import {
   getRentalInCategory,
   isCategoryId,
 } from "@/data/rentals";
+import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
 
@@ -94,11 +95,14 @@ export default async function RentalDetailPage({ params }: Props) {
             Pricing
           </h2>
           <p className="mt-3 text-3xl font-black text-white">
-            From ${rental.startingPrice}
+            {isFoamPartyRentalItem(rental.slug)
+              ? `Packages from $${rental.startingPrice}`
+              : `$${rental.startingPrice} — One Day`}
           </p>
           <p className="mt-2 max-w-2xl text-pretty text-sm leading-relaxed text-slate-300">
-            Final price depends on date, duration, and delivery. Message us for a
-            tailored quote.
+            {isFoamPartyRentalItem(rental.slug)
+              ? "Choose a foam party package below. Delivery is estimated separately."
+              : "The listed catalog price is the standard one-day rental price. Delivery is estimated separately."}
           </p>
         </section>
 

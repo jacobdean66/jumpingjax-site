@@ -16,35 +16,17 @@ export type DurationOption = {
 /** Base delivery fee charged once per rental order. */
 export const MOCK_SERVICE_FEE = 25;
 
+export const ONE_DAY_RENTAL_DURATION: DurationOption = {
+  id: "one-day",
+  label: "One Day",
+  hint: "Standard one-day rental",
+  spanDays: 1,
+  priceMultiplier: 1,
+};
+
+/** Options selectable for new standard rental bookings. */
 export const MOCK_DURATION_OPTIONS: DurationOption[] = [
-  {
-    id: "half",
-    label: "Half day",
-    hint: "Up to 4 hours — great for weekday parties",
-    spanDays: 1,
-    priceMultiplier: 0.72,
-  },
-  {
-    id: "full",
-    label: "Full day",
-    hint: "Standard 8-hour window",
-    spanDays: 1,
-    priceMultiplier: 1,
-  },
-  {
-    id: "weekend",
-    label: "2-day weekend",
-    hint: "Fri evening pickup or Sat–Sun hold",
-    spanDays: 2,
-    priceMultiplier: 1.82,
-  },
-  {
-    id: "extended",
-    label: "3-day event",
-    hint: "Festivals & multi-day venues",
-    spanDays: 3,
-    priceMultiplier: 2.58,
-  },
+  ONE_DAY_RENTAL_DURATION,
 ];
 
 export const FOAM_DURATION_OPTIONS: DurationOption[] = [

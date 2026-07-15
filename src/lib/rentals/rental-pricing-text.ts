@@ -3,6 +3,7 @@ import {
   FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
   MOCK_SERVICE_FEE,
+  ONE_DAY_RENTAL_DURATION,
   estimateRentalSubtotal,
 } from "@/lib/mockBooking";
 
@@ -18,8 +19,59 @@ export type RentalLineInput = {
   rental_name?: string;
 };
 
+// Kept only for rendering/recalculating historical rows. New bookings are
+// canonicalized to the selectable One Day option before pricing or storage.
+const LEGACY_STANDARD_DURATION_MULTIPLIERS = [
+  { label: "Half Day", spanDays: 1, priceMultiplier: 0.72 },
+  { label: "Full Day", spanDays: 1, priceMultiplier: 1 },
+  { label: "2-day weekend", spanDays: 2, priceMultiplier: 1.82 },
+  { label: "3-day event", spanDays: 3, priceMultiplier: 2.58 },
+] as const;
+
+function standardDurationMultiplier(
+  durationLabel: string,
+  spanDays: number,
+): number {
+  const normalizedLabel = durationLabel.trim().toLowerCase();
+  const current = MOCK_DURATION_OPTIONS.find(
+    (duration) => duration.label.toLowerCase() === normalizedLabel,
+  );
+  if (current) return current.priceMultiplier;
+
+  const legacyByLabel = LEGACY_STANDARD_DURATION_MULTIPLIERS.find(
+    (duration) => duration.label.toLowerCase() === normalizedLabel,
+  );
+  if (legacyByLabel) return legacyByLabel.priceMultiplier;
+
+  const legacyBySpan = LEGACY_STANDARD_DURATION_MULTIPLIERS.find(
+    (duration) => duration.spanDays === spanDays,
+  );
+  return legacyBySpan?.priceMultiplier ?? 1;
+}
+
 export function isFoamPartyRentalItem(slug: string | null | undefined): boolean {
   return slug?.trim() === FOAM_PARTY_RENTAL_ITEM;
+}
+
+export function resolveNewRentalDuration(
+  items: RentalLineInput[],
+  requestedDurationLabel: string,
+): { label: string; spanDays: number } {
+  const containsStandardRental = items.some(
+    (item) => !isFoamPartyRentalItem(item.rental_item),
+  );
+  if (containsStandardRental) {
+    return {
+      label: ONE_DAY_RENTAL_DURATION.label,
+      spanDays: ONE_DAY_RENTAL_DURATION.spanDays,
+    };
+  }
+
+  const foamDuration = FOAM_DURATION_OPTIONS.find(
+    (option) => option.label === requestedDurationLabel.trim(),
+  );
+  const resolved = foamDuration ?? FOAM_DURATION_OPTIONS[0]!;
+  return { label: resolved.label, spanDays: resolved.spanDays };
 }
 
 export function formatUsd(amount: number): string {
@@ -30,12 +82,7 @@ export function durationMultiplierForBooking(
   durationLabel: string,
   spanDays: number,
 ): number {
-  const label = durationLabel.trim();
-  const byLabel = MOCK_DURATION_OPTIONS.find((d) => d.label === label);
-  if (byLabel) return byLabel.priceMultiplier;
-
-  const bySpan = MOCK_DURATION_OPTIONS.find((d) => d.spanDays === spanDays);
-  return bySpan?.priceMultiplier ?? 1;
+  return standardDurationMultiplier(durationLabel, spanDays);
 }
 
 function durationMultiplierForRentalItem(
@@ -49,11 +96,7 @@ function durationMultiplierForRentalItem(
     return foamByLabel?.priceMultiplier ?? FOAM_DURATION_OPTIONS[0]!.priceMultiplier;
   }
 
-  const standardByLabel = MOCK_DURATION_OPTIONS.find((d) => d.label === label);
-  if (standardByLabel) return standardByLabel.priceMultiplier;
-
-  const standardBySpan = MOCK_DURATION_OPTIONS.find((d) => d.spanDays === spanDays);
-  return standardBySpan?.priceMultiplier ?? 1;
+  return standardDurationMultiplier(label, spanDays);
 }
 
 export function estimateRentalLineSubtotal(

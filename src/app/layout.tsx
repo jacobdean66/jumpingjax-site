@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteChrome } from "./SiteChrome";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://jumpingjax-site-jacobdean66s-projects.vercel.app"),
+  metadataBase: new URL(getCanonicalSiteUrl()),
   title: {
     default: "Jumping Jax | Inflatable Rentals & Party Venue in Greenwood, SC",
     template: "%s | Jumping Jax",

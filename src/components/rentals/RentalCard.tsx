@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Rental } from "@/data/rentals";
 import { rentalDetailPath } from "@/data/rentals";
 import { RentalCardCartActions } from "@/components/booking/RentalBookingPanel";
+import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
 
 /** Default `sizes` for 3-col grids inside max-w-6xl (mobile-first bandwidth). */
 const DEFAULT_CARD_SIZES =
@@ -48,7 +49,9 @@ export function RentalCard({
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-pink-950/75 via-sky-950/10 to-transparent" />
           <p className="absolute bottom-3 left-3 right-3 text-xs font-semibold uppercase tracking-wide text-white">
-            From ${rental.startingPrice}
+            {isFoamPartyRentalItem(rental.slug)
+              ? `Packages from $${rental.startingPrice}`
+              : `$${rental.startingPrice} — One Day`}
           </p>
         </div>
 
