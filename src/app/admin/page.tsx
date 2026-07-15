@@ -50,7 +50,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   if (!auth.ok) return <AuthError reason={auth.reason} />;
 
-  const query = `token=${encodeURIComponent(token)}`;
+  const query = "";
   const tools: AdminLink[] = [
     {
       title: "AI Ads",
@@ -98,15 +98,6 @@ export default async function AdminHomePage({ searchParams }: Props) {
       tone: "bg-lime-300 text-slate-950",
     },
     {
-      title: "Inventory",
-      eyebrow: "Assets",
-      description:
-        "Track inflatables, maintenance notes, damage reports, and ad-ready inventory.",
-      href: `/admin/inventory?${query}`,
-      cta: "Open inventory",
-      tone: "bg-amber-300 text-slate-950",
-    },
-    {
       title: "Website Settings",
       eyebrow: "Owner Tools",
       description:
@@ -118,11 +109,6 @@ export default async function AdminHomePage({ searchParams }: Props) {
   ];
 
   const quickLinks = [
-    { label: "Daily Tasks", href: `/admin/tasks?${query}` },
-    { label: "End of Day", href: `/admin/end-of-day?${query}` },
-    { label: "Damage Log", href: `/admin/damage-log?${query}` },
-    { label: "Staff Access", href: `/admin/staff?${query}` },
-    { label: "Employee Schedule", href: `/admin/employee-schedule?${query}` },
     { label: "Website Settings", href: `/admin/site-settings?${query}` },
     { label: "Recovery Snapshot", href: `/admin/recovery-snapshot?${query}` },
   ];

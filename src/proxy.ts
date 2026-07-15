@@ -26,6 +26,20 @@ const SENSITIVE_QUERY_PARAMETERS = new Set([
 ]);
 
 export function proxy(request: NextRequest) {
+  const legacyAdminToken = request.nextUrl.searchParams.get("token");
+  if (
+    request.nextUrl.pathname.startsWith("/admin") &&
+    legacyAdminToken &&
+    request.nextUrl.pathname !== "/api/admin/legacy-session"
+  ) {
+    const bridge = new URL("/api/admin/legacy-session", request.url);
+    bridge.searchParams.set("token", legacyAdminToken);
+    const returnTo = request.nextUrl.clone();
+    returnTo.searchParams.delete("token");
+    bridge.searchParams.set("return_to", `${returnTo.pathname}${returnTo.search}`);
+    return NextResponse.redirect(bridge, 307);
+  }
+
   if (!LEGACY_PUBLIC_HOSTS.has(request.nextUrl.hostname.toLowerCase())) {
     return NextResponse.next();
   }

@@ -177,12 +177,10 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           Rental item names, prices, descriptions, categories, photos, and
           visibility are edited in the Inventory editor.
         </p>
-        <Link
-          href={settingsHref(token, "/admin/inventory")}
-          className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800"
-        >
-          Open inventory editor
-        </Link>
+        <p className="mt-5 text-sm font-bold text-amber-800">
+          The inventory editor is temporarily hidden while its authorization and
+          production workflow receive separate validation.
+        </p>
       </section>
 
       <form

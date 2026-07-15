@@ -90,7 +90,7 @@ export function AdminNav({
     | "employee-schedule"
     | "tasks";
 }) {
-  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+  const query = "";
   const items = [
     { id: "home", label: "Admin Home", href: `/admin${query}` },
     { id: "rentals", label: "Rentals", href: `/admin/rentals${query}` },
@@ -101,31 +101,15 @@ export function AdminNav({
       label: "Route Planner",
       href: `/admin/deliveries${query}`,
     },
-    { id: "end-of-day", label: "End of Day", href: `/admin/end-of-day${query}` },
-    { id: "tasks", label: "Daily Tasks", href: `/admin/tasks${query}` },
     role === "owner"
       ? { id: "ai-ads", label: "AI Ads", href: `/admin/ai-ads${query}` }
       : null,
     { id: "driver", label: "Driver App", href: `/driver${query}` },
     role === "owner"
-      ? { id: "inventory", label: "Inventory", href: `/admin/inventory${query}` }
-      : null,
-    role === "owner"
       ? {
           id: "site-settings",
           label: "Website Settings",
           href: `/admin/site-settings${query}`,
-        }
-      : null,
-    { id: "damage-log", label: "Damage Log", href: `/admin/damage-log${query}` },
-    role === "owner"
-      ? { id: "staff", label: "Staff Access", href: `/admin/staff${query}` }
-      : null,
-    role === "owner"
-      ? {
-          id: "employee-schedule",
-          label: "Employee Schedule",
-          href: `/admin/employee-schedule${query}`,
         }
       : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);

@@ -18,15 +18,38 @@ test("facility admin query filters by canonical start_time", () => {
   assert.doesNotMatch(source, /\.lte\("readable_date"/);
 });
 
-test("rental pending insert checks child rental items for conflicts", () => {
+test("rental pending insert delegates parent and child writes to one atomic RPC", () => {
   const source = read("../supabase/booking-data.ts");
 
-  assert.match(source, /\.from\("booking_rental_items"\)/);
-  assert.match(source, /\.select\("booking_id"\)/);
-  assert.match(source, /child item conflict check failed/);
+  assert.match(source, /\.rpc\("create_rental_booking_atomic"/);
+  assert.doesNotMatch(source, /\.from\("bookings"\)\s*\.insert/);
 });
 
 test("admin action buttons can call confirmation routes with POST", () => {
   assert.match(read("../../app/api/rentals/confirm/route.ts"), /export async function POST/);
   assert.match(read("../../app/api/facility/confirm/route.ts"), /export async function POST/);
+});
+
+test("unreviewed admin tools are absent from committed navigation", () => {
+  const navigation = `${read("../../app/admin/_components.tsx")}\n${read("../../app/admin/page.tsx")}`;
+  for (const route of [
+    "/admin/inventory",
+    "/admin/tasks",
+    "/admin/end-of-day",
+    "/admin/damage-log",
+    "/admin/staff",
+    "/admin/employee-schedule",
+  ]) {
+    assert.doesNotMatch(navigation, new RegExp(route.replaceAll("/", "\\/")));
+  }
+});
+
+test("facility name mapping uses one parent contact and one birthday child", () => {
+  const form = read("../../components/facility-parties/FacilityPartyBookingForm.tsx");
+  const route = read("../../app/api/facility/book/route.ts");
+  assert.equal((form.match(/Parent\/Guardian Full Name/g) ?? []).length, 1);
+  assert.equal((form.match(/Birthday Child(?:â€™|'|&apos;)s Full Name/g) ?? []).length, 1);
+  assert.match(route, /customer_name: bookingContactName/);
+  assert.match(route, /parent_name: bookingContactName/);
+  assert.match(route, /child_name: String\(child_name\)\.trim\(\)/);
 });
