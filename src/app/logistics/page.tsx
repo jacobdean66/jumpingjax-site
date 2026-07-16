@@ -4,6 +4,7 @@ import {
   normalizeDeliveryDate,
 } from "@/lib/admin/deliveries";
 import { DeliveryPlannerClient } from "@/app/admin/deliveries/DeliveryPlannerClient";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
 
@@ -44,18 +45,18 @@ function SummaryTile({
 export default async function LogisticsPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const date = normalizeDeliveryDate(resolved?.date);
-  const token = process.env.ADMIN_DELIVERIES_TOKEN?.trim() ?? "";
+  const auth = await verifyAdminOwnerAccess();
 
-  if (!token) {
+  if (!auth.ok) {
     return (
       <main className="min-h-screen bg-sky-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
         <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
             Logistics
           </p>
-          <h1 className="mt-3 text-3xl font-black">Admin token not configured</h1>
+          <h1 className="mt-3 text-3xl font-black">Owner access required</h1>
           <p className="mt-3 leading-relaxed text-slate-600">
-            Set ADMIN_DELIVERIES_TOKEN in Vercel to use the short logistics URL.
+            Sign in with the owner account to view delivery routes.
           </p>
         </section>
       </main>
@@ -67,7 +68,7 @@ export default async function LogisticsPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-sky-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-sky-100 pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5 border-b border-sky-100 pb-6 print:hidden lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Jumping Jax logistics
@@ -97,7 +98,7 @@ export default async function LogisticsPage({ searchParams }: Props) {
           </form>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
+        <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold print:hidden">
           <Link
             href={logisticsHref(addDays(deliveries.date, -1))}
             className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
@@ -112,7 +113,7 @@ export default async function LogisticsPage({ searchParams }: Props) {
           </Link>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-4 print:hidden sm:grid-cols-2 lg:grid-cols-5">
           <SummaryTile label="Bookings" value={deliveries.summary.bookingCount} />
           <SummaryTile
             label="Inflatables"
@@ -140,7 +141,7 @@ export default async function LogisticsPage({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <DeliveryPlannerClient deliveries={deliveries} token={token} />
+          <DeliveryPlannerClient deliveries={deliveries} />
         )}
       </section>
     </main>

@@ -524,6 +524,41 @@ function loadNumber(load: PlannedInflatable[], fallback: number): number {
   return load.find((item) => item.trailerLoad)?.trailerLoad ?? fallback;
 }
 
+function emailPlanHref(date: string, items: PlannedInflatable[]): string {
+  const lines = ["Jumping Jax Delivery Plan", `Date: ${date}`, ""];
+
+  for (const truck of TRUCKS) {
+    const truckItems = items.filter((item) => item.deliveryTruck === truck);
+    lines.push(COLUMN_LABELS[truck]);
+
+    if (truckItems.length === 0) {
+      lines.push("No inflatables assigned.", "");
+      continue;
+    }
+
+    chunkLoads(truckItems).forEach((load, index) => {
+      lines.push(`Load ${loadNumber(load, index + 1)} (${routeRangeLabel(load)})`);
+      load.forEach((item) => {
+        lines.push(
+          `${item.deliverySequence ?? "?"}. ${item.customerName} - ${item.rentalName} - arrive ${formatTime(item.plannedArrivalTime)} - ${item.eventAddress ?? "No address"}`,
+        );
+      });
+      const mapUrl = routeUrl(load);
+      if (mapUrl) lines.push(`Map: ${mapUrl}`);
+      lines.push("");
+    });
+  }
+
+  const unassignedCount = items.filter((item) => !item.deliveryTruck).length;
+  if (unassignedCount > 0) {
+    lines.push(`Needs assignment: ${unassignedCount} inflatable(s)`);
+  }
+
+  return `mailto:?subject=${encodeURIComponent(
+    `Jumping Jax Delivery Plan - ${date}`,
+  )}&body=${encodeURIComponent(lines.join("\n"))}`;
+}
+
 function LoadSheet({
   truck,
   items,
@@ -582,6 +617,16 @@ function LoadSheet({
               ) : null}
               <div className="delivery-print-table-wrap mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white">
                 <table className="delivery-print-table w-full border-collapse text-sm">
+                  <colgroup>
+                    <col className="delivery-print-col-stop" />
+                    <col className="delivery-print-col-item" />
+                    <col className="delivery-print-col-customer" />
+                    <col className="delivery-print-col-phone" />
+                    <col className="delivery-print-col-arrive" />
+                    <col className="delivery-print-col-party" />
+                    <col className="delivery-print-col-address" />
+                    <col className="delivery-print-col-setup" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Stop</th>
@@ -896,10 +941,8 @@ function DeliveryColumn({
 
 export function DeliveryPlannerClient({
   deliveries,
-  token,
 }: {
   deliveries: AdminDeliveriesResult;
-  token: string;
 }) {
   const [items, setItems] = useState(() => initialPlan(deliveries.bookings));
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -916,6 +959,10 @@ export function DeliveryPlannerClient({
     [items],
   );
   const counts = statusCounts(items);
+  const emailHref = useMemo(
+    () => emailPlanHref(deliveries.date, items),
+    [deliveries.date, items],
+  );
 
   const onAssign = (id: string, truck: TruckId) => {
     setItems((current) => {
@@ -1008,7 +1055,7 @@ export function DeliveryPlannerClient({
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, autoPlan: true, date: deliveries.date }),
+        body: JSON.stringify({ autoPlan: true, date: deliveries.date }),
       });
       const data = (await res.json().catch(() => null)) as
         | { error?: string; plannedCount?: number }
@@ -1032,7 +1079,7 @@ export function DeliveryPlannerClient({
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, assignments: routeAssignments(items) }),
+        body: JSON.stringify({ assignments: routeAssignments(items) }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Unable to save route plan.");
@@ -1057,15 +1104,22 @@ export function DeliveryPlannerClient({
           <div>
             <h2 className="text-2xl font-black text-slate-950">Start here</h2>
             <p className="mt-1 text-sm font-bold text-slate-600">
-              Set each inflatable's delivery day, trailer, load, and order.
+              Set each inflatable&apos;s delivery day, trailer, load, and order.
               Each printed load starts at the shop and returns to the shop.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:flex">
+          <div className="grid gap-2 sm:grid-cols-2 lg:flex">
             <button type="button" onClick={runAutoPlan} className="rounded-xl bg-sky-600 px-5 py-4 text-left text-sm font-black text-white hover:bg-sky-700">
               <span className="block text-xs uppercase">Update</span>
               Rebuild and Save Plan
             </button>
+            <a
+              href={emailHref}
+              className="rounded-xl bg-violet-600 px-5 py-4 text-left text-sm font-black text-white hover:bg-violet-700"
+            >
+              <span className="block text-xs uppercase">Email</span>
+              Email Route Plan
+            </a>
             <button
               type="button"
               onClick={printPlan}
@@ -1150,8 +1204,8 @@ export function DeliveryPlannerClient({
         <LoadMapLinks truck="truck-2" items={columns.truck2} />
       </section>
 
-      <section className="mt-5 rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:border-0 print:p-0 print:shadow-none">
-        <div className="border-b border-slate-200 pb-4 print:hidden">
+      <section className="delivery-print-root mt-5 rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none">
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
           <div>
             <h2 className="text-2xl font-black text-slate-950">
               Print load sheets
@@ -1160,6 +1214,22 @@ export function DeliveryPlannerClient({
               Prints a condensed trailer-load sheet with one small map and one
               tight table per load.
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={emailHref}
+              className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white hover:bg-violet-700"
+            >
+              Email Route Plan
+            </a>
+            <button
+              type="button"
+              onClick={printPlan}
+              disabled={isPrinting}
+              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPrinting ? "Opening Print..." : "Open Print Preview"}
+            </button>
           </div>
         </div>
         <div className="hidden print:block">
@@ -1170,11 +1240,127 @@ export function DeliveryPlannerClient({
             Date: {deliveries.date}
           </p>
         </div>
-        <div className="mt-4 hidden gap-5 xl:grid-cols-2 print:mt-1 print:grid print:grid-cols-2 print:gap-2">
+        <div className="mt-4 hidden gap-5 xl:grid-cols-2 print:mt-1 print:grid print:grid-cols-1 print:gap-3">
           <LoadSheet truck="truck-1" items={columns.truck1} />
           <LoadSheet truck="truck-2" items={columns.truck2} />
         </div>
       </section>
+
+      <style>{`
+        @page {
+          size: letter landscape;
+          margin: 0.35in;
+        }
+
+        @media print {
+          .delivery-print-root {
+            width: 100%;
+          }
+
+          .delivery-print-sheet {
+            break-inside: auto;
+            break-after: page;
+          }
+
+          .delivery-print-sheet + .delivery-print-sheet {
+            break-before: page;
+          }
+
+          .delivery-print-sheet:last-child {
+            break-after: auto;
+          }
+
+          .delivery-print-trailer-head {
+            padding-bottom: 0.08in;
+          }
+
+          .delivery-print-trailer-head h3 {
+            font-size: 16pt;
+            line-height: 1.1;
+          }
+
+          .delivery-print-trailer-head p,
+          .delivery-print-trailer-head > p {
+            font-size: 8pt;
+            line-height: 1.2;
+            margin-top: 0.03in;
+            padding: 0;
+            color: #0f172a;
+            background: transparent;
+          }
+
+          .delivery-print-loads {
+            margin-top: 0.1in;
+            gap: 0.12in;
+          }
+
+          .delivery-print-load {
+            break-inside: avoid;
+            padding: 0.1in;
+            background: #fff;
+          }
+
+          .delivery-print-load-head h4 {
+            font-size: 12pt;
+            line-height: 1.1;
+          }
+
+          .delivery-print-load-head span,
+          .delivery-print-shop-note,
+          .delivery-print-map-link {
+            font-size: 7.5pt;
+            line-height: 1.15;
+          }
+
+          .delivery-print-shop-note,
+          .delivery-print-map-link {
+            margin-top: 0.05in;
+            padding: 0.04in 0.07in;
+          }
+
+          .delivery-print-table-wrap {
+            margin-top: 0.06in;
+            overflow: visible;
+          }
+
+          .delivery-print-table {
+            table-layout: fixed;
+            width: 100%;
+            font-size: 7.5pt;
+            line-height: 1.2;
+          }
+
+          .delivery-print-table thead {
+            display: table-header-group;
+          }
+
+          .delivery-print-table tr {
+            break-inside: avoid;
+          }
+
+          .delivery-print-table th,
+          .delivery-print-table td {
+            padding: 0.04in;
+            text-align: left;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+            border-bottom: 1px solid #cbd5e1;
+          }
+
+          .delivery-print-table tbody tr:last-child td {
+            border-bottom: 0;
+          }
+
+          .delivery-print-col-stop { width: 5%; }
+          .delivery-print-col-item { width: 17%; }
+          .delivery-print-col-customer { width: 12%; }
+          .delivery-print-col-phone { width: 10%; }
+          .delivery-print-col-arrive { width: 8%; }
+          .delivery-print-col-party { width: 8%; }
+          .delivery-print-col-address { width: 20%; }
+          .delivery-print-col-setup { width: 20%; }
+        }
+      `}</style>
 
       <section className="delivery-screen-only mt-5 grid gap-3 lg:grid-cols-2 print:hidden">
         <div className="rounded-xl border border-sky-100 bg-white p-4">

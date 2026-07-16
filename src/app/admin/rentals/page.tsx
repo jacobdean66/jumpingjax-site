@@ -227,7 +227,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
 
       <div className="mt-5 flex flex-wrap gap-2 print:hidden">
         <Link
-          href={`/admin/deliveries?token=${encodeURIComponent(token)}`}
+          href="/admin/deliveries"
           className="rounded-full bg-amber-300 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-200"
         >
           Open Route Planner
