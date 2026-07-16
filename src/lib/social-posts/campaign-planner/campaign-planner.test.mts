@@ -208,3 +208,9 @@ test("17. produces identical serialized output without a planner generatedAt", (
     JSON.stringify(buildCampaignPlanner(plannerInput)),
   );
 });
+
+test("18. integrates seasonal intelligence without breaking empty seasonal defaults", () => {
+  const planner = buildCampaignPlanner(input({ generatedAt: "2026-01-15T12:00:00.000Z" }));
+  assert.equal(planner.seasonalIntelligence.activeOpportunities.length, 0);
+  assert.deepEqual(planner.candidates.map((candidate) => candidate.campaignId), ["birthday", "water"]);
+});

@@ -1,6 +1,7 @@
 import type { SocialCampaign } from "../social-campaigns";
 import type { SocialPost } from "../social-post-data";
 import { replayMarketingMemory } from "../marketing-memory/marketing-memory-replay";
+import { replaySeasonalIntelligence } from "../seasonal-intelligence/seasonal-intelligence-replay";
 import { buildCampaignPlanner } from "./campaign-planner-service";
 import type {
   CampaignPlannerCampaign,
@@ -30,9 +31,14 @@ export function replayCampaignPlanner(input: {
     campaigns: input.campaigns,
     generatedAt: input.generatedAt,
   });
+  const seasonalIntelligence = replaySeasonalIntelligence({
+    marketingMemory,
+    asOf: input.generatedAt,
+  });
   return buildCampaignPlanner({
     campaigns: input.campaigns.map(plannerCampaign),
     marketingMemory,
+    seasonalIntelligence,
     generatedAt: input.generatedAt,
   });
 }
