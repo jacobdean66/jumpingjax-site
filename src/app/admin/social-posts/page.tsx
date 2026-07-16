@@ -5,6 +5,8 @@ import {
   listSocialPosts,
   type SocialPost,
 } from "@/lib/social-posts/social-post-data";
+import { replayMarketingMemory } from "@/lib/social-posts/marketing-memory/marketing-memory-replay";
+import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import { getSocialPostAdminSchemaLoadError } from "@/lib/social-posts/social-post-schema-readiness";
 import { SOCIAL_SOURCE_IMAGES } from "@/lib/social-posts/social-source-images";
 import AgentDraftForm from "./AgentDraftForm";
@@ -58,6 +60,10 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
         error instanceof Error ? error.message : "Social posts could not be loaded.";
     }
   }
+  const marketingMemory = replayMarketingMemory({
+    posts,
+    campaigns: SOCIAL_CAMPAIGNS,
+  });
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -291,6 +297,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
             posts={posts}
             token={token}
             sourceImages={SOCIAL_SOURCE_IMAGES}
+            marketingMemory={marketingMemory}
           />
         )}
       </section>

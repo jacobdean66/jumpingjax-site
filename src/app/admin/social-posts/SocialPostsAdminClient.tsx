@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import DirectorsConsole from "./DirectorsConsole";
+import MarketingMemoryPanel from "./MarketingMemoryPanel";
 import PlacementFormatPanel from "./PlacementFormatPanel";
 import { SocialPostAdminErrorBoundary } from "./SocialPostAdminErrorBoundary";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
+import type { MarketingMemorySnapshot } from "@/lib/social-posts/marketing-memory/marketing-memory-types";
 import type {
   SocialPost,
   SocialPostBusinessFocus,
@@ -21,6 +23,7 @@ type Props = {
   posts: SocialPost[];
   token: string;
   sourceImages: SocialSourceImage[];
+  marketingMemory: MarketingMemorySnapshot;
 };
 
 type JsonResponse = {
@@ -158,7 +161,12 @@ function Field({
   );
 }
 
-export default function SocialPostsAdminClient({ posts, token, sourceImages }: Props) {
+export default function SocialPostsAdminClient({
+  posts,
+  token,
+  sourceImages,
+  marketingMemory,
+}: Props) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -757,6 +765,7 @@ export default function SocialPostsAdminClient({ posts, token, sourceImages }: P
           })}
         </div>
       )}
+      <MarketingMemoryPanel memory={marketingMemory} />
     </section>
   );
 }
