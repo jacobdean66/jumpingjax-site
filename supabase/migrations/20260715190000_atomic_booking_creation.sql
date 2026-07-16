@@ -1,5 +1,4 @@
 -- Phase 2: make availability validation and booking persistence one transaction.
--- This migration is intentionally forward-only and is not applied by this change.
 
 alter table public.bookings
   add column if not exists idempotency_key text null;
@@ -70,7 +69,9 @@ begin
     from public.bookings b
     where b.status in ('pending', 'approved', 'blocked')
       and b.event_date <= v_event_date + (v_span_days - 1)
-      and b.event_date + (greatest(coalesce(b.span_days, 1), 1) - 1) >= v_event_date
+      -- span_days is bigint on bookings; date + bigint is invalid — cast to int.
+      and b.event_date
+        + ((greatest(coalesce(b.span_days, 1), 1) - 1)::integer) >= v_event_date
       and (
         b.rental_item in (select value->>'rental_item' from jsonb_array_elements(p_items))
         or exists (
