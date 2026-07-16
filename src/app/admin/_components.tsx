@@ -68,7 +68,6 @@ export function AdminHeader({
 }
 
 export function AdminNav({
-  token,
   active,
   role = "owner",
 }: {
@@ -88,49 +87,81 @@ export function AdminNav({
     | "damage-log"
     | "staff"
     | "employee-schedule"
-    | "tasks";
+    | "tasks"
+    | "tax-export";
 }) {
   const query = "";
+  const rentalActive =
+    active === "rentals" ||
+    active === "inventory" ||
+    active === "damage-log" ||
+    active === "tax-export" ||
+    active === "end-of-day";
+
   const items = [
-    { id: "home", label: "Admin Home", href: `/admin${query}` },
-    { id: "rentals", label: "Rentals", href: `/admin/rentals${query}` },
-    { id: "facility", label: "Facility", href: `/admin/facility${query}` },
-    { id: "schedule", label: "Schedule View", href: `/admin/schedule${query}` },
+    { id: "home" as const, label: "Admin Home", href: `/admin${query}` },
     {
-      id: "deliveries",
+      id: "rentals" as const,
+      label: "Rentals",
+      href: `/admin/rentals${query}`,
+      prominent: true,
+    },
+    { id: "facility" as const, label: "Facility", href: `/admin/facility${query}` },
+    { id: "schedule" as const, label: "Schedule View", href: `/admin/schedule${query}` },
+    {
+      id: "deliveries" as const,
       label: "Route Planner",
       href: `/admin/deliveries${query}`,
     },
     role === "owner"
-      ? { id: "ai-ads", label: "AI Ads", href: `/admin/ai-ads${query}` }
+      ? { id: "ai-ads" as const, label: "AI Ads", href: `/admin/ai-ads${query}` }
       : null,
-    { id: "driver", label: "Driver App", href: `/driver${query}` },
+    { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
     role === "owner"
       ? {
-          id: "site-settings",
+          id: "site-settings" as const,
           label: "Website Settings",
           href: `/admin/site-settings${query}`,
         }
       : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
 
+  // Top-level "Rentals" already opens bookings; keep the submenu for sibling
+  // rental tools only so Rentals is not duplicated in the nav.
+  const rentalSubnav = [
+    { label: "Inventory", href: `/admin/inventory${query}` },
+    { label: "Damage log", href: `/admin/damage-log${query}` },
+    { label: "End of day", href: `/admin/end-of-day${query}` },
+    { label: "Tax / bookings export", href: `/admin/reports/tax-export${query}` },
+  ];
+
   return (
     <div className="mt-5 flex flex-col gap-3 print:hidden">
       <nav className="grid w-full grid-cols-1 gap-2 text-sm font-bold md:flex md:flex-wrap">
         <AdminBackButton />
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={
-              active === item.id
-                ? "inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-3 py-2 text-center leading-tight text-white"
-                : "inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-center leading-tight text-slate-700 hover:bg-slate-50"
-            }
-          >
-            {item.label}
-          </Link>
-        ))}
+        {items.map((item) => {
+          const isActive =
+            item.id === "rentals" ? rentalActive : active === item.id;
+          const prominent = "prominent" in item && item.prominent;
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={
+                isActive
+                  ? prominent
+                    ? "inline-flex min-h-10 items-center justify-center rounded-full bg-pink-600 px-4 py-2 text-center text-base leading-tight text-white shadow-sm"
+                    : "inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-3 py-2 text-center leading-tight text-white"
+                  : prominent
+                    ? "inline-flex min-h-10 items-center justify-center rounded-full border-2 border-pink-500 bg-pink-50 px-4 py-2 text-center text-base leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-center leading-tight text-slate-700 hover:bg-slate-50"
+              }
+              aria-current={isActive ? "page" : undefined}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
         <AdminLogoutButton />
         <Link
           href="/"
@@ -139,6 +170,22 @@ export function AdminNav({
           View Website
         </Link>
       </nav>
+      {rentalActive ? (
+        <nav
+          aria-label="Rentals submenu"
+          className="flex flex-wrap gap-2 rounded-2xl border border-pink-200 bg-pink-50/70 p-2"
+        >
+          {rentalSubnav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-black text-pink-950 hover:bg-pink-100"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </div>
   );
 }

@@ -185,6 +185,7 @@ await test("two-filter combinations work", () => {
 await test("clearing all filters shows the correct empty state data", () => {
   const none = {
     rental: false,
+    "foam-party": false,
     "public-party": false,
     "private-party": false,
   };

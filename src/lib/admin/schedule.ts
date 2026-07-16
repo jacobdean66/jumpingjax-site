@@ -1,7 +1,17 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import {
+  aggregateScheduleProducts,
+  classifyRentalScheduleType,
+  formatProductLabel,
+  type ScheduleProduct,
+} from "./schedule-products";
 
 export type ScheduleView = "day" | "week" | "month";
-export type ScheduleEventType = "rental" | "public-party" | "private-party";
+export type ScheduleEventType =
+  | "rental"
+  | "foam-party"
+  | "public-party"
+  | "private-party";
 export type ScheduleFilters = Record<ScheduleEventType, boolean>;
 
 export type CalendarDay = {
@@ -12,6 +22,7 @@ export type CalendarDay = {
 
 export type CalendarEvent = {
   id: string;
+  bookingId: string;
   type: ScheduleEventType;
   date: string;
   sortTime: string;
@@ -23,6 +34,7 @@ export type CalendarEvent = {
   location: string | null;
   room: string | null;
   detailHref: string;
+  products: ScheduleProduct[];
   details: { label: string; value: string | null }[];
 };
 
@@ -45,6 +57,12 @@ type RentalRow = {
   setup_notes: string | null;
   payment_method: string | null;
   total: number | string | null;
+};
+
+type RentalItemRow = {
+  booking_id: number | string;
+  rental_item: string | null;
+  rental_name: string | null;
 };
 
 type FacilityRow = {
@@ -72,6 +90,7 @@ type FacilityRow = {
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const DEFAULT_SCHEDULE_FILTERS: ScheduleFilters = {
   rental: true,
+  "foam-party": true,
   "public-party": true,
   "private-party": true,
 };
@@ -220,6 +239,7 @@ export function groupEventsByDate(events: readonly CalendarEvent[]) {
 export function selectedFilterLabels(filters: ScheduleFilters): string[] {
   const labels: Record<ScheduleEventType, string> = {
     rental: "Rentals",
+    "foam-party": "Foam Parties",
     "public-party": "Public facility parties",
     "private-party": "Private facility parties",
   };
@@ -290,17 +310,35 @@ function roomLabel(room: string | null) {
   return room;
 }
 
-export function rentalRowsToEvents(rows: readonly RentalRow[]): CalendarEvent[] {
+export function rentalRowsToEvents(
+  rows: readonly RentalRow[],
+  itemsByBookingId: ReadonlyMap<string, RentalItemRow[]> = new Map(),
+): CalendarEvent[] {
   return rows.map((row) => {
+    const bookingId = String(row.id);
     const date = String(row.event_date).slice(0, 10);
     const time =
       cleanTime(row.event_start_time) ??
       cleanTime(row.requested_delivery_window) ??
       cleanTime(row.delivery_time);
-    const title = clean(row.rental_name) ?? clean(row.rental_item) ?? "Rental";
+    const fallbackItems: RentalItemRow[] = [
+      {
+        booking_id: row.id,
+        rental_item: row.rental_item,
+        rental_name: row.rental_name ?? row.rental_item,
+      },
+    ];
+    const rawItems = itemsByBookingId.get(bookingId) ?? fallbackItems;
+    const products = aggregateScheduleProducts(rawItems);
+    const type = classifyRentalScheduleType(products);
+    const title =
+      products.length > 0
+        ? products.map(formatProductLabel).join(", ")
+        : clean(row.rental_name) ?? clean(row.rental_item) ?? "Rental";
     return {
       id: `rental-${row.id}`,
-      type: "rental",
+      bookingId,
+      type,
       date,
       sortTime: time ?? "",
       displayTime: formatTime(time),
@@ -310,10 +348,11 @@ export function rentalRowsToEvents(rows: readonly RentalRow[]): CalendarEvent[] 
       status: clean(row.status) ?? "pending",
       location: clean(row.event_address) ?? rentalCity(clean(row.event_address)),
       room: null,
-      detailHref: `/admin/rentals?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}`,
+      detailHref: `/admin/rentals?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}#booking-${encodeURIComponent(bookingId)}`,
+      products,
       details: [
         { label: "Customer", value: clean(row.customer_name) },
-        { label: "Rental", value: title },
+        { label: "Products", value: title },
         { label: "Date", value: date },
         { label: "Time", value: formatTime(time) },
         {
@@ -347,6 +386,7 @@ export function facilityRowsToEvents(
     const readableTime = cleanTime(row.readable_time);
     return {
       id: `facility-${row.id}`,
+      bookingId: String(row.id),
       type,
       date,
       sortTime: clean(row.start_time) ?? readableTime ?? "",
@@ -359,7 +399,8 @@ export function facilityRowsToEvents(
       status: clean(row.status) ?? "pending",
       location: null,
       room,
-      detailHref: `/admin/facility?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}`,
+      detailHref: `/admin/facility?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}#booking-${encodeURIComponent(String(row.id))}`,
+      products: [],
       details: [
         { label: "Customer", value: clean(row.customer_name) },
         { label: "Party", value: clean(row.party_label) },
@@ -421,8 +462,25 @@ export async function loadScheduleEvents(input: {
   if (rentals.error) throw new Error(rentals.error.message);
   if (facility.error) throw new Error(facility.error.message);
 
+  const rentalRows = (rentals.data ?? []) as RentalRow[];
+  const rentalIds = rentalRows.map((row) => row.id);
+  const itemsByBookingId = new Map<string, RentalItemRow[]>();
+
+  if (rentalIds.length > 0) {
+    const { data: itemRows, error: itemError } = await supabase
+      .from("booking_rental_items")
+      .select("booking_id, rental_item, rental_name")
+      .in("booking_id", rentalIds);
+
+    if (itemError) throw new Error(itemError.message);
+    for (const item of (itemRows ?? []) as RentalItemRow[]) {
+      const key = String(item.booking_id);
+      itemsByBookingId.set(key, [...(itemsByBookingId.get(key) ?? []), item]);
+    }
+  }
+
   return sortScheduleEvents([
-    ...rentalRowsToEvents((rentals.data ?? []) as RentalRow[]),
+    ...rentalRowsToEvents(rentalRows, itemsByBookingId),
     ...facilityRowsToEvents((facility.data ?? []) as FacilityRow[]),
   ]);
 }

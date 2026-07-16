@@ -1,7 +1,10 @@
 
 import {
   createGoogleCalendarEvent,
+  deleteGoogleCalendarDestinations,
+  deleteGoogleCalendarEvent,
   summarizeGoogleCalendarError,
+  syncGoogleCalendarDestinations,
 } from "@/lib/google/calendar";
 import {
   buildRentalCalendarDescription,
@@ -21,7 +24,7 @@ import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 const RENTAL_BOOKING_SELECT =
-  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_foam_calendar_event_id";
+  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 type RentalBookingRow = {
   id: number | string;
@@ -47,6 +50,7 @@ type RentalBookingRow = {
   subtotal: number | null;
   total: number | null;
   google_calendar_event_id: string | null;
+  google_calendar_secondary_event_id: string | null;
   google_foam_calendar_event_id: string | null;
 };
 
@@ -216,10 +220,6 @@ async function createMissingRentalCalendarEvent(input: {
     return "skipped";
   }
 
-  if (input.booking.google_calendar_event_id) {
-    return "already_exists";
-  }
-
   const { start, end } = rentalCalendarDateTimes(
     input.eventDate,
     input.booking.delivery_time,
@@ -252,25 +252,33 @@ async function createMissingRentalCalendarEvent(input: {
     paymentMethod: input.booking.payment_method,
     bookingId: String(input.booking.id),
   });
-  const eventId = await createGoogleCalendarEvent({
+
+  const sync = await syncGoogleCalendarDestinations({
     title: `Rental - ${input.rentalLabel} - ${input.customerName ?? "Guest"}`,
     description,
     start,
     end,
-    idempotencyKey: `rental-${input.id}-calendar-v1`,
+    idempotencyKeyBase: `rental-${input.id}-calendar-v1`,
+    primaryEventId: input.booking.google_calendar_event_id,
+    secondaryEventId: input.booking.google_calendar_secondary_event_id,
   });
 
-  if (!eventId) {
+  if (sync.primaryStatus === "failed" && sync.secondaryStatus === "failed") {
     return "failed";
   }
 
-  const { data: savedBooking, error: calendarIdError } = await input.supabase
+  const { error: calendarIdError } = await input.supabase
     .from("bookings")
-    .update({ google_calendar_event_id: eventId })
-    .eq("id", input.id)
-    .is("google_calendar_event_id", null)
-    .select("google_calendar_event_id")
-    .maybeSingle<{ google_calendar_event_id: string | null }>();
+    .update({
+      // Never clear a known event id with null on a failed destination sync;
+      // retries must update the same events instead of creating duplicates.
+      google_calendar_event_id:
+        sync.primaryEventId ?? input.booking.google_calendar_event_id,
+      google_calendar_secondary_event_id:
+        sync.secondaryEventId ??
+        input.booking.google_calendar_secondary_event_id,
+    })
+    .eq("id", input.id);
 
   if (calendarIdError) {
     console.error(
@@ -280,17 +288,32 @@ async function createMissingRentalCalendarEvent(input: {
     return "failed";
   }
 
-  if (savedBooking?.google_calendar_event_id) {
+  if (sync.primaryStatus === "failed" || sync.secondaryStatus === "failed") {
+    console.error("[api/rentals/confirm] partial calendar sync", {
+      primaryStatus: sync.primaryStatus,
+      secondaryStatus: sync.secondaryStatus,
+    });
+    return "failed";
+  }
+
+  if (
+    sync.primaryStatus === "already_exists" ||
+    sync.primaryStatus === "updated" ||
+    (sync.primaryStatus === "created" && sync.secondaryStatus === "already_exists")
+  ) {
+    if (sync.primaryStatus === "created" || sync.secondaryStatus === "created") {
+      return "created";
+    }
+    if (sync.primaryStatus === "updated" || sync.secondaryStatus === "updated") {
+      return "created";
+    }
+  }
+
+  if (sync.primaryStatus === "created" || sync.secondaryStatus === "created") {
     return "created";
   }
 
-  const { data: existingBooking } = await input.supabase
-    .from("bookings")
-    .select("google_calendar_event_id")
-    .eq("id", input.id)
-    .maybeSingle<{ google_calendar_event_id: string | null }>();
-
-  return existingBooking?.google_calendar_event_id ? "already_exists" : "failed";
+  return sync.primaryEventId ? "already_exists" : "failed";
 }
 
 async function createMissingFoamCalendarEvent(input: {
@@ -500,6 +523,57 @@ async function handleRentalConfirm(
   }
 
   if (action === "cancel") {
+    const clearedCalendarFields: Record<string, null> = {};
+
+    try {
+      const deletion = await deleteGoogleCalendarDestinations({
+        primaryEventId: booking.google_calendar_event_id,
+        secondaryEventId: booking.google_calendar_secondary_event_id,
+      });
+      if (deletion.primaryStatus === "failed" || deletion.secondaryStatus === "failed") {
+        console.error("[api/rentals/confirm] calendar delete partial failure", deletion);
+      } else {
+        if (deletion.primaryStatus !== "skipped") {
+          clearedCalendarFields.google_calendar_event_id = null;
+        }
+        if (deletion.secondaryStatus !== "skipped") {
+          clearedCalendarFields.google_calendar_secondary_event_id = null;
+        }
+      }
+    } catch (calendarError) {
+      console.error(
+        "[api/rentals/confirm] calendar delete error",
+        summarizeGoogleCalendarError(calendarError),
+      );
+    }
+
+    if (booking.google_foam_calendar_event_id) {
+      const foamCalendarId =
+        process.env.GOOGLE_FOAM_CALENDAR_ID?.trim() ||
+        process.env.GOOGLE_CALENDAR_ID ||
+        "primary";
+      try {
+        const foamDeleted = await deleteGoogleCalendarEvent({
+          eventId: booking.google_foam_calendar_event_id,
+          calendarId: foamCalendarId,
+        });
+        if (foamDeleted) {
+          clearedCalendarFields.google_foam_calendar_event_id = null;
+        } else {
+          console.error("[api/rentals/confirm] foam calendar delete failed");
+        }
+      } catch (calendarError) {
+        console.error(
+          "[api/rentals/confirm] foam calendar delete error",
+          summarizeGoogleCalendarError(calendarError),
+        );
+      }
+    }
+
+    if (Object.keys(clearedCalendarFields).length > 0) {
+      await supabase.from("bookings").update(clearedCalendarFields).eq("id", id);
+    }
+
     return ownerResultPage({
       title: successTitle,
       message: "The rental has been cancelled.",

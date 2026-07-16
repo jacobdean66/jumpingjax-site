@@ -66,7 +66,10 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
 
 function RentalCard({ booking }: { booking: AdminRentalBooking }) {
   return (
-    <article className="compact-print-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none">
+    <article
+      id={`booking-${booking.id}`}
+      className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
+    >
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">

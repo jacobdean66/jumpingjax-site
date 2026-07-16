@@ -94,8 +94,43 @@ body {
   iframe,
   form,
   button,
-  .no-print {
+  .no-print,
+  .driver-screen-only {
     display: none !important;
+  }
+
+  .driver-print-only {
+    display: block !important;
+  }
+
+  .driver-print-sheet-skip {
+    display: none !important;
+  }
+
+  .driver-print-sheet-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .driver-print-sheet-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .driver-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .driver-print-table th,
+  .driver-print-table td {
+    border: 1px solid #0f172a;
+    padding: 6px;
+    vertical-align: top;
+    text-align: left;
   }
 
   main {
@@ -106,5 +141,11 @@ body {
   a {
     color: #0f172a;
     text-decoration: none;
+  }
+}
+
+@media screen {
+  .driver-print-only {
+    display: none !important;
   }
 }
