@@ -32,7 +32,7 @@ export function buildCampaignPlanner(
   );
 
   return deepFreeze({
-    generatedAt: input.generatedAt ?? new Date().toISOString(),
+    generatedAt: input.generatedAt ?? input.marketingMemory.generatedAt,
     candidates,
     recommendedCandidates,
     reviewCandidates,

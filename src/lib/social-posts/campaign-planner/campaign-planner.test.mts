@@ -196,3 +196,15 @@ test("16. reports planner review diagnostics", () => {
   }));
   assert.ok(diagnoseCampaignPlanner(planner).some((diagnostic) => diagnostic.code === "review_required"));
 });
+
+test("17. produces identical serialized output without a planner generatedAt", () => {
+  const plannerInput = input({ generatedAt: undefined });
+  assert.equal(
+    buildCampaignPlanner(plannerInput).generatedAt,
+    plannerInput.marketingMemory.generatedAt,
+  );
+  assert.equal(
+    JSON.stringify(buildCampaignPlanner(plannerInput)),
+    JSON.stringify(buildCampaignPlanner(plannerInput)),
+  );
+});
