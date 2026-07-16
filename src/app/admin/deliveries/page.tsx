@@ -97,7 +97,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-sky-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-sky-100 pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5 border-b border-sky-100 pb-6 print:hidden lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Admin deliveries
@@ -127,7 +127,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           </form>
         </div>
 
-        <nav className="mt-5 flex flex-wrap gap-2 text-sm font-black">
+        <nav className="mt-5 flex flex-wrap gap-2 text-sm font-black print:hidden">
           <Link className="rounded-full bg-slate-950 px-4 py-2 text-white" href="/admin">
             Admin Home
           </Link>
@@ -160,7 +160,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
         {!deliveries ? null : (
           <>
 
-        <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
+        <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold print:hidden">
           <Link
             href={adminHref(addDays(deliveries.date, -1))}
             className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
@@ -175,7 +175,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           </Link>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-4 print:hidden sm:grid-cols-2 lg:grid-cols-5">
           <SummaryTile label="Bookings" value={deliveries.summary.bookingCount} />
           <SummaryTile
             label="Inflatables"
