@@ -29,6 +29,15 @@ const FORBIDDEN_PATTERNS = [
   "setTimeout(",
   "publishSocial",
   "scheduleSocialPost",
+  "credential",
+  "vault",
+  "approveSocial",
+  "saveApproval",
+  "queue",
+  "cron",
+  "calendarific",
+  "weatherapi",
+  "holidayapi",
 ] as const;
 
 test("seasonal intelligence is a pure read-only intelligence boundary", () => {

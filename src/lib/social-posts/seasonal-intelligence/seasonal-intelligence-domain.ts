@@ -24,11 +24,13 @@ export function businessDateFromAsOf(asOf: string): string | null {
 function dateParts(value: string): { year: number; month: number; day: number } | null {
   const match = DATE_PATTERN.exec(value);
   if (!match) return null;
-  return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-  };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
+    return null;
+  }
+  return { year, month, day };
 }
 
 export function daysBetweenDates(fromDate: string, toDate: string): number | null {
@@ -42,6 +44,18 @@ export function daysBetweenDates(fromDate: string, toDate: string): number | nul
 
 function formatDate(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+  }
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+function weekdayForDate(year: number, month: number, day: number): number {
+  const daysSinceEpoch = Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+  return ((daysSinceEpoch + 4) % 7 + 7) % 7;
 }
 
 export function easterSundayDate(year: number): string {
@@ -68,21 +82,20 @@ function nthWeekdayOfMonth(
   weekday: number,
   occurrence: number,
 ): string {
-  const first = new Date(Date.UTC(year, month - 1, 1));
-  const firstWeekday = first.getUTCDay();
+  const firstWeekday = weekdayForDate(year, month, 1);
   let day = 1 + ((weekday - firstWeekday + 7) % 7) + (occurrence - 1) * 7;
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  if (day > daysInMonth) {
+  const monthLength = daysInMonth(year, month);
+  if (day > monthLength) {
     day -= 7;
   }
   return formatDate(year, month, day);
 }
 
 function lastWeekdayOfMonth(year: number, month: number, weekday: number): string {
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const last = new Date(Date.UTC(year, month - 1, daysInMonth));
-  const offset = (last.getUTCDay() - weekday + 7) % 7;
-  return formatDate(year, month, daysInMonth - offset);
+  const monthLength = daysInMonth(year, month);
+  const lastWeekday = weekdayForDate(year, month, monthLength);
+  const offset = (lastWeekday - weekday + 7) % 7;
+  return formatDate(year, month, monthLength - offset);
 }
 
 function resolveCatalogWindow(

@@ -96,7 +96,8 @@ test("4. broad seasonal window resolves summer", () => {
 
 test("5. America/New_York date boundaries resolve business date from ISO asOf", () => {
   assert.equal(businessDateFromAsOf("2026-07-16"), "2026-07-16");
-  assert.equal(businessDateFromAsOf("2026-07-16T23:30:00.000Z"), "2026-07-16");
+  assert.equal(businessDateFromAsOf("2026-07-16T02:30:00.000Z"), "2026-07-15");
+  assert.equal(businessDateFromAsOf("2026-07-16T04:30:00.000Z"), "2026-07-16");
 });
 
 test("6. future lifecycle state", () => {
@@ -161,9 +162,7 @@ test("11. late-planning warning appears in diagnostics", () => {
     }),
   });
   assert.ok(
-    diagnoseSeasonalIntelligence(snapshot).some((item) =>
-      item.code === "late_planning_warning" || item.code === "repetition_risk_high",
-    ),
+    diagnoseSeasonalIntelligence(snapshot).some((item) => item.code === "late_planning_warning"),
   );
 });
 
@@ -287,7 +286,26 @@ test("19. stable Campaign Planner ranking for identical inputs without seasonal 
   );
 });
 
-test("20. unsupported custom opportunity with invalid window is rejected", () => {
+test("20. unsupported catalog opportunity is rejected", () => {
+  const evaluation = evaluateCatalogOpportunity({
+    entry: {
+      key: "unsupported-opportunity",
+      name: "Unsupported Opportunity",
+      kind: "season-window",
+      recommendedBusinessFocus: ["brand-awareness"],
+      recommendedCampaignObjective: "Unsupported",
+      recommendedPlacements: ["feed"],
+      preparationLeadDays: 21,
+      finalCallDays: 7,
+      memoryThemeTokens: ["unsupported"],
+    },
+    businessDate: "2026-07-01",
+    memory: memory(),
+  });
+  assert.equal(evaluation, null);
+});
+
+test("21. invalid custom date window is rejected", () => {
   const result = evaluateCustomOpportunity({
     config: {
       key: "bad-window",
@@ -302,11 +320,12 @@ test("20. unsupported custom opportunity with invalid window is rejected", () =>
   assert.match(result.missingConfiguration.join(" "), /invalid date window/i);
 });
 
-test("21. invalid date window helper returns null day count", () => {
+test("22. invalid date window helper returns null day count", () => {
   assert.equal(daysBetweenDates("invalid", "2026-07-01"), null);
+  assert.equal(daysBetweenDates("2026-02-30", "2026-07-01"), null);
 });
 
-test("22. no writes or external calls in constraints", () => {
+test("23. no writes or external calls in constraints", () => {
   const snapshot = buildSeasonalIntelligence({
     asOf: "2026-07-16",
     marketingMemory: memory(),
@@ -315,7 +334,7 @@ test("22. no writes or external calls in constraints", () => {
   assert.equal(snapshot.constraints.performsNoNetworkCalls, true);
 });
 
-test("23. replayCampaignPlanner remains deterministic with seasonal integration", () => {
+test("24. replayCampaignPlanner remains deterministic with seasonal integration", () => {
   const input = {
     posts: [],
     campaigns: SOCIAL_CAMPAIGNS,
@@ -325,6 +344,49 @@ test("23. replayCampaignPlanner remains deterministic with seasonal integration"
     JSON.stringify(replayCampaignPlanner(input).candidates.map((item) => item.campaignId)),
     JSON.stringify(replayCampaignPlanner(input).candidates.map((item) => item.campaignId)),
   );
+});
+
+test("25. active seasonal opportunity changes ranking by a deterministic score boost", () => {
+  const campaigns = [{
+    id: "private-parties",
+    label: "Private Parties",
+    description: "Private parties",
+    businessFocus: "facility-parties" as const,
+    defaultMediaType: "video" as const,
+    goalTemplates: ["Promote private party bookings"],
+    captionAngles: ["Private parties"],
+    promptAngles: ["private party"],
+  }, {
+    id: "summer-water-slides",
+    label: "Summer Water Slides",
+    description: "Summer slides",
+    businessFocus: "rentals" as const,
+    defaultMediaType: "video" as const,
+    goalTemplates: ["Promote water slides for hot weather"],
+    captionAngles: ["Cool off"],
+    promptAngles: ["waterslide"],
+  }];
+  const withoutSeasonal = buildCampaignPlanner({
+    campaigns,
+    marketingMemory: memory({ generatedAt: "2026-01-15T12:00:00.000Z" }),
+    generatedAt: "2026-01-15T12:00:00.000Z",
+  });
+  const withSeasonal = buildCampaignPlanner({
+    campaigns,
+    marketingMemory: memory(),
+    seasonalIntelligence: buildSeasonalIntelligence({
+      asOf: "2026-07-16T12:00:00.000Z",
+      marketingMemory: memory(),
+    }),
+    generatedAt: "2026-07-16T12:00:00.000Z",
+  });
+
+  assert.deepEqual(
+    withoutSeasonal.candidates.map((candidate) => candidate.campaignId),
+    ["private-parties", "summer-water-slides"],
+  );
+  assert.equal(withSeasonal.candidates[0]?.campaignId, "summer-water-slides");
+  assert.ok(withSeasonal.candidates[0]!.score > withoutSeasonal.candidates[1]!.score);
 });
 
 test("seasonal intelligence boundary forbids external and write imports", () => {
@@ -351,6 +413,13 @@ test("seasonal intelligence boundary forbids external and write imports", () => 
     "setTimeout(",
     "publishSocial",
     "scheduleSocialPost",
+    "credential",
+    "vault",
+    "approvalmutation",
+    "queue",
+    "cron",
+    "holidayapi",
+    "weatherapi",
   ] as const;
 
   for (const fileName of sourceFiles) {

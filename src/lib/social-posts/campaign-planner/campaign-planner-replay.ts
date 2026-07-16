@@ -24,7 +24,7 @@ function plannerCampaign(campaign: SocialCampaign): CampaignPlannerCampaign {
 export function replayCampaignPlanner(input: {
   posts: readonly SocialPost[];
   campaigns: readonly SocialCampaign[];
-  generatedAt?: string;
+  generatedAt: string;
 }): CampaignPlannerSnapshot {
   const marketingMemory = replayMarketingMemory({
     posts: input.posts,

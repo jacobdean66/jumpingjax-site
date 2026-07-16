@@ -23,12 +23,14 @@ export default async function AdminSeasonalIntelligencePage({ searchParams }: Pr
   let seasonal = null;
 
   try {
+    const asOf = new Date().toISOString();
     const posts = await listSocialPosts();
     const marketingMemory = replayMarketingMemory({
       posts,
       campaigns: SOCIAL_CAMPAIGNS,
+      generatedAt: asOf,
     });
-    seasonal = replaySeasonalIntelligence({ marketingMemory });
+    seasonal = replaySeasonalIntelligence({ marketingMemory, asOf });
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Seasonal Intelligence could not be loaded.";
   }

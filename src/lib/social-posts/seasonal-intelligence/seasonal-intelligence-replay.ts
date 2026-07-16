@@ -7,12 +7,11 @@ import type {
 
 export function replaySeasonalIntelligence(input: {
   marketingMemory: MarketingMemorySnapshot;
-  asOf?: string;
+  asOf: string;
   customOpportunities?: readonly SeasonalCustomOpportunityConfig[];
 }): SeasonalIntelligenceSnapshot {
-  const asOf = input.asOf ?? input.marketingMemory.generatedAt;
   return buildSeasonalIntelligence({
-    asOf,
+    asOf: input.asOf,
     marketingMemory: input.marketingMemory,
     customOpportunities: input.customOpportunities,
   });

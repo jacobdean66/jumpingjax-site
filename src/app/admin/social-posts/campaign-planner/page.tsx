@@ -22,9 +22,11 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
   let planner = null;
 
   try {
+    const asOf = new Date().toISOString();
     planner = replayCampaignPlanner({
       posts: await listSocialPosts(),
       campaigns: SOCIAL_CAMPAIGNS,
+      generatedAt: asOf,
     });
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Campaign planner preview could not be loaded.";
