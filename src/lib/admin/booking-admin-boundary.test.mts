@@ -30,13 +30,13 @@ test("admin action buttons can call confirmation routes with POST", () => {
   assert.match(read("../../app/api/facility/confirm/route.ts"), /export async function POST/);
 });
 
-test("unreviewed admin tools are absent from committed navigation", () => {
+test("rental submenu exposes inventory tools under Rentals without duplicating top-level entries", () => {
   const navigation = `${read("../../app/admin/_components.tsx")}\n${read("../../app/admin/page.tsx")}`;
+  assert.match(navigation, /label: "Rentals"/);
+  assert.match(navigation, /\/admin\/inventory/);
+  assert.match(navigation, /Rentals submenu/);
   for (const route of [
-    "/admin/inventory",
     "/admin/tasks",
-    "/admin/end-of-day",
-    "/admin/damage-log",
     "/admin/staff",
     "/admin/employee-schedule",
   ]) {
