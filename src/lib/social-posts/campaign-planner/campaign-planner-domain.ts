@@ -40,31 +40,45 @@ function referenceAt<T>(values: readonly T[], index: number): T | null {
   return values.length === 0 ? null : values[index % values.length] ?? null;
 }
 
+function campaignMatchesSeasonalOpportunity(
+  campaign: CampaignPlannerCampaign,
+  opportunity: SeasonalIntelligenceSnapshot["activeOpportunities"][number],
+): boolean {
+  return opportunity.recommendedBusinessFocus.some((focus) =>
+    campaignBusinessFocusMatchesSeasonal({
+      campaignFocus: campaign.businessFocus,
+      campaignLabel: campaign.label,
+      campaignId: campaign.id,
+      seasonalFocus: focus,
+    }),
+  );
+}
+
+/**
+ * Documented Wave 7 seasonal score contract (single positive boost, single repetition penalty):
+ * - active or final-call match → +4
+ * - else preparation match → +2
+ * - moderate/high repetition on a matched active/final-call opportunity → −2 once
+ */
 function seasonalPlannerGuidance(input: {
   campaign: CampaignPlannerCampaign;
   seasonal: SeasonalIntelligenceSnapshot;
 }): { scoreDelta: number; reasons: string[]; cautions: string[] } {
   const reasons: string[] = [];
   const cautions: string[] = [];
-  let scoreDelta = 0;
+  let matchedActiveOrFinalCall = false;
+  let matchedPreparation = false;
+  let matchedRepetition = false;
 
   for (const opportunity of input.seasonal.activeOpportunities) {
-    const matches = opportunity.recommendedBusinessFocus.some((focus) =>
-      campaignBusinessFocusMatchesSeasonal({
-        campaignFocus: input.campaign.businessFocus,
-        campaignLabel: input.campaign.label,
-        campaignId: input.campaign.id,
-        seasonalFocus: focus,
-      }),
-    );
-    if (!matches) continue;
+    if (!campaignMatchesSeasonalOpportunity(input.campaign, opportunity)) continue;
 
-    scoreDelta += opportunity.lifecycleState === "final-call" ? 2 : 4;
+    matchedActiveOrFinalCall = true;
     reasons.push(
       `${opportunity.name} is ${opportunity.lifecycleState}; this campaign aligns with the current seasonal opportunity.`,
     );
     if (opportunity.repetitionRisk === "high" || opportunity.repetitionRisk === "moderate") {
-      scoreDelta -= 2;
+      matchedRepetition = true;
       cautions.push(
         `${opportunity.name} has ${opportunity.repetitionRisk} seasonal repetition risk.`,
       );
@@ -73,17 +87,19 @@ function seasonalPlannerGuidance(input: {
 
   for (const opportunity of input.seasonal.upcomingOpportunities) {
     if (opportunity.lifecycleState !== "preparation") continue;
-    const matches = opportunity.recommendedBusinessFocus.some((focus) =>
-      campaignBusinessFocusMatchesSeasonal({
-        campaignFocus: input.campaign.businessFocus,
-        campaignLabel: input.campaign.label,
-        campaignId: input.campaign.id,
-        seasonalFocus: focus,
-      }),
-    );
-    if (!matches) continue;
-    scoreDelta += 2;
+    if (!campaignMatchesSeasonalOpportunity(input.campaign, opportunity)) continue;
+    matchedPreparation = true;
     reasons.push(`${opportunity.name} enters preparation soon; consider planning this campaign angle.`);
+  }
+
+  let scoreDelta = 0;
+  if (matchedActiveOrFinalCall) {
+    scoreDelta += 4;
+  } else if (matchedPreparation) {
+    scoreDelta += 2;
+  }
+  if (matchedRepetition) {
+    scoreDelta -= 2;
   }
 
   return { scoreDelta, reasons, cautions };

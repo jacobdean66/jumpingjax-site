@@ -217,8 +217,35 @@ export function urgencyForLifecycle(
   }
 }
 
-function normalized(value: string): string {
-  return value.trim().toLocaleLowerCase();
+/** ASCII-safe, locale-independent normalization for seasonal catalog/business terms. */
+export function normalizeSeasonalText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+export function seasonalTokens(value: string): readonly string[] {
+  const normalized = normalizeSeasonalText(value);
+  return normalized.length === 0 ? [] : normalized.split(" ");
+}
+
+/**
+ * Token/phrase match: needle must equal haystack or appear as contiguous normalized words.
+ * Prevents substring false positives (e.g. "fall" vs "waterfall").
+ */
+export function seasonalTokenOrPhraseMatches(haystack: string, needle: string): boolean {
+  const haystackNorm = normalizeSeasonalText(haystack);
+  const needleNorm = normalizeSeasonalText(needle);
+  if (!haystackNorm || !needleNorm) return false;
+  if (haystackNorm === needleNorm) return true;
+  return ` ${haystackNorm} `.includes(` ${needleNorm} `);
+}
+
+function hasAnySeasonalToken(haystack: string, needles: readonly string[]): boolean {
+  return needles.some((needle) => seasonalTokenOrPhraseMatches(haystack, needle));
 }
 
 export function memorySignalsForOpportunity(input: {
@@ -226,32 +253,29 @@ export function memorySignalsForOpportunity(input: {
   memory: MarketingMemorySnapshot;
 }): readonly string[] {
   const signals: string[] = [];
-  const tokens = input.entry.memoryThemeTokens.map(normalized);
+  const themeTokens = input.entry.memoryThemeTokens;
 
   for (const item of input.memory.seasonalHistory) {
-    const value = normalized(item.value);
-    if (tokens.some((token) => value.includes(token) || token.includes(value))) {
+    if (themeTokens.some((token) => seasonalTokenOrPhraseMatches(item.value, token))) {
       signals.push(`${input.entry.name} theme appears in recent seasonal history (${item.count} use${item.count === 1 ? "" : "s"}).`);
     }
   }
 
   for (const item of input.memory.recentThemes) {
-    const value = normalized(item.value);
-    if (tokens.some((token) => value.includes(token) || token.includes(value))) {
+    if (themeTokens.some((token) => seasonalTokenOrPhraseMatches(item.value, token))) {
       signals.push(`Recent theme history includes "${item.value}".`);
     }
   }
 
   for (const warning of input.memory.duplicateRisk) {
-    const value = normalized(warning.value);
-    if (tokens.some((token) => value.includes(token) || token.includes(value))) {
+    if (themeTokens.some((token) => seasonalTokenOrPhraseMatches(warning.value, token))) {
       signals.push(warning.message);
     }
   }
 
   const focusLabels = businessFocusLabels(input.entry.recommendedBusinessFocus);
   for (const item of input.memory.promotedCategories) {
-    if (focusLabels.some((label) => normalized(item.value).includes(label))) {
+    if (focusLabels.some((label) => seasonalTokenOrPhraseMatches(item.value, label))) {
       signals.push(`"${item.value}" has been promoted recently.`);
     }
   }
@@ -439,7 +463,7 @@ export function evaluateCustomOpportunity(input: {
     recommendedPlacements: ["feed"],
     preparationLeadDays: 21,
     finalCallDays: 7,
-    memoryThemeTokens: [normalized(input.config.name)],
+    memoryThemeTokens: [normalizeSeasonalText(input.config.name)],
   };
 
   const window: SeasonalDateWindow = {
@@ -498,27 +522,28 @@ export function campaignBusinessFocusMatchesSeasonal(input: {
   campaignId: string;
   seasonalFocus: SeasonalBusinessFocus;
 }): boolean {
-  const label = normalized(`${input.campaignLabel} ${input.campaignId}`);
+  const label = `${input.campaignLabel} ${input.campaignId}`;
+  const isRentals = input.campaignFocus === "rentals" || input.campaignFocus === "both";
+  const isFacility = input.campaignFocus === "facility-parties" || input.campaignFocus === "both";
+
   switch (input.seasonalFocus) {
     case "outdoor-rentals":
-      return input.campaignFocus === "rentals" || input.campaignFocus === "both";
+      return isRentals;
     case "water-slides":
-      return (input.campaignFocus === "rentals" || input.campaignFocus === "both") &&
-        /water|slide|heat|summer|splash/.test(label);
+      return isRentals && hasAnySeasonalToken(label, ["water", "slide", "heat", "summer", "splash"]);
     case "bounce-houses":
-      return (input.campaignFocus === "rentals" || input.campaignFocus === "both") &&
-        /bounce|backyard|combo|inflatable/.test(label);
+      return isRentals && hasAnySeasonalToken(label, ["bounce", "backyard", "combo", "inflatable"]);
     case "facility-parties":
-      return input.campaignFocus === "facility-parties" || input.campaignFocus === "both";
+      return isFacility;
     case "private-parties":
-      return (input.campaignFocus === "facility-parties" || input.campaignFocus === "both") &&
-        /private|party|birthday|indoor/.test(label);
+      return isFacility && hasAnySeasonalToken(label, ["private", "party", "birthday", "indoor"]);
     case "church-events":
-      return /church|school|daycare|event/.test(label);
+      return hasAnySeasonalToken(label, ["church", "school", "daycare", "event"]);
     case "school-daycare-events":
-      return /school|daycare|toddler|preschool/.test(label);
+      return hasAnySeasonalToken(label, ["school", "daycare", "toddler", "preschool"]);
     case "brand-awareness":
-      return true;
+      // Explicit brand/reputation campaigns only — not an unconditional wildcard.
+      return hasAnySeasonalToken(label, ["brand", "awareness", "testimonial", "customer", "review"]);
   }
 }
 

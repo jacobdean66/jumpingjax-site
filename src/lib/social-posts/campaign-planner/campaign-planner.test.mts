@@ -7,6 +7,8 @@ import type {
   CampaignPlannerCampaign,
   CampaignPlannerInput,
 } from "./campaign-planner-types";
+import { buildSeasonalIntelligence } from "../seasonal-intelligence/seasonal-intelligence-service";
+import type { MarketingMemorySnapshot } from "../marketing-memory/marketing-memory-types";
 
 const campaigns: readonly CampaignPlannerCampaign[] = [
   {
@@ -213,4 +215,263 @@ test("18. integrates seasonal intelligence without breaking empty seasonal defau
   const planner = buildCampaignPlanner(input({ generatedAt: "2026-01-15T12:00:00.000Z" }));
   assert.equal(planner.seasonalIntelligence.activeOpportunities.length, 0);
   assert.deepEqual(planner.candidates.map((candidate) => candidate.campaignId), ["birthday", "water"]);
+});
+
+function emptyMemory(overrides: Partial<MarketingMemorySnapshot> = {}): MarketingMemorySnapshot {
+  return {
+    generatedAt: "2026-07-16T12:00:00.000Z",
+    campaignHistory: [],
+    activeCampaigns: [],
+    seasonalHistory: [],
+    promotedCategories: [],
+    promotedProducts: [],
+    facilityPartyPromotions: [],
+    mediaHistory: [],
+    approvalHistory: [],
+    recentThemes: [],
+    duplicateRisk: [],
+    recommendations: [],
+    constraints: {
+      readOnly: true,
+      deterministic: true,
+      performsNoWrites: true,
+      performsNoNetworkCalls: true,
+      authoritative: false,
+    },
+    ...overrides,
+  };
+}
+
+const scoreCapCampaigns: readonly CampaignPlannerCampaign[] = [
+  {
+    id: "summer-water-slides",
+    label: "Summer Water Slides",
+    description: "Summer slides",
+    businessFocus: "rentals",
+    defaultMediaType: "video",
+    goalTemplates: ["Promote water slides for hot weather"],
+    captionAngles: ["Cool off"],
+    promptAngles: ["waterslide"],
+  },
+  {
+    id: "private-parties",
+    label: "Private Parties",
+    description: "Private parties",
+    businessFocus: "facility-parties",
+    defaultMediaType: "video",
+    goalTemplates: ["Promote private party bookings"],
+    captionAngles: ["Private parties"],
+    promptAngles: ["private party"],
+  },
+  {
+    id: "customer-testimonials",
+    label: "Customer Testimonials",
+    description: "Brand testimonials",
+    businessFocus: "both",
+    defaultMediaType: "image",
+    goalTemplates: ["Share customer reviews"],
+    captionAngles: ["Happy customers"],
+    promptAngles: ["customer review"],
+  },
+] as const;
+
+test("19. active Summer alone produces exactly +4", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-07-16",
+    marketingMemory: emptyMemory(),
+  });
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-07-16T12:00:00.000Z",
+  });
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.equal(water?.score, 104);
+});
+
+test("20. Summer final-call produces exactly +4 not +2", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-08-25",
+    marketingMemory: emptyMemory(),
+  });
+  assert.ok(seasonal.activeOpportunities.some((item) =>
+    item.opportunityKey === "summer" && item.lifecycleState === "final-call",
+  ));
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-08-25T12:00:00.000Z",
+  });
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.equal(water?.score, 104);
+});
+
+test("21. preparation alone produces exactly +2", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-11-20",
+    marketingMemory: emptyMemory(),
+  });
+  assert.equal(seasonal.activeOpportunities.length, 0);
+  assert.ok(seasonal.upcomingOpportunities.some((item) =>
+    item.opportunityKey === "christmas" && item.lifecycleState === "preparation",
+  ));
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-11-20T12:00:00.000Z",
+  });
+  const privateParties = planner.candidates.find((item) => item.campaignId === "private-parties");
+  assert.equal(privateParties?.score, 102);
+});
+
+test("22. Summer plus Fourth of July does not exceed +4 positive adjustment", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-07-04",
+    marketingMemory: emptyMemory(),
+  });
+  assert.ok(seasonal.activeOpportunities.some((item) => item.opportunityKey === "summer"));
+  assert.ok(seasonal.activeOpportunities.some((item) => item.opportunityKey === "fourth-of-july"));
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-07-04T12:00:00.000Z",
+  });
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.equal(water?.score, 104);
+  assert.ok((water?.reasons.length ?? 0) >= 2);
+});
+
+test("23. multiple simultaneous preparation opportunities do not exceed +2", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-11-20",
+    marketingMemory: emptyMemory(),
+  });
+  const prepCount = seasonal.upcomingOpportunities.filter((item) =>
+    item.lifecycleState === "preparation" &&
+    (item.opportunityKey === "christmas" ||
+      item.opportunityKey === "thanksgiving" ||
+      item.opportunityKey === "year-end-parties"),
+  ).length;
+  assert.ok(prepCount >= 2);
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-11-20T12:00:00.000Z",
+  });
+  const privateParties = planner.candidates.find((item) => item.campaignId === "private-parties");
+  assert.equal(privateParties?.score, 102);
+});
+
+test("24. multiple repetition signals apply only one -2 penalty", () => {
+  const memory = emptyMemory({
+    seasonalHistory: [
+      { value: "summer", count: 3, mostRecentAt: "2026-07-01T00:00:00.000Z" },
+      { value: "july 4", count: 2, mostRecentAt: "2026-07-01T00:00:00.000Z" },
+    ],
+    recentThemes: [
+      { value: "summer", count: 2, mostRecentAt: "2026-07-01T00:00:00.000Z" },
+      { value: "fourth of july", count: 2, mostRecentAt: "2026-07-01T00:00:00.000Z" },
+    ],
+  });
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-07-04",
+    marketingMemory: memory,
+  });
+  assert.ok(seasonal.activeOpportunities.filter((item) =>
+    item.repetitionRisk === "high" || item.repetitionRisk === "moderate",
+  ).length >= 2);
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: memory,
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-07-04T12:00:00.000Z",
+  });
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.equal(water?.score, 102);
+});
+
+test("25. active plus repetition produces net +2 versus baseline", () => {
+  const memory = emptyMemory({
+    seasonalHistory: [{ value: "summer", count: 3, mostRecentAt: "2026-07-01T00:00:00.000Z" }],
+    recentThemes: [{ value: "summer", count: 2, mostRecentAt: "2026-07-01T00:00:00.000Z" }],
+  });
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-07-16",
+    marketingMemory: memory,
+  });
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: memory,
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-07-16T12:00:00.000Z",
+  });
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.equal(water?.score, 102);
+});
+
+test("26. empty seasonal input preserves Wave 6 ranking and scores", () => {
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory({ generatedAt: "2026-01-15T12:00:00.000Z" }),
+    generatedAt: "2026-01-15T12:00:00.000Z",
+  });
+  assert.deepEqual(
+    planner.candidates.map((item) => ({ id: item.campaignId, score: item.score })),
+    [
+      { id: "customer-testimonials", score: 100 },
+      { id: "private-parties", score: 100 },
+      { id: "summer-water-slides", score: 100 },
+    ],
+  );
+});
+
+test("27. stable alphabetical tie-breaking remains unchanged with seasonal caps", () => {
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory({ generatedAt: "2026-01-15T12:00:00.000Z" }),
+    generatedAt: "2026-01-15T12:00:00.000Z",
+  });
+  assert.deepEqual(
+    planner.candidates.map((item) => item.campaignId),
+    ["customer-testimonials", "private-parties", "summer-water-slides"],
+  );
+});
+
+test("28. identical inputs produce identical ranked seasonal output", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-07-16",
+    marketingMemory: emptyMemory(),
+  });
+  const plannerInput = {
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-07-16T12:00:00.000Z",
+  };
+  assert.equal(
+    JSON.stringify(buildCampaignPlanner(plannerInput)),
+    JSON.stringify(buildCampaignPlanner(plannerInput)),
+  );
+});
+
+test("29. brand-awareness is not an unconditional wildcard", () => {
+  const seasonal = buildSeasonalIntelligence({
+    asOf: "2026-12-20",
+    marketingMemory: emptyMemory(),
+  });
+  const planner = buildCampaignPlanner({
+    campaigns: scoreCapCampaigns,
+    marketingMemory: emptyMemory(),
+    seasonalIntelligence: seasonal,
+    generatedAt: "2026-12-20T12:00:00.000Z",
+  });
+  const testimonials = planner.candidates.find((item) => item.campaignId === "customer-testimonials");
+  const water = planner.candidates.find((item) => item.campaignId === "summer-water-slides");
+  assert.ok((testimonials?.score ?? 0) > 100);
+  assert.equal(water?.score, 100);
 });

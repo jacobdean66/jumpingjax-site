@@ -13,6 +13,9 @@ import {
   easterSundayDate,
   evaluateCatalogOpportunity,
   evaluateCustomOpportunity,
+  normalizeSeasonalText,
+  seasonalTokenOrPhraseMatches,
+  seasonalTokens,
 } from "./seasonal-intelligence-domain";
 import { SEASONAL_OPPORTUNITY_CATALOG } from "./seasonal-intelligence-calendar";
 import { diagnoseSeasonalIntelligence } from "./seasonal-intelligence-diagnostics";
@@ -428,4 +431,46 @@ test("seasonal intelligence boundary forbids external and write imports", () => 
       assert.equal(source.includes(pattern.toLowerCase()), false, `${fileName} must not include ${pattern}`);
     }
   }
+});
+
+test("26. token matching rejects fall inside waterfall", () => {
+  assert.equal(seasonalTokenOrPhraseMatches("waterfall", "fall"), false);
+  assert.equal(seasonalTokenOrPhraseMatches("fall festivals", "fall"), true);
+});
+
+test("27. hyphenated back-to-school exposes school token", () => {
+  assert.equal(normalizeSeasonalText("back-to-school"), "back to school");
+  assert.deepEqual(seasonalTokens("back-to-school"), ["back", "to", "school"]);
+  assert.equal(seasonalTokenOrPhraseMatches("back-to-school", "school"), true);
+});
+
+test("28. water matches water-slide and water slide", () => {
+  assert.equal(seasonalTokenOrPhraseMatches("water-slide", "water"), true);
+  assert.equal(seasonalTokenOrPhraseMatches("water slide", "water"), true);
+});
+
+test("29. unrelated partial character sequences do not match", () => {
+  assert.equal(seasonalTokenOrPhraseMatches("preschool", "school"), false);
+  assert.equal(seasonalTokenOrPhraseMatches("heatwave", "heat"), false);
+  assert.equal(seasonalTokenOrPhraseMatches("summer", "sum"), false);
+});
+
+test("30. multiword theme phrases match contiguous normalized words", () => {
+  assert.equal(seasonalTokenOrPhraseMatches("happy fourth of july weekend", "fourth of july"), true);
+  assert.equal(seasonalTokenOrPhraseMatches("july fourth weekend", "fourth of july"), false);
+});
+
+test("31. memory signals do not fire on waterfall for fall festivals", () => {
+  const evaluation = evaluateCatalogOpportunity({
+    entry: catalogEntry("fall-festivals"),
+    businessDate: "2026-10-01",
+    memory: memory({
+      seasonalHistory: [{ value: "waterfall", count: 2, mostRecentAt: "2026-09-01T00:00:00.000Z" }],
+    }),
+  });
+  assert.ok(evaluation);
+  assert.equal(
+    evaluation.memorySignals.some((signal) => /waterfall|appears in recent seasonal history/i.test(signal)),
+    false,
+  );
 });
