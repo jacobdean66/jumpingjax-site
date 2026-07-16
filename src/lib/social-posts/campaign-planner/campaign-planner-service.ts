@@ -1,3 +1,4 @@
+import { emptySeasonalIntelligenceSnapshot } from "../seasonal-intelligence/seasonal-intelligence-service";
 import { planCampaignCandidate } from "./campaign-planner-domain";
 import type {
   CampaignPlannerCandidate,
@@ -8,10 +9,15 @@ import type {
 export function buildCampaignPlanner(
   input: CampaignPlannerInput,
 ): CampaignPlannerSnapshot {
+  const generatedAt = input.generatedAt ?? input.marketingMemory.generatedAt;
+  const seasonalIntelligence =
+    input.seasonalIntelligence ?? emptySeasonalIntelligenceSnapshot(generatedAt);
+
   const candidates = input.campaigns
     .map((campaign, index) => planCampaignCandidate({
       campaign,
       memory: input.marketingMemory,
+      seasonalIntelligence,
       index,
     }))
     .sort((left, right) =>
@@ -32,8 +38,9 @@ export function buildCampaignPlanner(
   );
 
   return deepFreeze({
-    generatedAt: input.generatedAt ?? input.marketingMemory.generatedAt,
+    generatedAt,
     candidates,
+    seasonalIntelligence,
     recommendedCandidates,
     reviewCandidates,
     summary: {
@@ -41,6 +48,7 @@ export function buildCampaignPlanner(
       recommendedCount: recommendedCandidates.length,
       reviewCount: reviewCandidates.length,
       duplicateRiskCount: input.marketingMemory.duplicateRisk.length,
+      activeSeasonalOpportunityCount: seasonalIntelligence.activeOpportunities.length,
     },
     constraints: {
       readOnly: true,

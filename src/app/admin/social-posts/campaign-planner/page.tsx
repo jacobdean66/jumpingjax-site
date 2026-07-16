@@ -22,9 +22,11 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
   let planner = null;
 
   try {
+    const asOf = new Date().toISOString();
     planner = replayCampaignPlanner({
       posts: await listSocialPosts(),
       campaigns: SOCIAL_CAMPAIGNS,
+      generatedAt: asOf,
     });
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Campaign planner preview could not be loaded.";
@@ -67,6 +69,7 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
                 ["Recommended", planner.summary.recommendedCount],
                 ["Needs review", planner.summary.reviewCount],
                 ["Duplicate warnings", planner.summary.duplicateRiskCount],
+                ["Active seasonal opportunities", planner.summary.activeSeasonalOpportunityCount],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
@@ -74,6 +77,22 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
                 </div>
               ))}
             </div>
+
+            {planner.seasonalIntelligence.activeOpportunities.length > 0 ? (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm sm:p-5">
+                <h2 className="text-lg font-black text-sky-950">Active seasonal opportunities</h2>
+                <ul className="mt-3 space-y-2 text-sm text-sky-950">
+                  {planner.seasonalIntelligence.activeOpportunities.map((opportunity) => (
+                    <li key={opportunity.opportunityKey}>
+                      <span className="font-black">{opportunity.name}</span>
+                      {" · "}
+                      {opportunity.recommendedCampaignObjective}
+                      {opportunity.warnings.length > 0 ? ` · ${opportunity.warnings[0]}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="space-y-4">
               {planner.candidates.map((candidate) => (
