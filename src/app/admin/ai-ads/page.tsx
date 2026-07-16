@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { loadAiAdMemory } from "@/lib/admin/ai-ads";
-import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
-
-type Props = {
-  searchParams?: Promise<{ token?: string }>;
-};
 
 function ratingLabel(rating?: "like" | "dislike" | null) {
   if (rating === "like") return "Liked";
@@ -24,11 +20,7 @@ function ratingClass(rating?: "like" | "dislike" | null) {
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
-function AuthError({
-  reason,
-}: {
-  reason: "missing_config" | "invalid_token";
-}) {
+function AuthError() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-950">
       <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
@@ -36,30 +28,24 @@ function AuthError({
           AI Ads
         </p>
         <h1 className="mt-3 text-3xl font-black">
-          {reason === "missing_config"
-            ? "Admin token not configured"
-            : "Invalid admin link"}
+            Owner access required
         </h1>
         <p className="mt-3 leading-relaxed text-slate-600">
-          This page shows generated ad videos, so it uses the private admin token.
+          Sign in with the owner account to review generated ad videos.
         </p>
       </section>
     </main>
   );
 }
 
-export default async function AdminAiAdsPage({ searchParams }: Props) {
-  const resolved = await searchParams;
-  const token = resolved?.token ?? "";
-  const auth = verifyAdminDeliveryToken(token);
+export default async function AdminAiAdsPage() {
+  const auth = await verifyAdminOwnerAccess();
 
-  if (!auth.ok) return <AuthError reason={auth.reason} />;
+  if (!auth.ok) return <AuthError />;
 
   const items = (await loadAiAdMemory(40)).filter(
     (item) => item.role === "assistant" && item.video_url
   );
-  const query = `token=${encodeURIComponent(token)}`;
-
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
@@ -78,7 +64,7 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/admin?${query}`}
+              href="/admin"
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
             >
               Admin home
@@ -90,7 +76,7 @@ export default async function AdminAiAdsPage({ searchParams }: Props) {
               Open generator full screen
             </Link>
             <Link
-              href={`/admin/recovery-snapshot?${query}`}
+              href="/admin/recovery-snapshot"
               className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
             >
               Download recovery snapshot
