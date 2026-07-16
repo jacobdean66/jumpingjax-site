@@ -896,10 +896,8 @@ function DeliveryColumn({
 
 export function DeliveryPlannerClient({
   deliveries,
-  token,
 }: {
   deliveries: AdminDeliveriesResult;
-  token: string;
 }) {
   const [items, setItems] = useState(() => initialPlan(deliveries.bookings));
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -1008,7 +1006,7 @@ export function DeliveryPlannerClient({
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, autoPlan: true, date: deliveries.date }),
+        body: JSON.stringify({ autoPlan: true, date: deliveries.date }),
       });
       const data = (await res.json().catch(() => null)) as
         | { error?: string; plannedCount?: number }
@@ -1032,7 +1030,7 @@ export function DeliveryPlannerClient({
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, assignments: routeAssignments(items) }),
+        body: JSON.stringify({ assignments: routeAssignments(items) }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Unable to save route plan.");

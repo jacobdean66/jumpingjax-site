@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import {
   loadAdminDeliveries,
   normalizeDeliveryDate,
@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 type Props = {
   searchParams?: Promise<{
     date?: string;
-    token?: string;
   }>;
 };
 
@@ -22,9 +21,8 @@ function addDays(ymd: string, days: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function adminHref(date: string, token: string | undefined): string {
+function adminHref(date: string): string {
   const params = new URLSearchParams({ date });
-  if (token) params.set("token", token);
   return `/admin/deliveries?${params.toString()}`;
 }
 
@@ -60,9 +58,8 @@ function withTimeout<T>(
 
 export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const resolved = await searchParams;
-  const token = resolved?.token;
   const date = normalizeDeliveryDate(resolved?.date);
-  const auth = verifyAdminDeliveryToken(token);
+  const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
     return (
@@ -72,20 +69,16 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
             Admin deliveries
           </p>
           <h1 className="mt-3 text-3xl font-black">
-            {auth.reason === "missing_config"
-              ? "Admin token not configured"
-              : "Invalid admin link"}
+            Owner access required
           </h1>
           <p className="mt-3 leading-relaxed text-slate-600">
-            This page shows customer addresses and approved rentals, so it needs
-            a private admin token.
+            Sign in with the owner account to view delivery routes.
           </p>
         </section>
       </main>
     );
   }
 
-  const query = `token=${encodeURIComponent(token ?? "")}`;
   const deliveriesResult = await withTimeout(
     loadAdminDeliveries(date),
     2500,
@@ -119,7 +112,6 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           </div>
 
           <form className="flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
-            <input type="hidden" name="token" value={token ?? ""} />
             <label className="text-sm font-bold text-slate-700">
               Date
               <input
@@ -136,13 +128,13 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
         </div>
 
         <nav className="mt-5 flex flex-wrap gap-2 text-sm font-black">
-          <Link className="rounded-full bg-slate-950 px-4 py-2 text-white" href={`/admin?${query}`}>
+          <Link className="rounded-full bg-slate-950 px-4 py-2 text-white" href="/admin">
             Admin Home
           </Link>
-          <Link className="rounded-full bg-sky-600 px-4 py-2 text-white" href={`/admin/schedule?${query}`}>
+          <Link className="rounded-full bg-sky-600 px-4 py-2 text-white" href="/admin/schedule">
             Schedule View
           </Link>
-          <Link className="rounded-full bg-violet-600 px-4 py-2 text-white" href={`/admin/ai-ads?${query}`}>
+          <Link className="rounded-full bg-violet-600 px-4 py-2 text-white" href="/admin/ai-ads">
             AI Ads
           </Link>
         </nav>
@@ -170,13 +162,13 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
 
         <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
           <Link
-            href={adminHref(addDays(deliveries.date, -1), token)}
+            href={adminHref(addDays(deliveries.date, -1))}
             className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
           >
             Previous day
           </Link>
           <Link
-            href={adminHref(addDays(deliveries.date, 1), token)}
+            href={adminHref(addDays(deliveries.date, 1))}
             className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
           >
             Next day
@@ -211,7 +203,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <DeliveryPlannerClient deliveries={deliveries} token={token ?? ""} />
+          <DeliveryPlannerClient deliveries={deliveries} />
         )}
           </>
         )}

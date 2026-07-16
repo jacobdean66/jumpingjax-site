@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyAdminDeliveryToken } from "@/lib/admin/delivery-auth";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import {
   autoPlanDeliveriesForDate,
   loadAdminDeliveries,
@@ -18,15 +18,15 @@ export async function GET(req: Request) {
   if (limited) return limited;
 
   const { searchParams } = new URL(req.url);
-  const auth = verifyAdminDeliveryToken(searchParams.get("token"));
+  const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
     return NextResponse.json(
       {
         error:
           auth.reason === "missing_config"
-            ? "Admin deliveries token is not configured."
-            : "Invalid admin token.",
+            ? "Owner login is not configured."
+            : "Owner authentication required.",
       },
       { status: auth.reason === "missing_config" ? 503 : 401 },
     );
@@ -66,7 +66,7 @@ type RouteAssignment = {
 };
 
 type DeliveryPatchBody =
-  | { token?: unknown; assignments?: unknown; autoPlan?: unknown; date?: unknown }
+  | { assignments?: unknown; autoPlan?: unknown; date?: unknown }
   | null;
 
 function nullableText(value: unknown): string | null {
@@ -87,17 +87,15 @@ export async function PATCH(req: Request) {
 
   const body = (await req.json().catch(() => null)) as DeliveryPatchBody;
 
-  const auth = verifyAdminDeliveryToken(
-    typeof body?.token === "string" ? body.token : null,
-  );
+  const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
     return NextResponse.json(
       {
         error:
           auth.reason === "missing_config"
-            ? "Admin deliveries token is not configured."
-            : "Invalid admin token.",
+            ? "Owner login is not configured."
+            : "Owner authentication required.",
       },
       { status: auth.reason === "missing_config" ? 503 : 401 },
     );

@@ -4,6 +4,7 @@ import {
   normalizeDeliveryDate,
 } from "@/lib/admin/deliveries";
 import { DeliveryPlannerClient } from "@/app/admin/deliveries/DeliveryPlannerClient";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
 
@@ -44,18 +45,18 @@ function SummaryTile({
 export default async function LogisticsPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const date = normalizeDeliveryDate(resolved?.date);
-  const token = process.env.ADMIN_DELIVERIES_TOKEN?.trim() ?? "";
+  const auth = await verifyAdminOwnerAccess();
 
-  if (!token) {
+  if (!auth.ok) {
     return (
       <main className="min-h-screen bg-sky-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
         <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
             Logistics
           </p>
-          <h1 className="mt-3 text-3xl font-black">Admin token not configured</h1>
+          <h1 className="mt-3 text-3xl font-black">Owner access required</h1>
           <p className="mt-3 leading-relaxed text-slate-600">
-            Set ADMIN_DELIVERIES_TOKEN in Vercel to use the short logistics URL.
+            Sign in with the owner account to view delivery routes.
           </p>
         </section>
       </main>
@@ -140,7 +141,7 @@ export default async function LogisticsPage({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <DeliveryPlannerClient deliveries={deliveries} token={token} />
+          <DeliveryPlannerClient deliveries={deliveries} />
         )}
       </section>
     </main>
