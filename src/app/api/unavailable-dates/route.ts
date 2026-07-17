@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+import { bookingHorizonAvailabilityWindow } from "@/lib/bookings/booking-horizon";
 import {
-  defaultAvailabilityWindow,
   unavailableYmdsFromBookings,
   type BookingSpanRow,
 } from "@/lib/bookings/unavailableDates";
@@ -25,11 +25,8 @@ export async function GET(req: Request) {
     );
   }
 
-  const monthsAheadRaw = searchParams.get("months_ahead") ?? searchParams.get("monthsAhead");
-  const monthsAhead =
-    monthsAheadRaw !== null && /^\d+$/.test(monthsAheadRaw)
-      ? Math.min(36, Math.max(1, Number(monthsAheadRaw)))
-      : 6;
+  // Availability uses the shared booking horizon (today through BOOKING_HORIZON_END_YMD).
+  // Optional months_ahead query params from older clients are ignored.
 
   if (!isSupabaseServiceConfigured()) {
     return NextResponse.json(
@@ -43,7 +40,7 @@ export async function GET(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
-    const { winStart, winEnd } = defaultAvailabilityWindow(monthsAhead);
+    const { winStart, winEnd } = bookingHorizonAvailabilityWindow();
 
     const { data: primaryRows, error } = await supabase
       .from("bookings")

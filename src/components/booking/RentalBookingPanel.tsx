@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { bookingHorizonMonthsAhead } from "@/lib/bookings/booking-horizon";
 import { queryRentalUnavailableYmds } from "@/lib/supabase/booking-queries";
 import {
   useBookingStore,
@@ -446,7 +447,10 @@ export function RentalBookingPanel({
       try {
         const results = await Promise.all(
           rentalItemsToCheck.map((rentalItem) =>
-            queryRentalUnavailableYmds(rentalItem, 6),
+            queryRentalUnavailableYmds(
+              rentalItem,
+              bookingHorizonMonthsAhead(),
+            ),
           ),
         );
         if (cancelled) return;

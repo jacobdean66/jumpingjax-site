@@ -1,3 +1,5 @@
+import { bookingHorizonMonthsAhead } from "@/lib/bookings/booking-horizon";
+
 export type RentalUnavailableResult = {
   ymds: string[];
   error: "read_failed" | "not_configured" | null;
@@ -9,7 +11,7 @@ export type RentalUnavailableResult = {
  */
 export async function queryRentalUnavailableYmds(
   rental_item: string,
-  monthsAhead: number = 6,
+  monthsAhead: number = bookingHorizonMonthsAhead(),
 ): Promise<RentalUnavailableResult> {
   try {
     const res = await fetch(

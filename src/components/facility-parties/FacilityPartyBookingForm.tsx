@@ -31,6 +31,11 @@ import type {
   FacilityRoomId,
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
+import {
+  getBookingHorizonEndDate,
+  isDateWithinBookingHorizon,
+  isYmdWithinBookingHorizon,
+} from "@/lib/bookings/booking-horizon";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
 import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
 
@@ -180,8 +185,13 @@ export function FacilityPartyBookingForm({
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
 
+  const bookingHorizonEnd = useMemo(() => getBookingHorizonEndDate(), []);
   const date = selectedDate ? dateToYmd(selectedDate) : "";
-  const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
+  const dateOk =
+    partyKind !== null &&
+    date !== "" &&
+    isYmdWithinBookingHorizon(date) &&
+    dateAllowedForKind(partyKind, date);
 
   const slotDispositions = useMemo(() => {
     if (!date || !dateOk) {
@@ -666,8 +676,10 @@ export function FacilityPartyBookingForm({
             mode="single"
             selected={selectedDate}
             onSelect={onDateSelect}
+            endMonth={bookingHorizonEnd}
             disabled={(date) => {
               if (!partyKind) return true;
+              if (!isDateWithinBookingHorizon(date)) return true;
 
               const day = date.getDay();
 

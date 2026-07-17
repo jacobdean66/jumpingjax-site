@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import {
+  bookingHorizonMaxMonthCursor,
+  isYmdWithinBookingHorizon,
+} from "@/lib/bookings/booking-horizon";
 import { MOCK_BLOCKED_DATE_SET, startOfToday, toYMD } from "@/lib/mockBooking";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
@@ -12,8 +16,6 @@ type Props = {
   onBlockedDateClick?: (ymd: string) => void;
   blockedPopoverYmd?: string | null;
   renderBlockedPopover?: (ymd: string) => ReactNode;
-  /** Optional: restrict how far out users can browse */
-  maxMonthsAhead?: number;
 };
 
 function monthMatrix(year: number, monthIndex: number): (number | null)[][] {
@@ -38,7 +40,6 @@ export function BookingDateCalendar({
   onBlockedDateClick,
   blockedPopoverYmd,
   renderBlockedPopover,
-  maxMonthsAhead = 6,
 }: Props) {
   const today = useMemo(() => startOfToday(), []);
   const [cursor, setCursor] = useState(() => {
@@ -58,11 +59,7 @@ export function BookingDateCalendar({
     year: "numeric",
   });
 
-  const maxCursor = useMemo(() => {
-    const t = new Date(today);
-    t.setMonth(t.getMonth() + maxMonthsAhead);
-    return new Date(t.getFullYear(), t.getMonth(), 1);
-  }, [today, maxMonthsAhead]);
+  const maxCursor = useMemo(() => bookingHorizonMaxMonthCursor(), []);
 
   const minCursor = useMemo(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -130,8 +127,9 @@ export function BookingDateCalendar({
               const d = new Date(year, monthIndex, day, 12, 0, 0, 0);
               const ymd = toYMD(d);
               const isPast = d < today;
+              const isBeyondHorizon = !isYmdWithinBookingHorizon(ymd);
               const isBlocked = blocked.has(ymd);
-              const disabled = isPast;
+              const disabled = isPast || isBeyondHorizon;
               const selected = value === ymd;
 
               const showBlockedPopover =
@@ -159,7 +157,7 @@ export function BookingDateCalendar({
                         ? "z-[1] bg-cyan-400 text-black shadow-lg shadow-cyan-950/40"
                         : isBlocked
                           ? "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]"
-                          : isPast
+                          : isPast || isBeyondHorizon
                             ? "cursor-not-allowed text-slate-600 opacity-45"
                             : "bg-white/5 text-white hover:bg-white/12 active:scale-[0.97]",
                     ].join(" ")}
