@@ -7,6 +7,7 @@ import {
   RentalBookingPanel,
   RentalCartButton,
 } from "@/components/booking/RentalBookingPanel";
+import { RentalAvailabilityScrollCue } from "@/components/rental-detail/RentalAvailabilityScrollCue";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
@@ -89,6 +90,8 @@ export default async function RentalDetailPage({ params }: Props) {
             </p>
           </div>
         </div>
+
+        <RentalAvailabilityScrollCue />
 
         <section className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-cyan-200">
