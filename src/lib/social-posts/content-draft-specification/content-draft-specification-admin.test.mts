@@ -35,7 +35,26 @@ test("content draft specification admin page is informational and exposes no mut
   assert.doesNotMatch(PAGE_SOURCE, /publishSocial/i);
   assert.doesNotMatch(PAGE_SOURCE, /scheduleSocialPost/i);
   assert.doesNotMatch(PAGE_SOURCE, /approveSocial/i);
+  assert.doesNotMatch(PAGE_SOURCE, /saveDraft/i);
+  assert.doesNotMatch(PAGE_SOURCE, /createAttempt/i);
+  assert.doesNotMatch(PAGE_SOURCE, /type=["']submit["']/i);
   assert.match(PAGE_SOURCE, /Non-publishable specification/i);
+});
+
+test("content draft specification admin page renders structured accessibility requirements", () => {
+  assert.match(PAGE_SOURCE, /Accessibility requirements/);
+  assert.match(PAGE_SOURCE, /spec\.accessibilityRequirements/);
+  assert.match(PAGE_SOURCE, /item\.requirementId/);
+  assert.match(PAGE_SOURCE, /item\.status/);
+  assert.match(PAGE_SOURCE, /item\.description/);
+  assert.match(PAGE_SOURCE, /None recorded for this specification/);
+  assert.match(PAGE_SOURCE, /accessibilityRequirements\.length === 0/);
+});
+
+test("content draft specification admin page preserves planner rank and score display", () => {
+  assert.match(PAGE_SOURCE, /Rank \{spec\.plannerRank\}/);
+  assert.match(PAGE_SOURCE, /\{spec\.plannerScore\}/);
+  assert.match(PAGE_SOURCE, /specifications\.map\(\(spec\) =>/);
 });
 
 test("social posts hub links to the authenticated content draft specification page", () => {

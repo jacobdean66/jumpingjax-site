@@ -256,6 +256,27 @@ export default async function AdminContentDraftSpecificationPage({ searchParams 
                     </div>
                   </div>
 
+                  <div className="mt-4">
+                    <h3 className="text-sm font-black text-slate-800">Accessibility requirements</h3>
+                    {spec.accessibilityRequirements.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-600">
+                        None recorded for this specification.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                        {spec.accessibilityRequirements.map((item) => (
+                          <li key={item.requirementId}>
+                            <span className="font-black">{item.requirementId}</span>
+                            {" · status "}
+                            {item.status}
+                            {": "}
+                            {item.description}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
                     <div>
                       <h3 className="text-sm font-black text-slate-800">Missing inputs</h3>
