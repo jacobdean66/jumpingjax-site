@@ -70,6 +70,7 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
                 ["Needs review", planner.summary.reviewCount],
                 ["Duplicate warnings", planner.summary.duplicateRiskCount],
                 ["Active seasonal opportunities", planner.summary.activeSeasonalOpportunityCount],
+                ["Asset-ready campaigns", planner.summary.readyAssetCampaignCount],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
@@ -91,6 +92,21 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
                     </li>
                   ))}
                 </ul>
+              </div>
+            ) : null}
+
+            {planner.assetIntelligence.campaignAssessments.length > 0 ? (
+              <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm sm:p-5">
+                <h2 className="text-lg font-black text-violet-950">Asset readiness summary</h2>
+                <p className="mt-2 text-sm text-violet-950">
+                  Ready {planner.assetIntelligence.readyCampaignIds.length}
+                  {" · "}
+                  Partial {planner.assetIntelligence.partiallyReadyCampaignIds.length}
+                  {" · "}
+                  Insufficient {planner.assetIntelligence.insufficientCampaignIds.length}
+                  {" · "}
+                  Unknown {planner.assetIntelligence.unknownCampaignIds.length}
+                </p>
               </div>
             ) : null}
 

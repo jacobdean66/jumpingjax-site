@@ -7,6 +7,8 @@ import type {
   MarketingMemoryHistoryItem,
   MarketingMemorySnapshot,
 } from "../marketing-memory/marketing-memory-types";
+import { assetPlannerScoreDelta } from "../asset-intelligence/asset-intelligence-domain";
+import type { AssetIntelligenceSnapshot } from "../asset-intelligence/asset-intelligence-types";
 import { campaignBusinessFocusMatchesSeasonal } from "../seasonal-intelligence/seasonal-intelligence-domain";
 import type { SeasonalIntelligenceSnapshot } from "../seasonal-intelligence/seasonal-intelligence-types";
 
@@ -105,10 +107,28 @@ function seasonalPlannerGuidance(input: {
   return { scoreDelta, reasons, cautions };
 }
 
+function assetPlannerGuidance(input: {
+  campaign: CampaignPlannerCampaign;
+  assetIntelligence: AssetIntelligenceSnapshot;
+}): { scoreDelta: number; reasons: string[]; cautions: string[] } {
+  const assessment = input.assetIntelligence.campaignAssessments.find(
+    (item) => item.campaignId === input.campaign.id,
+  );
+  if (!assessment) {
+    return {
+      scoreDelta: 0,
+      reasons: [],
+      cautions: [],
+    };
+  }
+  return assetPlannerScoreDelta(assessment);
+}
+
 export function planCampaignCandidate(input: {
   campaign: CampaignPlannerCampaign;
   memory: MarketingMemorySnapshot;
   seasonalIntelligence: SeasonalIntelligenceSnapshot;
+  assetIntelligence: AssetIntelligenceSnapshot;
   index: number;
 }): Omit<CampaignPlannerCandidate, "rank"> {
   const recent = historyForCampaign(input.campaign, input.memory.campaignHistory);
@@ -149,6 +169,14 @@ export function planCampaignCandidate(input: {
   score += seasonal.scoreDelta;
   reasons.push(...seasonal.reasons);
   cautions.push(...seasonal.cautions);
+
+  const assets = assetPlannerGuidance({
+    campaign: input.campaign,
+    assetIntelligence: input.assetIntelligence,
+  });
+  score += assets.scoreDelta;
+  reasons.push(...assets.reasons);
+  cautions.push(...assets.cautions);
 
   if (reasons.length === 0) {
     reasons.push("Campaign rotation is based on the available read-only history.");

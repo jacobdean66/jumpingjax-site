@@ -1,5 +1,6 @@
 import type { SocialCampaign } from "../social-campaigns";
 import type { SocialPost } from "../social-post-data";
+import { replayAssetIntelligence } from "../asset-intelligence/asset-intelligence-replay";
 import { replayMarketingMemory } from "../marketing-memory/marketing-memory-replay";
 import { replaySeasonalIntelligence } from "../seasonal-intelligence/seasonal-intelligence-replay";
 import { buildCampaignPlanner } from "./campaign-planner-service";
@@ -35,10 +36,17 @@ export function replayCampaignPlanner(input: {
     marketingMemory,
     asOf: input.generatedAt,
   });
+  const assetIntelligence = replayAssetIntelligence({
+    posts: input.posts,
+    campaigns: input.campaigns,
+    marketingMemory,
+    asOf: input.generatedAt,
+  });
   return buildCampaignPlanner({
     campaigns: input.campaigns.map(plannerCampaign),
     marketingMemory,
     seasonalIntelligence,
+    assetIntelligence,
     generatedAt: input.generatedAt,
   });
 }

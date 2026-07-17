@@ -1,3 +1,4 @@
+import type { AssetIntelligenceSnapshot } from "../asset-intelligence/asset-intelligence-types";
 import type { MarketingMemorySnapshot } from "../marketing-memory/marketing-memory-types";
 import type { SeasonalIntelligenceSnapshot } from "../seasonal-intelligence/seasonal-intelligence-types";
 
@@ -34,6 +35,7 @@ export type CampaignPlannerInput = Readonly<{
   campaigns: readonly CampaignPlannerCampaign[];
   marketingMemory: MarketingMemorySnapshot;
   seasonalIntelligence?: SeasonalIntelligenceSnapshot;
+  assetIntelligence?: AssetIntelligenceSnapshot;
   generatedAt?: string;
 }>;
 
@@ -48,8 +50,10 @@ export type CampaignPlannerSnapshot = Readonly<{
     reviewCount: number;
     duplicateRiskCount: number;
     activeSeasonalOpportunityCount: number;
+    readyAssetCampaignCount: number;
   }>;
   seasonalIntelligence: SeasonalIntelligenceSnapshot;
+  assetIntelligence: AssetIntelligenceSnapshot;
   constraints: Readonly<{
     readOnly: true;
     deterministic: true;
