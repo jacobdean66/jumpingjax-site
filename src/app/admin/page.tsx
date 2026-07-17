@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { loadTodayFocusItems } from "@/lib/admin/today-focus";
 import { AdminTokenGate } from "./AdminTokenGate";
 
 export const dynamic = "force-dynamic";
@@ -111,7 +112,13 @@ export default async function AdminHomePage({ searchParams }: Props) {
   const quickLinks = [
     { label: "Website Settings", href: `/admin/site-settings?${query}` },
     { label: "Recovery Snapshot", href: `/admin/recovery-snapshot?${query}` },
+    {
+      label: "Tax / bookings export",
+      href: `/admin/reports/tax-export?${query}`,
+    },
   ];
+
+  const focusItems = await loadTodayFocusItems().catch(() => []);
 
   return (
     <main className="min-h-screen bg-[#eef3f8] text-slate-950">
@@ -121,16 +128,34 @@ export default async function AdminHomePage({ searchParams }: Props) {
             Jumping Jax
           </Link>
           <nav className="flex flex-wrap gap-2 text-sm font-black">
-            <Link className="rounded-full bg-slate-950 px-4 py-2 text-white" href={`/admin?${query}`}>
+            <Link
+              className="rounded-full bg-slate-950 px-4 py-2 text-white"
+              href={`/admin?${query}`}
+            >
               Admin Home
             </Link>
-            <Link className="rounded-full bg-violet-600 px-4 py-2 text-white" href={`/admin/ai-ads?${query}`}>
+            <Link
+              className="rounded-full bg-pink-600 px-4 py-2 text-white"
+              href={`/admin/rentals?${query}`}
+            >
+              Rentals
+            </Link>
+            <Link
+              className="rounded-full bg-violet-600 px-4 py-2 text-white"
+              href={`/admin/ai-ads?${query}`}
+            >
               AI Ads
             </Link>
-            <Link className="rounded-full bg-sky-100 px-4 py-2 text-slate-950" href={`/admin/schedule?${query}`}>
+            <Link
+              className="rounded-full bg-sky-100 px-4 py-2 text-slate-950"
+              href={`/admin/schedule?${query}`}
+            >
               Schedule View
             </Link>
-            <Link className="rounded-full bg-emerald-100 px-4 py-2 text-slate-950" href={`/admin/deliveries?${query}`}>
+            <Link
+              className="rounded-full bg-emerald-100 px-4 py-2 text-slate-950"
+              href={`/admin/deliveries?${query}`}
+            >
               Route Planner
             </Link>
           </nav>
@@ -157,15 +182,30 @@ export default async function AdminHomePage({ searchParams }: Props) {
             <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
               Today&apos;s Focus
             </p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {["Schedule", "Routes", "Rentals", "AI Ads"].map((item) => (
-                <div key={item} className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm font-black">{item}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">
-                    Ready
-                  </p>
-                </div>
-              ))}
+            <div className="mt-4 grid max-h-[22rem] gap-2 overflow-y-auto">
+              {focusItems.length === 0 ? (
+                <p className="rounded-xl bg-slate-100 p-4 text-sm font-semibold text-slate-600">
+                  No bookings or tasks for today.
+                </p>
+              ) : (
+                focusItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="block rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-sky-300 hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                      {item.kind}
+                    </p>
+                    <p className="mt-1 text-sm font-black text-slate-950">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-600">
+                      {item.detail}
+                    </p>
+                  </Link>
+                ))
+              )}
             </div>
           </aside>
         </div>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import {
-  createGoogleCalendarEvent,
+  deleteGoogleCalendarDestinations,
   summarizeGoogleCalendarError,
+  syncGoogleCalendarDestinations,
 } from "@/lib/google/calendar";
 import {
   formatStoredFacilityAddons,
@@ -52,10 +53,11 @@ type FacilityBookingCalendarFields = {
   total: number | null;
   pricing_details: unknown;
   google_calendar_event_id: string | null;
+  google_calendar_secondary_event_id: string | null;
 };
 
 const FACILITY_BOOKING_SELECT =
-  "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id";
+  "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
 
 function numberOrZero(value: number | null): number {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -251,32 +253,65 @@ async function handleFacilityConfirm(
   let calendarEventId = booking.google_calendar_event_id as string | null;
   if (action === "confirm") {
     try {
-      if (!booking.google_calendar_event_id) {
-        const eventId = await createGoogleCalendarEvent({
-          title: `${booking.party_label} - ${booking.customer_name}`,
-          description: formatFacilityCalendarDescription(booking),
-          start: booking.start_time,
-          end: booking.end_time,
-          calendarId: facilityCalendarId,
-          idempotencyKey: `facility-${id}-calendar-v1`,
+      const sync = await syncGoogleCalendarDestinations({
+        title: `${booking.party_label} - ${booking.customer_name}`,
+        description: formatFacilityCalendarDescription(booking),
+        start: booking.start_time,
+        end: booking.end_time,
+        idempotencyKeyBase: `facility-${id}-calendar-v1`,
+        primaryEventId: booking.google_calendar_event_id,
+        secondaryEventId: booking.google_calendar_secondary_event_id,
+        primaryCalendarId: facilityCalendarId,
+      });
+      calendarEventId = sync.primaryEventId;
+      if (sync.primaryStatus === "failed" || sync.secondaryStatus === "failed") {
+        calendarFailed = true;
+        console.error("[api/facility/confirm] partial calendar sync", {
+          primaryStatus: sync.primaryStatus,
+          secondaryStatus: sync.secondaryStatus,
         });
-        calendarEventId = eventId ?? null;
-        const { error: calendarIdError } = await supabase
-          .from("facility_bookings")
-          .update({ google_calendar_event_id: eventId })
-          .eq("id", booking.id);
-        if (calendarIdError) {
-          calendarFailed = true;
-          console.error(
-            "[api/facility/confirm] facility calendar id save error",
-            calendarIdError,
-          );
-        }
+      }
+      const { error: calendarIdError } = await supabase
+        .from("facility_bookings")
+        .update({
+          // Never clear a known event id with null on a failed destination sync;
+          // retries must update the same events instead of creating duplicates.
+          google_calendar_event_id:
+            sync.primaryEventId ?? booking.google_calendar_event_id,
+          google_calendar_secondary_event_id:
+            sync.secondaryEventId ??
+            booking.google_calendar_secondary_event_id,
+        })
+        .eq("id", booking.id);
+      if (calendarIdError) {
+        calendarFailed = true;
+        console.error(
+          "[api/facility/confirm] facility calendar id save error",
+          calendarIdError,
+        );
       }
     } catch (calendarError) {
       calendarFailed = true;
       console.error(
         "GOOGLE CALENDAR ERROR",
+        summarizeGoogleCalendarError(calendarError),
+      );
+    }
+  }
+
+  if (action === "reject") {
+    try {
+      const deletion = await deleteGoogleCalendarDestinations({
+        primaryEventId: booking.google_calendar_event_id,
+        secondaryEventId: booking.google_calendar_secondary_event_id,
+        primaryCalendarId: facilityCalendarId,
+      });
+      if (deletion.primaryStatus === "failed" || deletion.secondaryStatus === "failed") {
+        console.error("[api/facility/confirm] calendar delete partial failure", deletion);
+      }
+    } catch (calendarError) {
+      console.error(
+        "[api/facility/confirm] calendar delete error",
         summarizeGoogleCalendarError(calendarError),
       );
     }

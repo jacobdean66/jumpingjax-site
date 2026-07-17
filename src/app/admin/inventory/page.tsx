@@ -11,6 +11,10 @@ import {
   type AdminInventoryItem,
 } from "@/lib/admin/inventory";
 import {
+  emptyInventoryCounts,
+  loadInventoryRentalCounts,
+} from "@/lib/admin/inventory-counts";
+import {
   AdminAuthError,
   AdminHeader,
   AdminNav,
@@ -284,8 +288,13 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
 
   let items: AdminInventoryItem[] = [];
   let loadError: string | null = null;
+  let rentalCounts = new Map<
+    string,
+    { slug: string; pastRentals: number; futureBookings: number }
+  >();
   try {
     items = await loadAdminInventoryItems();
+    rentalCounts = await loadInventoryRentalCounts();
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Inventory could not load";
   }
@@ -419,15 +428,21 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                 No items are in this category yet.
               </div>
             ) : (
-              filteredItems.map((row) => (
-                <Link
+              filteredItems.map((row) => {
+                const counts =
+                  rentalCounts.get(row.slug) ?? emptyInventoryCounts(row.slug);
+                return (
+                <div
                   key={row.id}
-                  href={`/admin/inventory?${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`}
-                  className={`rounded-xl border p-4 transition hover:border-sky-300 hover:bg-sky-50 ${
+                  className={`rounded-xl border p-4 transition ${
                     item?.id === row.id
                       ? "border-sky-400 bg-sky-50"
                       : "border-slate-200 bg-white"
                   }`}
+                >
+                <Link
+                  href={`/admin/inventory?${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`}
+                  className="block hover:opacity-95"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -464,7 +479,23 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                     </span>
                   </div>
                 </Link>
-              ))
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/rentals?from=2020-01-01&to=${new Date().toISOString().slice(0, 10)}`}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700 hover:bg-slate-100"
+                  >
+                    Past rentals: {counts.pastRentals}
+                  </Link>
+                  <Link
+                    href={`/admin/rentals?from=${new Date().toISOString().slice(0, 10)}&to=2099-12-31`}
+                    className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-900 hover:bg-sky-100"
+                  >
+                    Future bookings: {counts.futureBookings}
+                  </Link>
+                </div>
+                </div>
+              );
+              })
             )}
           </div>
         </section>

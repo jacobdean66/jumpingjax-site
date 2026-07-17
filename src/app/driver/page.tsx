@@ -13,6 +13,7 @@ import {
   type DriverCloseoutReport,
 } from "@/lib/admin/driver-closeout";
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
+import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
 import { PrintButton } from "@/app/admin/PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -352,86 +353,155 @@ function DriverPrintSheets({
   groups: { truck: string; bookings: AdminDeliveryBooking[] }[];
   date: string;
 }) {
+  const assignments = groups.flatMap((group) =>
+    groupByTrailerLoad(group.bookings).map((loadGroup) => ({
+      truck: group.truck,
+      load: loadGroup.load,
+      bookings: loadGroup.bookings,
+    })),
+  );
+
+  if (assignments.length === 0) {
+    return (
+      <section className="driver-print-only">
+        <h1>Jumping Jax Driver Sheet</h1>
+        <p>{formatDate(date)}</p>
+        <p>No assigned stops for this selection.</p>
+      </section>
+    );
+  }
+
   return (
-    <section className="driver-print-only hidden">
-      <div className="driver-print-title">
-        <div>
-          <h1>Jumping Jax Driver Routes</h1>
-          <p>{formatDate(date)}</p>
-        </div>
-        <p>{groups.reduce((total, group) => total + group.bookings.length, 0)} stops</p>
-      </div>
-      <div className="driver-print-load-grid">
-        {groups.flatMap((group) =>
-          groupByTrailerLoad(group.bookings).map((loadGroup) => {
-            return (
-              <section
-                key={`${group.truck}-${loadGroup.load}`}
-                className="driver-print-load"
-              >
-                <div className="driver-print-load-head">
-                  <h2>
-                    {truckLabel(group.truck)} - Load {loadGroup.load}
-                  </h2>
-                  <p>{loadGroup.bookings.length} stops</p>
-                </div>
-                <table className="driver-print-table">
-                  <thead>
-                    <tr>
-                      <th>Stop</th>
-                      <th>Times</th>
-                      <th>Customer / Address</th>
-                      <th>Rental</th>
-                      <th>Setup / Access</th>
-                      <th>Pay / Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadGroup.bookings.map((booking) => (
-                      <tr key={`${group.truck}-${loadGroup.load}-${booking.id}`}>
-                        <td>{bookingSequence(booking) === 999 ? "-" : bookingSequence(booking)}</td>
-                        <td>
-                          <p><strong>Arrive:</strong> {formatTime(booking.plannedArrivalTime)}</p>
-                          <p><strong>Party:</strong> {formatTime(booking.eventStartTime)}</p>
-                          <p><strong>Window:</strong> {booking.requestedDeliveryWindow ?? "Not set"}</p>
-                        </td>
-                        <td>
-                          <p><strong>{booking.customerName}</strong></p>
-                          <p>{booking.customerPhone ?? "No phone"}</p>
-                          <p>{booking.eventAddress ?? "No address"}</p>
-                        </td>
-                        <td>
-                          {booking.items.map((item) => (
-                            <p key={item.id}>{item.rental_name}</p>
-                          ))}
-                        </td>
-                        <td>
-                          <p><strong>Location:</strong> {booking.setupLocation ?? "Not set"}</p>
-                          <p><strong>Surface:</strong> {booking.setupSurface ?? "Not set"}</p>
-                          <p><strong>Access:</strong> {booking.setupAccess ?? "Not set"}</p>
-                          <p><strong>Setup:</strong> {booking.setupNotes ?? "None"}</p>
-                        </td>
-                        <td>
-                          <p><strong>Pay:</strong> {booking.paymentMethod ?? "Not set"}</p>
-                          <p><strong>Total:</strong> {formatMoney(booking.total)}</p>
-                          <p><strong>Status:</strong> {statusLabel(bookingStatus(booking))}</p>
-                          {booking.deliveryRouteNotes ? (
-                            <p><strong>Driver:</strong> {booking.deliveryRouteNotes}</p>
-                          ) : null}
-                          {booking.paymentConfirmationNotes ? (
-                            <p><strong>Payment note:</strong> {booking.paymentConfirmationNotes}</p>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            );
-          }),
-        )}
-      </div>
+    <section className="driver-print-only">
+      {assignments.map((assignment, index) => (
+        <article
+          key={`${assignment.truck}-${assignment.load}`}
+          id={`driver-sheet-${assignment.truck}-load-${assignment.load}`}
+          className={`driver-print-sheet${index > 0 ? " driver-print-sheet-break" : ""}`}
+        >
+          <header className="driver-print-sheet-head">
+            <div>
+              <h1>Jumping Jax Driver Sheet</h1>
+              <p>{formatDate(date)}</p>
+            </div>
+            <div>
+              <p>
+                <strong>Driver / Truck:</strong> {truckLabel(assignment.truck)}
+              </p>
+              <p>
+                <strong>Trailer load:</strong>{" "}
+                {assignment.load == null ? "Unassigned" : `Load ${assignment.load}`}
+              </p>
+              <p>
+                <strong>Stops:</strong> {assignment.bookings.length}
+              </p>
+            </div>
+          </header>
+          <table className="driver-print-table">
+            <thead>
+              <tr>
+                <th>Stop</th>
+                <th>Times</th>
+                <th>Customer / Address</th>
+                <th>Products</th>
+                <th>Setup / Notes</th>
+                <th>Payment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignment.bookings.map((booking) => (
+                <tr key={`${assignment.truck}-${assignment.load}-${booking.id}`}>
+                  <td>
+                    {bookingSequence(booking) === 999
+                      ? "Unassigned"
+                      : bookingSequence(booking)}
+                  </td>
+                  <td>
+                    <p>
+                      <strong>Arrive:</strong>{" "}
+                      {formatTime(booking.plannedArrivalTime)}
+                    </p>
+                    <p>
+                      <strong>Party:</strong> {formatTime(booking.eventStartTime)}
+                    </p>
+                    <p>
+                      <strong>Window:</strong>{" "}
+                      {booking.requestedDeliveryWindow ?? "Not set"}
+                    </p>
+                  </td>
+                  <td>
+                    <p>
+                      <strong>{booking.customerName}</strong>
+                    </p>
+                    <p>{booking.customerPhone ?? "No phone"}</p>
+                    <p>{booking.eventAddress ?? "No address"}</p>
+                  </td>
+                  <td>
+                    {booking.items.length === 0 ? (
+                      <p>No products listed</p>
+                    ) : (
+                      booking.items.map((item) => (
+                        <p key={item.id}>{item.rental_name}</p>
+                      ))
+                    )}
+                  </td>
+                  <td>
+                    <p>
+                      <strong>Location:</strong>{" "}
+                      {booking.setupLocation ?? "Not set"}
+                    </p>
+                    <p>
+                      <strong>Surface:</strong> {booking.setupSurface ?? "Not set"}
+                    </p>
+                    <p>
+                      <strong>Access:</strong> {booking.setupAccess ?? "Not set"}
+                    </p>
+                    <p>
+                      <strong>Setup:</strong> {booking.setupNotes ?? "None"}
+                    </p>
+                    {booking.deliveryRouteNotes ? (
+                      <p>
+                        <strong>Driver:</strong> {booking.deliveryRouteNotes}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td>
+                    <p>
+                      <strong>Pay:</strong> {booking.paymentMethod ?? "Not set"}
+                    </p>
+                    <p>
+                      <strong>Amount due:</strong> {formatMoney(booking.total)}
+                    </p>
+                    <p>
+                      <strong>Status:</strong> {statusLabel(bookingStatus(booking))}
+                    </p>
+                    {booking.paymentConfirmationNotes ? (
+                      <p>
+                        <strong>Payment note:</strong>{" "}
+                        {booking.paymentConfirmationNotes}
+                      </p>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+      ))}
     </section>
+  );
+}
+
+function buildDriverAssignments(
+  groups: { truck: string; bookings: AdminDeliveryBooking[] }[],
+) {
+  return groups.flatMap((group) =>
+    groupByTrailerLoad(group.bookings).map((loadGroup) => ({
+      truck: group.truck,
+      truckLabel: truckLabel(group.truck),
+      load: loadGroup.load,
+      stopCount: loadGroup.bookings.length,
+    })),
   );
 }
 
@@ -964,8 +1034,11 @@ export default async function DriverPage({ searchParams }: Props) {
           >
             Route Planner
           </Link>
-          <PrintButton label="Print Route" />
+          <PrintButton label="Print All Sheets" />
         </nav>
+        <DriverAssignmentPrintButtons
+          assignments={buildDriverAssignments(visibleGroups)}
+        />
         <header className="driver-screen-only rounded-2xl bg-slate-950 p-5 text-white shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">
             Jumping Jax Driver
