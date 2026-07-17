@@ -66,6 +66,16 @@ export default async function AdminContentDraftSpecificationPage({ searchParams 
               Creative brief intelligence
             </Link>
             <Link
+              href={
+                query
+                  ? `/admin/social-posts/draft-compliance-validator?${query}`
+                  : "/admin/social-posts/draft-compliance-validator"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Draft compliance validator
+            </Link>
+            <Link
               href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
             >
