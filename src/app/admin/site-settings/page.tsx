@@ -168,19 +168,39 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
       ) : null}
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-          Rental Catalog
-        </p>
-        <h2 className="mt-2 text-2xl font-black">Add or change rental items</h2>
-        <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
-          Rental item names, prices, descriptions, categories, photos, and
-          visibility are edited in the Inventory editor.
-        </p>
-        <p className="mt-5 text-sm font-bold text-amber-800">
-          The inventory editor is temporarily hidden while its authorization and
-          production workflow receive separate validation.
-        </p>
+      <section className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+            Rental Catalog
+          </p>
+          <h2 className="mt-2 text-2xl font-black">Inventory</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+            Edit rental item names, prices, descriptions, categories, photos,
+            and visibility in the Inventory editor.
+          </p>
+          <Link
+            href={settingsHref(token, "/admin/inventory")}
+            className="mt-5 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-200"
+          >
+            Open Inventory
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+            Reports
+          </p>
+          <h2 className="mt-2 text-2xl font-black">Tax / Booking Exports</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
+            Export booking records for bookkeeping by event date, created date,
+            or payment date.
+          </p>
+          <Link
+            href={settingsHref(token, "/admin/reports/tax-export")}
+            className="mt-5 inline-flex rounded-full bg-amber-300 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-200"
+          >
+            Open Tax / Booking Exports
+          </Link>
+        </div>
       </section>
 
       <form

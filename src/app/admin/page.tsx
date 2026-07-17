@@ -51,14 +51,13 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   if (!auth.ok) return <AuthError reason={auth.reason} />;
 
-  const query = "";
   const tools: AdminLink[] = [
     {
       title: "AI Ads",
       eyebrow: "Generator",
       description:
         "Create, tune, rate, and review AI ad videos before anything goes into marketing.",
-      href: `/admin/ai-ads?${query}`,
+      href: "/admin/ai-ads",
       cta: "Open AI ads",
       tone: "bg-violet-600 text-white",
     },
@@ -67,7 +66,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
       eyebrow: "Operations",
       description:
         "See bookings by day so rentals, facility parties, and setup timing stay organized.",
-      href: `/admin/schedule?${query}`,
+      href: "/admin/schedule",
       cta: "View schedule",
       tone: "bg-sky-500 text-slate-950",
     },
@@ -76,16 +75,34 @@ export default async function AdminHomePage({ searchParams }: Props) {
       eyebrow: "Deliveries",
       description:
         "Plan delivery order, setup notes, pickup timing, and route flow for the day.",
-      href: `/admin/deliveries?${query}`,
+      href: "/admin/deliveries",
       cta: "Plan routes",
       tone: "bg-emerald-500 text-slate-950",
+    },
+    {
+      title: "Damage Log",
+      eyebrow: "Inventory",
+      description:
+        "Log damaged inflatables, blowers, and gear so the team knows what still rents and what does not.",
+      href: "/admin/damage-log",
+      cta: "Open damage log",
+      tone: "bg-amber-400 text-slate-950",
+    },
+    {
+      title: "End of the Day",
+      eyebrow: "Operations",
+      description:
+        "Review completed stops, closeout notes, and leftover issues after deliveries finish.",
+      href: "/admin/end-of-day",
+      cta: "Open end of day",
+      tone: "bg-orange-400 text-slate-950",
     },
     {
       title: "Rental Dashboard",
       eyebrow: "Bookings",
       description:
         "Review rental requests, payments, customer details, and confirmation status.",
-      href: `/admin/rentals?${query}`,
+      href: "/admin/rentals",
       cta: "Open rentals",
       tone: "bg-pink-500 text-slate-950",
     },
@@ -94,7 +111,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
       eyebrow: "Bookings",
       description:
         "Manage party requests, time slots, payment status, and customer follow-up.",
-      href: `/admin/facility?${query}`,
+      href: "/admin/facility",
       cta: "Open facility",
       tone: "bg-lime-300 text-slate-950",
     },
@@ -102,20 +119,16 @@ export default async function AdminHomePage({ searchParams }: Props) {
       title: "Website Settings",
       eyebrow: "Owner Tools",
       description:
-        "Find rental item editing, facility party prices, business hours, and website text in one place.",
-      href: `/admin/site-settings?${query}`,
+        "Inventory editing, tax exports, facility party prices, business hours, and website text.",
+      href: "/admin/site-settings",
       cta: "Open settings",
       tone: "bg-cyan-300 text-slate-950",
     },
   ];
 
   const quickLinks = [
-    { label: "Website Settings", href: `/admin/site-settings?${query}` },
-    { label: "Recovery Snapshot", href: `/admin/recovery-snapshot?${query}` },
-    {
-      label: "Tax / bookings export",
-      href: `/admin/reports/tax-export?${query}`,
-    },
+    { label: "Website Settings", href: "/admin/site-settings" },
+    { label: "Recovery Snapshot", href: "/admin/recovery-snapshot" },
   ];
 
   const focusItems = await loadTodayFocusItems().catch(() => []);
@@ -130,33 +143,45 @@ export default async function AdminHomePage({ searchParams }: Props) {
           <nav className="flex flex-wrap gap-2 text-sm font-black">
             <Link
               className="rounded-full bg-slate-950 px-4 py-2 text-white"
-              href={`/admin?${query}`}
+              href="/admin"
             >
               Admin Home
             </Link>
             <Link
               className="rounded-full bg-pink-600 px-4 py-2 text-white"
-              href={`/admin/rentals?${query}`}
+              href="/admin/rentals"
             >
               Rentals
             </Link>
             <Link
               className="rounded-full bg-violet-600 px-4 py-2 text-white"
-              href={`/admin/ai-ads?${query}`}
+              href="/admin/ai-ads"
             >
               AI Ads
             </Link>
             <Link
               className="rounded-full bg-sky-100 px-4 py-2 text-slate-950"
-              href={`/admin/schedule?${query}`}
+              href="/admin/schedule"
             >
               Schedule View
             </Link>
             <Link
               className="rounded-full bg-emerald-100 px-4 py-2 text-slate-950"
-              href={`/admin/deliveries?${query}`}
+              href="/admin/deliveries"
             >
               Route Planner
+            </Link>
+            <Link
+              className="rounded-full bg-amber-100 px-4 py-2 text-slate-950"
+              href="/admin/damage-log"
+            >
+              Damage Log
+            </Link>
+            <Link
+              className="rounded-full bg-orange-100 px-4 py-2 text-slate-950"
+              href="/admin/end-of-day"
+            >
+              End of the Day
             </Link>
           </nav>
         </div>

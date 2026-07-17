@@ -986,7 +986,7 @@ export default async function DriverPage({ searchParams }: Props) {
           </p>
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
             <Link
-              href="/admin/staff"
+              href="/admin"
               className="rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white hover:bg-slate-800"
             >
               Staff Login

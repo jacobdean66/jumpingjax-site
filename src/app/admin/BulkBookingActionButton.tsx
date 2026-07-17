@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type BulkBookingActionButtonProps = {
@@ -15,8 +15,6 @@ export function BulkBookingActionButton({
   doneLabel = "Approved",
 }: BulkBookingActionButtonProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -49,12 +47,6 @@ export function BulkBookingActionButton({
       }
 
       setMessage(`${doneLabel} ${approved}`);
-      const nextParams = new URLSearchParams(searchParams.toString());
-      const currentStatus = nextParams.get("status");
-      if (!currentStatus || currentStatus === "all") {
-        nextParams.set("status", "pending");
-        router.replace(`${pathname}?${nextParams.toString()}`);
-      }
       router.refresh();
     } catch {
       setMessage(`${approved} approved, then the connection dropped.`);

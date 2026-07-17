@@ -64,7 +64,7 @@ export default async function TaxBookingsExportPage({ searchParams }: Props) {
   return (
     <AdminShell>
       <AdminHeader eyebrow="Reports" title="Tax / Bookings Export" />
-      <AdminNav token={token} role={auth.role} active="rentals" />
+      <AdminNav token={token} role={auth.role} active="tax-export" />
 
       <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
         This is a records export for bookkeeping preparation. It is not tax

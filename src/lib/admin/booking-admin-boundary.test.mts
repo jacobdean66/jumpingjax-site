@@ -30,11 +30,15 @@ test("admin action buttons can call confirmation routes with POST", () => {
   assert.match(read("../../app/api/facility/confirm/route.ts"), /export async function POST/);
 });
 
-test("rental submenu exposes inventory tools under Rentals without duplicating top-level entries", () => {
+test("website settings submenu exposes owner inventory tools; rentals submenu keeps ops tools", () => {
   const navigation = `${read("../../app/admin/_components.tsx")}\n${read("../../app/admin/page.tsx")}`;
   assert.match(navigation, /label: "Rentals"/);
   assert.match(navigation, /\/admin\/inventory/);
+  assert.match(navigation, /\/admin\/reports\/tax-export/);
+  assert.match(navigation, /Website Settings submenu/);
   assert.match(navigation, /Rentals submenu/);
+  assert.match(navigation, /\/admin\/damage-log/);
+  assert.match(navigation, /\/admin\/end-of-day/);
   for (const route of [
     "/admin/tasks",
     "/admin/staff",

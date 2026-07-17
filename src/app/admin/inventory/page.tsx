@@ -480,18 +480,12 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                   </div>
                 </Link>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    href={`/admin/rentals?from=2020-01-01&to=${new Date().toISOString().slice(0, 10)}`}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700 hover:bg-slate-100"
-                  >
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">
                     Past rentals: {counts.pastRentals}
-                  </Link>
-                  <Link
-                    href={`/admin/rentals?from=${new Date().toISOString().slice(0, 10)}&to=2099-12-31`}
-                    className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-900 hover:bg-sky-100"
-                  >
+                  </span>
+                  <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-900">
                     Future bookings: {counts.futureBookings}
-                  </Link>
+                  </span>
                 </div>
                 </div>
               );

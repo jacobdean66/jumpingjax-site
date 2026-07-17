@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type BookingActionButtonProps = {
@@ -17,8 +17,6 @@ export function BookingActionButton({
   tone,
 }: BookingActionButtonProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -48,12 +46,6 @@ export function BookingActionButton({
             ? "Cancelled"
             : "Confirmed",
       );
-      const nextParams = new URLSearchParams(searchParams.toString());
-      const currentStatus = nextParams.get("status");
-      if (!currentStatus || currentStatus === "all") {
-        nextParams.set("status", "pending");
-        router.replace(`${pathname}?${nextParams.toString()}`);
-      }
       router.refresh();
     } catch {
       setMessage("Could not reach the server. Try again.");

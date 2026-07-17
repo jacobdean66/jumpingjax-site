@@ -93,10 +93,12 @@ export function AdminNav({
   const query = "";
   const rentalActive =
     active === "rentals" ||
-    active === "inventory" ||
     active === "damage-log" ||
-    active === "tax-export" ||
     active === "end-of-day";
+  const settingsActive =
+    active === "site-settings" ||
+    active === "inventory" ||
+    active === "tax-export";
 
   const items = [
     { id: "home" as const, label: "Admin Home", href: `/admin${query}` },
@@ -127,12 +129,19 @@ export function AdminNav({
   ].filter((item): item is NonNullable<typeof item> => item !== null);
 
   // Top-level "Rentals" already opens bookings; keep the submenu for sibling
-  // rental tools only so Rentals is not duplicated in the nav.
+  // rental ops tools only so Rentals is not duplicated in the nav.
   const rentalSubnav = [
-    { label: "Inventory", href: `/admin/inventory${query}` },
     { label: "Damage log", href: `/admin/damage-log${query}` },
     { label: "End of day", href: `/admin/end-of-day${query}` },
-    { label: "Tax / bookings export", href: `/admin/reports/tax-export${query}` },
+  ];
+
+  // Owner catalog/report tools live under Website Settings, not Rentals.
+  const settingsSubnav = [
+    { label: "Inventory", href: `/admin/inventory${query}` },
+    {
+      label: "Tax / bookings export",
+      href: `/admin/reports/tax-export${query}`,
+    },
   ];
 
   return (
@@ -141,7 +150,11 @@ export function AdminNav({
         <AdminBackButton />
         {items.map((item) => {
           const isActive =
-            item.id === "rentals" ? rentalActive : active === item.id;
+            item.id === "rentals"
+              ? rentalActive
+              : item.id === "site-settings"
+                ? settingsActive
+                : active === item.id;
           const prominent = "prominent" in item && item.prominent;
           return (
             <Link
@@ -180,6 +193,22 @@ export function AdminNav({
               key={item.href}
               href={item.href}
               className="rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-black text-pink-950 hover:bg-pink-100"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      {role === "owner" && settingsActive ? (
+        <nav
+          aria-label="Website Settings submenu"
+          className="flex flex-wrap gap-2 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-2"
+        >
+          {settingsSubnav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-full border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-950 hover:bg-cyan-100"
             >
               {item.label}
             </Link>

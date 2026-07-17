@@ -298,7 +298,7 @@ export default async function Home() {
       </section>
 
       {/* CONTACT */}
-      <section id="contact" className="bg-white px-4 py-20 sm:px-6">
+      <section id="contact" className="scroll-mt-6 bg-white px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-5xl text-center">
           <span className="inline-flex rounded-full border border-pink-200 bg-pink-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-pink-800">
             Contact Us
