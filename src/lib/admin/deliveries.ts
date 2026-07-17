@@ -924,11 +924,138 @@ function fallbackDriveMinutesForState(
     : betweenStopsMinutes;
 }
 
+export const AUTO_PLAN_NO_STOPS_MESSAGE =
+  "No stops available to auto-plan for this date.";
+
+export type AutoPlanOptions = {
+  /** Planner window dates. Length > 1 uses multi-date work-date semantics. */
+  selectedDates?: Array<string | null | undefined>;
+};
+
+export type AutoPlanResult = {
+  date: string;
+  plannedCount: number;
+  message?: string;
+};
+
+export type AutoPlanCandidateItem = {
+  itemId: string;
+  bookingId: string;
+  deliveryDate: string | null;
+  eventDate: string;
+  eventAddress: string | null;
+  eventStartTime: string | null;
+  distanceMiles: number | null;
+  isBigSlide: boolean;
+  estimatedSetupMinutes: number;
+};
+
+/**
+ * Eligible auto-plan stops use the same work-date rules as the planner board:
+ * - single-date: null delivery_date falls back to event_date
+ * - multi-date: only explicit delivery_date === targetDate (no event_date fallback)
+ */
+export function collectAutoPlanRouteItems(
+  candidates: AutoPlanCandidateItem[],
+  targetDate: string,
+  singleDateMode: boolean,
+): PlannedRouteItem[] {
+  const items: PlannedRouteItem[] = [];
+  for (const candidate of candidates) {
+    const workDate = effectiveDeliveryWorkDate({
+      deliveryDate: candidate.deliveryDate,
+      eventDate: candidate.eventDate,
+      singleDateMode,
+    });
+    if (workDate !== targetDate) continue;
+    items.push({
+      itemId: candidate.itemId,
+      bookingId: candidate.bookingId,
+      deliveryDate: candidate.deliveryDate ?? targetDate,
+      eventAddress: candidate.eventAddress,
+      eventStartTime: candidate.eventStartTime,
+      distanceMiles: candidate.distanceMiles,
+      isBigSlide: candidate.isBigSlide,
+      estimatedSetupMinutes: candidate.estimatedSetupMinutes,
+    });
+  }
+  return items;
+}
+
+type AutoPlanDeps = {
+  loadDeliveries?: typeof loadAdminDeliveriesForDates;
+  loadMatrix?: typeof loadRouteMatrix;
+  updateItem?: (
+    itemId: string,
+    patch: Record<string, string | number | null>,
+  ) => Promise<void>;
+};
+
 export async function autoPlanDeliveriesForDate(
   rawDate: string | null | undefined,
-): Promise<{ date: string; plannedCount: number }> {
-  const deliveries = await loadAdminDeliveries(rawDate);
-  const supabase = createServiceRoleClient();
+  options?: AutoPlanOptions,
+  deps?: AutoPlanDeps,
+): Promise<AutoPlanResult> {
+  const targetDate = normalizeDeliveryDate(rawDate);
+  const selectedDates = normalizeSelectedDates(
+    options?.selectedDates?.length ? options.selectedDates : [targetDate],
+  );
+  const datesForLoad = selectedDates.includes(targetDate)
+    ? selectedDates
+    : normalizeSelectedDates([...selectedDates, targetDate]);
+  const singleDateMode = datesForLoad.length === 1;
+
+  const loadDeliveries = deps?.loadDeliveries ?? loadAdminDeliveriesForDates;
+  const loadMatrix = deps?.loadMatrix ?? loadRouteMatrix;
+  const deliveries = await loadDeliveries(datesForLoad);
+
+  const candidates: AutoPlanCandidateItem[] = deliveries.bookings.flatMap(
+    (booking) =>
+      booking.items.map((item) => ({
+        itemId: item.id,
+        bookingId: booking.id,
+        deliveryDate: item.deliveryDate,
+        eventDate: booking.eventDate,
+        eventAddress: booking.eventAddress,
+        eventStartTime: booking.eventStartTime,
+        distanceMiles: booking.distanceMiles,
+        isBigSlide: item.isBigSlide,
+        estimatedSetupMinutes: item.estimatedSetupMinutes,
+      })),
+  );
+
+  // Prefer scheduled delivery tasks (same board semantics as the visible day).
+  // Multi-date: tasks already exclude null delivery_date (no event_date fallback).
+  // Single-date: tasks include event_date fallback; bookings collect is a safety net.
+  const taskItems: PlannedRouteItem[] = deliveries.tasks
+    .filter(
+      (task) => task.workType === "delivery" && task.workDate === targetDate,
+    )
+    .map((task) => ({
+      itemId: task.itemId,
+      bookingId: task.bookingId,
+      deliveryDate: targetDate,
+      eventAddress: task.eventAddress,
+      eventStartTime: task.eventStartTime,
+      distanceMiles: task.distanceMiles,
+      isBigSlide: task.isBigSlide,
+      estimatedSetupMinutes: task.estimatedSetupMinutes,
+    }));
+
+  const routeItems = singleDateMode
+    ? taskItems.length > 0
+      ? taskItems
+      : collectAutoPlanRouteItems(candidates, targetDate, true)
+    : taskItems;
+
+  if (routeItems.length === 0) {
+    return {
+      date: targetDate,
+      plannedCount: 0,
+      message: AUTO_PLAN_NO_STOPS_MESSAGE,
+    };
+  }
+
   const dayStartMinutes = 7 * 60;
   const firstDriveMinutes = 45;
   const betweenStopsMinutes = 30;
@@ -951,25 +1078,23 @@ export async function autoPlanDeliveriesForDate(
     },
   };
 
-  const routeItems = deliveries.bookings.flatMap((booking) =>
-    booking.items.map((item) => ({
-      itemId: item.id,
-      bookingId: booking.id,
-      deliveryDate: item.deliveryDate ?? deliveries.date,
-      eventAddress: booking.eventAddress,
-      eventStartTime: booking.eventStartTime,
-      distanceMiles: booking.distanceMiles,
-      isBigSlide: item.isBigSlide,
-      estimatedSetupMinutes: item.estimatedSetupMinutes,
-    })),
-  );
-
-  const matrix = await loadRouteMatrix([
+  const matrix = await loadMatrix([
     SHOP_ADDRESS,
     ...routeItems
       .map((item) => item.eventAddress)
       .filter((address): address is string => Boolean(address)),
   ]);
+
+  const updateItem =
+    deps?.updateItem ??
+    (async (itemId, patch) => {
+      const supabase = createServiceRoleClient();
+      const { error } = await supabase
+        .from("booking_rental_items")
+        .update(patch)
+        .eq("id", itemId);
+      if (error) throw new Error(error.message);
+    });
 
   let plannedCount = 0;
   for (const item of routeItems.sort(sortRouteItems)) {
@@ -990,26 +1115,21 @@ export async function autoPlanDeliveriesForDate(
     );
     const setupEnd = setupStart + item.estimatedSetupMinutes;
 
-    const { error } = await supabase
-      .from("booking_rental_items")
-      .update({
-        delivery_truck: truck,
-        delivery_date: item.deliveryDate,
-        trailer_load: Math.ceil(state.sequence / truckCapacity),
-        delivery_sequence: state.sequence,
-        planned_arrival_time: timeFromMinutes(setupStart),
-        planned_setup_start: timeFromMinutes(setupStart),
-        planned_setup_end: timeFromMinutes(setupEnd),
-        estimated_setup_minutes: item.estimatedSetupMinutes,
-        delivery_route_status: "planned",
-        delivery_route_notes:
-          item.eventAddress && matrix.size > 0
-            ? `Drive from previous stop: ${leg.distanceMiles.toFixed(1)} mi, ${leg.durationMinutes} min.`
-            : null,
-      })
-      .eq("id", item.itemId);
-
-    if (error) throw new Error(error.message);
+    await updateItem(item.itemId, {
+      delivery_truck: truck,
+      delivery_date: item.deliveryDate,
+      trailer_load: Math.ceil(state.sequence / truckCapacity),
+      delivery_sequence: state.sequence,
+      planned_arrival_time: timeFromMinutes(setupStart),
+      planned_setup_start: timeFromMinutes(setupStart),
+      planned_setup_end: timeFromMinutes(setupEnd),
+      estimated_setup_minutes: item.estimatedSetupMinutes,
+      delivery_route_status: "planned",
+      delivery_route_notes:
+        item.eventAddress && matrix.size > 0
+          ? `Drive from previous stop: ${leg.distanceMiles.toFixed(1)} mi, ${leg.durationMinutes} min.`
+          : null,
+    });
 
     state.sequence += 1;
     state.availableAt = setupEnd;
@@ -1019,5 +1139,5 @@ export async function autoPlanDeliveriesForDate(
     plannedCount += 1;
   }
 
-  return { date: deliveries.date, plannedCount };
+  return { date: targetDate, plannedCount };
 }

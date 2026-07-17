@@ -8,11 +8,22 @@ type RouteMatrixElement = {
     message?: string;
   };
   condition?: string;
+  error?: {
+    code?: number;
+    message?: string;
+    status?: string;
+  };
 };
 
 export type RouteLegEstimate = {
   durationMinutes: number;
   distanceMiles: number;
+};
+
+export type GoogleRoutesApiError = {
+  code: number | null;
+  status: string | null;
+  message: string | null;
 };
 
 const ROUTES_MATRIX_ENDPOINT =
@@ -35,6 +46,62 @@ function normalizeAddress(value: string): string {
 
 export function routeLegKey(origin: string, destination: string): string {
   return `${normalizeAddress(origin)} -> ${normalizeAddress(destination)}`;
+}
+
+function readErrorObject(value: unknown): GoogleRoutesApiError | null {
+  if (!value || typeof value !== "object") return null;
+  const error = (value as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return null;
+  const record = error as {
+    code?: unknown;
+    status?: unknown;
+    message?: unknown;
+  };
+  const code = typeof record.code === "number" ? record.code : null;
+  const status = typeof record.status === "string" ? record.status : null;
+  const message = typeof record.message === "string" ? record.message : null;
+  if (code == null && !status && !message) return null;
+  return { code, status, message };
+}
+
+/** Supports both `{ error }` and `[{ error }]` Google Routes failure bodies. */
+export function extractGoogleRoutesError(data: unknown): GoogleRoutesApiError | null {
+  if (Array.isArray(data)) {
+    for (const entry of data) {
+      const found = readErrorObject(entry);
+      if (found) return found;
+    }
+    return null;
+  }
+  return readErrorObject(data);
+}
+
+export function adminMessageForGoogleRoutesError(
+  error: GoogleRoutesApiError | null,
+): string {
+  if (!error || (!error.message && !error.status && error.code == null)) {
+    return "Google Routes API could not calculate the route matrix.";
+  }
+
+  const parts: string[] = [];
+  if (error.status) parts.push(error.status);
+  if (error.code != null) parts.push(`code ${error.code}`);
+  if (error.message) parts.push(error.message);
+  return `Google Routes API error: ${parts.join(" — ")}`;
+}
+
+function logGoogleRoutesFailure(args: {
+  httpStatus: number;
+  error: GoogleRoutesApiError | null;
+  bodyKind: string;
+}) {
+  console.error("[google/routes] computeRouteMatrix failed", {
+    httpStatus: args.httpStatus,
+    bodyKind: args.bodyKind,
+    googleCode: args.error?.code ?? null,
+    googleStatus: args.error?.status ?? null,
+    googleMessage: args.error?.message ?? null,
+  });
 }
 
 export async function loadRouteMatrix(
@@ -72,17 +139,30 @@ export async function loadRouteMatrix(
 
   const data = (await res.json().catch(() => null)) as
     | RouteMatrixElement[]
-    | { error?: { message?: string } }
+    | { error?: { code?: number; message?: string; status?: string } }
     | null;
 
-  if (!res.ok || !Array.isArray(data)) {
-    const message =
-      data && !Array.isArray(data) ? data.error?.message : null;
-    throw new Error(message || "Google Routes API could not calculate the route matrix.");
+  const googleError = extractGoogleRoutesError(data);
+  const bodyKind = Array.isArray(data)
+    ? "array"
+    : data && typeof data === "object"
+      ? "object"
+      : data == null
+        ? "unparseable"
+        : typeof data;
+
+  if (!res.ok || googleError || !Array.isArray(data)) {
+    logGoogleRoutesFailure({
+      httpStatus: res.status,
+      error: googleError,
+      bodyKind,
+    });
+    throw new Error(adminMessageForGoogleRoutesError(googleError));
   }
 
   const matrix = new Map<string, RouteLegEstimate>();
   for (const element of data) {
+    if (element.error) continue;
     if (
       typeof element.originIndex !== "number" ||
       typeof element.destinationIndex !== "number" ||
