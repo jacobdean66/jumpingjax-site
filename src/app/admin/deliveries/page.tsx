@@ -1,30 +1,25 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import {
-  loadAdminDeliveries,
-  normalizeDeliveryDate,
+  loadAdminDeliveriesForDates,
 } from "@/lib/admin/deliveries";
+import { parseDatesFromSearchParams } from "@/lib/admin/delivery-planner-dates";
 import { DeliveryPlannerClient } from "./DeliveryPlannerClient";
+import { DeliveryDateSelector } from "./DeliveryDateSelector";
 
 export const dynamic = "force-dynamic";
 
 type Props = {
   searchParams?: Promise<{
     date?: string;
+    dates?: string;
+    work?: string;
+    truck?: string;
+    load?: string;
+    status?: string;
   }>;
 };
-
-function addDays(ymd: string, days: number): string {
-  const [year, month, day] = ymd.split("-").map(Number);
-  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-  date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function adminHref(date: string): string {
-  const params = new URLSearchParams({ date });
-  return `/admin/deliveries?${params.toString()}`;
-}
 
 function SummaryTile({
   label,
@@ -58,7 +53,10 @@ function withTimeout<T>(
 
 export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const resolved = await searchParams;
-  const date = normalizeDeliveryDate(resolved?.date);
+  const dates = parseDatesFromSearchParams({
+    date: resolved?.date,
+    dates: resolved?.dates,
+  });
   const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
@@ -80,8 +78,8 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   }
 
   const deliveriesResult = await withTimeout(
-    loadAdminDeliveries(date),
-    2500,
+    loadAdminDeliveriesForDates(dates),
+    4000,
     "Supabase route planner data timed out.",
   )
     .then((deliveries) => ({ deliveries, error: null }))
@@ -106,25 +104,10 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
               Route Planner
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Active rental requests for this date. Review the truck sheets,
-              open the maps, and save the plan after any changes.
+              Plan deliveries, setups, and pickups across multiple work dates.
+              Routes stay separate by day.
             </p>
           </div>
-
-          <form className="flex flex-col gap-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
-            <label className="text-sm font-bold text-slate-700">
-              Date
-              <input
-                type="date"
-                name="date"
-                defaultValue={deliveries?.date ?? date}
-                className="mt-1 block rounded-xl border border-sky-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-              />
-            </label>
-            <button className="rounded-full bg-sky-500 px-5 py-3 text-sm font-black text-white transition hover:bg-sky-600">
-              Load
-            </button>
-          </form>
         </div>
 
         <nav className="mt-5 flex flex-wrap gap-2 text-sm font-black print:hidden">
@@ -138,6 +121,12 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
             AI Ads
           </Link>
         </nav>
+
+        <div className="mt-5">
+          <Suspense fallback={<div className="rounded-2xl bg-white p-4 text-sm font-bold">Loading dates…</div>}>
+            <DeliveryDateSelector initialDates={dates} />
+          </Suspense>
+        </div>
 
         {deliveriesResult.error && (
           <section className="mt-6 rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
@@ -159,68 +148,39 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
 
         {!deliveries ? null : (
           <>
+            <div className="mt-6 grid gap-4 print:hidden sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              <SummaryTile label="Bookings" value={deliveries.summary.bookingCount} />
+              <SummaryTile
+                label="Deliveries"
+                value={deliveries.summary.deliveryTaskCount}
+              />
+              <SummaryTile
+                label="Pickups"
+                value={deliveries.summary.pickupTaskCount}
+              />
+              <SummaryTile
+                label="Unscheduled"
+                value={deliveries.summary.unscheduledCount}
+              />
+              <SummaryTile
+                label="Inflatables"
+                value={deliveries.summary.inflatableCount}
+              />
+              <SummaryTile
+                label="Big slides"
+                value={deliveries.summary.bigSlideCount}
+              />
+              <SummaryTile
+                label="Setup time"
+                value={`${deliveries.summary.estimatedSetupMinutes} min`}
+              />
+            </div>
 
-        <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold print:hidden">
-          <Link
-            href={adminHref(addDays(deliveries.date, -1))}
-            className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
-          >
-            Previous day
-          </Link>
-          <Link
-            href={adminHref(addDays(deliveries.date, 1))}
-            className="rounded-full border border-sky-200 bg-white px-4 py-2 text-sky-800 hover:bg-sky-100"
-          >
-            Next day
-          </Link>
-        </div>
-
-        <div className="mt-6 grid gap-4 print:hidden sm:grid-cols-2 lg:grid-cols-5">
-          <SummaryTile label="Bookings" value={deliveries.summary.bookingCount} />
-          <SummaryTile
-            label="Inflatables"
-            value={deliveries.summary.inflatableCount}
-          />
-          <SummaryTile
-            label="Big slides"
-            value={deliveries.summary.bigSlideCount}
-          />
-          <SummaryTile
-            label="Friday delivery"
-            value={deliveries.summary.fridayDeliveryCount}
-          />
-          <SummaryTile
-            label="Setup time"
-            value={`${deliveries.summary.estimatedSetupMinutes} min`}
-          />
-        </div>
-
-        {deliveries.bookings.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-sky-100 bg-white p-8 text-center shadow-sm">
-            <p className="text-lg font-bold">No active rentals found.</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Rental requests for this date will show here automatically.
-            </p>
-          </div>
-        ) : (
-          <DeliveryPlannerClient deliveries={deliveries} />
-        )}
+            <Suspense fallback={null}>
+              <DeliveryPlannerClient deliveries={deliveries} />
+            </Suspense>
           </>
         )}
-        {/* <div className="mt-8 grid gap-5">
-          {deliveries.bookings.length === 0 ? (
-            <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center shadow-sm">
-              <p className="text-lg font-bold">No approved rentals found.</p>
-              <p className="mt-2 text-sm text-slate-600">
-                Approve a rental booking for this date, then reload this board.
-              </p>
-            </div>
-          ) : (
-            deliveries.bookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
-            ))
-          )}
-        </div> */}
       </section>
     </main>
   );
