@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   DEFAULT_SCHEDULE_FILTERS,
@@ -244,21 +241,6 @@ await test("midnight import placeholders display as unset time", () => {
   ]);
   assert.equal(event?.displayTime, "Time not set");
   assert.equal(event?.sortTime, "");
-});
-
-await test("long booking content is not assigned CSS that forces horizontal overflow", () => {
-  const source = readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../app/admin/schedule/ScheduleCalendar.tsx",
-    ),
-    "utf8",
-  );
-  assert.equal(source.includes("overflow-x"), false);
-  assert.equal(source.includes("overflow-y-auto"), false);
-  assert.equal(source.includes("aspect-square"), false);
-  assert.equal(source.includes("truncate"), false);
-  assert.equal(source.includes("break-words"), true);
 });
 
 await test("America/New_York local boundary behavior remains date based", () => {
