@@ -118,6 +118,7 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
           dayHref={scheduleHref("day", focus)}
           weekHref={scheduleHref("week", focus)}
           monthHref={scheduleHref("month", focus)}
+          focusMonth={focus.getMonth()}
         />
       </section>
     </AdminShell>
