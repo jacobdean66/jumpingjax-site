@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -21,19 +22,6 @@ type Props = {
     postId?: string;
   }>;
 };
-
-const HUB_NAV: readonly [string, string][] = [
-  ["/admin/social-posts", "Hub"],
-  ["/admin/social-posts/working-context", "Working context"],
-  ["/admin/social-posts/publication-manifest", "Publication manifest"],
-  ["/admin/social-posts/publication-scheduler", "Publication scheduler"],
-  ["/admin/social-posts/publication-publisher", "Publication publisher"],
-  ["/admin/social-posts/publication-metrics", "Publication metrics"],
-  ["/admin/social-posts/publication-ledger", "Publication ledger"],
-  ["/admin/social-posts/publication-learning", "Publication learning"],
-  ["/admin/social-posts/publication-execution", "Publication execution"],
-  ["/admin/social-posts/memory", "Campaign memory"],
-];
 
 function withToken(href: string, token: string): string {
   if (!token) return href;
@@ -63,45 +51,16 @@ export default async function AdminAiOperationsConsolePage({ searchParams }: Pro
 
   const samplePosts = postId ? [] : await loadKnownPostSample(5);
   const allDiagnostics = [...overview.diagnostics, ...pipelineDiagnostics];
+  const query = token ? `token=${encodeURIComponent(token)}` : "";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              AI Operations Console
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              D9 read-only, GET-only overview across every passive AI subsystem: Decision
-              History, Campaign Memory, Working Context, Publication Manifest, Owner
-              Approval, Publication Targets, Publication Ledger, Scheduler, Publisher,
-              Metrics, and Learning. This console never approves, publishes, schedules,
-              promotes, trains, or executes anything &mdash; it only reads and explains
-              what already exists.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {HUB_NAV.map(([href, label]) => (
-              <Link
-                key={href}
-                href={withToken(href, token)}
-                className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-              >
-                {label}
-              </Link>
-            ))}
-            <Link
-              href={withToken("/admin", token)}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Admin home
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="AI Operations Console"
+          description="D9 read-only, GET-only overview across every passive AI subsystem: Decision History, Campaign Memory, Working Context, Publication Manifest, Owner Approval, Publication Targets, Publication Ledger, Scheduler, Publisher, Metrics, and Learning. This console never approves, publishes, schedules, promotes, trains, or executes anything — it only reads and explains what already exists."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <p className="font-black uppercase tracking-[0.12em]">Read-only console</p>

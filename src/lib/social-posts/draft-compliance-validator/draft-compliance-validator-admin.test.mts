@@ -16,6 +16,10 @@ const SPEC_SOURCE = readFileSync(
   `${DIRECTORY}../../../app/admin/social-posts/content-draft-specification/page.tsx`,
   "utf8",
 );
+const NAV_SOURCE = readFileSync(
+  `${DIRECTORY}../../../app/admin/social-posts/SocialPostsNav.tsx`,
+  "utf8",
+);
 
 test("draft compliance validator admin page uses established authenticated server rendering", () => {
   assert.match(PAGE_SOURCE, /verifyAdminAccess\(token\)/);
@@ -56,11 +60,13 @@ test("draft compliance validator admin page renders fixture evaluations", () => 
 });
 
 test("social posts hub links to the authenticated draft compliance validator page", () => {
-  assert.match(HUB_SOURCE, /\/admin\/social-posts\/draft-compliance-validator/);
-  assert.match(HUB_SOURCE, /Draft compliance validator/i);
+  assert.match(HUB_SOURCE, /SocialPostsPageHeader/);
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/draft-compliance-validator/);
+  assert.match(NAV_SOURCE, /Draft compliance validator/i);
 });
 
 test("content draft specification page links to draft compliance validator", () => {
-  assert.match(SPEC_SOURCE, /\/admin\/social-posts\/draft-compliance-validator/);
-  assert.match(SPEC_SOURCE, /Draft compliance validator/i);
+  assert.match(SPEC_SOURCE, /SocialPostsPageHeader/);
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/draft-compliance-validator/);
+  assert.match(NAV_SOURCE, /Draft compliance validator/i);
 });

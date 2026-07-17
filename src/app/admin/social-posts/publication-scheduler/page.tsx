@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -111,88 +111,6 @@ function toReadFilter(filters: SchedulerFilters): SocialPublicationSchedulerRead
     publicationManifestId: filters.publicationManifestId || undefined,
     state: filters.state || undefined,
   };
-}
-
-function schedulerPublicationLedgerHref(filters: SchedulerFilters, token: string): string {
-  const params = new URLSearchParams();
-  if (token) params.set("token", token);
-  if (filters.socialPostId) params.set("postId", filters.socialPostId);
-  if (filters.publicationManifestId) {
-    params.set("manifestId", filters.publicationManifestId);
-  }
-  if (filters.publicationTargetId) {
-    params.set("publicationTargetId", filters.publicationTargetId);
-  }
-
-  const query = params.toString();
-  return query
-    ? `/admin/social-posts/publication-ledger?${query}`
-    : "/admin/social-posts/publication-ledger";
-}
-
-function schedulerPublicationManifestHref(filters: SchedulerFilters, token: string): string {
-  const params = new URLSearchParams();
-  if (token) params.set("token", token);
-  if (filters.socialPostId) params.set("postId", filters.socialPostId);
-
-  const query = params.toString();
-  return query
-    ? `/admin/social-posts/publication-manifest?${query}`
-    : "/admin/social-posts/publication-manifest";
-}
-
-function schedulerPublicationPublisherHref(filters: SchedulerFilters, token: string): string {
-  const params = new URLSearchParams();
-  if (token) params.set("token", token);
-  if (filters.scheduleId) params.set("scheduleId", filters.scheduleId);
-  if (filters.socialPostId) params.set("postId", filters.socialPostId);
-  if (filters.publicationManifestId) {
-    params.set("manifestId", filters.publicationManifestId);
-  }
-  if (filters.publicationTargetId) {
-    params.set("publicationTargetId", filters.publicationTargetId);
-  }
-
-  const query = params.toString();
-  return query
-    ? `/admin/social-posts/publication-publisher?${query}`
-    : "/admin/social-posts/publication-publisher";
-}
-
-function schedulerPublicationMetricsHref(filters: SchedulerFilters, token: string): string {
-  const params = new URLSearchParams();
-  if (token) params.set("token", token);
-  if (filters.scheduleId) params.set("scheduleId", filters.scheduleId);
-  if (filters.socialPostId) params.set("postId", filters.socialPostId);
-  if (filters.publicationManifestId) {
-    params.set("manifestId", filters.publicationManifestId);
-  }
-  if (filters.publicationTargetId) {
-    params.set("publicationTargetId", filters.publicationTargetId);
-  }
-
-  const query = params.toString();
-  return query
-    ? `/admin/social-posts/publication-metrics?${query}`
-    : "/admin/social-posts/publication-metrics";
-}
-
-function schedulerPublicationExecutionHref(filters: SchedulerFilters, token: string): string {
-  const params = new URLSearchParams();
-  if (token) params.set("token", token);
-  if (filters.scheduleId) params.set("scheduleId", filters.scheduleId);
-  if (filters.socialPostId) params.set("postId", filters.socialPostId);
-  if (filters.publicationManifestId) {
-    params.set("manifestId", filters.publicationManifestId);
-  }
-  if (filters.publicationTargetId) {
-    params.set("publicationTargetId", filters.publicationTargetId);
-  }
-
-  const query = params.toString();
-  return query
-    ? `/admin/social-posts/publication-execution?${query}`
-    : "/admin/social-posts/publication-execution";
 }
 
 function activeFilterLabels(filters: SchedulerFilters): readonly string[] {
@@ -666,85 +584,15 @@ export default async function AdminPublicationSchedulerPage({
   const loaded = await loadScheduler(filters);
   const replay = replaySocialPublicationScheduler(loaded.model, { asOf }).value;
   const query = token ? `token=${encodeURIComponent(token)}` : "";
-  const ledgerHref = schedulerPublicationLedgerHref(filters, token);
-  const manifestHref = schedulerPublicationManifestHref(filters, token);
-  const publisherHref = schedulerPublicationPublisherHref(filters, token);
-  const metricsHref = schedulerPublicationMetricsHref(filters, token);
-  const executionHref = schedulerPublicationExecutionHref(filters, token);
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Publication Scheduler
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              H13 read-only visibility for scheduler intent records and computed
-              replay state. This page reads through the scheduler bridge only and
-              does not create, update, delete, publish, run workers, record
-              metrics, or learn.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={publisherHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication publisher
-            </Link>
-            <Link
-              href={ledgerHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication ledger
-            </Link>
-            <Link
-              href={manifestHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication manifest
-            </Link>
-            <Link
-              href={metricsHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication metrics
-            </Link>
-            <Link
-              href={
-                query
-                  ? `/admin/social-posts/publication-learning?${query}`
-                  : "/admin/social-posts/publication-learning"
-              }
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication learning
-            </Link>
-            <Link
-              href={executionHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication execution
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts/operations?${query}` : "/admin/social-posts/operations"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              AI Operations Console
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication Scheduler"
+          description="H13 read-only visibility for scheduler intent records and computed replay state. This page reads through the scheduler bridge only and does not create, update, delete, publish, run workers, record metrics, or learn."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">

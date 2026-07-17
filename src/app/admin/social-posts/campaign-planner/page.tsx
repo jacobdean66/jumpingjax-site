@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { replayCampaignPlanner } from "@/lib/social-posts/campaign-planner/campaign-planner-replay";
@@ -33,39 +33,13 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Campaign Planner Preview
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Read-only campaign rotation guidance based on Marketing Memory. This preview does not create drafts, schedule posts, or publish anything.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={
-                query
-                  ? `/admin/social-posts/creative-brief-intelligence?${query}`
-                  : "/admin/social-posts/creative-brief-intelligence"
-              }
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Creative brief intelligence
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Campaign Planner Preview"
+          description="Read-only campaign rotation guidance based on Marketing Memory. This preview does not create drafts, schedule posts, or publish anything."
+          query={query}
+        />
 
         {loadError ? (
           <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-950">
