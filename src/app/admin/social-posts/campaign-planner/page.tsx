@@ -47,12 +47,24 @@ export default async function AdminCampaignPlannerPage({ searchParams }: Props) 
               Read-only campaign rotation guidance based on Marketing Memory. This preview does not create drafts, schedule posts, or publish anything.
             </p>
           </div>
-          <Link
-            href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-          >
-            Social posts
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={
+                query
+                  ? `/admin/social-posts/creative-brief-intelligence?${query}`
+                  : "/admin/social-posts/creative-brief-intelligence"
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
+            >
+              Creative brief intelligence
+            </Link>
+            <Link
+              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Social posts
+            </Link>
+          </div>
         </header>
 
         {loadError ? (
