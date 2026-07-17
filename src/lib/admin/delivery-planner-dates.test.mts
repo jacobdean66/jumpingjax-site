@@ -216,4 +216,22 @@ await test("groupTasksByWorkDate and conflict warnings", () => {
   );
 });
 
+await test("todayYmd is America/New_York safe around UTC midnight", async () => {
+  const { todayYmd } = await import("./delivery-planner-dates");
+  assert.equal(todayYmd(new Date("2026-07-18T02:30:00.000Z")), "2026-07-17");
+  assert.equal(todayYmd(new Date("2026-07-18T04:30:00.000Z")), "2026-07-18");
+});
+
+await test("todayYmd handles EST, EDT, and year boundaries", async () => {
+  const { todayYmd } = await import("./delivery-planner-dates");
+  // EST: 2026-01-01 04:30 UTC = 2025-12-31 23:30 EST
+  assert.equal(todayYmd(new Date("2026-01-01T04:30:00.000Z")), "2025-12-31");
+  // EST: 2026-01-01 05:30 UTC = 2026-01-01 00:30 EST
+  assert.equal(todayYmd(new Date("2026-01-01T05:30:00.000Z")), "2026-01-01");
+  // EDT spring forward morning
+  assert.equal(todayYmd(new Date("2026-03-08T06:30:00.000Z")), "2026-03-08");
+  // EDT fall back evening still prior calendar day in NY
+  assert.equal(todayYmd(new Date("2026-11-01T03:30:00.000Z")), "2026-10-31");
+});
+
 console.log("All delivery-planner-dates tests passed.");

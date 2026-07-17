@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildDriverEventsSignature } from "@/lib/admin/driver-app";
 import { loadDriverCloseoutReports } from "@/lib/admin/driver-closeout";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadAdminDeliveries, normalizeDeliveryDate } from "@/lib/admin/deliveries";
@@ -13,23 +14,30 @@ function deliverySignature({
   result: Awaited<ReturnType<typeof loadAdminDeliveries>>;
   closeouts: Awaited<ReturnType<typeof loadDriverCloseoutReports>>;
 }) {
-  return JSON.stringify({
+  return buildDriverEventsSignature({
     date: result.date,
+    tasks: result.tasks.map((task) => ({
+      id: task.id,
+      itemId: task.itemId,
+      workType: task.workType,
+      workDate: task.workDate,
+      truck: task.truck,
+      trailerLoad: task.trailerLoad,
+      sequence: task.sequence,
+      status: task.routeStatus,
+      arrival: task.plannedArrivalTime,
+      notes: task.routeNotes,
+    })),
+    unscheduled: result.unscheduled.map((task) => ({
+      id: task.id,
+      workType: task.workType,
+      workDate: task.workDate,
+      truck: task.truck,
+    })),
     bookings: result.bookings.map((booking) => ({
       id: booking.id,
-      truck: booking.deliveryTruck,
-      sequence: booking.deliverySequence,
-      status: booking.deliveryRouteStatus,
-      arrival: booking.plannedArrivalTime,
       paymentConfirmedAt: booking.paymentConfirmedAt,
       paymentConfirmedBy: booking.paymentConfirmedBy,
-      items: booking.items.map((item) => ({
-        id: item.id,
-        truck: item.deliveryTruck,
-        sequence: item.deliverySequence,
-        status: item.deliveryRouteStatus,
-        arrival: item.plannedArrivalTime,
-      })),
     })),
     closeouts: closeouts.map((report) => ({
       id: report.id,
@@ -71,7 +79,7 @@ function sleep(ms: number, signal: AbortSignal) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const auth = await verifyAdminAccess();
+  const auth = await verifyAdminAccess(searchParams.get("token"));
   if (!auth.ok) {
     return NextResponse.json({ error: "Invalid driver login" }, { status: 401 });
   }
