@@ -41,6 +41,7 @@ export type CreativeBriefAuthoritativePrice = Readonly<{
   id: string;
   label: string;
   amountUsd: number;
+  priceKind: "starting-price" | "package-price";
 }>;
 
 export type CreativeBriefAuthoritativeFacts = Readonly<{
@@ -49,6 +50,11 @@ export type CreativeBriefAuthoritativeFacts = Readonly<{
   state: string;
   rentalStartingPrices: readonly CreativeBriefAuthoritativePrice[];
   facilityPackagePrices: readonly CreativeBriefAuthoritativePrice[];
+  /**
+   * Explicit campaignId → authoritative price ids (rental slug or facility package id).
+   * Price claims are fail-closed: absent or empty selectors yield no price facts.
+   */
+  campaignPriceIds?: Readonly<Record<string, readonly string[]>>;
 }>;
 
 export type CreativeBriefAudience = Readonly<{

@@ -91,8 +91,9 @@ function audienceFor(
   const assumptions: string[] = [];
   let serviceAreaContext: string | null = null;
   if (facts && facts.serviceAreas.length > 0) {
+    const areas = facts.serviceAreas.slice().sort((left, right) => left.localeCompare(right));
     serviceAreaContext =
-      `Configured service area centered on ${facts.city}, ${facts.state}: ${facts.serviceAreas.join(", ")}.`;
+      `Configured service area centered on ${facts.city}, ${facts.state}: ${areas.join(", ")}.`;
   } else {
     assumptions.push(
       "Service-area copy is omitted because authoritative location facts were not supplied.",
@@ -109,7 +110,7 @@ function audienceFor(
 
 function callToActionFor(campaign: CampaignPlannerCampaign): string {
   if (campaign.businessFocus === "facility-parties") {
-    return "Invite families to inquire about facility party packages and available party rooms.";
+    return "Invite families to inquire about facility party packages and party rooms.";
   }
   if (campaign.businessFocus === "both") {
     return "Invite families to explore rental options or facility party packages.";
@@ -258,40 +259,98 @@ function aspectRatioNeeds(
   return uniqueSorted(needs);
 }
 
-function tokenize(...values: readonly string[]): readonly string[] {
-  return uniqueSorted(
-    values.flatMap((value) =>
-      value
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((token) => token.length >= 3),
-    ),
-  );
+/**
+ * Fail-closed default allowlist. Broad token matching is intentionally not used:
+ * generic words like party/water/slide previously attached unrelated catalog prices.
+ */
+const DEFAULT_CAMPAIGN_PRICE_IDS: Readonly<Record<string, readonly string[]>> = {
+  "private-parties": ["private-weekend-90", "private-weekend-120"],
+};
+
+function priceAllowedForBusinessFocus(
+  campaign: CampaignPlannerCampaign,
+  price: CreativeBriefAuthoritativePrice,
+): boolean {
+  if (campaign.businessFocus === "rentals") {
+    return price.source === "rental-catalog";
+  }
+  if (campaign.businessFocus === "facility-parties") {
+    return price.source === "facility-package";
+  }
+  return true;
 }
 
-function relevantPrices(
+function selectedPriceIds(
   campaign: CampaignPlannerCampaign,
-  facts: CreativeBriefAuthoritativeFacts | null,
-): readonly CreativeBriefAuthoritativePrice[] {
-  if (!facts) return [];
-  const tokens = tokenize(
-    campaign.id,
-    campaign.label,
-    campaign.description,
-    ...campaign.goalTemplates,
-  );
+  facts: CreativeBriefAuthoritativeFacts,
+): readonly string[] {
+  if (
+    facts.campaignPriceIds != null &&
+    Object.prototype.hasOwnProperty.call(facts.campaignPriceIds, campaign.id)
+  ) {
+    return uniqueSorted(facts.campaignPriceIds[campaign.id] ?? []);
+  }
+  return uniqueSorted(DEFAULT_CAMPAIGN_PRICE_IDS[campaign.id] ?? []);
+}
 
-  return [...facts.rentalStartingPrices, ...facts.facilityPackagePrices]
-    .filter((price) => {
-      const haystack = `${price.id} ${price.label}`.toLowerCase();
-      return tokens.some((token) => haystack.includes(token));
-    })
+export type CreativeBriefPriceSelection = Readonly<{
+  prices: readonly CreativeBriefAuthoritativePrice[];
+  ambiguous: boolean;
+  missingSelectedIds: readonly string[];
+  warning: string | null;
+}>;
+
+export function selectAuthoritativePrices(input: {
+  campaign: CampaignPlannerCampaign;
+  facts: CreativeBriefAuthoritativeFacts | null;
+}): CreativeBriefPriceSelection {
+  if (!input.facts) {
+    return { prices: [], ambiguous: false, missingSelectedIds: [], warning: null };
+  }
+
+  const selectedIds = selectedPriceIds(input.campaign, input.facts);
+  if (selectedIds.length === 0) {
+    return {
+      prices: [],
+      ambiguous: false,
+      missingSelectedIds: [],
+      warning: null,
+    };
+  }
+
+  const catalog = [...input.facts.rentalStartingPrices, ...input.facts.facilityPackagePrices];
+  const byId = new Map(catalog.map((price) => [price.id, price]));
+  const missingSelectedIds = selectedIds.filter((id) => !byId.has(id));
+  const matched = selectedIds
+    .map((id) => byId.get(id))
+    .filter((price): price is CreativeBriefAuthoritativePrice => price != null)
+    .filter((price) => priceAllowedForBusinessFocus(input.campaign, price))
     .slice()
     .sort((left, right) =>
       left.source.localeCompare(right.source) ||
       left.id.localeCompare(right.id) ||
       left.label.localeCompare(right.label),
     );
+
+  // Multiple explicitly allowlisted ids are treated as intentional option sets
+  // (for example private package durations), not ambiguous token collisions.
+  return {
+    prices: matched,
+    ambiguous: false,
+    missingSelectedIds,
+    warning:
+      missingSelectedIds.length > 0
+        ? `Configured price id(s) were missing from authoritative facts: ${missingSelectedIds.join(", ")}.`
+        : null,
+  };
+}
+
+function formatPriceClaim(price: CreativeBriefAuthoritativePrice): string {
+  const kindLabel =
+    price.priceKind === "package-price"
+      ? "package price reference"
+      : "catalog starting-price reference";
+  return `${price.label} ${kindLabel} is $${price.amountUsd.toFixed(2)} (${price.source}).`;
 }
 
 function buildProhibitedClaims(input: {
@@ -475,7 +534,11 @@ export function buildCreativeBrief(input: {
     planner: input.planner,
   });
   const seasonal = seasonalUrgencyGuidance(seasonalMatches);
-  const prices = relevantPrices(input.campaign, input.authoritativeFacts);
+  const priceSelection = selectAuthoritativePrices({
+    campaign: input.campaign,
+    facts: input.authoritativeFacts,
+  });
+  const prices = priceSelection.prices;
   const requiredNewAssets = requiredAssetsFromAssessment(input.campaign, assessment);
   const formatInfo = contentFormatFor(input.campaign, assessment);
   const placementInfo = placementsFor(assessment, seasonalMatches);
@@ -500,14 +563,16 @@ export function buildCreativeBrief(input: {
     ...input.candidate.reasons.slice(0, 3),
     ...prices.map(
       (price) =>
-        `Authoritative ${price.source} price for ${price.label}: $${price.amountUsd.toFixed(2)}.`,
+        `Authoritative ${price.source} ${price.priceKind} for ${price.label}: $${price.amountUsd.toFixed(2)}.`,
     ),
   ]);
 
   const offerOrValueProposition =
-    prices.length > 0
-      ? `Lead with catalog-backed value using only verified prices for: ${prices.map((price) => price.label).join("; ")}.`
-      : "Lead with convenience, clean setup, and local family-friendly fun without stating unverified prices.";
+    prices.length > 1
+      ? `Lead with catalog-backed value using only these verified price options: ${prices.map((price) => price.label).join("; ")}.`
+      : prices.length === 1
+        ? `Lead with catalog-backed value using only the verified ${prices[0]!.priceKind} for ${prices[0]!.label}.`
+        : "Lead with convenience, clean setup, and local family-friendly fun without stating unverified prices.";
 
   const missingFacts: string[] = [];
   if (!input.authoritativeFacts) {
@@ -518,6 +583,11 @@ export function buildCreativeBrief(input: {
   if (input.campaign.id === "last-minute-availability") {
     missingFacts.push(
       "Live booking availability was not supplied and must not be invented.",
+    );
+  }
+  if (priceSelection.missingSelectedIds.length > 0) {
+    missingFacts.push(
+      `Configured authoritative price id(s) are missing: ${priceSelection.missingSelectedIds.join(", ")}.`,
     );
   }
   if (
@@ -542,6 +612,7 @@ export function buildCreativeBrief(input: {
     "Creative Brief Intelligence is structured and rule-based; it does not generate final captions or media.",
     "Planner ranking and scores are preserved from Campaign Planner.",
     "Unsupported business facts become assumptions, warnings, or prohibited claims.",
+    "Price claims require explicit campaign-to-price id mapping; generic token matching is not used.",
     ...audience.assumptions,
     ...(assessment?.assumptions ?? []),
   ]);
@@ -551,6 +622,7 @@ export function buildCreativeBrief(input: {
     ...(assessment?.warnings ?? []),
     ...seasonal.warnings,
     ...memory.repetitionWarnings,
+    ...(priceSelection.warning ? [priceSelection.warning] : []),
     ...(placementInfo.confidence === "unknown"
       ? [
           "Recommended placements are guidance only because asset dimensions or placement support are unknown.",
@@ -570,10 +642,7 @@ export function buildCreativeBrief(input: {
   const safeFactualClaims = uniqueSorted([
     `Campaign objective reference: ${primaryMessage}`,
     ...(audience.serviceAreaContext ? [audience.serviceAreaContext] : []),
-    ...prices.map(
-      (price) =>
-        `${price.label} catalog starting reference is $${price.amountUsd.toFixed(2)} (${price.source}).`,
-    ),
+    ...prices.map(formatPriceClaim),
     ...seasonalMatches.map(
       (match) =>
         `${match.name} seasonal lifecycle is ${match.lifecycleState} as of the evaluation date.`,

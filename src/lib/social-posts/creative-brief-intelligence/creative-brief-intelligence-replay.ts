@@ -36,6 +36,7 @@ export function projectAuthoritativeCreativeBriefFacts(): CreativeBriefAuthorita
       id: rental.slug,
       label: rental.title,
       amountUsd: rental.startingPrice,
+      priceKind: "starting-price" as const,
     }))
     .sort((left, right) =>
       left.id.localeCompare(right.id) || left.label.localeCompare(right.label),
@@ -47,18 +48,21 @@ export function projectAuthoritativeCreativeBriefFacts(): CreativeBriefAuthorita
       id: "public-room-10",
       label: "Public room package (10 guests)",
       amountUsd: DEFAULT_FACILITY_PRICING.publicRoom10,
+      priceKind: "package-price" as const,
     },
     {
       source: "facility-package" as const,
       id: "private-weekend-90",
       label: "Private party weekend 90 minutes",
       amountUsd: DEFAULT_FACILITY_PRICING.privateWeekend90,
+      priceKind: "package-price" as const,
     },
     {
       source: "facility-package" as const,
       id: "private-weekend-120",
       label: "Private party weekend 120 minutes",
       amountUsd: DEFAULT_FACILITY_PRICING.privateWeekend120,
+      priceKind: "package-price" as const,
     },
   ].sort((left, right) => left.id.localeCompare(right.id));
 

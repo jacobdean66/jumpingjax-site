@@ -113,6 +113,21 @@ function facts(overrides: Partial<CreativeBriefAuthoritativeFacts> = {}): Creati
         id: "blue-waterfall",
         label: "Blue Waterfall Slide",
         amountUsd: 275,
+        priceKind: "starting-price",
+      },
+      {
+        source: "rental-catalog",
+        id: "foam-party",
+        label: "Foam Party",
+        amountUsd: 200,
+        priceKind: "starting-price",
+      },
+      {
+        source: "rental-catalog",
+        id: "basic-bounce",
+        label: "Basic Bounce House",
+        amountUsd: 150,
+        priceKind: "starting-price",
       },
     ],
     facilityPackagePrices: [
@@ -121,8 +136,17 @@ function facts(overrides: Partial<CreativeBriefAuthoritativeFacts> = {}): Creati
         id: "private-weekend-90",
         label: "Private party weekend 90 minutes",
         amountUsd: 220,
+        priceKind: "package-price",
+      },
+      {
+        source: "facility-package",
+        id: "private-weekend-120",
+        label: "Private party weekend 120 minutes",
+        amountUsd: 255,
+        priceKind: "package-price",
       },
     ],
+    campaignPriceIds: {},
     ...overrides,
   };
 }
@@ -314,11 +338,114 @@ test("6. authoritative prices may appear as safe factual claims", () => {
         height: 1080,
       }),
     ],
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "summer-water-slides": ["blue-waterfall"],
+      },
+    }),
   });
   const claims = snapshot.briefs[0]!.safeFactualClaims.join(" ");
   assert.match(claims, /Blue Waterfall Slide/);
   assert.match(claims, /275/);
+  assert.match(claims, /starting-price/);
   assert.equal(claims.toLowerCase().includes("50% off"), false);
+  assert.equal(claims.includes("Foam Party"), false);
+});
+
+test("6b. generic tokens do not attach unrelated catalog or facility prices", () => {
+  const snapshot = buildPipeline({
+    campaigns: [
+      plannerCampaign({
+        id: "birthday-parties",
+        label: "Birthday Parties",
+        description: "Promote easy birthday party planning with water slide fun.",
+        businessFocus: "both",
+        goalTemplates: ["Promote birthday party bookings"],
+      }),
+      plannerCampaign({
+        id: "customer-testimonials",
+        label: "Customer Testimonials",
+        description: "Frame social proof and parent-friendly trust.",
+        goalTemplates: ["Promote clean and safe local family fun"],
+      }),
+      plannerCampaign({
+        id: "summer-water-slides",
+        label: "Summer Water Slides",
+        description: "Push high-energy summer slide rentals for hot weekends.",
+        goalTemplates: ["Promote water slides for hot weather"],
+      }),
+    ],
+    authoritativeFacts: facts({
+      campaignPriceIds: {},
+    }),
+  });
+
+  for (const brief of snapshot.briefs) {
+    const priceClaims = brief.safeFactualClaims.filter((claim) => /\$\d/.test(claim));
+    assert.equal(
+      priceClaims.length,
+      0,
+      `${brief.campaignId} unexpectedly claimed prices: ${priceClaims.join(" | ")}`,
+    );
+  }
+});
+
+test("6c. explicit allowlist attaches only selected ids and preserves price kind", () => {
+  const snapshot = buildPipeline({
+    campaigns: [
+      plannerCampaign({
+        id: "private-parties",
+        label: "Private Parties",
+        description: "Promote private party bookings",
+        businessFocus: "facility-parties",
+        goalTemplates: ["Promote private party bookings"],
+      }),
+    ],
+    assets: [
+      asset({
+        id: "private",
+        title: "Private Room",
+        mediaType: "video",
+        width: 1080,
+        height: 1920,
+        matchingTerms: ["private", "party", "facility"],
+      }),
+    ],
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "private-parties": ["private-weekend-90"],
+      },
+    }),
+  });
+  const brief = snapshot.briefs[0]!;
+  const claims = brief.safeFactualClaims.join(" ");
+  assert.match(claims, /Private party weekend 90 minutes/);
+  assert.match(claims, /package price reference/);
+  assert.equal(claims.includes("Blue Waterfall Slide"), false);
+  assert.equal(claims.includes("Foam Party"), false);
+  assert.equal(claims.includes("120 minutes"), false);
+});
+
+test("6d. business-focus gate blocks rental prices on facility campaigns", () => {
+  const snapshot = buildPipeline({
+    campaigns: [
+      plannerCampaign({
+        id: "private-parties",
+        label: "Private Parties",
+        description: "Promote private party bookings",
+        businessFocus: "facility-parties",
+        goalTemplates: ["Promote private party bookings"],
+      }),
+    ],
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "private-parties": ["blue-waterfall", "private-weekend-90"],
+      },
+    }),
+  });
+  const claims = snapshot.briefs[0]!.safeFactualClaims.join(" ");
+  assert.equal(claims.includes("Blue Waterfall Slide"), false);
+  assert.match(claims, /Private party weekend 90 minutes/);
 });
 
 test("7. unknown price handling omits invented amounts", () => {
@@ -529,16 +656,24 @@ test("15. unrelated campaign isolation keeps private parties away from summer bo
       }),
     ],
     asOf: "2026-07-16T16:00:00.000Z",
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "private-parties": ["private-weekend-90"],
+      },
+    }),
   });
   const brief = snapshot.briefs[0]!;
   assert.equal(brief.campaignId, "private-parties");
-  const seasonalText = [
+  const text = [
     ...brief.seasonalContext.matchedOpportunityKeys,
     brief.seasonalContext.urgencyGuidance ?? "",
     ...brief.messageStrategy.supportingProofPoints,
+    ...brief.safeFactualClaims,
   ].join(" ").toLowerCase();
-  // Private parties should not inherit unrelated water-slide inventory claims.
-  assert.equal(seasonalText.includes("blue waterfall slide"), false);
+  assert.equal(text.includes("blue waterfall slide"), false);
+  assert.equal(text.includes("foam party"), false);
+  assert.match(brief.messageStrategy.callToAction, /party rooms/i);
+  assert.doesNotMatch(brief.messageStrategy.callToAction, /available party rooms/i);
 });
 
 test("16. no invented local dates events or availability in safe claims", () => {
