@@ -20,7 +20,8 @@
   --sp-warning: #f2b85b;
   --sp-danger: #d8646f;
   --sp-danger-hover: #e07a83;
-  --sp-focus: #5fa8ff;
+  --sp-focus: #7dd3fc;
+  --sp-focus-ring: rgba(125, 211, 252, 0.4);
   --sp-success-bg: #0f2f2a;
   --sp-success-border: #1f6b5c;
   --sp-success-text: #9fe8d8;
@@ -38,13 +39,33 @@
   --sp-neutral-text: #c5d2e3;
   --sp-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 
+  /* Cover the full viewport so cream root body never peeks through */
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
   background: var(--sp-bg);
   color: var(--sp-text);
 }
 
+.social-posts-theme *,
+.social-posts-theme *::before,
+.social-posts-theme *::after {
+  box-sizing: border-box;
+}
+
 .social-posts-theme .sp-page {
-  min-height: 100vh;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100%;
   background: transparent;
   color: var(--sp-text);
   padding: 2rem 1rem;
@@ -67,13 +88,17 @@
 .social-posts-theme .sp-container {
   margin-inline: auto;
   width: 100%;
-  max-width: 80rem;
+  max-width: min(80rem, 100%);
+  min-width: 0;
 }
 
 .social-posts-theme .sp-header {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 1.25rem 1.25rem 1.35rem;
   border: 1px solid var(--sp-border);
   border-radius: 1.25rem;
@@ -146,6 +171,7 @@
 
 .social-posts-theme .sp-nav-link {
   display: inline-flex;
+  max-width: 100%;
   min-height: 2.15rem;
   align-items: center;
   justify-content: center;
@@ -155,8 +181,12 @@
   padding: 0.35rem 0.8rem;
   font-size: 0.78rem;
   font-weight: 800;
+  line-height: 1.25;
   color: var(--sp-text-secondary);
+  text-align: center;
   text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -167,11 +197,6 @@
   background: #1e395c;
   border-color: var(--sp-border-strong);
   color: var(--sp-text);
-}
-
-.social-posts-theme .sp-nav-link:focus-visible {
-  outline: 2px solid var(--sp-focus);
-  outline-offset: 2px;
 }
 
 .social-posts-theme .sp-nav-link[aria-current="page"] {
@@ -266,6 +291,7 @@
 
 /* Inputs */
 .social-posts-theme :is(input, select, textarea) {
+  max-width: 100%;
   background-color: var(--sp-input) !important;
   border-color: var(--sp-border) !important;
   color: var(--sp-text) !important;
@@ -275,14 +301,6 @@
 .social-posts-theme :is(input, select, textarea)::placeholder {
   color: var(--sp-text-muted) !important;
   opacity: 1;
-}
-
-.social-posts-theme :is(input, select, textarea):focus,
-.social-posts-theme :is(input, select, textarea):focus-visible {
-  border-color: var(--sp-border-strong) !important;
-  outline: 2px solid var(--sp-focus) !important;
-  outline-offset: 1px !important;
-  box-shadow: none !important;
 }
 
 .social-posts-theme select option {
@@ -388,6 +406,7 @@
   background: var(--sp-card);
   border-color: var(--sp-border);
   color: var(--sp-text);
+  max-width: none;
 }
 
 .social-posts-theme thead {
@@ -411,13 +430,6 @@
 .social-posts-theme .aspect-video,
 .social-posts-theme .aspect-square {
   background-color: var(--sp-input);
-}
-
-/* Focus for buttons/links not already covered */
-.social-posts-theme a:focus-visible,
-.social-posts-theme button:focus-visible {
-  outline: 2px solid var(--sp-focus);
-  outline-offset: 2px;
 }
 
 /* Checkbox / radio accent */
@@ -460,10 +472,112 @@
 /* Code / mono IDs */
 .social-posts-theme :is(code, pre, .font-mono) {
   color: var(--sp-text-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-/* Prevent cream body bleed around the themed route */
+/* --- Responsive containment: fix overflow without blanket hiding --- */
+
+.social-posts-theme :is(.grid, .flex) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.social-posts-theme :is(.grid, .flex) > * {
+  min-width: 0;
+}
+
+.social-posts-theme .shrink-0 {
+  min-width: auto;
+}
+
+.social-posts-theme .truncate {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.social-posts-theme :is(a, p, li, span, label, td, th, dd, dt, h1, h2, h3, h4) {
+  overflow-wrap: anywhere;
+}
+
+.social-posts-theme .overflow-x-auto {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.social-posts-theme img,
+.social-posts-theme video,
+.social-posts-theme canvas,
+.social-posts-theme svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Final defensive clip after content can shrink; does not replace min-w-0 fixes */
 .social-posts-theme {
-  margin: 0;
-  width: 100%;
+  overflow-x: clip;
+}
+
+/* --- Focus-visible system (keyboard only) --- */
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus {
+  outline: none;
+}
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--sp-focus) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px var(--sp-focus-ring) !important;
+}
+
+.social-posts-theme :is(input, select, textarea):focus-visible {
+  border-color: var(--sp-primary) !important;
+}
+
+.social-posts-theme :is(input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline-offset: 4px !important;
+}
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):disabled:focus-visible,
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+)[aria-disabled="true"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
