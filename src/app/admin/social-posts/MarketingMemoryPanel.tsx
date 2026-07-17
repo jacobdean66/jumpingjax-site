@@ -11,7 +11,7 @@ function HistoryList({
   items: readonly MarketingMemoryHistoryItem[];
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
         {title}
       </p>
@@ -20,8 +20,10 @@ function HistoryList({
       ) : (
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {items.slice(0, 5).map((item) => (
-            <li key={item.value} className="flex justify-between gap-3">
-              <span className="truncate font-semibold">{item.value}</span>
+            <li key={item.value} className="flex min-w-0 justify-between gap-3">
+              <span className="min-w-0 truncate font-semibold" title={item.value}>
+                {item.value}
+              </span>
               <span className="shrink-0 font-black">{item.count}</span>
             </li>
           ))}
@@ -37,7 +39,7 @@ export default function MarketingMemoryPanel({
   memory: MarketingMemorySnapshot;
 }) {
   return (
-    <section className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="min-w-0 rounded-2xl border border-violet-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-2 border-b border-slate-200 pb-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
           Marketing Memory

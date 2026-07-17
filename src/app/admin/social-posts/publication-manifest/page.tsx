@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
@@ -521,49 +521,10 @@ export default async function AdminPublicationManifestPage({
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   const postId = resolved?.postId?.trim() ?? "";
-  const query = token ? `token=${encodeURIComponent(token)}` : "";
-  const ledgerHref = postId
-    ? query
-      ? `/admin/social-posts/publication-ledger?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-ledger?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-ledger?${query}`
-      : "/admin/social-posts/publication-ledger";
-  const schedulerHref = postId
-    ? query
-      ? `/admin/social-posts/publication-scheduler?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-scheduler?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-scheduler?${query}`
-      : "/admin/social-posts/publication-scheduler";
-  const publisherHref = postId
-    ? query
-      ? `/admin/social-posts/publication-publisher?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-publisher?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-publisher?${query}`
-      : "/admin/social-posts/publication-publisher";
-  const metricsHref = postId
-    ? query
-      ? `/admin/social-posts/publication-metrics?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-metrics?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-metrics?${query}`
-      : "/admin/social-posts/publication-metrics";
-  const learningHref = postId
-    ? query
-      ? `/admin/social-posts/publication-learning?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-learning?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-learning?${query}`
-      : "/admin/social-posts/publication-learning";
-  const executionHref = postId
-    ? query
-      ? `/admin/social-posts/publication-execution?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-execution?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-execution?${query}`
-      : "/admin/social-posts/publication-execution";
+  const navParams = new URLSearchParams();
+  if (token) navParams.set("token", token);
+  if (postId) navParams.set("postId", postId);
+  const query = navParams.toString();
   let manifest: PublicationManifest | null = null;
   let readiness: PublicationReadiness | null = null;
   const ownerApprovalSummary = postId
@@ -578,82 +539,13 @@ export default async function AdminPublicationManifestPage({
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Publication Manifest
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              D6.0 read-only, post-scoped manifest plus D6.1 computed
-              readiness for requesting owner approval.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={publisherHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication publisher
-            </Link>
-            <Link
-              href={ledgerHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication ledger
-            </Link>
-            <Link
-              href={schedulerHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication scheduler
-            </Link>
-            <Link
-              href={metricsHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication metrics
-            </Link>
-            <Link
-              href={learningHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication learning
-            </Link>
-            <Link
-              href={executionHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication execution
-            </Link>
-            <Link
-              href={
-                query
-                  ? `/admin/social-posts/working-context?${query}`
-                  : "/admin/social-posts/working-context"
-              }
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Working context
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts/operations?${query}` : "/admin/social-posts/operations"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              AI Operations Console
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication Manifest"
+          description="D6.0 read-only, post-scoped manifest plus D6.1 computed readiness for requesting owner approval."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">

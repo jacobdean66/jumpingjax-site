@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -565,149 +565,21 @@ export default async function AdminPublicationLedgerPage({
   }
 
   const replay = replaySocialPublicationLedger(model).value;
-  const query = token ? `token=${encodeURIComponent(token)}` : "";
-  const manifestHref = postId
-    ? query
-      ? `/admin/social-posts/publication-manifest?${query}&postId=${encodeURIComponent(postId)}`
-      : `/admin/social-posts/publication-manifest?postId=${encodeURIComponent(postId)}`
-    : query
-      ? `/admin/social-posts/publication-manifest?${query}`
-      : "/admin/social-posts/publication-manifest";
-  const schedulerParams = new URLSearchParams();
-  if (token) schedulerParams.set("token", token);
-  if (postId) schedulerParams.set("postId", postId);
-  if (manifestId) schedulerParams.set("manifestId", manifestId);
-  if (publicationTargetId) {
-    schedulerParams.set("publicationTargetId", publicationTargetId);
-  }
-  const schedulerQuery = schedulerParams.toString();
-  const schedulerHref = schedulerQuery
-    ? `/admin/social-posts/publication-scheduler?${schedulerQuery}`
-    : "/admin/social-posts/publication-scheduler";
-  const publisherParams = new URLSearchParams();
-  if (token) publisherParams.set("token", token);
-  if (postId) publisherParams.set("postId", postId);
-  if (manifestId) publisherParams.set("manifestId", manifestId);
-  if (publicationTargetId) {
-    publisherParams.set("publicationTargetId", publicationTargetId);
-  }
-  const publisherQuery = publisherParams.toString();
-  const publisherHref = publisherQuery
-    ? `/admin/social-posts/publication-publisher?${publisherQuery}`
-    : "/admin/social-posts/publication-publisher";
-  const metricsParams = new URLSearchParams();
-  if (token) metricsParams.set("token", token);
-  if (postId) metricsParams.set("postId", postId);
-  if (manifestId) metricsParams.set("manifestId", manifestId);
-  if (publicationTargetId) {
-    metricsParams.set("publicationTargetId", publicationTargetId);
-  }
-  const metricsQuery = metricsParams.toString();
-  const metricsHref = metricsQuery
-    ? `/admin/social-posts/publication-metrics?${metricsQuery}`
-    : "/admin/social-posts/publication-metrics";
-  const learningParams = new URLSearchParams();
-  if (token) learningParams.set("token", token);
-  if (postId) learningParams.set("postId", postId);
-  if (manifestId) learningParams.set("manifestId", manifestId);
-  if (publicationTargetId) {
-    learningParams.set("publicationTargetId", publicationTargetId);
-  }
-  const learningQuery = learningParams.toString();
-  const learningHref = learningQuery
-    ? `/admin/social-posts/publication-learning?${learningQuery}`
-    : "/admin/social-posts/publication-learning";
-  const executionParams = new URLSearchParams();
-  if (token) executionParams.set("token", token);
-  if (postId) executionParams.set("postId", postId);
-  if (manifestId) executionParams.set("manifestId", manifestId);
-  if (publicationTargetId) {
-    executionParams.set("publicationTargetId", publicationTargetId);
-  }
-  const executionQuery = executionParams.toString();
-  const executionHref = executionQuery
-    ? `/admin/social-posts/publication-execution?${executionQuery}`
-    : "/admin/social-posts/publication-execution";
+  const navParams = new URLSearchParams();
+  if (token) navParams.set("token", token);
+  if (postId) navParams.set("postId", postId);
+  if (manifestId) navParams.set("manifestId", manifestId);
+  if (publicationTargetId) navParams.set("publicationTargetId", publicationTargetId);
+  const query = navParams.toString();
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Publication Ledger
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              H6 read-only visibility for computed Publication Ledger replay
-              state. This page loads durable ledger records through the H5 bridge,
-              displays derived replay output only, and does not write ledger
-              records or grant publication authority.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={publisherHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication publisher
-            </Link>
-            <Link
-              href={manifestHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication manifest
-            </Link>
-            <Link
-              href={schedulerHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication scheduler
-            </Link>
-            <Link
-              href={metricsHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication metrics
-            </Link>
-            <Link
-              href={learningHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication learning
-            </Link>
-            <Link
-              href={executionHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Publication execution
-            </Link>
-            <Link
-              href={
-                query
-                  ? `/admin/social-posts/working-context?${query}`
-                  : "/admin/social-posts/working-context"
-              }
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Working context
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts/operations?${query}` : "/admin/social-posts/operations"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              AI Operations Console
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication Ledger"
+          description="H6 read-only visibility for computed Publication Ledger replay state. This page loads durable ledger records through the H5 bridge, displays derived replay output only, and does not write ledger records or grant publication authority."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">

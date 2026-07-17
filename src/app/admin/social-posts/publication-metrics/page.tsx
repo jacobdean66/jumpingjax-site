@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -264,7 +264,7 @@ export default async function AdminPublicationMetricsPage({ searchParams }: Prop
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return (
-        <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-950">
+        <main className="sp-page">
           <div className="mx-auto max-w-3xl rounded-lg border border-rose-200 bg-white p-6">
             <h1 className="text-2xl font-black">Admin access required</h1>
             <p className="mt-2 text-sm font-semibold text-slate-600">
@@ -297,43 +297,17 @@ export default async function AdminPublicationMetricsPage({ searchParams }: Prop
   const { loadState, model } = await loadMetrics(filters);
   const replay = replaySocialPublicationMetrics(model).value;
   const filterLabels = activeFilterLabels(filters);
+  const hubHref = linkWithFilters("/admin/social-posts", token, filters);
+  const query = hubHref.includes("?") ? hubHref.slice(hubHref.indexOf("?") + 1) : "";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-              Social posts
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">
-              Publication metrics
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-600">
-              Read-only passive observations and computed replay. Metrics do not collect, publish, schedule, or learn.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["/admin/social-posts", "Hub"],
-              ["/admin/social-posts/publication-publisher", "Publisher"],
-              ["/admin/social-posts/publication-scheduler", "Scheduler"],
-              ["/admin/social-posts/publication-ledger", "Ledger"],
-              ["/admin/social-posts/publication-manifest", "Manifest"],
-              ["/admin/social-posts/publication-learning", "Learning"],
-              ["/admin/social-posts/publication-execution", "Execution"],
-              ["/admin/social-posts/operations", "AI Operations Console"],
-            ].map(([href, label]) => (
-              <Link
-                key={href}
-                href={linkWithFilters(href, token, filters)}
-                className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </header>
+    <main className="sp-page">
+      <div className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication metrics"
+          description="Read-only passive observations and computed replay. Metrics do not collect, publish, schedule, or learn."
+          query={query}
+        />
 
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">

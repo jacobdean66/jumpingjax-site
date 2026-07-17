@@ -1,0 +1,583 @@
+/* Route-scoped AI Marketing theme for /admin/social-posts/**
+   Does not affect public site or other admin sections. */
+
+.social-posts-theme {
+  --sp-bg: #081321;
+  --sp-panel: #10223b;
+  --sp-card: #152b48;
+  --sp-nested: #192f4e;
+  --sp-input: #0d1d32;
+  --sp-border: #294564;
+  --sp-border-strong: #3d6590;
+  --sp-text: #f1f5f9;
+  --sp-text-secondary: #a9b9cd;
+  --sp-text-muted: #8298b2;
+  --sp-primary: #5fa8ff;
+  --sp-primary-hover: #7bb8ff;
+  --sp-primary-fg: #061018;
+  --sp-accent: #2dd4bf;
+  --sp-accent-hover: #5eead4;
+  --sp-warning: #f2b85b;
+  --sp-danger: #d8646f;
+  --sp-danger-hover: #e07a83;
+  --sp-focus: #7dd3fc;
+  --sp-focus-ring: rgba(125, 211, 252, 0.4);
+  --sp-success-bg: #0f2f2a;
+  --sp-success-border: #1f6b5c;
+  --sp-success-text: #9fe8d8;
+  --sp-info-bg: #0f2740;
+  --sp-info-border: #2d5f8f;
+  --sp-info-text: #9ec9f5;
+  --sp-warn-bg: #2f2614;
+  --sp-warn-border: #8a6a2a;
+  --sp-warn-text: #f5d59a;
+  --sp-danger-bg: #2f161a;
+  --sp-danger-border: #8a3a44;
+  --sp-danger-text: #f0b0b6;
+  --sp-neutral-bg: #152438;
+  --sp-neutral-border: #3a5472;
+  --sp-neutral-text: #c5d2e3;
+  --sp-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+
+  /* Cover the full viewport so cream root body never peeks through */
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--sp-bg);
+  color: var(--sp-text);
+}
+
+.social-posts-theme *,
+.social-posts-theme *::before,
+.social-posts-theme *::after {
+  box-sizing: border-box;
+}
+
+.social-posts-theme .sp-page {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  background: transparent;
+  color: var(--sp-text);
+  padding: 2rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .social-posts-theme .sp-page {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .social-posts-theme .sp-page {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.social-posts-theme .sp-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: min(80rem, 100%);
+  min-width: 0;
+}
+
+.social-posts-theme .sp-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 1.25rem 1.25rem 1.35rem;
+  border: 1px solid var(--sp-border);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #122743 0%, var(--sp-panel) 100%);
+  box-shadow: var(--sp-shadow);
+}
+
+.social-posts-theme .sp-eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sp-primary);
+}
+
+.social-posts-theme .sp-title {
+  margin: 0.4rem 0 0;
+  font-size: clamp(1.75rem, 2.4vw, 2.75rem);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--sp-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1024px) {
+  .social-posts-theme .sp-title.sp-title-single-line {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+
+.social-posts-theme .sp-lede {
+  margin: 0.75rem 0 0;
+  max-width: 48rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--sp-text-secondary);
+}
+
+.social-posts-theme .sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--sp-border);
+}
+
+.social-posts-theme .sp-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.social-posts-theme .sp-nav-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sp-text-muted);
+}
+
+.social-posts-theme .sp-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.social-posts-theme .sp-nav-link {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 2.15rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sp-border);
+  border-radius: 999px;
+  background: var(--sp-nested);
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--sp-text-secondary);
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.social-posts-theme .sp-nav-link:hover {
+  background: #1e395c;
+  border-color: var(--sp-border-strong);
+  color: var(--sp-text);
+}
+
+.social-posts-theme .sp-nav-link[aria-current="page"] {
+  background: rgba(95, 168, 255, 0.16);
+  border-color: var(--sp-primary);
+  color: var(--sp-text);
+}
+
+.social-posts-theme .sp-nav-link-admin {
+  background: transparent;
+  border-color: var(--sp-border-strong);
+  color: var(--sp-primary);
+}
+
+.social-posts-theme .sp-nav-link-admin:hover {
+  background: rgba(95, 168, 255, 0.12);
+  color: var(--sp-primary-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-posts-theme .sp-nav-link,
+  .social-posts-theme button,
+  .social-posts-theme a {
+    transition: none;
+  }
+}
+
+/* --- Remap common light Tailwind surfaces inside this route --- */
+
+.social-posts-theme :is(
+  .bg-white,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-zinc-50,
+  .bg-zinc-100
+) {
+  background-color: var(--sp-card) !important;
+}
+
+.social-posts-theme :is(.bg-slate-200, .bg-gray-200) {
+  background-color: var(--sp-nested) !important;
+}
+
+.social-posts-theme :is(.min-h-screen.bg-slate-100, main.bg-slate-100) {
+  background-color: transparent !important;
+  color: var(--sp-text) !important;
+}
+
+.social-posts-theme :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-gray-950,
+  .text-gray-900,
+  .text-black
+) {
+  color: var(--sp-text) !important;
+}
+
+.social-posts-theme :is(.text-slate-700, .text-slate-600, .text-gray-700, .text-gray-600) {
+  color: var(--sp-text-secondary) !important;
+}
+
+.social-posts-theme :is(.text-slate-500, .text-slate-400, .text-gray-500) {
+  color: var(--sp-text-muted) !important;
+}
+
+.social-posts-theme :is(.text-violet-700, .text-violet-600, .text-indigo-700, .text-purple-700) {
+  color: var(--sp-primary) !important;
+}
+
+.social-posts-theme :is(
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300,
+  .border-gray-200,
+  .border-gray-300,
+  .border-zinc-200
+) {
+  border-color: var(--sp-border) !important;
+}
+
+.social-posts-theme :is(.divide-slate-200, .divide-gray-200) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--sp-border) !important;
+}
+
+.social-posts-theme :is(.shadow-sm, .shadow, .shadow-md) {
+  box-shadow: var(--sp-shadow) !important;
+}
+
+/* Inputs */
+.social-posts-theme :is(input, select, textarea) {
+  max-width: 100%;
+  background-color: var(--sp-input) !important;
+  border-color: var(--sp-border) !important;
+  color: var(--sp-text) !important;
+  color-scheme: dark;
+}
+
+.social-posts-theme :is(input, select, textarea)::placeholder {
+  color: var(--sp-text-muted) !important;
+  opacity: 1;
+}
+
+.social-posts-theme select option {
+  background-color: var(--sp-panel);
+  color: var(--sp-text);
+}
+
+.social-posts-theme input:-webkit-autofill,
+.social-posts-theme textarea:-webkit-autofill,
+.social-posts-theme select:-webkit-autofill {
+  -webkit-text-fill-color: var(--sp-text);
+  caret-color: var(--sp-text);
+  box-shadow: 0 0 0 1000px var(--sp-input) inset;
+  transition: background-color 99999s ease-out;
+}
+
+.social-posts-theme :is(input, select, textarea):disabled,
+.social-posts-theme button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.social-posts-theme button:disabled:hover {
+  filter: none;
+}
+
+/* Primary / violet CTAs -> sky */
+.social-posts-theme :is(.bg-violet-600, .bg-violet-700, .bg-indigo-600, .bg-purple-600) {
+  background-color: var(--sp-primary) !important;
+  color: var(--sp-primary-fg) !important;
+}
+
+.social-posts-theme :is(.hover\:bg-violet-700:hover, .hover\:bg-violet-600:hover) {
+  background-color: var(--sp-primary-hover) !important;
+}
+
+/* Dark slate buttons -> secondary navy */
+.social-posts-theme :is(.bg-slate-950, .bg-slate-900, .bg-gray-950, .bg-zinc-950) {
+  background-color: var(--sp-nested) !important;
+  border: 1px solid var(--sp-border-strong);
+  color: var(--sp-text) !important;
+}
+
+.social-posts-theme :is(.hover\:bg-slate-800:hover, .hover\:bg-slate-900:hover) {
+  background-color: #213d61 !important;
+}
+
+.social-posts-theme :is(.hover\:bg-slate-50:hover, .hover\:bg-white:hover) {
+  background-color: #1a3556 !important;
+}
+
+/* Status / alert surfaces */
+.social-posts-theme :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-teal-50) {
+  background-color: var(--sp-success-bg) !important;
+}
+
+.social-posts-theme :is(.border-emerald-200, .border-emerald-300, .border-green-200, .border-teal-200) {
+  border-color: var(--sp-success-border) !important;
+}
+
+.social-posts-theme :is(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-green-900, .text-teal-900) {
+  color: var(--sp-success-text) !important;
+}
+
+.social-posts-theme :is(.bg-sky-50, .bg-sky-100, .bg-blue-50, .bg-cyan-50) {
+  background-color: var(--sp-info-bg) !important;
+}
+
+.social-posts-theme :is(.border-sky-200, .border-sky-300, .border-blue-200, .border-cyan-200) {
+  border-color: var(--sp-info-border) !important;
+}
+
+.social-posts-theme :is(.text-sky-950, .text-sky-900, .text-sky-800, .text-blue-900, .text-cyan-900) {
+  color: var(--sp-info-text) !important;
+}
+
+.social-posts-theme :is(.bg-amber-50, .bg-amber-100, .bg-yellow-50, .bg-orange-50) {
+  background-color: var(--sp-warn-bg) !important;
+}
+
+.social-posts-theme :is(.border-amber-200, .border-amber-300, .border-yellow-200, .border-orange-200) {
+  border-color: var(--sp-warn-border) !important;
+}
+
+.social-posts-theme :is(.text-amber-950, .text-amber-900, .text-amber-800, .text-yellow-900, .text-orange-900) {
+  color: var(--sp-warn-text) !important;
+}
+
+.social-posts-theme :is(.bg-rose-50, .bg-rose-100, .bg-red-50, .bg-red-100) {
+  background-color: var(--sp-danger-bg) !important;
+}
+
+.social-posts-theme :is(.border-rose-200, .border-rose-300, .border-red-200, .border-red-300) {
+  border-color: var(--sp-danger-border) !important;
+}
+
+.social-posts-theme :is(.text-rose-950, .text-rose-900, .text-rose-800, .text-red-900, .text-red-800) {
+  color: var(--sp-danger-text) !important;
+}
+
+/* Tables */
+.social-posts-theme table {
+  background: var(--sp-card);
+  border-color: var(--sp-border);
+  color: var(--sp-text);
+  max-width: none;
+}
+
+.social-posts-theme thead {
+  background: var(--sp-nested);
+  color: var(--sp-text-secondary);
+}
+
+.social-posts-theme tbody tr {
+  border-color: var(--sp-border);
+}
+
+.social-posts-theme tbody tr:hover {
+  background: rgba(95, 168, 255, 0.06);
+}
+
+.social-posts-theme :is(th, td) {
+  border-color: var(--sp-border) !important;
+}
+
+/* Media empty states */
+.social-posts-theme .aspect-video,
+.social-posts-theme .aspect-square {
+  background-color: var(--sp-input);
+}
+
+/* Checkbox / radio accent */
+.social-posts-theme :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--sp-primary);
+}
+
+/* Form grids: slightly more breathing room without changing fields */
+.social-posts-theme form.grid {
+  row-gap: 0.95rem;
+}
+
+/* Soften bright emerald/rose button fills used as actions */
+.social-posts-theme :is(.bg-emerald-600, .bg-emerald-700, .bg-green-600) {
+  background-color: #1f9b86 !important;
+  color: #041512 !important;
+}
+
+.social-posts-theme :is(.bg-rose-600, .bg-rose-700, .bg-red-600) {
+  background-color: var(--sp-danger) !important;
+  color: #1a0709 !important;
+}
+
+.social-posts-theme :is(.bg-sky-600, .bg-blue-600) {
+  background-color: var(--sp-primary) !important;
+  color: var(--sp-primary-fg) !important;
+}
+
+.social-posts-theme :is(.bg-teal-600, .bg-cyan-600) {
+  background-color: var(--sp-accent) !important;
+  color: #04201c !important;
+}
+
+/* Secondary helper panels that used soft colored backgrounds stay tinted via remaps above */
+.social-posts-theme .ring-slate-200,
+.social-posts-theme .ring-gray-200 {
+  --tw-ring-color: var(--sp-border) !important;
+}
+
+/* Code / mono IDs */
+.social-posts-theme :is(code, pre, .font-mono) {
+  color: var(--sp-text-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* --- Responsive containment: fix overflow without blanket hiding --- */
+
+.social-posts-theme :is(.grid, .flex) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.social-posts-theme :is(.grid, .flex) > * {
+  min-width: 0;
+}
+
+.social-posts-theme .shrink-0 {
+  min-width: auto;
+}
+
+.social-posts-theme .truncate {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.social-posts-theme :is(a, p, li, span, label, td, th, dd, dt, h1, h2, h3, h4) {
+  overflow-wrap: anywhere;
+}
+
+.social-posts-theme .overflow-x-auto {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.social-posts-theme img,
+.social-posts-theme video,
+.social-posts-theme canvas,
+.social-posts-theme svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Final defensive clip after content can shrink; does not replace min-w-0 fixes */
+.social-posts-theme {
+  overflow-x: clip;
+}
+
+/* --- Focus-visible system (keyboard only) --- */
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus {
+  outline: none;
+}
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--sp-focus) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px var(--sp-focus-ring) !important;
+}
+
+.social-posts-theme :is(input, select, textarea):focus-visible {
+  border-color: var(--sp-primary) !important;
+}
+
+.social-posts-theme :is(input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline-offset: 4px !important;
+}
+
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):disabled:focus-visible,
+.social-posts-theme :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+)[aria-disabled="true"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}

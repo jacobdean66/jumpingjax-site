@@ -97,7 +97,7 @@ function draftFromPost(post: SocialPost): EditorDraft {
 
 function StatusBadge({ status }: { status: SocialPostStatus }) {
   const tone =
-    status === "approved"
+    status === "approved" || status === "posted"
       ? "border-emerald-200 bg-emerald-100 text-emerald-950"
       : status === "rejected" || status === "failed"
         ? "border-rose-200 bg-rose-100 text-rose-950"

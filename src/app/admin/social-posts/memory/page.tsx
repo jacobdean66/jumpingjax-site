@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
@@ -221,46 +221,13 @@ export default async function AdminSocialPostMemoryPage({
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Campaign Memory Inspector
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Read-only view of promoted campaign memories and their linked
-              evidence rows.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={
-                token
-                  ? `/admin/social-posts/working-context?token=${encodeURIComponent(token)}`
-                  : "/admin/social-posts/working-context"
-              }
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              Working context
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts/operations?${query}` : "/admin/social-posts/operations"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-            >
-              AI Operations Console
-            </Link>
-            <Link
-              href={query ? `/admin/social-posts?${query}` : "/admin/social-posts"}
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
-            >
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Campaign Memory Inspector"
+          description="Read-only view of promoted campaign memories and their linked evidence rows."
+          query={query}
+        />
 
         {loadError ? (
           <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-950">

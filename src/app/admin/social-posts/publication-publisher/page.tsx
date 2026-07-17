@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -508,86 +508,17 @@ export default async function AdminPublicationPublisherPage({
   };
   const loaded = await loadPublisher(filters);
   const replay = replaySocialPublicationPublisher(loaded.model).value;
-  const hubHref = token ? `/admin/social-posts?token=${encodeURIComponent(token)}` : "/admin/social-posts";
-  const operationsHref = token
-    ? `/admin/social-posts/operations?token=${encodeURIComponent(token)}`
-    : "/admin/social-posts/operations";
-  const schedulerHref = linkWithFilters(
-    "/admin/social-posts/publication-scheduler",
-    token,
-    filters,
-  );
-  const ledgerHref = linkWithFilters(
-    "/admin/social-posts/publication-ledger",
-    token,
-    filters,
-  );
-  const manifestHref = linkWithFilters(
-    "/admin/social-posts/publication-manifest",
-    token,
-    filters,
-  );
-  const metricsHref = linkWithFilters(
-    "/admin/social-posts/publication-metrics",
-    token,
-    filters,
-  );
-  const learningHref = linkWithFilters(
-    "/admin/social-posts/publication-learning",
-    token,
-    filters,
-  );
-  const executionHref = linkWithFilters(
-    "/admin/social-posts/publication-execution",
-    token,
-    filters,
-  );
+  const navHref = linkWithFilters("/admin/social-posts", token, filters);
+  const query = navHref.includes("?") ? navHref.slice(navHref.indexOf("?") + 1) : "";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Publication Publisher
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              H19 read-only visibility for Publisher requests, results, and
-              computed replay. This page reads through the Publisher bridge only
-              and does not create, update, delete, publish, run background
-              automation, record metrics, or learn.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={schedulerHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication scheduler
-            </Link>
-            <Link href={ledgerHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication ledger
-            </Link>
-            <Link href={manifestHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication manifest
-            </Link>
-            <Link href={metricsHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication metrics
-            </Link>
-            <Link href={learningHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication learning
-            </Link>
-            <Link href={executionHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              Publication execution
-            </Link>
-            <Link href={operationsHref} className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50">
-              AI Operations Console
-            </Link>
-            <Link href={hubHref} className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">
-              Social posts
-            </Link>
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication Publisher"
+          description="H19 read-only visibility for Publisher requests, results, and computed replay. This page reads through the Publisher bridge only and does not create, update, delete, publish, run background automation, record metrics, or learn."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">

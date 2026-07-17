@@ -1,4 +1,4 @@
-import Link from "next/link";
+import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
@@ -2890,48 +2890,17 @@ export default async function AdminPublicationExecutionPage({
       .filter((targetId): targetId is string => Boolean(targetId)),
   );
 
-  const navItems: readonly [string, string][] = [
-    ["/admin/social-posts", "Hub"],
-    ["/admin/social-posts/publication-scheduler", "Scheduler"],
-    ["/admin/social-posts/publication-publisher", "Publisher"],
-    ["/admin/social-posts/publication-metrics", "Metrics"],
-    ["/admin/social-posts/publication-learning", "Learning"],
-    ["/admin/social-posts/publication-ledger", "Ledger"],
-    ["/admin/social-posts/publication-manifest", "Manifest"],
-    ["/admin/social-posts/publication-execution", "Execution"],
-    ["/admin/social-posts/operations", "AI Operations Console"],
-  ];
+  const navQuery = linkWithFilters("/admin/social-posts", token, filters);
+  const query = navQuery.includes("?") ? navQuery.slice(navQuery.indexOf("?") + 1) : "";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-              Jumping Jax Admin
-            </p>
-            <h1 className="mt-2 text-4xl font-black leading-tight md:text-5xl">
-              Publication Execution
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              H32 read-only visibility for Execution requests, results, and
-              computed replay. This page reads through the Execution bridge only
-              and does not execute, publish, call external APIs, start workers,
-              retry jobs, schedule automation, or mutate storage.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {navItems.map(([href, label]) => (
-              <Link
-                key={href}
-                href={linkWithFilters(href, token, filters)}
-                className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950 hover:bg-slate-50"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </header>
+    <main className="sp-page">
+      <section className="sp-container">
+        <SocialPostsPageHeader
+          title="Publication Execution"
+          description="H32 read-only visibility for Execution requests, results, and computed replay. This page reads through the Execution bridge only and does not execute, publish, call external APIs, start workers, retry jobs, schedule automation, or mutate storage."
+          query={query}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
