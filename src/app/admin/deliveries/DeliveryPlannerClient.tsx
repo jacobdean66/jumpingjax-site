@@ -1265,18 +1265,32 @@ export function DeliveryPlannerClient({
   const runAutoPlan = async (date: string) => {
     setSaveStatus("saving");
     setSaveError(null);
+    setPlanMessage(null);
     try {
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoPlan: true, date }),
+        body: JSON.stringify({
+          autoPlan: true,
+          date,
+          dates: selectedDates,
+        }),
       });
       const data = (await res.json().catch(() => null)) as
-        | { error?: string; plannedCount?: number }
+        | { error?: string; plannedCount?: number; message?: string }
         | null;
       if (!res.ok) throw new Error(data?.error || "Unable to auto-plan route.");
+
+      if (data?.message && (data.plannedCount ?? 0) === 0) {
+        setPlanMessage(data.message);
+        setSaveStatus("idle");
+        setHasLocalEdits(false);
+        return;
+      }
+
       setPlanMessage(
-        `Truck plan saved for ${formatLongDate(date)}. ${data?.plannedCount ?? 0} inflatables assigned.`,
+        data?.message ??
+          `Truck plan saved for ${formatLongDate(date)}. ${data?.plannedCount ?? 0} inflatables assigned.`,
       );
       setSaveStatus("saved");
       setHasLocalEdits(false);

@@ -89,7 +89,7 @@ type RouteAssignment = {
 };
 
 type DeliveryPatchBody =
-  | { assignments?: unknown; autoPlan?: unknown; date?: unknown }
+  | { assignments?: unknown; autoPlan?: unknown; date?: unknown; dates?: unknown }
   | null;
 
 function nullableText(value: unknown): string | null {
@@ -167,7 +167,10 @@ export async function PATCH(req: Request) {
           { status: 400 },
         );
       }
-      const result = await autoPlanDeliveriesForDate(date);
+      const selectedDates = Array.isArray(body.dates)
+        ? body.dates.filter((value): value is string => typeof value === "string")
+        : undefined;
+      const result = await autoPlanDeliveriesForDate(date, { selectedDates });
       return NextResponse.json({ ok: true, ...result });
     } catch (error) {
       console.error("[api/admin/deliveries] auto-plan failed", error);
