@@ -1,3 +1,4 @@
+import { emptyAssetIntelligenceSnapshot } from "../asset-intelligence/asset-intelligence-service";
 import { emptySeasonalIntelligenceSnapshot } from "../seasonal-intelligence/seasonal-intelligence-service";
 import { planCampaignCandidate } from "./campaign-planner-domain";
 import type {
@@ -12,12 +13,15 @@ export function buildCampaignPlanner(
   const generatedAt = input.generatedAt ?? input.marketingMemory.generatedAt;
   const seasonalIntelligence =
     input.seasonalIntelligence ?? emptySeasonalIntelligenceSnapshot(generatedAt);
+  const assetIntelligence =
+    input.assetIntelligence ?? emptyAssetIntelligenceSnapshot(generatedAt);
 
   const candidates = input.campaigns
     .map((campaign, index) => planCampaignCandidate({
       campaign,
       memory: input.marketingMemory,
       seasonalIntelligence,
+      assetIntelligence,
       index,
     }))
     .sort((left, right) =>
@@ -41,6 +45,7 @@ export function buildCampaignPlanner(
     generatedAt,
     candidates,
     seasonalIntelligence,
+    assetIntelligence,
     recommendedCandidates,
     reviewCandidates,
     summary: {
@@ -49,6 +54,7 @@ export function buildCampaignPlanner(
       reviewCount: reviewCandidates.length,
       duplicateRiskCount: input.marketingMemory.duplicateRisk.length,
       activeSeasonalOpportunityCount: seasonalIntelligence.activeOpportunities.length,
+      readyAssetCampaignCount: assetIntelligence.readyCampaignIds.length,
     },
     constraints: {
       readOnly: true,
