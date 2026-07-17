@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   buildPrintDayGroups,
@@ -191,23 +192,34 @@ await test("populated loads remain present and ordered correctly", () => {
       {
         key: "delivery:truck-1",
         names: ["Delivery Short"],
-        label: "Deliveries / Setups",
+        label: "Drop-off",
       },
       {
         key: "delivery:truck-2",
         names: ["Delivery Long"],
-        label: "Deliveries / Setups",
+        label: "Drop-off",
       },
       {
         key: "pickup:truck-1",
         names: ["Pickup Short"],
-        label: "Pickups",
+        label: "Pickup",
       },
       {
         key: "pickup:truck-2",
         names: ["Pickup Long"],
-        label: "Pickups",
+        label: "Pickup",
       },
     ],
   );
+});
+
+await test("route planner print sheet headings use Drop-off and Pickup", () => {
+  const planner = readFileSync(
+    new URL("../../app/admin/deliveries/DeliveryPlannerClient.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(planner, /workTypeLabel="Drop-off"/);
+  assert.match(planner, /workTypeLabel="Pickup"/);
+  assert.doesNotMatch(planner, /workTypeLabel="Deliveries \/ Setups"/);
+  assert.doesNotMatch(planner, /workTypeLabel="Pickups"/);
 });

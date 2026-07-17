@@ -573,7 +573,7 @@ export function buildDriverPrintSheets(args: {
           sheetId: `driver-sheet-${sheet.workType}-${sheet.truck}-load-${load}`,
           date: day.date,
           workType: sheet.workType,
-          workTypeLabel: sheet.workTypeLabel,
+          workTypeLabel: printStopWorkLabel(sheet.workType),
           truck: sheet.truck,
           truckLabel: truckLabel(sheet.truck),
           load,

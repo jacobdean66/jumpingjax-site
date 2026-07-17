@@ -1669,7 +1669,7 @@ export function DeliveryPlannerClient({
                         (item) => item.deliveryTruck === "truck-1",
                       )}
                       dateLabel={formatLongDate(date)}
-                      workTypeLabel="Deliveries / Setups"
+                      workTypeLabel="Drop-off"
                     />
                   )}
                 {(printWorkType === "all" || printWorkType === "delivery") &&
@@ -1680,7 +1680,7 @@ export function DeliveryPlannerClient({
                         (item) => item.deliveryTruck === "truck-2",
                       )}
                       dateLabel={formatLongDate(date)}
-                      workTypeLabel="Deliveries / Setups"
+                      workTypeLabel="Drop-off"
                     />
                   )}
                 {(printWorkType === "all" || printWorkType === "pickup") &&
@@ -1691,7 +1691,7 @@ export function DeliveryPlannerClient({
                         (item) => item.deliveryTruck === "truck-1",
                       )}
                       dateLabel={formatLongDate(date)}
-                      workTypeLabel="Pickups"
+                      workTypeLabel="Pickup"
                     />
                   )}
                 {(printWorkType === "all" || printWorkType === "pickup") &&
@@ -1702,7 +1702,7 @@ export function DeliveryPlannerClient({
                         (item) => item.deliveryTruck === "truck-2",
                       )}
                       dateLabel={formatLongDate(date)}
-                      workTypeLabel="Pickups"
+                      workTypeLabel="Pickup"
                     />
                   )}
               </div>

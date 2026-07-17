@@ -156,11 +156,33 @@ export async function POST(req: Request) {
     clearNotes,
   });
 
-  const itemUpdate = await supabase
+  const currentStatus =
+    workType === "delivery"
+      ? itemRow.delivery_route_status
+      : itemRow.pickup_route_status;
+  const shouldNotify = shouldSendOnTheWayNotification({
+    requestedStatus: status,
+    currentStatus,
+  });
+  const statusColumn =
+    workType === "delivery" ? "delivery_route_status" : "pickup_route_status";
+
+  let itemUpdateQuery = supabase
     .from("booking_rental_items")
     .update(itemPatch)
     .eq("id", itemId)
     .eq("booking_id", bookingId);
+
+  // Claim an on-the-way transition using the status that was validated above. If
+  // another request wins this comparison, this request must not send another email.
+  if (shouldNotify) {
+    itemUpdateQuery =
+      currentStatus === null
+        ? itemUpdateQuery.is(statusColumn, null)
+        : itemUpdateQuery.eq(statusColumn, currentStatus);
+  }
+
+  const itemUpdate = await itemUpdateQuery.select("id").maybeSingle<{ id: string }>();
 
   if (itemUpdate.error) {
     return redirectDriver(req, {
@@ -174,11 +196,9 @@ export async function POST(req: Request) {
 
   let message = "Stop updated";
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const currentStatus =
-    workType === "delivery"
-      ? itemRow.delivery_route_status
-      : itemRow.pickup_route_status;
-  if (shouldSendOnTheWayNotification({ requestedStatus: status, currentStatus })) {
+  if (shouldNotify && !itemUpdate.data) {
+    message = "Stop was already updated";
+  } else if (shouldNotify) {
     const customerEmail = booking.customer_email?.trim();
     if (resendApiKey && customerEmail) {
       try {

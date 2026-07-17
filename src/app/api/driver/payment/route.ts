@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDeliveryTruckId } from "@/lib/admin/driver-app";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -41,6 +42,16 @@ export async function POST(req: Request) {
     });
   }
 
+  if (truck && truck !== "unassigned" && !isDeliveryTruckId(truck)) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: "Invalid truck",
+    });
+  }
+
   const supabase = createServiceRoleClient();
   const { data: booking, error: loadError } = await supabase
     .from("bookings")
@@ -69,12 +80,21 @@ export async function POST(req: Request) {
     .eq("id", bookingId)
     .in("status", ["pending", "approved"]);
 
+  if (error) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: error.message,
+    });
+  }
+
   return redirectDriver(req, {
     token,
     date,
     truck,
     view,
-    message: error ? error.message : "Payment confirmed",
-    error: error ? error.message : undefined,
+    message: "Payment confirmed",
   });
 }

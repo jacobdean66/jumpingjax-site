@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildDriverCloseoutItemPatch,
   buildDriverEventsSignature,
@@ -302,6 +303,14 @@ await test("print output includes both Drop-off and Pickup work", () => {
   const workTypes = new Set(sheets.map((sheet: DriverPrintSheet) => sheet.workType));
   assert.equal(workTypes.has("delivery"), true);
   assert.equal(workTypes.has("pickup"), true);
+  assert.equal(
+    sheets.find((sheet) => sheet.workType === "delivery")?.workTypeLabel,
+    "Drop-off",
+  );
+  assert.equal(
+    sheets.find((sheet) => sheet.workType === "pickup")?.workTypeLabel,
+    "Pickup",
+  );
   assert.equal(
     sheets.every((sheet) => sheet.stops.every((stop) => stop.rentalName.length > 0)),
     true,
@@ -668,6 +677,74 @@ await test("assigned outside-window tasks are not treated as unassigned", () => 
     date: "2026-07-17",
   });
   assert.equal(unassigned.length, 0);
+});
+
+await test("closeout and status patches never write opposite work-type columns", () => {
+  const deliveryCloseout = buildDriverCloseoutItemPatch({ workType: "delivery" });
+  const pickupCloseout = buildDriverCloseoutItemPatch({ workType: "pickup" });
+  const deliveryStatus = buildDriverStatusItemPatch({
+    workType: "delivery",
+    status: "on-the-way",
+  });
+  const pickupStatus = buildDriverStatusItemPatch({
+    workType: "pickup",
+    status: "on-the-way",
+  });
+  assert.deepEqual(Object.keys(deliveryCloseout).sort(), ["delivery_route_status"]);
+  assert.deepEqual(Object.keys(pickupCloseout).sort(), ["pickup_route_status"]);
+  assert.equal("pickup_route_status" in deliveryStatus, false);
+  assert.equal("delivery_route_status" in pickupStatus, false);
+  assert.equal(deliveryCloseout.delivery_route_status, "setup-complete");
+  assert.equal(pickupCloseout.pickup_route_status, "picked-up");
+});
+
+await test("driver mutation routes preserve item-level status isolation", () => {
+  const statusRoute = readFileSync(
+    new URL("../../app/api/driver/status/route.ts", import.meta.url),
+    "utf8",
+  );
+  const closeoutRoute = readFileSync(
+    new URL("../../app/api/driver/closeout/route.ts", import.meta.url),
+    "utf8",
+  );
+  for (const route of [statusRoute, closeoutRoute]) {
+    assert.doesNotMatch(route, /\.update\(\{\s*delivery_route_status:/);
+  }
+  assert.match(statusRoute, /\.from\("booking_rental_items"\)/);
+  assert.match(closeoutRoute, /\.from\("booking_rental_items"\)/);
+});
+
+await test("closeout validates next task before writes and claims one notification", () => {
+  const closeoutRoute = readFileSync(
+    new URL("../../app/api/driver/closeout/route.ts", import.meta.url),
+    "utf8",
+  );
+  const page = readFileSync(new URL("../../app/driver/page.tsx", import.meta.url), "utf8");
+  const nextValidation = closeoutRoute.indexOf("if (notifyNextCustomer)");
+  const firstWrite = closeoutRoute.indexOf("const itemPatch = buildDriverCloseoutItemPatch");
+  assert.ok(nextValidation >= 0 && nextValidation < firstWrite);
+  assert.match(closeoutRoute, /if \(!completedItem\)/);
+  assert.match(page, /name="nextItemId" value=\{nextTask\.itemId\}/);
+  assert.match(page, /name="nextWorkType" value=\{nextTask\.workType\}/);
+  assert.match(closeoutRoute, /workType: nextNotification\.workType/);
+  assert.match(closeoutRoute, /claim\.is\(nextNotification\.statusColumn, null\)/);
+  assert.match(closeoutRoute, /if \(!claimedItem\)/);
+  assert.match(closeoutRoute, /next customer email failed/);
+  assert.match(
+    closeoutRoute,
+    /if \(!notificationWarning && nextUrl\.startsWith\("https:\/\/www\.google\.com\/maps\/"\)\)/,
+  );
+});
+
+await test("payment route never emits success and error banners together", () => {
+  const paymentRoute = readFileSync(
+    new URL("../../app/api/driver/payment/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(paymentRoute, /message: error \?/);
+  assert.doesNotMatch(paymentRoute, /error: error \?/);
+  assert.match(paymentRoute, /if \(error\) \{/);
+  assert.match(paymentRoute, /message: "Payment confirmed"/);
 });
 
 console.log("\nAll driver-app tests passed.");

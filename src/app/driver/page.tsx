@@ -468,7 +468,11 @@ function CloseoutIssueForm({
       <input type="hidden" name="workType" value={task.workType} />
       {nextUrl ? <input type="hidden" name="nextUrl" value={nextUrl} /> : null}
       {nextTask ? (
-        <input type="hidden" name="nextBookingId" value={nextTask.bookingId} />
+        <>
+          <input type="hidden" name="nextBookingId" value={nextTask.bookingId} />
+          <input type="hidden" name="nextItemId" value={nextTask.itemId} />
+          <input type="hidden" name="nextWorkType" value={nextTask.workType} />
+        </>
       ) : null}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">

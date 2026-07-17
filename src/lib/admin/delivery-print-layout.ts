@@ -33,10 +33,10 @@ const PRINT_SHEET_ORDER: Array<{
   truck: PrintTruckId;
   workTypeLabel: string;
 }> = [
-  { workType: "delivery", truck: "truck-1", workTypeLabel: "Deliveries / Setups" },
-  { workType: "delivery", truck: "truck-2", workTypeLabel: "Deliveries / Setups" },
-  { workType: "pickup", truck: "truck-1", workTypeLabel: "Pickups" },
-  { workType: "pickup", truck: "truck-2", workTypeLabel: "Pickups" },
+  { workType: "delivery", truck: "truck-1", workTypeLabel: "Drop-off" },
+  { workType: "delivery", truck: "truck-2", workTypeLabel: "Drop-off" },
+  { workType: "pickup", truck: "truck-1", workTypeLabel: "Pickup" },
+  { workType: "pickup", truck: "truck-2", workTypeLabel: "Pickup" },
 ];
 
 /** Operational label under the printed item name, from stop work type only. */
