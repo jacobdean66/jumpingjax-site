@@ -70,6 +70,8 @@ export function projectPostMediaAssets(
   for (const post of posts) {
     const urls = uniqueUrls(postMediaUrls(post));
     urls.forEach((url, index) => {
+      // Dimensions are unknown for projected post URLs; do not invent placement
+      // support from post_placement alone when aspect ratio cannot be verified.
       const classified = classifyAspectRatio(null, null);
       const terms = [
         post.title ?? "",
@@ -92,7 +94,7 @@ export function projectPostMediaAssets(
         height: null,
         aspectRatioClass: classified.aspectRatioClass,
         orientation: classified.orientation,
-        supportedPlacements: post.post_placement ? [post.post_placement] : [],
+        supportedPlacements: classified.supportedPlacements,
         createdAt: post.created_at,
         ageDays: null,
         usability: usabilityFromPost(post),
@@ -162,7 +164,9 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
       usability: "usable",
       campaignHints: ["brand-awareness"],
       subjectHints: ["homepage", "brand"],
-      matchingTerms: ["homepage", "hero", "brand", "family", "party"],
+      // Keep brand-only terms. Broad words like "family"/"party" falsely match
+      // birthday, private-party, and testimonial campaigns.
+      matchingTerms: ["homepage", "hero", "brand"],
     });
   }
 

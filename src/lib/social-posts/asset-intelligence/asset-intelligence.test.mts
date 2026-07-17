@@ -9,6 +9,7 @@ import {
   normalizeAssetText,
 } from "./asset-intelligence-domain";
 import { diagnoseAssetIntelligence } from "./asset-intelligence-diagnostics";
+import { projectPostMediaAssets } from "./asset-intelligence-replay";
 import { buildAssetIntelligence } from "./asset-intelligence-service";
 import type {
   AssetIntelligenceAsset,
@@ -17,6 +18,7 @@ import type {
 import { buildCampaignPlanner } from "../campaign-planner/campaign-planner-service";
 import type { CampaignPlannerCampaign } from "../campaign-planner/campaign-planner-types";
 import type { MarketingMemorySnapshot } from "../marketing-memory/marketing-memory-types";
+import type { SocialPost } from "../social-post-data";
 import { emptySeasonalIntelligenceSnapshot } from "../seasonal-intelligence/seasonal-intelligence-service";
 
 const AS_OF = "2026-07-16";
@@ -439,4 +441,115 @@ test("19. constraints remain fail-closed and read-only", () => {
   assert.equal(snapshot.constraints.generatesNothing, true);
   assert.equal(snapshot.constraints.publishesNothing, true);
   assert.equal(snapshot.constraints.authoritative, false);
+});
+
+test("20. homepage hero brand terms do not falsely match party campaigns", () => {
+  const snapshot = buildAssetIntelligence({
+    assets: [
+      asset({
+        id: "brand:homepage-hero",
+        title: "Homepage hero",
+        source: "brand",
+        matchingTerms: ["homepage", "hero", "brand"],
+        subjectHints: ["homepage", "brand"],
+        campaignHints: ["brand-awareness"],
+        width: null,
+        height: null,
+      }),
+    ],
+    campaigns: [
+      campaign({
+        id: "birthday-parties",
+        label: "Birthday Parties",
+        preferredImageKeywords: ["birthday", "party", "bounce", "combo"],
+      }),
+      campaign({
+        id: "private-parties",
+        label: "Private Parties",
+        businessFocus: "facility-parties",
+        preferredImageKeywords: ["private", "party", "facility", "indoor"],
+      }),
+      campaign({
+        id: "customer-testimonials",
+        label: "Customer Testimonials",
+        preferredImageKeywords: ["family", "party", "bounce"],
+      }),
+    ],
+    asOf: AS_OF,
+  });
+
+  for (const assessment of snapshot.campaignAssessments) {
+    assert.equal(
+      assessment.readiness,
+      "insufficient",
+      `${assessment.campaignId} must not treat homepage hero as a relevant party asset`,
+    );
+    assert.equal(assessment.relevantAssetCount, 0);
+  }
+});
+
+test("21. unknown dimensions never invent placement support", () => {
+  const snapshot = buildAssetIntelligence({
+    assets: [
+      asset({
+        id: "unknown-dims",
+        title: "Water Slide Unknown",
+        width: null,
+        height: null,
+        supportedPlacements: [],
+      }),
+    ],
+    campaigns: [campaign()],
+    asOf: AS_OF,
+  });
+  const assessment = snapshot.campaignAssessments[0]!;
+  assert.deepEqual(assessment.supportedPlacements, []);
+  assert.equal(assessment.aspectCoverage.unknown, true);
+  assert.equal(assessment.aspectCoverage.square, false);
+  assert.equal(assessment.aspectCoverage.portraitOrReel, false);
+  assert.ok(assessment.gaps.some((gap) => gap.kind === "unknown-dimensions"));
+});
+
+test("22. post media projection does not copy post_placement without dimensions", () => {
+  const post = {
+    id: "post-1",
+    created_at: "2026-07-01T00:00:00.000Z",
+    updated_at: "2026-07-01T00:00:00.000Z",
+    title: "Water Slide Promo",
+    campaign_id: "summer-water-slides",
+    goal: null,
+    prompt: null,
+    caption: "Cool water slide weekend",
+    media_type: "image",
+    business_focus: "rentals",
+    media_url: "https://example.com/water-slide.jpg",
+    source_image_url: null,
+    original_image_url: null,
+    approved_image_url: null,
+    generated_image_url: null,
+    generated_image_source_url: null,
+    media_source_url: null,
+    image_generation_provider: null,
+    image_generation_model: null,
+    image_prediction_id: null,
+    image_generation_created_at: null,
+    image_generation_prompt: null,
+    image_generation_status: null,
+    image_concepts: [],
+    motion_preset: null,
+    camera_preset: null,
+    creative_source: null,
+    platforms: ["instagram"],
+    post_placement: "feed",
+    format_variant_id: null,
+    status: "draft",
+    scheduled_for: null,
+    posted_at: null,
+    error_message: null,
+  } as SocialPost;
+
+  const projected = projectPostMediaAssets([post]);
+  assert.equal(projected.length, 1);
+  assert.equal(projected[0]?.aspectRatioClass, "unknown");
+  assert.deepEqual(projected[0]?.supportedPlacements, []);
 });
