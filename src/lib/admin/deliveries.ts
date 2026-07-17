@@ -4,8 +4,30 @@ import {
   routeLegKey,
   type RouteLegEstimate,
 } from "@/lib/google/routes";
+import {
+  addDays,
+  crossDateBanner,
+  derivedPickupDate,
+  effectiveDeliveryWorkDate,
+  effectivePickupWorkDate,
+  evaluateWorkDateConflicts,
+  findDuplicateTaskIds,
+  findResourceOverlaps,
+  isYmd,
+  normalizeDeliveryDate,
+  normalizeSelectedDates,
+  todayYmd,
+  type PlannerConflictWarning,
+  type WorkType,
+  workTaskId,
+} from "@/lib/admin/delivery-planner-dates";
+
+export { todayYmd, normalizeDeliveryDate };
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
+
+const RENTAL_ITEM_SELECT =
+  "id, booking_id, rental_item, rental_name, delivery_date, delivery_truck, trailer_load, delivery_sequence, planned_arrival_time, planned_setup_start, planned_setup_end, estimated_setup_minutes, delivery_route_status, delivery_route_notes, pickup_date, pickup_time, pickup_truck, pickup_trailer_load, pickup_sequence, pickup_route_status, pickup_route_notes";
 
 const RENTAL_DELIVERY_SELECT =
   "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, google_calendar_event_id, delivery_truck, delivery_sequence, planned_arrival_time, planned_setup_start, planned_setup_end, estimated_setup_minutes, delivery_route_status, delivery_route_notes";
@@ -64,6 +86,13 @@ type RentalItemRow = {
   estimated_setup_minutes: number | null;
   delivery_route_status: string | null;
   delivery_route_notes: string | null;
+  pickup_date: string | null;
+  pickup_time: string | null;
+  pickup_truck: string | null;
+  pickup_trailer_load: number | null;
+  pickup_sequence: number | null;
+  pickup_route_status: string | null;
+  pickup_route_notes: string | null;
 };
 
 export type AdminDeliveryItem = {
@@ -80,7 +109,51 @@ export type AdminDeliveryItem = {
   plannedSetupEnd: string | null;
   deliveryRouteStatus: string | null;
   deliveryRouteNotes: string | null;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  pickupTruck: string | null;
+  pickupTrailerLoad: number | null;
+  pickupSequence: number | null;
+  pickupRouteStatus: string | null;
+  pickupRouteNotes: string | null;
   estimatedSetupMinutes: number;
+};
+
+export type AdminDeliveryWorkTask = {
+  id: string;
+  itemId: string;
+  bookingId: string;
+  workType: WorkType;
+  workDate: string | null;
+  workTime: string | null;
+  truck: string | null;
+  trailerLoad: number | null;
+  sequence: number | null;
+  plannedArrivalTime: string | null;
+  plannedSetupStart: string | null;
+  plannedSetupEnd: string | null;
+  routeStatus: string | null;
+  routeNotes: string | null;
+  customerName: string;
+  customerPhone: string | null;
+  bookingStatus: string;
+  eventDate: string;
+  eventStartTime: string | null;
+  eventAddress: string | null;
+  distanceMiles: number | null;
+  rentalName: string;
+  rentalItem: string;
+  isBigSlide: boolean;
+  spanDays: number;
+  setupLocation: string | null;
+  setupSurface: string | null;
+  setupAccess: string | null;
+  setupNotes: string | null;
+  requestedDeliveryWindow: string | null;
+  estimatedSetupMinutes: number;
+  singleStopMapUrl: string | null;
+  crossDateLabel: string | null;
+  warnings: PlannerConflictWarning[];
 };
 
 export type AdminDeliveryBooking = {
@@ -126,13 +199,20 @@ export type AdminDeliveryBooking = {
 
 export type AdminDeliveriesResult = {
   date: string;
+  dates: string[];
   bookings: AdminDeliveryBooking[];
+  tasks: AdminDeliveryWorkTask[];
+  unscheduled: AdminDeliveryWorkTask[];
+  warnings: PlannerConflictWarning[];
   summary: {
     bookingCount: number;
     inflatableCount: number;
     bigSlideCount: number;
     fridayDeliveryCount: number;
     estimatedSetupMinutes: number;
+    deliveryTaskCount: number;
+    pickupTaskCount: number;
+    unscheduledCount: number;
   };
   routeUrl: string | null;
 };
@@ -144,21 +224,6 @@ export const DELIVERY_TRUCK_LABELS: Record<DeliveryTruckId, string> = {
   "truck-1": "Short Trailer",
   "truck-2": "Long Trailer",
 };
-
-function dateToYmd(value: Date): string {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-}
-
-export function todayYmd(): string {
-  return dateToYmd(new Date());
-}
-
-export function normalizeDeliveryDate(value: string | null | undefined): string {
-  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
-  }
-  return todayYmd();
-}
 
 function cleanString(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -214,17 +279,312 @@ function compareBookings(a: AdminDeliveryBooking, b: AdminDeliveryBooking) {
   return a.customerName.localeCompare(b.customerName);
 }
 
+function mapItemRow(item: RentalItemRow): AdminDeliveryItem {
+  const rental_item = cleanString(item.rental_item) ?? "rental";
+  const rental_name = cleanString(item.rental_name) ?? rental_item;
+  const base = { rental_item, rental_name };
+  const deliveryItem = { ...base, isBigSlide: isBigSlide(base) };
+  return {
+    id: item.id,
+    ...deliveryItem,
+    deliveryDate: cleanString(item.delivery_date),
+    deliveryTruck: cleanString(item.delivery_truck),
+    trailerLoad: item.trailer_load,
+    deliverySequence: item.delivery_sequence,
+    plannedArrivalTime: cleanString(item.planned_arrival_time),
+    plannedSetupStart: cleanString(item.planned_setup_start),
+    plannedSetupEnd: cleanString(item.planned_setup_end),
+    deliveryRouteStatus: cleanString(item.delivery_route_status),
+    deliveryRouteNotes: cleanString(item.delivery_route_notes),
+    pickupDate: cleanString(item.pickup_date),
+    pickupTime: cleanString(item.pickup_time),
+    pickupTruck: cleanString(item.pickup_truck),
+    pickupTrailerLoad: item.pickup_trailer_load,
+    pickupSequence: item.pickup_sequence,
+    pickupRouteStatus: cleanString(item.pickup_route_status),
+    pickupRouteNotes: cleanString(item.pickup_route_notes),
+    estimatedSetupMinutes: normalizeSetupMinutes(item.estimated_setup_minutes, [
+      deliveryItem,
+    ]),
+  };
+}
+
+function fallbackItemRow(booking: RentalDeliveryRow): RentalItemRow {
+  return {
+    id: `${booking.id}:${booking.rental_item}`,
+    booking_id: booking.id,
+    rental_item: booking.rental_item,
+    rental_name: booking.rental_name ?? booking.rental_item,
+    delivery_date: eventDateYmd(booking.event_date),
+    delivery_truck: booking.delivery_truck,
+    trailer_load: 1,
+    delivery_sequence: booking.delivery_sequence,
+    planned_arrival_time: booking.planned_arrival_time,
+    planned_setup_start: booking.planned_setup_start,
+    planned_setup_end: booking.planned_setup_end,
+    estimated_setup_minutes: booking.estimated_setup_minutes,
+    delivery_route_status: booking.delivery_route_status,
+    delivery_route_notes: booking.delivery_route_notes,
+    pickup_date: null,
+    pickup_time: null,
+    pickup_truck: null,
+    pickup_trailer_load: null,
+    pickup_sequence: null,
+    pickup_route_status: null,
+    pickup_route_notes: null,
+  };
+}
+
+function mapBookingRow(
+  booking: RentalDeliveryRow,
+  rawItems: RentalItemRow[],
+): AdminDeliveryBooking {
+  const items = rawItems.map((item) => mapItemRow(item));
+  const bigSlideCount = items.filter((item) => item.isBigSlide).length;
+  const eventAddress = cleanString(booking.event_address);
+  return {
+    id: String(booking.id),
+    status: cleanString(booking.status) ?? "pending",
+    customerName: cleanString(booking.customer_name) ?? "Guest",
+    customerEmail: cleanString(booking.customer_email),
+    customerPhone: cleanString(booking.customer_phone),
+    eventDate: eventDateYmd(booking.event_date),
+    eventStartTime: cleanString(booking.event_start_time),
+    requestedDeliveryWindow:
+      cleanString(booking.requested_delivery_window) ??
+      cleanString(booking.delivery_time),
+    legacyDeliveryTime: cleanString(booking.delivery_time),
+    eventAddress,
+    distanceMiles: booking.distance_miles,
+    deliveryFee: booking.delivery_fee,
+    mileageFee: booking.mileage_fee,
+    setupLocation: cleanString(booking.setup_location),
+    setupSurface: cleanString(booking.setup_surface),
+    setupAccess: cleanString(booking.setup_access),
+    setupNotes: cleanString(booking.setup_notes),
+    paymentMethod: cleanString(booking.payment_method),
+    duration: cleanString(booking.duration),
+    spanDays:
+      typeof booking.span_days === "number" && booking.span_days >= 1
+        ? booking.span_days
+        : 1,
+    subtotal: booking.subtotal,
+    total: booking.total,
+    paymentConfirmedAt: cleanString(booking.payment_confirmed_at),
+    paymentConfirmedBy: cleanString(booking.payment_confirmed_by),
+    paymentConfirmationNotes: cleanString(booking.payment_confirmation_notes),
+    googleCalendarEventId: cleanString(booking.google_calendar_event_id),
+    deliveryTruck: cleanString(booking.delivery_truck),
+    deliverySequence: booking.delivery_sequence,
+    plannedArrivalTime: cleanString(booking.planned_arrival_time),
+    plannedSetupStart: cleanString(booking.planned_setup_start),
+    plannedSetupEnd: cleanString(booking.planned_setup_end),
+    deliveryRouteStatus: cleanString(booking.delivery_route_status),
+    deliveryRouteNotes: cleanString(booking.delivery_route_notes),
+    items,
+    itemCount: items.length,
+    bigSlideCount,
+    estimatedSetupMinutes: normalizeSetupMinutes(
+      booking.estimated_setup_minutes,
+      items,
+    ),
+    singleStopMapUrl: eventAddress
+      ? googleDirectionsUrl([SHOP_ADDRESS, eventAddress])
+      : null,
+  };
+}
+
+function buildWorkTasks(
+  booking: AdminDeliveryBooking,
+  selectedDates: string[],
+  singleDateMode: boolean,
+): { scheduled: AdminDeliveryWorkTask[]; unscheduled: AdminDeliveryWorkTask[] } {
+  const selected = new Set(selectedDates);
+  const scheduled: AdminDeliveryWorkTask[] = [];
+  const unscheduled: AdminDeliveryWorkTask[] = [];
+
+  for (const item of booking.items) {
+    const deliveryWorkDate = effectiveDeliveryWorkDate({
+      deliveryDate: item.deliveryDate,
+      eventDate: booking.eventDate,
+      singleDateMode,
+    });
+    const pickupWorkDate = effectivePickupWorkDate({
+      pickupDate: item.pickupDate,
+      eventDate: booking.eventDate,
+      spanDays: booking.spanDays,
+    });
+    const pickupExplicit = isYmd(item.pickupDate);
+
+    const base = {
+      itemId: item.id,
+      bookingId: booking.id,
+      customerName: booking.customerName,
+      customerPhone: booking.customerPhone,
+      bookingStatus: booking.status,
+      eventDate: booking.eventDate,
+      eventStartTime: booking.eventStartTime,
+      eventAddress: booking.eventAddress,
+      distanceMiles: booking.distanceMiles,
+      rentalName: item.rental_name,
+      rentalItem: item.rental_item,
+      isBigSlide: item.isBigSlide,
+      spanDays: booking.spanDays,
+      setupLocation: booking.setupLocation,
+      setupSurface: booking.setupSurface,
+      setupAccess: booking.setupAccess,
+      setupNotes: booking.setupNotes,
+      requestedDeliveryWindow: booking.requestedDeliveryWindow,
+      estimatedSetupMinutes: item.estimatedSetupMinutes,
+      singleStopMapUrl: booking.singleStopMapUrl,
+    };
+
+    const deliveryTask: AdminDeliveryWorkTask = {
+      ...base,
+      id: workTaskId(item.id, "delivery"),
+      workType: "delivery",
+      workDate: deliveryWorkDate,
+      workTime: item.plannedArrivalTime,
+      truck: item.deliveryTruck,
+      trailerLoad: item.trailerLoad,
+      sequence: item.deliverySequence,
+      plannedArrivalTime: item.plannedArrivalTime,
+      plannedSetupStart: item.plannedSetupStart,
+      plannedSetupEnd: item.plannedSetupEnd,
+      routeStatus: item.deliveryRouteStatus,
+      routeNotes: item.deliveryRouteNotes,
+      crossDateLabel: crossDateBanner({
+        workType: "delivery",
+        workDate: deliveryWorkDate,
+        eventDate: booking.eventDate,
+      }),
+      warnings: evaluateWorkDateConflicts({
+        taskId: workTaskId(item.id, "delivery"),
+        workType: "delivery",
+        workDate: deliveryWorkDate,
+        eventDate: booking.eventDate,
+        spanDays: booking.spanDays,
+        deliveryDate: item.deliveryDate ?? deliveryWorkDate,
+        pickupDate: item.pickupDate,
+        selectedDates,
+      }),
+    };
+
+    const pickupTask: AdminDeliveryWorkTask = {
+      ...base,
+      id: workTaskId(item.id, "pickup"),
+      workType: "pickup",
+      workDate: pickupWorkDate,
+      workTime: item.pickupTime,
+      truck: item.pickupTruck,
+      trailerLoad: item.pickupTrailerLoad,
+      sequence: item.pickupSequence,
+      plannedArrivalTime: item.pickupTime,
+      plannedSetupStart: null,
+      plannedSetupEnd: null,
+      routeStatus: item.pickupRouteStatus,
+      routeNotes: item.pickupRouteNotes,
+      crossDateLabel: crossDateBanner({
+        workType: "pickup",
+        workDate: pickupWorkDate,
+        eventDate: booking.eventDate,
+      }),
+      warnings: evaluateWorkDateConflicts({
+        taskId: workTaskId(item.id, "pickup"),
+        workType: "pickup",
+        workDate: pickupWorkDate,
+        eventDate: booking.eventDate,
+        spanDays: booking.spanDays,
+        deliveryDate: item.deliveryDate ?? deliveryWorkDate,
+        pickupDate: item.pickupDate ?? pickupWorkDate,
+        selectedDates,
+      }),
+    };
+
+    if (deliveryWorkDate && selected.has(deliveryWorkDate)) {
+      scheduled.push(deliveryTask);
+    } else if (
+      !deliveryWorkDate &&
+      (selected.has(booking.eventDate) ||
+        selectedDates.some(
+          (date) =>
+            date >= booking.eventDate &&
+            date <= derivedPickupDate(booking.eventDate, booking.spanDays),
+        ))
+    ) {
+      unscheduled.push({ ...deliveryTask, workDate: null });
+    } else if (
+      deliveryWorkDate &&
+      !selected.has(deliveryWorkDate) &&
+      selected.has(booking.eventDate)
+    ) {
+      unscheduled.push({
+        ...deliveryTask,
+        warnings: [
+          ...deliveryTask.warnings,
+          {
+            code: "outside_window",
+            taskId: deliveryTask.id,
+            message: "Delivery/setup is assigned outside the selected planning window.",
+          },
+        ],
+      });
+    }
+
+    if (selected.has(pickupWorkDate)) {
+      scheduled.push(pickupTask);
+    } else if (
+      !pickupExplicit &&
+      selected.has(booking.eventDate) &&
+      !selected.has(pickupWorkDate)
+    ) {
+      unscheduled.push({ ...pickupTask, workDate: null });
+    } else if (
+      pickupExplicit &&
+      !selected.has(pickupWorkDate) &&
+      selected.has(booking.eventDate)
+    ) {
+      unscheduled.push({
+        ...pickupTask,
+        warnings: [
+          ...pickupTask.warnings,
+          {
+            code: "outside_window",
+            taskId: pickupTask.id,
+            message: "Pickup is assigned outside the selected planning window.",
+          },
+        ],
+      });
+    }
+  }
+
+  return { scheduled, unscheduled };
+}
+
 export async function loadAdminDeliveries(
   rawDate: string | null | undefined,
 ): Promise<AdminDeliveriesResult> {
-  const date = normalizeDeliveryDate(rawDate);
+  return loadAdminDeliveriesForDates([normalizeDeliveryDate(rawDate)]);
+}
+
+export async function loadAdminDeliveriesForDates(
+  rawDates: Array<string | null | undefined>,
+): Promise<AdminDeliveriesResult> {
+  const dates = normalizeSelectedDates(rawDates);
+  const primaryDate = dates[0] ?? todayYmd();
+  const singleDateMode = dates.length === 1;
+  const minDate = dates[0]!;
+  const maxDate = dates[dates.length - 1]!;
+  const windowStart = addDays(minDate, -7);
+  const windowEnd = addDays(maxDate, 14);
   const supabase = createServiceRoleClient();
 
   const { data: rows, error } = await supabase
     .from("bookings")
     .select(RENTAL_DELIVERY_SELECT)
     .in("status", ["pending", "approved"])
-    .gte("event_date", date)
+    .gte("event_date", windowStart)
+    .lte("event_date", windowEnd)
     .order("event_start_time", { ascending: true, nullsFirst: false })
     .order("customer_name", { ascending: true });
 
@@ -232,16 +592,48 @@ export async function loadAdminDeliveries(
     throw new Error(error.message);
   }
 
-  const bookings = (rows ?? []) as RentalDeliveryRow[];
+  let bookings = (rows ?? []) as RentalDeliveryRow[];
+  const bookingIdSet = new Set(bookings.map((booking) => String(booking.id)));
+
+  const { data: workDateItems, error: workDateError } = await supabase
+    .from("booking_rental_items")
+    .select(RENTAL_ITEM_SELECT)
+    .or(
+      `delivery_date.in.(${dates.join(",")}),pickup_date.in.(${dates.join(",")})`,
+    );
+
+  if (workDateError) {
+    throw new Error(workDateError.message);
+  }
+
+  const extraBookingIds = [
+    ...new Set(
+      ((workDateItems ?? []) as RentalItemRow[])
+        .map((item) => String(item.booking_id))
+        .filter((id) => !bookingIdSet.has(id)),
+    ),
+  ];
+
+  if (extraBookingIds.length > 0) {
+    const { data: extraRows, error: extraError } = await supabase
+      .from("bookings")
+      .select(RENTAL_DELIVERY_SELECT)
+      .in("status", ["pending", "approved"])
+      .in("id", extraBookingIds);
+
+    if (extraError) {
+      throw new Error(extraError.message);
+    }
+    bookings = [...bookings, ...((extraRows ?? []) as RentalDeliveryRow[])];
+  }
+
   const ids = bookings.map((booking) => booking.id);
   let rentalItemsByBooking = new Map<string, RentalItemRow[]>();
 
   if (ids.length > 0) {
     const { data: itemRows, error: itemError } = await supabase
       .from("booking_rental_items")
-      .select(
-        "id, booking_id, rental_item, rental_name, delivery_date, delivery_truck, trailer_load, delivery_sequence, planned_arrival_time, planned_setup_start, planned_setup_end, estimated_setup_minutes, delivery_route_status, delivery_route_notes",
-      )
+      .select(RENTAL_ITEM_SELECT)
       .in("booking_id", ids);
 
     if (itemError) {
@@ -257,108 +649,69 @@ export async function loadAdminDeliveries(
     }
   }
 
-  const deliveryBookings = bookings
-    .map((booking): AdminDeliveryBooking | null => {
-      const fallbackItems = [
-        {
-          id: `${booking.id}:${booking.rental_item}`,
-          booking_id: booking.id,
-          rental_item: booking.rental_item,
-          rental_name: booking.rental_name ?? booking.rental_item,
-          delivery_date: eventDateYmd(booking.event_date),
-          delivery_truck: booking.delivery_truck,
-          trailer_load: 1,
-          delivery_sequence: booking.delivery_sequence,
-          planned_arrival_time: booking.planned_arrival_time,
-          planned_setup_start: booking.planned_setup_start,
-          planned_setup_end: booking.planned_setup_end,
-          estimated_setup_minutes: booking.estimated_setup_minutes,
-          delivery_route_status: booking.delivery_route_status,
-          delivery_route_notes: booking.delivery_route_notes,
-        },
-      ];
-      const rawItems = (rentalItemsByBooking.get(String(booking.id)) ?? fallbackItems).filter(
-        (item) =>
-          (cleanString(item.delivery_date) ?? eventDateYmd(booking.event_date)) ===
-          date,
-      );
-      if (rawItems.length === 0) return null;
-      const items = rawItems.map((item) => {
-        const rental_item = cleanString(item.rental_item) ?? "rental";
-        const rental_name = cleanString(item.rental_name) ?? rental_item;
-        const base = { rental_item, rental_name };
-        const deliveryItem = { ...base, isBigSlide: isBigSlide(base) };
-        return {
-          id: item.id,
-          ...deliveryItem,
-          deliveryDate:
-            cleanString(item.delivery_date) ?? eventDateYmd(booking.event_date),
-          deliveryTruck: cleanString(item.delivery_truck),
-          trailerLoad: item.trailer_load,
-          deliverySequence: item.delivery_sequence,
-          plannedArrivalTime: cleanString(item.planned_arrival_time),
-          plannedSetupStart: cleanString(item.planned_setup_start),
-          plannedSetupEnd: cleanString(item.planned_setup_end),
-          deliveryRouteStatus: cleanString(item.delivery_route_status),
-          deliveryRouteNotes: cleanString(item.delivery_route_notes),
-          estimatedSetupMinutes: normalizeSetupMinutes(
-            item.estimated_setup_minutes,
-            [deliveryItem],
-          ),
-        };
-      });
-      const bigSlideCount = items.filter((item) => item.isBigSlide).length;
-      const eventAddress = cleanString(booking.event_address);
+  const allBookings = bookings
+    .map((booking) => {
+      const rawItems =
+        rentalItemsByBooking.get(String(booking.id)) ?? [fallbackItemRow(booking)];
+      return mapBookingRow(booking, rawItems);
+    })
+    .sort(compareBookings);
 
+  const tasks: AdminDeliveryWorkTask[] = [];
+  const unscheduled: AdminDeliveryWorkTask[] = [];
+  for (const booking of allBookings) {
+    const built = buildWorkTasks(booking, dates, singleDateMode);
+    tasks.push(...built.scheduled);
+    unscheduled.push(...built.unscheduled);
+  }
+
+  const duplicateIds = findDuplicateTaskIds(tasks.map((task) => task.id));
+  const duplicateWarnings: PlannerConflictWarning[] = duplicateIds.map((id) => ({
+    code: "duplicate_task",
+    taskId: id,
+    message: "The same booking task appears more than once in this plan.",
+  }));
+  const overlapWarnings = findResourceOverlaps(
+    tasks
+      .filter((task): task is AdminDeliveryWorkTask & { workDate: string } =>
+        Boolean(task.workDate),
+      )
+      .map((task) => ({
+        taskId: task.id,
+        workDate: task.workDate,
+        truck: task.truck,
+        startTime: task.plannedArrivalTime ?? task.workTime,
+        endTime:
+          task.plannedSetupEnd ??
+          task.workTime ??
+          task.plannedArrivalTime,
+      })),
+  );
+  const warnings = [
+    ...duplicateWarnings,
+    ...overlapWarnings,
+    ...tasks.flatMap((task) => task.warnings),
+    ...unscheduled.flatMap((task) => task.warnings),
+  ];
+
+  // Legacy bookings list: delivery items for the primary date (driver / logistics).
+  const deliveryBookings = allBookings
+    .map((booking) => {
+      const items = booking.items.filter((item) => {
+        const workDate =
+          cleanString(item.deliveryDate) ?? booking.eventDate;
+        return workDate === primaryDate;
+      });
+      if (items.length === 0) return null;
       return {
-        id: String(booking.id),
-        status: cleanString(booking.status) ?? "pending",
-        customerName: cleanString(booking.customer_name) ?? "Guest",
-        customerEmail: cleanString(booking.customer_email),
-        customerPhone: cleanString(booking.customer_phone),
-        eventDate: eventDateYmd(booking.event_date),
-        eventStartTime: cleanString(booking.event_start_time),
-        requestedDeliveryWindow:
-          cleanString(booking.requested_delivery_window) ??
-          cleanString(booking.delivery_time),
-        legacyDeliveryTime: cleanString(booking.delivery_time),
-        eventAddress,
-        distanceMiles: booking.distance_miles,
-        deliveryFee: booking.delivery_fee,
-        mileageFee: booking.mileage_fee,
-        setupLocation: cleanString(booking.setup_location),
-        setupSurface: cleanString(booking.setup_surface),
-        setupAccess: cleanString(booking.setup_access),
-        setupNotes: cleanString(booking.setup_notes),
-        paymentMethod: cleanString(booking.payment_method),
-        duration: cleanString(booking.duration),
-        spanDays:
-          typeof booking.span_days === "number" && booking.span_days >= 1
-            ? booking.span_days
-            : 1,
-        subtotal: booking.subtotal,
-        total: booking.total,
-        paymentConfirmedAt: cleanString(booking.payment_confirmed_at),
-        paymentConfirmedBy: cleanString(booking.payment_confirmed_by),
-        paymentConfirmationNotes: cleanString(booking.payment_confirmation_notes),
-        googleCalendarEventId: cleanString(booking.google_calendar_event_id),
-        deliveryTruck: cleanString(booking.delivery_truck),
-        deliverySequence: booking.delivery_sequence,
-        plannedArrivalTime: cleanString(booking.planned_arrival_time),
-        plannedSetupStart: cleanString(booking.planned_setup_start),
-        plannedSetupEnd: cleanString(booking.planned_setup_end),
-        deliveryRouteStatus: cleanString(booking.delivery_route_status),
-        deliveryRouteNotes: cleanString(booking.delivery_route_notes),
+        ...booking,
         items,
         itemCount: items.length,
-        bigSlideCount,
-        estimatedSetupMinutes: normalizeSetupMinutes(
-          booking.estimated_setup_minutes,
-          items,
+        bigSlideCount: items.filter((item) => item.isBigSlide).length,
+        estimatedSetupMinutes: items.reduce(
+          (sum, item) => sum + item.estimatedSetupMinutes,
+          0,
         ),
-        singleStopMapUrl: eventAddress
-          ? googleDirectionsUrl([SHOP_ADDRESS, eventAddress])
-          : null,
       };
     })
     .filter((booking): booking is AdminDeliveryBooking => booking !== null)
@@ -374,13 +727,23 @@ export async function loadAdminDeliveries(
     (sum, booking) => sum + booking.estimatedSetupMinutes,
     0,
   );
+  const deliveryTaskCount = tasks.filter((task) => task.workType === "delivery").length;
+  const pickupTaskCount = tasks.filter((task) => task.workType === "pickup").length;
 
   return {
-    date,
+    date: primaryDate,
+    dates,
     bookings: deliveryBookings,
+    tasks,
+    unscheduled,
+    warnings,
     routeUrl: googleDirectionsUrl(routeStops),
     summary: {
-      bookingCount: deliveryBookings.length,
+      bookingCount: new Set([
+        ...deliveryBookings.map((booking) => booking.id),
+        ...tasks.map((task) => task.bookingId),
+        ...unscheduled.map((task) => task.bookingId),
+      ]).size,
       inflatableCount: deliveryBookings.reduce(
         (sum, booking) => sum + booking.itemCount,
         0,
@@ -393,6 +756,9 @@ export async function loadAdminDeliveries(
         booking.requestedDeliveryWindow?.toLowerCase().startsWith("friday"),
       ).length,
       estimatedSetupMinutes: estimatedSetup,
+      deliveryTaskCount,
+      pickupTaskCount,
+      unscheduledCount: unscheduled.length,
     },
   };
 }

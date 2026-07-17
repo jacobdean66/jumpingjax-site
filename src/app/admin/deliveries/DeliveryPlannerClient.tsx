@@ -1,11 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
   AdminDeliveriesResult,
-  AdminDeliveryBooking,
-  AdminDeliveryItem,
+  AdminDeliveryWorkTask,
 } from "@/lib/admin/deliveries";
+import {
+  datesToSearchParams,
+  formatLongDate,
+  type PlannerWorkFilter,
+  type WorkType,
+} from "@/lib/admin/delivery-planner-dates";
 
 type TruckId = "truck-1" | "truck-2";
 type ColumnId = "unassigned" | TruckId;
@@ -14,8 +20,11 @@ type PlannedInflatable = {
   id: string;
   itemId: string;
   bookingId: string;
+  workType: WorkType;
   customerName: string;
   customerPhone: string | null;
+  bookingStatus: string;
+  eventDate: string;
   eventStartTime: string | null;
   requestedDeliveryWindow: string | null;
   eventAddress: string | null;
@@ -38,6 +47,8 @@ type PlannedInflatable = {
   deliveryRouteStatus: string | null;
   deliveryRouteNotes: string | null;
   estimatedSetupMinutes: number;
+  crossDateLabel: string | null;
+  conflictMessages: string[];
   warning: "ok" | "tight" | "late" | "missing_time" | "capacity" | "unplanned";
   warningText: string;
 };
@@ -74,13 +85,6 @@ function timeFromMinutes(value: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-function addDays(ymd: string, days: number): string {
-  const [year, month, day] = ymd.split("-").map(Number);
-  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-  date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 function formatTime(value: string | null): string {
   if (!value) return "Not set";
   const minutes = minutesFromTime(value);
@@ -95,7 +99,6 @@ function formatTime(value: string | null): string {
 function routeUrl(items: PlannedInflatable[]): string | null {
   const stops = uniqueStops(items);
   if (stops.length === 0) return null;
-
   const routeStops = [SHOP_ADDRESS, ...stops, SHOP_ADDRESS];
   return `https://www.google.com/maps/dir/${routeStops
     .map((stop) => encodeURIComponent(stop))
@@ -126,6 +129,25 @@ function uniqueStops(items: PlannedInflatable[]): string[] {
 function evaluateWarning(
   item: PlannedInflatable,
 ): Pick<PlannedInflatable, "warning" | "warningText"> {
+  if (item.workType === "pickup") {
+    if (!item.deliveryTruck) {
+      return {
+        warning: "unplanned",
+        warningText: "Needs attention: assign this pickup to a trailer.",
+      };
+    }
+    if (!item.plannedArrivalTime && !item.deliveryDate) {
+      return {
+        warning: "missing_time",
+        warningText: "Needs attention: set a pickup time.",
+      };
+    }
+    return {
+      warning: "ok",
+      warningText: "Pickup assigned for this work date.",
+    };
+  }
+
   const partyStart = minutesFromTime(item.eventStartTime);
   const deliveryDeadline = deliveryDeadlineMinutes(item.eventStartTime);
   const setupEnd = minutesFromTime(item.plannedSetupEnd);
@@ -181,11 +203,9 @@ function sortForRoute(a: PlannedInflatable, b: PlannedInflatable) {
   const aDeadline = deliveryDeadlineMinutes(a.eventStartTime) ?? 9999;
   const bDeadline = deliveryDeadlineMinutes(b.eventStartTime) ?? 9999;
   if (aDeadline !== bDeadline) return aDeadline - bDeadline;
-
   const aMiles = a.distanceMiles ?? -1;
   const bMiles = b.distanceMiles ?? -1;
   if (aMiles !== bMiles) return bMiles - aMiles;
-
   return (a.eventAddress ?? "").localeCompare(b.eventAddress ?? "") ||
     a.customerName.localeCompare(b.customerName);
 }
@@ -211,43 +231,57 @@ function preferredTruckForAddress(address: string | null): TruckId {
   return westRouteTowns.some((town) => text.includes(town)) ? "truck-2" : "truck-1";
 }
 
-function flattenBookings(bookings: AdminDeliveryBooking[]): PlannedInflatable[] {
-  return bookings.flatMap((booking) =>
-    booking.items.map((item: AdminDeliveryItem) => ({
-      id: item.id,
-      itemId: item.id,
-      bookingId: booking.id,
-      customerName: booking.customerName,
-      customerPhone: booking.customerPhone,
-      eventStartTime: booking.eventStartTime,
-      requestedDeliveryWindow: booking.requestedDeliveryWindow,
-      eventAddress: booking.eventAddress,
-      distanceMiles: booking.distanceMiles,
-      setupLocation: booking.setupLocation,
-      setupSurface: booking.setupSurface,
-      setupAccess: booking.setupAccess,
-      setupNotes: booking.setupNotes,
-      singleStopMapUrl: booking.singleStopMapUrl,
-      rentalName: item.rental_name,
-      rentalItem: item.rental_item,
-      isBigSlide: item.isBigSlide,
-      deliveryDate: item.deliveryDate,
-      deliveryTruck:
-        item.deliveryTruck === "truck-1" || item.deliveryTruck === "truck-2"
-          ? item.deliveryTruck
-          : null,
-      trailerLoad: item.trailerLoad,
-      deliverySequence: item.deliverySequence,
-      plannedArrivalTime: item.plannedArrivalTime,
-      plannedSetupStart: item.plannedSetupStart,
-      plannedSetupEnd: item.plannedSetupEnd,
-      deliveryRouteStatus: item.deliveryRouteStatus,
-      deliveryRouteNotes: item.deliveryRouteNotes,
-      estimatedSetupMinutes: item.estimatedSetupMinutes,
-      warning: "unplanned",
-      warningText: "Needs attention: assign this inflatable to a truck.",
-    })),
-  );
+function asTruck(value: string | null | undefined): TruckId | null {
+  return value === "truck-1" || value === "truck-2" ? value : null;
+}
+
+function taskToPlanned(task: AdminDeliveryWorkTask): PlannedInflatable {
+  const base: PlannedInflatable = {
+    id: task.id,
+    itemId: task.itemId,
+    bookingId: task.bookingId,
+    workType: task.workType,
+    customerName: task.customerName,
+    customerPhone: task.customerPhone,
+    bookingStatus: task.bookingStatus,
+    eventDate: task.eventDate,
+    eventStartTime: task.eventStartTime,
+    requestedDeliveryWindow: task.requestedDeliveryWindow,
+    eventAddress: task.eventAddress,
+    distanceMiles: task.distanceMiles,
+    setupLocation: task.setupLocation,
+    setupSurface: task.setupSurface,
+    setupAccess: task.setupAccess,
+    setupNotes: task.setupNotes,
+    singleStopMapUrl: task.singleStopMapUrl,
+    rentalName: task.rentalName,
+    rentalItem: task.rentalItem,
+    isBigSlide: task.isBigSlide,
+    deliveryDate: task.workDate,
+    deliveryTruck: asTruck(task.truck),
+    trailerLoad: task.trailerLoad,
+    deliverySequence: task.sequence,
+    plannedArrivalTime: task.plannedArrivalTime ?? task.workTime,
+    plannedSetupStart: task.plannedSetupStart,
+    plannedSetupEnd: task.plannedSetupEnd,
+    deliveryRouteStatus: task.routeStatus,
+    deliveryRouteNotes: task.routeNotes,
+    estimatedSetupMinutes: task.estimatedSetupMinutes,
+    crossDateLabel: task.crossDateLabel,
+    conflictMessages: task.warnings.map((warning) => warning.message),
+    warning: "unplanned",
+    warningText: "Needs attention: assign this stop.",
+  };
+  return { ...base, ...evaluateWarning(base) };
+}
+
+function flattenDeliveries(deliveries: AdminDeliveriesResult): PlannedInflatable[] {
+  const tasks = [...(deliveries.tasks ?? []), ...(deliveries.unscheduled ?? [])];
+  return tasks.map(taskToPlanned);
+}
+
+function workScopeKey(item: PlannedInflatable) {
+  return `${item.deliveryDate ?? "unscheduled"}:${item.workType}`;
 }
 
 function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
@@ -258,7 +292,7 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
       const unplanned = {
         ...item,
         deliverySequence: null,
-        plannedArrivalTime: null,
+        plannedArrivalTime: item.workType === "pickup" ? item.plannedArrivalTime : null,
         plannedSetupStart: null,
         plannedSetupEnd: null,
         deliveryRouteStatus: "unplanned",
@@ -270,7 +304,9 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
   for (const truck of TRUCKS) {
     let availableAt = DAY_START_MINUTES;
     let sequence = 1;
-    const truckItems = sortTruckItems(items.filter((item) => item.deliveryTruck === truck));
+    const truckItems = sortTruckItems(
+      items.filter((item) => item.deliveryTruck === truck),
+    );
     const loadNumbers = [
       ...new Set(
         truckItems.map(
@@ -292,6 +328,20 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
       );
 
       loadItems.forEach((item) => {
+        if (item.workType === "pickup") {
+          const planned = {
+            ...item,
+            trailerLoad: loadNumber,
+            deliverySequence: sequence,
+            plannedArrivalTime: item.plannedArrivalTime,
+            deliveryRouteStatus:
+              item.deliveryRouteStatus === "planned" ? "planned" : "draft",
+          };
+          byId.set(item.id, { ...planned, ...evaluateWarning(planned) });
+          sequence += 1;
+          return;
+        }
+
         const sameStop = lastBookingId === item.bookingId;
         const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
         const targetArrival =
@@ -341,66 +391,53 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
   return items.map((item) => byId.get(item.id) ?? item);
 }
 
-function initialPlan(bookings: AdminDeliveryBooking[]): PlannedInflatable[] {
-  const flattened = flattenBookings(bookings);
-  const hasUnassigned = flattened.some((item) => !item.deliveryTruck);
-  return hasUnassigned ? autoDraft(flattened) : recalculatePlan(flattened);
+function recalculateScoped(
+  allItems: PlannedInflatable[],
+  scopeItems: PlannedInflatable[],
+): PlannedInflatable[] {
+  const recalculated = recalculatePlan(scopeItems);
+  const byId = new Map(recalculated.map((item) => [item.id, item]));
+  return allItems.map((item) => byId.get(item.id) ?? item);
 }
 
 function autoDraft(items: PlannedInflatable[]): PlannedInflatable[] {
-  const truckState: Record<
-    TruckId,
-    { availableAt: number; sequence: number; inflatableCount: number; bigSlideCount: number }
-  > = {
-    "truck-1": { availableAt: DAY_START_MINUTES + FIRST_DRIVE_MINUTES, sequence: 1, inflatableCount: 0, bigSlideCount: 0 },
-    "truck-2": { availableAt: DAY_START_MINUTES + FIRST_DRIVE_MINUTES, sequence: 1, inflatableCount: 0, bigSlideCount: 0 },
-  };
+  const scopes = new Map<string, PlannedInflatable[]>();
+  for (const item of items) {
+    const key = workScopeKey(item);
+    scopes.set(key, [...(scopes.get(key) ?? []), item]);
+  }
 
-  return [...items].sort(sortForRoute).map((item) => {
-    const preferredTruck = preferredTruckForAddress(item.eventAddress);
-    const otherTruck = preferredTruck === "truck-1" ? "truck-2" : "truck-1";
-    const preferredState = truckState[preferredTruck];
-    const otherState = truckState[otherTruck];
-    const preferredWouldFit =
-      preferredState.inflatableCount + 1 <= TRUCK_INFLATABLE_CAPACITY &&
-      preferredState.bigSlideCount + (item.isBigSlide ? 1 : 0) <=
-        TRUCK_BIG_SLIDE_CAPACITY;
-    const otherWouldFit =
-      otherState.inflatableCount + 1 <= TRUCK_INFLATABLE_CAPACITY &&
-      otherState.bigSlideCount + (item.isBigSlide ? 1 : 0) <=
-        TRUCK_BIG_SLIDE_CAPACITY;
-
-    let truck = preferredTruck;
-    if (!preferredWouldFit && otherWouldFit) {
-      truck = otherTruck;
-    } else if (preferredState.availableAt - otherState.availableAt > 90 && otherWouldFit) {
-      truck = otherTruck;
-    } else if (!preferredWouldFit && !otherWouldFit && otherState.availableAt < preferredState.availableAt) {
-      truck = otherTruck;
+  let result = [...items];
+  for (const scoped of scopes.values()) {
+    const unassigned = scoped.filter((item) => !item.deliveryTruck);
+    if (unassigned.length === 0) {
+      result = recalculateScoped(result, scoped);
+      continue;
     }
 
-    const state = truckState[truck];
-    const windowStart = deliveryWindowStartMinutes(item.eventStartTime);
-    const setupStart =
-      windowStart == null ? state.availableAt : Math.max(state.availableAt, windowStart);
-    const setupEnd = setupStart + item.estimatedSetupMinutes;
-    const planned = {
-      ...item,
-      deliveryTruck: truck,
-      deliverySequence: state.sequence,
-      plannedArrivalTime: timeFromMinutes(setupStart),
-      plannedSetupStart: timeFromMinutes(setupStart),
-      plannedSetupEnd: timeFromMinutes(setupEnd),
-      deliveryRouteStatus: "draft",
-    };
+    const drafted = [...scoped]
+      .sort(sortForRoute)
+      .map((item, index) => {
+        if (item.deliveryTruck) return item;
+        return {
+          ...item,
+          deliveryTruck: preferredTruckForAddress(item.eventAddress),
+          deliveryDate: item.deliveryDate,
+          trailerLoad: item.trailerLoad ?? Math.floor(index / TRUCK_INFLATABLE_CAPACITY) + 1,
+          deliveryRouteStatus: "draft",
+        };
+      });
+    result = recalculateScoped(result, drafted);
+  }
+  return result;
+}
 
-    state.sequence += 1;
-    state.availableAt = setupEnd + BETWEEN_STOPS_MINUTES;
-    state.inflatableCount += 1;
-    state.bigSlideCount += item.isBigSlide ? 1 : 0;
-
-    return { ...planned, ...evaluateWarning(planned) };
-  });
+function initialPlan(deliveries: AdminDeliveriesResult): PlannedInflatable[] {
+  const flattened = flattenDeliveries(deliveries);
+  const hasUnassigned = flattened.some(
+    (item) => item.deliveryDate && !item.deliveryTruck,
+  );
+  return hasUnassigned ? autoDraft(flattened) : recalculatePlan(flattened);
 }
 
 function columnItems(items: PlannedInflatable[], column: ColumnId) {
@@ -418,8 +455,13 @@ function moveWithinTruck(
 ): PlannedInflatable[] {
   const moving = items.find((item) => item.id === id);
   if (!moving?.deliveryTruck) return items;
+  const scopeKey = workScopeKey(moving);
   const truckItems = sortTruckItems(
-    items.filter((item) => item.deliveryTruck === moving.deliveryTruck),
+    items.filter(
+      (item) =>
+        item.deliveryTruck === moving.deliveryTruck &&
+        workScopeKey(item) === scopeKey,
+    ),
   );
   const index = truckItems.findIndex((item) => item.id === id);
   const swapIndex = index + direction;
@@ -429,31 +471,66 @@ function moveWithinTruck(
   const sequenceById = new Map(
     reordered.map((item, nextIndex) => [item.id, nextIndex + 1]),
   );
-  return recalculatePlan(
-    items.map((item) =>
-      item.deliveryTruck === moving.deliveryTruck
-        ? { ...item, deliverySequence: sequenceById.get(item.id) ?? null }
-        : item,
-    ),
+  const next = items.map((item) =>
+    item.deliveryTruck === moving.deliveryTruck && workScopeKey(item) === scopeKey
+      ? { ...item, deliverySequence: sequenceById.get(item.id) ?? null }
+      : item,
+  );
+  return recalculateScoped(
+    next,
+    next.filter((item) => workScopeKey(item) === scopeKey),
   );
 }
 
 function routeAssignments(items: PlannedInflatable[]) {
-  return items.map((item) => ({
-    id: item.bookingId,
-    bookingId: item.bookingId,
-    itemId: item.itemId,
-      deliveryTruck: item.deliveryTruck,
-      deliveryDate: item.deliveryDate,
-      trailerLoad: item.trailerLoad,
-      deliverySequence: item.deliverySequence,
-    plannedArrivalTime: item.plannedArrivalTime,
-    plannedSetupStart: item.plannedSetupStart,
-    plannedSetupEnd: item.plannedSetupEnd,
-    estimatedSetupMinutes: item.estimatedSetupMinutes,
-    deliveryRouteStatus: item.deliveryRouteStatus ?? "planned",
-    deliveryRouteNotes: item.deliveryRouteNotes,
-  }));
+  return items
+    .filter((item) => item.deliveryDate)
+    .map((item) => {
+      if (item.workType === "pickup") {
+        return {
+          itemId: item.itemId,
+          bookingId: item.bookingId,
+          workType: "pickup" as const,
+          pickupDate: item.deliveryDate,
+          pickupTime: item.plannedArrivalTime,
+          pickupTruck: item.deliveryTruck,
+          pickupTrailerLoad: item.trailerLoad,
+          pickupSequence: item.deliverySequence,
+          pickupRouteStatus: item.deliveryRouteStatus ?? "planned",
+          pickupRouteNotes: item.deliveryRouteNotes,
+        };
+      }
+      return {
+        id: item.bookingId,
+        bookingId: item.bookingId,
+        itemId: item.itemId,
+        workType: "delivery" as const,
+        deliveryTruck: item.deliveryTruck,
+        deliveryDate: item.deliveryDate,
+        trailerLoad: item.trailerLoad,
+        deliverySequence: item.deliverySequence,
+        plannedArrivalTime: item.plannedArrivalTime,
+        plannedSetupStart: item.plannedSetupStart,
+        plannedSetupEnd: item.plannedSetupEnd,
+        estimatedSetupMinutes: item.estimatedSetupMinutes,
+        deliveryRouteStatus: item.deliveryRouteStatus ?? "planned",
+        deliveryRouteNotes: item.deliveryRouteNotes,
+      };
+    });
+}
+
+function deliveriesSignature(deliveries: AdminDeliveriesResult): string {
+  return JSON.stringify({
+    dates: deliveries.dates,
+    tasks: (deliveries.tasks ?? []).map((task) => ({
+      id: task.id,
+      workDate: task.workDate,
+      truck: task.truck,
+      sequence: task.sequence,
+      status: task.routeStatus,
+    })),
+    unscheduled: (deliveries.unscheduled ?? []).map((task) => task.id),
+  });
 }
 
 function warningClasses(warning: PlannedInflatable["warning"]) {
@@ -524,47 +601,57 @@ function loadNumber(load: PlannedInflatable[], fallback: number): number {
   return load.find((item) => item.trailerLoad)?.trailerLoad ?? fallback;
 }
 
-function emailPlanHref(date: string, items: PlannedInflatable[]): string {
-  const lines = ["Jumping Jax Delivery Plan", `Date: ${date}`, ""];
+function emailPlanHref(dates: string[], items: PlannedInflatable[]): string {
+  const lines = [
+    "Jumping Jax Delivery Plan",
+    `Dates: ${dates.join(", ")}`,
+    "",
+  ];
 
-  for (const truck of TRUCKS) {
-    const truckItems = items.filter((item) => item.deliveryTruck === truck);
-    lines.push(COLUMN_LABELS[truck]);
-
-    if (truckItems.length === 0) {
-      lines.push("No inflatables assigned.", "");
-      continue;
+  for (const date of dates) {
+    lines.push(formatLongDate(date));
+    for (const workType of ["delivery", "pickup"] as WorkType[]) {
+      const dayItems = items.filter(
+        (item) => item.deliveryDate === date && item.workType === workType,
+      );
+      if (dayItems.length === 0) continue;
+      lines.push(workType === "delivery" ? "Deliveries / Setups" : "Pickups");
+      for (const truck of TRUCKS) {
+        const truckItems = dayItems.filter((item) => item.deliveryTruck === truck);
+        lines.push(`  ${COLUMN_LABELS[truck]}`);
+        if (truckItems.length === 0) {
+          lines.push("  No stops.", "");
+          continue;
+        }
+        chunkLoads(truckItems).forEach((load, index) => {
+          lines.push(`  Load ${loadNumber(load, index + 1)} (${routeRangeLabel(load)})`);
+          load.forEach((item) => {
+            lines.push(
+              `  ${item.deliverySequence ?? "?"}. ${item.customerName} - ${item.rentalName} - ${formatTime(item.plannedArrivalTime)} - ${item.eventAddress ?? "No address"}`,
+            );
+          });
+          lines.push("");
+        });
+      }
     }
-
-    chunkLoads(truckItems).forEach((load, index) => {
-      lines.push(`Load ${loadNumber(load, index + 1)} (${routeRangeLabel(load)})`);
-      load.forEach((item) => {
-        lines.push(
-          `${item.deliverySequence ?? "?"}. ${item.customerName} - ${item.rentalName} - arrive ${formatTime(item.plannedArrivalTime)} - ${item.eventAddress ?? "No address"}`,
-        );
-      });
-      const mapUrl = routeUrl(load);
-      if (mapUrl) lines.push(`Map: ${mapUrl}`);
-      lines.push("");
-    });
-  }
-
-  const unassignedCount = items.filter((item) => !item.deliveryTruck).length;
-  if (unassignedCount > 0) {
-    lines.push(`Needs assignment: ${unassignedCount} inflatable(s)`);
+    lines.push("");
   }
 
   return `mailto:?subject=${encodeURIComponent(
-    `Jumping Jax Delivery Plan - ${date}`,
+    `Jumping Jax Route Plan - ${dates.join(", ")}`,
   )}&body=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 function LoadSheet({
   truck,
   items,
+  dateLabel,
+  workTypeLabel,
 }: {
   truck: TruckId;
   items: PlannedInflatable[];
+  dateLabel?: string;
+  workTypeLabel?: string;
 }) {
   const loads = chunkLoads(items);
   const truckLabel = COLUMN_LABELS[truck];
@@ -573,103 +660,103 @@ function LoadSheet({
     <section className="delivery-print-sheet rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:break-inside-auto print:border-slate-900 print:p-0 print:shadow-none">
       <div className="delivery-print-trailer-head flex flex-wrap items-start justify-between gap-3 border-b-2 border-slate-200 pb-3 print:border-slate-900">
         <div>
+          {dateLabel && (
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
+              {dateLabel}
+            </p>
+          )}
           <h3 className="text-2xl font-black text-slate-950">{truckLabel}</h3>
-          <p className="mt-1 text-sm font-bold text-slate-700">
-            Load the trailer in this order. Each load holds up to 3 inflatables.
+          {workTypeLabel && (
+            <p className="mt-1 text-sm font-bold text-slate-700">{workTypeLabel}</p>
+          )}
+          <p className="mt-1 rounded-lg bg-slate-100 px-2 py-1 text-sm font-bold text-slate-800">
+            {items.length} stop{items.length === 1 ? "" : "s"}
           </p>
         </div>
-        <p className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-black text-white">
-          {items.length} inflatables
-        </p>
       </div>
-
-      {loads.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-base font-bold text-slate-700">
-          No inflatables assigned to this truck.
-        </p>
-      ) : (
-        <div className="delivery-print-loads mt-4 grid gap-4">
-          {loads.map((load, index) => (
-            <div
-              key={`${truck}-load-${index}`}
-              className="delivery-print-load rounded-xl border border-slate-300 bg-slate-50 p-4 print:border-slate-700"
-            >
-              <div className="delivery-print-load-head flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xl font-black text-slate-950">
-                  {truckLabel} - Load {loadNumber(load, index + 1)}
-                </h4>
-                <span className="rounded-full bg-amber-200 px-3 py-1 text-sm font-black text-amber-950">
-                  {routeRangeLabel(load)}
-                </span>
-              </div>
-              <p className="delivery-print-shop-note mt-2 rounded-lg bg-rose-100 px-3 py-2 text-sm font-black text-rose-900">
-                Shop to stops to shop. Reload before next load.
-              </p>
-              {routeUrl(load) ? (
-                <a
-                  href={routeUrl(load) ?? undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="delivery-print-map-link mt-2 inline-flex rounded-lg bg-amber-200 px-3 py-2 text-sm font-black text-amber-950"
-                >
-                  Open Load {loadNumber(load, index + 1)} Map
-                </a>
-              ) : null}
-              <div className="delivery-print-table-wrap mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white">
-                <table className="delivery-print-table w-full border-collapse text-sm">
-                  <colgroup>
-                    <col className="delivery-print-col-stop" />
-                    <col className="delivery-print-col-item" />
-                    <col className="delivery-print-col-customer" />
-                    <col className="delivery-print-col-phone" />
-                    <col className="delivery-print-col-arrive" />
-                    <col className="delivery-print-col-party" />
-                    <col className="delivery-print-col-address" />
-                    <col className="delivery-print-col-setup" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Stop</th>
-                      <th>Item</th>
-                      <th>Customer</th>
-                      <th>Phone</th>
-                      <th>Arrive</th>
-                      <th>Party</th>
-                      <th>Address</th>
-                      <th>Setup</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {load.map((item) => (
-                      <tr key={item.id}>
-                        <td>{item.deliverySequence ?? "?"}</td>
-                        <td>
-                          {item.rentalName}
-                          {item.isBigSlide ? " (big)" : ""}
-                        </td>
-                        <td>{item.customerName}</td>
-                        <td>{item.customerPhone ?? ""}</td>
-                        <td>{formatTime(item.plannedArrivalTime)}</td>
-                        <td>{formatTime(item.eventStartTime)}</td>
-                        <td>
-                          {item.eventAddress ?? "No address"}
-                          {item.setupLocation ? ` | ${item.setupLocation}` : ""}
-                        </td>
-                        <td>
-                          {printWarningLabel(item.warning)}
-                          {item.setupSurface ? ` | ${item.setupSurface}` : ""}
-                          {item.setupAccess ? ` | ${item.setupAccess}` : ""}
-                          {item.setupNotes ? ` | ${item.setupNotes}` : ""}
-                        </td>
+      <div className="delivery-print-loads mt-4 grid gap-4">
+        {loads.length === 0 ? (
+          <p className="text-sm font-bold text-slate-600">No stops on this trailer.</p>
+        ) : (
+          loads.map((load, index) => {
+            const mapHref = routeUrl(load);
+            return (
+              <div
+                key={`${truck}-${loadNumber(load, index + 1)}`}
+                className="delivery-print-load rounded-xl border border-slate-300 bg-slate-50 p-4 print:border-slate-700"
+              >
+                <div className="delivery-print-load-head flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-lg font-black text-slate-950">
+                    Load {loadNumber(load, index + 1)}
+                  </h4>
+                  <span className="text-sm font-bold text-slate-700">
+                    {routeRangeLabel(load)}
+                  </span>
+                </div>
+                <p className="delivery-print-shop-note mt-2 rounded-lg bg-rose-100 px-3 py-2 text-sm font-black text-rose-900">
+                  Shop to stops to shop. Reload before next load.
+                </p>
+                {mapHref && (
+                  <a
+                    href={mapHref}
+                    className="delivery-print-map-link mt-2 inline-flex rounded-lg bg-amber-200 px-3 py-2 text-sm font-black text-amber-950"
+                  >
+                    Open map
+                  </a>
+                )}
+                <div className="delivery-print-table-wrap mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white">
+                  <table className="delivery-print-table w-full border-collapse text-sm">
+                    <colgroup>
+                      <col className="delivery-print-col-stop" />
+                      <col className="delivery-print-col-item" />
+                      <col className="delivery-print-col-customer" />
+                      <col className="delivery-print-col-phone" />
+                      <col className="delivery-print-col-arrive" />
+                      <col className="delivery-print-col-party" />
+                      <col className="delivery-print-col-address" />
+                      <col className="delivery-print-col-setup" />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-100 text-left text-xs font-black uppercase tracking-wide text-slate-700">
+                        <th>Stop</th>
+                        <th>Item</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Arrive</th>
+                        <th>Event</th>
+                        <th>Address</th>
+                        <th>Notes</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {load.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.deliverySequence ?? "—"}</td>
+                          <td>
+                            {item.rentalName}
+                            <div className="text-xs font-bold text-slate-500">
+                              {item.workType === "pickup" ? "Pickup" : "Delivery"} ·{" "}
+                              {printWarningLabel(item.warning)}
+                            </div>
+                          </td>
+                          <td>{item.customerName}</td>
+                          <td>{item.customerPhone ?? "—"}</td>
+                          <td>{formatTime(item.plannedArrivalTime)}</td>
+                          <td>{item.eventDate}</td>
+                          <td>{item.eventAddress ?? "—"}</td>
+                          <td>
+                            {item.crossDateLabel ?? item.setupNotes ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            );
+          })
+        )}
+      </div>
     </section>
   );
 }
@@ -682,34 +769,28 @@ function LoadMapLinks({
   items: PlannedInflatable[];
 }) {
   const loads = chunkLoads(items);
-  if (loads.length === 0) return null;
-
   return (
     <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm">
-      <p className="text-sm font-black text-slate-950">
-        {COLUMN_LABELS[truck]} load maps
-      </p>
-      <p className="mt-1 text-xs font-bold text-slate-600">
-        Each map starts at the shop, runs one trailer load, and returns to the
-        shop.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {loads.map((load, index) => {
-          const url = routeUrl(load);
-          if (!url) return null;
-          const number = loadNumber(load, index + 1);
-          return (
-            <a
-              key={`${truck}-load-map-${number}`}
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl bg-amber-200 px-3 py-2 text-sm font-black text-amber-950 hover:bg-amber-300"
-            >
-              Load {number} Map
-            </a>
-          );
-        })}
+      <h3 className="text-lg font-black text-slate-950">{COLUMN_LABELS[truck]} maps</h3>
+      <div className="mt-3 grid gap-2">
+        {loads.length === 0 ? (
+          <p className="text-sm font-bold text-slate-600">No mapped loads yet.</p>
+        ) : (
+          loads.map((load, index) => {
+            const href = routeUrl(load);
+            return href ? (
+              <a
+                key={`${truck}-map-${index}`}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg bg-amber-200 px-3 py-2 text-sm font-black text-amber-950 hover:bg-amber-300"
+              >
+                Load {loadNumber(load, index + 1)} map
+              </a>
+            ) : null;
+          })
+        )}
       </div>
     </div>
   );
@@ -717,27 +798,30 @@ function LoadMapLinks({
 
 function InflatableCard({
   item,
-  plannerDate,
-  onDateChange,
+  selectedDates,
+  onMoveToDate,
   onLoadChange,
   onAssign,
   onUnassign,
   onMove,
 }: {
   item: PlannedInflatable;
-  plannerDate: string;
-  onDateChange: (id: string, date: string) => void;
+  selectedDates: string[];
+  onMoveToDate: (id: string, date: string) => void;
   onLoadChange: (id: string, load: number) => void;
   onAssign: (id: string, truck: TruckId) => void;
   onUnassign: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
 }) {
   return (
-    <article className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm">
+    <article
+      id={`job-${item.id}`}
+      className="rounded-xl border border-sky-100 bg-white p-4 shadow-sm"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-sky-700">
-            Booking #{item.bookingId}
+            Booking #{item.bookingId} · {item.bookingStatus}
           </p>
           <h3 className="mt-1 text-lg font-black leading-tight text-slate-950">
             {item.rentalName}
@@ -746,30 +830,55 @@ function InflatableCard({
             {item.customerName}
           </p>
         </div>
-        {item.deliverySequence && (
+        <div className="grid gap-1 text-right">
           <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-black text-white">
-            Stop {item.deliverySequence}
+            {item.workType === "pickup" ? "Pickup" : "Delivery / Setup"}
           </span>
-        )}
+          {item.deliverySequence && (
+            <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+              Stop {item.deliverySequence}
+            </span>
+          )}
+        </div>
       </div>
+
+      {item.crossDateLabel && (
+        <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-black text-amber-950">
+          {item.crossDateLabel}
+        </p>
+      )}
 
       <div className="mt-3 grid gap-2 rounded-xl bg-sky-50 p-3 text-sm">
         <p className="flex justify-between gap-3">
-          <span className="text-slate-600">Party starts</span>
+          <span className="text-slate-600">Event date</span>
+          <span className="text-right font-black text-slate-950">{item.eventDate}</span>
+        </p>
+        <p className="flex justify-between gap-3">
+          <span className="text-slate-600">Work date</span>
           <span className="text-right font-black text-slate-950">
-            {formatTime(item.eventStartTime)}
+            {item.deliveryDate ?? "Unscheduled"}
           </span>
         </p>
         <p className="flex justify-between gap-3">
-          <span className="text-slate-600">Crew arrives</span>
+          <span className="text-slate-600">Work time</span>
           <span className="text-right font-black text-slate-950">
             {formatTime(item.plannedArrivalTime)}
           </span>
         </p>
         <p className="flex justify-between gap-3">
-          <span className="text-slate-600">Setup finished</span>
+          <span className="text-slate-600">Driver</span>
+          <span className="text-right font-black text-slate-950">N/A</span>
+        </p>
+        <p className="flex justify-between gap-3">
+          <span className="text-slate-600">Truck / Trailer</span>
           <span className="text-right font-black text-slate-950">
-            {formatTime(item.plannedSetupEnd)}
+            {item.deliveryTruck ? COLUMN_LABELS[item.deliveryTruck] : "Unassigned"}
+          </span>
+        </p>
+        <p className="flex justify-between gap-3">
+          <span className="text-slate-600">Trailer load</span>
+          <span className="text-right font-black text-slate-950">
+            {item.trailerLoad ?? "—"}
           </span>
         </p>
       </div>
@@ -779,27 +888,42 @@ function InflatableCard({
         {item.warningText}
       </p>
 
-      <p className="mt-3 text-sm text-slate-700">
-        Window: {item.requestedDeliveryWindow ?? "No delivery window saved"}
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">
+      {item.conflictMessages.length > 0 && (
+        <ul className="mt-2 grid gap-1 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-900">
+          {item.conflictMessages.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      )}
+
+      <p className="mt-3 text-sm leading-relaxed text-slate-600">
         {item.eventAddress ?? "No address"}
       </p>
-      {item.isBigSlide && (
-        <p className="mt-2 inline-flex rounded-full bg-sky-200 px-3 py-1 text-xs font-black uppercase text-sky-900">
-          Big slide
+      {(item.setupNotes || item.deliveryRouteNotes) && (
+        <p className="mt-2 text-sm font-semibold text-slate-700">
+          Notes: {item.deliveryRouteNotes ?? item.setupNotes}
         </p>
       )}
 
       <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-black sm:grid-cols-3">
         <label className="grid gap-1 text-slate-700">
-          Take it
-          <input
-            type="date"
-            value={item.deliveryDate ?? plannerDate}
-            onChange={(event) => onDateChange(item.id, event.target.value)}
+          Move to date
+          <select
+            value={item.deliveryDate ?? ""}
+            onChange={(event) => {
+              if (event.target.value) onMoveToDate(item.id, event.target.value);
+            }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-950"
-          />
+          >
+            <option value="" disabled>
+              Select date
+            </option>
+            {selectedDates.map((date) => (
+              <option key={date} value={date}>
+                {formatLongDate(date)}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="grid gap-1 text-slate-700">
           Trailer
@@ -831,26 +955,6 @@ function InflatableCard({
           </select>
         </label>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-black">
-        {[
-          { label: "Prev day", date: addDays(plannerDate, -1) },
-          { label: "This day", date: plannerDate },
-          { label: "Next day", date: addDays(plannerDate, 1) },
-        ].map((option) => (
-          <button
-            key={option.label}
-            type="button"
-            onClick={() => onDateChange(item.id, option.date)}
-            className={`rounded-lg px-2 py-2 ${
-              (item.deliveryDate ?? plannerDate) === option.date
-                ? "bg-slate-950 text-white"
-                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
 
       <div className="mt-4 grid gap-2 text-sm font-black sm:grid-cols-4">
         <button type="button" onClick={() => onMove(item.id, -1)} disabled={!item.deliveryTruck} className="rounded-xl bg-white px-3 py-3 text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45">
@@ -875,8 +979,8 @@ function InflatableCard({
 function DeliveryColumn({
   column,
   items,
-  plannerDate,
-  onDateChange,
+  selectedDates,
+  onMoveToDate,
   onLoadChange,
   onAssign,
   onUnassign,
@@ -884,8 +988,8 @@ function DeliveryColumn({
 }: {
   column: ColumnId;
   items: PlannedInflatable[];
-  plannerDate: string;
-  onDateChange: (id: string, date: string) => void;
+  selectedDates: string[];
+  onMoveToDate: (id: string, date: string) => void;
   onLoadChange: (id: string, load: number) => void;
   onAssign: (id: string, truck: TruckId) => void;
   onUnassign: (id: string) => void;
@@ -900,33 +1004,28 @@ function DeliveryColumn({
     <section className={`rounded-xl border p-3 ${overloaded ? "border-rose-300 bg-rose-50" : "border-sky-100 bg-sky-50"}`}>
       <div className="mb-3 flex items-start justify-between gap-3 px-1">
         <div>
-          <h2 className="text-xl font-black text-slate-950">
+          <h3 className="text-lg font-black text-slate-950">
             {COLUMN_LABELS[column]}
-          </h2>
+          </h3>
           <p className="mt-1 text-sm font-bold text-slate-600">
-            {items.length}/3 inflatables | {bigSlideCount}/3 big slides
+            {items.length} stop{items.length === 1 ? "" : "s"}
           </p>
-          {overloaded && (
-            <p className="mt-2 rounded-lg bg-white px-3 py-2 text-sm font-black text-rose-800">
-              Too much for the first load.
-            </p>
-          )}
         </div>
       </div>
       <div className="grid gap-3">
         {items.length === 0 ? (
           <div className="rounded-xl border border-dashed border-sky-200 bg-white p-5 text-sm font-bold text-slate-600">
             {column === "unassigned"
-              ? "Every inflatable has a truck."
-              : "Click Auto-Plan, or put an inflatable here manually."}
+              ? "Every stop has a trailer."
+              : "Assign stops here or auto-plan this day."}
           </div>
         ) : (
           items.map((item) => (
             <InflatableCard
               key={item.id}
               item={item}
-              plannerDate={plannerDate}
-              onDateChange={onDateChange}
+              selectedDates={selectedDates}
+              onMoveToDate={onMoveToDate}
               onLoadChange={onLoadChange}
               onAssign={onAssign}
               onUnassign={onUnassign}
@@ -939,133 +1038,249 @@ function DeliveryColumn({
   );
 }
 
+function WorkBoard({
+  title,
+  items,
+  selectedDates,
+  onMoveToDate,
+  onLoadChange,
+  onAssign,
+  onUnassign,
+  onMove,
+}: {
+  title: string;
+  items: PlannedInflatable[];
+  selectedDates: string[];
+  onMoveToDate: (id: string, date: string) => void;
+  onLoadChange: (id: string, load: number) => void;
+  onAssign: (id: string, truck: TruckId) => void;
+  onUnassign: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+}) {
+  return (
+    <div className="mt-4">
+      <h3 className="text-base font-black text-slate-900">{title}</h3>
+      <div className="mt-3 grid gap-4 xl:grid-cols-3">
+        {(["unassigned", "truck-1", "truck-2"] as ColumnId[]).map((column) => (
+          <DeliveryColumn
+            key={`${title}-${column}`}
+            column={column}
+            items={columnItems(items, column)}
+            selectedDates={selectedDates}
+            onMoveToDate={onMoveToDate}
+            onLoadChange={onLoadChange}
+            onAssign={onAssign}
+            onUnassign={onUnassign}
+            onMove={onMove}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DeliveryPlannerClient({
   deliveries,
 }: {
   deliveries: AdminDeliveriesResult;
 }) {
-  const [items, setItems] = useState(() => initialPlan(deliveries.bookings));
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedDates = useMemo(
+    () => (deliveries.dates?.length ? deliveries.dates : [deliveries.date]),
+    [deliveries.dates, deliveries.date],
+  );
+  const [items, setItems] = useState(() => initialPlan(deliveries));
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+  const [printDate, setPrintDate] = useState<string>("all");
+  const [printTruck, setPrintTruck] = useState<string>("all");
+  const [printWorkType, setPrintWorkType] = useState<string>("all");
+  const currentSignature = useMemo(() => deliveriesSignature(deliveries), [deliveries]);
+  const lastSignatureRef = useRef(currentSignature);
 
-  const columns = useMemo(
-    () => ({
-      unassigned: columnItems(items, "unassigned"),
-      truck1: columnItems(items, "truck-1"),
-      truck2: columnItems(items, "truck-2"),
-    }),
-    [items],
-  );
-  const counts = statusCounts(items);
-  const emailHref = useMemo(
-    () => emailPlanHref(deliveries.date, items),
-    [deliveries.date, items],
-  );
+  const workFilter = (searchParams.get("work") ?? "all") as PlannerWorkFilter;
+  const truckFilter = searchParams.get("truck") ?? "all";
+  const loadFilter = searchParams.get("load") ?? "all";
+  const statusFilter = searchParams.get("status") ?? "all";
 
-  const onAssign = (id: string, truck: TruckId) => {
+  function updateFilter(key: string, value: string) {
+    const params = datesToSearchParams(selectedDates, {
+      work: key === "work" ? value : workFilter,
+      truck: key === "truck" ? value : truckFilter,
+      load: key === "load" ? value : loadFilter,
+      status: key === "status" ? value : statusFilter,
+    });
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  useEffect(() => {
+    function refreshVisiblePage() {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }
+
+    const params = new URLSearchParams();
+    if (selectedDates.length === 1) {
+      params.set("date", selectedDates[0]!);
+    } else {
+      params.set("dates", selectedDates.join(","));
+      params.set("date", selectedDates[0]!);
+    }
+
+    const events = new EventSource(`/api/driver/events?${params.toString()}`);
+    events.addEventListener("refresh", refreshVisiblePage);
+    events.addEventListener("error", () => {
+      events.close();
+    });
+
+    const fallback = window.setInterval(refreshVisiblePage, 30_000);
+    window.addEventListener("focus", refreshVisiblePage);
+
+    return () => {
+      events.close();
+      window.clearInterval(fallback);
+      window.removeEventListener("focus", refreshVisiblePage);
+    };
+  }, [router, selectedDates]);
+
+  useEffect(() => {
+    if (lastSignatureRef.current === currentSignature) return;
+    lastSignatureRef.current = currentSignature;
+
+    startTransition(() => {
+      if (hasLocalEdits) {
+        setPlanMessage(
+          "New route data is available. Save this plan, or reload the page to pull in the latest bookings.",
+        );
+        return;
+      }
+
+      setItems(initialPlan(deliveries));
+      setSaveStatus("idle");
+      setSaveError(null);
+      setPlanMessage("Route planner refreshed with the latest booking data.");
+    });
+  }, [currentSignature, deliveries, hasLocalEdits]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (workFilter === "deliveries" && item.workType !== "delivery") return false;
+      if (workFilter === "pickups" && item.workType !== "pickup") return false;
+      if (workFilter === "unscheduled" && item.deliveryDate) return false;
+      if (truckFilter !== "all" && item.deliveryTruck !== truckFilter) return false;
+      if (loadFilter !== "all" && String(item.trailerLoad ?? "") !== loadFilter) {
+        return false;
+      }
+      if (statusFilter !== "all" && item.bookingStatus !== statusFilter) return false;
+      return true;
+    });
+  }, [items, workFilter, truckFilter, loadFilter, statusFilter]);
+
+  const scheduledItems = useMemo(
+    () => filteredItems.filter((item) => item.deliveryDate),
+    [filteredItems],
+  );
+  const unscheduledItems = useMemo(
+    () => filteredItems.filter((item) => !item.deliveryDate),
+    [filteredItems],
+  );
+  const counts = statusCounts(scheduledItems);
+  const emailHref = emailPlanHref(selectedDates, scheduledItems);
+
+  const mutateScoped = (
+    id: string,
+    updater: (item: PlannedInflatable) => PlannedInflatable,
+  ) => {
+    setHasLocalEdits(true);
     setItems((current) => {
-      const assignedToTruck = current.filter(
-        (item) => item.deliveryTruck === truck && item.id !== id,
+      const next = current.map((item) => (item.id === id ? updater(item) : item));
+      const target = next.find((item) => item.id === id);
+      if (!target?.deliveryDate) return next;
+      const scope = next.filter(
+        (item) => workScopeKey(item) === workScopeKey(target),
       );
-      return recalculatePlan(
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                deliveryTruck: truck,
-                deliveryDate: item.deliveryDate ?? deliveries.date,
-                trailerLoad: item.trailerLoad ?? 1,
-                deliverySequence: assignedToTruck.length + 1,
-                deliveryRouteStatus: "draft",
-              }
-            : item,
-        ),
-      );
+      return recalculateScoped(next, scope);
     });
     setSaveStatus("idle");
   };
 
-  const onDateChange = (id: string, date: string) => {
-    setItems((current) =>
-      recalculatePlan(
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                deliveryDate: date,
-                deliveryRouteStatus: "draft",
-              }
-            : item,
-        ),
-      ),
-    );
-    setSaveStatus("idle");
+  const onAssign = (id: string, truck: TruckId) => {
+    mutateScoped(id, (item) => ({
+      ...item,
+      deliveryTruck: truck,
+      deliveryDate: item.deliveryDate ?? selectedDates[0] ?? deliveries.date,
+      trailerLoad: item.trailerLoad ?? 1,
+      deliveryRouteStatus: "draft",
+    }));
+  };
+
+  const onMoveToDate = (id: string, date: string) => {
+    mutateScoped(id, (item) => ({
+      ...item,
+      deliveryDate: date,
+      deliveryRouteStatus: "draft",
+    }));
+    window.requestAnimationFrame(() => {
+      document.getElementById(`job-${id}`)?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
   };
 
   const onLoadChange = (id: string, load: number) => {
-    setItems((current) =>
-      recalculatePlan(
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                trailerLoad: load,
-                deliveryRouteStatus: "draft",
-              }
-            : item,
-        ),
-      ),
-    );
-    setSaveStatus("idle");
+    mutateScoped(id, (item) => ({
+      ...item,
+      trailerLoad: load,
+      deliveryRouteStatus: "draft",
+    }));
   };
 
   const onUnassign = (id: string) => {
-    setItems((current) =>
-      recalculatePlan(
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                deliveryTruck: null,
-                trailerLoad: null,
-                deliverySequence: null,
-                plannedArrivalTime: null,
-                plannedSetupStart: null,
-                plannedSetupEnd: null,
-                deliveryRouteStatus: "unplanned",
-              }
-            : item,
-        ),
-      ),
-    );
-    setSaveStatus("idle");
+    mutateScoped(id, (item) => ({
+      ...item,
+      deliveryTruck: null,
+      trailerLoad: null,
+      deliverySequence: null,
+      plannedArrivalTime: item.workType === "pickup" ? item.plannedArrivalTime : null,
+      plannedSetupStart: null,
+      plannedSetupEnd: null,
+      deliveryRouteStatus: "unplanned",
+    }));
   };
 
   const onMove = (id: string, direction: -1 | 1) => {
+    setHasLocalEdits(true);
     setItems((current) => moveWithinTruck(current, id, direction));
     setSaveStatus("idle");
   };
 
-  const runAutoPlan = async () => {
+  const runAutoPlan = async (date: string) => {
     setSaveStatus("saving");
     setSaveError(null);
     try {
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoPlan: true, date: deliveries.date }),
+        body: JSON.stringify({ autoPlan: true, date }),
       });
       const data = (await res.json().catch(() => null)) as
         | { error?: string; plannedCount?: number }
         | null;
       if (!res.ok) throw new Error(data?.error || "Unable to auto-plan route.");
       setPlanMessage(
-        `Truck plan saved. ${data?.plannedCount ?? 0} inflatables are assigned.`,
+        `Truck plan saved for ${formatLongDate(date)}. ${data?.plannedCount ?? 0} inflatables assigned.`,
       );
       setSaveStatus("saved");
-      window.location.reload();
+      setHasLocalEdits(false);
+      router.refresh();
     } catch (error) {
       setSaveStatus("error");
       setSaveError(error instanceof Error ? error.message : "Unable to auto-plan route.");
@@ -1084,6 +1299,9 @@ export function DeliveryPlannerClient({
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Unable to save route plan.");
       setSaveStatus("saved");
+      setHasLocalEdits(false);
+      setPlanMessage("Plan saved. Event dates were not changed.");
+      router.refresh();
     } catch (error) {
       setSaveStatus("error");
       setSaveError(error instanceof Error ? error.message : "Unable to save route plan.");
@@ -1097,6 +1315,17 @@ export function DeliveryPlannerClient({
     window.setTimeout(() => setIsPrinting(false), 2500);
   };
 
+  const printItems = scheduledItems.filter((item) => {
+    if (printDate !== "all" && item.deliveryDate !== printDate) return false;
+    if (printTruck !== "all" && item.deliveryTruck !== printTruck) return false;
+    if (printWorkType !== "all" && item.workType !== printWorkType) return false;
+    return true;
+  });
+  const printDates =
+    printDate === "all"
+      ? selectedDates
+      : selectedDates.filter((date) => date === printDate);
+
   return (
     <>
       <section className="delivery-screen-only mt-6 rounded-xl border border-sky-200 bg-white p-4 shadow-sm print:hidden">
@@ -1104,14 +1333,19 @@ export function DeliveryPlannerClient({
           <div>
             <h2 className="text-2xl font-black text-slate-950">Start here</h2>
             <p className="mt-1 text-sm font-bold text-slate-600">
-              Set each inflatable&apos;s delivery day, trailer, load, and order.
-              Each printed load starts at the shop and returns to the shop.
+              Selected window: {selectedDates.map(formatLongDate).join(" · ")}.
+              Routes stay separate by work date. Moving a stop only changes the
+              operational work date.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:flex">
-            <button type="button" onClick={runAutoPlan} className="rounded-xl bg-sky-600 px-5 py-4 text-left text-sm font-black text-white hover:bg-sky-700">
+            <button
+              type="button"
+              onClick={() => runAutoPlan(selectedDates[0]!)}
+              className="rounded-xl bg-sky-600 px-5 py-4 text-left text-sm font-black text-white hover:bg-sky-700"
+            >
               <span className="block text-xs uppercase">Update</span>
-              Rebuild and Save Plan
+              Auto-Plan First Date
             </button>
             <a
               href={emailHref}
@@ -1129,16 +1363,75 @@ export function DeliveryPlannerClient({
               <span className="block text-xs uppercase">Print</span>
               {isPrinting ? "Opening Print..." : "Print Load Sheets"}
             </button>
-            <button type="button" onClick={savePlan} disabled={saveStatus === "saving"} className="rounded-xl bg-amber-300 px-5 py-4 text-left text-sm font-black text-amber-950 hover:bg-amber-200 disabled:opacity-60">
+            <button
+              type="button"
+              onClick={savePlan}
+              disabled={saveStatus === "saving"}
+              className="rounded-xl bg-amber-300 px-5 py-4 text-left text-sm font-black text-amber-950 hover:bg-amber-200 disabled:opacity-60"
+            >
               <span className="block text-xs uppercase">Save</span>
               {saveStatus === "saving" ? "Saving..." : "Save This Plan"}
             </button>
           </div>
         </div>
 
+        <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <label className="grid gap-1 text-xs font-black uppercase text-slate-600">
+            Work
+            <select
+              value={workFilter}
+              onChange={(event) => updateFilter("work", event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-950"
+            >
+              <option value="all">All work</option>
+              <option value="deliveries">Deliveries / setups</option>
+              <option value="pickups">Pickups</option>
+              <option value="unscheduled">Unscheduled</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-black uppercase text-slate-600">
+            Trailer
+            <select
+              value={truckFilter}
+              onChange={(event) => updateFilter("truck", event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-950"
+            >
+              <option value="all">All trailers</option>
+              <option value="truck-1">Short Trailer</option>
+              <option value="truck-2">Long Trailer</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-black uppercase text-slate-600">
+            Load
+            <select
+              value={loadFilter}
+              onChange={(event) => updateFilter("load", event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-950"
+            >
+              <option value="all">All loads</option>
+              <option value="1">Load 1</option>
+              <option value="2">Load 2</option>
+              <option value="3">Load 3</option>
+              <option value="4">Load 4</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-black uppercase text-slate-600">
+            Booking status
+            <select
+              value={statusFilter}
+              onChange={(event) => updateFilter("status", event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-950"
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+            </select>
+          </label>
+        </div>
+
         {planMessage && (
           <p className="mt-3 rounded-xl bg-sky-100 px-4 py-3 text-sm font-black text-sky-950">
-            {planMessage} Short Trailer and Long Trailer are below.
+            {planMessage}
           </p>
         )}
 
@@ -1156,7 +1449,7 @@ export function DeliveryPlannerClient({
 
         {saveStatus === "saved" && (
           <p className="mt-3 rounded-xl bg-emerald-100 px-4 py-3 text-sm font-black text-emerald-900">
-            Saved. These inflatable truck assignments will still be here when you reload.
+            Saved. Work-date changes are persistent; event dates unchanged.
           </p>
         )}
         {saveStatus === "error" && (
@@ -1164,45 +1457,138 @@ export function DeliveryPlannerClient({
             Save failed: {saveError}
           </p>
         )}
+
+        {(deliveries.warnings?.length ?? 0) > 0 && (
+          <ul className="mt-3 grid gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-950">
+            {deliveries.warnings.slice(0, 8).map((warning, index) => (
+              <li key={`${warning.code}-${index}`}>{warning.message}</li>
+            ))}
+          </ul>
+        )}
       </section>
 
-      <div className="delivery-screen-only mt-6 grid gap-5 xl:grid-cols-3 print:hidden">
-        <DeliveryColumn
-          column="unassigned"
-          items={columns.unassigned}
-          plannerDate={deliveries.date}
-          onDateChange={onDateChange}
-          onLoadChange={onLoadChange}
-          onAssign={onAssign}
-          onUnassign={onUnassign}
-          onMove={onMove}
-        />
-        <DeliveryColumn
-          column="truck-1"
-          items={columns.truck1}
-          plannerDate={deliveries.date}
-          onDateChange={onDateChange}
-          onLoadChange={onLoadChange}
-          onAssign={onAssign}
-          onUnassign={onUnassign}
-          onMove={onMove}
-        />
-        <DeliveryColumn
-          column="truck-2"
-          items={columns.truck2}
-          plannerDate={deliveries.date}
-          onDateChange={onDateChange}
-          onLoadChange={onLoadChange}
-          onAssign={onAssign}
-          onUnassign={onUnassign}
-          onMove={onMove}
-        />
-      </div>
+      {(workFilter === "all" || workFilter === "unscheduled") &&
+        unscheduledItems.length > 0 && (
+          <section className="delivery-screen-only mt-6 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm print:hidden">
+            <h2 className="text-2xl font-black text-slate-950">Unscheduled Work</h2>
+            <p className="mt-1 text-sm font-bold text-slate-600">
+              Jobs in this window that still need a delivery/setup or pickup date.
+            </p>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {unscheduledItems.map((item) => (
+                <InflatableCard
+                  key={item.id}
+                  item={item}
+                  selectedDates={selectedDates}
+                  onMoveToDate={onMoveToDate}
+                  onLoadChange={onLoadChange}
+                  onAssign={onAssign}
+                  onUnassign={onUnassign}
+                  onMove={onMove}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
-      <section className="delivery-screen-only mt-5 grid gap-3 lg:grid-cols-2 print:hidden">
-        <LoadMapLinks truck="truck-1" items={columns.truck1} />
-        <LoadMapLinks truck="truck-2" items={columns.truck2} />
-      </section>
+      {workFilter !== "unscheduled" &&
+        selectedDates.map((date) => {
+          const dayDeliveries = scheduledItems.filter(
+            (item) =>
+              item.deliveryDate === date &&
+              item.workType === "delivery" &&
+              workFilter !== "pickups",
+          );
+          const dayPickups = scheduledItems.filter(
+            (item) =>
+              item.deliveryDate === date &&
+              item.workType === "pickup" &&
+              workFilter !== "deliveries",
+          );
+          const collapsed = collapsedDates[date] ?? false;
+          return (
+            <section
+              key={date}
+              id={`date-${date}`}
+              className="delivery-screen-only mt-6 rounded-2xl border border-sky-100 bg-white p-4 shadow-sm print:hidden"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-950">
+                    {formatLongDate(date)}
+                  </h2>
+                  <p className="mt-1 text-sm font-bold text-slate-600">
+                    {dayDeliveries.length} deliveries/setups · {dayPickups.length}{" "}
+                    pickups
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => runAutoPlan(date)}
+                    className="rounded-full bg-sky-600 px-4 py-2 text-xs font-black text-white hover:bg-sky-700"
+                  >
+                    Auto-plan this day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedDates((current) => ({
+                        ...current,
+                        [date]: !collapsed,
+                      }))
+                    }
+                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-800"
+                  >
+                    {collapsed ? "Expand" : "Collapse"}
+                  </button>
+                </div>
+              </div>
+              {!collapsed && (
+                <>
+                  {(workFilter === "all" || workFilter === "deliveries") && (
+                    <WorkBoard
+                      title="Deliveries / Setups"
+                      items={dayDeliveries}
+                      selectedDates={selectedDates}
+                      onMoveToDate={onMoveToDate}
+                      onLoadChange={onLoadChange}
+                      onAssign={onAssign}
+                      onUnassign={onUnassign}
+                      onMove={onMove}
+                    />
+                  )}
+                  {(workFilter === "all" || workFilter === "pickups") && (
+                    <WorkBoard
+                      title="Pickups"
+                      items={dayPickups}
+                      selectedDates={selectedDates}
+                      onMoveToDate={onMoveToDate}
+                      onLoadChange={onLoadChange}
+                      onAssign={onAssign}
+                      onUnassign={onUnassign}
+                      onMove={onMove}
+                    />
+                  )}
+                  <section className="mt-5 grid gap-3 lg:grid-cols-2">
+                    <LoadMapLinks
+                      truck="truck-1"
+                      items={[...dayDeliveries, ...dayPickups].filter(
+                        (item) => item.deliveryTruck === "truck-1",
+                      )}
+                    />
+                    <LoadMapLinks
+                      truck="truck-2"
+                      items={[...dayDeliveries, ...dayPickups].filter(
+                        (item) => item.deliveryTruck === "truck-2",
+                      )}
+                    />
+                  </section>
+                </>
+              )}
+            </section>
+          );
+        })}
 
       <section className="delivery-print-root mt-5 rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
@@ -1211,17 +1597,41 @@ export function DeliveryPlannerClient({
               Print load sheets
             </h2>
             <p className="mt-1 max-w-3xl text-sm font-bold leading-relaxed text-slate-700">
-              Prints a condensed trailer-load sheet with one small map and one
-              tight table per load.
+              Print all selected dates, one date, or one trailer for one date.
+              Each day starts on its own page.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={emailHref}
-              className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white hover:bg-violet-700"
+            <select
+              value={printDate}
+              onChange={(event) => setPrintDate(event.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold"
             >
-              Email Route Plan
-            </a>
+              <option value="all">All selected dates</option>
+              {selectedDates.map((date) => (
+                <option key={date} value={date}>
+                  {formatLongDate(date)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={printTruck}
+              onChange={(event) => setPrintTruck(event.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold"
+            >
+              <option value="all">All trailers</option>
+              <option value="truck-1">Short Trailer</option>
+              <option value="truck-2">Long Trailer</option>
+            </select>
+            <select
+              value={printWorkType}
+              onChange={(event) => setPrintWorkType(event.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold"
+            >
+              <option value="all">Deliveries + pickups</option>
+              <option value="delivery">Deliveries only</option>
+              <option value="pickup">Pickups only</option>
+            </select>
             <button
               type="button"
               onClick={printPlan}
@@ -1232,17 +1642,72 @@ export function DeliveryPlannerClient({
             </button>
           </div>
         </div>
+
         <div className="hidden print:block">
-          <h1 className="text-3xl font-black text-slate-950">
-            Jumping Jax Delivery Plan
-          </h1>
-          <p className="mt-1 text-lg font-bold text-slate-800">
-            Date: {deliveries.date}
-          </p>
-        </div>
-        <div className="mt-4 hidden gap-5 xl:grid-cols-2 print:mt-1 print:grid print:grid-cols-1 print:gap-3">
-          <LoadSheet truck="truck-1" items={columns.truck1} />
-          <LoadSheet truck="truck-2" items={columns.truck2} />
+          {printDates.map((date, dateIndex) => {
+            const dayItems = printItems.filter((item) => item.deliveryDate === date);
+            const deliveriesForDay = dayItems.filter(
+              (item) => item.workType === "delivery",
+            );
+            const pickupsForDay = dayItems.filter((item) => item.workType === "pickup");
+            return (
+              <div
+                key={date}
+                className={`delivery-print-day ${dateIndex > 0 ? "delivery-print-day-break" : ""}`}
+              >
+                <h1 className="text-3xl font-black text-slate-950">
+                  Jumping Jax Route Plan
+                </h1>
+                <p className="mt-1 text-lg font-bold text-slate-800">
+                  {formatLongDate(date)}
+                </p>
+                {(printWorkType === "all" || printWorkType === "delivery") &&
+                  (printTruck === "all" || printTruck === "truck-1") && (
+                    <LoadSheet
+                      truck="truck-1"
+                      items={deliveriesForDay.filter(
+                        (item) => item.deliveryTruck === "truck-1",
+                      )}
+                      dateLabel={formatLongDate(date)}
+                      workTypeLabel="Deliveries / Setups"
+                    />
+                  )}
+                {(printWorkType === "all" || printWorkType === "delivery") &&
+                  (printTruck === "all" || printTruck === "truck-2") && (
+                    <LoadSheet
+                      truck="truck-2"
+                      items={deliveriesForDay.filter(
+                        (item) => item.deliveryTruck === "truck-2",
+                      )}
+                      dateLabel={formatLongDate(date)}
+                      workTypeLabel="Deliveries / Setups"
+                    />
+                  )}
+                {(printWorkType === "all" || printWorkType === "pickup") &&
+                  (printTruck === "all" || printTruck === "truck-1") && (
+                    <LoadSheet
+                      truck="truck-1"
+                      items={pickupsForDay.filter(
+                        (item) => item.deliveryTruck === "truck-1",
+                      )}
+                      dateLabel={formatLongDate(date)}
+                      workTypeLabel="Pickups"
+                    />
+                  )}
+                {(printWorkType === "all" || printWorkType === "pickup") &&
+                  (printTruck === "all" || printTruck === "truck-2") && (
+                    <LoadSheet
+                      truck="truck-2"
+                      items={pickupsForDay.filter(
+                        (item) => item.deliveryTruck === "truck-2",
+                      )}
+                      dateLabel={formatLongDate(date)}
+                      workTypeLabel="Pickups"
+                    />
+                  )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -1255,6 +1720,10 @@ export function DeliveryPlannerClient({
         @media print {
           .delivery-print-root {
             width: 100%;
+          }
+
+          .delivery-print-day-break {
+            break-before: page;
           }
 
           .delivery-print-sheet {
@@ -1279,16 +1748,6 @@ export function DeliveryPlannerClient({
             line-height: 1.1;
           }
 
-          .delivery-print-trailer-head p,
-          .delivery-print-trailer-head > p {
-            font-size: 8pt;
-            line-height: 1.2;
-            margin-top: 0.03in;
-            padding: 0;
-            color: #0f172a;
-            background: transparent;
-          }
-
           .delivery-print-loads {
             margin-top: 0.1in;
             gap: 0.12in;
@@ -1300,42 +1759,11 @@ export function DeliveryPlannerClient({
             background: #fff;
           }
 
-          .delivery-print-load-head h4 {
-            font-size: 12pt;
-            line-height: 1.1;
-          }
-
-          .delivery-print-load-head span,
-          .delivery-print-shop-note,
-          .delivery-print-map-link {
-            font-size: 7.5pt;
-            line-height: 1.15;
-          }
-
-          .delivery-print-shop-note,
-          .delivery-print-map-link {
-            margin-top: 0.05in;
-            padding: 0.04in 0.07in;
-          }
-
-          .delivery-print-table-wrap {
-            margin-top: 0.06in;
-            overflow: visible;
-          }
-
           .delivery-print-table {
             table-layout: fixed;
             width: 100%;
             font-size: 7.5pt;
             line-height: 1.2;
-          }
-
-          .delivery-print-table thead {
-            display: table-header-group;
-          }
-
-          .delivery-print-table tr {
-            break-inside: avoid;
           }
 
           .delivery-print-table th,
@@ -1345,10 +1773,6 @@ export function DeliveryPlannerClient({
             vertical-align: top;
             overflow-wrap: anywhere;
             border-bottom: 1px solid #cbd5e1;
-          }
-
-          .delivery-print-table tbody tr:last-child td {
-            border-bottom: 0;
           }
 
           .delivery-print-col-stop { width: 5%; }
@@ -1361,24 +1785,6 @@ export function DeliveryPlannerClient({
           .delivery-print-col-setup { width: 20%; }
         }
       `}</style>
-
-      <section className="delivery-screen-only mt-5 grid gap-3 lg:grid-cols-2 print:hidden">
-        <div className="rounded-xl border border-sky-100 bg-white p-4">
-          <p className="text-sm font-black text-slate-950">Multiple inflatables</p>
-          <p className="mt-1 text-sm text-slate-600">
-            If one customer booked more than one inflatable, each inflatable is
-            listed so the crew knows exactly what goes on each truck.
-          </p>
-        </div>
-        <div className="rounded-xl border border-sky-100 bg-white p-4">
-          <p className="text-sm font-black text-slate-950">How trucks are chosen</p>
-          <p className="mt-1 text-sm text-slate-600">
-            The planner starts with the customer address and party time, then
-            balances the route between the Short Trailer and Long Trailer.
-          </p>
-        </div>
-      </section>
-
     </>
   );
 }
