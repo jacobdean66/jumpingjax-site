@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
+import { isDeliveryTruckId } from "@/lib/admin/driver-app";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 function clean(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function redirectDriver(
+  req: Request,
+  params: Record<string, string | undefined>,
+) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value);
+  }
+  return NextResponse.redirect(new URL(`/driver?${search.toString()}`, req.url), 303);
 }
 
 export async function POST(req: Request) {
@@ -13,26 +25,51 @@ export async function POST(req: Request) {
   const date = clean(form.get("date"));
   const truck = clean(form.get("truck"));
   const notes = clean(form.get("notes"));
+  const view = clean(form.get("view"));
 
-  const auth = await verifyAdminAccess();
+  const auth = await verifyAdminAccess(token);
   if (!auth.ok) {
-    return NextResponse.redirect(
-      new URL(`/driver?error=${encodeURIComponent("Invalid driver link")}`, req.url),
-      303,
-    );
+    return redirectDriver(req, { error: "Invalid driver link" });
   }
 
   if (!bookingId) {
-    return NextResponse.redirect(
-      new URL(
-        `/driver?token=${encodeURIComponent(token)}&date=${encodeURIComponent(date)}&error=${encodeURIComponent("Missing booking")}`,
-        req.url,
-      ),
-      303,
-    );
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: "Missing booking",
+    });
+  }
+
+  if (truck && truck !== "unassigned" && !isDeliveryTruckId(truck)) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: "Invalid truck",
+    });
   }
 
   const supabase = createServiceRoleClient();
+  const { data: booking, error: loadError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", bookingId)
+    .in("status", ["pending", "approved"])
+    .maybeSingle<{ id: string | number }>();
+
+  if (loadError || !booking) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: loadError?.message ?? "Booking not found",
+    });
+  }
+
   const { error } = await supabase
     .from("bookings")
     .update({
@@ -43,13 +80,21 @@ export async function POST(req: Request) {
     .eq("id", bookingId)
     .in("status", ["pending", "approved"]);
 
-  const params = new URLSearchParams({
+  if (error) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: error.message,
+    });
+  }
+
+  return redirectDriver(req, {
     token,
     date,
-    message: error ? error.message : "Payment confirmed",
+    truck,
+    view,
+    message: "Payment confirmed",
   });
-  if (truck) params.set("truck", truck);
-  if (error) params.set("error", error.message);
-
-  return NextResponse.redirect(new URL(`/driver?${params.toString()}`, req.url), 303);
 }

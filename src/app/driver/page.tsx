@@ -5,13 +5,32 @@ import {
   loadAdminDeliveries,
   normalizeDeliveryDate,
   todayYmd,
-  type AdminDeliveryBooking,
+  type AdminDeliveryWorkTask,
 } from "@/lib/admin/deliveries";
 import {
   closeoutKey,
   loadDriverCloseoutReports,
   type DriverCloseoutReport,
 } from "@/lib/admin/driver-closeout";
+import {
+  buildDriverPageTitle,
+  buildDriverPrintAssignments,
+  buildDriverPrintSheets,
+  buildDriverRouteSummary,
+  collectDriverReadinessWarnings,
+  countTasksByTruck,
+  DRIVER_TRUCKS,
+  driverTasksForDate,
+  filterDriverTasksByTruck,
+  groupDriverTasksByTrailerLoad,
+  normalizeDriverTruck,
+  printStopWorkLabel,
+  sortDriverTasks,
+  truckLabel,
+  unassignedDriverTasks,
+  type DriverPrintSheet,
+  type DriverTruckFilter,
+} from "@/lib/admin/driver-app";
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
 import { PrintButton } from "@/app/admin/PrintButton";
@@ -23,43 +42,19 @@ type Props = {
     token?: string;
     date?: string;
     truck?: string;
+    view?: string;
     message?: string;
     error?: string;
   }>;
 };
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
-const TRUCKS = [
-  { id: "truck-1", label: "Short Trailer" },
-  { id: "truck-2", label: "Long Trailer" },
-] as const;
-
-function truckLabel(truck: string): string {
-  return TRUCKS.find((item) => item.id === truck)?.label ?? truck;
-}
-
-function normalizeTruck(value: string | null | undefined): string | null {
-  const clean = value?.trim().toLowerCase();
-  if (!clean) return null;
-  if (clean === "truck-1" || clean === "truck 1" || clean === "1" || clean === "short") return "truck-1";
-  if (clean === "truck-2" || clean === "truck 2" || clean === "2" || clean === "long") return "truck-2";
-  return null;
-}
 
 function addDays(ymd: string, days: number): string {
   const [year, month, day] = ymd.split("-").map(Number);
   const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
   date.setDate(date.getDate() + days);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function formatDate(ymd: string): string {
-  const [year, month, day] = ymd.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(year ?? 0, (month ?? 1) - 1, day ?? 1));
 }
 
 function formatTime(value: string | null): string {
@@ -89,62 +84,9 @@ function directionsUrl(address: string | null): string | null {
   return url.toString();
 }
 
-function nextStopDirectionsUrl({
-  currentBooking,
-  truckBookings,
-}: {
-  currentBooking: AdminDeliveryBooking;
-  truckBookings: AdminDeliveryBooking[];
-}): string | null {
-  const ordered = truckBookings
-    .filter((booking) => booking.eventAddress?.trim())
-    .sort((a, b) => {
-      const sequence = bookingSequence(a) - bookingSequence(b);
-      if (sequence !== 0) return sequence;
-      return (a.eventStartTime ?? "99:99").localeCompare(
-        b.eventStartTime ?? "99:99",
-      );
-    });
-  const currentIndex = ordered.findIndex((booking) => booking.id === currentBooking.id);
-  const next = currentIndex >= 0 ? ordered[currentIndex + 1] : ordered[0];
-  const destination = next?.eventAddress?.trim();
-  const origin = currentBooking.eventAddress?.trim() || SHOP_ADDRESS;
-
-  if (!destination) {
-    return directionsUrl(SHOP_ADDRESS);
-  }
-
-  const url = new URL("https://www.google.com/maps/dir/");
-  url.searchParams.set("api", "1");
-  url.searchParams.set("origin", origin);
-  url.searchParams.set("destination", destination);
-  url.searchParams.set("travelmode", "driving");
-  return url.toString();
-}
-
-function nextStopBooking({
-  currentBooking,
-  truckBookings,
-}: {
-  currentBooking: AdminDeliveryBooking;
-  truckBookings: AdminDeliveryBooking[];
-}): AdminDeliveryBooking | null {
-  const ordered = truckBookings
-    .filter((booking) => booking.eventAddress?.trim())
-    .sort((a, b) => {
-      const sequence = bookingSequence(a) - bookingSequence(b);
-      if (sequence !== 0) return sequence;
-      return (a.eventStartTime ?? "99:99").localeCompare(
-        b.eventStartTime ?? "99:99",
-      );
-    });
-  const currentIndex = ordered.findIndex((booking) => booking.id === currentBooking.id);
-  return currentIndex >= 0 ? ordered[currentIndex + 1] ?? null : ordered[0] ?? null;
-}
-
-function routeUrl(bookings: AdminDeliveryBooking[]): string | null {
-  const stops = bookings
-    .map((booking) => booking.eventAddress?.trim())
+function routeUrl(tasks: AdminDeliveryWorkTask[]): string | null {
+  const stops = sortDriverTasks(tasks)
+    .map((task) => task.eventAddress?.trim())
     .filter((address): address is string => Boolean(address));
   if (stops.length === 0) return null;
   const url = new URL("https://www.google.com/maps/dir/");
@@ -158,12 +100,11 @@ function routeUrl(bookings: AdminDeliveryBooking[]): string | null {
   return url.toString();
 }
 
-function routeEmbedUrl(bookings: AdminDeliveryBooking[]): string | null {
-  const stops = bookings
-    .map((booking) => booking.eventAddress?.trim())
+function routeEmbedUrl(tasks: AdminDeliveryWorkTask[]): string | null {
+  const stops = sortDriverTasks(tasks)
+    .map((task) => task.eventAddress?.trim())
     .filter((address): address is string => Boolean(address));
   if (stops.length === 0) return null;
-
   const url = new URL("https://maps.google.com/maps");
   url.searchParams.set("f", "d");
   url.searchParams.set("source", "s_d");
@@ -171,6 +112,43 @@ function routeEmbedUrl(bookings: AdminDeliveryBooking[]): string | null {
   url.searchParams.set("daddr", stops.join(" to: "));
   url.searchParams.set("output", "embed");
   return url.toString();
+}
+
+function nextStopDirectionsUrl({
+  current,
+  truckTasks,
+}: {
+  current: AdminDeliveryWorkTask;
+  truckTasks: AdminDeliveryWorkTask[];
+}): string | null {
+  const ordered = sortDriverTasks(
+    truckTasks.filter((task) => task.eventAddress?.trim()),
+  );
+  const currentIndex = ordered.findIndex((task) => task.id === current.id);
+  const next = currentIndex >= 0 ? ordered[currentIndex + 1] : ordered[0];
+  const destination = next?.eventAddress?.trim();
+  const origin = current.eventAddress?.trim() || SHOP_ADDRESS;
+  if (!destination) return directionsUrl(SHOP_ADDRESS);
+  const url = new URL("https://www.google.com/maps/dir/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("origin", origin);
+  url.searchParams.set("destination", destination);
+  url.searchParams.set("travelmode", "driving");
+  return url.toString();
+}
+
+function nextStopTask({
+  current,
+  truckTasks,
+}: {
+  current: AdminDeliveryWorkTask;
+  truckTasks: AdminDeliveryWorkTask[];
+}): AdminDeliveryWorkTask | null {
+  const ordered = sortDriverTasks(
+    truckTasks.filter((task) => task.eventAddress?.trim()),
+  );
+  const currentIndex = ordered.findIndex((task) => task.id === current.id);
+  return currentIndex >= 0 ? ordered[currentIndex + 1] ?? null : ordered[0] ?? null;
 }
 
 function phoneHref(phone: string | null): string | null {
@@ -183,30 +161,6 @@ function textHref(phone: string | null, message?: string): string | null {
   if (!digits) return null;
   const body = message?.trim();
   return body ? `sms:${digits}?&body=${encodeURIComponent(body)}` : `sms:${digits}`;
-}
-
-function bookingTruck(booking: AdminDeliveryBooking): string {
-  return (
-    booking.deliveryTruck ??
-    booking.items.find((item) => item.deliveryTruck)?.deliveryTruck ??
-    "Unassigned"
-  );
-}
-
-function bookingSequence(booking: AdminDeliveryBooking): number {
-  const itemSequence = booking.items
-    .map((item) => item.deliverySequence)
-    .filter((value): value is number => typeof value === "number")
-    .sort((a, b) => a - b)[0];
-  return booking.deliverySequence ?? itemSequence ?? 999;
-}
-
-function bookingStatus(booking: AdminDeliveryBooking): string {
-  return (
-    booking.deliveryRouteStatus ??
-    booking.items.find((item) => item.deliveryRouteStatus)?.deliveryRouteStatus ??
-    "planned"
-  );
 }
 
 function statusLabel(status: string): string {
@@ -230,142 +184,29 @@ function statusClasses(status: string): string {
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
-function customerTextMessage(booking: AdminDeliveryBooking): string {
+function workTypeBadgeClasses(workType: AdminDeliveryWorkTask["workType"]): string {
+  return workType === "pickup"
+    ? "border-violet-200 bg-violet-100 text-violet-950"
+    : "border-amber-200 bg-amber-100 text-amber-950";
+}
+
+function customerTextMessage(task: AdminDeliveryWorkTask): string {
+  const workLabel = printStopWorkLabel(task.workType);
   return [
-    `Hi ${booking.customerName}, this is Jumping Jax.`,
-    "We are reaching out about your rental delivery today.",
-    booking.eventAddress ? `Address: ${booking.eventAddress}` : null,
+    `Hi ${task.customerName}, this is Jumping Jax.`,
+    `We are reaching out about your rental ${workLabel.toLowerCase()} today.`,
+    task.eventAddress ? `Address: ${task.eventAddress}` : null,
     "Reply here or call 864-933-1420 if you need us.",
   ]
     .filter((line): line is string => Boolean(line))
     .join("\n");
 }
 
-function groupByTruck(bookings: AdminDeliveryBooking[]) {
-  const groups = new Map<string, AdminDeliveryBooking[]>();
-  for (const booking of bookings) {
-    const itemsByTruck = new Map<string, typeof booking.items>();
-    for (const item of booking.items) {
-      const truck = item.deliveryTruck ?? booking.deliveryTruck ?? "Unassigned";
-      itemsByTruck.set(truck, [...(itemsByTruck.get(truck) ?? []), item]);
-    }
-
-    if (itemsByTruck.size === 0) {
-      const truck = bookingTruck(booking);
-      groups.set(truck, [...(groups.get(truck) ?? []), booking]);
-      continue;
-    }
-
-    for (const [truck, items] of itemsByTruck.entries()) {
-      const truckBooking = {
-        ...booking,
-        items,
-        deliveryTruck: truck === "Unassigned" ? null : truck,
-        deliverySequence:
-          items
-            .map((item) => item.deliverySequence)
-            .filter((value): value is number => typeof value === "number")
-            .sort((a, b) => a - b)[0] ?? booking.deliverySequence,
-        plannedArrivalTime:
-          items.find((item) => item.plannedArrivalTime)?.plannedArrivalTime ??
-          booking.plannedArrivalTime,
-        plannedSetupStart:
-          items.find((item) => item.plannedSetupStart)?.plannedSetupStart ??
-          booking.plannedSetupStart,
-        plannedSetupEnd:
-          items.find((item) => item.plannedSetupEnd)?.plannedSetupEnd ??
-          booking.plannedSetupEnd,
-        deliveryRouteStatus:
-          items.find((item) => item.deliveryRouteStatus)?.deliveryRouteStatus ??
-          booking.deliveryRouteStatus,
-      };
-      groups.set(truck, [...(groups.get(truck) ?? []), truckBooking]);
-    }
-  }
-  return [...groups.entries()]
-    .map(([truck, truckBookings]) => ({
-      truck,
-      bookings: truckBookings.sort((a, b) => {
-        const sequence = bookingSequence(a) - bookingSequence(b);
-        if (sequence !== 0) return sequence;
-        return (a.eventStartTime ?? "99:99").localeCompare(
-          b.eventStartTime ?? "99:99",
-        );
-      }),
-    }))
-    .sort((a, b) => a.truck.localeCompare(b.truck));
-}
-
-function bookingTrailerLoad(booking: AdminDeliveryBooking): number {
-  return (
-    booking.items
-      .map((item) => item.trailerLoad)
-      .filter((value): value is number => typeof value === "number")
-      .sort((a, b) => a - b)[0] ?? 1
-  );
-}
-
-function groupByTrailerLoad(bookings: AdminDeliveryBooking[]) {
-  const groups = new Map<number, AdminDeliveryBooking[]>();
-
-  for (const booking of bookings) {
-    const itemsByLoad = new Map<number, typeof booking.items>();
-    for (const item of booking.items) {
-      const load = item.trailerLoad ?? bookingTrailerLoad(booking);
-      itemsByLoad.set(load, [...(itemsByLoad.get(load) ?? []), item]);
-    }
-
-    for (const [load, items] of itemsByLoad.entries()) {
-      const loadBooking = {
-        ...booking,
-        items,
-        deliverySequence:
-          items
-            .map((item) => item.deliverySequence)
-            .filter((value): value is number => typeof value === "number")
-            .sort((a, b) => a - b)[0] ?? booking.deliverySequence,
-        plannedArrivalTime:
-          items.find((item) => item.plannedArrivalTime)?.plannedArrivalTime ??
-          booking.plannedArrivalTime,
-      };
-      groups.set(load, [...(groups.get(load) ?? []), loadBooking]);
-    }
-  }
-
-  return [...groups.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([load, loadBookings]) => ({
-      load,
-      bookings: loadBookings.sort((a, b) => {
-        const sequence = bookingSequence(a) - bookingSequence(b);
-        if (sequence !== 0) return sequence;
-        return (a.eventStartTime ?? "99:99").localeCompare(
-          b.eventStartTime ?? "99:99",
-        );
-      }),
-    }));
-}
-
-function DriverPrintSheets({
-  groups,
-  date,
-}: {
-  groups: { truck: string; bookings: AdminDeliveryBooking[] }[];
-  date: string;
-}) {
-  const assignments = groups.flatMap((group) =>
-    groupByTrailerLoad(group.bookings).map((loadGroup) => ({
-      truck: group.truck,
-      load: loadGroup.load,
-      bookings: loadGroup.bookings,
-    })),
-  );
-
-  if (assignments.length === 0) {
+function DriverPrintSheets({ sheets }: { sheets: DriverPrintSheet[] }) {
+  if (sheets.length === 0) {
     return (
       <section className="driver-print-only">
         <h1>Jumping Jax Driver Sheet</h1>
-        <p>{formatDate(date)}</p>
         <p>No assigned stops for this selection.</p>
       </section>
     );
@@ -373,27 +214,28 @@ function DriverPrintSheets({
 
   return (
     <section className="driver-print-only">
-      {assignments.map((assignment, index) => (
+      {sheets.map((sheet, index) => (
         <article
-          key={`${assignment.truck}-${assignment.load}`}
-          id={`driver-sheet-${assignment.truck}-load-${assignment.load}`}
+          key={sheet.sheetId}
+          id={sheet.sheetId}
           className={`driver-print-sheet${index > 0 ? " driver-print-sheet-break" : ""}`}
         >
           <header className="driver-print-sheet-head">
             <div>
               <h1>Jumping Jax Driver Sheet</h1>
-              <p>{formatDate(date)}</p>
+              <p>
+                {sheet.date} · {sheet.workTypeLabel}
+              </p>
             </div>
             <div>
               <p>
-                <strong>Driver / Truck:</strong> {truckLabel(assignment.truck)}
+                <strong>Truck:</strong> {sheet.truckLabel}
               </p>
               <p>
-                <strong>Trailer load:</strong>{" "}
-                {assignment.load == null ? "Unassigned" : `Load ${assignment.load}`}
+                <strong>Trailer load:</strong> Load {sheet.load}
               </p>
               <p>
-                <strong>Stops:</strong> {assignment.bookings.length}
+                <strong>Stops:</strong> {sheet.stops.length}
               </p>
             </div>
           </header>
@@ -401,84 +243,77 @@ function DriverPrintSheets({
             <thead>
               <tr>
                 <th>Stop</th>
+                <th>Work</th>
                 <th>Times</th>
                 <th>Customer / Address</th>
-                <th>Products</th>
+                <th>Product</th>
                 <th>Setup / Notes</th>
                 <th>Payment</th>
               </tr>
             </thead>
             <tbody>
-              {assignment.bookings.map((booking) => (
-                <tr key={`${assignment.truck}-${assignment.load}-${booking.id}`}>
+              {sheet.stops.map((stop) => (
+                <tr key={stop.id}>
                   <td>
-                    {bookingSequence(booking) === 999
-                      ? "Unassigned"
-                      : bookingSequence(booking)}
+                    {stop.deliverySequence == null ? "—" : stop.deliverySequence}
                   </td>
+                  <td>{printStopWorkLabel(stop.workType)}</td>
                   <td>
                     <p>
-                      <strong>Arrive:</strong>{" "}
-                      {formatTime(booking.plannedArrivalTime)}
+                      <strong>Arrive:</strong> {formatTime(stop.plannedArrivalTime)}
                     </p>
                     <p>
-                      <strong>Party:</strong> {formatTime(booking.eventStartTime)}
+                      <strong>Party:</strong> {formatTime(stop.eventStartTime)}
                     </p>
                     <p>
                       <strong>Window:</strong>{" "}
-                      {booking.requestedDeliveryWindow ?? "Not set"}
+                      {stop.requestedDeliveryWindow ?? "Not set"}
                     </p>
                   </td>
                   <td>
                     <p>
-                      <strong>{booking.customerName}</strong>
+                      <strong>{stop.customerName}</strong>
                     </p>
-                    <p>{booking.customerPhone ?? "No phone"}</p>
-                    <p>{booking.eventAddress ?? "No address"}</p>
+                    <p>{stop.customerPhone ?? "No phone"}</p>
+                    <p>{stop.eventAddress ?? "No address"}</p>
                   </td>
                   <td>
-                    {booking.items.length === 0 ? (
-                      <p>No products listed</p>
-                    ) : (
-                      booking.items.map((item) => (
-                        <p key={item.id}>{item.rental_name}</p>
-                      ))
-                    )}
+                    <p>{stop.rentalName}</p>
                   </td>
                   <td>
                     <p>
-                      <strong>Location:</strong>{" "}
-                      {booking.setupLocation ?? "Not set"}
+                      <strong>Location:</strong> {stop.setupLocation ?? "Not set"}
                     </p>
                     <p>
-                      <strong>Surface:</strong> {booking.setupSurface ?? "Not set"}
+                      <strong>Surface:</strong> {stop.setupSurface ?? "Not set"}
                     </p>
                     <p>
-                      <strong>Access:</strong> {booking.setupAccess ?? "Not set"}
+                      <strong>Access:</strong> {stop.setupAccess ?? "Not set"}
                     </p>
                     <p>
-                      <strong>Setup:</strong> {booking.setupNotes ?? "None"}
+                      <strong>Setup:</strong> {stop.setupNotes ?? "None"}
                     </p>
-                    {booking.deliveryRouteNotes ? (
+                    {stop.routeNotes ? (
                       <p>
-                        <strong>Driver:</strong> {booking.deliveryRouteNotes}
+                        <strong>Route notes:</strong> {stop.routeNotes}
                       </p>
                     ) : null}
                   </td>
                   <td>
                     <p>
-                      <strong>Pay:</strong> {booking.paymentMethod ?? "Not set"}
+                      <strong>Pay:</strong> {stop.paymentMethod ?? "Not set"}
                     </p>
                     <p>
-                      <strong>Amount due:</strong> {formatMoney(booking.total)}
+                      <strong>Amount due:</strong> {formatMoney(stop.total)}
                     </p>
                     <p>
-                      <strong>Status:</strong> {statusLabel(bookingStatus(booking))}
+                      <strong>Status:</strong>{" "}
+                      {statusLabel(stop.routeStatus ?? "planned")}
                     </p>
-                    {booking.paymentConfirmationNotes ? (
+                    {stop.paymentConfirmationNotes ? (
                       <p>
                         <strong>Payment note:</strong>{" "}
-                        {booking.paymentConfirmationNotes}
+                        {stop.paymentConfirmationNotes}
                       </p>
                     ) : null}
                   </td>
@@ -492,24 +327,12 @@ function DriverPrintSheets({
   );
 }
 
-function buildDriverAssignments(
-  groups: { truck: string; bookings: AdminDeliveryBooking[] }[],
-) {
-  return groups.flatMap((group) =>
-    groupByTrailerLoad(group.bookings).map((loadGroup) => ({
-      truck: group.truck,
-      truckLabel: truckLabel(group.truck),
-      load: loadGroup.load,
-      stopCount: loadGroup.bookings.length,
-    })),
-  );
-}
-
 function DriverStatusButton({
   token,
   date,
   truck,
-  bookingId,
+  view,
+  task,
   status,
   label,
   tone,
@@ -517,7 +340,8 @@ function DriverStatusButton({
   token: string;
   date: string;
   truck: string;
-  bookingId: string;
+  view: string;
+  task: AdminDeliveryWorkTask;
   status: string;
   label: string;
   tone: "dark" | "green" | "blue" | "red";
@@ -534,7 +358,10 @@ function DriverStatusButton({
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="truck" value={truck} />
-      <input type="hidden" name="bookingId" value={bookingId} />
+      <input type="hidden" name="view" value={view} />
+      <input type="hidden" name="bookingId" value={task.bookingId} />
+      <input type="hidden" name="itemId" value={task.itemId} />
+      <input type="hidden" name="workType" value={task.workType} />
       <input type="hidden" name="status" value={status} />
       <button className={`min-h-12 rounded-xl px-4 py-3 text-sm font-black ${classes}`}>
         {label}
@@ -547,18 +374,20 @@ function PaymentConfirmForm({
   token,
   date,
   truck,
-  booking,
+  view,
+  task,
 }: {
   token: string;
   date: string;
   truck: string;
-  booking: AdminDeliveryBooking;
+  view: string;
+  task: AdminDeliveryWorkTask;
 }) {
-  if (booking.paymentConfirmedAt) {
+  if (task.paymentConfirmedAt) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
         Payment confirmed
-        {booking.paymentConfirmedBy ? ` by ${booking.paymentConfirmedBy}` : ""}
+        {task.paymentConfirmedBy ? ` by ${task.paymentConfirmedBy}` : ""}
       </div>
     );
   }
@@ -568,7 +397,8 @@ function PaymentConfirmForm({
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="truck" value={truck} />
-      <input type="hidden" name="bookingId" value={booking.id} />
+      <input type="hidden" name="view" value={view} />
+      <input type="hidden" name="bookingId" value={task.bookingId} />
       <input
         name="notes"
         placeholder="Payment note, optional"
@@ -607,29 +437,42 @@ function CloseoutIssueForm({
   token,
   date,
   truck,
-  booking,
+  view,
+  task,
   report,
   nextUrl,
-  nextBooking,
+  nextTask,
 }: {
   token: string;
   date: string;
   truck: string;
-  booking: AdminDeliveryBooking;
+  view: string;
+  task: AdminDeliveryWorkTask;
   report?: DriverCloseoutReport;
   nextUrl: string | null;
-  nextBooking: AdminDeliveryBooking | null;
+  nextTask: AdminDeliveryWorkTask | null;
 }) {
   const hasReport = Boolean(report);
   return (
-    <form action="/api/driver/closeout" method="post" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <form
+      action="/api/driver/closeout"
+      method="post"
+      className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3"
+    >
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="truck" value={truck} />
-      <input type="hidden" name="bookingId" value={booking.id} />
+      <input type="hidden" name="view" value={view} />
+      <input type="hidden" name="bookingId" value={task.bookingId} />
+      <input type="hidden" name="itemId" value={task.itemId} />
+      <input type="hidden" name="workType" value={task.workType} />
       {nextUrl ? <input type="hidden" name="nextUrl" value={nextUrl} /> : null}
-      {nextBooking ? (
-        <input type="hidden" name="nextBookingId" value={nextBooking.id} />
+      {nextTask ? (
+        <>
+          <input type="hidden" name="nextBookingId" value={nextTask.bookingId} />
+          <input type="hidden" name="nextItemId" value={nextTask.itemId} />
+          <input type="hidden" name="nextWorkType" value={nextTask.workType} />
+        </>
       ) : null}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
@@ -660,7 +503,7 @@ function CloseoutIssueForm({
         <CloseoutCheckbox
           name="paid"
           label="Paid"
-          defaultChecked={report?.paid === true || booking.paymentConfirmedAt !== null}
+          defaultChecked={report?.paid === true || task.paymentConfirmedAt !== null}
         />
         <CloseoutCheckbox
           name="unpaid"
@@ -682,10 +525,10 @@ function CloseoutIssueForm({
           label="Customer happy"
           defaultChecked={report?.customerHappy === true}
         />
-        {nextBooking ? (
+        {nextTask ? (
           <CloseoutCheckbox
             name="notifyNextCustomer"
-            label={`Email next customer: ${nextBooking.customerName}`}
+            label={`Email next customer: ${nextTask.customerName}`}
             defaultChecked={false}
           />
         ) : null}
@@ -735,38 +578,59 @@ function CloseoutIssueForm({
 }
 
 function StopCard({
-  booking,
+  task,
   token,
   date,
   truck,
+  view,
   closeout,
-  truckBookings,
+  truckTasks,
 }: {
-  booking: AdminDeliveryBooking;
+  task: AdminDeliveryWorkTask;
   token: string;
   date: string;
   truck: string;
+  view: string;
   closeout?: DriverCloseoutReport;
-  truckBookings: AdminDeliveryBooking[];
+  truckTasks: AdminDeliveryWorkTask[];
 }) {
-  const status = bookingStatus(booking);
-  const call = phoneHref(booking.customerPhone);
-  const text = textHref(booking.customerPhone, customerTextMessage(booking));
-  const map = directionsUrl(booking.eventAddress);
-  const nextMap = nextStopDirectionsUrl({ currentBooking: booking, truckBookings });
-  const nextBooking = nextStopBooking({ currentBooking: booking, truckBookings });
+  const status = task.routeStatus ?? "planned";
+  const workLabel = printStopWorkLabel(task.workType);
+  const call = phoneHref(task.customerPhone);
+  const text = textHref(task.customerPhone, customerTextMessage(task));
+  const map = directionsUrl(task.eventAddress);
+  const nextMap = nextStopDirectionsUrl({ current: task, truckTasks });
+  const nextTask = nextStopTask({ current: task, truckTasks });
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-            Stop {bookingSequence(booking) === 999 ? "-" : bookingSequence(booking)}
-          </p>
-          <h3 className="mt-1 text-xl font-black">{booking.customerName}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+              Stop {task.sequence == null ? "—" : task.sequence}
+            </p>
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${workTypeBadgeClasses(task.workType)}`}
+            >
+              {workLabel}
+            </span>
+            {task.trailerLoad != null ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-black text-slate-700">
+                Load {task.trailerLoad}
+              </span>
+            ) : null}
+          </div>
+          <h3 className="mt-1 text-xl font-black">{task.customerName}</h3>
           <p className="mt-1 text-sm font-bold text-slate-600">
-            Party starts {formatTime(booking.eventStartTime)}
+            {task.rentalName}
           </p>
+          <p className="mt-1 text-sm font-bold text-slate-600">
+            Party starts {formatTime(task.eventStartTime)}
+          </p>
+          {task.crossDateLabel ? (
+            <p className="mt-1 text-xs font-bold text-amber-800">{task.crossDateLabel}</p>
+          ) : null}
         </div>
         <span
           className={`rounded-full border px-3 py-1 text-xs font-black ${statusClasses(status)}`}
@@ -778,54 +642,40 @@ function StopCard({
       <div className="mt-4 grid gap-2 text-sm">
         <p>
           <span className="font-black">Arrival:</span>{" "}
-          {formatTime(booking.plannedArrivalTime)}
+          {formatTime(task.plannedArrivalTime)}
         </p>
         <p>
           <span className="font-black">Window:</span>{" "}
-          {booking.requestedDeliveryWindow ?? "Not set"}
+          {task.requestedDeliveryWindow ?? "Not set"}
         </p>
         <p>
           <span className="font-black">Address:</span>{" "}
-          {booking.eventAddress ?? "Not set"}
+          {task.eventAddress ?? "Not set"}
         </p>
         <p>
           <span className="font-black">Phone:</span>{" "}
-          {booking.customerPhone ?? "Not set"}
+          {task.customerPhone ?? "Not set"}
         </p>
-      </div>
-
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-          Items
-        </p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
-          {booking.items.map((item) => (
-            <li key={item.id}>{item.rental_name}</li>
-          ))}
-        </ul>
       </div>
 
       <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
         <p>
           <span className="font-black">Location:</span>{" "}
-          {booking.setupLocation ?? "Not set"}
+          {task.setupLocation ?? "Not set"}
         </p>
         <p>
           <span className="font-black">Surface:</span>{" "}
-          {booking.setupSurface ?? "Not set"}
+          {task.setupSurface ?? "Not set"}
         </p>
         <p>
-          <span className="font-black">Access:</span>{" "}
-          {booking.setupAccess ?? "Not set"}
+          <span className="font-black">Access:</span> {task.setupAccess ?? "Not set"}
         </p>
         <p>
-          <span className="font-black">Notes:</span>{" "}
-          {booking.setupNotes ?? "None"}
+          <span className="font-black">Notes:</span> {task.setupNotes ?? "None"}
         </p>
-        {booking.deliveryRouteNotes ? (
+        {task.routeNotes ? (
           <p>
-            <span className="font-black">Driver notes:</span>{" "}
-            {booking.deliveryRouteNotes}
+            <span className="font-black">Route notes:</span> {task.routeNotes}
           </p>
         ) : null}
       </div>
@@ -864,104 +714,125 @@ function StopCard({
           <div className="grid gap-2 border-t border-slate-200 p-3 text-left">
             <p>
               <span className="font-black">Email:</span>{" "}
-              {booking.customerEmail ?? "Not set"}
+              {task.customerEmail ?? "Not set"}
+            </p>
+            <p>
+              <span className="font-black">Event date:</span> {task.eventDate}
             </p>
             <p>
               <span className="font-black">Distance:</span>{" "}
-              {booking.distanceMiles !== null
-                ? `${booking.distanceMiles.toFixed(1)} miles`
+              {task.distanceMiles !== null
+                ? `${task.distanceMiles.toFixed(1)} miles`
                 : "Not set"}
             </p>
-        <p>
-          <span className="font-black">Payment:</span>{" "}
-          {booking.paymentMethod ?? "Not set"}
-        </p>
-        <p>
-          <span className="font-black">Payment confirmed:</span>{" "}
-          {booking.paymentConfirmedAt ? "Yes" : "No"}
-        </p>
+            <p>
+              <span className="font-black">Payment:</span>{" "}
+              {task.paymentMethod ?? "Not set"}
+            </p>
+            <p>
+              <span className="font-black">Payment confirmed:</span>{" "}
+              {task.paymentConfirmedAt ? "Yes" : "No"}
+            </p>
             <p>
               <span className="font-black">Total:</span>{" "}
-              {booking.total !== null ? `$${booking.total.toFixed(2)}` : "Not set"}
-            </p>
-            <p>
-              <span className="font-black">Setup starts:</span>{" "}
-              {formatTime(booking.plannedSetupStart)}
-            </p>
-            <p>
-              <span className="font-black">Setup ends:</span>{" "}
-              {formatTime(booking.plannedSetupEnd)}
+              {task.total !== null ? `$${task.total.toFixed(2)}` : "Not set"}
             </p>
             <Link
-              href={`/admin/rentals?token=${encodeURIComponent(token)}&from=${booking.eventDate}&to=${booking.eventDate}&status=all`}
+              href={`/admin/rentals?token=${encodeURIComponent(token)}&from=${task.eventDate}&to=${task.eventDate}&status=all`}
               className="mt-2 rounded-xl bg-slate-950 px-4 py-3 text-center font-black text-white"
             >
-              Open full admin details
+              Open rental details
             </Link>
           </div>
         </details>
       </div>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-          Payment
-        </p>
-        <PaymentConfirmForm
-          token={token}
-          date={date}
-          truck={truck}
-          booking={booking}
-        />
-      </div>
+      {truck === "unassigned" ? (
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-950">
+          Assign this work in Route Planner before using driver execution actions.
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              Booking payment
+            </p>
+            <p className="mb-2 text-xs font-semibold text-slate-600">
+              Confirms payment for the whole booking, not just this item.
+            </p>
+            <PaymentConfirmForm
+              token={token}
+              date={date}
+              truck={truck}
+              view={view}
+              task={task}
+            />
+          </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <DriverStatusButton
-          token={token}
-          date={date}
-          truck={truck}
-          bookingId={booking.id}
-          status="on-the-way"
-          label="Email: on the way"
-          tone="blue"
-        />
-        <DriverStatusButton
-          token={token}
-          date={date}
-          truck={truck}
-          bookingId={booking.id}
-          status="delivered"
-          label="Delivered"
-          tone="dark"
-        />
-        <DriverStatusButton
-          token={token}
-          date={date}
-          truck={truck}
-          bookingId={booking.id}
-          status="setup-complete"
-          label="Setup complete"
-          tone="green"
-        />
-        <DriverStatusButton
-          token={token}
-          date={date}
-          truck={truck}
-          bookingId={booking.id}
-          status="picked-up"
-          label="Pickup complete"
-          tone="dark"
-        />
-      </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <DriverStatusButton
+              token={token}
+              date={date}
+              truck={truck}
+              view={view}
+              task={task}
+              status="on-the-way"
+              label={
+                task.workType === "pickup"
+                  ? "Email: pickup on the way"
+                  : "Email: on the way"
+              }
+              tone="blue"
+            />
+            {task.workType === "delivery" ? (
+              <>
+                <DriverStatusButton
+                  token={token}
+                  date={date}
+                  truck={truck}
+                  view={view}
+                  task={task}
+                  status="delivered"
+                  label="Delivered"
+                  tone="dark"
+                />
+                <DriverStatusButton
+                  token={token}
+                  date={date}
+                  truck={truck}
+                  view={view}
+                  task={task}
+                  status="setup-complete"
+                  label="Setup complete"
+                  tone="green"
+                />
+              </>
+            ) : (
+              <DriverStatusButton
+                token={token}
+                date={date}
+                truck={truck}
+                view={view}
+                task={task}
+                status="picked-up"
+                label="Pickup complete"
+                tone="dark"
+              />
+            )}
+          </div>
 
-      <CloseoutIssueForm
-        token={token}
-        date={date}
-        truck={truck}
-        booking={booking}
-        report={closeout}
-        nextUrl={nextMap}
-        nextBooking={nextBooking}
-      />
+          <CloseoutIssueForm
+            token={token}
+            date={date}
+            truck={truck}
+            view={view}
+            task={task}
+            report={closeout}
+            nextUrl={nextMap}
+            nextTask={nextTask}
+          />
+        </>
+      )}
     </article>
   );
 }
@@ -969,7 +840,7 @@ function StopCard({
 export default async function DriverPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
-  const auth = await verifyAdminAccess();
+  const auth = await verifyAdminAccess(token);
   const date = normalizeDeliveryDate(resolved?.date ?? todayYmd());
 
   if (!auth.ok) {
@@ -981,12 +852,11 @@ export default async function DriverPage({ searchParams }: Props) {
           </p>
           <h1 className="mt-2 text-3xl font-black">Invalid driver link</h1>
           <p className="mt-3 text-sm font-semibold text-slate-600">
-            Sign in as the owner first, then open Driver App from the admin
-            dashboard.
+            Sign in as staff first, then open Driver App from the admin dashboard.
           </p>
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
             <Link
-              href="/admin/staff"
+              href="/admin"
               className="rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white hover:bg-slate-800"
             >
               Staff Login
@@ -1003,18 +873,83 @@ export default async function DriverPage({ searchParams }: Props) {
     );
   }
 
-  const selectedTruck = normalizeTruck(resolved?.truck);
+  const selectedTruck = normalizeDriverTruck(resolved?.truck);
+  const viewUnassigned =
+    resolved?.view === "unassigned" || selectedTruck === "unassigned";
+  const activeView: DriverTruckFilter | null = viewUnassigned
+    ? "unassigned"
+    : selectedTruck;
+
   const [deliveries, closeouts] = await Promise.all([
     loadAdminDeliveries(date),
-    loadDriverCloseoutReports({ date, truck: selectedTruck }),
+    loadDriverCloseoutReports({
+      date,
+      truck:
+        activeView && activeView !== "unassigned" ? activeView : undefined,
+    }),
   ]);
-  const grouped = groupByTruck(deliveries.bookings);
+
+  const dateTasks = driverTasksForDate(deliveries.tasks, date);
+  const unassigned = unassignedDriverTasks({
+    tasks: deliveries.tasks,
+    unscheduled: deliveries.unscheduled,
+    date,
+  });
+  const truckCounts = countTasksByTruck(dateTasks);
+  truckCounts.unassigned = Math.max(truckCounts.unassigned, unassigned.length);
+
+  const issueCount = closeouts.filter(
+    (report) =>
+      report.damageIssue ||
+      report.missingItemIssue ||
+      report.customerIssue ||
+      report.siteAccessIssue ||
+      report.latePickupIssue ||
+      report.officeFollowupNeeded ||
+      Boolean(report.notes?.trim()),
+  ).length;
+
+  const summary = buildDriverRouteSummary({
+    dateTasks,
+    unassigned,
+    closeoutIssueCount: issueCount,
+  });
+  const readiness = collectDriverReadinessWarnings({
+    dateTasks,
+    unassigned,
+    plannerWarnings: deliveries.warnings,
+  });
+  const hardWarnings = readiness.filter((item) => item.level === "hard");
+  const softWarnings = readiness.filter((item) => item.level === "soft");
+
+  const visibleTasks = activeView
+    ? sortDriverTasks(
+        activeView === "unassigned"
+          ? unassigned
+          : filterDriverTasksByTruck(dateTasks, activeView),
+      )
+    : [];
+  const loadGroups =
+    activeView && activeView !== "unassigned"
+      ? groupDriverTasksByTrailerLoad(visibleTasks)
+      : [{ load: 0, tasks: visibleTasks }];
+
   const closeoutByStop = new Map(
     closeouts.map((report) => [closeoutKey(report.bookingId, report.truck), report]),
   );
-  const visibleGroups = selectedTruck
-    ? grouped.filter((group) => group.truck === selectedTruck)
-    : [];
+
+  const printSheets =
+    activeView && activeView !== "unassigned"
+      ? buildDriverPrintSheets({
+          date,
+          tasks: dateTasks,
+          truckFilter: activeView,
+        })
+      : [];
+
+  const pageTitle = buildDriverPageTitle({ date });
+  const routePlannerHref = `/admin/deliveries?token=${encodeURIComponent(token)}&date=${date}`;
+  const scheduleHref = `/admin/schedule?token=${encodeURIComponent(token)}`;
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
@@ -1029,25 +964,115 @@ export default async function DriverPage({ searchParams }: Props) {
             Admin Home
           </Link>
           <Link
-            href={`/admin/deliveries?token=${encodeURIComponent(token)}&date=${date}`}
+            href={routePlannerHref}
             className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-center text-sm font-black leading-tight text-slate-700 hover:bg-slate-50"
           >
             Route Planner
           </Link>
-          <PrintButton label="Print All Sheets" />
+          <Link
+            href={scheduleHref}
+            className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-center text-sm font-black leading-tight text-slate-700 hover:bg-slate-50"
+          >
+            Schedule
+          </Link>
+          {printSheets.length > 0 ? <PrintButton label="Print All Sheets" /> : null}
         </nav>
+
         <DriverAssignmentPrintButtons
-          assignments={buildDriverAssignments(visibleGroups)}
+          assignments={buildDriverPrintAssignments(printSheets)}
         />
+
         <header className="driver-screen-only rounded-2xl bg-slate-950 p-5 text-white shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">
             Jumping Jax Driver
           </p>
-          <h1 className="mt-2 text-3xl font-black">Today&apos;s Deliveries</h1>
+          <h1 className="mt-2 text-3xl font-black">{pageTitle}</h1>
           <p className="mt-2 text-sm font-semibold text-slate-300">
-            {formatDate(date)} - {deliveries.summary.bookingCount} stops
+            {summary.totalWork} work items · {summary.dropOffs} drop-offs ·{" "}
+            {summary.pickups} pickups
           </p>
         </header>
+
+        <div className="driver-screen-only mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            ["Total", summary.totalWork],
+            ["Unassigned", summary.unassigned],
+            ["In progress", summary.inProgress],
+            ["Completed", summary.completed],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-center shadow-sm"
+            >
+              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
+                {label}
+              </p>
+              <p className="mt-1 text-2xl font-black">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {summary.unassigned > 0 ? (
+          <div className="driver-screen-only mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+            <p className="text-sm font-black text-amber-950">
+              {summary.unassigned} unassigned work item
+              {summary.unassigned === 1 ? "" : "s"} for this date
+            </p>
+            <p className="mt-1 text-sm font-semibold text-amber-900">
+              {
+                unassigned.filter((task) => task.workType === "delivery").length
+              }{" "}
+              drop-off ·{" "}
+              {unassigned.filter((task) => task.workType === "pickup").length}{" "}
+              pickup. Planning stays in Route Planner.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href={`/driver?token=${encodeURIComponent(token)}&date=${date}&view=unassigned`}
+                className="rounded-xl bg-amber-500 px-3 py-2 text-sm font-black text-amber-950"
+              >
+                View unassigned
+              </Link>
+              <Link
+                href={routePlannerHref}
+                className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-black text-amber-950"
+              >
+                Open Route Planner
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {hardWarnings.length > 0 || softWarnings.length > 0 ? (
+          <div className="driver-screen-only mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              Readiness
+            </p>
+            {hardWarnings.length > 0 ? (
+              <ul className="mt-2 space-y-1 text-sm font-bold text-rose-800">
+                {hardWarnings.slice(0, 6).map((warning) => (
+                  <li key={`${warning.code}-${warning.taskId}-${warning.message}`}>
+                    {warning.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {softWarnings.length > 0 ? (
+              <ul className="mt-2 space-y-1 text-sm font-semibold text-slate-600">
+                {softWarnings.slice(0, 4).map((warning) => (
+                  <li key={`${warning.code}-${warning.taskId}-${warning.message}`}>
+                    {warning.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {hardWarnings.length + softWarnings.length > 10 ? (
+              <p className="mt-2 text-xs font-bold text-slate-500">
+                Showing top warnings. Review Route Planner for the full plan.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {resolved?.message ? (
           <div className="driver-screen-only mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-950">
@@ -1062,19 +1087,19 @@ export default async function DriverPage({ searchParams }: Props) {
 
         <div className="driver-screen-only mt-4 grid grid-cols-3 gap-2">
           <Link
-            href={`/driver?token=${encodeURIComponent(token)}&date=${addDays(date, -1)}${selectedTruck ? `&truck=${encodeURIComponent(selectedTruck)}` : ""}`}
+            href={`/driver?token=${encodeURIComponent(token)}&date=${addDays(date, -1)}${activeView ? `&truck=${encodeURIComponent(activeView)}` : ""}`}
             className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-black"
           >
             Yesterday
           </Link>
           <Link
-            href={`/driver?token=${encodeURIComponent(token)}&date=${todayYmd()}${selectedTruck ? `&truck=${encodeURIComponent(selectedTruck)}` : ""}`}
+            href={`/driver?token=${encodeURIComponent(token)}&date=${todayYmd()}${activeView ? `&truck=${encodeURIComponent(activeView)}` : ""}`}
             className="rounded-xl bg-sky-500 px-3 py-3 text-center text-sm font-black text-white"
           >
             Today
           </Link>
           <Link
-            href={`/driver?token=${encodeURIComponent(token)}&date=${addDays(date, 1)}${selectedTruck ? `&truck=${encodeURIComponent(selectedTruck)}` : ""}`}
+            href={`/driver?token=${encodeURIComponent(token)}&date=${addDays(date, 1)}${activeView ? `&truck=${encodeURIComponent(activeView)}` : ""}`}
             className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-black"
           >
             Tomorrow
@@ -1083,8 +1108,12 @@ export default async function DriverPage({ searchParams }: Props) {
 
         <form className="driver-screen-only mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <input type="hidden" name="token" value={token} />
-          {selectedTruck ? (
-            <input type="hidden" name="truck" value={selectedTruck} />
+          {activeView ? (
+            <input
+              type="hidden"
+              name={activeView === "unassigned" ? "view" : "truck"}
+              value={activeView}
+            />
           ) : null}
           <label className="text-sm font-black text-slate-700">
             Pick date
@@ -1100,114 +1129,144 @@ export default async function DriverPage({ searchParams }: Props) {
           </button>
         </form>
 
-        <nav className="driver-screen-only mt-4 grid gap-2 sm:grid-cols-2">
-          {TRUCKS.map((truck) => {
-            const group = grouped.find((item) => item.truck === truck.id);
-            return (
+        <nav className="driver-screen-only mt-4 grid gap-2 sm:grid-cols-3">
+          {DRIVER_TRUCKS.map((truck) => (
             <Link
               key={truck.id}
               href={`/driver?token=${encodeURIComponent(token)}&date=${date}&truck=${encodeURIComponent(truck.id)}`}
               className={`rounded-2xl px-4 py-4 text-center text-base font-black shadow-sm ${
-                selectedTruck === truck.id
+                activeView === truck.id
                   ? "bg-slate-950 text-white"
                   : "border border-slate-200 bg-white text-slate-950"
               }`}
             >
-              {truck.label} ({group?.bookings.length ?? 0})
+              {truck.label} ({truckCounts[truck.id]})
             </Link>
-          )})}
+          ))}
+          {summary.unassigned > 0 ? (
+            <Link
+              href={`/driver?token=${encodeURIComponent(token)}&date=${date}&view=unassigned`}
+              className={`rounded-2xl px-4 py-4 text-center text-base font-black shadow-sm sm:col-span-3 ${
+                activeView === "unassigned"
+                  ? "bg-amber-500 text-amber-950"
+                  : "border border-amber-300 bg-amber-50 text-amber-950"
+              }`}
+            >
+              Unassigned ({summary.unassigned})
+            </Link>
+          ) : null}
         </nav>
 
         <div className="driver-screen-only mt-4 grid gap-5">
-          {!selectedTruck ? (
+          {!activeView ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <h2 className="text-xl font-black">Choose a truck to sign in.</h2>
               <p className="mt-2 text-sm font-semibold text-slate-600">
-                Short Trailer and Long Trailer each show only their own route, payment confirmations,
-                status buttons, and end-of-day issue checklist.
+                Short Trailer and Long Trailer each show only their own drop-offs,
+                pickups, payment confirmations, status buttons, and checklists.
               </p>
             </section>
-          ) : visibleGroups.length === 0 ? (
+          ) : visibleTasks.length === 0 ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <h2 className="text-xl font-black">No deliveries found.</h2>
+              <h2 className="text-xl font-black">
+                {activeView === "unassigned"
+                  ? "No unassigned work."
+                  : "No route work found."}
+              </h2>
               <p className="mt-2 text-sm font-semibold text-slate-600">
-                Active rentals for {truckLabel(selectedTruck)} will show here after the route plan is saved.
+                {activeView === "unassigned"
+                  ? "All work for this date has a truck assignment."
+                  : `Drop-offs and pickups for ${truckLabel(activeView)} appear here after the route plan is saved.`}
               </p>
+              <Link
+                href={routePlannerHref}
+                className="mt-4 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
+              >
+                Open Route Planner
+              </Link>
             </section>
           ) : (
-            visibleGroups.map((group) => {
-              const map = routeUrl(group.bookings);
-              const overviewMap = routeEmbedUrl(group.bookings);
-              return (
-                <section key={group.truck} className="grid gap-3">
-                  <div className="sticky top-0 z-10 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                          Route
-                        </p>
-                        <h2 className="text-2xl font-black">{truckLabel(group.truck)}</h2>
-                      </div>
-                      {map ? (
-                        <a
-                          href={map}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-amber-950"
-                        >
-                          Open Route
-                        </a>
-                      ) : null}
-                    </div>
+            <section className="grid gap-3">
+              <div className="sticky top-0 z-10 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      Route
+                    </p>
+                    <h2 className="text-2xl font-black">
+                      {activeView === "unassigned"
+                        ? "Unassigned"
+                        : truckLabel(activeView)}
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-600">
+                      {visibleTasks.length} stop
+                      {visibleTasks.length === 1 ? "" : "s"}
+                    </p>
                   </div>
-                  {overviewMap ? (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                            Overview map
-                          </p>
-                          <p className="text-sm font-bold text-slate-700">
-                            {group.bookings.length} stops for {truckLabel(group.truck)}
-                          </p>
-                        </div>
-                        {map ? (
-                          <a
-                            href={map}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-amber-950"
-                          >
-                            Open Route
-                          </a>
-                        ) : null}
-                      </div>
-                      <iframe
-                        title={`${truckLabel(group.truck)} overview map`}
-                        src={overviewMap}
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        className="h-72 w-full border-0"
-                      />
-                    </div>
+                  {activeView !== "unassigned" && routeUrl(visibleTasks) ? (
+                    <a
+                      href={routeUrl(visibleTasks)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-amber-950"
+                    >
+                      Open Route
+                    </a>
                   ) : null}
-                  {group.bookings.map((booking) => (
+                </div>
+              </div>
+
+              {activeView !== "unassigned" && routeEmbedUrl(visibleTasks) ? (
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 px-4 py-3">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      Overview map
+                    </p>
+                  </div>
+                  <iframe
+                    title={`${truckLabel(activeView)} overview map`}
+                    src={routeEmbedUrl(visibleTasks)!}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-72 w-full border-0"
+                  />
+                </div>
+              ) : null}
+
+              {loadGroups.map((group) => (
+                <div key={`load-${group.load}`} className="grid gap-3">
+                  {activeView !== "unassigned" && group.load > 0 ? (
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      Trailer load {group.load}
+                    </p>
+                  ) : null}
+                  {group.tasks.map((task) => (
                     <StopCard
-                      key={booking.id}
-                      booking={booking}
+                      key={task.id}
+                      task={task}
                       token={token}
                       date={date}
-                      truck={group.truck}
-                      closeout={closeoutByStop.get(closeoutKey(booking.id, group.truck))}
-                      truckBookings={group.bookings}
+                      truck={
+                        activeView === "unassigned"
+                          ? "unassigned"
+                          : (task.truck ?? activeView)
+                      }
+                      view={activeView === "unassigned" ? "unassigned" : ""}
+                      closeout={
+                        task.truck
+                          ? closeoutByStop.get(closeoutKey(task.bookingId, task.truck))
+                          : undefined
+                      }
+                      truckTasks={visibleTasks}
                     />
                   ))}
-                </section>
-              );
-            })
+                </div>
+              ))}
+            </section>
           )}
         </div>
-        <DriverPrintSheets groups={visibleGroups} date={date} />
+
+        <DriverPrintSheets sheets={printSheets} />
       </section>
     </main>
   );

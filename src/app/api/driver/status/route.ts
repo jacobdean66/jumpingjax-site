@@ -1,59 +1,67 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import {
+  allowedStatusForWorkType,
+  buildDriverStatusItemPatch,
+  onTheWayEmailCopy,
+  parseDriverWorkType,
+  shouldSendOnTheWayNotification,
+  validateDriverMutationContext,
+} from "@/lib/admin/driver-app";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_STATUSES = new Set([
-  "planned",
-  "on-the-way",
-  "delivered",
-  "setup-complete",
-  "picked-up",
-]);
-
 function clean(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function redirectDriver(
+  req: Request,
+  params: Record<string, string | undefined>,
+) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value);
+  }
+  return NextResponse.redirect(new URL(`/driver?${search.toString()}`, req.url), 303);
 }
 
 export async function POST(req: Request) {
   const form = await req.formData();
   const token = clean(form.get("token"));
   const bookingId = clean(form.get("bookingId"));
+  const itemId = clean(form.get("itemId") || form.get("bookingRentalItemId"));
   const date = clean(form.get("date"));
   const status = clean(form.get("status"));
   const truck = clean(form.get("truck"));
   const notes = clean(form.get("notes"));
+  const clearNotes = clean(form.get("clearNotes")) === "1";
+  const workType = parseDriverWorkType(clean(form.get("workType")));
+  const view = clean(form.get("view"));
 
-  const auth = await verifyAdminAccess();
+  const auth = await verifyAdminAccess(token);
   if (!auth.ok) {
-    return NextResponse.redirect(
-      new URL(`/driver?error=${encodeURIComponent("Invalid driver link")}`, req.url),
-      303,
-    );
+    return redirectDriver(req, { error: "Invalid driver link" });
   }
 
-  if (!bookingId || !ALLOWED_STATUSES.has(status)) {
-    return NextResponse.redirect(
-      new URL(
-        `/driver?token=${encodeURIComponent(token)}&date=${encodeURIComponent(date)}&error=${encodeURIComponent("Unable to update stop")}`,
-        req.url,
-      ),
-      303,
-    );
+  if (!bookingId || !itemId || !workType || !allowedStatusForWorkType(workType, status)) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: "Unable to update stop",
+    });
   }
 
-  const update = {
-    delivery_route_status: status,
-    delivery_route_notes: notes || null,
-  };
   const supabase = createServiceRoleClient();
   const { data: booking, error: bookingLoadError } = await supabase
     .from("bookings")
     .select(
-      "id, customer_name, customer_email, customer_phone, event_date, event_address, event_start_time, requested_delivery_window",
+      "id, customer_name, customer_email, customer_phone, event_date, event_address, event_start_time, requested_delivery_window, span_days",
     )
     .eq("id", bookingId)
     .in("status", ["pending", "approved"])
@@ -66,85 +74,154 @@ export async function POST(req: Request) {
       event_address: string | null;
       event_start_time: string | null;
       requested_delivery_window: string | null;
+      span_days: number | null;
     }>();
 
   if (bookingLoadError || !booking) {
-    return NextResponse.redirect(
-      new URL(
-        `/driver?token=${encodeURIComponent(token)}&date=${encodeURIComponent(date)}&truck=${encodeURIComponent(truck)}&error=${encodeURIComponent(bookingLoadError?.message ?? "Stop not found")}`,
-        req.url,
-      ),
-      303,
-    );
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: bookingLoadError?.message ?? "Stop not found",
+    });
   }
 
-  const bookingUpdate = await supabase
-    .from("bookings")
-    .update(update)
-    .eq("id", bookingId)
-    .in("status", ["pending", "approved"]);
-
-  if (bookingUpdate.error) {
-    return NextResponse.redirect(
-      new URL(
-        `/driver?token=${encodeURIComponent(token)}&date=${encodeURIComponent(date)}&truck=${encodeURIComponent(truck)}&error=${encodeURIComponent(bookingUpdate.error.message)}`,
-        req.url,
-      ),
-      303,
-    );
-  }
-
-  const itemUpdate = await supabase
+  const { data: itemRow, error: itemLoadError } = await supabase
     .from("booking_rental_items")
-    .update(update)
+    .select(
+      "id, booking_id, delivery_date, delivery_truck, trailer_load, delivery_route_status, pickup_date, pickup_truck, pickup_trailer_load, pickup_route_status",
+    )
+    .eq("id", itemId)
+    .eq("booking_id", bookingId)
+    .maybeSingle<{
+      id: string;
+      booking_id: string | number;
+      delivery_date: string | null;
+      delivery_truck: string | null;
+      trailer_load: number | null;
+      delivery_route_status: string | null;
+      pickup_date: string | null;
+      pickup_truck: string | null;
+      pickup_trailer_load: number | null;
+      pickup_route_status: string | null;
+    }>();
+
+  if (itemLoadError || !itemRow) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: itemLoadError?.message ?? "Rental item not found",
+    });
+  }
+
+  const eventDate = (booking.event_date ?? "").slice(0, 10);
+  const context = validateDriverMutationContext({
+    bookingId,
+    itemId,
+    workType,
+    item: {
+      id: itemRow.id,
+      bookingId: String(itemRow.booking_id),
+      deliveryDate: itemRow.delivery_date?.slice(0, 10) ?? null,
+      deliveryTruck: itemRow.delivery_truck,
+      trailerLoad: itemRow.trailer_load,
+      pickupDate: itemRow.pickup_date?.slice(0, 10) ?? null,
+      pickupTruck: itemRow.pickup_truck,
+      pickupTrailerLoad: itemRow.pickup_trailer_load,
+      eventDate,
+      spanDays: booking.span_days && booking.span_days > 0 ? booking.span_days : 1,
+    },
+    submittedTruck: truck || null,
+    submittedDate: date || null,
+    requireAssignedTruck: true,
+  });
+
+  if (!context.ok) {
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: context.reason,
+    });
+  }
+
+  const itemPatch = buildDriverStatusItemPatch({
+    workType,
+    status,
+    notes: notes || null,
+    clearNotes,
+  });
+
+  const currentStatus =
+    workType === "delivery"
+      ? itemRow.delivery_route_status
+      : itemRow.pickup_route_status;
+  const shouldNotify = shouldSendOnTheWayNotification({
+    requestedStatus: status,
+    currentStatus,
+  });
+  const statusColumn =
+    workType === "delivery" ? "delivery_route_status" : "pickup_route_status";
+
+  let itemUpdateQuery = supabase
+    .from("booking_rental_items")
+    .update(itemPatch)
+    .eq("id", itemId)
     .eq("booking_id", bookingId);
 
+  // Claim an on-the-way transition using the status that was validated above. If
+  // another request wins this comparison, this request must not send another email.
+  if (shouldNotify) {
+    itemUpdateQuery =
+      currentStatus === null
+        ? itemUpdateQuery.is(statusColumn, null)
+        : itemUpdateQuery.eq(statusColumn, currentStatus);
+  }
+
+  const itemUpdate = await itemUpdateQuery.select("id").maybeSingle<{ id: string }>();
+
   if (itemUpdate.error) {
-    return NextResponse.redirect(
-      new URL(
-        `/driver?token=${encodeURIComponent(token)}&date=${encodeURIComponent(date)}&truck=${encodeURIComponent(truck)}&error=${encodeURIComponent(itemUpdate.error.message)}`,
-        req.url,
-      ),
-      303,
-    );
+    return redirectDriver(req, {
+      token,
+      date,
+      truck,
+      view,
+      error: itemUpdate.error.message,
+    });
   }
 
   let message = "Stop updated";
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  if (status === "on-the-way") {
+  if (shouldNotify && !itemUpdate.data) {
+    message = "Stop was already updated";
+  } else if (shouldNotify) {
     const customerEmail = booking.customer_email?.trim();
     if (resendApiKey && customerEmail) {
       try {
+        const copy = onTheWayEmailCopy({
+          workType,
+          customerName: booking.customer_name,
+          eventDate: booking.event_date,
+          eventStartTime: booking.event_start_time,
+          requestedDeliveryWindow: booking.requested_delivery_window,
+          eventAddress: booking.event_address,
+        });
         const resend = new Resend(resendApiKey);
         const { error: emailError } = await resend.emails.send({
           from: getResendFromAddress(),
           to: customerEmail,
-          subject: "Jumping Jax is on the way",
-          text: [
-            `Hi ${booking.customer_name?.trim() || "there"},`,
-            "",
-            "Your Jumping Jax delivery crew is on the way.",
-            "",
-            booking.event_date ? `Event date: ${booking.event_date}` : null,
-            booking.event_start_time
-              ? `Party start time: ${booking.event_start_time}`
-              : null,
-            booking.requested_delivery_window
-              ? `Requested delivery window: ${booking.requested_delivery_window}`
-              : null,
-            booking.event_address
-              ? `Delivery address: ${booking.event_address}`
-              : null,
-            "",
-            "Please make sure the setup area is clear and accessible.",
-            "Thank you for booking with Jumping Jax.",
-          ]
-            .filter((line): line is string => line !== null)
-            .join("\n"),
+          subject: copy.subject,
+          text: copy.text,
         });
         message = emailError
           ? "Stop updated, but customer email failed"
-          : "Customer emailed: on the way";
+          : workType === "pickup"
+            ? "Customer emailed: pickup on the way"
+            : "Customer emailed: on the way";
       } catch {
         message = "Stop updated, but customer email failed";
       }
@@ -153,11 +230,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const params = new URLSearchParams({
+  return redirectDriver(req, {
     token,
     date,
+    truck,
+    view,
     message,
   });
-  if (truck) params.set("truck", truck);
-  return NextResponse.redirect(new URL(`/driver?${params.toString()}`, req.url), 303);
 }

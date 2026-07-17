@@ -15,14 +15,28 @@ export type DatePresetId =
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Operational “today” for admin/driver planning (not server-local or UTC). */
+export const ADMIN_OPERATIONS_TIME_ZONE = "America/New_York";
+
 export function isYmd(value: string | null | undefined): value is string {
   return Boolean(value && YMD_RE.test(value));
 }
 
+/** Calendar YYYY-MM-DD in America/New_York for the given instant. */
 export function todayYmd(now = new Date()): string {
-  return dateToYmd(now);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: ADMIN_OPERATIONS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
 }
 
+/** Format a Date’s local Y/M/D components (for civil arithmetic from YMD parts). */
 export function dateToYmd(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }

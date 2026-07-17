@@ -135,6 +135,7 @@ export type AdminDeliveryWorkTask = {
   routeStatus: string | null;
   routeNotes: string | null;
   customerName: string;
+  customerEmail: string | null;
   customerPhone: string | null;
   bookingStatus: string;
   eventDate: string;
@@ -150,6 +151,11 @@ export type AdminDeliveryWorkTask = {
   setupAccess: string | null;
   setupNotes: string | null;
   requestedDeliveryWindow: string | null;
+  paymentMethod: string | null;
+  total: number | null;
+  paymentConfirmedAt: string | null;
+  paymentConfirmedBy: string | null;
+  paymentConfirmationNotes: string | null;
   estimatedSetupMinutes: number;
   singleStopMapUrl: string | null;
   crossDateLabel: string | null;
@@ -420,6 +426,7 @@ function buildWorkTasks(
       itemId: item.id,
       bookingId: booking.id,
       customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
       customerPhone: booking.customerPhone,
       bookingStatus: booking.status,
       eventDate: booking.eventDate,
@@ -435,6 +442,11 @@ function buildWorkTasks(
       setupAccess: booking.setupAccess,
       setupNotes: booking.setupNotes,
       requestedDeliveryWindow: booking.requestedDeliveryWindow,
+      paymentMethod: booking.paymentMethod,
+      total: booking.total,
+      paymentConfirmedAt: booking.paymentConfirmedAt,
+      paymentConfirmedBy: booking.paymentConfirmedBy,
+      paymentConfirmationNotes: booking.paymentConfirmationNotes,
       estimatedSetupMinutes: item.estimatedSetupMinutes,
       singleStopMapUrl: booking.singleStopMapUrl,
     };
