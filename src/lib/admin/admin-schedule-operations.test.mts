@@ -260,6 +260,19 @@ await test("Tax export handles commas and quotes in customer data", () => {
   assert.match(csv, /"12 Main St, Greenwood, SC"/);
 });
 
+await test("Tax export created-date basis is blocked without created_at schema", async () => {
+  const source = await import("./tax-export-load");
+  await assert.rejects(
+    () =>
+      source.loadTaxExportBookings({
+        from: "2026-07-01",
+        to: "2026-07-31",
+        dateBasis: "created",
+      }),
+    /created_at/,
+  );
+});
+
 await test("Tax export neutralizes spreadsheet formula injection", () => {
   const source: TaxExportSourceBooking = {
     id: "99",

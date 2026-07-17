@@ -37,20 +37,25 @@ export async function loadTaxExportBookings(input: {
   csv: string;
   dateBasisLabel: string;
 }> {
+  // Production bookings do not store a creation timestamp column. Keep the
+  // "created" date-basis option in the UI, but fail closed instead of querying
+  // a missing created_at field.
+  if (input.dateBasis === "created") {
+    throw new Error(
+      "Booking creation-date filtering is unavailable because bookings do not store created_at.",
+    );
+  }
+
   const supabase = createServiceRoleClient();
 
   let query = supabase
     .from("bookings")
     .select(
-      "id, created_at, status, customer_name, customer_email, customer_phone, event_address, event_date, delivery_time, span_days, payment_method, payment_confirmed_at, subtotal, delivery_fee, mileage_fee, total, rental_item, rental_name",
+      "id, status, customer_name, customer_email, customer_phone, event_address, event_date, delivery_time, span_days, payment_method, payment_confirmed_at, subtotal, delivery_fee, mileage_fee, total, rental_item, rental_name",
     )
     .order("event_date", { ascending: true });
 
-  if (input.dateBasis === "created") {
-    query = query
-      .gte("created_at", `${input.from}T00:00:00`)
-      .lte("created_at", `${input.to}T23:59:59.999`);
-  } else if (input.dateBasis === "payment") {
+  if (input.dateBasis === "payment") {
     query = query
       .gte("payment_confirmed_at", `${input.from}T00:00:00`)
       .lte("payment_confirmed_at", `${input.to}T23:59:59.999`);
@@ -104,7 +109,7 @@ export async function loadTaxExportBookings(input: {
     ];
     return {
       id,
-      createdAt: clean(row.created_at),
+      createdAt: null,
       status: clean(row.status) ?? "pending",
       customerName: clean(row.customer_name) ?? "Guest",
       customerEmail: clean(row.customer_email),

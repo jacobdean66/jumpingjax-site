@@ -100,8 +100,10 @@ export default async function TaxBookingsExportPage({ searchParams }: Props) {
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2"
           >
             <option value="event">Event / rental date</option>
-            <option value="created">Booking creation date</option>
             <option value="payment">Payment confirmation date</option>
+            <option value="created" disabled>
+              Booking creation date (unavailable)
+            </option>
           </select>
         </label>
         <button className="rounded-full bg-sky-500 px-5 py-3 text-sm font-black text-white">
