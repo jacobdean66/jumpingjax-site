@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { loadAdminDeliveriesForDates } from "@/lib/admin/deliveries";
 import {
-  loadAdminDeliveriesForDates,
-} from "@/lib/admin/deliveries";
-import { parseDatesFromSearchParams } from "@/lib/admin/delivery-planner-dates";
-import { DeliveryPlannerClient } from "./DeliveryPlannerClient";
-import { DeliveryDateSelector } from "./DeliveryDateSelector";
+  parseDatesFromSearchParams,
+  todayYmd,
+} from "@/lib/admin/delivery-planner-dates";
+import { rangeDates } from "@/lib/admin/delivery-planner-workspace";
+import { RoutePlannerWorkspace } from "./RoutePlannerWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -20,23 +20,6 @@ type Props = {
     status?: string;
   }>;
 };
-
-function SummaryTile({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-2xl border border-sky-100 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -53,10 +36,12 @@ function withTimeout<T>(
 
 export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const resolved = await searchParams;
-  const dates = parseDatesFromSearchParams({
+  const hasExplicitDates = Boolean(resolved?.date || resolved?.dates);
+  const parsedDates = parseDatesFromSearchParams({
     date: resolved?.date,
     dates: resolved?.dates,
   });
+  const dates = hasExplicitDates ? parsedDates : rangeDates(todayYmd(), 7);
   const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
@@ -93,43 +78,32 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const deliveries = deliveriesResult.deliveries;
 
   return (
-    <main className="min-h-screen bg-sky-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-sky-100 pb-6 print:hidden lg:flex-row lg:items-end lg:justify-between">
-          <div>
+    <main className="h-dvh overflow-hidden bg-sky-50 p-2 text-slate-950 sm:p-3">
+      <section className="mx-auto flex h-full max-w-[112rem] flex-col">
+        <header className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border-2 border-slate-400 bg-white px-3 py-2 shadow-sm print:hidden">
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Admin deliveries
             </p>
-            <h1 className="mt-2 max-w-[22rem] text-balance break-words text-3xl font-black leading-tight md:max-w-full md:text-5xl">
+            <h1 className="truncate text-xl font-black leading-tight sm:text-2xl">
               Route Planner
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Plan deliveries, setups, and pickups across multiple work dates.
-              Routes stay separate by day.
-            </p>
           </div>
-        </div>
-
-        <nav className="mt-5 flex flex-wrap gap-2 text-sm font-black print:hidden">
-          <Link className="rounded-full bg-slate-950 px-4 py-2 text-white" href="/admin">
-            Admin Home
-          </Link>
-          <Link className="rounded-full bg-sky-600 px-4 py-2 text-white" href="/admin/schedule">
-            Schedule View
-          </Link>
-          <Link className="rounded-full bg-violet-600 px-4 py-2 text-white" href="/admin/ai-ads">
-            AI Ads
-          </Link>
-        </nav>
-
-        <div className="mt-5">
-          <Suspense fallback={<div className="rounded-2xl bg-white p-4 text-sm font-bold">Loading dates…</div>}>
-            <DeliveryDateSelector initialDates={dates} />
-          </Suspense>
-        </div>
+          <nav className="flex shrink-0 gap-1 text-xs font-black">
+            <Link className="rounded-lg bg-slate-950 px-2.5 py-2 text-white" href="/admin">
+              Admin Home
+            </Link>
+            <Link className="hidden rounded-lg bg-sky-700 px-2.5 py-2 text-white sm:block" href="/admin/schedule">
+              Schedule View
+            </Link>
+            <Link className="hidden rounded-lg bg-violet-700 px-2.5 py-2 text-white md:block" href="/admin/ai-ads">
+              AI Ads
+            </Link>
+          </nav>
+        </header>
 
         {deliveriesResult.error && (
-          <section className="mt-6 rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
+          <section className="min-h-0 flex-1 rounded-2xl border-2 border-rose-400 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
               Route planner could not load
             </p>
@@ -147,39 +121,13 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
         )}
 
         {!deliveries ? null : (
-          <>
-            <div className="mt-6 grid gap-4 print:hidden sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-              <SummaryTile label="Bookings" value={deliveries.summary.bookingCount} />
-              <SummaryTile
-                label="Deliveries"
-                value={deliveries.summary.deliveryTaskCount}
-              />
-              <SummaryTile
-                label="Pickups"
-                value={deliveries.summary.pickupTaskCount}
-              />
-              <SummaryTile
-                label="Unscheduled"
-                value={deliveries.summary.unscheduledCount}
-              />
-              <SummaryTile
-                label="Inflatables"
-                value={deliveries.summary.inflatableCount}
-              />
-              <SummaryTile
-                label="Big slides"
-                value={deliveries.summary.bigSlideCount}
-              />
-              <SummaryTile
-                label="Setup time"
-                value={`${deliveries.summary.estimatedSetupMinutes} min`}
-              />
-            </div>
-
-            <Suspense fallback={null}>
-              <DeliveryPlannerClient deliveries={deliveries} />
-            </Suspense>
-          </>
+          <div className="min-h-0 flex-1">
+            <RoutePlannerWorkspace
+              initialDeliveries={deliveries}
+              initialWorkType={resolved?.work === "pickups" ? "pickup" : "delivery"}
+              initialTruck={resolved?.truck === "truck-2" ? "truck-2" : "truck-1"}
+            />
+          </div>
         )}
       </section>
     </main>

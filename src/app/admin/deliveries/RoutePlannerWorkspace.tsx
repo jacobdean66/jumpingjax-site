@@ -1,0 +1,1152 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
+
+import type {
+  AdminDeliveriesResult,
+  AdminDeliveryWorkTask,
+} from "@/lib/admin/deliveries";
+import {
+  addDays,
+  datesToSearchParams,
+  formatLongDate,
+  todayYmd,
+  type WorkType,
+} from "@/lib/admin/delivery-planner-dates";
+import {
+  buildPrintDayGroups,
+  filterNonEmptyPrintLoads,
+} from "@/lib/admin/delivery-print-layout";
+import {
+  allPlannerTasks,
+  assignmentsForSelection,
+  buildLoadLibrary,
+  dirtySelectionKeys,
+  groupOperationalStops,
+  moveStop,
+  productSummary,
+  rangeDates,
+  selectionKey,
+  taskSearchText,
+  type PlannerColumn,
+  type PlannerSelection,
+  type PlannerTruck,
+  type WorkspaceStop,
+} from "@/lib/admin/delivery-planner-workspace";
+import { RoutePlannerDetailsModal } from "./RoutePlannerDetailsModal";
+
+const TRUCKS: PlannerTruck[] = ["truck-1", "truck-2"];
+const TRUCK_LABELS: Record<PlannerTruck, string> = {
+  "truck-1": "Trailer 1",
+  "truck-2": "Trailer 2",
+};
+const TRUCK_DETAIL: Record<PlannerTruck, string> = {
+  "truck-1": "Short Trailer",
+  "truck-2": "Long Trailer",
+};
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+type MobilePanel = "library" | "unassigned" | "trailer";
+
+function workLabel(workType: WorkType): string {
+  return workType === "delivery" ? "Drop-offs" : "Pickups";
+}
+
+function shortDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1).toLocaleDateString(
+    "en-US",
+    { weekday: "short", month: "short", day: "numeric" },
+  );
+}
+
+function taskTruck(task: AdminDeliveryWorkTask): PlannerTruck | null {
+  return task.truck === "truck-1" || task.truck === "truck-2"
+    ? task.truck
+    : null;
+}
+
+function stopMatches(
+  stop: WorkspaceStop,
+  date: string,
+  workType: WorkType,
+  column: PlannerColumn,
+): boolean {
+  return (
+    (stop.workDate === date ||
+      (column === "unassigned" &&
+        stop.workDate === null &&
+        stop.eventDate === date)) &&
+    stop.workType === workType &&
+    (column === "unassigned" ? stop.truck === null : stop.truck === column)
+  );
+}
+
+function Thumbnail({
+  stop,
+  selectedTruck,
+  index,
+  onOpen,
+  onDragStart,
+  onDragEnd,
+  onMove,
+}: {
+  stop: WorkspaceStop;
+  selectedTruck: PlannerTruck;
+  index: number;
+  onOpen: () => void;
+  onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onDragEnd: () => void;
+  onMove: (target: PlannerColumn, index: number) => void;
+}) {
+  return (
+    <article
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className="group relative flex min-h-24 cursor-grab flex-col justify-between rounded-xl border-2 border-slate-400 bg-white p-3 shadow-sm outline-none transition hover:border-sky-600 hover:shadow-md focus-within:border-sky-600 active:cursor-grabbing"
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="text-left focus:outline-none focus:ring-2 focus:ring-sky-500"
+        aria-label={`Open details for ${productSummary(stop.products)}`}
+      >
+        <span className="block line-clamp-2 text-sm font-black leading-tight text-slate-950">
+          {productSummary(stop.products)}
+        </span>
+        <span className="mt-2 block text-xs font-bold text-slate-600">
+          {stop.county}
+        </span>
+      </button>
+      <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
+        <span
+          aria-hidden="true"
+          className="text-sm font-black tracking-[0.18em] text-slate-500"
+          title="Drag"
+        >
+          ⠿
+        </span>
+        <div className="flex gap-1">
+          {stop.truck ? (
+            <>
+              <button
+                type="button"
+                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                onClick={() => onMove(stop.truck!, Math.max(0, index - 1))}
+                aria-label="Move stop earlier"
+                title="Move earlier"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                onClick={() => onMove(stop.truck!, index + 1)}
+                aria-label="Move stop later"
+                title="Move later"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                onClick={() => onMove("unassigned", 0)}
+                aria-label="Move stop to unassigned"
+                title="Move to Unassigned"
+              >
+                ×
+              </button>
+            </>
+          ) : (
+            TRUCKS.map((truck) => (
+              <button
+                key={truck}
+                type="button"
+                className={`h-6 rounded border px-1.5 text-[10px] font-black hover:bg-sky-100 ${
+                  truck === selectedTruck
+                    ? "border-sky-600 bg-sky-50 text-sky-900"
+                    : "border-slate-400 text-slate-700"
+                }`}
+                onClick={() => onMove(truck, Number.MAX_SAFE_INTEGER)}
+                aria-label={`Move stop to ${TRUCK_LABELS[truck]}`}
+                title={`Move to ${TRUCK_LABELS[truck]}`}
+              >
+                {truck === "truck-1" ? "T1" : "T2"}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function DropSlot({
+  active,
+  label,
+  onDrop,
+}: {
+  active: boolean;
+  label: string;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={onDrop}
+      className={`flex h-3 items-center justify-center rounded border-2 border-dashed transition ${
+        active
+          ? "border-sky-600 bg-sky-100"
+          : "border-transparent hover:h-8 hover:border-sky-500 hover:bg-sky-50"
+      }`}
+      aria-label={label}
+    />
+  );
+}
+
+function UnsavedSwitchDialog({
+  open,
+  rangeChange,
+  onStay,
+  onKeep,
+  onDiscard,
+}: {
+  open: boolean;
+  rangeChange: boolean;
+  onStay: () => void;
+  onKeep: () => void;
+  onDiscard: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 print:hidden">
+      <section
+        role="alertdialog"
+        aria-modal="true"
+        className="w-full max-w-md rounded-2xl border-2 border-amber-500 bg-white p-5 shadow-2xl"
+      >
+        <h2 className="text-xl font-black text-slate-950">Unsaved changes</h2>
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
+          {rangeChange
+            ? "Changing the date range reloads planner data. Save first, or intentionally discard these changes."
+            : "This load has unsaved changes. You can keep its local draft while switching, or discard it."}
+        </p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={onStay}
+            className="rounded-lg border-2 border-slate-400 px-3 py-2 text-sm font-black"
+          >
+            Stay
+          </button>
+          {!rangeChange ? (
+            <button
+              type="button"
+              onClick={onKeep}
+              className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-black text-white"
+            >
+              Keep draft
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="rounded-lg bg-rose-700 px-3 py-2 text-sm font-black text-white"
+          >
+            Discard
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function RoutePlannerWorkspace({
+  initialDeliveries,
+  initialWorkType = "delivery",
+  initialTruck = "truck-1",
+}: {
+  initialDeliveries: AdminDeliveriesResult;
+  initialWorkType?: WorkType;
+  initialTruck?: PlannerTruck;
+}) {
+  const initialTasks = useMemo(
+    () => allPlannerTasks(initialDeliveries),
+    [initialDeliveries],
+  );
+  const [tasks, setTasks] = useState<AdminDeliveryWorkTask[]>(initialTasks);
+  const [baseline, setBaseline] = useState<AdminDeliveryWorkTask[]>(initialTasks);
+  const [dates, setDates] = useState(initialDeliveries.dates);
+  const [selection, setSelection] = useState<PlannerSelection>({
+    date: initialDeliveries.dates[0] ?? initialDeliveries.date,
+    workType: initialWorkType,
+    truck: initialTruck,
+  });
+  const [showEmptyDates, setShowEmptyDates] = useState(false);
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({
+    [initialDeliveries.dates[0] ?? initialDeliveries.date]: true,
+  });
+  const [search, setSearch] = useState("");
+  const [details, setDetails] = useState<WorkspaceStop | null>(null);
+  const [dragging, setDragging] = useState<{
+    taskIds: string[];
+    source: PlannerColumn;
+  } | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loadingRange, setLoadingRange] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("unassigned");
+  const [pendingSelection, setPendingSelection] =
+    useState<PlannerSelection | null>(null);
+  const [pendingRange, setPendingRange] = useState<string[] | null>(null);
+  const plannerRef = useRef<HTMLDivElement>(null);
+
+  const dirtyKeys = useMemo(
+    () => dirtySelectionKeys(baseline, tasks),
+    [baseline, tasks],
+  );
+  const currentKey = selectionKey(selection);
+  const isDirty = dirtyKeys.has(currentKey);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (dirtyKeys.size === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirtyKeys]);
+
+  useEffect(() => {
+    const params = datesToSearchParams(dates, {
+      work: selection.workType === "delivery" ? "deliveries" : "pickups",
+      truck: selection.truck,
+    });
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}?${params.toString()}`,
+    );
+  }, [dates, selection.truck, selection.workType]);
+
+  const filteredTasks = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return tasks;
+    const matchingBookingScopes = new Set(
+      tasks
+        .filter((task) => taskSearchText(task).includes(query))
+        .map(
+          (task) =>
+            `${task.bookingId}:${task.workType}:${task.workDate ?? "unscheduled"}`,
+        ),
+    );
+    return tasks.filter((task) =>
+      matchingBookingScopes.has(
+        `${task.bookingId}:${task.workType}:${task.workDate ?? "unscheduled"}`,
+      ),
+    );
+  }, [search, tasks]);
+  const allStops = useMemo(
+    () => groupOperationalStops(filteredTasks),
+    [filteredTasks],
+  );
+  const library = useMemo(
+    () => buildLoadLibrary(filteredTasks, dates),
+    [filteredTasks, dates],
+  );
+  const visibleLibrary = library.filter(
+    (entry) => showEmptyDates || entry.total > 0,
+  );
+  const unassignedStops = allStops.filter((stop) =>
+    stopMatches(stop, selection.date, selection.workType, "unassigned"),
+  );
+  const trailerStops = allStops.filter((stop) =>
+    stopMatches(stop, selection.date, selection.workType, selection.truck),
+  );
+
+  const requestSelection = useCallback(
+    (next: PlannerSelection) => {
+      if (selectionKey(next) === currentKey) return;
+      if (isDirty) {
+        setPendingSelection(next);
+        return;
+      }
+      setSelection(next);
+    },
+    [currentKey, isDirty],
+  );
+
+  function discardSelectionDraft(target: PlannerSelection) {
+    const baselineById = new Map(baseline.map((task) => [task.id, task]));
+    const affectedIds = new Set<string>();
+    for (const task of [...baseline, ...tasks]) {
+      if (
+        task.workDate === selection.date &&
+        task.workType === selection.workType &&
+        taskTruck(task) === selection.truck
+      ) {
+        affectedIds.add(task.id);
+      }
+    }
+    setTasks((current) =>
+      current.map((task) =>
+        affectedIds.has(task.id) ? baselineById.get(task.id) ?? task : task,
+      ),
+    );
+    setSelection(target);
+    setPendingSelection(null);
+  }
+
+  function applyMove(
+    stop: WorkspaceStop,
+    target: PlannerColumn,
+    targetIndex: number,
+  ) {
+    const result = moveStop(tasks, stop.taskIds, {
+      date: selection.date,
+      workType: selection.workType,
+      target,
+      targetIndex,
+    });
+    if (result.conflict) {
+      setNotice(result.conflict);
+      return;
+    }
+    setTasks(result.tasks);
+    setNotice(null);
+    setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
+  }
+
+  function handleDrop(
+    event: DragEvent<HTMLElement>,
+    target: PlannerColumn,
+    targetIndex: number,
+  ) {
+    event.preventDefault();
+    const taskIds =
+      dragging?.taskIds ??
+      event.dataTransfer.getData("application/x-jumping-jax-task-ids").split(",").filter(Boolean);
+    const stop = allStops.find((candidate) =>
+      candidate.taskIds.some((id) => taskIds.includes(id)),
+    );
+    if (stop) applyMove(stop, target, targetIndex);
+    setDragging(null);
+    setDragOver(null);
+  }
+
+  async function loadRange(nextDates: string[]) {
+    setLoadingRange(true);
+    setNotice(null);
+    try {
+      const params = datesToSearchParams(nextDates);
+      const response = await fetch(`/api/admin/deliveries?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as
+        | AdminDeliveriesResult
+        | { error?: string }
+        | null;
+      if (!response.ok || !data || !("tasks" in data)) {
+        throw new Error(
+          data && "error" in data && data.error
+            ? data.error
+            : "Unable to load this date range.",
+        );
+      }
+      const nextTasks = allPlannerTasks(data);
+      setTasks(nextTasks);
+      setBaseline(nextTasks);
+      setDates(data.dates);
+      const firstPopulated =
+        buildLoadLibrary(nextTasks, data.dates).find((entry) => entry.total > 0)
+          ?.date ??
+        data.dates[0] ??
+        data.date;
+      setSelection((current) => ({ ...current, date: firstPopulated }));
+      setExpandedDates({ [firstPopulated]: true });
+      setSaveStates({});
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Unable to load this date range.",
+      );
+    } finally {
+      setLoadingRange(false);
+      setPendingRange(null);
+    }
+  }
+
+  function requestRange(nextDates: string[]) {
+    if (dirtyKeys.size > 0) {
+      setPendingRange(nextDates);
+      return;
+    }
+    void loadRange(nextDates);
+  }
+
+  async function saveCurrentLoad() {
+    const assignments = assignmentsForSelection(baseline, tasks, selection);
+    if (assignments.length === 0) {
+      setSaveStates((current) => ({ ...current, [currentKey]: "saved" }));
+      return;
+    }
+    setSaveStates((current) => ({ ...current, [currentKey]: "saving" }));
+    setSaveErrors((current) => ({ ...current, [currentKey]: "" }));
+    try {
+      const response = await fetch("/api/admin/deliveries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignments }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Unable to save this trailer load.");
+      }
+      const savedIds = new Set(
+        assignments.map((assignment) => `${assignment.itemId}:${assignment.workType}`),
+      );
+      const currentById = new Map(tasks.map((task) => [task.id, task]));
+      setBaseline((current) =>
+        current.map((task) =>
+          savedIds.has(task.id) ? currentById.get(task.id) ?? task : task,
+        ),
+      );
+      setSaveStates((current) => ({ ...current, [currentKey]: "saved" }));
+      setNotice("Saved. Event dates were not changed.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to save this trailer load.";
+      setSaveStates((current) => ({ ...current, [currentKey]: "error" }));
+      setSaveErrors((current) => ({ ...current, [currentKey]: message }));
+    }
+  }
+
+  const printTaskIds = useMemo(() => {
+    const printable = tasks.map((task) => ({
+      ...task,
+      deliveryDate: task.workDate,
+      deliveryTruck: taskTruck(task),
+      deliverySequence: task.sequence,
+      rentalName: task.rentalName,
+    }));
+    const groups = buildPrintDayGroups({
+      dates: [selection.date],
+      items: printable,
+      printTruck: selection.truck,
+      printWorkType: selection.workType,
+    });
+    return new Set(
+      groups.flatMap((day) =>
+        day.sheets.flatMap((sheet) => sheet.items.map((item) => item.id)),
+      ),
+    );
+  }, [tasks, selection]);
+  const printStops = useMemo(
+    () =>
+      groupOperationalStops(tasks.filter((task) => printTaskIds.has(task.id))),
+    [tasks, printTaskIds],
+  );
+  const printLoads = useMemo(() => {
+    const loads = new Map<number, WorkspaceStop[]>();
+    for (const stop of printStops) {
+      const load = stop.trailerLoad ?? 1;
+      loads.set(load, [...(loads.get(load) ?? []), stop]);
+    }
+    return filterNonEmptyPrintLoads(
+      [...loads.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([, stops]) => stops),
+    );
+  }, [printStops]);
+
+  function printCurrentLoad() {
+    if (printStops.length === 0) {
+      setNotice("This trailer has no assigned stops to print.");
+      return;
+    }
+    window.print();
+  }
+
+  const rangeLabel =
+    dates.length > 1
+      ? `${shortDate(dates[0]!)} – ${shortDate(dates[dates.length - 1]!)}`
+      : shortDate(dates[0] ?? selection.date);
+  const currentSaveState = saveStates[currentKey] ?? "idle";
+
+  return (
+    <>
+      <div
+        ref={plannerRef}
+        className="route-planner-screen flex h-full min-h-0 flex-col overflow-hidden print:hidden"
+      >
+        <div className="mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 border-slate-400 bg-white p-1 lg:hidden">
+          {(["library", "unassigned", "trailer"] as MobilePanel[]).map((panel) => (
+            <button
+              key={panel}
+              type="button"
+              onClick={() => setMobilePanel(panel)}
+              className={`flex-1 rounded-lg px-2 py-2 text-xs font-black capitalize ${
+                mobilePanel === panel
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {panel}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[15rem_minmax(20rem,1fr)_minmax(24rem,1.15fr)]">
+          <aside
+            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+              mobilePanel === "library" ? "flex" : "hidden"
+            } flex-col lg:flex`}
+          >
+            <header className="shrink-0 border-b-2 border-slate-400 bg-slate-50 p-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-slate-950">Load Library</h2>
+                <span className="text-[10px] font-black uppercase text-slate-500">
+                  {loadingRange ? "Loading…" : rangeLabel}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, -7), 7))
+                  }
+                  className="rounded-lg border-2 border-slate-400 bg-white px-2 py-1.5 text-xs font-black"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => requestRange(rangeDates(todayYmd(), 7))}
+                  className="rounded-lg bg-sky-700 px-2 py-1.5 text-xs font-black text-white"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, 7), 7))
+                  }
+                  className="rounded-lg border-2 border-slate-400 bg-white px-2 py-1.5 text-xs font-black"
+                >
+                  Next
+                </button>
+              </div>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Customer, product, county, address"
+                className="mt-2 w-full rounded-lg border-2 border-slate-400 px-2.5 py-2 text-xs font-semibold outline-none focus:border-sky-600"
+              />
+              <label className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={showEmptyDates}
+                  onChange={(event) => setShowEmptyDates(event.target.checked)}
+                />
+                Show empty dates
+              </label>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              {visibleLibrary.length === 0 ? (
+                <p className="rounded-lg border-2 border-dashed border-slate-400 p-3 text-xs font-bold text-slate-600">
+                  No loads match this range and search.
+                </p>
+              ) : (
+                visibleLibrary.map((entry) => {
+                  const expanded = expandedDates[entry.date] ?? entry.date === selection.date;
+                  return (
+                    <section
+                      key={entry.date}
+                      className={`mb-2 overflow-hidden rounded-xl border-2 ${
+                        entry.date === selection.date
+                          ? "border-sky-700"
+                          : "border-slate-400"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedDates((current) => ({
+                            ...current,
+                            [entry.date]: !expanded,
+                          }))
+                        }
+                        className={`flex w-full items-center justify-between px-2.5 py-2 text-left text-xs font-black ${
+                          entry.date === selection.date
+                            ? "bg-sky-100 text-sky-950"
+                            : "bg-slate-100 text-slate-900"
+                        }`}
+                      >
+                        <span>{shortDate(entry.date)}</span>
+                        <span>{entry.total} {expanded ? "−" : "+"}</span>
+                      </button>
+                      {expanded ? (
+                        <div className="grid gap-2 p-2">
+                          {(["delivery", "pickup"] as WorkType[]).map((workType) => {
+                            const counts = entry[workType];
+                            return (
+                              <div key={workType}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    requestSelection({
+                                      date: entry.date,
+                                      workType,
+                                      truck: selection.truck,
+                                    })
+                                  }
+                                  className={`flex w-full justify-between rounded-md px-2 py-1 text-xs font-black ${
+                                    selection.date === entry.date &&
+                                    selection.workType === workType
+                                      ? "bg-slate-800 text-white"
+                                      : "text-slate-800 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span>{workLabel(workType)}</span>
+                                  <span>{counts.total}</span>
+                                </button>
+                                <div className="mt-1 grid gap-1 pl-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      requestSelection({
+                                        date: entry.date,
+                                        workType,
+                                        truck: selection.truck,
+                                      });
+                                      setMobilePanel("unassigned");
+                                    }}
+                                    className="flex justify-between rounded border border-slate-300 px-2 py-1 text-[11px] font-bold hover:bg-slate-100"
+                                  >
+                                    <span>Unassigned</span>
+                                    <span>{counts.unassigned}</span>
+                                  </button>
+                                  {TRUCKS.map((truck) => {
+                                    const key = selectionKey({
+                                      date: entry.date,
+                                      workType,
+                                      truck,
+                                    });
+                                    const selected =
+                                      selection.date === entry.date &&
+                                      selection.workType === workType &&
+                                      selection.truck === truck;
+                                    return (
+                                      <button
+                                        key={truck}
+                                        type="button"
+                                        onClick={() => {
+                                          requestSelection({
+                                            date: entry.date,
+                                            workType,
+                                            truck,
+                                          });
+                                          setMobilePanel("trailer");
+                                        }}
+                                        className={`flex justify-between rounded border-2 px-2 py-1 text-[11px] font-black ${
+                                          selected
+                                            ? "border-sky-700 bg-sky-100 text-sky-950"
+                                            : "border-slate-300 hover:bg-slate-100"
+                                        }`}
+                                      >
+                                        <span>
+                                          {TRUCK_LABELS[truck]}
+                                          {dirtyKeys.has(key) ? " •" : ""}
+                                        </span>
+                                        <span>{counts[truck]}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </section>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+
+          <section
+            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+              mobilePanel === "unassigned" ? "flex" : "hidden"
+            } flex-col lg:flex`}
+          >
+            <header className="shrink-0 border-b-2 border-slate-400 bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-slate-950">Unassigned Work</h2>
+                  <p className="text-xs font-bold text-slate-600">
+                    {shortDate(selection.date)} · {workLabel(selection.workType)}
+                  </p>
+                </div>
+                <span className="rounded-full border-2 border-slate-400 bg-white px-2 py-1 text-xs font-black">
+                  {unassignedStops.length}
+                </span>
+              </div>
+            </header>
+            <div
+              className={`min-h-0 flex-1 overflow-y-auto p-3 ${
+                dragging ? "bg-sky-50 ring-2 ring-inset ring-sky-600" : ""
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver("unassigned");
+              }}
+              onDrop={(event) => handleDrop(event, "unassigned", 0)}
+            >
+              {unassignedStops.length === 0 ? (
+                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed border-slate-400 bg-slate-50 p-6 text-center text-sm font-bold text-slate-600">
+                  No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for this date.
+                </div>
+              ) : (
+                <div
+                  className={`grid gap-3 ${
+                    unassignedStops.length <= 4
+                      ? "grid-cols-1 sm:grid-cols-2"
+                      : unassignedStops.length <= 12
+                        ? "grid-cols-2"
+                        : "grid-cols-2 xl:grid-cols-3"
+                  }`}
+                >
+                  {unassignedStops.map((stop, index) => (
+                    <Thumbnail
+                      key={stop.id}
+                      stop={stop}
+                      selectedTruck={selection.truck}
+                      index={index}
+                      onOpen={() => setDetails(stop)}
+                      onMove={(target, targetIndex) =>
+                        applyMove(stop, target, targetIndex)
+                      }
+                      onDragStart={(event) => {
+                        setDragging({ taskIds: stop.taskIds, source: "unassigned" });
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData(
+                          "application/x-jumping-jax-task-ids",
+                          stop.taskIds.join(","),
+                        );
+                      }}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setDragOver(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+              mobilePanel === "trailer" ? "flex" : "hidden"
+            } flex-col lg:flex`}
+          >
+            <header className="shrink-0 border-b-2 border-slate-500 bg-slate-50 p-3">
+              <h2 className="truncate text-lg font-black text-slate-950">
+                {shortDate(selection.date)} · {workLabel(selection.workType)} ·{" "}
+                {TRUCK_LABELS[selection.truck]}
+              </h2>
+              <div className="mt-2 grid grid-cols-2 gap-1">
+                {(["delivery", "pickup"] as WorkType[]).map((workType) => (
+                  <button
+                    key={workType}
+                    type="button"
+                    onClick={() =>
+                      requestSelection({ ...selection, workType })
+                    }
+                    className={`rounded-lg border-2 px-2 py-1.5 text-xs font-black ${
+                      selection.workType === workType
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-400 bg-white"
+                    }`}
+                  >
+                    {workLabel(workType)}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-1">
+                {TRUCKS.map((truck) => (
+                  <button
+                    key={truck}
+                    type="button"
+                    onClick={() => requestSelection({ ...selection, truck })}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      handleDrop(event, truck, Number.MAX_SAFE_INTEGER);
+                      requestSelection({ ...selection, truck });
+                    }}
+                    className={`rounded-lg border-2 px-2 py-1.5 text-xs font-black ${
+                      selection.truck === truck
+                        ? "border-sky-700 bg-sky-100 text-sky-950"
+                        : dragging
+                          ? "border-dashed border-sky-600 bg-sky-50"
+                          : "border-slate-400 bg-white"
+                    }`}
+                  >
+                    {TRUCK_LABELS[truck]} · {TRUCK_DETAIL[truck]}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t-2 border-slate-300 pt-2">
+                <div className="min-w-0 text-xs font-black">
+                  <span>{trailerStops.length} stops · </span>
+                  <span
+                    className={
+                      currentSaveState === "error"
+                        ? "text-rose-700"
+                        : isDirty
+                          ? "text-amber-700"
+                          : currentSaveState === "saved"
+                            ? "text-emerald-700"
+                            : "text-slate-600"
+                    }
+                  >
+                    {currentSaveState === "saving"
+                      ? "Saving…"
+                      : currentSaveState === "error"
+                        ? "Save failed — changes not saved"
+                        : isDirty
+                          ? "Unsaved changes"
+                          : currentSaveState === "saved"
+                            ? "Saved"
+                            : "No unsaved changes"}
+                  </span>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    onClick={printCurrentLoad}
+                    disabled={printStops.length === 0}
+                    className="rounded-lg border-2 border-slate-600 bg-white px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveCurrentLoad()}
+                    disabled={!isDirty || currentSaveState === "saving"}
+                    className="rounded-lg bg-amber-300 px-3 py-2 text-xs font-black text-amber-950 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {currentSaveState === "saving" ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+              {currentSaveState === "error" ? (
+                <p className="mt-2 rounded-lg border border-rose-400 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-900">
+                  {saveErrors[currentKey]}
+                </p>
+              ) : null}
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {trailerStops.length === 0 ? (
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => handleDrop(event, selection.truck, 0)}
+                  className={`flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm font-bold ${
+                    dragging
+                      ? "border-sky-600 bg-sky-50 text-sky-900"
+                      : "border-slate-400 bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  Drop {workLabel(selection.workType).toLowerCase()} here.
+                </div>
+              ) : (
+                <div className="grid gap-0">
+                  {trailerStops.map((stop, index) => (
+                    <div key={stop.id}>
+                      <DropSlot
+                        active={dragOver === `${selection.truck}:${index}`}
+                        label={`Place at stop ${index + 1}`}
+                        onDrop={(event) =>
+                          handleDrop(event, selection.truck, index)
+                        }
+                      />
+                      <div
+                        onDragOver={() =>
+                          setDragOver(`${selection.truck}:${index}`)
+                        }
+                      >
+                        <Thumbnail
+                          stop={stop}
+                          selectedTruck={selection.truck}
+                          index={index}
+                          onOpen={() => setDetails(stop)}
+                          onMove={(target, targetIndex) =>
+                            applyMove(stop, target, targetIndex)
+                          }
+                          onDragStart={(event) => {
+                            setDragging({
+                              taskIds: stop.taskIds,
+                              source: selection.truck,
+                            });
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData(
+                              "application/x-jumping-jax-task-ids",
+                              stop.taskIds.join(","),
+                            );
+                          }}
+                          onDragEnd={() => {
+                            setDragging(null);
+                            setDragOver(null);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <DropSlot
+                    active={dragOver === `${selection.truck}:end`}
+                    label="Place at end"
+                    onDrop={(event) =>
+                      handleDrop(
+                        event,
+                        selection.truck,
+                        Number.MAX_SAFE_INTEGER,
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {notice ? (
+          <div className="mt-2 flex shrink-0 items-center justify-between rounded-lg border-2 border-slate-500 bg-white px-3 py-2 text-xs font-bold text-slate-800">
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="ml-3 font-black"
+              aria-label="Dismiss message"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {printStops.length > 0 ? (
+        <section className="route-planner-print hidden print:block">
+          <h1 className="text-3xl font-black">Jumping Jax Route Plan</h1>
+          <p className="mt-1 text-lg font-bold">{formatLongDate(selection.date)}</p>
+          <div className="mt-3 flex gap-3 border-y-2 border-slate-900 py-2 text-lg font-black">
+            <span>{workLabel(selection.workType)}</span>
+            <span>·</span>
+            <span>
+              {TRUCK_LABELS[selection.truck]} · {TRUCK_DETAIL[selection.truck]}
+            </span>
+            <span>·</span>
+            <span>{printStops.length} stops</span>
+          </div>
+          {printLoads.map((load, loadIndex) => (
+            <section
+              key={`print-load-${loadIndex}`}
+              className="route-print-load mt-4"
+            >
+              <h2 className="mb-2 text-lg font-black">
+                Load {load[0]?.trailerLoad ?? loadIndex + 1}
+              </h2>
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr>
+                    {[
+                      "Stop",
+                      "Customer",
+                      "Products",
+                      "Address",
+                      "Phone",
+                      "Requested time",
+                      "Notes",
+                    ].map((label) => (
+                      <th key={label} className="border border-slate-900 p-1 text-left">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {load.map((stop) => (
+                    <tr key={stop.id} className="route-print-stop">
+                      <td className="border border-slate-900 p-1">{stop.sequence ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">{stop.customerName}</td>
+                      <td className="border border-slate-900 p-1">{stop.products.join(", ")}</td>
+                      <td className="border border-slate-900 p-1">{stop.eventAddress ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">{stop.customerPhone ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">{stop.requestedTime ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">
+                        {[stop.routeNotes, stop.customerNotes].filter(Boolean).join(" · ") || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ))}
+        </section>
+      ) : null}
+
+      <RoutePlannerDetailsModal
+        stop={details}
+        onClose={() => setDetails(null)}
+      />
+      <UnsavedSwitchDialog
+        open={Boolean(pendingSelection || pendingRange)}
+        rangeChange={Boolean(pendingRange)}
+        onStay={() => {
+          setPendingSelection(null);
+          setPendingRange(null);
+        }}
+        onKeep={() => {
+          if (pendingSelection) setSelection(pendingSelection);
+          setPendingSelection(null);
+        }}
+        onDiscard={() => {
+          if (pendingRange) {
+            setTasks(baseline);
+            void loadRange(pendingRange);
+          } else if (pendingSelection) {
+            discardSelectionDraft(pendingSelection);
+          }
+        }}
+      />
+
+      <style>{`
+        @page {
+          size: letter landscape;
+          margin: 0.35in;
+        }
+        @media print {
+          .route-planner-screen { display: none !important; }
+          .route-planner-print { display: block !important; }
+          .route-print-load { break-inside: auto; }
+          .route-print-stop { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
+    </>
+  );
+}
