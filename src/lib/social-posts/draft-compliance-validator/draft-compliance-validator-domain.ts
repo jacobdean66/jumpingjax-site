@@ -4,9 +4,11 @@
  * 1. Allowed factual claims are a closed set from the Wave 10 ContentDraftSpecification.
  *    The set is never expanded. Prices are never inferred from campaign names or categories.
  * 2. A draft fragment is "supported" only when:
- *    - an extracted monetary amount exactly matches an allowed price amount (cent-normalized), OR
  *    - a normalized exact substring of an allowed claim text appears in the fragment
- *      (casefold + whitespace collapse).
+ *      (casefold + whitespace collapse), OR
+ *    - extracted monetary amounts are all authorized AND the non-price residue is
+ *      non-assertive / pure rhetoric (authorized prices never alone authorize package,
+ *      availability, discount, or other assertive content in the same sentence).
  * 3. Prohibited phrases come from specification.prohibitedClaims, CTA constraint lists,
  *    and deterministic safety catalogs (availability, scarcity, urgency, testimonials,
  *    package invention). Catalog matches are blocking unless an exact allowed claim covers
@@ -42,6 +44,7 @@ const AVAILABILITY_PATTERNS: readonly RegExp[] = [
   /\bavailable this weekend\b/i,
   /\bdates? (are|is) open\b/i,
   /\bopen dates?\b/i,
+  /\bopenings? remain\b/i,
   /\bimmediate (availability|inventory)\b/i,
   /\bguaranteed availability\b/i,
   /\bsame[- ]week availability\b/i,
@@ -53,6 +56,7 @@ const AVAILABILITY_PATTERNS: readonly RegExp[] = [
 const SCARCITY_PATTERNS: readonly RegExp[] = [
   /\bonly\s+\d+\s+left\b/i,
   /\bonly a few remain\b/i,
+  /\ba few spots? remain\b/i,
   /\blast chance\b/i,
   /\bbefore (they|it) (are|is) gone\b/i,
   /\bselling out\b/i,
@@ -66,15 +70,19 @@ const URGENCY_PATTERNS: readonly RegExp[] = [
   /\bhurry\b/i,
   /\bdon't miss\b/i,
   /\bdo not miss\b/i,
+  /\btoday only\b/i,
 ];
 
 const TESTIMONIAL_PATTERNS: readonly RegExp[] = [
   /"[^"]{8,}"/,
   /'[^{']{8,}'/,
   /\bcustomers? say\b/i,
+  /\bparents? say\b/i,
   /\bfamilies? (love|rave|recommend)\b/i,
+  /\bcustomers? love\b/i,
   /\b\d+(\.\d+)?\s*\/\s*5\b/,
   /\b\d+(\.\d+)?\s*stars?\b/i,
+  /\bFive[- ]star\b/i,
   /\bstar rating\b/i,
   /\breviews? say\b/i,
   /\baccording to (our )?customers?\b/i,
@@ -85,9 +93,16 @@ const PACKAGE_PATTERNS: readonly RegExp[] = [
   /\bpackage includes?\b/i,
   /\bcomes with\b/i,
   /\bincludes? free\b/i,
-  /\bfree (pizza|cake|tables?|chairs?|setup)\b/i,
+  /\bincludes? setup\b/i,
+  /\bfree (pizza|cake|tables?|chairs?|setup|delivery)\b/i,
+  /\bfree delivery\b/i,
+  /\bballoons? included\b/i,
+  /\bcotton candy included\b/i,
+  /\bunlimited children\b/i,
+  /\broom included\b/i,
   /\b\d+\s+rooms? (included|available)\b/i,
   /\bincluded add[- ]?ons?\b/i,
+  /\badd[- ]?ons? included\b/i,
   /\ball setup included\b/i,
 ];
 
@@ -106,20 +121,36 @@ const PURE_RHETORIC_ALLOWLIST: readonly RegExp[] = [
 const BUSINESS_ASSERTION_HINTS: readonly RegExp[] = [
   /\$/,
   /\b\d+\s*%/,
+  /\b\d+\s*%\s*off\b/i,
+  /\b% off\b/i,
+  /\bdiscount\b/i,
+  /\bon sale\b/i,
   /\bavailable\b/i,
   /\binventory\b/i,
   /\bopen dates?\b/i,
+  /\bopenings?\b/i,
   /\bguarantees?\b/i,
   /\bsame[- ]day\b/i,
   /\bexpress delivery\b/i,
+  /\bfree delivery\b/i,
+  /\bdelivery\b/i,
   /\bsetup capacity\b/i,
   /\bcapacity\b/i,
   /\bincludes?\b/i,
+  /\bincluded\b/i,
+  /\bunlimited\b/i,
+  /\bballoons?\b/i,
+  /\bcotton candy\b/i,
+  /\badd[- ]?ons?\b/i,
   /\bpackage\b/i,
   /\breview\b/i,
   /\brating\b/i,
   /\bstars?\b/i,
   /\bcustomers? say\b/i,
+  /\bparents? say\b/i,
+  /\bcustomers? love\b/i,
+  /\btoday only\b/i,
+  /\bspots? remain\b/i,
   /\broom(?:s)?\b/i,
   /\bstarting at\b/i,
   /\bonly\s+\$?\d/i,
@@ -192,6 +223,13 @@ function isBusinessAssertive(sentence: string): boolean {
   return BUSINESS_ASSERTION_HINTS.some((pattern) => pattern.test(sentence));
 }
 
+function stripMonetaryAmounts(text: string): string {
+  return text
+    .replace(/\$\s*\d{1,3}(?:,\d{3})*(?:\.\d{2})?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function claimSupportsSentence(
   sentence: string,
   specification: ContentDraftSpecification,
@@ -200,15 +238,36 @@ function claimSupportsSentence(
   const allowedPrices = allowedPriceAmountsCents(specification);
   const sentencePrices = extractMonetaryAmountsCents(sentence);
 
-  if (sentencePrices.length > 0) {
-    return sentencePrices.every((amount) => allowedPrices.includes(amount));
-  }
-
+  // Exact allowed-claim substring remains the strongest support signal.
   for (const claim of specification.allowedFactualClaims) {
     const normalizedClaim = normalizeText(claim.claimText);
     if (normalizedClaim.length >= 12 && normalizedSentence.includes(normalizedClaim)) {
       return true;
     }
+  }
+
+  if (sentencePrices.length > 0) {
+    const pricesAuthorized = sentencePrices.every((amount) =>
+      allowedPrices.includes(amount),
+    );
+    if (!pricesAuthorized) {
+      return false;
+    }
+    // Authorized prices never alone authorize other assertive business content in the same sentence.
+    const residue = stripMonetaryAmounts(sentence);
+    if (!residue) {
+      return true;
+    }
+    if (isPureRhetoric(residue)) {
+      return true;
+    }
+    if (!isBusinessAssertive(residue)) {
+      return true;
+    }
+    return false;
+  }
+
+  for (const claim of specification.allowedFactualClaims) {
     // Allow short service-area tokens when they appear as whole words and are in an allowed claim.
     if (claim.sourceCategory === "service-area") {
       const areaMatch = claim.claimText.match(/\b(Greenwood|Clinton|Ninety Six|South Carolina)\b/gi);

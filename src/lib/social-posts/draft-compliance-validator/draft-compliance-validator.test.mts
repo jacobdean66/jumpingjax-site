@@ -859,3 +859,111 @@ test("16. no final-copy generation fields are introduced by validator outputs", 
     assert.equal(serialized.includes(`"${key}"`), false);
   }
 });
+
+test("17. authorized prices do not short-circuit other unsafe assertions in the same sentence", () => {
+  const snapshot = buildSpecs({
+    campaigns: standardCampaignSet(),
+    assets: standardAssets(),
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "private-parties": ["private-weekend-90", "private-weekend-120"],
+      },
+    }),
+  });
+  const spec = specByCampaign(snapshot.specifications, "private-parties");
+
+  const cases: Array<{ text: string; codes: string[] }> = [
+    {
+      text: "Unlimited children for only $220.",
+      codes: ["package-content-invention", "unsupported-claim"],
+    },
+    {
+      text: "Free delivery with your $220 party.",
+      codes: ["package-content-invention", "unsupported-claim"],
+    },
+    {
+      text: "50% off packages starting at $220.",
+      codes: ["unsupported-claim"],
+    },
+  ];
+
+  for (const item of cases) {
+    const evaluation = validateDraftCandidate({
+      asOf: AS_OF,
+      specification: spec,
+      candidate: candidate({
+        id: `t-price-shortcircuit-${item.text.slice(0, 12)}`,
+        campaignId: "private-parties",
+        label: item.text,
+        sections: {
+          hook: "Come celebrate with us!",
+          primaryMessage: item.text,
+          supportingProof: null,
+          cta: "Explore party options with Jumping Jax.",
+          fullCaption: null,
+        },
+      }),
+    });
+    assert.notEqual(evaluation.resultState, "compliant", item.text);
+    assert.ok(
+      item.codes.some((code) =>
+        evaluation.blockingViolations.some((finding) => finding.code === code),
+      ),
+      `${item.text} => ${evaluation.blockingViolations.map((f) => f.code).join(",")}`,
+    );
+  }
+});
+
+test("18. audit-required availability, scarcity, urgency, testimonial, and package phrases fail closed", () => {
+  const snapshot = buildSpecs({
+    campaigns: standardCampaignSet(),
+    assets: standardAssets(),
+    authoritativeFacts: facts({
+      campaignPriceIds: {
+        "private-parties": ["private-weekend-90"],
+      },
+    }),
+  });
+  const privateSpec = specByCampaign(snapshot.specifications, "private-parties");
+
+  const cases: Array<{ text: string; code: string }> = [
+    { text: "Balloons included with every booking.", code: "package-content-invention" },
+    { text: "Cotton candy included.", code: "package-content-invention" },
+    { text: "Includes setup for every party.", code: "package-content-invention" },
+    { text: "Add-ons included at no charge.", code: "package-content-invention" },
+    { text: "We offer free delivery on weekends.", code: "package-content-invention" },
+    { text: "Today only special party deals.", code: "urgency-claim" },
+    { text: "Openings remain for this weekend.", code: "availability-claim" },
+    { text: "A few spots remain for Saturday.", code: "scarcity-claim" },
+    { text: "Parents say this place is amazing.", code: "testimonial-claim" },
+    { text: "Customers love Jumping Jax parties.", code: "testimonial-claim" },
+  ];
+
+  for (const item of cases) {
+    const evaluation = validateDraftCandidate({
+      asOf: AS_OF,
+      specification: privateSpec,
+      candidate: candidate({
+        id: `t-audit-${item.code}-${item.text.slice(0, 16)}`,
+        campaignId: "private-parties",
+        label: item.text,
+        sections: {
+          hook: "Come celebrate with us!",
+          primaryMessage: item.text,
+          supportingProof: null,
+          cta: "Explore party options with Jumping Jax.",
+          fullCaption: null,
+        },
+      }),
+    });
+    assert.notEqual(evaluation.resultState, "compliant", item.text);
+    assert.ok(
+      evaluation.blockingViolations.some((finding) => finding.code === item.code) ||
+        evaluation.blockingViolations.some(
+          (finding) =>
+            finding.code === "unsupported-claim" || finding.code === "unverified-claim",
+        ),
+      `${item.text} expected ${item.code}, got ${evaluation.blockingViolations.map((f) => f.code).join(",")}`,
+    );
+  }
+});
