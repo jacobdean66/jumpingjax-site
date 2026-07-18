@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -42,6 +43,7 @@ import {
   type PlannerTruck,
   type WorkspaceStop,
 } from "@/lib/admin/delivery-planner-workspace";
+import { DeliveryDateSelector } from "./DeliveryDateSelector";
 import { RoutePlannerDetailsModal } from "./RoutePlannerDetailsModal";
 import "./route-planner-theme.css";
 
@@ -110,7 +112,7 @@ function Thumbnail({
           {productSummary(stop.products)}
         </span>
         <span className="rp-task-meta mt-2 block text-xs font-bold">
-          {stop.county}
+          {stop.city}
         </span>
       </button>
       <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
@@ -318,9 +320,12 @@ export function RoutePlannerWorkspace({
   }, [dirtyKeys]);
 
   useEffect(() => {
+    const current = new URLSearchParams(window.location.search);
     const params = datesToSearchParams(dates, {
       work: selection.workType === "delivery" ? "deliveries" : "pickups",
       truck: selection.truck,
+      load: current.get("load"),
+      status: current.get("status"),
     });
     window.history.replaceState(
       window.history.state,
@@ -574,12 +579,34 @@ export function RoutePlannerWorkspace({
       : shortDate(dates[0] ?? selection.date);
   const currentSaveState = saveStates[currentKey] ?? "idle";
 
+  function applyPlannerDates(nextDates: string[]) {
+    const normalized =
+      nextDates.length > 0 ? nextDates : rangeDates(todayYmd(), 7);
+    requestRange(normalized);
+  }
+
   return (
     <>
       <div
         ref={plannerRef}
         className="route-planner-screen flex h-full min-h-0 flex-col overflow-hidden print:hidden"
       >
+        <div className="mb-2 shrink-0">
+          <Suspense
+            fallback={
+              <div className="rp-panel rounded-xl border-2 p-3 text-sm font-bold lg:hidden">
+                Loading date controls…
+              </div>
+            }
+          >
+            <DeliveryDateSelector
+              initialDates={dates}
+              selectedDates={dates}
+              onApplyDates={applyPlannerDates}
+            />
+          </Suspense>
+        </div>
+
         <div className="rp-mobile-tabs mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 p-1 lg:hidden">
           {(["library", "unassigned", "trailer"] as MobilePanel[]).map((panel) => (
             <button
@@ -610,7 +637,10 @@ export function RoutePlannerWorkspace({
                   {loadingRange ? "Loading…" : rangeLabel}
                 </span>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1">
+              <p className="rp-task-meta mt-2 text-[10px] font-bold uppercase tracking-wide">
+                Shift 7-day window
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-1">
                 <button
                   type="button"
                   onClick={() =>
@@ -641,7 +671,7 @@ export function RoutePlannerWorkspace({
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Customer, product, county, address"
+                placeholder="Customer, product, city, address"
                 className="rp-input mt-2 w-full rounded-lg px-2.5 py-2 text-xs font-semibold outline-none"
               />
               <label className="rp-task-meta mt-2 flex items-center gap-2 text-xs font-bold">

@@ -15,7 +15,10 @@ import {
   normalizeSelectedDates,
   parseDatesFromSearchParams,
   sequencesScopedPerDate,
+  toggleDateInDraft,
   toggleDateInSelection,
+  removeDateFromDraft,
+  sortUniqueYmd,
   weekendContaining,
   datesForPreset,
 } from "./delivery-planner-dates";
@@ -66,6 +69,18 @@ await test("toggle and range selection preserve other dates", () => {
   assert.deepEqual(selected, ["2026-07-17", "2026-07-18", "2026-07-19"]);
   selected = toggleDateInSelection(selected, "2026-07-18");
   assert.deepEqual(selected, ["2026-07-17", "2026-07-19"]);
+});
+
+await test("draft toggles allow empty and nonconsecutive dates", () => {
+  let draft = sortUniqueYmd(["2026-07-20"]);
+  draft = toggleDateInDraft(draft, "2026-07-22");
+  draft = toggleDateInDraft(draft, "2026-07-26");
+  assert.deepEqual(draft, ["2026-07-20", "2026-07-22", "2026-07-26"]);
+  draft = toggleDateInDraft(draft, "2026-07-22");
+  assert.deepEqual(draft, ["2026-07-20", "2026-07-26"]);
+  draft = removeDateFromDraft(draft, "2026-07-20");
+  draft = removeDateFromDraft(draft, "2026-07-26");
+  assert.deepEqual(draft, []);
 });
 
 await test("weekend presets", () => {

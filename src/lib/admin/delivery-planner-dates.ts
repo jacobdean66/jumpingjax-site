@@ -154,6 +154,17 @@ export function datesForPreset(
   }
 }
 
+/** Sort and dedupe valid YMD values without injecting a today fallback. */
+export function sortUniqueYmd(
+  values: Array<string | null | undefined>,
+): string[] {
+  const set = new Set<string>();
+  for (const value of values) {
+    if (isYmd(value)) set.add(value);
+  }
+  return [...set].sort(compareYmd);
+}
+
 export function toggleDateInSelection(
   selected: string[],
   date: string,
@@ -166,6 +177,31 @@ export function toggleDateInSelection(
     set.add(date);
   }
   return normalizeSelectedDates([...set]);
+}
+
+/**
+ * Toggle a date in a draft multi-select. Empty drafts are allowed
+ * (unlike normalizeSelectedDates, which falls back to today).
+ */
+export function toggleDateInDraft(
+  selected: string[],
+  date: string,
+): string[] {
+  if (!isYmd(date)) return sortUniqueYmd(selected);
+  const set = new Set(sortUniqueYmd(selected));
+  if (set.has(date)) {
+    set.delete(date);
+  } else {
+    set.add(date);
+  }
+  return sortUniqueYmd([...set]);
+}
+
+export function removeDateFromDraft(
+  selected: string[],
+  date: string,
+): string[] {
+  return sortUniqueYmd(selected.filter((value) => value !== date));
 }
 
 export function addDateRangeToSelection(
@@ -232,6 +268,34 @@ export function formatLongDate(ymd: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+export function formatCompactDate(ymd: string): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export function monthMatrix(
+  year: number,
+  monthIndex: number,
+): Array<Array<number | null>> {
+  const first = new Date(year, monthIndex, 1);
+  const startPad = first.getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cells: Array<number | null> = [];
+  for (let i = 0; i < startPad; i += 1) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day += 1) cells.push(day);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const rows: Array<Array<number | null>> = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    rows.push(cells.slice(i, i + 7));
+  }
+  return rows;
 }
 
 export function formatShortWeekday(ymd: string): string {

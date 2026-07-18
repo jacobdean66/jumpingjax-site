@@ -126,7 +126,7 @@ export function RoutePlannerDetailsModal({
               ) : "Not provided"}
             </Detail>
             <Detail label="Complete address">{stop.eventAddress ?? "Not provided"}</Detail>
-            <Detail label="County">{stop.county}</Detail>
+            <Detail label="City">{stop.city}</Detail>
             <Detail label="Products">{stop.products.join(", ")}</Detail>
             <Detail label="Requested time">
               {formatTime(stop.requestedTime)}
