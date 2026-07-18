@@ -223,3 +223,61 @@ await test("route planner print sheet headings use Drop-off and Pickup", () => {
   assert.doesNotMatch(planner, /workTypeLabel="Deliveries \/ Setups"/);
   assert.doesNotMatch(planner, /workTypeLabel="Pickups"/);
 });
+
+await test("selected date, work type, and trailer print only that load", () => {
+  const days = buildPrintDayGroups({
+    dates: ["2026-07-18"],
+    printWorkType: "pickup",
+    printTruck: "truck-2",
+    items: [
+      item({
+        id: "selected",
+        workType: "pickup",
+        deliveryDate: "2026-07-18",
+        deliveryTruck: "truck-2",
+        rentalName: "Selected pickup",
+      }),
+      item({
+        id: "other-trailer",
+        workType: "pickup",
+        deliveryDate: "2026-07-18",
+        deliveryTruck: "truck-1",
+      }),
+      item({
+        id: "other-work",
+        workType: "delivery",
+        deliveryDate: "2026-07-18",
+        deliveryTruck: "truck-2",
+      }),
+      item({
+        id: "other-date",
+        workType: "pickup",
+        deliveryDate: "2026-07-19",
+        deliveryTruck: "truck-2",
+      }),
+    ],
+  });
+
+  assert.equal(days.length, 1);
+  assert.equal(days[0]?.sheets.length, 1);
+  assert.deepEqual(days[0]?.sheets[0]?.items.map((stop) => stop.id), [
+    "selected",
+  ]);
+});
+
+await test("an empty selected print load emits no sheet or blank date", () => {
+  const days = buildPrintDayGroups({
+    dates: ["2026-07-18"],
+    printWorkType: "delivery",
+    printTruck: "truck-1",
+    items: [
+      item({
+        id: "pickup",
+        workType: "pickup",
+        deliveryDate: "2026-07-18",
+        deliveryTruck: "truck-2",
+      }),
+    ],
+  });
+  assert.deepEqual(days, []);
+});
