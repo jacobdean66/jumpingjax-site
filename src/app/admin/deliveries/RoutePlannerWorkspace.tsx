@@ -29,11 +29,13 @@ import {
   assignmentsForSelection,
   buildLoadLibrary,
   dirtySelectionKeys,
+  effectivePlannerWorkDate,
   groupOperationalStops,
   moveStop,
   productSummary,
   rangeDates,
   selectionKey,
+  stopMatchesColumn,
   taskSearchText,
   type PlannerColumn,
   type PlannerSelection,
@@ -71,22 +73,6 @@ function taskTruck(task: AdminDeliveryWorkTask): PlannerTruck | null {
   return task.truck === "truck-1" || task.truck === "truck-2"
     ? task.truck
     : null;
-}
-
-function stopMatches(
-  stop: WorkspaceStop,
-  date: string,
-  workType: WorkType,
-  column: PlannerColumn,
-): boolean {
-  return (
-    (stop.workDate === date ||
-      (column === "unassigned" &&
-        stop.workDate === null &&
-        stop.eventDate === date)) &&
-    stop.workType === workType &&
-    (column === "unassigned" ? stop.truck === null : stop.truck === column)
-  );
 }
 
 function Thumbnail({
@@ -348,12 +334,12 @@ export function RoutePlannerWorkspace({
         .filter((task) => taskSearchText(task).includes(query))
         .map(
           (task) =>
-            `${task.bookingId}:${task.workType}:${task.workDate ?? "unscheduled"}`,
+            `${task.bookingId}:${task.workType}:${effectivePlannerWorkDate(task)}`,
         ),
     );
     return tasks.filter((task) =>
       matchingBookingScopes.has(
-        `${task.bookingId}:${task.workType}:${task.workDate ?? "unscheduled"}`,
+        `${task.bookingId}:${task.workType}:${effectivePlannerWorkDate(task)}`,
       ),
     );
   }, [search, tasks]);
@@ -369,10 +355,10 @@ export function RoutePlannerWorkspace({
     (entry) => showEmptyDates || entry.total > 0,
   );
   const unassignedStops = allStops.filter((stop) =>
-    stopMatches(stop, selection.date, selection.workType, "unassigned"),
+    stopMatchesColumn(stop, selection.date, selection.workType, "unassigned"),
   );
   const trailerStops = allStops.filter((stop) =>
-    stopMatches(stop, selection.date, selection.workType, selection.truck),
+    stopMatchesColumn(stop, selection.date, selection.workType, selection.truck),
   );
 
   const requestSelection = useCallback(
@@ -392,7 +378,7 @@ export function RoutePlannerWorkspace({
     const affectedIds = new Set<string>();
     for (const task of [...baseline, ...tasks]) {
       if (
-        task.workDate === selection.date &&
+        effectivePlannerWorkDate(task) === selection.date &&
         task.workType === selection.workType &&
         taskTruck(task) === selection.truck
       ) {
@@ -524,7 +510,7 @@ export function RoutePlannerWorkspace({
         ),
       );
       setSaveStates((current) => ({ ...current, [currentKey]: "saved" }));
-      setNotice("Saved. Event dates were not changed.");
+      setNotice("Saved.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to save this trailer load.";
@@ -536,7 +522,7 @@ export function RoutePlannerWorkspace({
   const printTaskIds = useMemo(() => {
     const printable = tasks.map((task) => ({
       ...task,
-      deliveryDate: task.workDate,
+      deliveryDate: effectivePlannerWorkDate(task),
       deliveryTruck: taskTruck(task),
       deliverySequence: task.sequence,
       rentalName: task.rentalName,

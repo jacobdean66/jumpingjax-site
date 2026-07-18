@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
 
-import { formatLongDate } from "@/lib/admin/delivery-planner-dates";
 import {
   productSummary,
   type WorkspaceStop,
@@ -128,18 +127,6 @@ export function RoutePlannerDetailsModal({
             <Detail label="Complete address">{stop.eventAddress ?? "Not provided"}</Detail>
             <Detail label="County">{stop.county}</Detail>
             <Detail label="Products">{stop.products.join(", ")}</Detail>
-            <Detail label="Event date">
-              {formatLongDate(stop.eventDate)}
-              <span className="mt-0.5 block text-xs font-medium text-slate-500">
-                Customer&apos;s event date
-              </span>
-            </Detail>
-            <Detail label="Route date">
-              {stop.workDate ? formatLongDate(stop.workDate) : "Unscheduled"}
-              <span className="mt-0.5 block text-xs font-medium text-slate-500">
-                Operational {stop.workType === "delivery" ? "delivery" : "pickup"} date
-              </span>
-            </Detail>
             <Detail label="Requested time">
               {formatTime(stop.requestedTime)}
               <span className="mt-0.5 block text-xs font-medium text-slate-500">
