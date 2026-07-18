@@ -63,6 +63,14 @@ export default async function AdminHomePage({ searchParams }: Props) {
       tone: "bg-violet-600 text-white",
     },
     {
+      title: "Social Posts",
+      eyebrow: "Marketing",
+      description: "Create, review, and manage social media content.",
+      href: "/admin/social-posts",
+      cta: "Open social posts",
+      tone: "bg-fuchsia-500 text-white",
+    },
+    {
       title: "Schedule View",
       eyebrow: "Operations",
       description:

@@ -12,6 +12,7 @@ import {
   AdminNav,
   AdminShell,
 } from "../_components";
+import SocialPostsInstructionManual from "./SocialPostsInstructionManual";
 
 export const dynamic = "force-dynamic";
 
@@ -182,6 +183,10 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           production workflow receive separate validation.
         </p>
       </section>
+
+      <SocialPostsInstructionManual
+        socialPostsHref={settingsHref(token, "/admin/social-posts")}
+      />
 
       <form
         action="/api/admin/site-settings"
