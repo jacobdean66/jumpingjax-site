@@ -74,7 +74,7 @@ export function RoutePlannerDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-3 sm:items-center print:hidden"
+      className="rp-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-3 sm:items-center print:hidden"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -84,11 +84,11 @@ export function RoutePlannerDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-2 border-slate-500 bg-white shadow-2xl"
+        className="rp-modal flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-2 border-slate-500 bg-white shadow-2xl"
       >
         <header className="flex items-start justify-between gap-4 border-b-2 border-slate-300 bg-slate-50 px-5 py-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">
+            <p className="rp-eyebrow text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">
               {stop.workType === "delivery" ? "Drop-off details" : "Pickup details"}
             </p>
             <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950">
@@ -112,14 +112,14 @@ export function RoutePlannerDetailsModal({
           <dl className="grid gap-4 sm:grid-cols-2">
             <Detail label="Customer phone">
               {stop.customerPhone ? (
-                <a className="text-sky-800 underline" href={`tel:${stop.customerPhone}`}>
+                <a className="rp-link text-sky-800 underline" href={`tel:${stop.customerPhone}`}>
                   {stop.customerPhone}
                 </a>
               ) : "Not provided"}
             </Detail>
             <Detail label="Customer email">
               {stop.customerEmail ? (
-                <a className="text-sky-800 underline" href={`mailto:${stop.customerEmail}`}>
+                <a className="rp-link text-sky-800 underline" href={`mailto:${stop.customerEmail}`}>
                   {stop.customerEmail}
                 </a>
               ) : "Not provided"}
@@ -161,7 +161,7 @@ export function RoutePlannerDetailsModal({
         <footer className="border-t-2 border-slate-300 bg-slate-50 px-5 py-3">
           <Link
             href={bookingHref}
-            className="inline-flex rounded-lg bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            className="rp-nav-link-accent inline-flex rounded-lg bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
           >
             Open complete booking details
           </Link>

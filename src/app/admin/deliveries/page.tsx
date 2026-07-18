@@ -47,8 +47,8 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   if (!auth.ok) {
     return (
       <main className="min-h-screen bg-sky-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
-        <section className="mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
+        <section className="rp-gate-card mx-auto max-w-3xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
+          <p className="rp-eyebrow text-xs font-black uppercase tracking-[0.14em] text-sky-700">
             Admin deliveries
           </p>
           <h1 className="mt-3 text-3xl font-black">
@@ -60,7 +60,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           <div className="mt-5">
             <Link
               href="/admin"
-              className="inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
+              className="rp-nav-link-accent inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
             >
               Sign in
             </Link>
@@ -88,9 +88,9 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
   return (
     <main className="h-dvh overflow-hidden bg-sky-50 p-2 text-slate-950 sm:p-3">
       <section className="mx-auto flex h-full max-w-[112rem] flex-col">
-        <header className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border-2 border-slate-400 bg-white px-3 py-2 shadow-sm print:hidden">
+        <header className="rp-shell-header mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border-2 border-slate-400 bg-white px-3 py-2 shadow-sm print:hidden">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+            <p className="rp-eyebrow text-xs font-black uppercase tracking-[0.14em] text-sky-700">
               Admin deliveries
             </p>
             <h1 className="truncate text-xl font-black leading-tight sm:text-2xl">
@@ -98,13 +98,13 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
             </h1>
           </div>
           <nav className="flex shrink-0 gap-1 text-xs font-black">
-            <Link className="rounded-lg bg-slate-950 px-2.5 py-2 text-white" href="/admin">
+            <Link className="rp-nav-link rounded-lg bg-slate-950 px-2.5 py-2 text-white" href="/admin">
               Admin Home
             </Link>
-            <Link className="hidden rounded-lg bg-sky-700 px-2.5 py-2 text-white sm:block" href="/admin/schedule">
+            <Link className="rp-nav-link hidden rounded-lg bg-sky-700 px-2.5 py-2 text-white sm:block" href="/admin/schedule">
               Schedule View
             </Link>
-            <Link className="hidden rounded-lg bg-violet-700 px-2.5 py-2 text-white md:block" href="/admin/ai-ads">
+            <Link className="rp-nav-link hidden rounded-lg bg-violet-700 px-2.5 py-2 text-white md:block" href="/admin/ai-ads">
               AI Ads
             </Link>
           </nav>
