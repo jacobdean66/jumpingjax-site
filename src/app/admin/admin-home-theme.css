@@ -29,8 +29,8 @@ html:has(.admin-home-theme) body {
   --ah-muted-strong: #c4d0d8;
   --ah-ops: #789267;
   --ah-ops-soft: rgba(120, 146, 103, 0.18);
-  --ah-info: #4f7896;
-  --ah-info-soft: rgba(79, 120, 150, 0.2);
+  --ah-info: #8aadc4;
+  --ah-info-soft: rgba(138, 173, 196, 0.2);
   --ah-warn: #c9a24a;
   --ah-warn-soft: rgba(201, 162, 74, 0.16);
   --ah-danger: #b85c66;
