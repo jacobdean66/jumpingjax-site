@@ -384,6 +384,39 @@ export type GoogleCalendarSyncResult = {
   secondaryStatus: GoogleCalendarSyncStatus;
 };
 
+export type GoogleCalendarProjectionEvaluation = {
+  /** Primary destination failed — booking calendar projection is incomplete. */
+  primaryFailed: boolean;
+  /**
+   * Secondary destination failed while primary succeeded.
+   * Operational facility/rental calendars remain usable; secondary is degraded.
+   */
+  secondaryDegraded: boolean;
+  /** True only when the primary calendar projection did not succeed. */
+  hardFailed: boolean;
+  primaryEventId: string | null;
+  secondaryEventId: string | null;
+};
+
+/**
+ * Interprets a multi-destination sync result for workflow / alert decisions.
+ * A secondary-only failure must not erase or hide a successful primary event.
+ */
+export function evaluateGoogleCalendarProjection(
+  sync: GoogleCalendarSyncResult,
+): GoogleCalendarProjectionEvaluation {
+  const primaryFailed = sync.primaryStatus === "failed";
+  const secondaryDegraded =
+    !primaryFailed && sync.secondaryStatus === "failed";
+  return {
+    primaryFailed,
+    secondaryDegraded,
+    hardFailed: primaryFailed,
+    primaryEventId: sync.primaryEventId,
+    secondaryEventId: sync.secondaryEventId,
+  };
+}
+
 /**
  * Syncs an event across the primary calendar destination and, when
  * configured, a secondary calendar destination (e.g. a calendar shared by
@@ -515,15 +548,21 @@ export function summarizeGoogleCalendarError(error: unknown): {
       ? (record.cause as { message?: unknown; code?: unknown; status?: unknown })
       : null;
 
+  const rawMessage =
+    typeof responseData?.error === "string"
+      ? responseData.error
+      : typeof cause?.message === "string"
+        ? cause.message
+        : typeof record.message === "string"
+          ? record.message
+          : "Google Calendar request failed";
+
   return {
-    message:
-      typeof responseData?.error === "string"
-        ? responseData.error
-        : typeof cause?.message === "string"
-          ? cause.message
-          : typeof record.message === "string"
-            ? record.message
-            : "Google Calendar request failed",
+    message: String(rawMessage)
+      .replace(/ya29\.[A-Za-z0-9._\-]+/g, "[redacted_token]")
+      .replace(/1\/\/[A-Za-z0-9_\-]+/g, "[redacted_refresh]")
+      .replace(/Bearer\s+[A-Za-z0-9._\-]+/gi, "Bearer [redacted]")
+      .slice(0, 240),
     code:
       typeof record.code === "string" || typeof record.code === "number"
         ? record.code

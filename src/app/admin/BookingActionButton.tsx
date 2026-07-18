@@ -46,7 +46,9 @@ export function BookingActionButton({
           ? "Rejected"
           : action === "cancel"
             ? "Cancelled"
-            : "Confirmed",
+            : label.toLowerCase().includes("calendar")
+              ? text || "Calendar sync complete"
+              : "Confirmed",
       );
       const nextParams = new URLSearchParams(searchParams.toString());
       const currentStatus = nextParams.get("status");

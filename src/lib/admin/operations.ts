@@ -114,6 +114,17 @@ export type AdminRentalBooking = {
   items: { rental_item: string; rental_name: string }[];
 };
 
+const SAFE_WORKFLOW_ERROR_CLASSES = new Set([
+  "calendar_projection_failed",
+  "calendar_secondary_projection_failed",
+  "decision_email_failed",
+  "customer_contact_missing",
+  "email_delivery_failed",
+  "owner_notification_failed",
+  "pending_review_escalated",
+  "pending_review_overdue",
+]);
+
 export type AdminFacilityBooking = {
   id: string;
   createdAt: string | null;
@@ -146,7 +157,15 @@ export type AdminFacilityBooking = {
   subtotal: number | null;
   tax: number | null;
   total: number | null;
+  calendarStatus: string | null;
+  calendarNeedsRepair: boolean;
+  safeWorkflowErrorClass: string | null;
 };
+
+function sanitizeWorkflowErrorClass(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return SAFE_WORKFLOW_ERROR_CLASSES.has(value) ? value : "integration_attention_required";
+}
 
 export type AdminStatusSummary = Record<string, number>;
 
@@ -330,11 +349,44 @@ export async function loadAdminFacilityBookings(input: {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const bookings = ((data ?? []) as FacilityRow[]).map(
-    (row): AdminFacilityBooking => ({
+  const rows = (data ?? []) as FacilityRow[];
+  const bookingIds = rows.map((row) => row.id);
+  const workflowByBookingId = new Map<
+    string,
+    { calendar_status: string | null; last_error_class: string | null }
+  >();
+  if (bookingIds.length > 0) {
+    const { data: workflows, error: workflowError } = await supabase
+      .from("booking_integration_workflows")
+      .select("booking_id, calendar_status, last_error_class")
+      .eq("booking_kind", "facility")
+      .in("booking_id", bookingIds);
+    if (workflowError) {
+      console.error("[admin/facility] workflow load failed", {
+        code: workflowError.code,
+      });
+    } else {
+      for (const workflow of workflows ?? []) {
+        workflowByBookingId.set(String(workflow.booking_id), {
+          calendar_status: clean(workflow.calendar_status as string | null),
+          last_error_class: sanitizeWorkflowErrorClass(
+            workflow.last_error_class as string | null,
+          ),
+        });
+      }
+    }
+  }
+
+  const bookings = rows.map((row): AdminFacilityBooking => {
+    const workflow = workflowByBookingId.get(row.id);
+    const calendarStatus = workflow?.calendar_status ?? null;
+    const status = clean(row.status) ?? "pending";
+    const needsRepair = status === "confirmed" && calendarStatus === "failed";
+
+    return {
       id: row.id,
       createdAt: row.created_at,
-      status: clean(row.status) ?? "pending",
+      status,
       room: clean(row.room),
       startTime: row.start_time,
       endTime: row.end_time,
@@ -363,8 +415,11 @@ export async function loadAdminFacilityBookings(input: {
       subtotal: moneyNumber(row.subtotal),
       tax: moneyNumber(row.tax),
       total: moneyNumber(row.total),
-    }),
-  );
+      calendarStatus,
+      calendarNeedsRepair: needsRepair,
+      safeWorkflowErrorClass: workflow?.last_error_class ?? null,
+    };
+  });
 
   return { bookings, summary: summaryFromStatuses(bookings) };
 }

@@ -27,7 +27,11 @@ export async function sendBookingOperationalAlert(input: {
           "Review the authenticated admin dashboard. No approval credentials are included in this alert.",
         ].join("\n"),
       },
-      { idempotencyKey: `alert-${input.kind}-${input.bookingId}-${input.step}-v1` },
+      {
+        // Include safeErrorClass so a later distinct failure class can still alert,
+        // while unchanged repeats of the same failure are suppressed by Resend.
+        idempotencyKey: `alert-${input.kind}-${input.bookingId}-${input.step}-${input.safeErrorClass}-v1`,
+      },
     );
     return !error;
   } catch {

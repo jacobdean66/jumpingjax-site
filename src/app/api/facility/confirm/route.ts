@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   deleteGoogleCalendarDestinations,
+  evaluateGoogleCalendarProjection,
   summarizeGoogleCalendarError,
   syncGoogleCalendarDestinations,
 } from "@/lib/google/calendar";
@@ -19,7 +20,10 @@ import {
   resolveDecisionRequest,
   type BookingDecision,
 } from "@/lib/bookings/approval-review";
-import { recordWorkflowOutcome } from "@/lib/bookings/workflow-state";
+import {
+  claimCalendarRepairAttempt,
+  recordWorkflowOutcome,
+} from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
@@ -250,8 +254,33 @@ async function handleFacilityConfirm(
   }
 
   let calendarFailed = false;
+  let secondaryCalendarDegraded = false;
   let calendarEventId = booking.google_calendar_event_id as string | null;
   if (action === "confirm") {
+    if (calendarRepairOnly) {
+      // Best-effort claim reduces overlapping repairs. Deterministic Google
+      // event IDs remain the hard guarantee against duplicate events.
+      await claimCalendarRepairAttempt({
+        supabase,
+        kind: "facility",
+        bookingId: id,
+      });
+      const { data: workflowState } = await supabase
+        .from("booking_integration_workflows")
+        .select("calendar_status")
+        .eq("booking_kind", "facility")
+        .eq("booking_id", id)
+        .maybeSingle<{ calendar_status: string }>();
+      if (
+        workflowState?.calendar_status === "sent" &&
+        booking.google_calendar_event_id
+      ) {
+        return new Response(
+          "Booking is confirmed and its Calendar projection is already complete.",
+          { status: 200 },
+        );
+      }
+    }
     try {
       const sync = await syncGoogleCalendarDestinations({
         title: `${booking.party_label} - ${booking.customer_name}`,
@@ -263,14 +292,20 @@ async function handleFacilityConfirm(
         secondaryEventId: booking.google_calendar_secondary_event_id,
         primaryCalendarId: facilityCalendarId,
       });
-      calendarEventId = sync.primaryEventId;
-      if (sync.primaryStatus === "failed" || sync.secondaryStatus === "failed") {
-        calendarFailed = true;
+      const projection = evaluateGoogleCalendarProjection(sync);
+      calendarEventId = projection.primaryEventId;
+      secondaryCalendarDegraded = projection.secondaryDegraded;
+      if (projection.hardFailed || secondaryCalendarDegraded) {
         console.error("[api/facility/confirm] partial calendar sync", {
           primaryStatus: sync.primaryStatus,
           secondaryStatus: sync.secondaryStatus,
+          hardFailed: projection.hardFailed,
+          secondaryDegraded: secondaryCalendarDegraded,
         });
       }
+      // Primary hard-failure is the only outcome that blocks workflow success.
+      // Secondary-only failure leaves the facility calendar event intact.
+      calendarFailed = projection.hardFailed;
       const { error: calendarIdError } = await supabase
         .from("facility_bookings")
         .update({
@@ -284,10 +319,12 @@ async function handleFacilityConfirm(
         })
         .eq("id", booking.id);
       if (calendarIdError) {
+        // External event may already exist; keep the known id and mark failed
+        // so an idempotent repair can reconcile without creating a duplicate.
         calendarFailed = true;
         console.error(
           "[api/facility/confirm] facility calendar id save error",
-          calendarIdError,
+          { code: calendarIdError.code },
         );
       }
     } catch (calendarError) {
@@ -316,13 +353,23 @@ async function handleFacilityConfirm(
       );
     }
   }
+  const calendarSafeErrorClass = calendarFailed
+    ? "calendar_projection_failed"
+    : secondaryCalendarDegraded
+      ? "calendar_secondary_projection_failed"
+      : undefined;
   await recordWorkflowOutcome({
     supabase,
     kind: "facility",
     bookingId: id,
     step: "calendar",
-    outcome: action === "reject" ? "not_required" : calendarFailed ? "failed" : "sent",
-    safeErrorClass: calendarFailed ? "calendar_projection_failed" : undefined,
+    outcome:
+      action === "reject"
+        ? "not_required"
+        : calendarFailed
+          ? "failed"
+          : "sent",
+    safeErrorClass: calendarSafeErrorClass,
     calendarEventId: calendarEventId ?? undefined,
   });
   if (calendarFailed) {
@@ -332,12 +379,21 @@ async function handleFacilityConfirm(
       step: "calendar",
       safeErrorClass: "calendar_projection_failed",
     });
+  } else if (secondaryCalendarDegraded) {
+    await sendBookingOperationalAlert({
+      kind: "facility",
+      bookingId: id,
+      step: "calendar",
+      safeErrorClass: "calendar_secondary_projection_failed",
+    });
   }
   if (calendarRepairOnly) {
     return new Response(
       calendarFailed
         ? "Booking is confirmed, but the Calendar repair still needs attention."
-        : "Booking is confirmed and its Calendar projection is complete.",
+        : secondaryCalendarDegraded
+          ? "Booking is confirmed and the primary Calendar event is in place. Secondary calendar sync still needs owner configuration."
+          : "Booking is confirmed and its Calendar projection is complete.",
       { status: calendarFailed ? 503 : 200 },
     );
   }
@@ -448,7 +504,9 @@ async function handleFacilityConfirm(
   return new Response(
     calendarFailed
       ? `${successMessage} Customer email was sent, but Calendar still requires attention.`
-      : successMessage,
+      : secondaryCalendarDegraded
+        ? `${successMessage} Primary Calendar is set; secondary calendar sync needs owner configuration.`
+        : successMessage,
     { status: calendarFailed ? 207 : 200 },
   );
 }

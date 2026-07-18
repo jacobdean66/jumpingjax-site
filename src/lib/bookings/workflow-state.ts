@@ -39,3 +39,31 @@ export async function recordWorkflowOutcome(input: {
   });
   if (error) console.error("[booking-workflow] outcome write failed", { code: error.code });
 }
+
+/**
+ * Best-effort concurrency claim for calendar-only repairs.
+ * Deterministic Google event IDs remain the hard anti-duplicate guarantee;
+ * this claim reduces overlapping repair attempts on the same failed row.
+ */
+export async function claimCalendarRepairAttempt(input: {
+  supabase: SupabaseClient;
+  kind: BookingWorkflowKind;
+  bookingId: string;
+}): Promise<{ claimed: boolean }> {
+  const claimedAt = new Date().toISOString();
+  const { data, error } = await input.supabase
+    .from("booking_integration_workflows")
+    .update({ last_attempted_at: claimedAt, updated_at: claimedAt })
+    .eq("booking_kind", input.kind)
+    .eq("booking_id", input.bookingId)
+    .eq("calendar_status", "failed")
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("[booking-workflow] calendar repair claim failed", {
+      code: error.code,
+    });
+    return { claimed: false };
+  }
+  return { claimed: Boolean(data) };
+}
