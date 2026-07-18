@@ -1,0 +1,575 @@
+/* Schedule-scoped dark rose theme for /admin/schedule only.
+   Uses the same palette values as the Route Planner theme without sharing code. */
+
+.admin-schedule-theme {
+  --sched-bg: #1b1018;
+  --sched-panel: #271520;
+  --sched-raised: #341b2b;
+  --sched-nested: #3d2234;
+  --sched-input: #22141d;
+  --sched-border: #6e3451;
+  --sched-border-strong: #8a4668;
+  --sched-primary: #d94f87;
+  --sched-primary-hover: #ed6a9e;
+  --sched-blush: #f4a9c5;
+  --sched-text: #fff7fb;
+  --sched-muted: #d5b7c5;
+  --sched-muted-strong: #e8cfdc;
+  --sched-focus: #f4a9c5;
+  --sched-focus-ring: rgba(244, 169, 197, 0.45);
+  --sched-shadow: 0 10px 28px rgba(12, 4, 10, 0.45);
+
+  /* Booking-type accents stay distinct from brand rose */
+  --sched-rental-bg: rgba(96, 165, 250, 0.16);
+  --sched-rental-border: #5b8fc9;
+  --sched-rental-text: #dbeafe;
+  --sched-foam-bg: rgba(34, 211, 238, 0.14);
+  --sched-foam-border: #2aa8b8;
+  --sched-foam-text: #cffafe;
+  --sched-public-bg: rgba(217, 79, 135, 0.2);
+  --sched-public-border: #d94f87;
+  --sched-public-text: #ffe4ef;
+  --sched-private-bg: rgba(167, 139, 250, 0.18);
+  --sched-private-border: #8b6fd4;
+  --sched-private-text: #e9e0ff;
+
+  /* Semantic statuses remain operationally clear */
+  --sched-success: #5ecf9a;
+  --sched-success-bg: #143028;
+  --sched-success-border: #2f7a5c;
+  --sched-success-text: #b8f0d4;
+  --sched-warning: #f0c36a;
+  --sched-warning-bg: #322414;
+  --sched-warning-border: #9a6d28;
+  --sched-warning-text: #f8dfaa;
+  --sched-danger: #ef6b78;
+  --sched-danger-bg: #35151c;
+  --sched-danger-border: #9a3f4c;
+  --sched-danger-text: #f5b4bb;
+  --sched-cancel: #f0a06a;
+  --sched-cancel-bg: #322018;
+  --sched-cancel-border: #9a5a28;
+  --sched-cancel-text: #f8d2aa;
+  --sched-print-action: #f0c36a;
+  --sched-print-action-text: #2a1a08;
+  --sched-today-ring: rgba(244, 169, 197, 0.55);
+
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--sched-bg);
+  color: var(--sched-text);
+  color-scheme: dark;
+}
+
+.admin-schedule-theme *,
+.admin-schedule-theme *::before,
+.admin-schedule-theme *::after {
+  box-sizing: border-box;
+}
+
+.admin-schedule-theme :focus-visible {
+  outline: 2px solid var(--sched-focus);
+  outline-offset: 2px;
+}
+
+/* Full-page shell stays deep plum */
+.admin-schedule-theme main.min-h-screen,
+.admin-schedule-theme main.bg-slate-100 {
+  background: var(--sched-bg) !important;
+  color: var(--sched-text) !important;
+}
+
+/* --- Remap common light Tailwind surfaces inside this route --- */
+
+/* Panels (white cards) vs raised day cells / nested chips */
+.admin-schedule-theme :is(.bg-white, .bg-gray-50) {
+  background-color: var(--sched-panel) !important;
+}
+
+.admin-schedule-theme :is(.bg-slate-50, .bg-slate-100, .bg-gray-100) {
+  background-color: var(--sched-raised) !important;
+}
+
+.admin-schedule-theme :is(.bg-slate-200, .bg-gray-200) {
+  background-color: var(--sched-nested) !important;
+}
+
+.admin-schedule-theme :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-gray-950,
+  .text-gray-900,
+  .text-black
+) {
+  color: var(--sched-text) !important;
+}
+
+.admin-schedule-theme :is(
+  .text-slate-700,
+  .text-slate-600,
+  .text-gray-700,
+  .text-gray-600,
+  .text-slate-500,
+  .text-slate-400,
+  .text-gray-500
+) {
+  color: var(--sched-muted) !important;
+}
+
+.admin-schedule-theme :is(
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300,
+  .border-slate-400,
+  .border-gray-200,
+  .border-gray-300
+) {
+  border-color: var(--sched-border) !important;
+}
+
+.admin-schedule-theme :is(.shadow-sm, .shadow, .shadow-md, .shadow-xl, .shadow-2xl) {
+  box-shadow: var(--sched-shadow) !important;
+}
+
+/* Primary / active controls */
+.admin-schedule-theme :is(.bg-slate-950, .bg-slate-900, .bg-slate-800) {
+  background-color: var(--sched-primary) !important;
+  color: #1b1018 !important;
+}
+
+.admin-schedule-theme :is(.hover\:bg-slate-800:hover, .hover\:bg-slate-900:hover) {
+  background-color: var(--sched-primary-hover) !important;
+}
+
+.admin-schedule-theme :is(
+  .hover\:bg-slate-100:hover,
+  .hover\:bg-white:hover,
+  .hover\:bg-sky-100:hover,
+  .hover\:bg-sky-50:hover
+) {
+  background-color: var(--sched-nested) !important;
+}
+
+.admin-schedule-theme :is(
+  .bg-sky-500,
+  .bg-sky-600,
+  .bg-sky-700,
+  .bg-blue-600,
+  .bg-blue-700
+) {
+  background-color: var(--sched-primary) !important;
+  color: #1b1018 !important;
+}
+
+.admin-schedule-theme :is(.hover\:bg-sky-600:hover, .hover\:bg-sky-700:hover) {
+  background-color: var(--sched-primary-hover) !important;
+}
+
+.admin-schedule-theme :is(.text-sky-700, .text-sky-600, .text-sky-800) {
+  color: var(--sched-blush) !important;
+}
+
+.admin-schedule-theme :is(
+  .border-sky-500,
+  .border-sky-600,
+  .focus\:border-sky-500:focus
+) {
+  border-color: var(--sched-primary) !important;
+}
+
+.admin-schedule-theme :is(
+  .focus\:ring-sky-400:focus,
+  .focus\:ring-sky-500:focus
+) {
+  --tw-ring-color: var(--sched-focus) !important;
+}
+
+/* Inputs */
+.admin-schedule-theme :is(input, select, textarea) {
+  max-width: 100%;
+  background-color: var(--sched-input) !important;
+  border-color: var(--sched-border) !important;
+  color: var(--sched-text) !important;
+  color-scheme: dark;
+}
+
+.admin-schedule-theme :is(input, select, textarea)::placeholder {
+  color: var(--sched-muted) !important;
+  opacity: 1;
+}
+
+.admin-schedule-theme :is(input, select, textarea):focus {
+  border-color: var(--sched-primary) !important;
+  box-shadow: 0 0 0 3px var(--sched-focus-ring);
+}
+
+.admin-schedule-theme :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--sched-primary);
+}
+
+.admin-schedule-theme button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.15);
+}
+
+/* Nav accents on this route */
+.admin-schedule-theme :is(.bg-pink-600, .bg-pink-500) {
+  background-color: var(--sched-primary) !important;
+  color: #1b1018 !important;
+}
+
+.admin-schedule-theme :is(.border-pink-500, .border-pink-200) {
+  border-color: var(--sched-border-strong) !important;
+}
+
+.admin-schedule-theme :is(.bg-pink-50, .bg-pink-50\/70, .hover\:bg-pink-100:hover) {
+  background-color: rgba(217, 79, 135, 0.16) !important;
+}
+
+.admin-schedule-theme :is(.text-pink-900, .text-pink-950) {
+  color: var(--sched-blush) !important;
+}
+
+.admin-schedule-theme :is(.bg-emerald-500, .hover\:bg-emerald-600:hover) {
+  background-color: var(--sched-success) !important;
+  color: #0a1f16 !important;
+}
+
+/* Print action stays amber/gold for operational clarity */
+.admin-schedule-theme :is(.bg-amber-300, .bg-amber-400) {
+  background-color: var(--sched-print-action) !important;
+  color: var(--sched-print-action-text) !important;
+}
+
+.admin-schedule-theme .text-amber-950 {
+  color: var(--sched-print-action-text) !important;
+}
+
+/* Selected date chips / warning surfaces */
+.admin-schedule-theme :is(.bg-amber-100, .bg-amber-50, .bg-yellow-50) {
+  background-color: var(--sched-warning-bg) !important;
+}
+
+.admin-schedule-theme :is(.border-amber-400, .border-amber-500) {
+  border-color: var(--sched-warning-border) !important;
+}
+
+.admin-schedule-theme :is(.text-amber-800, .text-amber-900) {
+  color: var(--sched-warning-text) !important;
+}
+
+/* Foam-only filter highlight stays cyan (not brand rose) */
+.admin-schedule-theme :is(.bg-cyan-50, .bg-cyan-100) {
+  background-color: var(--sched-foam-bg) !important;
+}
+
+.admin-schedule-theme :is(.border-cyan-400, .border-cyan-200) {
+  border-color: var(--sched-foam-border) !important;
+}
+
+.admin-schedule-theme :is(.text-cyan-950, .text-cyan-900) {
+  color: var(--sched-foam-text) !important;
+}
+
+/* Booking type tiles — must remain distinguishable */
+.admin-schedule-theme .bg-sky-50 {
+  background-color: var(--sched-rental-bg) !important;
+}
+
+.admin-schedule-theme .border-sky-200 {
+  border-color: var(--sched-rental-border) !important;
+}
+
+.admin-schedule-theme :is(.text-sky-950, .text-sky-900) {
+  color: var(--sched-rental-text) !important;
+}
+
+.admin-schedule-theme .bg-cyan-50 {
+  background-color: var(--sched-foam-bg) !important;
+}
+
+.admin-schedule-theme .border-cyan-200 {
+  border-color: var(--sched-foam-border) !important;
+}
+
+.admin-schedule-theme .bg-pink-50 {
+  background-color: var(--sched-public-bg) !important;
+}
+
+.admin-schedule-theme .border-pink-200 {
+  border-color: var(--sched-public-border) !important;
+}
+
+.admin-schedule-theme :is(.text-pink-950, .text-pink-900) {
+  color: var(--sched-public-text) !important;
+}
+
+.admin-schedule-theme .bg-violet-50 {
+  background-color: var(--sched-private-bg) !important;
+}
+
+.admin-schedule-theme .border-violet-200 {
+  border-color: var(--sched-private-border) !important;
+}
+
+.admin-schedule-theme :is(.text-violet-950, .text-violet-900) {
+  color: var(--sched-private-text) !important;
+}
+
+/* Soft chips on dark tiles */
+.admin-schedule-theme :is(.bg-white\/80, .bg-white\/70) {
+  background-color: rgba(52, 27, 43, 0.88) !important;
+  color: var(--sched-text) !important;
+}
+
+/* Status badges + dots */
+.admin-schedule-theme :is(.bg-amber-100, .border-amber-200) {
+  background-color: var(--sched-warning-bg) !important;
+  border-color: var(--sched-warning-border) !important;
+}
+
+.admin-schedule-theme .text-amber-950:not(.bg-amber-300 *) {
+  color: var(--sched-warning-text);
+}
+
+.admin-schedule-theme :is(.bg-emerald-100, .border-emerald-200) {
+  background-color: var(--sched-success-bg) !important;
+  border-color: var(--sched-success-border) !important;
+}
+
+.admin-schedule-theme :is(.text-emerald-950, .text-emerald-700, .text-emerald-600) {
+  color: var(--sched-success-text) !important;
+}
+
+.admin-schedule-theme :is(.bg-orange-100, .border-orange-200) {
+  background-color: var(--sched-cancel-bg) !important;
+  border-color: var(--sched-cancel-border) !important;
+}
+
+.admin-schedule-theme .text-orange-950 {
+  color: var(--sched-cancel-text) !important;
+}
+
+.admin-schedule-theme :is(.bg-rose-50, .bg-rose-100, .bg-red-50) {
+  background-color: var(--sched-danger-bg) !important;
+}
+
+.admin-schedule-theme :is(.border-rose-200, .border-rose-300, .border-red-300) {
+  border-color: var(--sched-danger-border) !important;
+}
+
+.admin-schedule-theme :is(
+  .text-rose-900,
+  .text-rose-950,
+  .text-rose-800,
+  .text-rose-700,
+  .text-red-700
+) {
+  color: var(--sched-danger-text) !important;
+}
+
+.admin-schedule-theme .bg-amber-500 {
+  background-color: var(--sched-warning) !important;
+}
+
+.admin-schedule-theme .bg-emerald-500 {
+  background-color: var(--sched-success) !important;
+}
+
+.admin-schedule-theme .bg-orange-500 {
+  background-color: var(--sched-cancel) !important;
+}
+
+.admin-schedule-theme .bg-rose-500 {
+  background-color: var(--sched-danger) !important;
+}
+
+.admin-schedule-theme .bg-slate-400 {
+  background-color: var(--sched-muted) !important;
+}
+
+/* Modal backdrop */
+.admin-schedule-theme .schedule-modal-backdrop,
+.admin-schedule-theme .bg-slate-950\/50 {
+  background-color: rgba(12, 4, 10, 0.72) !important;
+}
+
+.admin-schedule-theme .schedule-modal {
+  border-color: var(--sched-border-strong) !important;
+}
+
+/* Dashed empty / empty-state borders */
+.admin-schedule-theme :is(.border-dashed) {
+  border-color: var(--sched-border-strong) !important;
+}
+
+/* Today cell emphasis */
+.admin-schedule-theme .schedule-day-today {
+  border-color: var(--sched-blush) !important;
+  box-shadow:
+    0 0 0 1px var(--sched-today-ring),
+    var(--sched-shadow) !important;
+}
+
+.admin-schedule-theme .schedule-day-today > div:first-child h3 {
+  color: var(--sched-blush) !important;
+}
+
+/* Outside-month remains dimmed via existing opacity utility */
+.admin-schedule-theme .opacity-55 {
+  opacity: 0.55;
+}
+
+/* Scrollbars stay visible on dark surfaces */
+.admin-schedule-theme * {
+  scrollbar-color: var(--sched-border-strong) var(--sched-panel);
+}
+
+.admin-schedule-theme *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-schedule-theme *::-webkit-scrollbar-track {
+  background: var(--sched-panel);
+}
+
+.admin-schedule-theme *::-webkit-scrollbar-thumb {
+  background: var(--sched-border-strong);
+  border-radius: 999px;
+}
+
+.admin-schedule-theme *::-webkit-scrollbar-thumb:hover {
+  background: var(--sched-primary);
+}
+
+/* Tile hover: lift slightly instead of darkening */
+.admin-schedule-theme button.hover\:brightness-\[0\.97\]:hover {
+  filter: brightness(1.08);
+}
+
+.admin-schedule-theme a {
+  color: var(--sched-blush);
+}
+
+.admin-schedule-theme a:hover {
+  color: var(--sched-primary-hover);
+}
+
+/* Nav / control pills that are Links with solid fills keep contrast */
+.admin-schedule-theme a.bg-slate-950,
+.admin-schedule-theme a.bg-pink-600,
+.admin-schedule-theme a.bg-emerald-500,
+.admin-schedule-theme a.bg-amber-300,
+.admin-schedule-theme button.bg-slate-950,
+.admin-schedule-theme button.bg-sky-500,
+.admin-schedule-theme button.bg-amber-300 {
+  color: inherit;
+}
+
+.admin-schedule-theme a.rounded-full.bg-slate-950,
+.admin-schedule-theme a.rounded-full.bg-pink-600 {
+  color: #1b1018 !important;
+}
+
+.admin-schedule-theme a.rounded-full.bg-emerald-500 {
+  color: #0a1f16 !important;
+}
+
+.admin-schedule-theme a.rounded-full.border,
+.admin-schedule-theme a.rounded-full.bg-white,
+.admin-schedule-theme a.rounded-full.bg-slate-100,
+.admin-schedule-theme a.rounded-full.bg-pink-50 {
+  color: var(--sched-text) !important;
+}
+
+/* On-screen print preview stays paper-like */
+.admin-schedule-theme .schedule-print-preview,
+.admin-schedule-theme .schedule-print-preview * {
+  color-scheme: light !important;
+  box-shadow: none !important;
+}
+
+.admin-schedule-theme .schedule-print-preview {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.admin-schedule-theme .schedule-print-preview :is(
+  h1,
+  h2,
+  h3,
+  p,
+  span,
+  li,
+  label,
+  dt,
+  dd
+) {
+  background: transparent !important;
+  color: #0f172a !important;
+  border-color: #0f172a !important;
+}
+
+.admin-schedule-theme .schedule-print-preview :is(button, a.rounded-full) {
+  color: inherit;
+}
+
+/* --- Print protection: paper-appropriate, no dark ink wash --- */
+
+@media print {
+  .admin-schedule-theme {
+    min-height: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+  }
+
+  .admin-schedule-theme,
+  .admin-schedule-theme * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .admin-schedule-theme main,
+  .admin-schedule-theme main.min-h-screen {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .admin-schedule-theme .print\:hidden {
+    display: none !important;
+  }
+
+  .admin-schedule-theme .hidden.print\:block,
+  .admin-schedule-theme .schedule-print-output {
+    display: block !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .admin-schedule-theme .schedule-print-output,
+  .admin-schedule-theme .schedule-print-output * {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #0f172a !important;
+    color-scheme: light !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-schedule-theme * {
+    transition: none !important;
+  }
+}

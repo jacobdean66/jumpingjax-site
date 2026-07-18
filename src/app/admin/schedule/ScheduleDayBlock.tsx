@@ -23,12 +23,14 @@ export function ScheduleDayBlock({
   events,
   density,
   isOutsideMonth = false,
+  isToday = false,
   onSelectBooking,
 }: {
   day: CalendarDay;
   events: CalendarEvent[];
   density: ScheduleDensity;
   isOutsideMonth?: boolean;
+  isToday?: boolean;
   onSelectBooking: (event: CalendarEvent) => void;
 }) {
   const count = events.length;
@@ -41,7 +43,8 @@ export function ScheduleDayBlock({
     <section
       className={`${DAY_SHELL[density]} ${
         isOutsideMonth ? "opacity-55" : ""
-      }`}
+      } ${isToday ? "schedule-day-today" : ""}`}
+      data-today={isToday ? "true" : undefined}
     >
       <div className="flex shrink-0 items-start justify-between gap-2">
         <div className="min-w-0">

@@ -53,7 +53,7 @@ export function ScheduleBookingDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 sm:items-center print:hidden"
+      className="schedule-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 sm:items-center print:hidden"
       role="presentation"
       onMouseDown={(mouseEvent) => {
         if (mouseEvent.target === mouseEvent.currentTarget) onClose();
@@ -63,7 +63,7 @@ export function ScheduleBookingDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-5 shadow-xl ${scheduleTypeTone(event.type)}`}
+        className={`schedule-modal max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-5 shadow-xl ${scheduleTypeTone(event.type)}`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
