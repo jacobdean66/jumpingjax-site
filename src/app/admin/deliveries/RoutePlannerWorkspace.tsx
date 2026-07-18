@@ -157,8 +157,10 @@ function Thumbnail({
                 key={truck}
                 type="button"
                 className={`h-6 rounded border px-1.5 text-[10px] font-black hover:bg-sky-100 ${
+                  truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
+                } ${
                   truck === selectedTruck
-                    ? "border-sky-600 bg-sky-50 text-sky-900"
+                    ? "rp-selected border-sky-600 bg-sky-50 text-sky-900"
                     : "border-slate-400 text-slate-700"
                 }`}
                 onClick={() => onMove(truck, Number.MAX_SAFE_INTEGER)}
@@ -190,7 +192,7 @@ function DropSlot({
       onDrop={onDrop}
       className={`flex h-3 items-center justify-center rounded border-2 border-dashed transition ${
         active
-          ? "border-sky-600 bg-sky-100"
+          ? "rp-drop-active border-sky-600 bg-sky-100"
           : "border-transparent hover:h-8 hover:border-sky-500 hover:bg-sky-50"
       }`}
       aria-label={label}
@@ -749,8 +751,10 @@ export function RoutePlannerWorkspace({
                                           setMobilePanel("trailer");
                                         }}
                                         className={`flex justify-between rounded border-2 px-2 py-1 text-[11px] font-black ${
+                                          truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
+                                        } ${
                                           selected
-                                            ? "border-sky-700 bg-sky-100 text-sky-950"
+                                            ? "rp-selected border-sky-700 bg-sky-100 text-sky-950"
                                             : "border-slate-300 hover:bg-slate-100"
                                         }`}
                                       >
@@ -886,12 +890,15 @@ export function RoutePlannerWorkspace({
                       requestSelection({ ...selection, truck });
                     }}
                     className={`rounded-lg border-2 px-2 py-1.5 text-xs font-black ${
+                      truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
+                    } ${
                       selection.truck === truck
-                        ? "border-sky-700 bg-sky-100 text-sky-950"
+                        ? "rp-selected border-sky-700 bg-sky-100 text-sky-950"
                         : dragging
-                          ? "border-dashed border-sky-600 bg-sky-50"
+                          ? "rp-drop-active border-dashed border-sky-600 bg-sky-50"
                           : "border-slate-400 bg-white"
                     }`}
+                    aria-pressed={selection.truck === truck}
                   >
                     {TRUCK_LABELS[truck]} · {TRUCK_DETAIL[truck]}
                   </button>

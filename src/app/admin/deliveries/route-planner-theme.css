@@ -1,0 +1,517 @@
+/* Route-scoped dark rose theme for /admin/deliveries
+   Compact Route Planner only. Does not affect public site or other admin sections. */
+
+/* Prevent cream root body from peeking around the planner shell */
+html:has(.route-planner-theme),
+html:has(.route-planner-theme) body {
+  background: #1b1018 !important;
+}
+
+.route-planner-theme {
+  --rp-bg: #1b1018;
+  --rp-panel: #271520;
+  --rp-raised: #341b2b;
+  --rp-nested: #3d2234;
+  --rp-input: #22141d;
+  --rp-border: #6e3451;
+  --rp-border-strong: #8a4668;
+  --rp-primary: #d94f87;
+  --rp-primary-hover: #ed6a9e;
+  --rp-blush: #f4a9c5;
+  --rp-text: #fff7fb;
+  --rp-muted: #d5b7c5;
+  --rp-muted-strong: #e8cfdc;
+  --rp-focus: #f4a9c5;
+  --rp-focus-ring: rgba(244, 169, 197, 0.45);
+  --rp-shadow: 0 10px 28px rgba(12, 4, 10, 0.45);
+
+  /* Trailer accents stay inside the same rose/plum system */
+  --rp-trailer-1: #d94f87;
+  --rp-trailer-1-soft: rgba(217, 79, 135, 0.18);
+  --rp-trailer-2: #c47ab8;
+  --rp-trailer-2-soft: rgba(196, 122, 184, 0.18);
+
+  /* Semantic statuses remain distinct from brand rose */
+  --rp-success: #5ecf9a;
+  --rp-success-bg: #143028;
+  --rp-success-border: #2f7a5c;
+  --rp-success-text: #b8f0d4;
+  --rp-warning: #f0c36a;
+  --rp-warning-bg: #322414;
+  --rp-warning-border: #9a6d28;
+  --rp-warning-text: #f8dfaa;
+  --rp-danger: #ef6b78;
+  --rp-danger-bg: #35151c;
+  --rp-danger-border: #9a3f4c;
+  --rp-danger-text: #f5b4bb;
+  --rp-save: #f0c36a;
+  --rp-save-text: #2a1a08;
+
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--rp-bg);
+  color: var(--rp-text);
+  color-scheme: dark;
+}
+
+.route-planner-theme *,
+.route-planner-theme *::before,
+.route-planner-theme *::after {
+  box-sizing: border-box;
+}
+
+.route-planner-theme :focus-visible {
+  outline: 2px solid var(--rp-focus);
+  outline-offset: 2px;
+}
+
+/* --- Shell / page surfaces --- */
+
+.route-planner-theme .rp-shell-header {
+  border-color: var(--rp-border) !important;
+  background: linear-gradient(
+    180deg,
+    #2f1826 0%,
+    var(--rp-panel) 100%
+  ) !important;
+  box-shadow: var(--rp-shadow);
+}
+
+.route-planner-theme .rp-eyebrow {
+  color: var(--rp-blush) !important;
+}
+
+.route-planner-theme .rp-nav-link {
+  background: var(--rp-raised) !important;
+  border: 1px solid var(--rp-border);
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-nav-link:hover {
+  background: var(--rp-nested) !important;
+  border-color: var(--rp-border-strong);
+}
+
+.route-planner-theme .rp-nav-link-accent {
+  background: var(--rp-primary) !important;
+  border: 1px solid var(--rp-primary);
+  color: #1b1018 !important;
+}
+
+.route-planner-theme .rp-nav-link-accent:hover {
+  background: var(--rp-primary-hover) !important;
+}
+
+.route-planner-theme .rp-gate-card {
+  border-color: var(--rp-border) !important;
+  background: var(--rp-panel) !important;
+  box-shadow: var(--rp-shadow);
+}
+
+/* --- Remap common light Tailwind surfaces inside this route --- */
+
+.route-planner-theme :is(
+  .bg-white,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-zinc-50,
+  .bg-zinc-100
+) {
+  background-color: var(--rp-raised) !important;
+}
+
+.route-planner-theme :is(.bg-slate-200, .bg-gray-200) {
+  background-color: var(--rp-nested) !important;
+}
+
+.route-planner-theme :is(
+  .bg-sky-50,
+  .bg-sky-100,
+  .bg-blue-50,
+  .bg-cyan-50
+) {
+  background-color: var(--rp-trailer-1-soft) !important;
+}
+
+/* Full-page shell must stay deep plum, not the soft selected accent */
+.route-planner-theme main.bg-sky-50,
+.route-planner-theme main.min-h-screen {
+  background: var(--rp-bg) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-gray-950,
+  .text-gray-900,
+  .text-black
+) {
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme :is(
+  .text-slate-700,
+  .text-slate-600,
+  .text-gray-700,
+  .text-gray-600
+) {
+  color: var(--rp-muted) !important;
+}
+
+.route-planner-theme :is(
+  .text-slate-500,
+  .text-slate-400,
+  .text-gray-500
+) {
+  color: var(--rp-muted) !important;
+}
+
+.route-planner-theme :is(
+  .text-sky-950,
+  .text-sky-900,
+  .text-sky-800,
+  .text-sky-700,
+  .text-blue-900
+) {
+  color: var(--rp-blush) !important;
+}
+
+.route-planner-theme :is(
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300,
+  .border-slate-400,
+  .border-slate-500,
+  .border-slate-600,
+  .border-gray-200,
+  .border-gray-300,
+  .border-zinc-200
+) {
+  border-color: var(--rp-border) !important;
+}
+
+.route-planner-theme :is(
+  .border-sky-500,
+  .border-sky-600,
+  .border-sky-700,
+  .border-blue-500,
+  .border-blue-600
+) {
+  border-color: var(--rp-primary) !important;
+}
+
+.route-planner-theme :is(.shadow-sm, .shadow, .shadow-md, .shadow-2xl) {
+  box-shadow: var(--rp-shadow) !important;
+}
+
+.route-planner-theme :is(.bg-slate-950, .bg-slate-900, .bg-slate-800) {
+  background-color: var(--rp-primary) !important;
+  color: #1b1018 !important;
+}
+
+.route-planner-theme :is(.hover\:bg-slate-800:hover, .hover\:bg-slate-900:hover) {
+  background-color: var(--rp-primary-hover) !important;
+}
+
+.route-planner-theme :is(
+  .hover\:bg-slate-100:hover,
+  .hover\:bg-white:hover,
+  .hover\:bg-sky-100:hover,
+  .hover\:bg-sky-50:hover
+) {
+  background-color: var(--rp-nested) !important;
+}
+
+.route-planner-theme :is(
+  .hover\:border-sky-500:hover,
+  .hover\:border-sky-600:hover
+) {
+  border-color: var(--rp-primary-hover) !important;
+}
+
+.route-planner-theme :is(.bg-sky-700, .bg-sky-600, .bg-blue-700, .bg-blue-600) {
+  background-color: var(--rp-primary) !important;
+  color: #1b1018 !important;
+}
+
+.route-planner-theme :is(.bg-violet-700, .bg-violet-600, .bg-indigo-700) {
+  background-color: var(--rp-nested) !important;
+  border: 1px solid var(--rp-border-strong);
+  color: var(--rp-text) !important;
+}
+
+/* Inputs */
+.route-planner-theme :is(input, select, textarea) {
+  max-width: 100%;
+  background-color: var(--rp-input) !important;
+  border-color: var(--rp-border) !important;
+  color: var(--rp-text) !important;
+  color-scheme: dark;
+}
+
+.route-planner-theme :is(input, select, textarea)::placeholder {
+  color: var(--rp-muted) !important;
+  opacity: 1;
+}
+
+.route-planner-theme :is(input, select, textarea):focus,
+.route-planner-theme :is(input, select, textarea).focus\:border-sky-600:focus {
+  border-color: var(--rp-primary) !important;
+  box-shadow: 0 0 0 3px var(--rp-focus-ring);
+}
+
+.route-planner-theme :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--rp-primary);
+}
+
+.route-planner-theme button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.15);
+}
+
+.route-planner-theme button:disabled:hover {
+  filter: grayscale(0.15);
+}
+
+/* Focus rings used by planner controls */
+.route-planner-theme :is(
+  .focus\:ring-sky-500:focus,
+  .focus-within\:border-sky-600:focus-within
+) {
+  --tw-ring-color: var(--rp-focus) !important;
+  border-color: var(--rp-primary) !important;
+}
+
+.route-planner-theme .ring-sky-600 {
+  --tw-ring-color: var(--rp-primary) !important;
+}
+
+/* Semantic status — keep distinct from brand rose */
+.route-planner-theme :is(.text-emerald-700, .text-emerald-600, .text-green-700) {
+  color: var(--rp-success) !important;
+}
+
+.route-planner-theme :is(.text-amber-700, .text-amber-600, .text-yellow-700) {
+  color: var(--rp-warning) !important;
+}
+
+.route-planner-theme :is(.text-rose-700, .text-rose-800, .text-red-700) {
+  color: var(--rp-danger) !important;
+}
+
+.route-planner-theme :is(
+  .bg-rose-50,
+  .bg-rose-100,
+  .bg-red-50,
+  .bg-red-100
+) {
+  background-color: var(--rp-danger-bg) !important;
+}
+
+.route-planner-theme :is(
+  .border-rose-200,
+  .border-rose-300,
+  .border-rose-400,
+  .border-red-300,
+  .border-red-400
+) {
+  border-color: var(--rp-danger-border) !important;
+}
+
+.route-planner-theme :is(
+  .text-rose-900,
+  .text-rose-950,
+  .text-red-900
+) {
+  color: var(--rp-danger-text) !important;
+}
+
+.route-planner-theme :is(
+  .bg-amber-50,
+  .bg-amber-100,
+  .bg-yellow-50
+) {
+  background-color: var(--rp-warning-bg) !important;
+}
+
+.route-planner-theme :is(
+  .border-amber-400,
+  .border-amber-500,
+  .border-yellow-400
+) {
+  border-color: var(--rp-warning-border) !important;
+}
+
+.route-planner-theme :is(
+  .text-amber-950,
+  .text-amber-900,
+  .text-yellow-900
+) {
+  color: var(--rp-warning-text) !important;
+}
+
+.route-planner-theme :is(.bg-amber-300, .bg-amber-400) {
+  background-color: var(--rp-save) !important;
+  color: var(--rp-save-text) !important;
+}
+
+.route-planner-theme :is(.text-amber-950, .text-amber-900).font-black {
+  color: var(--rp-save-text);
+}
+
+.route-planner-theme :is(.bg-rose-700, .bg-rose-600, .bg-red-600) {
+  background-color: var(--rp-danger) !important;
+  color: #1a0709 !important;
+}
+
+/* Modal / dialog backdrop stays readable */
+.route-planner-theme .bg-slate-950\/60 {
+  background-color: rgba(12, 4, 10, 0.72) !important;
+}
+
+/* Thumbnail / panel polish */
+.route-planner-theme .route-planner-screen > .grid > :is(aside, section) {
+  background: var(--rp-panel) !important;
+  border-color: var(--rp-border) !important;
+}
+
+.route-planner-theme .route-planner-screen > .grid > :is(aside, section) > header {
+  background: linear-gradient(
+    180deg,
+    #2f1826 0%,
+    var(--rp-raised) 100%
+  ) !important;
+  border-color: var(--rp-border) !important;
+}
+
+.route-planner-theme .route-planner-screen article {
+  background: var(--rp-raised) !important;
+  border-color: var(--rp-border) !important;
+}
+
+.route-planner-theme .route-planner-screen article:hover,
+.route-planner-theme .route-planner-screen article:focus-within {
+  border-color: var(--rp-primary) !important;
+  box-shadow: 0 0 0 1px var(--rp-primary), var(--rp-shadow);
+}
+
+.route-planner-theme .rp-truck-1[aria-pressed="true"],
+.route-planner-theme .rp-truck-1.rp-selected {
+  border-color: var(--rp-trailer-1) !important;
+  background: var(--rp-trailer-1-soft) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-truck-2[aria-pressed="true"],
+.route-planner-theme .rp-truck-2.rp-selected {
+  border-color: var(--rp-trailer-2) !important;
+  background: var(--rp-trailer-2-soft) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-drop-active {
+  border-color: var(--rp-primary) !important;
+  background: var(--rp-trailer-1-soft) !important;
+}
+
+.route-planner-theme a,
+.route-planner-theme .rp-link {
+  color: var(--rp-blush);
+}
+
+.route-planner-theme a:hover,
+.route-planner-theme .rp-link:hover {
+  color: var(--rp-primary-hover);
+}
+
+.route-planner-theme .rp-modal {
+  background: var(--rp-panel) !important;
+  border-color: var(--rp-border-strong) !important;
+}
+
+.route-planner-theme .rp-modal-backdrop {
+  background-color: rgba(12, 4, 10, 0.72) !important;
+}
+
+/* --- Print protection: paper-appropriate, no dark ink wash --- */
+
+.route-planner-theme .route-planner-print,
+.route-planner-theme .route-planner-print * {
+  color-scheme: light !important;
+  box-shadow: none !important;
+}
+
+.route-planner-theme .route-planner-print {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.route-planner-theme .route-planner-print :is(
+  h1,
+  h2,
+  h3,
+  p,
+  span,
+  th,
+  td,
+  tr,
+  table
+) {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #0f172a !important;
+}
+
+@media print {
+  .route-planner-theme {
+    min-height: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+  }
+
+  .route-planner-theme .route-planner-screen {
+    display: none !important;
+  }
+
+  .route-planner-theme .route-planner-print {
+    display: block !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .route-planner-theme .route-planner-print :is(
+    h1,
+    h2,
+    h3,
+    p,
+    span,
+    th,
+    td,
+    tr,
+    table
+  ) {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #0f172a !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-planner-theme * {
+    transition: none !important;
+  }
+}
