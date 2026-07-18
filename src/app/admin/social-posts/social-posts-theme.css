@@ -432,6 +432,87 @@
   background-color: var(--sp-input);
 }
 
+.social-posts-theme .sp-media-preview-message {
+  color: var(--sp-text);
+}
+
+.social-posts-theme .sp-media-preview-message .text-slate-800,
+.social-posts-theme .sp-media-preview-message .text-slate-900 {
+  color: var(--sp-text) !important;
+}
+
+.social-posts-theme .sp-media-preview-message .text-slate-600,
+.social-posts-theme .sp-media-preview-message .text-slate-500 {
+  color: var(--sp-text-secondary) !important;
+}
+
+.social-posts-theme .sp-media-concept-badge {
+  background-color: rgba(6, 16, 24, 0.92) !important;
+  border-color: var(--sp-border-strong) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.social-posts-theme .sp-media-concept-badge .sp-media-preview-message .text-slate-800,
+.social-posts-theme .sp-media-concept-badge .sp-media-preview-message .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.social-posts-theme .sp-media-concept-badge .sp-media-preview-message .text-slate-600,
+.social-posts-theme .sp-media-concept-badge .sp-media-preview-message .text-slate-500 {
+  color: #d7e3f2 !important;
+}
+
+/* Soft violet panels are not remapped by default and wash out on navy */
+.social-posts-theme :is(
+  .bg-violet-50,
+  .bg-violet-50\/60,
+  .bg-indigo-50,
+  .bg-purple-50
+) {
+  background-color: var(--sp-nested) !important;
+}
+
+.social-posts-theme :is(
+  .border-violet-200,
+  .border-violet-300,
+  .border-indigo-200,
+  .border-purple-200
+) {
+  border-color: var(--sp-border-strong) !important;
+}
+
+.social-posts-theme .sp-directors-console {
+  background-color: var(--sp-nested) !important;
+  border-color: var(--sp-border-strong) !important;
+  box-shadow: inset 0 0 0 1px rgba(95, 168, 255, 0.18);
+}
+
+.social-posts-theme .sp-directors-console-title {
+  color: var(--sp-primary) !important;
+}
+
+.social-posts-theme .sp-directors-console-help {
+  color: var(--sp-text-secondary) !important;
+}
+
+.social-posts-theme .sp-directors-console-action {
+  background-color: var(--sp-primary) !important;
+  border-color: var(--sp-primary) !important;
+  color: var(--sp-primary-fg) !important;
+}
+
+.social-posts-theme .sp-directors-console-toggle:hover .sp-directors-console-action {
+  background-color: var(--sp-primary-hover) !important;
+  border-color: var(--sp-primary-hover) !important;
+  color: var(--sp-primary-fg) !important;
+}
+
+.social-posts-theme .sp-directors-console-body {
+  border-color: var(--sp-border) !important;
+  background-color: var(--sp-card);
+  color: var(--sp-text);
+}
+
 /* Checkbox / radio accent */
 .social-posts-theme :is(input[type="checkbox"], input[type="radio"]) {
   accent-color: var(--sp-primary);

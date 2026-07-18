@@ -17,6 +17,10 @@ import type {
   SocialPostStatus,
 } from "@/lib/social-posts/social-post-data";
 import type { SocialMediaFormatVariantId } from "@/lib/social-posts/social-media-format-variants";
+import {
+  SOCIAL_POST_MEDIA_PREVIEW_COPY,
+  resolveSocialPostMediaPreviewState,
+} from "@/lib/social-posts/social-post-media-preview";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 
 type Props = {
@@ -114,33 +118,167 @@ function StatusBadge({ status }: { status: SocialPostStatus }) {
   );
 }
 
+function MediaPreviewShell({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-slate-100 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function MediaPreviewMessage({
+  title,
+  detail,
+}: {
+  title: string;
+  detail?: string | null;
+}) {
+  return (
+    <div className="sp-media-preview-message px-4 py-6 text-center">
+      <p className="text-sm font-black text-slate-800">{title}</p>
+      {detail ? (
+        <p className="mt-1 text-xs font-semibold text-slate-600">{detail}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function MediaPreview({ post }: { post: SocialPost }) {
-  if (!post.media_url) {
+  const preview = resolveSocialPostMediaPreviewState(post);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  if (preview.kind === "video_ready") {
+    if (videoFailed) {
+      return (
+        <MediaPreviewShell className="flex-col gap-3">
+          <MediaPreviewMessage
+            title={SOCIAL_POST_MEDIA_PREVIEW_COPY.videoLoadError}
+            detail="The draft and editing controls remain available below."
+          />
+          <button
+            type="button"
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-black text-slate-800"
+            onClick={() => {
+              console.info("[social-posts] media preview retry", {
+                postId: post.id,
+                mediaType: post.media_type,
+                hasMediaUrl: Boolean(post.media_url),
+              });
+              setVideoFailed(false);
+              setReloadToken((current) => current + 1);
+            }}
+          >
+            Retry preview
+          </button>
+        </MediaPreviewShell>
+      );
+    }
+
     return (
-      <div className="flex aspect-video items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-500">
-        No media
+      <MediaPreviewShell className="bg-slate-950">
+        <video
+          key={`${preview.mediaUrl}:${reloadToken}`}
+          src={preview.mediaUrl}
+          poster={preview.posterUrl ?? undefined}
+          controls
+          playsInline
+          preload="metadata"
+          className="h-full w-full object-cover"
+          onError={() => {
+            console.warn("[social-posts] video preview failed to load", {
+              postId: post.id,
+              mediaType: post.media_type,
+              hasMediaUrl: Boolean(post.media_url),
+              hasPoster: Boolean(preview.posterUrl),
+            });
+            setVideoFailed(true);
+          }}
+        />
+      </MediaPreviewShell>
+    );
+  }
+
+  if (preview.kind === "video_concept") {
+    return (
+      <MediaPreviewShell>
+        {preview.posterUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={preview.posterUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-55"
+          />
+        ) : null}
+        <div className="sp-media-concept-badge relative z-10 max-w-[90%] rounded-xl border border-slate-300 bg-slate-950/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <MediaPreviewMessage
+            title={SOCIAL_POST_MEDIA_PREVIEW_COPY.videoConcept}
+            detail={
+              preview.hasPrompt
+                ? "Prompt and source image remain available below."
+                : "Source image available — generate when ready."
+            }
+          />
+        </div>
+      </MediaPreviewShell>
+    );
+  }
+
+  if (preview.kind === "video_missing") {
+    return (
+      <div className="flex min-h-[7.5rem] w-full items-center justify-center rounded-lg bg-slate-100 py-6">
+        <MediaPreviewMessage
+          title={SOCIAL_POST_MEDIA_PREVIEW_COPY.videoMissing}
+        />
       </div>
     );
   }
 
-  if (post.media_type === "video") {
+  if (preview.kind === "image_ready") {
+    if (imageFailed) {
+      return (
+        <MediaPreviewShell>
+          <MediaPreviewMessage
+            title={SOCIAL_POST_MEDIA_PREVIEW_COPY.imageLoadError}
+            detail="The draft and editing controls remain available below."
+          />
+        </MediaPreviewShell>
+      );
+    }
+
     return (
-      <video
-        src={post.media_url}
-        controls
-        preload="metadata"
-        className="aspect-video w-full rounded-lg bg-slate-950 object-cover"
-      />
+      <MediaPreviewShell>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={preview.mediaUrl}
+          alt={post.title ?? "Social post media preview"}
+          className="h-full w-full object-cover"
+          onError={() => {
+            console.warn("[social-posts] image preview failed to load", {
+              postId: post.id,
+              mediaType: post.media_type,
+              hasMediaUrl: Boolean(post.media_url),
+            });
+            setImageFailed(true);
+          }}
+        />
+      </MediaPreviewShell>
     );
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={post.media_url}
-      alt={post.title ?? "Social post media preview"}
-      className="aspect-video w-full rounded-lg bg-slate-100 object-cover"
-    />
+    <div className="flex min-h-[7.5rem] w-full items-center justify-center rounded-lg bg-slate-100 py-6">
+      <MediaPreviewMessage title={SOCIAL_POST_MEDIA_PREVIEW_COPY.imageMissing} />
+    </div>
   );
 }
 
@@ -367,7 +505,10 @@ export default function SocialPostsAdminClient({
                     postId={post.id}
                     componentName="MediaPreview"
                   >
-                    <MediaPreview post={post} />
+                    <MediaPreview
+                      key={`${post.id}:${post.media_url ?? ""}:${post.media_type}`}
+                      post={post}
+                    />
                   </SocialPostAdminErrorBoundary>
                   <div className="space-y-4 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

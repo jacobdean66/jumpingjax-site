@@ -931,27 +931,28 @@ export default function DirectorsConsole({
     (post.campaign_id ? post.campaign_id : "Custom / no campaign");
 
   return (
-    <div className="rounded-2xl border border-violet-200 bg-violet-50/60">
+    <div className="sp-directors-console rounded-2xl border border-slate-300 bg-slate-100">
       <button
         type="button"
         onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        aria-expanded={expanded}
+        className="sp-directors-console-toggle flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+        <div className="min-w-0">
+          <p className="sp-directors-console-title text-xs font-black uppercase tracking-[0.14em] text-slate-900">
             Director&apos;s Console
           </p>
-          <p className="mt-0.5 text-sm font-semibold text-slate-700">
+          <p className="sp-directors-console-help mt-0.5 text-sm font-semibold text-slate-700">
             Inspect and tweak the final video prompt before spending tokens
           </p>
         </div>
-        <span className="text-sm font-black text-violet-700">
+        <span className="sp-directors-console-action shrink-0 rounded-full border border-slate-400 bg-white px-3 py-1.5 text-sm font-black text-slate-900">
           {expanded ? "Hide" : "Show"}
         </span>
       </button>
 
       {expanded ? (
-        <div className="space-y-3 border-t border-violet-200 p-4">
+        <div className="sp-directors-console-body space-y-3 border-t border-slate-300 p-4">
           {renderLocalizedStatusPanel(
             localFailure,
             rateLimitCooldowns,
