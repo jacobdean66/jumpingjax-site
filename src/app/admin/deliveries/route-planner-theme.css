@@ -111,9 +111,142 @@ html:has(.route-planner-theme) body {
 }
 
 .route-planner-theme .rp-gate-card {
-  border-color: var(--rp-border) !important;
+  border-color: var(--rp-border-strong) !important;
   background: var(--rp-panel) !important;
   box-shadow: var(--rp-shadow);
+}
+
+/*
+  Explicit surface classes — do not depend on remapping bg-white / bg-sky-*.
+  These make the dark rose theme unmistakable even if Tailwind utilities win
+  a specificity race or a stylesheet chunk loads late.
+*/
+.route-planner-theme .rp-app {
+  background: var(--rp-bg) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-panel {
+  background: var(--rp-panel) !important;
+  border-color: var(--rp-border-strong) !important;
+  color: var(--rp-text) !important;
+  box-shadow: inset 0 0 0 1px rgba(217, 79, 135, 0.22);
+}
+
+.route-planner-theme .rp-panel-head {
+  background: linear-gradient(
+    180deg,
+    #3a1d30 0%,
+    var(--rp-raised) 100%
+  ) !important;
+  border-color: var(--rp-border-strong) !important;
+  color: var(--rp-text) !important;
+  box-shadow: inset 0 -2px 0 rgba(217, 79, 135, 0.35);
+}
+
+.route-planner-theme .rp-panel-title {
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-panel-meta {
+  color: var(--rp-blush) !important;
+}
+
+.route-planner-theme .rp-task {
+  background: var(--rp-raised) !important;
+  border-color: var(--rp-border-strong) !important;
+  color: var(--rp-text) !important;
+  box-shadow: 0 0 0 1px rgba(217, 79, 135, 0.18);
+}
+
+.route-planner-theme .rp-task:hover,
+.route-planner-theme .rp-task:focus-within {
+  border-color: var(--rp-primary) !important;
+  box-shadow: 0 0 0 2px rgba(217, 79, 135, 0.45), var(--rp-shadow);
+}
+
+.route-planner-theme .rp-task-title {
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-task-meta {
+  color: var(--rp-muted) !important;
+}
+
+.route-planner-theme .rp-btn {
+  background: var(--rp-raised) !important;
+  border: 2px solid var(--rp-border-strong) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-btn:hover {
+  background: var(--rp-nested) !important;
+  border-color: var(--rp-primary) !important;
+}
+
+.route-planner-theme .rp-btn-primary {
+  background: var(--rp-primary) !important;
+  border: 2px solid var(--rp-primary) !important;
+  color: #1b1018 !important;
+}
+
+.route-planner-theme .rp-btn-primary:hover {
+  background: var(--rp-primary-hover) !important;
+  border-color: var(--rp-primary-hover) !important;
+}
+
+.route-planner-theme .rp-btn-save {
+  background: var(--rp-save) !important;
+  border: 2px solid var(--rp-warning-border) !important;
+  color: var(--rp-save-text) !important;
+}
+
+.route-planner-theme .rp-input {
+  background: var(--rp-input) !important;
+  border: 2px solid var(--rp-border-strong) !important;
+  color: var(--rp-text) !important;
+}
+
+.route-planner-theme .rp-input:focus {
+  border-color: var(--rp-primary) !important;
+  box-shadow: 0 0 0 3px var(--rp-focus-ring);
+}
+
+.route-planner-theme .rp-mobile-tabs {
+  background: var(--rp-panel) !important;
+  border-color: var(--rp-border-strong) !important;
+}
+
+.route-planner-theme .rp-mobile-tab-active {
+  background: var(--rp-primary) !important;
+  color: #1b1018 !important;
+}
+
+.route-planner-theme .rp-date-active {
+  border-color: var(--rp-primary) !important;
+  box-shadow: 0 0 0 1px var(--rp-primary);
+}
+
+.route-planner-theme .rp-date-active-head {
+  background: rgba(217, 79, 135, 0.28) !important;
+  color: var(--rp-blush) !important;
+}
+
+.route-planner-theme .rp-work-active {
+  background: var(--rp-primary) !important;
+  color: #1b1018 !important;
+}
+
+.route-planner-theme .rp-empty {
+  background: var(--rp-raised) !important;
+  border-color: var(--rp-border-strong) !important;
+  color: var(--rp-muted) !important;
+}
+
+.route-planner-theme .rp-badge {
+  background: var(--rp-raised) !important;
+  border: 2px solid var(--rp-primary) !important;
+  color: var(--rp-blush) !important;
 }
 
 /* --- Remap common light Tailwind surfaces inside this route --- */
@@ -382,30 +515,33 @@ html:has(.route-planner-theme) body {
   background-color: rgba(12, 4, 10, 0.72) !important;
 }
 
-/* Thumbnail / panel polish */
+/* Thumbnail / panel polish (fallback when explicit rp-* classes missing) */
 .route-planner-theme .route-planner-screen > .grid > :is(aside, section) {
   background: var(--rp-panel) !important;
-  border-color: var(--rp-border) !important;
+  border-color: var(--rp-border-strong) !important;
+  box-shadow: inset 0 0 0 1px rgba(217, 79, 135, 0.22);
 }
 
 .route-planner-theme .route-planner-screen > .grid > :is(aside, section) > header {
   background: linear-gradient(
     180deg,
-    #2f1826 0%,
+    #3a1d30 0%,
     var(--rp-raised) 100%
   ) !important;
-  border-color: var(--rp-border) !important;
+  border-color: var(--rp-border-strong) !important;
+  box-shadow: inset 0 -2px 0 rgba(217, 79, 135, 0.35);
 }
 
 .route-planner-theme .route-planner-screen article {
   background: var(--rp-raised) !important;
-  border-color: var(--rp-border) !important;
+  border-color: var(--rp-border-strong) !important;
+  box-shadow: 0 0 0 1px rgba(217, 79, 135, 0.18);
 }
 
 .route-planner-theme .route-planner-screen article:hover,
 .route-planner-theme .route-planner-screen article:focus-within {
   border-color: var(--rp-primary) !important;
-  box-shadow: 0 0 0 1px var(--rp-primary), var(--rp-shadow);
+  box-shadow: 0 0 0 2px rgba(217, 79, 135, 0.45), var(--rp-shadow);
 }
 
 .route-planner-theme .rp-truck-1[aria-pressed="true"],

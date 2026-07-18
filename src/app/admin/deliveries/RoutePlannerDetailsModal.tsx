@@ -7,6 +7,7 @@ import {
   productSummary,
   type WorkspaceStop,
 } from "@/lib/admin/delivery-planner-workspace";
+import "./route-planner-theme.css";
 
 function formatTime(value: string | null): string {
   if (!value) return "Not provided";
@@ -26,10 +27,10 @@ function Detail({
 }) {
   return (
     <div>
-      <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+      <dt className="rp-panel-meta text-[10px] font-black uppercase tracking-[0.12em]">
         {label}
       </dt>
-      <dd className="mt-0.5 break-words text-sm font-semibold text-slate-900">
+      <dd className="rp-task-title mt-0.5 break-words text-sm font-semibold">
         {children}
       </dd>
     </div>
@@ -86,15 +87,15 @@ export function RoutePlannerDetailsModal({
         aria-labelledby={titleId}
         className="rp-modal flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-2 border-slate-500 bg-white shadow-2xl"
       >
-        <header className="flex items-start justify-between gap-4 border-b-2 border-slate-300 bg-slate-50 px-5 py-4">
+        <header className="rp-panel-head flex items-start justify-between gap-4 border-b-2 px-5 py-4">
           <div>
-            <p className="rp-eyebrow text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">
+            <p className="rp-eyebrow text-[10px] font-black uppercase tracking-[0.14em]">
               {stop.workType === "delivery" ? "Drop-off details" : "Pickup details"}
             </p>
-            <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950">
+            <h2 id={titleId} className="rp-panel-title mt-1 text-xl font-black">
               {stop.customerName}
             </h2>
-            <p className="mt-1 text-sm font-bold text-slate-600">
+            <p className="rp-task-meta mt-1 text-sm font-bold">
               {productSummary(stop.products)}
             </p>
           </div>
@@ -102,7 +103,7 @@ export function RoutePlannerDetailsModal({
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="rounded-lg border-2 border-slate-400 bg-white px-3 py-1.5 text-xs font-black text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            className="rp-btn rounded-lg px-3 py-1.5 text-xs font-black focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
             Close
           </button>
@@ -112,14 +113,14 @@ export function RoutePlannerDetailsModal({
           <dl className="grid gap-4 sm:grid-cols-2">
             <Detail label="Customer phone">
               {stop.customerPhone ? (
-                <a className="rp-link text-sky-800 underline" href={`tel:${stop.customerPhone}`}>
+                <a className="rp-link underline" href={`tel:${stop.customerPhone}`}>
                   {stop.customerPhone}
                 </a>
               ) : "Not provided"}
             </Detail>
             <Detail label="Customer email">
               {stop.customerEmail ? (
-                <a className="rp-link text-sky-800 underline" href={`mailto:${stop.customerEmail}`}>
+                <a className="rp-link underline" href={`mailto:${stop.customerEmail}`}>
                   {stop.customerEmail}
                 </a>
               ) : "Not provided"}
@@ -129,7 +130,7 @@ export function RoutePlannerDetailsModal({
             <Detail label="Products">{stop.products.join(", ")}</Detail>
             <Detail label="Requested time">
               {formatTime(stop.requestedTime)}
-              <span className="mt-0.5 block text-xs font-medium text-slate-500">
+              <span className="rp-task-meta mt-0.5 block text-xs font-medium">
                 Customer request, not a guaranteed route time
               </span>
             </Detail>
@@ -158,10 +159,10 @@ export function RoutePlannerDetailsModal({
           ) : null}
         </div>
 
-        <footer className="border-t-2 border-slate-300 bg-slate-50 px-5 py-3">
+        <footer className="rp-panel-head border-t-2 px-5 py-3">
           <Link
             href={bookingHref}
-            className="rp-nav-link-accent inline-flex rounded-lg bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            className="rp-btn-primary inline-flex rounded-lg px-4 py-2 text-sm font-black"
           >
             Open complete booking details
           </Link>
