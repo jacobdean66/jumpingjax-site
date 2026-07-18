@@ -1,0 +1,389 @@
+/* Page-scoped tactical command theme for /admin (Operations Home) only.
+   Does not affect other admin routes, auth screens, or public pages. */
+
+html:has(.admin-home-theme),
+html:has(.admin-home-theme) body {
+  background: #071019 !important;
+}
+
+.admin-home-theme {
+  --ah-bg: #071019;
+  --ah-bg-gradient: radial-gradient(
+      1200px 600px at 10% -10%,
+      rgba(79, 120, 150, 0.14),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 500px at 90% 0%,
+      rgba(120, 146, 103, 0.1),
+      transparent 50%
+    ),
+    linear-gradient(180deg, #08131d 0%, #071019 48%, #061018 100%);
+  --ah-panel: #0d1b27;
+  --ah-raised: #142635;
+  --ah-raised-hover: #1a3142;
+  --ah-border: #294152;
+  --ah-border-strong: #3a5a6e;
+  --ah-text: #edf4f7;
+  --ah-muted: #9fb0bc;
+  --ah-muted-strong: #c4d0d8;
+  --ah-ops: #789267;
+  --ah-ops-soft: rgba(120, 146, 103, 0.18);
+  --ah-info: #8aadc4;
+  --ah-info-soft: rgba(138, 173, 196, 0.2);
+  --ah-warn: #c9a24a;
+  --ah-warn-soft: rgba(201, 162, 74, 0.16);
+  --ah-danger: #b85c66;
+  --ah-danger-soft: rgba(184, 92, 102, 0.16);
+  --ah-focus: #8eb4c9;
+  --ah-focus-ring: rgba(142, 180, 201, 0.45);
+  --ah-shadow: 0 10px 28px rgba(2, 8, 14, 0.45);
+  --ah-shadow-hover: 0 14px 32px rgba(2, 8, 14, 0.55);
+
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--ah-bg-gradient);
+  color: var(--ah-text);
+  color-scheme: dark;
+}
+
+.admin-home-theme *,
+.admin-home-theme *::before,
+.admin-home-theme *::after {
+  box-sizing: border-box;
+}
+
+.admin-home-theme :focus-visible {
+  outline: 2px solid var(--ah-focus);
+  outline-offset: 2px;
+}
+
+.admin-home-theme a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* --- Top brand bar --- */
+
+.admin-home-theme .ah-topbar {
+  border-bottom: 1px solid var(--ah-border);
+  background: linear-gradient(
+    180deg,
+    rgba(13, 27, 39, 0.96) 0%,
+    rgba(8, 19, 29, 0.92) 100%
+  );
+  box-shadow: 0 1px 0 rgba(120, 146, 103, 0.22);
+}
+
+.admin-home-theme .ah-brand {
+  color: var(--ah-text);
+  letter-spacing: -0.02em;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.admin-home-theme .ah-brand:hover {
+  color: var(--ah-muted-strong);
+}
+
+.admin-home-theme .ah-nav-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ah-border);
+  border-radius: 999px;
+  background: var(--ah-raised);
+  padding: 0.5rem 1rem;
+  color: var(--ah-muted-strong);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-home-theme .ah-nav-link:hover {
+  border-color: var(--ah-border-strong);
+  background: var(--ah-raised-hover);
+  color: var(--ah-text);
+}
+
+.admin-home-theme .ah-nav-link:active {
+  background: #122230;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.admin-home-theme .ah-nav-link[aria-current="page"] {
+  border-color: var(--ah-ops);
+  background: var(--ah-ops-soft);
+  color: var(--ah-text);
+  box-shadow: inset 0 0 0 1px rgba(120, 146, 103, 0.25);
+}
+
+.admin-home-theme .ah-nav-link-accent {
+  border-color: rgba(79, 120, 150, 0.55);
+  background: var(--ah-info-soft);
+  color: var(--ah-text);
+}
+
+.admin-home-theme .ah-nav-link-accent:hover {
+  border-color: var(--ah-info);
+  background: rgba(79, 120, 150, 0.3);
+}
+
+/* --- Header --- */
+
+.admin-home-theme .ah-ops-label {
+  color: var(--ah-ops);
+  letter-spacing: 0.18em;
+}
+
+.admin-home-theme .ah-title {
+  color: var(--ah-text);
+  letter-spacing: -0.03em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.admin-home-theme .ah-lede {
+  color: var(--ah-muted);
+}
+
+/* --- Panels & modules --- */
+
+.admin-home-theme .ah-panel {
+  border: 1px solid var(--ah-border);
+  border-radius: 1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 38, 53, 0.92) 0%,
+    rgba(13, 27, 39, 0.96) 100%
+  );
+  box-shadow: var(--ah-shadow);
+}
+
+.admin-home-theme .ah-panel-label {
+  color: var(--ah-muted);
+  letter-spacing: 0.14em;
+}
+
+.admin-home-theme .ah-focus-empty {
+  border: 1px solid var(--ah-border);
+  border-radius: 0.75rem;
+  background: var(--ah-raised);
+  color: var(--ah-muted);
+}
+
+.admin-home-theme .ah-focus-item {
+  display: block;
+  border: 1px solid var(--ah-border);
+  border-radius: 0.75rem;
+  background: var(--ah-raised);
+  padding: 0.75rem;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-home-theme .ah-focus-item:hover {
+  border-color: var(--ah-border-strong);
+  background: var(--ah-raised-hover);
+  box-shadow: 0 0 0 1px rgba(79, 120, 150, 0.25);
+}
+
+.admin-home-theme .ah-focus-item:active {
+  background: #122230;
+}
+
+.admin-home-theme .ah-focus-kind {
+  color: var(--ah-info);
+}
+
+.admin-home-theme .ah-focus-label {
+  color: var(--ah-text);
+}
+
+.admin-home-theme .ah-focus-detail {
+  color: var(--ah-muted);
+}
+
+/* --- Tool cards --- */
+
+.admin-home-theme .ah-card {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ah-border);
+  border-radius: 1rem;
+  background: linear-gradient(
+    165deg,
+    rgba(20, 38, 53, 0.95) 0%,
+    rgba(13, 27, 39, 0.98) 100%
+  );
+  padding: 1.5rem;
+  box-shadow: var(--ah-shadow);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.admin-home-theme .ah-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--ah-card-accent, var(--ah-ops)) 0%,
+    transparent 85%
+  );
+}
+
+.admin-home-theme .ah-card:hover {
+  border-color: var(--ah-border-strong);
+  background: linear-gradient(
+    165deg,
+    rgba(26, 49, 66, 0.98) 0%,
+    rgba(13, 27, 39, 1) 100%
+  );
+  box-shadow: var(--ah-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.admin-home-theme .ah-card:active {
+  transform: translateY(0);
+  box-shadow: var(--ah-shadow);
+}
+
+.admin-home-theme .ah-card:focus-visible {
+  border-color: var(--ah-focus);
+  box-shadow: 0 0 0 3px var(--ah-focus-ring), var(--ah-shadow-hover);
+}
+
+.admin-home-theme .ah-card-eyebrow {
+  color: var(--ah-muted);
+  letter-spacing: 0.16em;
+}
+
+.admin-home-theme .ah-card-title {
+  color: var(--ah-text);
+}
+
+.admin-home-theme .ah-card-desc {
+  flex: 1 1 auto;
+  color: var(--ah-muted);
+}
+
+.admin-home-theme .ah-card-cta {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--ah-card-accent, var(--ah-ops)) 55%, var(--ah-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ah-card-accent, var(--ah-ops)) 18%, transparent);
+  padding: 0.5rem 1rem;
+  color: var(--ah-text);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.admin-home-theme .ah-card:hover .ah-card-cta {
+  border-color: var(--ah-card-accent, var(--ah-ops));
+  background: color-mix(in srgb, var(--ah-card-accent, var(--ah-ops)) 28%, transparent);
+}
+
+.admin-home-theme .ah-card[data-accent="ops"] {
+  --ah-card-accent: var(--ah-ops);
+}
+
+.admin-home-theme .ah-card[data-accent="info"] {
+  --ah-card-accent: var(--ah-info);
+}
+
+.admin-home-theme .ah-card[data-accent="warn"] {
+  --ah-card-accent: var(--ah-warn);
+}
+
+.admin-home-theme .ah-card[data-accent="steel"] {
+  --ah-card-accent: var(--ah-border-strong);
+}
+
+/* --- Quick links --- */
+
+.admin-home-theme .ah-chip {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ah-border);
+  border-radius: 999px;
+  background: var(--ah-raised);
+  padding: 0.5rem 1rem;
+  color: var(--ah-text);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.admin-home-theme .ah-chip:hover {
+  border-color: var(--ah-ops);
+  background: var(--ah-ops-soft);
+}
+
+.admin-home-theme .ah-chip:active {
+  background: #122230;
+}
+
+.admin-home-theme .ah-chip:focus-visible {
+  border-color: var(--ah-focus);
+  box-shadow: 0 0 0 3px var(--ah-focus-ring);
+}
+
+/* --- Scrollbars inside focus panel --- */
+
+.admin-home-theme .ah-focus-scroll {
+  scrollbar-color: var(--ah-border-strong) var(--ah-panel);
+}
+
+.admin-home-theme .ah-focus-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-home-theme .ah-focus-scroll::-webkit-scrollbar-track {
+  background: var(--ah-panel);
+}
+
+.admin-home-theme .ah-focus-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--ah-border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-home-theme .ah-brand,
+  .admin-home-theme .ah-nav-link,
+  .admin-home-theme .ah-card,
+  .admin-home-theme .ah-card-cta,
+  .admin-home-theme .ah-focus-item,
+  .admin-home-theme .ah-chip {
+    transition: none;
+  }
+
+  .admin-home-theme .ah-card:hover,
+  .admin-home-theme .ah-card:active {
+    transform: none;
+  }
+}
