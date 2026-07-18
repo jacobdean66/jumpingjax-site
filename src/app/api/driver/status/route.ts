@@ -41,6 +41,7 @@ export async function POST(req: Request) {
   const clearNotes = clean(form.get("clearNotes")) === "1";
   const workType = parseDriverWorkType(clean(form.get("workType")));
   const view = clean(form.get("view"));
+  const task = clean(form.get("task"));
 
   const auth = await verifyAdminAccess(token);
   if (!auth.ok) {
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
       date,
       truck,
       view,
+      task,
       error: "Unable to update stop",
     });
   }
@@ -83,6 +85,7 @@ export async function POST(req: Request) {
       date,
       truck,
       view,
+      task,
       error: bookingLoadError?.message ?? "Stop not found",
     });
   }
@@ -113,6 +116,7 @@ export async function POST(req: Request) {
       date,
       truck,
       view,
+      task,
       error: itemLoadError?.message ?? "Rental item not found",
     });
   }
@@ -145,6 +149,7 @@ export async function POST(req: Request) {
       date,
       truck,
       view,
+      task,
       error: context.reason,
     });
   }
@@ -190,6 +195,7 @@ export async function POST(req: Request) {
       date,
       truck,
       view,
+      task,
       error: itemUpdate.error.message,
     });
   }
@@ -235,6 +241,7 @@ export async function POST(req: Request) {
     date,
     truck,
     view,
+    task,
     message,
   });
 }
