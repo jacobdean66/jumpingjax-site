@@ -37,6 +37,12 @@ export function DriverAssignmentPrintButtons({
               document.querySelectorAll(".driver-print-sheet").forEach((node) => {
                 node.classList.add("driver-print-sheet-skip");
               });
+              // Keep per-trip sheets skipped — they print only via Print Trip Sheet.
+              document
+                .querySelectorAll(".driver-trip-print-sheet")
+                .forEach((node) => {
+                  node.classList.add("driver-print-sheet-skip");
+                });
               document
                 .getElementById(assignment.sheetId)
                 ?.classList.remove("driver-print-sheet-skip");

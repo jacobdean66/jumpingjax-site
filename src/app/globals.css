@@ -156,16 +156,17 @@ body {
   }
 
   .driver-trip-print-sheet {
-    break-after: page;
-    page-break-after: always;
     color: #0f172a;
     font-size: 12px;
     line-height: 1.4;
   }
 
-  .driver-trip-print-sheet:last-child {
-    break-after: auto;
-    page-break-after: auto;
+  /* Page breaks only between visible (non-skipped) trip sheets — avoids a
+     trailing blank page when printing a single selected trip. */
+  .driver-trip-print-sheet:not(.driver-print-sheet-skip)
+    ~ .driver-trip-print-sheet:not(.driver-print-sheet-skip) {
+    break-before: page;
+    page-break-before: always;
   }
 
   .driver-trip-print-header {

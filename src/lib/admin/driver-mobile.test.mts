@@ -331,6 +331,20 @@ await test("print-sheet selection skips unrelated sheets", () => {
     "driver-trip-print-x-pickup",
   ]);
   assert.deepEqual(tripSheetIdsToSkip(all, "missing"), all);
+  // No target means skip none in the helper; UI defaults trip sheets to skipped
+  // so desktop Print All / assignment print never include them.
+  assert.deepEqual(tripSheetIdsToSkip(all, undefined), []);
+});
+
+await test("maps links encode apostrophes, units, and hash safely", () => {
+  const map = buildNavigateUrl("123 O'Connor St #4B, Greenwood, SC");
+  assert.ok(map);
+  assert.ok(map!.includes("destination="));
+  assert.ok(!map!.includes(" "));
+  assert.equal(buildNavigateUrl("   "), null);
+  assert.equal(buildNavigateUrl(null), null);
+  assert.equal(buildTelHref("abc"), null);
+  assert.equal(buildTelHref("555"), "tel:555");
 });
 
 await test("issue-note appending preserves existing route notes", () => {

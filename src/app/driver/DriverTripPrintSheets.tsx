@@ -32,7 +32,7 @@ export function DriverTripPrintSheets({
           <article
             key={sheetId}
             id={sheetId}
-            className="driver-trip-print-sheet"
+            className="driver-trip-print-sheet driver-print-sheet-skip"
             data-task-id={task.id}
             data-work-type={task.workType}
           >
