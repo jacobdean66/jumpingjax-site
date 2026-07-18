@@ -6,6 +6,12 @@ import {
   normalizeInventorySlug,
   saveInventoryItem,
 } from "@/lib/admin/inventory";
+import {
+  defaultRequiresDisinfectant,
+  defaultRequiresSlideSpray,
+  parseEquipmentEntriesFromForm,
+} from "@/lib/admin/inventory-ops";
+import { CATEGORY_IDS, type RentalCategoryId } from "@/data/rentals";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
@@ -17,6 +23,23 @@ function checkboxValue(value: FormDataEntryValue | null): boolean {
 function numberValue(value: FormDataEntryValue | null, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function optionalPositiveNumber(
+  value: FormDataEntryValue | null,
+): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function formList(formData: FormData, name: string): string[] {
+  return formData
+    .getAll(name)
+    .map((entry) => String(entry ?? ""))
+    .filter((value, index) => index < 4 || value.trim().length > 0)
+    .slice(0, 8);
 }
 
 function fileValue(value: FormDataEntryValue | null): File | null {
@@ -81,10 +104,33 @@ export async function POST(req: NextRequest) {
       ? await uploadInventoryImage({ file: imageFile, slug })
       : String(formData.get("imageSrc") ?? "");
 
+    const dimensionUnitsRaw = String(formData.get("dimensionUnits") ?? "ft");
+    const dimensionUnits =
+      dimensionUnitsRaw === "in" || dimensionUnitsRaw === "m"
+        ? dimensionUnitsRaw
+        : "ft";
+    const confidenceRaw = String(formData.get("dimensionConfidence") ?? "");
+    const dimensionConfidence =
+      confidenceRaw === "high" ||
+      confidenceRaw === "likely" ||
+      confidenceRaw === "unresolved"
+        ? confidenceRaw
+        : null;
+    const categoryIdRaw = String(formData.get("categoryId") ?? "");
+    const categoryId: RentalCategoryId = (
+      CATEGORY_IDS as readonly string[]
+    ).includes(categoryIdRaw)
+      ? (categoryIdRaw as RentalCategoryId)
+      : "bounce-houses";
+    const requiresSlideSpray = checkboxValue(formData.get("requiresSlideSpray"));
+    const requiresDisinfectant = checkboxValue(
+      formData.get("requiresDisinfectant"),
+    );
+
     await saveInventoryItem({
       id: String(formData.get("id") ?? "") || undefined,
       slug,
-      categoryId: String(formData.get("categoryId") ?? ""),
+      categoryId,
       title,
       shortDescription: String(formData.get("shortDescription") ?? ""),
       description: String(formData.get("description") ?? ""),
@@ -100,6 +146,28 @@ export async function POST(req: NextRequest) {
       estimatedSetupMinutes: numberValue(formData.get("estimatedSetupMinutes"), 45),
       isActive: checkboxValue(formData.get("isActive")),
       publicVisible: checkboxValue(formData.get("publicVisible")),
+      lengthFt: optionalPositiveNumber(formData.get("lengthFt")),
+      widthFt: optionalPositiveNumber(formData.get("widthFt")),
+      heightFt: optionalPositiveNumber(formData.get("heightFt")),
+      dimensionUnits,
+      dimensionNotes: String(formData.get("dimensionNotes") ?? ""),
+      dimensionSource: String(formData.get("dimensionSource") ?? ""),
+      dimensionConfidence,
+      blowers: parseEquipmentEntriesFromForm(
+        formList(formData, "blowerQty"),
+        formList(formData, "blowerType"),
+      ),
+      tarps: parseEquipmentEntriesFromForm(
+        formList(formData, "tarpQty"),
+        formList(formData, "tarpSize"),
+      ),
+      requiresSlideSpray,
+      requiresDisinfectant,
+      // Persist null (category default) when the checkbox matches the category default.
+      overrideSlideSpray:
+        requiresSlideSpray !== defaultRequiresSlideSpray(categoryId),
+      overrideDisinfectant:
+        requiresDisinfectant !== defaultRequiresDisinfectant(categoryId),
     });
 
     revalidatePath("/admin/inventory");

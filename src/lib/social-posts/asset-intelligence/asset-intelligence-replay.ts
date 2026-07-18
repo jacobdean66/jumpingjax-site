@@ -16,6 +16,7 @@ import type {
   AssetIntelligenceSnapshot,
   AssetUsability,
 } from "./asset-intelligence-types";
+import { probeLocalPublicImage } from "./local-image-dimensions";
 
 function categoryLabel(categoryId: RentalCategoryId): string {
   return CATEGORY_COPY[categoryId]?.title ?? categoryId;
@@ -111,6 +112,27 @@ export function projectPostMediaAssets(
  * Deterministic catalog projection using relative paths only.
  * Does not require NEXT_PUBLIC_SITE_URL and never invents remote URLs.
  */
+function dimensionsForPath(sourcePathOrUrl: string): {
+  width: number | null;
+  height: number | null;
+  aspectRatioClass: ReturnType<typeof classifyAspectRatio>["aspectRatioClass"];
+  orientation: ReturnType<typeof classifyAspectRatio>["orientation"];
+  supportedPlacements: ReturnType<typeof classifyAspectRatio>["supportedPlacements"];
+} {
+  const probed = probeLocalPublicImage(sourcePathOrUrl);
+  const classified = classifyAspectRatio(
+    probed?.width ?? null,
+    probed?.height ?? null,
+  );
+  return {
+    width: probed?.width ?? null,
+    height: probed?.height ?? null,
+    aspectRatioClass: classified.aspectRatioClass,
+    orientation: classified.orientation,
+    supportedPlacements: classified.supportedPlacements,
+  };
+}
+
 export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
   const assets: AssetIntelligenceAsset[] = [];
 
@@ -123,6 +145,7 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     )
       .split(" ")
       .filter((token) => token.length >= 3);
+    const dims = dimensionsForPath(path);
 
     assets.push({
       id: `catalog:${rental.slug}`,
@@ -131,11 +154,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
       title: `${rental.title} (${category})`,
       sourceRecordId: rental.slug,
       sourcePathOrUrl: path,
-      width: null,
-      height: null,
-      aspectRatioClass: "unknown",
-      orientation: "unknown",
-      supportedPlacements: [],
+      width: dims.width,
+      height: dims.height,
+      aspectRatioClass: dims.aspectRatioClass,
+      orientation: dims.orientation,
+      supportedPlacements: dims.supportedPlacements,
       createdAt: null,
       ageDays: null,
       usability: "usable",
@@ -147,6 +170,7 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
 
   const heroPath = HOMEPAGE_HERO_ASSET.src?.trim();
   if (heroPath) {
+    const dims = dimensionsForPath(heroPath);
     assets.push({
       id: "brand:homepage-hero",
       source: "brand",
@@ -154,11 +178,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
       title: "Homepage hero",
       sourceRecordId: "homepage-hero",
       sourcePathOrUrl: heroPath,
-      width: null,
-      height: null,
-      aspectRatioClass: "unknown",
-      orientation: "unknown",
-      supportedPlacements: [],
+      width: dims.width,
+      height: dims.height,
+      aspectRatioClass: dims.aspectRatioClass,
+      orientation: dims.orientation,
+      supportedPlacements: dims.supportedPlacements,
       createdAt: null,
       ageDays: null,
       usability: "usable",
@@ -170,25 +194,28 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     });
   }
 
-  assets.push({
-    id: "brand:logo",
-    source: "brand",
-    mediaType: "graphic",
-    title: "Jumping Jax logo",
-    sourceRecordId: "logo",
-    sourcePathOrUrl: "/logo.png",
-    width: null,
-    height: null,
-    aspectRatioClass: "unknown",
-    orientation: "unknown",
-    supportedPlacements: [],
-    createdAt: null,
-    ageDays: null,
-    usability: "usable",
-    campaignHints: ["brand-awareness"],
-    subjectHints: ["logo", "brand"],
-    matchingTerms: ["logo", "brand", "awareness"],
-  });
+  {
+    const dims = dimensionsForPath("/logo.png");
+    assets.push({
+      id: "brand:logo",
+      source: "brand",
+      mediaType: "graphic",
+      title: "Jumping Jax logo",
+      sourceRecordId: "logo",
+      sourcePathOrUrl: "/logo.png",
+      width: dims.width,
+      height: dims.height,
+      aspectRatioClass: dims.aspectRatioClass,
+      orientation: dims.orientation,
+      supportedPlacements: dims.supportedPlacements,
+      createdAt: null,
+      ageDays: null,
+      usability: "usable",
+      campaignHints: ["brand-awareness"],
+      subjectHints: ["logo", "brand"],
+      matchingTerms: ["logo", "brand", "awareness"],
+    });
+  }
 
   return assets;
 }

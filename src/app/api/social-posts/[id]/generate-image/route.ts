@@ -33,6 +33,7 @@ type GenerateImageRequest = {
   imageDirectionPreset?: string | null;
   sourceImageUrl?: string | null;
   mode?: "edit" | "generate" | null;
+  oneShotFeedback?: string | null;
 };
 
 function normalizeProviderStatus(status: string): string {
@@ -98,6 +99,22 @@ export async function POST(req: NextRequest, context: RouteContext) {
       getSocialCampaign(post.campaign_id)?.label ??
       (post.campaign_id ? post.campaign_id : null);
 
+    let creativePreferenceBlock: string | null = null;
+    try {
+      const { listCreativePreferences, preferencePromptBlock } = await import(
+        "@/lib/social-posts/creative-preferences"
+      );
+      const prefs = await listCreativePreferences({ activeOnly: true });
+      creativePreferenceBlock = preferencePromptBlock(prefs, "image") || null;
+    } catch {
+      creativePreferenceBlock = null;
+    }
+
+    const oneShotFeedback =
+      typeof body.oneShotFeedback === "string" && body.oneShotFeedback.trim()
+        ? body.oneShotFeedback.trim()
+        : null;
+
     const { prompt: builtPrompt } = buildImageDirectorPrompt({
       originalSourceImageUrl: resolvedSourceImageUrl,
       campaignName,
@@ -107,6 +124,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       platforms: post.platforms,
       postPlacement: post.post_placement,
       formatVariantId: post.format_variant_id,
+      creativePreferenceBlock,
+      oneShotFeedback,
     });
 
     const generationPrompt = body.finalImagePrompt?.trim() || builtPrompt;

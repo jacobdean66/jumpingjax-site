@@ -11,6 +11,11 @@ import {
   type AdminInventoryItem,
 } from "@/lib/admin/inventory";
 import {
+  defaultRequiresDisinfectant,
+  defaultRequiresSlideSpray,
+  type InventoryEquipmentEntry,
+} from "@/lib/admin/inventory-ops";
+import {
   emptyInventoryCounts,
   loadInventoryRentalCounts,
 } from "@/lib/admin/inventory-counts";
@@ -60,6 +65,54 @@ function categoryHref(token: string, categoryId?: RentalCategoryId) {
   return `/admin/inventory?${params.toString()}`;
 }
 
+function EquipmentRows({
+  nameQty,
+  nameDesc,
+  label,
+  descPlaceholder,
+  entries,
+}: {
+  nameQty: string;
+  nameDesc: string;
+  label: string;
+  descPlaceholder: string;
+  entries: InventoryEquipmentEntry[];
+}) {
+  const rows = [...entries];
+  while (rows.length < 3) {
+    rows.push({ quantity: 0, description: "" });
+  }
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-black text-slate-800">{label}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500">
+        Add one row per type. Leave unused rows blank.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {rows.map((entry, index) => (
+          <div key={`${nameQty}-${index}`} className="grid grid-cols-[5rem_1fr] gap-2">
+            <input
+              name={nameQty}
+              type="number"
+              min="0"
+              max="99"
+              defaultValue={entry.quantity > 0 ? entry.quantity : ""}
+              placeholder="Qty"
+              className="rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+            <input
+              name={nameDesc}
+              defaultValue={entry.description}
+              placeholder={descPlaceholder}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InventoryForm({
   token,
   item,
@@ -67,6 +120,13 @@ function InventoryForm({
   token: string;
   item?: AdminInventoryItem;
 }) {
+  const categoryId = item?.categoryId ?? "bounce-houses";
+  const ops = item?.ops;
+  const slideSpray =
+    ops?.requiresSlideSpray ?? defaultRequiresSlideSpray(categoryId);
+  const disinfectant =
+    ops?.requiresDisinfectant ?? defaultRequiresDisinfectant(categoryId);
+
   return (
     <form
       action="/api/admin/inventory/item"
@@ -202,6 +262,147 @@ function InventoryForm({
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+          Operational information
+        </p>
+        <p className="mt-1 text-sm font-semibold text-slate-600">
+          Used by Schedule, Driver App, trip sheets, and Social Posts. Edit once
+          here — every load reads the same values.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <label className="text-sm font-bold text-slate-700">
+            Length
+            <input
+              name="lengthFt"
+              type="number"
+              min="0"
+              step="0.1"
+              defaultValue={ops?.dimensions.length ?? ""}
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            Width
+            <input
+              name="widthFt"
+              type="number"
+              min="0"
+              step="0.1"
+              defaultValue={ops?.dimensions.width ?? ""}
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            Height
+            <input
+              name="heightFt"
+              type="number"
+              min="0"
+              step="0.1"
+              defaultValue={ops?.dimensions.height ?? ""}
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            Units
+            <select
+              name="dimensionUnits"
+              defaultValue={ops?.dimensions.units ?? "ft"}
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            >
+              <option value="ft">ft</option>
+              <option value="in">in</option>
+              <option value="m">m</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <label className="text-sm font-bold text-slate-700">
+            Dimension notes
+            <input
+              name="dimensionNotes"
+              defaultValue={ops?.dimensions.notes ?? ""}
+              placeholder="Optional notes or conflicting measurements"
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            Dimension source
+            <input
+              name="dimensionSource"
+              defaultValue={ops?.dimensions.source ?? ""}
+              placeholder="Manufacturer page, listing, measured, etc."
+              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+        </div>
+
+        <label className="mt-3 block text-sm font-bold text-slate-700">
+          Dimension confidence
+          <select
+            name="dimensionConfidence"
+            defaultValue={ops?.dimensions.confidence ?? ""}
+            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500 sm:max-w-xs"
+          >
+            <option value="">Not set</option>
+            <option value="high">High confidence</option>
+            <option value="likely">Likely — needs review</option>
+            <option value="unresolved">Unresolved</option>
+          </select>
+        </label>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <EquipmentRows
+            nameQty="blowerQty"
+            nameDesc="blowerType"
+            label="Blowers"
+            descPlaceholder="Example: 1.5 HP blower"
+            entries={ops?.blowers ?? []}
+          />
+          <EquipmentRows
+            nameQty="tarpQty"
+            nameDesc="tarpSize"
+            label="Tarps"
+            descPlaceholder="Example: 20 ft × 30 ft tarp"
+            entries={ops?.tarps ?? []}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+          <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
+            <input
+              name="requiresSlideSpray"
+              type="checkbox"
+              defaultChecked={slideSpray}
+              className="mt-1 h-4 w-4"
+            />
+            <span>
+              Requires slide spray
+              <span className="mt-1 block text-xs font-semibold text-slate-500">
+                Default for slides and combos.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
+            <input
+              name="requiresDisinfectant"
+              type="checkbox"
+              defaultChecked={disinfectant}
+              className="mt-1 h-4 w-4"
+            />
+            <span>
+              Requires disinfectant
+              <span className="mt-1 block text-xs font-semibold text-slate-500">
+                Default for other inflatable types.
+              </span>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

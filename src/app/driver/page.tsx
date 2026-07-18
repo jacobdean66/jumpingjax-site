@@ -31,9 +31,26 @@ import {
   type DriverPrintSheet,
   type DriverTruckFilter,
 } from "@/lib/admin/driver-app";
+import {
+  consolidateLoadEquipment,
+  equipmentForItem,
+  formatLoadEquipmentTotals,
+} from "@/lib/admin/inventory-equipment";
+import {
+  emptyInventoryOperationalFields,
+  extensionCordsFromBlowers,
+  formatDimensions,
+  formatEquipmentEntries,
+} from "@/lib/admin/inventory-ops";
+import {
+  buildDriverTripSheetPages,
+  tripSheetPageIds,
+} from "@/lib/admin/driver-trip-sheets";
+import { MAX_TRAILER_INFLATABLES } from "@/lib/admin/trailer-capacity";
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
-import { PrintButton } from "@/app/admin/PrintButton";
+import { DriverTripSheetPrintButton } from "./DriverTripSheetPrintButton";
+import { DriverTripSheets } from "./DriverTripSheets";
 
 export const dynamic = "force-dynamic";
 
@@ -680,6 +697,47 @@ function StopCard({
         ) : null}
       </div>
 
+      {(() => {
+        const ops =
+          task.inventoryOps ??
+          emptyInventoryOperationalFields(
+            task.inventoryCategoryId ?? "bounce-houses",
+          );
+        const cords = extensionCordsFromBlowers(ops.blowers);
+        return (
+          <div className="mt-3 grid gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+              Equipment for this stop
+            </p>
+            <p>
+              <span className="font-black">Dimensions:</span>{" "}
+              {formatDimensions(ops.dimensions)}
+            </p>
+            <p>
+              <span className="font-black">Blowers:</span>{" "}
+              {formatEquipmentEntries(ops.blowers)}
+            </p>
+            <p>
+              <span className="font-black">Extension cords:</span>{" "}
+              {cords.cords100ft}× 100ft · {cords.cords50ft}× 50ft
+            </p>
+            <p>
+              <span className="font-black">Tarps:</span>{" "}
+              {formatEquipmentEntries(ops.tarps)}
+            </p>
+            <p>
+              <span className="font-black">Supplies:</span>{" "}
+              {[
+                ops.requiresSlideSpray ? "Slide spray" : null,
+                ops.requiresDisinfectant ? "Disinfectant" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "None"}
+            </p>
+          </div>
+        );
+      })()}
+
       <div className="mt-4 grid grid-cols-2 gap-2">
         {map ? (
           <a
@@ -946,6 +1004,11 @@ export default async function DriverPage({ searchParams }: Props) {
           truckFilter: activeView,
         })
       : [];
+  const tripSheetPages =
+    activeView && activeView !== "unassigned"
+      ? buildDriverTripSheetPages({ visibleTasks })
+      : [];
+  const tripSheetIds = tripSheetPageIds(tripSheetPages);
 
   const pageTitle = buildDriverPageTitle({ date });
   const routePlannerHref = `/admin/deliveries?token=${encodeURIComponent(token)}&date=${date}`;
@@ -975,7 +1038,6 @@ export default async function DriverPage({ searchParams }: Props) {
           >
             Schedule
           </Link>
-          {printSheets.length > 0 ? <PrintButton label="Print All Sheets" /> : null}
         </nav>
 
         <DriverAssignmentPrintButtons
@@ -1233,12 +1295,70 @@ export default async function DriverPage({ searchParams }: Props) {
                 </div>
               ) : null}
 
-              {loadGroups.map((group) => (
+              {tripSheetPages.length > 0 ? (
+                <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <DriverTripSheetPrintButton
+                    allPageIds={tripSheetIds}
+                    label="Print all trip sheets"
+                  />
+                  {tripSheetPages.map((page) => (
+                    <DriverTripSheetPrintButton
+                      key={page.pageId}
+                      allPageIds={tripSheetIds}
+                      targetPageId={page.pageId}
+                      label={`Print ${page.truckAndLoadLabel}`}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {loadGroups.map((group) => {
+                const inflatableTasks = group.tasks.filter(
+                  (task) => task.isInflatable !== false,
+                );
+                const loadTotals = consolidateLoadEquipment(
+                  inflatableTasks.map((task) =>
+                    equipmentForItem({
+                      taskId: task.id,
+                      rentalItem: task.rentalItem,
+                      rentalName: task.rentalName,
+                      isInflatable: task.isInflatable !== false,
+                      ops:
+                        task.inventoryOps ??
+                        emptyInventoryOperationalFields(
+                          task.inventoryCategoryId ?? "bounce-houses",
+                        ),
+                    }),
+                  ),
+                );
+                const overCapacity =
+                  loadTotals.inflatableCount > MAX_TRAILER_INFLATABLES;
+                return (
                 <div key={`load-${group.load}`} className="grid gap-3">
                   {activeView !== "unassigned" && group.load > 0 ? (
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                      Trailer load {group.load}
-                    </p>
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        overCapacity
+                          ? "border-rose-300 bg-rose-50"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                        Trailer load {group.load} · {loadTotals.inflatableCount}/
+                        {MAX_TRAILER_INFLATABLES} inflatables
+                      </p>
+                      {overCapacity ? (
+                        <p className="mt-1 text-sm font-bold text-rose-800">
+                          Over capacity — max {MAX_TRAILER_INFLATABLES}{" "}
+                          inflatables per trailer.
+                        </p>
+                      ) : null}
+                      <ul className="mt-2 grid gap-1 text-sm font-semibold text-slate-700">
+                        {formatLoadEquipmentTotals(loadTotals).map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </div>
                   ) : null}
                   {group.tasks.map((task) => (
                     <StopCard
@@ -1261,12 +1381,14 @@ export default async function DriverPage({ searchParams }: Props) {
                     />
                   ))}
                 </div>
-              ))}
+              );
+              })}
             </section>
           )}
         </div>
 
         <DriverPrintSheets sheets={printSheets} />
+        <DriverTripSheets pages={tripSheetPages} />
       </section>
     </main>
   );
