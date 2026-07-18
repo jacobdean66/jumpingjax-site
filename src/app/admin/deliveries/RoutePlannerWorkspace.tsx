@@ -43,6 +43,7 @@ import {
   type WorkspaceStop,
 } from "@/lib/admin/delivery-planner-workspace";
 import { RoutePlannerDetailsModal } from "./RoutePlannerDetailsModal";
+import "./route-planner-theme.css";
 
 const TRUCKS: PlannerTruck[] = ["truck-1", "truck-2"];
 const TRUCK_LABELS: Record<PlannerTruck, string> = {
@@ -97,7 +98,7 @@ function Thumbnail({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className="group relative flex min-h-24 cursor-grab flex-col justify-between rounded-xl border-2 border-slate-400 bg-white p-3 shadow-sm outline-none transition hover:border-sky-600 hover:shadow-md focus-within:border-sky-600 active:cursor-grabbing"
+      className="rp-task group relative flex min-h-24 cursor-grab flex-col justify-between rounded-xl border-2 p-3 outline-none transition active:cursor-grabbing"
     >
       <button
         type="button"
@@ -105,17 +106,17 @@ function Thumbnail({
         className="text-left focus:outline-none focus:ring-2 focus:ring-sky-500"
         aria-label={`Open details for ${productSummary(stop.products)}`}
       >
-        <span className="block line-clamp-2 text-sm font-black leading-tight text-slate-950">
+        <span className="rp-task-title block line-clamp-2 text-sm font-black leading-tight">
           {productSummary(stop.products)}
         </span>
-        <span className="mt-2 block text-xs font-bold text-slate-600">
+        <span className="rp-task-meta mt-2 block text-xs font-bold">
           {stop.county}
         </span>
       </button>
       <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
         <span
           aria-hidden="true"
-          className="text-sm font-black tracking-[0.18em] text-slate-500"
+          className="rp-panel-meta text-sm font-black tracking-[0.18em]"
           title="Drag"
         >
           ⠿
@@ -125,7 +126,7 @@ function Thumbnail({
             <>
               <button
                 type="button"
-                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                className="rp-btn h-6 w-6 rounded text-xs font-black"
                 onClick={() => onMove(stop.truck!, Math.max(0, index - 1))}
                 aria-label="Move stop earlier"
                 title="Move earlier"
@@ -134,7 +135,7 @@ function Thumbnail({
               </button>
               <button
                 type="button"
-                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                className="rp-btn h-6 w-6 rounded text-xs font-black"
                 onClick={() => onMove(stop.truck!, index + 1)}
                 aria-label="Move stop later"
                 title="Move later"
@@ -143,7 +144,7 @@ function Thumbnail({
               </button>
               <button
                 type="button"
-                className="h-6 w-6 rounded border border-slate-400 text-xs font-black hover:bg-slate-100"
+                className="rp-btn h-6 w-6 rounded text-xs font-black"
                 onClick={() => onMove("unassigned", 0)}
                 aria-label="Move stop to unassigned"
                 title="Move to Unassigned"
@@ -156,12 +157,12 @@ function Thumbnail({
               <button
                 key={truck}
                 type="button"
-                className={`h-6 rounded border px-1.5 text-[10px] font-black hover:bg-sky-100 ${
+                className={`h-6 rounded border px-1.5 text-[10px] font-black ${
                   truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
                 } ${
                   truck === selectedTruck
-                    ? "rp-selected border-sky-600 bg-sky-50 text-sky-900"
-                    : "border-slate-400 text-slate-700"
+                    ? "rp-selected"
+                    : "rp-btn"
                 }`}
                 onClick={() => onMove(truck, Number.MAX_SAFE_INTEGER)}
                 aria-label={`Move stop to ${TRUCK_LABELS[truck]}`}
@@ -219,10 +220,10 @@ function UnsavedSwitchDialog({
       <section
         role="alertdialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-2xl border-2 border-amber-500 bg-white p-5 shadow-2xl"
+        className="rp-panel w-full max-w-md rounded-2xl border-2 border-amber-500 p-5 shadow-2xl"
       >
-        <h2 className="text-xl font-black text-slate-950">Unsaved changes</h2>
-        <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
+        <h2 className="rp-panel-title text-xl font-black">Unsaved changes</h2>
+        <p className="rp-task-meta mt-2 text-sm font-semibold leading-relaxed">
           {rangeChange
             ? "Changing the date range reloads planner data. Save first, or intentionally discard these changes."
             : "This load has unsaved changes. You can keep its local draft while switching, or discard it."}
@@ -231,7 +232,7 @@ function UnsavedSwitchDialog({
           <button
             type="button"
             onClick={onStay}
-            className="rounded-lg border-2 border-slate-400 px-3 py-2 text-sm font-black"
+            className="rp-btn rounded-lg px-3 py-2 text-sm font-black"
           >
             Stay
           </button>
@@ -239,7 +240,7 @@ function UnsavedSwitchDialog({
             <button
               type="button"
               onClick={onKeep}
-              className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-black text-white"
+              className="rp-btn-primary rounded-lg px-3 py-2 text-sm font-black"
             >
               Keep draft
             </button>
@@ -579,7 +580,7 @@ export function RoutePlannerWorkspace({
         ref={plannerRef}
         className="route-planner-screen flex h-full min-h-0 flex-col overflow-hidden print:hidden"
       >
-        <div className="mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 border-slate-400 bg-white p-1 lg:hidden">
+        <div className="rp-mobile-tabs mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 p-1 lg:hidden">
           {(["library", "unassigned", "trailer"] as MobilePanel[]).map((panel) => (
             <button
               key={panel}
@@ -587,8 +588,8 @@ export function RoutePlannerWorkspace({
               onClick={() => setMobilePanel(panel)}
               className={`flex-1 rounded-lg px-2 py-2 text-xs font-black capitalize ${
                 mobilePanel === panel
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-700 hover:bg-slate-100"
+                  ? "rp-mobile-tab-active"
+                  : "rp-task-meta hover:bg-slate-100"
               }`}
             >
               {panel}
@@ -598,14 +599,14 @@ export function RoutePlannerWorkspace({
 
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[15rem_minmax(20rem,1fr)_minmax(24rem,1.15fr)]">
           <aside
-            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+            className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "library" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
-            <header className="shrink-0 border-b-2 border-slate-400 bg-slate-50 p-3">
+            <header className="rp-panel-head shrink-0 border-b-2 p-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black text-slate-950">Load Library</h2>
-                <span className="text-[10px] font-black uppercase text-slate-500">
+                <h2 className="rp-panel-title text-lg font-black">Load Library</h2>
+                <span className="rp-panel-meta text-[10px] font-black uppercase">
                   {loadingRange ? "Loading…" : rangeLabel}
                 </span>
               </div>
@@ -615,14 +616,14 @@ export function RoutePlannerWorkspace({
                   onClick={() =>
                     requestRange(rangeDates(addDays(dates[0] ?? selection.date, -7), 7))
                   }
-                  className="rounded-lg border-2 border-slate-400 bg-white px-2 py-1.5 text-xs font-black"
+                  className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Previous
                 </button>
                 <button
                   type="button"
                   onClick={() => requestRange(rangeDates(todayYmd(), 7))}
-                  className="rounded-lg bg-sky-700 px-2 py-1.5 text-xs font-black text-white"
+                  className="rp-btn-primary rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Today
                 </button>
@@ -631,7 +632,7 @@ export function RoutePlannerWorkspace({
                   onClick={() =>
                     requestRange(rangeDates(addDays(dates[0] ?? selection.date, 7), 7))
                   }
-                  className="rounded-lg border-2 border-slate-400 bg-white px-2 py-1.5 text-xs font-black"
+                  className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Next
                 </button>
@@ -641,9 +642,9 @@ export function RoutePlannerWorkspace({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Customer, product, county, address"
-                className="mt-2 w-full rounded-lg border-2 border-slate-400 px-2.5 py-2 text-xs font-semibold outline-none focus:border-sky-600"
+                className="rp-input mt-2 w-full rounded-lg px-2.5 py-2 text-xs font-semibold outline-none"
               />
-              <label className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+              <label className="rp-task-meta mt-2 flex items-center gap-2 text-xs font-bold">
                 <input
                   type="checkbox"
                   checked={showEmptyDates}
@@ -655,7 +656,7 @@ export function RoutePlannerWorkspace({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
               {visibleLibrary.length === 0 ? (
-                <p className="rounded-lg border-2 border-dashed border-slate-400 p-3 text-xs font-bold text-slate-600">
+                <p className="rp-empty rounded-lg border-2 border-dashed p-3 text-xs font-bold">
                   No loads match this range and search.
                 </p>
               ) : (
@@ -666,7 +667,7 @@ export function RoutePlannerWorkspace({
                       key={entry.date}
                       className={`mb-2 overflow-hidden rounded-xl border-2 ${
                         entry.date === selection.date
-                          ? "border-sky-700"
+                          ? "rp-date-active"
                           : "border-slate-400"
                       }`}
                     >
@@ -680,8 +681,8 @@ export function RoutePlannerWorkspace({
                         }
                         className={`flex w-full items-center justify-between px-2.5 py-2 text-left text-xs font-black ${
                           entry.date === selection.date
-                            ? "bg-sky-100 text-sky-950"
-                            : "bg-slate-100 text-slate-900"
+                            ? "rp-date-active-head"
+                            : "rp-btn"
                         }`}
                       >
                         <span>{shortDate(entry.date)}</span>
@@ -705,8 +706,8 @@ export function RoutePlannerWorkspace({
                                   className={`flex w-full justify-between rounded-md px-2 py-1 text-xs font-black ${
                                     selection.date === entry.date &&
                                     selection.workType === workType
-                                      ? "bg-slate-800 text-white"
-                                      : "text-slate-800 hover:bg-slate-100"
+                                      ? "rp-work-active"
+                                      : "rp-task-title hover:bg-slate-100"
                                   }`}
                                 >
                                   <span>{workLabel(workType)}</span>
@@ -723,7 +724,7 @@ export function RoutePlannerWorkspace({
                                       });
                                       setMobilePanel("unassigned");
                                     }}
-                                    className="flex justify-between rounded border border-slate-300 px-2 py-1 text-[11px] font-bold hover:bg-slate-100"
+                                    className="rp-btn flex justify-between rounded px-2 py-1 text-[11px] font-bold"
                                   >
                                     <span>Unassigned</span>
                                     <span>{counts.unassigned}</span>
@@ -754,8 +755,8 @@ export function RoutePlannerWorkspace({
                                           truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
                                         } ${
                                           selected
-                                            ? "rp-selected border-sky-700 bg-sky-100 text-sky-950"
-                                            : "border-slate-300 hover:bg-slate-100"
+                                            ? "rp-selected"
+                                            : "rp-btn"
                                         }`}
                                       >
                                         <span>
@@ -780,26 +781,26 @@ export function RoutePlannerWorkspace({
           </aside>
 
           <section
-            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+            className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "unassigned" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
-            <header className="shrink-0 border-b-2 border-slate-400 bg-slate-50 px-4 py-3">
+            <header className="rp-panel-head shrink-0 border-b-2 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-black text-slate-950">Unassigned Work</h2>
-                  <p className="text-xs font-bold text-slate-600">
+                  <h2 className="rp-panel-title text-lg font-black">Unassigned Work</h2>
+                  <p className="rp-panel-meta text-xs font-bold">
                     {shortDate(selection.date)} · {workLabel(selection.workType)}
                   </p>
                 </div>
-                <span className="rounded-full border-2 border-slate-400 bg-white px-2 py-1 text-xs font-black">
+                <span className="rp-badge rounded-full px-2 py-1 text-xs font-black">
                   {unassignedStops.length}
                 </span>
               </div>
             </header>
             <div
               className={`min-h-0 flex-1 overflow-y-auto p-3 ${
-                dragging ? "bg-sky-50 ring-2 ring-inset ring-sky-600" : ""
+                dragging ? "rp-drop-active ring-2 ring-inset ring-sky-600" : ""
               }`}
               onDragOver={(event) => {
                 event.preventDefault();
@@ -808,7 +809,7 @@ export function RoutePlannerWorkspace({
               onDrop={(event) => handleDrop(event, "unassigned", 0)}
             >
               {unassignedStops.length === 0 ? (
-                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed border-slate-400 bg-slate-50 p-6 text-center text-sm font-bold text-slate-600">
+                <div className="rp-empty flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm font-bold">
                   No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for this date.
                 </div>
               ) : (
@@ -851,12 +852,12 @@ export function RoutePlannerWorkspace({
           </section>
 
           <section
-            className={`min-h-0 overflow-hidden rounded-2xl border-2 border-slate-500 bg-white ${
+            className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "trailer" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
-            <header className="shrink-0 border-b-2 border-slate-500 bg-slate-50 p-3">
-              <h2 className="truncate text-lg font-black text-slate-950">
+            <header className="rp-panel-head shrink-0 border-b-2 p-3">
+              <h2 className="rp-panel-title truncate text-lg font-black">
                 {shortDate(selection.date)} · {workLabel(selection.workType)} ·{" "}
                 {TRUCK_LABELS[selection.truck]}
               </h2>
@@ -870,8 +871,8 @@ export function RoutePlannerWorkspace({
                     }
                     className={`rounded-lg border-2 px-2 py-1.5 text-xs font-black ${
                       selection.workType === workType
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-400 bg-white"
+                        ? "rp-work-active"
+                        : "rp-btn"
                     }`}
                   >
                     {workLabel(workType)}
@@ -893,10 +894,10 @@ export function RoutePlannerWorkspace({
                       truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
                     } ${
                       selection.truck === truck
-                        ? "rp-selected border-sky-700 bg-sky-100 text-sky-950"
+                        ? "rp-selected"
                         : dragging
-                          ? "rp-drop-active border-dashed border-sky-600 bg-sky-50"
-                          : "border-slate-400 bg-white"
+                          ? "rp-drop-active border-dashed"
+                          : "rp-btn"
                     }`}
                     aria-pressed={selection.truck === truck}
                   >
@@ -905,7 +906,7 @@ export function RoutePlannerWorkspace({
                 ))}
               </div>
               <div className="mt-2 flex items-center justify-between gap-2 border-t-2 border-slate-300 pt-2">
-                <div className="min-w-0 text-xs font-black">
+                <div className="rp-panel-title min-w-0 text-xs font-black">
                   <span>{trailerStops.length} stops · </span>
                   <span
                     className={
@@ -915,7 +916,7 @@ export function RoutePlannerWorkspace({
                           ? "text-amber-700"
                           : currentSaveState === "saved"
                             ? "text-emerald-700"
-                            : "text-slate-600"
+                            : "rp-task-meta"
                     }
                   >
                     {currentSaveState === "saving"
@@ -934,7 +935,7 @@ export function RoutePlannerWorkspace({
                     type="button"
                     onClick={printCurrentLoad}
                     disabled={printStops.length === 0}
-                    className="rounded-lg border-2 border-slate-600 bg-white px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rp-btn rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     Print
                   </button>
@@ -942,7 +943,7 @@ export function RoutePlannerWorkspace({
                     type="button"
                     onClick={() => void saveCurrentLoad()}
                     disabled={!isDirty || currentSaveState === "saving"}
-                    className="rounded-lg bg-amber-300 px-3 py-2 text-xs font-black text-amber-950 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rp-btn-save rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {currentSaveState === "saving" ? "Saving…" : "Save"}
                   </button>
@@ -962,8 +963,8 @@ export function RoutePlannerWorkspace({
                   onDrop={(event) => handleDrop(event, selection.truck, 0)}
                   className={`flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm font-bold ${
                     dragging
-                      ? "border-sky-600 bg-sky-50 text-sky-900"
-                      : "border-slate-400 bg-slate-50 text-slate-600"
+                      ? "rp-drop-active"
+                      : "rp-empty"
                   }`}
                 >
                   Drop {workLabel(selection.workType).toLowerCase()} here.
@@ -1029,12 +1030,12 @@ export function RoutePlannerWorkspace({
         </div>
 
         {notice ? (
-          <div className="mt-2 flex shrink-0 items-center justify-between rounded-lg border-2 border-slate-500 bg-white px-3 py-2 text-xs font-bold text-slate-800">
+          <div className="rp-panel mt-2 flex shrink-0 items-center justify-between rounded-lg border-2 px-3 py-2 text-xs font-bold">
             <span>{notice}</span>
             <button
               type="button"
               onClick={() => setNotice(null)}
-              className="ml-3 font-black"
+              className="rp-btn ml-3 font-black"
               aria-label="Dismiss message"
             >
               ×
