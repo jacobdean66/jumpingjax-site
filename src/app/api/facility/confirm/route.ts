@@ -265,18 +265,25 @@ async function handleFacilityConfirm(
         kind: "facility",
         bookingId: id,
       });
+      const secondaryConfigured = Boolean(
+        process.env.GOOGLE_CALENDAR_SECONDARY_ID?.trim(),
+      );
       const { data: workflowState } = await supabase
         .from("booking_integration_workflows")
         .select("calendar_status")
         .eq("booking_kind", "facility")
         .eq("booking_id", id)
         .maybeSingle<{ calendar_status: string }>();
+      const bothDestinationsPresent =
+        Boolean(booking.google_calendar_event_id) &&
+        (!secondaryConfigured ||
+          Boolean(booking.google_calendar_secondary_event_id));
       if (
         workflowState?.calendar_status === "sent" &&
-        booking.google_calendar_event_id
+        bothDestinationsPresent
       ) {
         return new Response(
-          "Booking is confirmed and its Calendar projection is already complete.",
+          "Booking is confirmed and both Calendar projections are already complete.",
           { status: 200 },
         );
       }
@@ -303,8 +310,9 @@ async function handleFacilityConfirm(
           secondaryDegraded: secondaryCalendarDegraded,
         });
       }
-      // Primary hard-failure is the only outcome that blocks workflow success.
-      // Secondary-only failure leaves the facility calendar event intact.
+      // Primary hard-failure is the only outcome that blocks booking approval
+      // continuity. Secondary-only failure keeps the primary event and leaves a
+      // retryable backup-calendar warning until both destinations succeed.
       calendarFailed = projection.hardFailed;
       const { error: calendarIdError } = await supabase
         .from("facility_bookings")
@@ -353,6 +361,10 @@ async function handleFacilityConfirm(
       );
     }
   }
+  // Keep calendar_status failed while backup sync is incomplete so the admin
+  // warning and Retry action remain available. Approval/emails still proceed.
+  const calendarStepIncomplete =
+    calendarFailed || secondaryCalendarDegraded;
   const calendarSafeErrorClass = calendarFailed
     ? "calendar_projection_failed"
     : secondaryCalendarDegraded
@@ -366,7 +378,7 @@ async function handleFacilityConfirm(
     outcome:
       action === "reject"
         ? "not_required"
-        : calendarFailed
+        : calendarStepIncomplete
           ? "failed"
           : "sent",
     safeErrorClass: calendarSafeErrorClass,
@@ -392,9 +404,9 @@ async function handleFacilityConfirm(
       calendarFailed
         ? "Booking is confirmed, but the Calendar repair still needs attention."
         : secondaryCalendarDegraded
-          ? "Booking is confirmed and the primary Calendar event is in place. Secondary calendar sync still needs owner configuration."
-          : "Booking is confirmed and its Calendar projection is complete.",
-      { status: calendarFailed ? 503 : 200 },
+          ? "Primary calendar synced. Backup calendar sync needs attention."
+          : "Booking is confirmed and both Calendar projections are complete.",
+      { status: calendarStepIncomplete ? 503 : 200 },
     );
   }
 
@@ -505,9 +517,10 @@ async function handleFacilityConfirm(
     calendarFailed
       ? `${successMessage} Customer email was sent, but Calendar still requires attention.`
       : secondaryCalendarDegraded
-        ? `${successMessage} Primary Calendar is set; secondary calendar sync needs owner configuration.`
+        ? `${successMessage} Primary calendar synced. Backup calendar sync needs attention.`
         : successMessage,
-    { status: calendarFailed ? 207 : 200 },
+    // 207: approval + customer email succeeded; calendar warning remains.
+    { status: calendarStepIncomplete ? 207 : 200 },
   );
 }
 

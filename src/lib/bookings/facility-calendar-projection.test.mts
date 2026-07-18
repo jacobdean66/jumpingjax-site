@@ -88,6 +88,18 @@ test("workflow outcome migration preserves operator_required across later succes
 test("admin facility page exposes calendar-only retry without approval mutation copy", () => {
   const text = source("../../app/admin/facility/page.tsx");
   assert.match(text, /Retry calendar sync/);
+  assert.match(text, /Primary calendar synced\. Backup calendar sync needs attention\./);
   assert.match(text, /Approval and customer email are unchanged/);
   assert.match(text, /calendarNeedsRepair/);
+});
+
+test("secondary-only failure keeps calendar workflow failed until backup succeeds", () => {
+  const text = source("../../app/api/facility/confirm/route.ts");
+  assert.match(text, /calendarStepIncomplete/);
+  assert.match(text, /calendarStepIncomplete\s*\?\s*"failed"\s*:\s*"sent"/);
+  assert.match(
+    text,
+    /Primary calendar synced\. Backup calendar sync needs attention\./,
+  );
+  assert.match(text, /bothDestinationsPresent/);
 });

@@ -100,12 +100,18 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         )}
         {booking.calendarNeedsRepair && (
           <div className="flex flex-col items-start gap-2 print:hidden">
-            <p className="max-w-xs text-xs font-semibold text-amber-800">
-              Calendar sync needs attention
+            <p className="max-w-sm text-xs font-semibold text-amber-800">
+              {booking.safeWorkflowErrorClass ===
+                "calendar_secondary_projection_failed" ||
+              (booking.googleCalendarEventId &&
+                booking.safeWorkflowErrorClass !==
+                  "calendar_projection_failed")
+                ? "Primary calendar synced. Backup calendar sync needs attention."
+                : "Calendar sync needs attention."}
               {booking.safeWorkflowErrorClass
                 ? ` (${booking.safeWorkflowErrorClass})`
-                : ""}
-              . Approval and customer email are unchanged.
+                : ""}{" "}
+              Approval and customer email are unchanged.
             </p>
             <BookingActionButton
               action="confirm"
