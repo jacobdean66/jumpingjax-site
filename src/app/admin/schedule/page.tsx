@@ -105,7 +105,7 @@ export default async function AdminSchedulePage({ searchParams }: Props) {
       </AdminHeader>
       <AdminNav token={token} role={auth.role} active="schedule" />
 
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none">
+      <section className="schedule-main-panel mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none">
         <ScheduleCalendar
           days={visibleDays.map(calendarDay)}
           events={eventsResult.events}

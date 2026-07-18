@@ -8,6 +8,7 @@ import {
   filterScheduleEvents,
   groupEventsByDate,
   selectedFilterLabels,
+  toYmd,
   type CalendarDay,
   type CalendarEvent,
   type ScheduleEventType,
@@ -228,7 +229,7 @@ function ScheduleEmailPanel({
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
+    <div className="schedule-email-panel mt-4 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
       <p className="text-sm font-black text-slate-800">Email this schedule</p>
       <label className="mt-2 block text-xs font-bold text-slate-600">
         Recipients (comma-separated)
@@ -303,6 +304,7 @@ export function ScheduleCalendar({
   );
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [todayYmd] = useState(() => toYmd(new Date()));
   const emailSendingLockRef = useRef(false);
   const printOrientation = printOrientationForView(view);
 
@@ -618,6 +620,7 @@ export function ScheduleCalendar({
                   events={dayEvents}
                   density={view}
                   isOutsideMonth={isOutsideMonth(day)}
+                  isToday={day.ymd === todayYmd}
                   onSelectBooking={setSelectedEvent}
                 />
               );
@@ -656,7 +659,7 @@ export function ScheduleCalendar({
           heading={printHeading}
           sendingLockRef={emailSendingLockRef}
         />
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+        <div className="schedule-print-preview mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm">
           <PrintAgenda
             className="block"
             days={agendaDays}
@@ -669,7 +672,7 @@ export function ScheduleCalendar({
         </div>
       </section>
 
-      <div className="hidden print:block">
+      <div className="schedule-print-output hidden print:block">
         <PrintAgenda
           className="block"
           days={agendaDays}
