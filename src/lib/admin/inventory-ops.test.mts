@@ -8,6 +8,7 @@ import {
   formatDimensions,
   formatEquipmentEntries,
   operationalFieldsFromRow,
+  operationalFieldsToRow,
   parseEquipmentEntries,
   parseEquipmentEntriesFromForm,
   resolveSupplyRequirements,
@@ -23,6 +24,7 @@ import {
   countTrailerInflatables,
   evaluateTrailerCapacity,
 } from "./trailer-capacity.ts";
+import { mergeTrailerCapacityOccupancy } from "./trailer-capacity-merge.ts";
 
 describe("inventory-ops supplies", () => {
   it("defaults slide spray for slides and combos", () => {
@@ -147,6 +149,65 @@ describe("load equipment consolidation", () => {
     assert.equal(totals.cords50ft, 2);
     assert.equal(totals.slideSprayCount, 1);
     assert.equal(totals.disinfectantCount, 0);
+  });
+});
+
+describe("supply override persistence", () => {
+  it("writes null supply columns when matching category defaults", () => {
+    const matching = emptyInventoryOperationalFields("combos");
+    matching.slideSprayOverridden = false;
+    matching.disinfectantOverridden = false;
+    const row = operationalFieldsToRow(matching);
+    assert.equal(row.requires_slide_spray, null);
+    assert.equal(row.requires_disinfectant, null);
+
+    matching.requiresSlideSpray = false;
+    matching.slideSprayOverridden = true;
+    const overridden = operationalFieldsToRow(matching);
+    assert.equal(overridden.requires_slide_spray, false);
+  });
+});
+
+describe("trailer capacity merge", () => {
+  it("keeps existing DB occupants not included in the patch", () => {
+    const merged = mergeTrailerCapacityOccupancy({
+      patchAssignments: [
+        {
+          itemId: "new-1",
+          rentalItem: "bounce-a",
+          rentalName: "Bounce A",
+          workType: "delivery",
+          workDate: "2026-07-18",
+          truck: "truck-1",
+          trailerLoad: 1,
+          isInflatable: true,
+        },
+      ],
+      existingAssignments: [
+        {
+          itemId: "old-1",
+          rentalItem: "bounce-b",
+          rentalName: "Bounce B",
+          workType: "delivery",
+          workDate: "2026-07-18",
+          truck: "truck-1",
+          trailerLoad: 1,
+          isInflatable: true,
+        },
+        {
+          itemId: "old-2",
+          rentalItem: "chairs",
+          rentalName: "Chairs",
+          workType: "delivery",
+          workDate: "2026-07-18",
+          truck: "truck-1",
+          trailerLoad: 1,
+          isInflatable: false,
+        },
+      ],
+    });
+    assert.equal(merged.length, 3);
+    assert.equal(countTrailerInflatables(merged), 2);
   });
 });
 

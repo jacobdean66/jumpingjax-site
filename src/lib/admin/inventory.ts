@@ -187,14 +187,25 @@ const INVENTORY_SELECT_LEGACY =
 
 function isMissingOpsColumnError(message: string): boolean {
   const lower = message.toLowerCase();
-  return (
-    lower.includes("blowers") ||
-    lower.includes("tarps") ||
-    lower.includes("length_ft") ||
-    lower.includes("dimension_") ||
-    lower.includes("requires_slide_spray") ||
-    lower.includes("requires_disinfectant") ||
-    (lower.includes("column") && lower.includes("does not exist"))
+  const opsColumns = [
+    "blowers",
+    "tarps",
+    "length_ft",
+    "width_ft",
+    "height_ft",
+    "dimension_units",
+    "dimension_notes",
+    "dimension_source",
+    "dimension_confidence",
+    "requires_slide_spray",
+    "requires_disinfectant",
+  ];
+  return opsColumns.some(
+    (column) =>
+      lower.includes(column) &&
+      (lower.includes("does not exist") ||
+        lower.includes("could not find") ||
+        lower.includes("schema cache")),
   );
 }
 

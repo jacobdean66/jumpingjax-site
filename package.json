@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:booking": "node --import tsx --test src/proxy.test.mts src/lib/site-url.test.mts src/lib/rentals/rental-pricing-text.test.mts src/lib/rentals/rental-api-boundary.test.mts src/lib/facility-parties/availability.test.mts src/lib/facility-parties/zoned-time.test.mts src/lib/bookings/approval-token.test.mts src/lib/bookings/approval-route-boundary.test.mts src/lib/admin/booking-admin-boundary.test.mts src/lib/admin/schedule.test.mts src/lib/admin/schedule-display.test.mts src/lib/admin/admin-schedule-operations.test.mts src/lib/google/calendar-destinations.test.mts",
-    "test:ops-inventory": "node --import tsx --test src/lib/admin/inventory-ops.test.mts src/lib/admin/driver-trip-sheets.test.mts src/lib/social-posts/random-workflow-test.test.mts src/lib/social-posts/creative-preferences.test.mts",
+    "test:ops-inventory": "node --import tsx --test src/lib/admin/inventory-ops.test.mts src/lib/admin/driver-trip-sheets.test.mts src/lib/social-posts/random-workflow-test.test.mts src/lib/social-posts/creative-preferences.test.mts src/lib/social-posts/asset-intelligence/local-image-dimensions.test.mts",
     "inventory:sync": "node scripts/sync-rental-inventory.mjs"
   },
   "dependencies": {

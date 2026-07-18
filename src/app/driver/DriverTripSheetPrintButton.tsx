@@ -21,10 +21,27 @@ export function DriverTripSheetPrintButton({
     for (const id of skipIds) {
       document.getElementById(id)?.classList.add("driver-print-sheet-skip");
     }
+    // Hide legacy route-table sheets so only trip sheets print.
+    document.querySelectorAll(".driver-print-sheet").forEach((node) => {
+      node.classList.add("driver-print-sheet-skip");
+    });
+    if (targetPageId) {
+      document
+        .getElementById(targetPageId)
+        ?.classList.add("driver-trip-sheet-page-print-target");
+    }
     const cleanup = () => {
       for (const id of skipIds) {
         document.getElementById(id)?.classList.remove("driver-print-sheet-skip");
       }
+      document.querySelectorAll(".driver-print-sheet").forEach((node) => {
+        node.classList.remove("driver-print-sheet-skip");
+      });
+      document
+        .querySelectorAll(".driver-trip-sheet-page-print-target")
+        .forEach((node) => {
+          node.classList.remove("driver-trip-sheet-page-print-target");
+        });
       setBusy(false);
       window.removeEventListener("afterprint", cleanup);
     };

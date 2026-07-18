@@ -170,9 +170,14 @@ body {
     min-height: 0;
   }
 
-  .driver-trip-sheet-page:last-child {
+  .driver-trip-sheet-page:last-child,
+  .driver-trip-sheet-page-print-target {
     break-after: auto;
     page-break-after: auto;
+  }
+
+  .driver-trip-sheet-page.driver-print-sheet-skip {
+    display: none !important;
   }
 
   .driver-trip-page-header {

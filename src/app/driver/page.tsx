@@ -51,7 +51,6 @@ import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
 import { DriverTripSheetPrintButton } from "./DriverTripSheetPrintButton";
 import { DriverTripSheets } from "./DriverTripSheets";
-import { PrintButton } from "@/app/admin/PrintButton";
 
 export const dynamic = "force-dynamic";
 
@@ -1039,7 +1038,6 @@ export default async function DriverPage({ searchParams }: Props) {
           >
             Schedule
           </Link>
-          {printSheets.length > 0 ? <PrintButton label="Print All Sheets" /> : null}
         </nav>
 
         <DriverAssignmentPrintButtons

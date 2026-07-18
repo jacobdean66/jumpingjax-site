@@ -6,7 +6,12 @@ import {
   normalizeInventorySlug,
   saveInventoryItem,
 } from "@/lib/admin/inventory";
-import { parseEquipmentEntriesFromForm } from "@/lib/admin/inventory-ops";
+import {
+  defaultRequiresDisinfectant,
+  defaultRequiresSlideSpray,
+  parseEquipmentEntriesFromForm,
+} from "@/lib/admin/inventory-ops";
+import { CATEGORY_IDS, type RentalCategoryId } from "@/data/rentals";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
@@ -33,7 +38,7 @@ function formList(formData: FormData, name: string): string[] {
   return formData
     .getAll(name)
     .map((entry) => String(entry ?? ""))
-    .filter((value, index, all) => index < 4 || value.trim().length > 0)
+    .filter((value, index) => index < 4 || value.trim().length > 0)
     .slice(0, 8);
 }
 
@@ -111,11 +116,21 @@ export async function POST(req: NextRequest) {
       confidenceRaw === "unresolved"
         ? confidenceRaw
         : null;
+    const categoryIdRaw = String(formData.get("categoryId") ?? "");
+    const categoryId: RentalCategoryId = (
+      CATEGORY_IDS as readonly string[]
+    ).includes(categoryIdRaw)
+      ? (categoryIdRaw as RentalCategoryId)
+      : "bounce-houses";
+    const requiresSlideSpray = checkboxValue(formData.get("requiresSlideSpray"));
+    const requiresDisinfectant = checkboxValue(
+      formData.get("requiresDisinfectant"),
+    );
 
     await saveInventoryItem({
       id: String(formData.get("id") ?? "") || undefined,
       slug,
-      categoryId: String(formData.get("categoryId") ?? ""),
+      categoryId,
       title,
       shortDescription: String(formData.get("shortDescription") ?? ""),
       description: String(formData.get("description") ?? ""),
@@ -146,11 +161,13 @@ export async function POST(req: NextRequest) {
         formList(formData, "tarpQty"),
         formList(formData, "tarpSize"),
       ),
-      requiresSlideSpray: checkboxValue(formData.get("requiresSlideSpray")),
-      requiresDisinfectant: checkboxValue(formData.get("requiresDisinfectant")),
-      // Admin form always persists the visible supply choices as explicit values.
-      overrideSlideSpray: true,
-      overrideDisinfectant: true,
+      requiresSlideSpray,
+      requiresDisinfectant,
+      // Persist null (category default) when the checkbox matches the category default.
+      overrideSlideSpray:
+        requiresSlideSpray !== defaultRequiresSlideSpray(categoryId),
+      overrideDisinfectant:
+        requiresDisinfectant !== defaultRequiresDisinfectant(categoryId),
     });
 
     revalidatePath("/admin/inventory");

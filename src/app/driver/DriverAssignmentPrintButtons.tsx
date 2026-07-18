@@ -1,7 +1,5 @@
 "use client";
 
-import { PrintButton } from "@/app/admin/PrintButton";
-
 type Assignment = {
   sheetId: string;
   truckLabel: string;
@@ -27,7 +25,30 @@ export function DriverAssignmentPrintButtons({
         for a batch, or print one assignment at a time.
       </p>
       <div className="flex flex-wrap gap-2">
-        <PrintButton label="Print All Sheets" />
+        <button
+          type="button"
+          className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white"
+          onClick={() => {
+            document
+              .querySelectorAll(".driver-trip-sheet-page")
+              .forEach((node) => {
+                node.classList.add("driver-print-sheet-skip");
+              });
+            const cleanup = () => {
+              document
+                .querySelectorAll(".driver-trip-sheet-page")
+                .forEach((node) => {
+                  node.classList.remove("driver-print-sheet-skip");
+                });
+              window.removeEventListener("afterprint", cleanup);
+            };
+            window.addEventListener("afterprint", cleanup);
+            window.print();
+            window.setTimeout(cleanup, 2500);
+          }}
+        >
+          Print All Sheets
+        </button>
         {assignments.map((assignment) => (
           <button
             key={assignment.sheetId}
@@ -40,10 +61,28 @@ export function DriverAssignmentPrintButtons({
               document
                 .getElementById(assignment.sheetId)
                 ?.classList.remove("driver-print-sheet-skip");
+              // Hide landscape trip sheets while printing legacy route sheets.
+              document
+                .querySelectorAll(".driver-trip-sheet-page")
+                .forEach((node) => {
+                  node.classList.add("driver-print-sheet-skip");
+                });
+              const cleanup = () => {
+                document
+                  .querySelectorAll(".driver-print-sheet")
+                  .forEach((node) => {
+                    node.classList.remove("driver-print-sheet-skip");
+                  });
+                document
+                  .querySelectorAll(".driver-trip-sheet-page")
+                  .forEach((node) => {
+                    node.classList.remove("driver-print-sheet-skip");
+                  });
+                window.removeEventListener("afterprint", cleanup);
+              };
+              window.addEventListener("afterprint", cleanup);
               window.print();
-              document.querySelectorAll(".driver-print-sheet").forEach((node) => {
-                node.classList.remove("driver-print-sheet-skip");
-              });
+              window.setTimeout(cleanup, 2500);
             }}
           >
             Print {assignment.truckLabel} / {assignment.workTypeLabel} / Load{" "}

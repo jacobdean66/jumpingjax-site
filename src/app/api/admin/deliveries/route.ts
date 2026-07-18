@@ -8,7 +8,14 @@ import {
   loadAdminDeliveriesForDates,
 } from "@/lib/admin/deliveries";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
-import { validateTrailerCapacityAssignments } from "@/lib/admin/trailer-capacity-assignments";
+import { loadAdminInventoryItems } from "@/lib/admin/inventory";
+import { isInflatableCategory } from "@/lib/admin/inventory-ops";
+import { countsTowardTrailerCapacity } from "@/lib/admin/trailer-capacity";
+import {
+  validateTrailerCapacityAssignments,
+  type TrailerAssignmentInput,
+} from "@/lib/admin/trailer-capacity-assignments";
+import { mergeTrailerCapacityOccupancy } from "@/lib/admin/trailer-capacity-merge";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -213,11 +220,31 @@ export async function PATCH(req: Request) {
       ),
     ];
     if (itemIds.length > 0) {
-      const { data: itemRows, error: itemError } = await supabase
-        .from("booking_rental_items")
-        .select("id, rental_item, rental_name")
-        .in("id", itemIds);
+      const [{ data: itemRows, error: itemError }, inventoryItems] =
+        await Promise.all([
+          supabase
+            .from("booking_rental_items")
+            .select(
+              "id, rental_item, rental_name, delivery_date, delivery_truck, trailer_load, pickup_date, pickup_truck, pickup_trailer_load",
+            )
+            .in("id", itemIds),
+          loadAdminInventoryItems().catch(() => []),
+        ]);
       if (itemError) throw new Error(itemError.message);
+
+      const inflatableBySlug = new Map(
+        inventoryItems.map((item) => [
+          item.slug,
+          isInflatableCategory(item.categoryId, item.routeKind),
+        ]),
+      );
+      const resolveInflatable = (rentalItem: string, rentalName: string) =>
+        countsTowardTrailerCapacity({
+          rentalItem,
+          rentalName,
+          isInflatable: inflatableBySlug.get(rentalItem),
+        });
+
       const metaById = new Map(
         ((itemRows ?? []) as Array<{
           id: string;
@@ -225,36 +252,142 @@ export async function PATCH(req: Request) {
           rental_name: string | null;
         }>).map((row) => [String(row.id), row]),
       );
-      const capacityInput = assignments
-        .map((assignment) => {
-          const itemId = nullableText(assignment.itemId);
-          if (!itemId) return null;
-          const meta = metaById.get(itemId);
-          const workTypeRaw = nullableText(assignment.workType) ?? "delivery";
-          if (workTypeRaw !== "delivery" && workTypeRaw !== "pickup") return null;
-          const truck =
-            workTypeRaw === "pickup"
-              ? optionalTruck(assignment.pickupTruck, "pickupTruck")
-              : optionalTruck(assignment.deliveryTruck, "deliveryTruck");
-          const trailerLoad =
-            workTypeRaw === "pickup"
-              ? nullableNumber(assignment.pickupTrailerLoad)
-              : nullableNumber(assignment.trailerLoad);
-          const workDate =
-            workTypeRaw === "pickup"
-              ? optionalYmd(assignment.pickupDate, "pickupDate")
-              : optionalYmd(assignment.deliveryDate, "deliveryDate");
-          return {
-            itemId,
-            rentalItem: meta?.rental_item ?? "rental",
-            rentalName: meta?.rental_name ?? meta?.rental_item ?? "Rental",
-            workType: workTypeRaw as "delivery" | "pickup",
-            workDate,
-            truck,
-            trailerLoad,
-          };
-        })
-        .filter((row): row is NonNullable<typeof row> => row !== null);
+
+      const patchCapacityInput: TrailerAssignmentInput[] = [];
+      for (const assignment of assignments) {
+        const itemId = nullableText(assignment.itemId);
+        if (!itemId) continue;
+        const meta = metaById.get(itemId);
+        const workTypeRaw = nullableText(assignment.workType) ?? "delivery";
+        if (workTypeRaw !== "delivery" && workTypeRaw !== "pickup") continue;
+        const truck =
+          workTypeRaw === "pickup"
+            ? optionalTruck(assignment.pickupTruck, "pickupTruck")
+            : optionalTruck(assignment.deliveryTruck, "deliveryTruck");
+        const trailerLoad =
+          workTypeRaw === "pickup"
+            ? nullableNumber(assignment.pickupTrailerLoad)
+            : nullableNumber(assignment.trailerLoad);
+        const workDate =
+          workTypeRaw === "pickup"
+            ? optionalYmd(assignment.pickupDate, "pickupDate")
+            : optionalYmd(assignment.deliveryDate, "deliveryDate");
+        const rentalItem = meta?.rental_item ?? "rental";
+        const rentalName = meta?.rental_name ?? rentalItem;
+        patchCapacityInput.push({
+          itemId,
+          rentalItem,
+          rentalName,
+          workType: workTypeRaw,
+          workDate,
+          truck,
+          trailerLoad,
+          isInflatable: resolveInflatable(rentalItem, rentalName),
+        });
+      }
+
+      const workDates = [
+        ...new Set(
+          patchCapacityInput
+            .map((row) => row.workDate)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+      const trucks = [
+        ...new Set(
+          patchCapacityInput
+            .map((row) => row.truck)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+
+      let existingOccupancy: TrailerAssignmentInput[] = [];
+      if (workDates.length > 0 && trucks.length > 0) {
+        type OccupancyRow = {
+          id: string;
+          rental_item: string | null;
+          rental_name: string | null;
+          delivery_date: string | null;
+          delivery_truck: string | null;
+          trailer_load: number | null;
+          pickup_date: string | null;
+          pickup_truck: string | null;
+          pickup_trailer_load: number | null;
+        };
+        const selectCols =
+          "id, rental_item, rental_name, delivery_date, delivery_truck, trailer_load, pickup_date, pickup_truck, pickup_trailer_load";
+        const [deliveryExisting, pickupExisting] = await Promise.all([
+          supabase
+            .from("booking_rental_items")
+            .select(selectCols)
+            .in("delivery_date", workDates)
+            .in("delivery_truck", trucks),
+          supabase
+            .from("booking_rental_items")
+            .select(selectCols)
+            .in("pickup_date", workDates)
+            .in("pickup_truck", trucks),
+        ]);
+        if (deliveryExisting.error) throw new Error(deliveryExisting.error.message);
+        if (pickupExisting.error) throw new Error(pickupExisting.error.message);
+
+        const byId = new Map<string, OccupancyRow>();
+        for (const row of [
+          ...((deliveryExisting.data ?? []) as OccupancyRow[]),
+          ...((pickupExisting.data ?? []) as OccupancyRow[]),
+        ]) {
+          byId.set(String(row.id), row);
+        }
+
+        const truckSet = new Set(trucks);
+        const dateSet = new Set(workDates);
+        existingOccupancy = [...byId.values()].flatMap((row) => {
+          const rentalItem = row.rental_item ?? "rental";
+          const rentalName = row.rental_name ?? rentalItem;
+          const isInflatable = resolveInflatable(rentalItem, rentalName);
+          const entries: TrailerAssignmentInput[] = [];
+          if (
+            row.delivery_truck &&
+            row.delivery_date &&
+            truckSet.has(row.delivery_truck) &&
+            dateSet.has(row.delivery_date)
+          ) {
+            entries.push({
+              itemId: String(row.id),
+              rentalItem,
+              rentalName,
+              workType: "delivery",
+              workDate: row.delivery_date,
+              truck: row.delivery_truck,
+              trailerLoad: row.trailer_load,
+              isInflatable,
+            });
+          }
+          if (
+            row.pickup_truck &&
+            row.pickup_date &&
+            truckSet.has(row.pickup_truck) &&
+            dateSet.has(row.pickup_date)
+          ) {
+            entries.push({
+              itemId: String(row.id),
+              rentalItem,
+              rentalName,
+              workType: "pickup",
+              workDate: row.pickup_date,
+              truck: row.pickup_truck,
+              trailerLoad: row.pickup_trailer_load,
+              isInflatable,
+            });
+          }
+          return entries;
+        });
+      }
+
+      const capacityInput = mergeTrailerCapacityOccupancy({
+        patchAssignments: patchCapacityInput,
+        existingAssignments: existingOccupancy,
+      });
 
       const capacityCheck = validateTrailerCapacityAssignments(capacityInput, {
         allowOwnerOverride,
