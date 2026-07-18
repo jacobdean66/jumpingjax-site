@@ -4,16 +4,21 @@ import { readFile } from "node:fs/promises";
 import type { AdminDeliveryWorkTask } from "./deliveries";
 import {
   allPlannerTasks,
+  assignmentForTask,
   assignmentsForSelection,
   buildLoadLibrary,
   changedTaskIds,
   countyFromAddress,
   dirtySelectionKeys,
+  effectivePlannerWorkDate,
   groupOperationalStops,
   moveStop,
   productSummary,
   rangeDates,
+  stopMatchesColumn,
+  taskMatchesColumn,
 } from "./delivery-planner-workspace";
+import { buildPrintDayGroups } from "./delivery-print-layout";
 
 type TestFn = () => void | Promise<void>;
 
@@ -287,6 +292,318 @@ await test("workspace date selection contains no viewport scrolling command", as
   assert.equal(source.includes("pendingSelection"), true);
   assert.equal(source.includes("Keep draft"), true);
   assert.equal(source.includes("Discard"), true);
+});
+
+await test("details modal does not display Event date or Route date labels", async () => {
+  const source = await readFile(
+    new URL("../../app/admin/deliveries/RoutePlannerDetailsModal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes("Event date"), false);
+  assert.equal(source.includes("Route date"), false);
+  assert.equal(source.includes("formatLongDate"), false);
+  assert.equal(source.includes("Customer phone"), true);
+  assert.equal(source.includes("County"), true);
+});
+
+await test("assigned delivery with null workDate appears on trailer via eventDate fallback", () => {
+  const assigned = task("persist-d", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(effectivePlannerWorkDate(assigned), "2026-07-25");
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-25", "delivery", "truck-1"),
+    true,
+  );
+  const stops = groupOperationalStops([assigned]).filter((stop) =>
+    stopMatchesColumn(stop, "2026-07-25", "delivery", "truck-1"),
+  );
+  assert.equal(stops.length, 1);
+  assert.equal(stops[0]?.effectiveWorkDate, "2026-07-25");
+  assert.equal(stops[0]?.workDate, null);
+});
+
+await test("explicit delivery workDate wins over eventDate", () => {
+  const assigned = task("explicit-d", "delivery", {
+    workDate: "2026-07-24",
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(effectivePlannerWorkDate(assigned), "2026-07-24");
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-24", "delivery", "truck-1"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-25", "delivery", "truck-1"),
+    false,
+  );
+  const library = buildLoadLibrary([assigned], ["2026-07-24", "2026-07-25"]);
+  assert.equal(library[0]?.delivery["truck-1"], 1);
+  assert.equal(library[1]?.delivery["truck-1"], 0);
+});
+
+await test("assigned pickup with null workDate uses derived pickup fallback", () => {
+  const assigned = task("persist-p", "pickup", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    spanDays: 2,
+    truck: "truck-2",
+    sequence: 1,
+  });
+  assert.equal(effectivePlannerWorkDate(assigned), "2026-07-26");
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-26", "pickup", "truck-2"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-25", "pickup", "truck-2"),
+    false,
+  );
+});
+
+await test("explicit pickup workDate wins over derived fallback", () => {
+  const assigned = task("explicit-p", "pickup", {
+    workDate: "2026-07-27",
+    eventDate: "2026-07-25",
+    spanDays: 2,
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(effectivePlannerWorkDate(assigned), "2026-07-27");
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-27", "pickup", "truck-1"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-26", "pickup", "truck-1"),
+    false,
+  );
+});
+
+await test("unassigned and assigned filtering share the same effective-date rule", () => {
+  const unassigned = task("u1", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: null,
+  });
+  const assigned = task("a1", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(
+    taskMatchesColumn(unassigned, "2026-07-25", "delivery", "unassigned"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-25", "delivery", "truck-1"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(assigned, "2026-07-25", "delivery", "unassigned"),
+    false,
+  );
+});
+
+await test("load library trailer count matches trailer workspace count", () => {
+  const tasks = [
+    task("a", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: "truck-1",
+      sequence: 1,
+    }),
+    task("b", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: "truck-1",
+      sequence: 2,
+    }),
+    task("c", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: "truck-1",
+      sequence: 3,
+    }),
+    task("d", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: null,
+    }),
+  ];
+  const library = buildLoadLibrary(tasks, ["2026-07-25"]);
+  const trailerStops = groupOperationalStops(tasks).filter((stop) =>
+    stopMatchesColumn(stop, "2026-07-25", "delivery", "truck-1"),
+  );
+  assert.equal(library[0]?.delivery["truck-1"], 3);
+  assert.equal(trailerStops.length, 3);
+  assert.equal(library[0]?.delivery.unassigned, 1);
+});
+
+await test("fallback-dated task does not also appear on an unrelated explicit date", () => {
+  const assigned = task("only-one", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  const library = buildLoadLibrary(
+    [assigned],
+    ["2026-07-24", "2026-07-25", "2026-07-26"],
+  );
+  assert.equal(library[0]?.delivery["truck-1"], 0);
+  assert.equal(library[1]?.delivery["truck-1"], 1);
+  assert.equal(library[2]?.delivery["truck-1"], 0);
+});
+
+await test("trailer 1 and trailer 2 remain isolated for null workDate assignments", () => {
+  const t1 = task("t1", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  const t2 = task("t2", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-2",
+    sequence: 1,
+  });
+  const stops = groupOperationalStops([t1, t2]);
+  assert.equal(
+    stops.filter((stop) =>
+      stopMatchesColumn(stop, "2026-07-25", "delivery", "truck-1"),
+    ).length,
+    1,
+  );
+  assert.equal(
+    stops.filter((stop) =>
+      stopMatchesColumn(stop, "2026-07-25", "delivery", "truck-2"),
+    ).length,
+    1,
+  );
+});
+
+await test("delivery and pickup remain isolated under effective-date matching", () => {
+  const delivery = task("same", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  const pickup = task("same", "pickup", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    spanDays: 1,
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(
+    taskMatchesColumn(delivery, "2026-07-25", "delivery", "truck-1"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(pickup, "2026-07-25", "pickup", "truck-1"),
+    true,
+  );
+  assert.equal(
+    taskMatchesColumn(delivery, "2026-07-25", "pickup", "truck-1"),
+    false,
+  );
+  assert.equal(
+    taskMatchesColumn(pickup, "2026-07-25", "delivery", "truck-1"),
+    false,
+  );
+});
+
+await test("print selection includes persisted assigned stop on its effective date", () => {
+  const assigned = task("print-me", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 2,
+    rentalName: "Purple Hurricane 18ft",
+  });
+  const groups = buildPrintDayGroups({
+    dates: ["2026-07-25"],
+    items: [
+      {
+        id: assigned.id,
+        workType: assigned.workType,
+        deliveryDate: effectivePlannerWorkDate(assigned),
+        deliveryTruck: "truck-1",
+        trailerLoad: 1,
+        deliverySequence: assigned.sequence,
+        rentalName: assigned.rentalName,
+      },
+    ],
+    printTruck: "truck-1",
+    printWorkType: "delivery",
+  });
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]?.sheets.length, 1);
+  assert.equal(groups[0]?.sheets[0]?.items[0]?.id, assigned.id);
+});
+
+await test("save payload for fallback-dated delivery omits event_date and keeps null deliveryDate until newly assigned", () => {
+  const baseline = [
+    task("persist", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: "truck-1",
+      sequence: 1,
+    }),
+  ];
+  const reordered = moveStop(baseline, [baseline[0]!.id], {
+    date: "2026-07-25",
+    workType: "delivery",
+    target: "truck-1",
+    targetIndex: 0,
+  }).tasks;
+  assert.equal(reordered[0]?.workDate, null);
+  assert.equal(reordered[0]?.eventDate, "2026-07-25");
+  const payload = assignmentForTask(reordered[0]!);
+  assert.equal(payload.workType, "delivery");
+  if (payload.workType === "delivery") {
+    assert.equal(payload.deliveryDate, null);
+  }
+  assert.equal(JSON.stringify(payload).includes("event_date"), false);
+  assert.equal(JSON.stringify(payload).includes("eventDate"), false);
+
+  const fromUnassigned = task("new-assign", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: null,
+  });
+  const assigned = moveStop([fromUnassigned], [fromUnassigned.id], {
+    date: "2026-07-25",
+    workType: "delivery",
+    target: "truck-1",
+    targetIndex: 0,
+  }).tasks[0]!;
+  assert.equal(assigned.workDate, "2026-07-25");
+  const assignPayload = assignmentForTask(assigned);
+  assert.equal(JSON.stringify(assignPayload).includes("event_date"), false);
+  assert.equal(JSON.stringify(assignPayload).includes("eventDate"), false);
+});
+
+await test("viewing fallback-dated tasks does not mark dirty selection keys by itself", () => {
+  const baseline = [
+    task("view-only", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-25",
+      truck: "truck-1",
+      sequence: 1,
+    }),
+  ];
+  assert.deepEqual([...dirtySelectionKeys(baseline, baseline)], []);
+  assert.deepEqual([...changedTaskIds(baseline, baseline)], []);
 });
 
 console.log("All delivery-planner-workspace tests passed.");

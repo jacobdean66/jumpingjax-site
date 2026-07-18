@@ -17,6 +17,8 @@ test("deliveries page and API require the canonical owner session", () => {
   assert.match(page, /verifyAdminOwnerAccess\(\)/);
   assert.equal((route.match(/verifyAdminOwnerAccess\(\)/g) ?? []).length, 2);
   assert.match(session, /auth\.role === "owner"/);
+  assert.match(page, /href="\/admin"/);
+  assert.match(page, />\s*Sign in\s*</);
   assert.doesNotMatch(`${page}\n${route}`, /verifyAdminDeliveryToken/);
   assert.doesNotMatch(`${page}\n${route}`, /searchParams\.get\("token"\)|body\?\.token/);
 });

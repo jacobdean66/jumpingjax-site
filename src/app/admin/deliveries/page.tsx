@@ -57,6 +57,14 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           <p className="mt-3 leading-relaxed text-slate-600">
             Sign in with the owner account to view delivery routes.
           </p>
+          <div className="mt-5">
+            <Link
+              href="/admin"
+              className="inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
+            >
+              Sign in
+            </Link>
+          </div>
         </section>
       </main>
     );
