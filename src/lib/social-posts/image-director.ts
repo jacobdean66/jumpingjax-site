@@ -64,6 +64,10 @@ export type ImageDirectorInput = {
   platforms?: readonly string[];
   postPlacement?: string | null;
   formatVariantId?: string | null;
+  /** Saved owner creative preferences already formatted for the prompt. */
+  creativePreferenceBlock?: string | null;
+  /** One-shot feedback for this regeneration only (not saved). */
+  oneShotFeedback?: string | null;
   /** @deprecated */
   imageDirectionPreset?: ImageStudioPreset;
 };
@@ -189,6 +193,16 @@ function campaignContext(campaignName: string | null): string {
   return `Campaign theme: ${campaignName.trim()}.`;
 }
 
+function feedbackContext(input: ImageDirectorInput): string {
+  const parts = [
+    input.creativePreferenceBlock?.trim() || null,
+    input.oneShotFeedback?.trim()
+      ? `One-shot owner feedback for this generation only: ${input.oneShotFeedback.trim()}`
+      : null,
+  ].filter(Boolean);
+  return parts.join(" ");
+}
+
 function buildCustomPrompt(
   input: ImageDirectorInput,
   format: ImageDirectorFormat,
@@ -200,6 +214,7 @@ function buildCustomPrompt(
     categoryContext(input.sourceImageCategory),
     campaignContext(input.campaignName),
     "Preserve the exact inflatable from the source image — same product, colors, shape, and visible details.",
+    feedbackContext(input),
     stillImageSuffix(format),
   ].filter(Boolean);
   return parts.join(" ");
@@ -219,6 +234,7 @@ export function buildImageDirectorPrompt(input: ImageDirectorInput): ImageDirect
     PRESET_PROMPTS[preset],
     categoryContext(input.sourceImageCategory),
     campaignContext(input.campaignName),
+    feedbackContext(input),
     stillImageSuffix(format),
   ].filter(Boolean);
 

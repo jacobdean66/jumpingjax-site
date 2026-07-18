@@ -48,7 +48,10 @@ const GROUPS: NavGroup[] = [
   },
   {
     label: "Operations",
-    items: [{ href: "/admin/social-posts/operations", label: "AI Operations Console" }],
+    items: [
+      { href: "/admin/social-posts/operations", label: "AI Operations Console" },
+      { href: "/admin/social-posts/ai-test-lab", label: "AI Test Lab" },
+    ],
   },
 ];
 

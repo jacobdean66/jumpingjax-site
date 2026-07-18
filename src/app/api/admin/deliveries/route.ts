@@ -8,6 +8,7 @@ import {
   loadAdminDeliveriesForDates,
 } from "@/lib/admin/deliveries";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { validateTrailerCapacityAssignments } from "@/lib/admin/trailer-capacity-assignments";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -89,7 +90,13 @@ type RouteAssignment = {
 };
 
 type DeliveryPatchBody =
-  | { assignments?: unknown; autoPlan?: unknown; date?: unknown; dates?: unknown }
+  | {
+      assignments?: unknown;
+      autoPlan?: unknown;
+      date?: unknown;
+      dates?: unknown;
+      allowOwnerOverride?: unknown;
+    }
   | null;
 
 function nullableText(value: unknown): string | null {
@@ -193,10 +200,79 @@ export async function PATCH(req: Request) {
     );
   }
 
+  const allowOwnerOverride = body?.allowOwnerOverride === true;
   const supabase = createServiceRoleClient();
 
   try {
-    for (const assignment of body.assignments as RouteAssignment[]) {
+    const assignments = body.assignments as RouteAssignment[];
+    const itemIds = [
+      ...new Set(
+        assignments
+          .map((assignment) => nullableText(assignment.itemId))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (itemIds.length > 0) {
+      const { data: itemRows, error: itemError } = await supabase
+        .from("booking_rental_items")
+        .select("id, rental_item, rental_name")
+        .in("id", itemIds);
+      if (itemError) throw new Error(itemError.message);
+      const metaById = new Map(
+        ((itemRows ?? []) as Array<{
+          id: string;
+          rental_item: string | null;
+          rental_name: string | null;
+        }>).map((row) => [String(row.id), row]),
+      );
+      const capacityInput = assignments
+        .map((assignment) => {
+          const itemId = nullableText(assignment.itemId);
+          if (!itemId) return null;
+          const meta = metaById.get(itemId);
+          const workTypeRaw = nullableText(assignment.workType) ?? "delivery";
+          if (workTypeRaw !== "delivery" && workTypeRaw !== "pickup") return null;
+          const truck =
+            workTypeRaw === "pickup"
+              ? optionalTruck(assignment.pickupTruck, "pickupTruck")
+              : optionalTruck(assignment.deliveryTruck, "deliveryTruck");
+          const trailerLoad =
+            workTypeRaw === "pickup"
+              ? nullableNumber(assignment.pickupTrailerLoad)
+              : nullableNumber(assignment.trailerLoad);
+          const workDate =
+            workTypeRaw === "pickup"
+              ? optionalYmd(assignment.pickupDate, "pickupDate")
+              : optionalYmd(assignment.deliveryDate, "deliveryDate");
+          return {
+            itemId,
+            rentalItem: meta?.rental_item ?? "rental",
+            rentalName: meta?.rental_name ?? meta?.rental_item ?? "Rental",
+            workType: workTypeRaw as "delivery" | "pickup",
+            workDate,
+            truck,
+            trailerLoad,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+
+      const capacityCheck = validateTrailerCapacityAssignments(capacityInput, {
+        allowOwnerOverride,
+      });
+      if (!capacityCheck.ok) {
+        return NextResponse.json(
+          {
+            error:
+              capacityCheck.violations[0]?.result.blockedMessage ??
+              "Trailer capacity exceeded (max 4 inflatables per load).",
+            violations: capacityCheck.violations,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    for (const assignment of assignments) {
       const id = nullableText(assignment.id);
       const itemId = nullableText(assignment.itemId);
       const workTypeRaw = nullableText(assignment.workType) ?? "delivery";

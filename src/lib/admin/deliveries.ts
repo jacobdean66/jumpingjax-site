@@ -21,6 +21,17 @@ import {
   type WorkType,
   workTaskId,
 } from "@/lib/admin/delivery-planner-dates";
+import type { RentalCategoryId } from "@/data/rentals";
+import { loadAdminInventoryItems } from "@/lib/admin/inventory";
+import {
+  emptyInventoryOperationalFields,
+  isInflatableCategory,
+  type InventoryOperationalFields,
+} from "@/lib/admin/inventory-ops";
+import {
+  countsTowardTrailerCapacity,
+  MAX_TRAILER_INFLATABLES,
+} from "@/lib/admin/trailer-capacity";
 
 export { todayYmd, normalizeDeliveryDate };
 
@@ -160,6 +171,11 @@ export type AdminDeliveryWorkTask = {
   singleStopMapUrl: string | null;
   crossDateLabel: string | null;
   warnings: PlannerConflictWarning[];
+  /** Inventory operational fields keyed by rental slug (authoritative). */
+  inventoryOps?: InventoryOperationalFields;
+  inventoryCategoryId?: RentalCategoryId | null;
+  inventoryImageSrc?: string | null;
+  isInflatable?: boolean;
 };
 
 export type AdminDeliveryBooking = {
@@ -573,6 +589,54 @@ function buildWorkTasks(
   return { scheduled, unscheduled };
 }
 
+type InventoryLookup = {
+  ops: InventoryOperationalFields;
+  categoryId: RentalCategoryId | null;
+  imageSrc: string | null;
+  isInflatable: boolean;
+};
+
+async function loadInventoryLookupSafe(): Promise<Map<string, InventoryLookup>> {
+  try {
+    const items = await loadAdminInventoryItems();
+    return new Map(
+      items.map((item) => [
+        item.slug,
+        {
+          ops: item.ops,
+          categoryId: item.categoryId,
+          imageSrc: item.imageSrc || null,
+          isInflatable: isInflatableCategory(item.categoryId, item.routeKind),
+        },
+      ]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+function enrichTaskWithInventory(
+  task: AdminDeliveryWorkTask,
+  lookup: Map<string, InventoryLookup>,
+): AdminDeliveryWorkTask {
+  const match = lookup.get(task.rentalItem);
+  const categoryId = match?.categoryId ?? null;
+  const isInflatable = countsTowardTrailerCapacity({
+    rentalItem: task.rentalItem,
+    rentalName: task.rentalName,
+    categoryId,
+    routeKind: undefined,
+    isInflatable: match?.isInflatable,
+  });
+  return {
+    ...task,
+    inventoryOps: match?.ops ?? emptyInventoryOperationalFields(categoryId ?? "bounce-houses"),
+    inventoryCategoryId: categoryId,
+    inventoryImageSrc: match?.imageSrc ?? null,
+    isInflatable,
+  };
+}
+
 export async function loadAdminDeliveries(
   rawDate: string | null | undefined,
 ): Promise<AdminDeliveriesResult> {
@@ -699,11 +763,17 @@ export async function loadAdminDeliveriesForDates(
           task.plannedArrivalTime,
       })),
   );
+  const inventoryBySlug = await loadInventoryLookupSafe();
+  const enrich = (task: AdminDeliveryWorkTask): AdminDeliveryWorkTask =>
+    enrichTaskWithInventory(task, inventoryBySlug);
+  const enrichedTasks = tasks.map(enrich);
+  const enrichedUnscheduled = unscheduled.map(enrich);
+
   const warnings = [
     ...duplicateWarnings,
     ...overlapWarnings,
-    ...tasks.flatMap((task) => task.warnings),
-    ...unscheduled.flatMap((task) => task.warnings),
+    ...enrichedTasks.flatMap((task) => task.warnings),
+    ...enrichedUnscheduled.flatMap((task) => task.warnings),
   ];
 
   // Legacy bookings list: delivery items for the primary date (driver / logistics).
@@ -739,22 +809,26 @@ export async function loadAdminDeliveriesForDates(
     (sum, booking) => sum + booking.estimatedSetupMinutes,
     0,
   );
-  const deliveryTaskCount = tasks.filter((task) => task.workType === "delivery").length;
-  const pickupTaskCount = tasks.filter((task) => task.workType === "pickup").length;
+  const deliveryTaskCount = enrichedTasks.filter(
+    (task) => task.workType === "delivery",
+  ).length;
+  const pickupTaskCount = enrichedTasks.filter(
+    (task) => task.workType === "pickup",
+  ).length;
 
   return {
     date: primaryDate,
     dates,
     bookings: deliveryBookings,
-    tasks,
-    unscheduled,
+    tasks: enrichedTasks,
+    unscheduled: enrichedUnscheduled,
     warnings,
     routeUrl: googleDirectionsUrl(routeStops),
     summary: {
       bookingCount: new Set([
         ...deliveryBookings.map((booking) => booking.id),
-        ...tasks.map((task) => task.bookingId),
-        ...unscheduled.map((task) => task.bookingId),
+        ...enrichedTasks.map((task) => task.bookingId),
+        ...enrichedUnscheduled.map((task) => task.bookingId),
       ]).size,
       inflatableCount: deliveryBookings.reduce(
         (sum, booking) => sum + booking.itemCount,
@@ -770,7 +844,7 @@ export async function loadAdminDeliveriesForDates(
       estimatedSetupMinutes: estimatedSetup,
       deliveryTaskCount,
       pickupTaskCount,
-      unscheduledCount: unscheduled.length,
+      unscheduledCount: enrichedUnscheduled.length,
     },
   };
 }
@@ -1059,7 +1133,7 @@ export async function autoPlanDeliveriesForDate(
   const dayStartMinutes = 7 * 60;
   const firstDriveMinutes = 45;
   const betweenStopsMinutes = 30;
-  const truckCapacity = 3;
+  const truckCapacity = MAX_TRAILER_INFLATABLES;
 
   const truckState: Record<DeliveryTruckId, TruckPlanState> = {
     "truck-1": {

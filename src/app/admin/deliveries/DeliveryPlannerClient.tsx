@@ -12,6 +12,8 @@ import {
   type PlannerWorkFilter,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
+import { validateTrailerCapacityAssignments } from "@/lib/admin/trailer-capacity-assignments";
+import { MAX_TRAILER_INFLATABLES } from "@/lib/admin/trailer-capacity";
 
 type TruckId = "truck-1" | "truck-2";
 type ColumnId = "unassigned" | TruckId;
@@ -37,6 +39,7 @@ type PlannedInflatable = {
   rentalName: string;
   rentalItem: string;
   isBigSlide: boolean;
+  isInflatable: boolean;
   deliveryDate: string | null;
   deliveryTruck: TruckId | null;
   trailerLoad: number | null;
@@ -68,8 +71,8 @@ const RELOAD_MINUTES = 20;
 const TARGET_READY_BUFFER_MINUTES = 60;
 const MIN_READY_BUFFER_MINUTES = 30;
 const DELIVERY_WINDOW_MINUTES = 180;
-const TRUCK_INFLATABLE_CAPACITY = 3;
-const TRUCK_BIG_SLIDE_CAPACITY = 3;
+const TRUCK_INFLATABLE_CAPACITY = MAX_TRAILER_INFLATABLES;
+const TRUCK_BIG_SLIDE_CAPACITY = MAX_TRAILER_INFLATABLES;
 
 function minutesFromTime(value: string | null): number | null {
   if (!value) return null;
@@ -257,6 +260,7 @@ function taskToPlanned(task: AdminDeliveryWorkTask): PlannedInflatable {
     rentalName: task.rentalName,
     rentalItem: task.rentalItem,
     isBigSlide: task.isBigSlide,
+    isInflatable: task.isInflatable !== false,
     deliveryDate: task.workDate,
     deliveryTruck: asTruck(task.truck),
     trailerLoad: task.trailerLoad,
@@ -374,7 +378,7 @@ function recalculatePlan(items: PlannedInflatable[]): PlannedInflatable[] {
                 ...planned,
                 warning: "capacity",
                 warningText:
-                  "Needs attention: this trailer load has more than 3 inflatables.",
+                  `Needs attention: this trailer load has more than ${TRUCK_INFLATABLE_CAPACITY} inflatables.`,
               }
             : { ...planned, ...evaluateWarning(planned) },
         );
@@ -1301,20 +1305,55 @@ export function DeliveryPlannerClient({
     }
   };
 
-  const savePlan = async () => {
+  const savePlan = async (allowOwnerOverride = false) => {
     setSaveStatus("saving");
     setSaveError(null);
     try {
+      const capacityCheck = validateTrailerCapacityAssignments(
+        items
+          .filter((item) => item.deliveryTruck && item.deliveryDate)
+          .map((item) => ({
+            itemId: item.itemId,
+            rentalItem: item.rentalItem,
+            rentalName: item.rentalName,
+            workType: item.workType,
+            workDate: item.deliveryDate,
+            truck: item.deliveryTruck,
+            trailerLoad: item.trailerLoad,
+            isInflatable: item.isInflatable,
+          })),
+        { allowOwnerOverride },
+      );
+      if (!capacityCheck.ok) {
+        const detail = capacityCheck.violations
+          .map(
+            (violation) =>
+              violation.result.blockedMessage ??
+              `Trailer over ${MAX_TRAILER_INFLATABLES}-inflatable limit`,
+          )
+          .join(" ");
+        throw new Error(
+          `${detail} Move inflatables to another load, or use owner override.`,
+        );
+      }
+
       const res = await fetch("/api/admin/deliveries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignments: routeAssignments(items) }),
+        body: JSON.stringify({
+          assignments: routeAssignments(items),
+          allowOwnerOverride,
+        }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Unable to save route plan.");
       setSaveStatus("saved");
       setHasLocalEdits(false);
-      setPlanMessage("Plan saved. Event dates were not changed.");
+      setPlanMessage(
+        allowOwnerOverride
+          ? "Plan saved with owner capacity override. Event dates were not changed."
+          : "Plan saved. Event dates were not changed.",
+      );
       router.refresh();
     } catch (error) {
       setSaveStatus("error");
@@ -1379,12 +1418,22 @@ export function DeliveryPlannerClient({
             </button>
             <button
               type="button"
-              onClick={savePlan}
+              onClick={() => void savePlan(false)}
               disabled={saveStatus === "saving"}
               className="rounded-xl bg-amber-300 px-5 py-4 text-left text-sm font-black text-amber-950 hover:bg-amber-200 disabled:opacity-60"
             >
               <span className="block text-xs uppercase">Save</span>
               {saveStatus === "saving" ? "Saving..." : "Save This Plan"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void savePlan(true)}
+              disabled={saveStatus === "saving"}
+              className="rounded-xl border border-rose-300 bg-rose-50 px-5 py-4 text-left text-sm font-black text-rose-900 hover:bg-rose-100 disabled:opacity-60"
+              title={`Owner only: allow more than ${MAX_TRAILER_INFLATABLES} inflatables on a trailer load`}
+            >
+              <span className="block text-xs uppercase">Owner</span>
+              Override Capacity
             </button>
           </div>
         </div>
