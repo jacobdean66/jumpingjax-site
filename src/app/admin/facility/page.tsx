@@ -98,6 +98,29 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             />
           </div>
         )}
+        {booking.calendarNeedsRepair && (
+          <div className="flex flex-col items-start gap-2 print:hidden">
+            <p className="max-w-sm text-xs font-semibold text-amber-800">
+              {booking.safeWorkflowErrorClass ===
+                "calendar_secondary_projection_failed" ||
+              (booking.googleCalendarEventId &&
+                booking.safeWorkflowErrorClass !==
+                  "calendar_projection_failed")
+                ? "Primary calendar synced. Backup calendar sync needs attention."
+                : "Calendar sync needs attention."}
+              {booking.safeWorkflowErrorClass
+                ? ` (${booking.safeWorkflowErrorClass})`
+                : ""}{" "}
+              Approval and customer email are unchanged.
+            </p>
+            <BookingActionButton
+              action="confirm"
+              endpoint={actionHref(booking.id, "confirm")}
+              label="Retry calendar sync"
+              tone="confirm"
+            />
+          </div>
+        )}
       </div>
 
       <div className="compact-print-columns mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -123,7 +146,15 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             <Detail label="Drink" value={booking.drinkChoice ?? "Not set"} />
             <Detail
               label="Calendar"
-              value={booking.googleCalendarEventId ? "Created" : "Not created"}
+              value={
+                booking.calendarNeedsRepair
+                  ? booking.googleCalendarEventId
+                    ? "Primary event saved — retry sync"
+                    : "Not created — retry sync"
+                  : booking.googleCalendarEventId
+                    ? "Created"
+                    : "Not created"
+              }
             />
           </div>
         </section>

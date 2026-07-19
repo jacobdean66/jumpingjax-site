@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   decideGoogleCalendarSyncAction,
+  evaluateGoogleCalendarProjection,
   getGoogleCalendarDestinations,
+  summarizeGoogleCalendarError,
 } from "./calendar";
 
 test("getGoogleCalendarDestinations returns primary only when secondary is unset", () => {
@@ -126,4 +128,59 @@ test("sync result statuses are reported independently per destination", () => {
   assert.equal(result.primaryStatus, "updated");
   assert.equal(result.secondaryStatus, "failed");
   assert.equal(result.primaryEventId, "primary-event-123");
+});
+
+test("successful primary+secondary projection is not a hard failure", () => {
+  const evaluation = evaluateGoogleCalendarProjection({
+    primaryEventId: "primary-1",
+    secondaryEventId: "secondary-1",
+    primaryStatus: "created",
+    secondaryStatus: "created",
+  });
+  assert.equal(evaluation.hardFailed, false);
+  assert.equal(evaluation.primaryFailed, false);
+  assert.equal(evaluation.secondaryDegraded, false);
+});
+
+test("calendar API secondary failure leaves primary projection intact", () => {
+  const evaluation = evaluateGoogleCalendarProjection({
+    primaryEventId: "primary-1",
+    secondaryEventId: null,
+    primaryStatus: "created",
+    secondaryStatus: "failed",
+  });
+  assert.equal(evaluation.hardFailed, false);
+  assert.equal(evaluation.secondaryDegraded, true);
+  assert.equal(evaluation.primaryEventId, "primary-1");
+});
+
+test("primary calendar failure is a hard workflow failure", () => {
+  const evaluation = evaluateGoogleCalendarProjection({
+    primaryEventId: null,
+    secondaryEventId: null,
+    primaryStatus: "failed",
+    secondaryStatus: "skipped",
+  });
+  assert.equal(evaluation.hardFailed, true);
+  assert.equal(evaluation.secondaryDegraded, false);
+});
+
+test("existing primary event with missing secondary id reconciles as create-on-secondary only", () => {
+  assert.equal(decideGoogleCalendarSyncAction("existing-primary"), "update");
+  assert.equal(decideGoogleCalendarSyncAction(null), "create");
+});
+
+test("safe admin calendar error output never includes tokens or secrets", () => {
+  const summary = summarizeGoogleCalendarError({
+    message: "invalid_grant",
+    response: {
+      status: 401,
+      data: {
+        error: "invalid_grant",
+        error_description: "Token ya29.secret-value and Bearer abc.def",
+      },
+    },
+  });
+  assert.equal(summary.message, "invalid_grant");
+  assert.doesNotMatch(summary.message, /ya29\.|Bearer\s+\w+/i);
 });
