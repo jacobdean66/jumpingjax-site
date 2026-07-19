@@ -295,6 +295,27 @@ await test("cityFromAddress never treats unit lines as city", () => {
   );
 });
 
+await test("cityFromAddress never treats full state names as city", () => {
+  assert.equal(
+    cityFromAddress("Ware Shoals, South Carolina 29692"),
+    "Ware Shoals",
+  );
+  assert.equal(
+    cityFromAddress("Ware Shoals, South Carolina, 29692"),
+    "Ware Shoals",
+  );
+  assert.equal(
+    cityFromAddress("123 Main St, Greenwood, South Carolina 29646"),
+    "Greenwood",
+  );
+  assert.equal(cityFromAddress("South Carolina 29646"), CITY_UNAVAILABLE);
+  assert.equal(cityFromAddress(null, "South Carolina"), CITY_UNAVAILABLE);
+  assert.equal(
+    cityFromAddress("123 Main St, Apt 4, Greenwood, SC 29646"),
+    "Greenwood",
+  );
+});
+
 await test("cityFromAddress prefers structured city fields", () => {
   assert.equal(
     cityFromAddress("100 Main St, Greenwood County, SC", "Ninety Six"),
@@ -405,6 +426,11 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
   assert.equal(source.includes("toggleDateInDraft"), true);
   assert.equal(source.includes("Apply dates"), true);
   assert.equal(source.includes("Clear all"), true);
+  assert.equal(
+    source.includes("setDraftDates(defaultPlanningWindowDates())"),
+    true,
+  );
+  assert.equal(source.includes("defaultPlanningWindowDates()"), true);
   assert.equal(source.includes("aria-controls={mobileOpen ? dialogId"), true);
   assert.equal(source.includes("id={dialogId}"), true);
   assert.equal(source.includes("scrollIntoView"), false);
