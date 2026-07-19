@@ -21,7 +21,6 @@ import {
   formatLongDate,
   todayYmd,
   type WorkType,
-  type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
 import {
   buildPrintDayGroups,
@@ -33,13 +32,14 @@ import {
   buildLoadLibrary,
   dirtySelectionKeys,
   effectivePlannerWorkDate,
+  groupOperationalStops,
+  assignmentsForUnassigned,
   moveStop,
   productSummary,
   rangeDates,
   rescheduleStopWorkDate,
   selectionKey,
-  stopMatchesColumn,
-  taskSearchText,
+  unassignedSelectionKey,
   stopMatchesColumn,
   taskSearchText,
   type PlannerColumn,
@@ -113,21 +113,12 @@ function Thumbnail({
         aria-label={`Open details for ${productSummary(stop.products)}`}
       >
         <span className="rp-task-title block line-clamp-2 text-sm font-black leading-tight">
+          {productSummary(stop.products)}
+        </span>
         <span className="rp-task-meta mt-2 block text-xs font-bold">
           {stop.city}
         </span>
         {stop.effectiveWorkDate !== stop.eventDate.slice(0, 10) ? (
-          <span className="rp-eyebrow mt-1.5 block text-[10px] font-black uppercase tracking-[0.08em]">
-            {stop.workType === "delivery" ? "Setup/Delivery" : "Pickup"}:{" "}
-            {formatCompactDate(stop.effectiveWorkDate)}
-            <span className="rp-task-meta mt-0.5 block font-bold normal-case tracking-normal">
-              Event: {formatCompactDate(stop.eventDate.slice(0, 10))}
-            </span>
-          </span>
-        ) : null}
-      </button>
-      <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
-        <span
           <span className="rp-eyebrow mt-1.5 block text-[10px] font-black uppercase tracking-[0.08em]">
             {stop.workType === "delivery" ? "Setup/Delivery" : "Pickup"}:{" "}
             {formatCompactDate(stop.effectiveWorkDate)}
@@ -435,43 +426,12 @@ export function RoutePlannerWorkspace({
     targetIndex: number,
   ) {
     const result = moveStop(tasks, stop.taskIds, {
-    setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
-  }
-
-  function applyReschedule(stop: WorkspaceStop, nextWorkDate: string) {
-    const eventDate = stop.eventDate.slice(0, 10);
-    const result = rescheduleStopWorkDate(tasks, stop.taskIds, nextWorkDate);
+      date: selection.date,
+      workType: selection.workType,
+      target,
+      targetIndex,
+    });
     if (result.conflict) {
-      setNotice(result.conflict);
-      return;
-    }
-    setTasks(result.tasks);
-    setNotice(null);
-    setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
-    setSelection((current) => ({
-      ...current,
-      date: nextWorkDate,
-      workType: stop.workType,
-    }));
-    setExpandedDates((current) => ({ ...current, [nextWorkDate]: true }));
-    const refreshed = groupOperationalStops(result.tasks).find(
-      (candidate) =>
-        candidate.bookingId === stop.bookingId &&
-        candidate.workType === stop.workType &&
-        candidate.effectiveWorkDate === nextWorkDate &&
-        candidate.truck === stop.truck,
-    );
-    setDetails(refreshed ?? null);
-    if (stop.workType === "delivery" && nextWorkDate !== eventDate) {
-      setNotice(
-        `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}.`,
-      );
-    }
-  }
-
-  function handleDrop(
-    event: DragEvent<HTMLElement>,
-    target: PlannerColumn,
       setNotice(result.conflict);
       return;
     }
@@ -488,7 +448,6 @@ export function RoutePlannerWorkspace({
       return;
     }
     setTasks(result.tasks);
-    setNotice(null);
     setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
     setSelection((current) => ({
       ...current,
@@ -504,10 +463,59 @@ export function RoutePlannerWorkspace({
         candidate.truck === stop.truck,
     );
     setDetails(refreshed ?? null);
-    if (stop.workType === "delivery" && nextWorkDate !== eventDate) {
-      setNotice(
-        `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}.`,
+    const assigned = stop.truck === "truck-1" || stop.truck === "truck-2";
+    setNotice(
+      assigned
+        ? `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}. Click Save on the trailer to persist.`
+        : `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}. Click Save on Unassigned Work to persist — trailer assignment is not required.`,
+    );
+  }
+
+  async function saveUnassignedWorkDates() {
+    const assignments = assignmentsForUnassigned(
+      baseline,
+      tasks,
+      selection.date,
+      selection.workType,
+    );
+    if (assignments.length === 0) {
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "saved" }));
+      return;
+    }
+    setSaveStates((current) => ({ ...current, [unassignedKey]: "saving" }));
+    setSaveErrors((current) => ({ ...current, [unassignedKey]: "" }));
+    try {
+      const response = await fetch("/api/admin/deliveries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignments }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Unable to save setup/delivery dates.");
+      }
+      const savedIds = new Set(
+        assignments.map(
+          (assignment) => `${assignment.itemId}:${assignment.workType}`,
+        ),
       );
+      const currentById = new Map(tasks.map((task) => [task.id, task]));
+      setBaseline((current) =>
+        current.map((task) =>
+          savedIds.has(task.id) ? currentById.get(task.id) ?? task : task,
+        ),
+      );
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "saved" }));
+      setNotice("Saved setup/delivery date. Event date was not changed.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to save setup/delivery dates.";
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "error" }));
+      setSaveErrors((current) => ({ ...current, [unassignedKey]: message }));
     }
   }
 
@@ -644,13 +652,12 @@ export function RoutePlannerWorkspace({
   const printLoads = useMemo(() => {
     const loads = new Map<number, WorkspaceStop[]>();
     for (const stop of printStops) {
-            }
-          >
-            <DeliveryDateSelector
-              variant="mobile"
-              initialDates={dates}
-              selectedDates={dates}
-              onApplyDates={applyPlannerDates}
+      const load = stop.trailerLoad ?? 1;
+      loads.set(load, [...(loads.get(load) ?? []), stop]);
+    }
+    return filterNonEmptyPrintLoads(
+      [...loads.entries()]
+        .sort(([left], [right]) => left - right)
         .map(([, stops]) => stops),
     );
   }, [printStops]);
@@ -712,26 +719,12 @@ export function RoutePlannerWorkspace({
             >
               {panel}
             </button>
-                  Next
-                </button>
-              </div>
-              <Suspense
-                fallback={
-                  <div className="rp-panel mt-2 hidden rounded-xl border-2 p-2 text-xs font-bold lg:block">
-                    Loading date controlsΓÇª
-                  </div>
-                }
-              >
-                <DeliveryDateSelector
-                  variant="library"
-                  initialDates={dates}
-                  selectedDates={dates}
-                  onApplyDates={applyPlannerDates}
-                />
-              </Suspense>
-              <input
-                type="search"
-                value={search}
+          ))}
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[15rem_minmax(20rem,1fr)_minmax(24rem,1.15fr)]">
+          <aside
+            className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "library" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
@@ -775,7 +768,7 @@ export function RoutePlannerWorkspace({
               <Suspense
                 fallback={
                   <div className="rp-panel mt-2 hidden rounded-xl border-2 p-2 text-xs font-bold lg:block">
-                    Loading date controlsΓÇª
+                    Loading date controls…
                   </div>
                 }
               >
@@ -1227,17 +1220,12 @@ export function RoutePlannerWorkspace({
 
       {printStops.length > 0 ? (
         <section className="route-planner-print hidden print:block">
-
-      <RoutePlannerDetailsModal
-        stop={details}
-        plannerDates={dates}
-        onRescheduleWorkDate={(nextWorkDate) => {
-          if (!details) return;
-          applyReschedule(details, nextWorkDate);
-        }}
-        onClose={() => setDetails(null)}
-      />
-      <UnsavedSwitchDialog
+          <h1 className="text-3xl font-black">Jumping Jax Route Plan</h1>
+          <p className="mt-1 text-lg font-bold">{formatLongDate(selection.date)}</p>
+          <div className="mt-3 flex gap-3 border-y-2 border-slate-900 py-2 text-lg font-black">
+            <span>{workLabel(selection.workType)}</span>
+            <span>·</span>
+            <span>
               {TRUCK_LABELS[selection.truck]} · {TRUCK_DETAIL[selection.truck]}
             </span>
             <span>·</span>
