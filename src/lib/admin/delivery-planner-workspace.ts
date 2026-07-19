@@ -177,6 +177,60 @@ const STATE_OR_STATE_ZIP = /^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i;
 const COUNTY_LABEL = /\bCounty\b/i;
 const UNIT_OR_SECONDARY =
   /^(?:apt|apartment|suite|ste|unit|bldg|building|fl|floor|rm|room|#)\b/i;
+/** Full US state / DC names so they are never shown as city labels. */
+const US_STATE_NAMES = new Set([
+  "alabama",
+  "alaska",
+  "arizona",
+  "arkansas",
+  "california",
+  "colorado",
+  "connecticut",
+  "delaware",
+  "district of columbia",
+  "florida",
+  "georgia",
+  "hawaii",
+  "idaho",
+  "illinois",
+  "indiana",
+  "iowa",
+  "kansas",
+  "kentucky",
+  "louisiana",
+  "maine",
+  "maryland",
+  "massachusetts",
+  "michigan",
+  "minnesota",
+  "mississippi",
+  "missouri",
+  "montana",
+  "nebraska",
+  "nevada",
+  "new hampshire",
+  "new jersey",
+  "new mexico",
+  "new york",
+  "north carolina",
+  "north dakota",
+  "ohio",
+  "oklahoma",
+  "oregon",
+  "pennsylvania",
+  "rhode island",
+  "south carolina",
+  "south dakota",
+  "tennessee",
+  "texas",
+  "utah",
+  "vermont",
+  "virginia",
+  "washington",
+  "west virginia",
+  "wisconsin",
+  "wyoming",
+]);
 
 /** Title-case city names without destroying mixed-case forms like McBee. */
 export function normalizeCityDisplay(city: string): string {
@@ -199,7 +253,11 @@ function looksLikeCountyPart(part: string): boolean {
 function looksLikeStateOrZipPart(part: string): boolean {
   const trimmed = part.trim();
   if (!trimmed) return false;
-  return ZIP_ONLY.test(trimmed) || STATE_OR_STATE_ZIP.test(trimmed);
+  if (ZIP_ONLY.test(trimmed) || STATE_OR_STATE_ZIP.test(trimmed)) return true;
+  const lower = trimmed.toLowerCase();
+  if (US_STATE_NAMES.has(lower)) return true;
+  const withZip = lower.match(/^(.+?)\s+(\d{5}(?:-\d{4})?)$/);
+  return Boolean(withZip && US_STATE_NAMES.has(withZip[1]!));
 }
 
 function looksLikeUnitOrSecondaryPart(part: string): boolean {
@@ -248,7 +306,7 @@ export function cityFromAddress(
 
   let cityIndex =
     stateIndex > 0 ? stateIndex - 1 : parts.length >= 2 ? parts.length - 2 : -1;
-  while (cityIndex >= 0 && looksLikeUnitOrSecondaryPart(parts[cityIndex]!)) {
+  while (cityIndex >= 0 && looksLikeNonCityPart(parts[cityIndex]!)) {
     cityIndex -= 1;
   }
 

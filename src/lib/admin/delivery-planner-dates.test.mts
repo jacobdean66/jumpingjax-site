@@ -21,6 +21,9 @@ import {
   sortUniqueYmd,
   weekendContaining,
   datesForPreset,
+  defaultPlanningWindowDates,
+  todayYmd,
+  addDays,
 } from "./delivery-planner-dates";
 
 type TestFn = () => void | Promise<void>;
@@ -98,6 +101,16 @@ await test("weekend presets", () => {
     "2026-07-18",
     "2026-07-19",
   ]);
+});
+
+await test("clear / default planning window is seven consecutive days", () => {
+  const wednesday = new Date(2026, 6, 15, 12, 0, 0);
+  const expected = Array.from({ length: 7 }, (_, offset) =>
+    addDays(todayYmd(wednesday), offset),
+  );
+  assert.deepEqual(defaultPlanningWindowDates(wednesday), expected);
+  assert.deepEqual(datesForPreset("clear", wednesday), expected);
+  assert.equal(expected.length, 7);
 });
 
 await test("effective delivery/pickup dates", () => {
