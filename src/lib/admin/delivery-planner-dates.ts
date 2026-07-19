@@ -133,6 +133,15 @@ export function nextWeekend(anchorYmd: string): [string, string] {
   return [nextSat, addDays(nextSat, 1)];
 }
 
+/**
+ * Canonical Route Planner planning window when no explicit dates are chosen:
+ * today (America/New_York) plus the next six calendar days.
+ */
+export function defaultPlanningWindowDates(now = new Date()): string[] {
+  const today = todayYmd(now);
+  return Array.from({ length: 7 }, (_, offset) => addDays(today, offset));
+}
+
 export function datesForPreset(
   preset: DatePresetId,
   now = new Date(),
@@ -148,7 +157,7 @@ export function datesForPreset(
     case "next-weekend":
       return [...nextWeekend(today)];
     case "clear":
-      return [today];
+      return defaultPlanningWindowDates(now);
     default:
       return [today];
   }
