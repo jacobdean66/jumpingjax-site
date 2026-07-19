@@ -175,6 +175,8 @@ export const CITY_UNAVAILABLE = "City unavailable";
 const ZIP_ONLY = /^\d{5}(?:-\d{4})?$/;
 const STATE_OR_STATE_ZIP = /^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i;
 const COUNTY_LABEL = /\bCounty\b/i;
+const UNIT_OR_SECONDARY =
+  /^(?:apt|apartment|suite|ste|unit|bldg|building|fl|floor|rm|room|#)\b/i;
 
 /** Title-case city names without destroying mixed-case forms like McBee. */
 export function normalizeCityDisplay(city: string): string {
@@ -200,6 +202,21 @@ function looksLikeStateOrZipPart(part: string): boolean {
   return ZIP_ONLY.test(trimmed) || STATE_OR_STATE_ZIP.test(trimmed);
 }
 
+function looksLikeUnitOrSecondaryPart(part: string): boolean {
+  return UNIT_OR_SECONDARY.test(part.trim());
+}
+
+/** Parts that must never be shown as a Route Planner city label. */
+function looksLikeNonCityPart(part: string): boolean {
+  const trimmed = part.trim();
+  if (!trimmed) return true;
+  return (
+    looksLikeCountyPart(trimmed) ||
+    looksLikeStateOrZipPart(trimmed) ||
+    looksLikeUnitOrSecondaryPart(trimmed)
+  );
+}
+
 /**
  * Derive a display city from a structured city field or a US-style address.
  * Never substitutes county when city cannot be determined.
@@ -209,7 +226,7 @@ export function cityFromAddress(
   structuredCity?: string | null,
 ): string {
   const structured = structuredCity?.replace(/\s+/g, " ").trim();
-  if (structured && !looksLikeCountyPart(structured)) {
+  if (structured && !looksLikeNonCityPart(structured)) {
     return normalizeCityDisplay(structured);
   }
 
@@ -229,19 +246,20 @@ export function cityFromAddress(
     }
   }
 
-  const cityCandidate =
-    stateIndex > 0
-      ? parts[stateIndex - 1]!
-      : parts.length >= 2
-        ? parts[parts.length - 2]!
-        : null;
+  let cityIndex =
+    stateIndex > 0 ? stateIndex - 1 : parts.length >= 2 ? parts.length - 2 : -1;
+  while (cityIndex >= 0 && looksLikeUnitOrSecondaryPart(parts[cityIndex]!)) {
+    cityIndex -= 1;
+  }
 
-  if (!cityCandidate || looksLikeCountyPart(cityCandidate)) {
+  const cityCandidate = cityIndex >= 0 ? parts[cityIndex]! : null;
+
+  if (!cityCandidate || looksLikeNonCityPart(cityCandidate)) {
     return CITY_UNAVAILABLE;
   }
 
-  // Reject street-only leftovers when that is all we have.
-  if (/^\d+\s/.test(cityCandidate) && parts.length <= 2) {
+  // Reject street-like leftovers (leading house number).
+  if (/^\d+\s/.test(cityCandidate)) {
     return CITY_UNAVAILABLE;
   }
 

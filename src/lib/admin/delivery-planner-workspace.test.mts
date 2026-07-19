@@ -274,6 +274,27 @@ await test("cityFromAddress handles missing and malformed addresses", () => {
   assert.equal(cityFromAddress("not-an-address"), CITY_UNAVAILABLE);
 });
 
+await test("cityFromAddress never treats unit lines as city", () => {
+  assert.equal(
+    cityFromAddress("123 Main St, Apt 4, SC 29646"),
+    CITY_UNAVAILABLE,
+  );
+  assert.equal(
+    cityFromAddress("123 Main St, Suite 200, SC 29646"),
+    CITY_UNAVAILABLE,
+  );
+  assert.equal(
+    cityFromAddress("12 O'Connor St, Apt 2, Fountain Inn, SC"),
+    "Fountain Inn",
+  );
+  assert.equal(cityFromAddress("Honea Path, SC"), "Honea Path");
+  assert.equal(cityFromAddress("Abbeville, SC 29620"), "Abbeville");
+  assert.equal(
+    cityFromAddress(null, "Apt 4"),
+    CITY_UNAVAILABLE,
+  );
+});
+
 await test("cityFromAddress prefers structured city fields", () => {
   assert.equal(
     cityFromAddress("100 Main St, Greenwood County, SC", "Ninety Six"),
@@ -384,6 +405,8 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
   assert.equal(source.includes("toggleDateInDraft"), true);
   assert.equal(source.includes("Apply dates"), true);
   assert.equal(source.includes("Clear all"), true);
+  assert.equal(source.includes("aria-controls={mobileOpen ? dialogId"), true);
+  assert.equal(source.includes("id={dialogId}"), true);
   assert.equal(source.includes("scrollIntoView"), false);
   assert.equal(source.includes("window.scrollTo"), false);
   assert.equal(source.includes("metaKey"), false);

@@ -69,6 +69,7 @@ export function DeliveryDateSelector({
   const router = useRouter();
   const searchParams = useSearchParams();
   const dialogTitleId = useId();
+  const dialogId = `${dialogTitleId}-dialog`;
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -203,7 +204,7 @@ export function DeliveryDateSelector({
           className="rp-date-mobile-trigger flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 px-3 py-3 text-left"
           aria-haspopup="dialog"
           aria-expanded={mobileOpen}
-          aria-controls={mobileOpen ? dialogTitleId : undefined}
+          aria-controls={mobileOpen ? dialogId : undefined}
         >
           <span className="min-w-0">
             <span className="rp-eyebrow block text-[10px] font-black uppercase tracking-[0.14em]">
@@ -229,6 +230,7 @@ export function DeliveryDateSelector({
         >
           <div
             ref={dialogRef}
+            id={dialogId}
             role="dialog"
             aria-modal="true"
             aria-labelledby={dialogTitleId}
