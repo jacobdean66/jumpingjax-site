@@ -14,6 +14,7 @@ import {
   dateToYmd,
   datesForPreset,
   datesToSearchParams,
+  defaultPlanningWindowDates,
   formatCompactDate,
   formatLongDate,
   monthMatrix,
@@ -95,25 +96,13 @@ export function DeliveryDateSelector({
   });
 
   function applyDates(nextDates: string[]) {
+    // Planner always needs an active window; empty apply means the default 7 days.
     const normalized =
-      nextDates.length === 0 ? [] : normalizeSelectedDates(nextDates);
+      nextDates.length === 0
+        ? defaultPlanningWindowDates()
+        : normalizeSelectedDates(nextDates);
     if (onApplyDates) {
       onApplyDates(normalized);
-      return;
-    }
-    if (normalized.length === 0) {
-      const params = new URLSearchParams();
-      const extras = readPreservedFilters(searchParams);
-      for (const [key, value] of Object.entries(extras)) {
-        if (value != null && value !== "" && value !== "all") {
-          params.set(key, value);
-        }
-      }
-      const query = params.toString();
-      router.replace(
-        query ? `/admin/deliveries?${query}` : "/admin/deliveries",
-        { scroll: false },
-      );
       return;
     }
     const params = datesToSearchParams(
@@ -392,7 +381,7 @@ export function DeliveryDateSelector({
             <footer className="rp-panel-head flex shrink-0 flex-wrap gap-2 border-t-2 p-4">
               <button
                 type="button"
-                onClick={() => setDraftDates([])}
+                onClick={() => setDraftDates(defaultPlanningWindowDates())}
                 className="rp-btn min-h-11 flex-1 rounded-xl px-3 text-sm font-black"
               >
                 Clear all
