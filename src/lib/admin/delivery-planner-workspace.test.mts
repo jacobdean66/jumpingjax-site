@@ -8,8 +8,11 @@ import {
   assignmentsForSelection,
   buildLoadLibrary,
   changedTaskIds,
+  cityFromAddress,
+  CITY_UNAVAILABLE,
   countyFromAddress,
   dirtySelectionKeys,
+  normalizeCityDisplay,
   effectivePlannerWorkDate,
   groupOperationalStops,
   moveStop,
@@ -224,6 +227,102 @@ await test("county only uses explicit county data and otherwise falls back", () 
   assert.equal(countyFromAddress(null), "County unavailable");
 });
 
+await test("cityFromAddress parses normal street addresses", () => {
+  assert.equal(
+    cityFromAddress("100 Main St, Greenwood, SC 29646"),
+    "Greenwood",
+  );
+  assert.equal(cityFromAddress("100 Main St, Greenwood, SC"), "Greenwood");
+  assert.equal(
+    cityFromAddress("55 Elm Ave #4B, Greenwood, SC 29646"),
+    "Greenwood",
+  );
+  assert.equal(
+    cityFromAddress("12 O'Connor St, Apt 2, Fountain Inn, SC"),
+    "Fountain Inn",
+  );
+});
+
+await test("cityFromAddress keeps multiword cities", () => {
+  assert.equal(
+    cityFromAddress("12 Church St, Ninety Six, SC 29666"),
+    "Ninety Six",
+  );
+  assert.equal(
+    cityFromAddress("1 Lake Rd, Fountain Inn, SC"),
+    "Fountain Inn",
+  );
+});
+
+await test("cityFromAddress does not fall back to county", () => {
+  assert.equal(
+    cityFromAddress("100 Main St, Greenwood County, SC"),
+    CITY_UNAVAILABLE,
+  );
+  assert.equal(cityFromAddress("Greenwood County, SC"), CITY_UNAVAILABLE);
+  assert.notEqual(
+    cityFromAddress("100 Main St, Greenwood County, SC"),
+    countyFromAddress("100 Main St, Greenwood County, SC"),
+  );
+});
+
+await test("cityFromAddress handles missing and malformed addresses", () => {
+  assert.equal(cityFromAddress(null), CITY_UNAVAILABLE);
+  assert.equal(cityFromAddress(""), CITY_UNAVAILABLE);
+  assert.equal(cityFromAddress("100 Main St"), CITY_UNAVAILABLE);
+  assert.equal(cityFromAddress("100 Main St, SC 29646"), CITY_UNAVAILABLE);
+  assert.equal(cityFromAddress("not-an-address"), CITY_UNAVAILABLE);
+});
+
+await test("cityFromAddress never treats unit lines as city", () => {
+  assert.equal(
+    cityFromAddress("123 Main St, Apt 4, SC 29646"),
+    CITY_UNAVAILABLE,
+  );
+  assert.equal(
+    cityFromAddress("123 Main St, Suite 200, SC 29646"),
+    CITY_UNAVAILABLE,
+  );
+  assert.equal(
+    cityFromAddress("12 O'Connor St, Apt 2, Fountain Inn, SC"),
+    "Fountain Inn",
+  );
+  assert.equal(cityFromAddress("Honea Path, SC"), "Honea Path");
+  assert.equal(cityFromAddress("Abbeville, SC 29620"), "Abbeville");
+  assert.equal(
+    cityFromAddress(null, "Apt 4"),
+    CITY_UNAVAILABLE,
+  );
+});
+
+await test("cityFromAddress prefers structured city fields", () => {
+  assert.equal(
+    cityFromAddress("100 Main St, Greenwood County, SC", "Ninety Six"),
+    "Ninety Six",
+  );
+  assert.equal(cityFromAddress(null, "GREENWOOD"), "Greenwood");
+  assert.equal(
+    cityFromAddress("ignored", "Greenwood County"),
+    CITY_UNAVAILABLE,
+  );
+});
+
+await test("normalizeCityDisplay preserves safe multiword capitalization", () => {
+  assert.equal(normalizeCityDisplay("NINETY SIX"), "Ninety Six");
+  assert.equal(normalizeCityDisplay("fountain inn"), "Fountain Inn");
+  assert.equal(normalizeCityDisplay("McBee"), "McBee");
+});
+
+await test("groupOperationalStops exposes city not county as primary label source", () => {
+  const [stop] = groupOperationalStops([
+    task("city-stop", "delivery", {
+      eventAddress: "100 Main St, Ninety Six, SC 29666",
+    }),
+  ]);
+  assert.equal(stop?.city, "Ninety Six");
+  assert.equal(stop?.county, "County unavailable");
+});
+
 await test("dirty loads and changed tasks are detected without changing event date", () => {
   const baseline = [task("a", "delivery", { eventDate: "2026-07-19" })];
   const current = moveStop(baseline, [baseline[0]!.id], {
@@ -292,6 +391,27 @@ await test("workspace date selection contains no viewport scrolling command", as
   assert.equal(source.includes("pendingSelection"), true);
   assert.equal(source.includes("Keep draft"), true);
   assert.equal(source.includes("Discard"), true);
+  assert.equal(source.includes("DeliveryDateSelector"), true);
+  assert.equal(source.includes("stop.city"), true);
+  assert.equal(source.includes("stop.county"), false);
+});
+
+await test("mobile date selector supports nonconsecutive multi-select without modifiers", async () => {
+  const source = await readFile(
+    new URL("../../app/admin/deliveries/DeliveryDateSelector.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes("Select route dates"), true);
+  assert.equal(source.includes("toggleDateInDraft"), true);
+  assert.equal(source.includes("Apply dates"), true);
+  assert.equal(source.includes("Clear all"), true);
+  assert.equal(source.includes("aria-controls={mobileOpen ? dialogId"), true);
+  assert.equal(source.includes("id={dialogId}"), true);
+  assert.equal(source.includes("scrollIntoView"), false);
+  assert.equal(source.includes("window.scrollTo"), false);
+  assert.equal(source.includes("metaKey"), false);
+  assert.equal(source.includes("ctrlKey"), false);
+  assert.equal(source.includes("shiftKey") && source.includes("onDialogKeyDown"), true);
 });
 
 await test("details modal does not display Event date or Route date labels", async () => {
@@ -303,7 +423,8 @@ await test("details modal does not display Event date or Route date labels", asy
   assert.equal(source.includes("Route date"), false);
   assert.equal(source.includes("formatLongDate"), false);
   assert.equal(source.includes("Customer phone"), true);
-  assert.equal(source.includes("County"), true);
+  assert.equal(source.includes("City"), true);
+  assert.equal(source.includes("County"), false);
 });
 
 await test("assigned delivery with null workDate appears on trailer via eventDate fallback", () => {

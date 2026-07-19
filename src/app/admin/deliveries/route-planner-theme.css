@@ -646,6 +646,51 @@ html:has(.route-planner-theme) body {
   }
 }
 
+/* --- Mobile route-date selector --- */
+
+.route-planner-theme .rp-date-mobile-trigger {
+  border-color: var(--rp-border-strong) !important;
+  background: linear-gradient(180deg, var(--rp-raised), var(--rp-panel)) !important;
+  color: var(--rp-text) !important;
+  box-shadow: var(--rp-shadow);
+}
+
+.route-planner-theme .rp-date-sheet-backdrop {
+  overscroll-behavior: contain;
+}
+
+.route-planner-theme .rp-date-sheet {
+  border-color: var(--rp-border-strong) !important;
+  background: var(--rp-panel) !important;
+  color: var(--rp-text) !important;
+  box-shadow: var(--rp-shadow);
+}
+
+.route-planner-theme .rp-date-day {
+  border: 1px solid var(--rp-border);
+  background: var(--rp-nested);
+  color: var(--rp-text);
+}
+
+.route-planner-theme .rp-date-day-today {
+  border: 1px solid var(--rp-blush);
+  background: var(--rp-raised);
+  color: var(--rp-blush);
+  box-shadow: inset 0 0 0 1px rgba(244, 169, 197, 0.35);
+}
+
+.route-planner-theme .rp-date-day-selected {
+  border: 1px solid var(--rp-primary);
+  background: var(--rp-primary);
+  color: #1b1018;
+}
+
+.route-planner-theme .rp-date-chip {
+  border: 1px solid var(--rp-border-strong);
+  background: var(--rp-raised);
+  color: var(--rp-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .route-planner-theme * {
     transition: none !important;

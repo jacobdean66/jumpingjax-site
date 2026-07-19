@@ -37,6 +37,9 @@ export type WorkspaceStop = {
   bookingStatus: string;
   eventDate: string;
   eventAddress: string | null;
+  /** Compact location label for planner cards; never falls back to county. */
+  city: string;
+  /** Retained for routing/reporting; not the primary card label. */
   county: string;
   requestedTime: string | null;
   routeStatus: string | null;
@@ -167,6 +170,102 @@ export function countyFromAddress(address: string | null): string {
   return name ? `${name} County` : "County unavailable";
 }
 
+export const CITY_UNAVAILABLE = "City unavailable";
+
+const ZIP_ONLY = /^\d{5}(?:-\d{4})?$/;
+const STATE_OR_STATE_ZIP = /^[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?$/i;
+const COUNTY_LABEL = /\bCounty\b/i;
+const UNIT_OR_SECONDARY =
+  /^(?:apt|apartment|suite|ste|unit|bldg|building|fl|floor|rm|room|#)\b/i;
+
+/** Title-case city names without destroying mixed-case forms like McBee. */
+export function normalizeCityDisplay(city: string): string {
+  const cleaned = city.replace(/\s+/g, " ").trim();
+  if (!cleaned) return CITY_UNAVAILABLE;
+  const hasInternalUpper = /[A-Z]/.test(cleaned.slice(1));
+  const hasLower = /[a-z]/.test(cleaned);
+  if (hasInternalUpper && hasLower) return cleaned;
+  return cleaned
+    .toLowerCase()
+    .replace(/(^|[\s'-])([a-z])/g, (_, boundary: string, letter: string) => {
+      return `${boundary}${letter.toUpperCase()}`;
+    });
+}
+
+function looksLikeCountyPart(part: string): boolean {
+  return COUNTY_LABEL.test(part.trim());
+}
+
+function looksLikeStateOrZipPart(part: string): boolean {
+  const trimmed = part.trim();
+  if (!trimmed) return false;
+  return ZIP_ONLY.test(trimmed) || STATE_OR_STATE_ZIP.test(trimmed);
+}
+
+function looksLikeUnitOrSecondaryPart(part: string): boolean {
+  return UNIT_OR_SECONDARY.test(part.trim());
+}
+
+/** Parts that must never be shown as a Route Planner city label. */
+function looksLikeNonCityPart(part: string): boolean {
+  const trimmed = part.trim();
+  if (!trimmed) return true;
+  return (
+    looksLikeCountyPart(trimmed) ||
+    looksLikeStateOrZipPart(trimmed) ||
+    looksLikeUnitOrSecondaryPart(trimmed)
+  );
+}
+
+/**
+ * Derive a display city from a structured city field or a US-style address.
+ * Never substitutes county when city cannot be determined.
+ */
+export function cityFromAddress(
+  address: string | null | undefined,
+  structuredCity?: string | null,
+): string {
+  const structured = structuredCity?.replace(/\s+/g, " ").trim();
+  if (structured && !looksLikeNonCityPart(structured)) {
+    return normalizeCityDisplay(structured);
+  }
+
+  if (!address?.trim()) return CITY_UNAVAILABLE;
+
+  const parts = address
+    .split(",")
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  if (parts.length === 0) return CITY_UNAVAILABLE;
+
+  let stateIndex = -1;
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (looksLikeStateOrZipPart(parts[i]!)) {
+      stateIndex = i;
+      break;
+    }
+  }
+
+  let cityIndex =
+    stateIndex > 0 ? stateIndex - 1 : parts.length >= 2 ? parts.length - 2 : -1;
+  while (cityIndex >= 0 && looksLikeUnitOrSecondaryPart(parts[cityIndex]!)) {
+    cityIndex -= 1;
+  }
+
+  const cityCandidate = cityIndex >= 0 ? parts[cityIndex]! : null;
+
+  if (!cityCandidate || looksLikeNonCityPart(cityCandidate)) {
+    return CITY_UNAVAILABLE;
+  }
+
+  // Reject street-like leftovers (leading house number).
+  if (/^\d+\s/.test(cityCandidate)) {
+    return CITY_UNAVAILABLE;
+  }
+
+  return normalizeCityDisplay(cityCandidate);
+}
+
 function stopGroupKey(task: AdminDeliveryWorkTask): string {
   return [
     task.bookingId,
@@ -211,6 +310,7 @@ export function groupOperationalStops(
         bookingStatus: first.bookingStatus,
         eventDate: first.eventDate,
         eventAddress: first.eventAddress,
+        city: cityFromAddress(first.eventAddress),
         county: countyFromAddress(first.eventAddress),
         requestedTime:
           first.workType === "pickup"
@@ -492,6 +592,7 @@ export function taskSearchText(task: AdminDeliveryWorkTask): string {
     task.rentalName,
     task.rentalItem,
     task.eventAddress,
+    cityFromAddress(task.eventAddress),
     countyFromAddress(task.eventAddress),
   ]
     .filter(Boolean)
