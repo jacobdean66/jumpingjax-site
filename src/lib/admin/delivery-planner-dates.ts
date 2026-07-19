@@ -19,7 +19,28 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const ADMIN_OPERATIONS_TIME_ZONE = "America/New_York";
 
 export function isYmd(value: string | null | undefined): value is string {
-  return Boolean(value && YMD_RE.test(value));
+  if (!value || !YMD_RE.test(value)) return false;
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1
+  ) {
+    return false;
+  }
+  // Civil calendar check via UTC components — no local timezone day shift.
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
 }
 
 /** Calendar YYYY-MM-DD in America/New_York for the given instant. */
@@ -287,6 +308,28 @@ export function formatCompactDate(ymd: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Compact month/day label without weekday (e.g. "Jul 17"). */
+export function formatMonthDay(ymd: string): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Human summary for the date-selector control.
+ * 0 -> prompt, 1 -> long date, 2-3 -> "Jul 17, Jul 19", else count.
+ */
+export function summarizeSelectedDates(selected: string[]): string {
+  const dates = sortUniqueYmd(selected);
+  if (dates.length === 0) return "Select route dates";
+  if (dates.length === 1) return formatLongDate(dates[0]!);
+  if (dates.length <= 3) return dates.map(formatMonthDay).join(", ");
+  return `${dates.length} dates selected`;
 }
 
 export function monthMatrix(

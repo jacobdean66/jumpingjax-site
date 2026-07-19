@@ -422,6 +422,10 @@ export function selectionKey(selection: PlannerSelection): string {
   return `${selection.date}:${selection.workType}:${selection.truck}`;
 }
 
+export function unassignedSelectionKey(date: string, workType: WorkType): string {
+  return `${date}:${workType}:unassigned`;
+}
+
 export function taskMatchesSelection(
   task: AdminDeliveryWorkTask,
   selection: PlannerSelection,
@@ -474,14 +478,22 @@ export function dirtySelectionKeys(
     const before = baseline.find((task) => task.id === taskId);
     const after = currentById.get(taskId);
     for (const task of [before, after]) {
-      const truck = task ? asTruck(task.truck) : null;
-      if (task && truck) {
+      if (!task) continue;
+      const truck = asTruck(task.truck);
+      if (truck) {
         dirty.add(
           selectionKey({
             date: effectivePlannerWorkDate(task),
             workType: task.workType,
             truck,
           }),
+        );
+      } else {
+        dirty.add(
+          unassignedSelectionKey(
+            effectivePlannerWorkDate(task),
+            task.workType,
+          ),
         );
       }
     }
@@ -514,6 +526,76 @@ function sequenceStops(
     stop.taskIds.forEach((taskId) => sequenceByTask.set(taskId, index + 1));
   });
   return sequenceByTask;
+}
+
+/**
+ * Move drop-off/pickup work to a different operational date without touching
+ * the customer event date or the sibling work type (pickup <-> delivery).
+ * Persists via existing delivery_date / pickup_date fields on save.
+ */
+export function rescheduleStopWorkDate(
+  tasks: AdminDeliveryWorkTask[],
+  taskIds: string[],
+  nextWorkDate: string,
+): { tasks: AdminDeliveryWorkTask[]; conflict: string | null } {
+  if (!isYmd(nextWorkDate)) {
+    return { tasks, conflict: "Invalid setup/delivery date." };
+  }
+  const movingIds = new Set(taskIds);
+  const moving = tasks.filter((task) => movingIds.has(task.id));
+  if (moving.length === 0 || moving.length !== taskIds.length) {
+    return { tasks, conflict: "Could not find all selected work tasks." };
+  }
+  const workType = moving[0]!.workType;
+  if (moving.some((task) => task.workType !== workType)) {
+    return { tasks, conflict: "Cannot reschedule mixed work types together." };
+  }
+  if (
+    moving.every(
+      (task) =>
+        effectivePlannerWorkDate(task) === nextWorkDate && isYmd(task.workDate),
+    )
+  ) {
+    return { tasks, conflict: null };
+  }
+
+  let next = tasks.map((task) => {
+    if (!movingIds.has(task.id)) return task;
+    const alreadyOnDate = effectivePlannerWorkDate(task) === nextWorkDate;
+    return {
+      ...task,
+      workDate: nextWorkDate,
+      sequence: alreadyOnDate ? task.sequence : null,
+      routeStatus: alreadyOnDate
+        ? task.routeStatus
+        : asTruck(task.truck)
+          ? "draft"
+          : task.routeStatus,
+    };
+  });
+
+  for (const truck of ["truck-1", "truck-2"] as const) {
+    const assignedMoving = moving.filter((task) => asTruck(task.truck) === truck);
+    if (assignedMoving.length === 0) continue;
+    const sequenceByTask = sequenceStops(
+      next,
+      nextWorkDate,
+      workType,
+      truck,
+      new Set(assignedMoving.map((task) => task.id)),
+      Number.MAX_SAFE_INTEGER,
+    );
+    next = next.map((task) =>
+      taskMatchesColumn(task, nextWorkDate, workType, truck)
+        ? {
+            ...task,
+            sequence: sequenceByTask.get(task.id) ?? task.sequence,
+          }
+        : task,
+    );
+  }
+
+  return { tasks: next, conflict: null };
 }
 
 export function moveStop(
@@ -668,4 +750,30 @@ export function rangeDates(anchor: string, length = 7): string[] {
     );
   }
   return result;
+}
+
+/** Persist work-date edits for unassigned stops on one planner day. */
+export function assignmentsForUnassigned(
+  baseline: AdminDeliveryWorkTask[],
+  current: AdminDeliveryWorkTask[],
+  date: string,
+  workType: WorkType,
+): RouteAssignmentPayload[] {
+  const changed = changedTaskIds(baseline, current);
+  const beforeById = new Map(baseline.map((task) => [task.id, task]));
+  return current
+    .filter((task) => {
+      if (!changed.has(task.id) || task.workType !== workType) return false;
+      const afterUnassigned =
+        asTruck(task.truck) === null &&
+        effectivePlannerWorkDate(task) === date;
+      const before = beforeById.get(task.id);
+      const beforeUnassigned = Boolean(
+        before &&
+          asTruck(before.truck) === null &&
+          effectivePlannerWorkDate(before) === date,
+      );
+      return afterUnassigned || beforeUnassigned;
+    })
+    .map(assignmentForTask);
 }

@@ -10,6 +10,9 @@ import {
   effectivePickupWorkDate,
   evaluateWorkDateConflicts,
   findDuplicateTaskIds,
+  summarizeSelectedDates,
+  formatMonthDay,
+  isYmd,
   groupTasksByWorkDate,
   movedWorkPreservesEventDate,
   normalizeSelectedDates,
@@ -32,6 +35,29 @@ async function test(name: string, fn: TestFn): Promise<void> {
   await fn();
   console.log(`ok - ${name}`);
 }
+
+
+await test("isYmd accepts real calendar dates only", () => {
+  assert.equal(isYmd("2026-07-19"), true);
+  assert.equal(isYmd("2026-02-28"), true);
+  assert.equal(isYmd("2028-02-29"), true);
+  assert.equal(isYmd("2026-02-29"), false);
+  assert.equal(isYmd("2026-02-31"), false);
+  assert.equal(isYmd("2026-13-01"), false);
+  assert.equal(isYmd("2026-00-10"), false);
+  assert.equal(isYmd("2026/07/19"), false);
+  assert.equal(isYmd("07-19-2026"), false);
+  assert.equal(isYmd("2026-7-19"), false);
+});
+
+await test("summarizeSelectedDates compact and count forms", () => {
+  assert.equal(summarizeSelectedDates([]), "Select route dates");
+  assert.match(summarizeSelectedDates(["2026-07-17"]), /July 17/);
+  assert.equal(
+    summarizeSelectedDates(["2026-07-22", "2026-07-17", "2026-07-19"]),
+    `${formatMonthDay("2026-07-17")}, ${formatMonthDay("2026-07-19")}, ${formatMonthDay("2026-07-22")}`,
+  );
+});
 
 await test("normalizeSelectedDates sorts and dedupes", () => {
   assert.deepEqual(

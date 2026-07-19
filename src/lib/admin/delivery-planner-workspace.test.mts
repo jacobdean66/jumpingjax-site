@@ -6,6 +6,7 @@ import {
   allPlannerTasks,
   assignmentForTask,
   assignmentsForSelection,
+  assignmentsForUnassigned,
   buildLoadLibrary,
   changedTaskIds,
   cityFromAddress,
@@ -18,6 +19,8 @@ import {
   moveStop,
   productSummary,
   rangeDates,
+  rescheduleStopWorkDate,
+  unassignedSelectionKey,
   stopMatchesColumn,
   taskMatchesColumn,
 } from "./delivery-planner-workspace";
@@ -353,9 +356,10 @@ await test("dirty loads and changed tasks are detected without changing event da
     targetIndex: 0,
   }).tasks;
   assert.deepEqual([...changedTaskIds(baseline, current)], [baseline[0]!.id]);
-  assert.deepEqual([...dirtySelectionKeys(baseline, current)], [
-    "2026-07-18:delivery:truck-1",
-  ]);
+  const dirty = dirtySelectionKeys(baseline, current);
+  // Baseline was unassigned; current is on truck-1 — both selection keys are dirty.
+  assert.equal(dirty.has("2026-07-18:delivery:truck-1"), true);
+  assert.equal(dirty.has("2026-07-18:delivery:unassigned"), true);
   assert.equal(current[0]?.eventDate, "2026-07-19");
 });
 
@@ -413,6 +417,9 @@ await test("workspace date selection contains no viewport scrolling command", as
   assert.equal(source.includes("Keep draft"), true);
   assert.equal(source.includes("Discard"), true);
   assert.equal(source.includes("DeliveryDateSelector"), true);
+  assert.equal(source.includes('variant="library"'), true);
+  assert.equal(source.includes('variant="mobile"'), true);
+  assert.equal(source.includes("saveUnassignedWorkDates"), true);
   assert.equal(source.includes("stop.city"), true);
   assert.equal(source.includes("stop.county"), false);
 });
@@ -423,6 +430,9 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
     "utf8",
   );
   assert.equal(source.includes("Select route dates"), true);
+  assert.equal(source.includes("Choose Dates"), true);
+  assert.equal(source.includes('variant === "library"'), true);
+  assert.equal(source.includes("Cancel"), true);
   assert.equal(source.includes("toggleDateInDraft"), true);
   assert.equal(source.includes("Apply dates"), true);
   assert.equal(source.includes("Clear all"), true);
@@ -431,7 +441,7 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
     true,
   );
   assert.equal(source.includes("defaultPlanningWindowDates()"), true);
-  assert.equal(source.includes("aria-controls={mobileOpen ? dialogId"), true);
+  assert.equal(source.includes("aria-controls={pickerOpen ? dialogId"), true);
   assert.equal(source.includes("id={dialogId}"), true);
   assert.equal(source.includes("scrollIntoView"), false);
   assert.equal(source.includes("window.scrollTo"), false);
@@ -440,14 +450,15 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
   assert.equal(source.includes("shiftKey") && source.includes("onDialogKeyDown"), true);
 });
 
-await test("details modal does not display Event date or Route date labels", async () => {
+await test("details modal distinguishes Setup/Delivery from Event", async () => {
   const source = await readFile(
     new URL("../../app/admin/deliveries/RoutePlannerDetailsModal.tsx", import.meta.url),
     "utf8",
   );
-  assert.equal(source.includes("Event date"), false);
+  assert.equal(source.includes("Setup/Delivery"), true);
+  assert.equal(source.includes('label="Event"'), true);
+  assert.equal(source.includes("onRescheduleWorkDate"), true);
   assert.equal(source.includes("Route date"), false);
-  assert.equal(source.includes("formatLongDate"), false);
   assert.equal(source.includes("Customer phone"), true);
   assert.equal(source.includes("City"), true);
   assert.equal(source.includes("County"), false);
@@ -751,6 +762,63 @@ await test("viewing fallback-dated tasks does not mark dirty selection keys by i
   ];
   assert.deepEqual([...dirtySelectionKeys(baseline, baseline)], []);
   assert.deepEqual([...changedTaskIds(baseline, baseline)], []);
+});
+
+
+await test("early setup July 17 for July 19 event preserves event and pickup", () => {
+  const delivery = task("early", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-19",
+    spanDays: 1,
+  });
+  const pickup = task("early", "pickup", {
+    workDate: null,
+    eventDate: "2026-07-19",
+    spanDays: 1,
+  });
+  const moved = rescheduleStopWorkDate(
+    [delivery, pickup],
+    [delivery.id],
+    "2026-07-17",
+  );
+  assert.equal(moved.conflict, null);
+  const nextDelivery = moved.tasks.find((value) => value.id === delivery.id)!;
+  const nextPickup = moved.tasks.find((value) => value.id === pickup.id)!;
+  assert.equal(nextDelivery.eventDate, "2026-07-19");
+  assert.equal(nextDelivery.workDate, "2026-07-17");
+  assert.equal(effectivePlannerWorkDate(nextDelivery), "2026-07-17");
+  assert.equal(nextPickup.workDate, null);
+  assert.equal(effectivePlannerWorkDate(nextPickup), "2026-07-19");
+  const stops = groupOperationalStops(moved.tasks).filter(
+    (stop) => stop.workType === "delivery" && stop.bookingId === delivery.bookingId,
+  );
+  assert.equal(stops.length, 1);
+  assert.equal(stops[0]?.effectiveWorkDate, "2026-07-17");
+});
+
+await test("unassigned setup-date changes are dirty and saveable without trailer", () => {
+  const baseline = [
+    task("early-u", "delivery", {
+      workDate: null,
+      eventDate: "2026-07-19",
+      truck: null,
+    }),
+  ];
+  const moved = rescheduleStopWorkDate(baseline, [baseline[0]!.id], "2026-07-17");
+  assert.equal(moved.conflict, null);
+  const dirty = dirtySelectionKeys(baseline, moved.tasks);
+  assert.equal(dirty.has(unassignedSelectionKey("2026-07-17", "delivery")), true);
+  const payloads = assignmentsForUnassigned(
+    baseline,
+    moved.tasks,
+    "2026-07-17",
+    "delivery",
+  );
+  assert.equal(payloads.length, 1);
+  if (payloads[0]?.workType === "delivery") {
+    assert.equal(payloads[0].deliveryDate, "2026-07-17");
+    assert.equal(payloads[0].deliveryTruck, null);
+  }
 });
 
 console.log("All delivery-planner-workspace tests passed.");
