@@ -4,6 +4,7 @@ import {
   listPrivateSlotDispositions,
   listPublicSaturdaySlotDispositions,
 } from "@/lib/facility-parties/availability";
+import { isFacilityBookingYmdWithinHorizon } from "@/lib/facility-parties/booking-horizon";
 import { FACILITY_PARTY_BUFFER_MINUTES } from "@/lib/facility-parties/constants";
 import type {
   FacilityRoomId,
@@ -26,7 +27,10 @@ import {
 } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { facilityLocalDateTimeToUtc } from "@/lib/facility-parties/zoned-time";
+import {
+  FACILITY_TIME_ZONE,
+  facilityLocalDateTimeToUtc,
+} from "@/lib/facility-parties/zoned-time";
 import { formatMinutesLabel } from "@/lib/facility-parties/time";
 import {
   initializeBookingWorkflow,
@@ -35,7 +39,8 @@ import {
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
-const FACILITY_TIME_ZONE = "America/New_York";
+const FACILITY_BOOKING_HORIZON_ERROR =
+  "Facility party requests are available from today through December 31, 2027.";
 
 function getFacilityDateParts(value: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -111,6 +116,13 @@ export async function POST(req: NextRequest) {
       addon_selections,
       idempotency_key,
     } = body;
+
+    if (!isFacilityBookingYmdWithinHorizon(booking_date, new Date())) {
+      return NextResponse.json(
+        { error: FACILITY_BOOKING_HORIZON_ERROR },
+        { status: 400 },
+      );
+    }
 
     const resolvedAddons = resolveFacilityAddons(addon_selections);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
