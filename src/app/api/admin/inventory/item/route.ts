@@ -6,6 +6,13 @@ import {
   normalizeInventorySlug,
   saveInventoryItem,
 } from "@/lib/admin/inventory";
+import {
+  normalizeBlowerRequirements,
+  parsePositiveDimension,
+  type CleaningSupply,
+  type DimensionConfidence,
+  type DimensionUnit,
+} from "@/lib/admin/inventory-ops";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
@@ -29,6 +36,23 @@ function safeFileName(value: string): string {
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function parseBlowerRequirementsField(value: FormDataEntryValue | null): unknown {
+  const raw = String(value ?? "[]").trim() || "[]";
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("Blower requirements payload is invalid.");
+  }
+}
+
+function optionalDimensionConfidence(
+  value: FormDataEntryValue | null,
+): DimensionConfidence | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  return raw as DimensionConfidence;
 }
 
 async function uploadInventoryImage(input: {
@@ -100,6 +124,22 @@ export async function POST(req: NextRequest) {
       estimatedSetupMinutes: numberValue(formData.get("estimatedSetupMinutes"), 45),
       isActive: checkboxValue(formData.get("isActive")),
       publicVisible: checkboxValue(formData.get("publicVisible")),
+      blowerRequirements: normalizeBlowerRequirements(
+        parseBlowerRequirementsField(formData.get("blowerRequirements")),
+      ),
+      tarpRequirement: String(formData.get("tarpRequirement") ?? ""),
+      cleaningSupply: String(formData.get("cleaningSupply") ?? "") as CleaningSupply,
+      lengthFt: parsePositiveDimension(String(formData.get("lengthFt") ?? "")),
+      widthFt: parsePositiveDimension(String(formData.get("widthFt") ?? "")),
+      heightFt: parsePositiveDimension(String(formData.get("heightFt") ?? "")),
+      dimensionUnit: String(formData.get("dimensionUnit") ?? "ft") as DimensionUnit,
+      dimensionSourceText: String(formData.get("dimensionSourceText") ?? ""),
+      dimensionSourceUrl: String(formData.get("dimensionSourceUrl") ?? ""),
+      dimensionManufacturer: String(formData.get("dimensionManufacturer") ?? ""),
+      dimensionConfidence: optionalDimensionConfidence(
+        formData.get("dimensionConfidence"),
+      ),
+      dimensionResearchNotes: String(formData.get("dimensionResearchNotes") ?? ""),
     });
 
     revalidatePath("/admin/inventory");

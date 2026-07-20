@@ -1,4 +1,15 @@
 import { CATEGORY_COPY, CATEGORY_IDS, RENTALS, type RentalCategoryId } from "@/data/rentals";
+import {
+  catalogSyncOmitsOperationalFields,
+  parseInventoryOperationalFields,
+  validateInventoryOperationalInput,
+  type BlowerRequirement,
+  type CleaningSupply,
+  type DimensionConfidence,
+  type DimensionUnit,
+  type InventoryDimensions,
+  type InventoryOpsDbPayload,
+} from "@/lib/admin/inventory-ops";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const ROUTE_KIND_LABELS = {
@@ -30,6 +41,11 @@ export type AdminInventoryItem = {
   publicVisible: boolean;
   source: string;
   updatedAt: string | null;
+  blowerRequirements: BlowerRequirement[];
+  tarpRequirement: string;
+  cleaningSupply: CleaningSupply;
+  cleaningSupplyExplicit: boolean;
+  dimensions: InventoryDimensions;
 };
 
 type InventoryRow = {
@@ -50,6 +66,18 @@ type InventoryRow = {
   public_visible: boolean | null;
   source: string | null;
   updated_at: string | null;
+  blower_requirements?: unknown;
+  tarp_requirement?: string | null;
+  cleaning_supply?: string | null;
+  length_ft?: number | string | null;
+  width_ft?: number | string | null;
+  height_ft?: number | string | null;
+  dimension_unit?: string | null;
+  dimension_source_text?: string | null;
+  dimension_source_url?: string | null;
+  dimension_manufacturer?: string | null;
+  dimension_confidence?: string | null;
+  dimension_research_notes?: string | null;
 };
 
 export type SaveInventoryInput = {
@@ -68,7 +96,86 @@ export type SaveInventoryInput = {
   estimatedSetupMinutes: number;
   isActive: boolean;
   publicVisible: boolean;
+  blowerRequirements: BlowerRequirement[];
+  tarpRequirement: string;
+  cleaningSupply: CleaningSupply;
+  lengthFt: number | null;
+  widthFt: number | null;
+  heightFt: number | null;
+  dimensionUnit: DimensionUnit;
+  dimensionSourceText: string;
+  dimensionSourceUrl: string;
+  dimensionManufacturer: string;
+  dimensionConfidence: DimensionConfidence | null;
+  dimensionResearchNotes: string;
 };
+
+const INVENTORY_SELECT_COLUMNS = [
+  "id",
+  "slug",
+  "category_id",
+  "title",
+  "short_description",
+  "description",
+  "starting_price",
+  "image_src",
+  "image_alt",
+  "age_recommendation",
+  "setup_requirements",
+  "route_kind",
+  "estimated_setup_minutes",
+  "is_active",
+  "public_visible",
+  "source",
+  "updated_at",
+  "blower_requirements",
+  "tarp_requirement",
+  "cleaning_supply",
+  "length_ft",
+  "width_ft",
+  "height_ft",
+  "dimension_unit",
+  "dimension_source_text",
+  "dimension_source_url",
+  "dimension_manufacturer",
+  "dimension_confidence",
+  "dimension_research_notes",
+].join(", ");
+
+const INVENTORY_SELECT_COLUMNS_LEGACY = [
+  "id",
+  "slug",
+  "category_id",
+  "title",
+  "short_description",
+  "description",
+  "starting_price",
+  "image_src",
+  "image_alt",
+  "age_recommendation",
+  "setup_requirements",
+  "route_kind",
+  "estimated_setup_minutes",
+  "is_active",
+  "public_visible",
+  "source",
+  "updated_at",
+].join(", ");
+
+function isMissingOpsColumnError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("blower_requirements") ||
+    lower.includes("tarp_requirement") ||
+    lower.includes("cleaning_supply") ||
+    lower.includes("length_ft") ||
+    lower.includes("dimension_unit") ||
+    lower.includes("dimension_source_text") ||
+    lower.includes("dimension_confidence") ||
+    lower.includes("does not exist") ||
+    lower.includes("could not find")
+  );
+}
 
 function isCategoryId(value: string): value is RentalCategoryId {
   return (CATEGORY_IDS as readonly string[]).includes(value);
@@ -100,6 +207,7 @@ function rowToInventoryItem(row: InventoryRow): AdminInventoryItem {
   const categoryId = isCategoryId(row.category_id)
     ? row.category_id
     : "bounce-houses";
+  const ops = parseInventoryOperationalFields(row);
   return {
     id: row.id,
     slug: row.slug,
@@ -119,6 +227,11 @@ function rowToInventoryItem(row: InventoryRow): AdminInventoryItem {
     publicVisible: row.public_visible === true,
     source: row.source ?? "admin",
     updatedAt: row.updated_at,
+    blowerRequirements: ops.blowerRequirements,
+    tarpRequirement: ops.tarpRequirement,
+    cleaningSupply: ops.cleaningSupply,
+    cleaningSupplyExplicit: ops.cleaningSupplyExplicit,
+    dimensions: ops.dimensions,
   };
 }
 
@@ -144,25 +257,30 @@ function setupMinutesForRouteKind(routeKind: RouteKind): number {
   return 45;
 }
 
-export async function loadAdminInventoryItems(): Promise<AdminInventoryItem[]> {
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("rental_inventory_items")
-    .select(
-      "id, slug, category_id, title, short_description, description, starting_price, image_src, image_alt, age_recommendation, setup_requirements, route_kind, estimated_setup_minutes, is_active, public_visible, source, updated_at",
-    )
-    .order("category_id", { ascending: true })
-    .order("title", { ascending: true });
-
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as InventoryRow[]).map(rowToInventoryItem);
+function operationalPayloadFromInput(
+  input: SaveInventoryInput,
+): InventoryOpsDbPayload {
+  return validateInventoryOperationalInput({
+    blowerRequirements: input.blowerRequirements,
+    tarpRequirement: input.tarpRequirement,
+    cleaningSupply: input.cleaningSupply,
+    lengthFt: input.lengthFt,
+    widthFt: input.widthFt,
+    heightFt: input.heightFt,
+    dimensionUnit: input.dimensionUnit,
+    dimensionSourceText: input.dimensionSourceText,
+    dimensionSourceUrl: input.dimensionSourceUrl,
+    dimensionManufacturer: input.dimensionManufacturer,
+    dimensionConfidence: input.dimensionConfidence,
+    dimensionResearchNotes: input.dimensionResearchNotes,
+  });
 }
 
-export async function syncCurrentRentalInventory(): Promise<number> {
-  const supabase = createServiceRoleClient();
-  const rows = RENTALS.map((rental) => {
+/** Builds the catalog-only upsert payload used by website sync. */
+export function buildCatalogSyncRows(): Record<string, unknown>[] {
+  return RENTALS.map((rental) => {
     const routeKind = routeKindForCategory(rental.categoryId, rental.title);
-    return {
+    const row: Record<string, unknown> = {
       slug: rental.slug,
       category_id: rental.categoryId,
       title: rental.title,
@@ -179,7 +297,44 @@ export async function syncCurrentRentalInventory(): Promise<number> {
       public_visible: true,
       source: "code-sync",
     };
+    if (!catalogSyncOmitsOperationalFields(row)) {
+      throw new Error("Catalog sync payload must omit operational inventory fields.");
+    }
+    return row;
   });
+}
+
+export async function loadAdminInventoryItems(): Promise<AdminInventoryItem[]> {
+  const supabase = createServiceRoleClient();
+  const primary = await supabase
+    .from("rental_inventory_items")
+    .select(INVENTORY_SELECT_COLUMNS)
+    .order("category_id", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (!primary.error) {
+    return ((primary.data ?? []) as unknown as InventoryRow[]).map(
+      rowToInventoryItem,
+    );
+  }
+
+  if (!isMissingOpsColumnError(primary.error.message)) {
+    throw new Error(primary.error.message);
+  }
+
+  const legacy = await supabase
+    .from("rental_inventory_items")
+    .select(INVENTORY_SELECT_COLUMNS_LEGACY)
+    .order("category_id", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (legacy.error) throw new Error(legacy.error.message);
+  return ((legacy.data ?? []) as unknown as InventoryRow[]).map(rowToInventoryItem);
+}
+
+export async function syncCurrentRentalInventory(): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const rows = buildCatalogSyncRows();
 
   const { error } = await supabase
     .from("rental_inventory_items")
@@ -195,6 +350,7 @@ export async function saveInventoryItem(input: SaveInventoryInput): Promise<void
     : "bounce-houses";
   const routeKind = isRouteKind(input.routeKind) ? input.routeKind : "standard";
   const slug = normalizeInventorySlug(input.slug, input.title);
+  const ops = operationalPayloadFromInput(input);
 
   if (!slug || !input.title.trim()) {
     throw new Error("Item name and slug are required.");
@@ -216,6 +372,7 @@ export async function saveInventoryItem(input: SaveInventoryInput): Promise<void
     is_active: input.isActive,
     public_visible: input.publicVisible,
     source: "admin",
+    ...ops,
   };
 
   const supabase = createServiceRoleClient();
