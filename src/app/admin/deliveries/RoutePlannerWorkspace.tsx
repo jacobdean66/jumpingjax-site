@@ -17,8 +17,10 @@ import type {
 import {
   addDays,
   datesToSearchParams,
+  filterLibraryDatesForDisplay,
   formatCompactDate,
   formatLongDate,
+  normalizeSelectedDates,
   todayYmd,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
@@ -36,7 +38,6 @@ import {
   assignmentsForUnassigned,
   moveStop,
   productSummary,
-  rangeDates,
   rescheduleStopWorkDate,
   selectionKey,
   unassignedSelectionKey,
@@ -275,10 +276,12 @@ function UnsavedSwitchDialog({
 
 export function RoutePlannerWorkspace({
   initialDeliveries,
+  initialActiveDate,
   initialWorkType = "delivery",
   initialTruck = "truck-1",
 }: {
   initialDeliveries: AdminDeliveriesResult;
+  initialActiveDate?: string;
   initialWorkType?: WorkType;
   initialTruck?: PlannerTruck;
 }) {
@@ -286,17 +289,23 @@ export function RoutePlannerWorkspace({
     () => allPlannerTasks(initialDeliveries),
     [initialDeliveries],
   );
+  const startingActive =
+    initialActiveDate &&
+    (initialDeliveries.dates.includes(initialActiveDate) ||
+      initialActiveDate === initialDeliveries.date)
+      ? initialActiveDate
+      : (initialDeliveries.dates[0] ?? initialDeliveries.date);
   const [tasks, setTasks] = useState<AdminDeliveryWorkTask[]>(initialTasks);
   const [baseline, setBaseline] = useState<AdminDeliveryWorkTask[]>(initialTasks);
   const [dates, setDates] = useState(initialDeliveries.dates);
   const [selection, setSelection] = useState<PlannerSelection>({
-    date: initialDeliveries.dates[0] ?? initialDeliveries.date,
+    date: startingActive,
     workType: initialWorkType,
     truck: initialTruck,
   });
   const [showEmptyDates, setShowEmptyDates] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({
-    [initialDeliveries.dates[0] ?? initialDeliveries.date]: true,
+    [startingActive]: true,
   });
   const [search, setSearch] = useState("");
   const [details, setDetails] = useState<WorkspaceStop | null>(null);
@@ -339,18 +348,25 @@ export function RoutePlannerWorkspace({
 
   useEffect(() => {
     const current = new URLSearchParams(window.location.search);
-    const params = datesToSearchParams(dates, {
-      work: selection.workType === "delivery" ? "deliveries" : "pickups",
-      truck: selection.truck,
-      load: current.get("load"),
-      status: current.get("status"),
-    });
+    const loadedForUrl = dates.includes(selection.date)
+      ? dates
+      : normalizeSelectedDates([selection.date, ...dates]);
+    const params = datesToSearchParams(
+      loadedForUrl,
+      {
+        work: selection.workType === "delivery" ? "deliveries" : "pickups",
+        truck: selection.truck,
+        load: current.get("load"),
+        status: current.get("status"),
+      },
+      selection.date,
+    );
     window.history.replaceState(
       window.history.state,
       "",
       `${window.location.pathname}?${params.toString()}`,
     );
-  }, [dates, selection.truck, selection.workType]);
+  }, [dates, selection.date, selection.truck, selection.workType]);
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -377,8 +393,10 @@ export function RoutePlannerWorkspace({
     () => buildLoadLibrary(filteredTasks, dates),
     [filteredTasks, dates],
   );
-  const visibleLibrary = library.filter(
-    (entry) => showEmptyDates || entry.total > 0,
+  const visibleLibrary = filterLibraryDatesForDisplay(
+    library,
+    selection.date,
+    showEmptyDates,
   );
   const unassignedStops = allStops.filter((stop) =>
     stopMatchesColumn(stop, selection.date, selection.workType, "unassigned"),
@@ -536,11 +554,12 @@ export function RoutePlannerWorkspace({
     setDragOver(null);
   }
 
-  async function loadRange(nextDates: string[]) {
+  async function loadRange(nextDates: string[], preferredActive?: string) {
     setLoadingRange(true);
     setNotice(null);
     try {
-      const params = datesToSearchParams(nextDates);
+      const activeHint = preferredActive ?? selection.date;
+      const params = datesToSearchParams(nextDates, undefined, activeHint);
       const response = await fetch(`/api/admin/deliveries?${params.toString()}`, {
         cache: "no-store",
       });
@@ -558,14 +577,23 @@ export function RoutePlannerWorkspace({
       const nextTasks = allPlannerTasks(data);
       setTasks(nextTasks);
       setBaseline(nextTasks);
-      setDates(data.dates);
-      const firstPopulated =
-        buildLoadLibrary(nextTasks, data.dates).find((entry) => entry.total > 0)
-          ?.date ??
-        data.dates[0] ??
-        data.date;
-      setSelection((current) => ({ ...current, date: firstPopulated }));
-      setExpandedDates({ [firstPopulated]: true });
+      const activeDate =
+        preferredActive && data.dates.includes(preferredActive)
+          ? preferredActive
+          : preferredActive && nextDates.includes(preferredActive)
+            ? preferredActive
+            : data.dates.includes(selection.date)
+              ? selection.date
+              : (data.dates[0] ?? data.date);
+      const resolvedDates = normalizeSelectedDates(
+        data.dates.length > 0 ? data.dates : nextDates,
+      );
+      const loadedDates = resolvedDates.includes(activeDate)
+        ? resolvedDates
+        : normalizeSelectedDates([activeDate, ...resolvedDates]);
+      setDates(loadedDates);
+      setSelection((current) => ({ ...current, date: activeDate }));
+      setExpandedDates((current) => ({ ...current, [activeDate]: true }));
       setSaveStates({});
     } catch (error) {
       setNotice(
@@ -577,12 +605,31 @@ export function RoutePlannerWorkspace({
     }
   }
 
-  function requestRange(nextDates: string[]) {
+  function requestRange(nextDates: string[], preferredActive?: string) {
     if (dirtyKeys.size > 0) {
       setPendingRange(nextDates);
       return;
     }
-    void loadRange(nextDates);
+    void loadRange(nextDates, preferredActive);
+  }
+
+  function navigatePlannerDates(next: {
+    activeDate: string;
+    loadedDates: string[];
+  }) {
+    const loaded = next.loadedDates.length > 0 ? next.loadedDates : [next.activeDate];
+    const sameLoaded =
+      loaded.length === dates.length && loaded.every((value, index) => value === dates[index]);
+    if (sameLoaded) {
+      requestSelection({
+        date: next.activeDate,
+        workType: selection.workType,
+        truck: selection.truck,
+      });
+      setExpandedDates((current) => ({ ...current, [next.activeDate]: true }));
+      return;
+    }
+    requestRange(loaded, next.activeDate);
   }
 
   async function saveCurrentLoad() {
@@ -670,17 +717,7 @@ export function RoutePlannerWorkspace({
     window.print();
   }
 
-  const rangeLabel =
-    dates.length > 1
-      ? `${shortDate(dates[0]!)} – ${shortDate(dates[dates.length - 1]!)}`
-      : shortDate(dates[0] ?? selection.date);
   const currentSaveState = saveStates[currentKey] ?? "idle";
-
-  function applyPlannerDates(nextDates: string[]) {
-    const normalized =
-      nextDates.length > 0 ? nextDates : rangeDates(todayYmd(), 7);
-    requestRange(normalized);
-  }
 
   return (
     <>
@@ -688,22 +725,26 @@ export function RoutePlannerWorkspace({
         ref={plannerRef}
         className="route-planner-screen flex h-full min-h-0 flex-col overflow-hidden print:hidden"
       >
-        <div className="mb-2 shrink-0">
-          <Suspense
-            fallback={
-              <div className="rp-panel rounded-xl border-2 p-3 text-sm font-bold lg:hidden">
-                Loading date controls…
-              </div>
-            }
-          >
-            <DeliveryDateSelector
-              variant="mobile"
-              initialDates={dates}
-              selectedDates={dates}
-              onApplyDates={applyPlannerDates}
-            />
-          </Suspense>
-        </div>
+        <Suspense
+          fallback={
+            <div className="rp-panel mb-2 rounded-xl border-2 p-3 text-sm font-bold">
+              Loading date controls…
+            </div>
+          }
+        >
+          <DeliveryDateSelector
+            variant="bar"
+            activeDate={selection.date}
+            loadedDates={dates}
+            onNavigate={navigatePlannerDates}
+          />
+          <DeliveryDateSelector
+            variant="mobile"
+            activeDate={selection.date}
+            loadedDates={dates}
+            onNavigate={navigatePlannerDates}
+          />
+        </Suspense>
 
         <div className="rp-mobile-tabs mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 p-1 lg:hidden">
           {(["library", "unassigned", "trailer"] as MobilePanel[]).map((panel) => (
@@ -732,17 +773,20 @@ export function RoutePlannerWorkspace({
               <div className="flex items-center justify-between">
                 <h2 className="rp-panel-title text-lg font-black">Load Library</h2>
                 <span className="rp-panel-meta text-[10px] font-black uppercase">
-                  {loadingRange ? "Loading…" : rangeLabel}
+                  {loadingRange ? "Loading…" : shortDate(selection.date)}
                 </span>
               </div>
               <p className="rp-task-meta mt-2 text-[10px] font-bold uppercase tracking-wide">
-                Shift 7-day window
+                Active date
               </p>
               <div className="mt-1 grid grid-cols-3 gap-1">
                 <button
                   type="button"
                   onClick={() =>
-                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, -7), 7))
+                    navigatePlannerDates({
+                      activeDate: addDays(selection.date, -1),
+                      loadedDates: [addDays(selection.date, -1)],
+                    })
                   }
                   className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
@@ -750,7 +794,12 @@ export function RoutePlannerWorkspace({
                 </button>
                 <button
                   type="button"
-                  onClick={() => requestRange(rangeDates(todayYmd(), 7))}
+                  onClick={() =>
+                    navigatePlannerDates({
+                      activeDate: todayYmd(),
+                      loadedDates: [todayYmd()],
+                    })
+                  }
                   className="rp-btn-primary rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Today
@@ -758,27 +807,16 @@ export function RoutePlannerWorkspace({
                 <button
                   type="button"
                   onClick={() =>
-                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, 7), 7))
+                    navigatePlannerDates({
+                      activeDate: addDays(selection.date, 1),
+                      loadedDates: [addDays(selection.date, 1)],
+                    })
                   }
                   className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Next
                 </button>
               </div>
-              <Suspense
-                fallback={
-                  <div className="rp-panel mt-2 hidden rounded-xl border-2 p-2 text-xs font-bold lg:block">
-                    Loading date controls…
-                  </div>
-                }
-              >
-                <DeliveryDateSelector
-                  variant="library"
-                  initialDates={dates}
-                  selectedDates={dates}
-                  onApplyDates={applyPlannerDates}
-                />
-              </Suspense>
               <input
                 type="search"
                 value={search}
@@ -815,12 +853,20 @@ export function RoutePlannerWorkspace({
                     >
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          navigatePlannerDates({
+                            activeDate: entry.date,
+                            loadedDates: dates.includes(entry.date)
+                              ? dates
+                              : dates.length > 1
+                                ? [...dates, entry.date]
+                                : [entry.date],
+                          });
                           setExpandedDates((current) => ({
                             ...current,
-                            [entry.date]: !expanded,
-                          }))
-                        }
+                            [entry.date]: true,
+                          }));
+                        }}
                         className={`flex w-full items-center justify-between px-2.5 py-2 text-left text-xs font-black ${
                           entry.date === selection.date
                             ? "rp-date-active-head"

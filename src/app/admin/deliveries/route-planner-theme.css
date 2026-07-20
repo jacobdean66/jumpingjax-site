@@ -664,6 +664,17 @@ html:has(.route-planner-theme) body {
   background: var(--rp-panel) !important;
   color: var(--rp-text) !important;
   box-shadow: var(--rp-shadow);
+  height: auto;
+}
+
+.route-planner-theme .rp-date-sheet [role="grid"] {
+  align-content: start;
+}
+
+.route-planner-theme .rp-date-sheet [role="grid"] button {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  max-height: 2.5rem;
 }
 
 .route-planner-theme .rp-date-day {
@@ -695,4 +706,52 @@ html:has(.route-planner-theme) body {
   .route-planner-theme * {
     transition: none !important;
   }
+}
+
+/* --- Active-date navigation bar + week strip --- */
+
+.route-planner-theme .rp-date-nav-bar .rp-date-active-button {
+  border: 2px solid var(--rp-blush) !important;
+  background: linear-gradient(180deg, var(--rp-raised), var(--rp-panel)) !important;
+  color: var(--rp-text) !important;
+  box-shadow: var(--rp-shadow);
+}
+
+.route-planner-theme .rp-date-nav-bar .rp-date-active-button:focus-visible {
+  outline: 2px solid var(--rp-primary);
+  outline-offset: 2px;
+}
+
+.route-planner-theme .rp-date-strip-day-idle {
+  border: 1px solid var(--rp-border);
+  background: var(--rp-nested);
+  color: var(--rp-text);
+}
+
+.route-planner-theme .rp-date-strip-day-loaded {
+  border: 1px solid var(--rp-border-strong);
+  background: var(--rp-raised);
+  color: var(--rp-text);
+}
+
+.route-planner-theme .rp-date-strip-day-active {
+  border: 2px solid var(--rp-primary) !important;
+  background: var(--rp-primary) !important;
+  color: #1b1018 !important;
+  font-weight: 900;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.route-planner-theme .rp-date-strip-marker {
+  display: block;
+  width: 1.1rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: #1b1018;
+}
+
+.route-planner-theme .rp-date-chip-active {
+  border: 2px solid var(--rp-primary) !important;
+  background: var(--rp-primary) !important;
+  color: #1b1018 !important;
 }

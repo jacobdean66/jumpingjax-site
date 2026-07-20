@@ -2,10 +2,9 @@ import Link from "next/link";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { loadAdminDeliveriesForDates } from "@/lib/admin/deliveries";
 import {
-  parseDatesFromSearchParams,
+  parsePlannerNavigationState,
   todayYmd,
 } from "@/lib/admin/delivery-planner-dates";
-import { rangeDates } from "@/lib/admin/delivery-planner-workspace";
 import { RoutePlannerWorkspace } from "./RoutePlannerWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +36,13 @@ function withTimeout<T>(
 export default async function AdminDeliveriesPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const hasExplicitDates = Boolean(resolved?.date || resolved?.dates);
-  const parsedDates = parseDatesFromSearchParams({
-    date: resolved?.date,
-    dates: resolved?.dates,
-  });
-  const dates = hasExplicitDates ? parsedDates : rangeDates(todayYmd(), 7);
+  const navigation = hasExplicitDates
+    ? parsePlannerNavigationState({
+        date: resolved?.date,
+        dates: resolved?.dates,
+      })
+    : { activeDate: todayYmd(), loadedDates: [todayYmd()] };
+  const dates = navigation.loadedDates;
   const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
@@ -132,6 +133,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           <div className="min-h-0 flex-1">
             <RoutePlannerWorkspace
               initialDeliveries={deliveries}
+              initialActiveDate={navigation.activeDate}
               initialWorkType={resolved?.work === "pickups" ? "pickup" : "delivery"}
               initialTruck={resolved?.truck === "truck-2" ? "truck-2" : "truck-1"}
             />

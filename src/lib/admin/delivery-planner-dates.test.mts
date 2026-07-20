@@ -25,6 +25,12 @@ import {
   weekendContaining,
   datesForPreset,
   defaultPlanningWindowDates,
+  nearestRemainingDate,
+  filterLibraryDatesForDisplay,
+  removeLoadedPlannerDate,
+  parsePlannerNavigationState,
+  formatStripDayLabel,
+  weekStripContaining,
   todayYmd,
   addDays,
 } from "./delivery-planner-dates";
@@ -88,6 +94,16 @@ await test("datesToSearchParams keeps single-date URLs backward compatible", () 
   const multi = datesToSearchParams(["2026-07-19", "2026-07-17"]);
   assert.equal(multi.get("dates"), "2026-07-17,2026-07-19");
   assert.equal(multi.get("date"), "2026-07-17");
+
+  const multiActive = datesToSearchParams(
+    ["2026-07-19", "2026-07-17"],
+    { work: "deliveries", truck: "truck-2" },
+    "2026-07-19",
+  );
+  assert.equal(multiActive.get("dates"), "2026-07-17,2026-07-19");
+  assert.equal(multiActive.get("date"), "2026-07-19");
+  assert.equal(multiActive.get("work"), "deliveries");
+  assert.equal(multiActive.get("truck"), "truck-2");
 });
 
 await test("toggle and range selection preserve other dates", () => {
@@ -286,6 +302,69 @@ await test("todayYmd handles EST, EDT, and year boundaries", async () => {
   assert.equal(todayYmd(new Date("2026-03-08T06:30:00.000Z")), "2026-03-08");
   // EDT fall back evening still prior calendar day in NY
   assert.equal(todayYmd(new Date("2026-11-01T03:30:00.000Z")), "2026-10-31");
+});
+
+
+await test("week strip for Sun Jul 19 includes Sat Jul 25", () => {
+  assert.deepEqual(weekStripContaining("2026-07-19"), [
+    "2026-07-19",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-25",
+  ]);
+  assert.match(formatStripDayLabel("2026-07-25"), /Sat\s*25/);
+});
+
+await test("parsePlannerNavigationState resolves active vs loaded", () => {
+  assert.deepEqual(
+    parsePlannerNavigationState({ date: "2026-07-19", dates: null }),
+    { activeDate: "2026-07-19", loadedDates: ["2026-07-19"] },
+  );
+  assert.deepEqual(
+    parsePlannerNavigationState({
+      date: "2026-07-25",
+      dates: "2026-07-19,2026-07-25",
+    }),
+    { activeDate: "2026-07-25", loadedDates: ["2026-07-19", "2026-07-25"] },
+  );
+});
+
+await test("removeLoadedPlannerDate picks nearest remaining active", () => {
+  const removed = removeLoadedPlannerDate(
+    ["2026-07-17", "2026-07-19", "2026-07-25"],
+    "2026-07-19",
+    "2026-07-19",
+  );
+  assert.deepEqual(removed, {
+    activeDate: "2026-07-25",
+    loadedDates: ["2026-07-17", "2026-07-25"],
+  });
+  assert.equal(nearestRemainingDate(["2026-07-17", "2026-07-19"], "2026-07-19"), "2026-07-17");
+});
+
+await test("filterLibraryDatesForDisplay keeps empty active date", () => {
+  const entries = [
+    { date: "2026-07-19", total: 2 },
+    { date: "2026-07-25", total: 0 },
+  ];
+  assert.deepEqual(
+    filterLibraryDatesForDisplay(entries, "2026-07-25", false).map((e) => e.date),
+    ["2026-07-19", "2026-07-25"],
+  );
+  assert.deepEqual(
+    filterLibraryDatesForDisplay(entries, "2026-07-19", false).map((e) => e.date),
+    ["2026-07-19"],
+  );
+});
+
+await test("immediate single-date URL is canonical", () => {
+  const params = datesToSearchParams(["2026-07-25"], { work: "pickups" }, "2026-07-25");
+  assert.equal(params.get("date"), "2026-07-25");
+  assert.equal(params.get("dates"), null);
+  assert.equal(params.get("work"), "pickups");
 });
 
 console.log("All delivery-planner-dates tests passed.");
