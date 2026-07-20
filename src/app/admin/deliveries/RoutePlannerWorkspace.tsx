@@ -26,10 +26,7 @@ import {
   todayYmd,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
-import {
-  buildPrintDayGroups,
-  filterNonEmptyPrintLoads,
-} from "@/lib/admin/delivery-print-layout";
+import { filterNonEmptyPrintLoads } from "@/lib/admin/delivery-print-layout";
 import {
   allPlannerTasks,
   assignmentsForSelection,
@@ -42,8 +39,11 @@ import {
   productSummary,
   rescheduleStopWorkDate,
   selectionKey,
+  stopMatchesPlannerDates,
+  taskMatchesSelection,
+  tasksForSelection,
+  TRAILER_INFLATABLE_CAPACITY,
   unassignedSelectionKey,
-  stopMatchesColumn,
   taskSearchText,
   type PlannerColumn,
   type PlannerSelection,
@@ -74,6 +74,11 @@ type PendingRange = {
 
 function workLabel(workType: WorkType): string {
   return workType === "delivery" ? "Drop-offs" : "Pickups";
+}
+
+function plannerDatesLabel(dates: string[]): string {
+  if (dates.length === 1) return shortDate(dates[0]!);
+  return `${dates.length} selected dates`;
 }
 
 function shortDate(date: string): string {
@@ -343,13 +348,23 @@ export function RoutePlannerWorkspace({
     () => dirtySelectionKeys(baseline, tasks),
     [baseline, tasks],
   );
-  const currentKey = selectionKey(selection);
+  const loadSelection: PlannerSelection = { ...selection, dates };
+  const currentKey = selectionKey(loadSelection);
   const unassignedKey = unassignedSelectionKey(
-    selection.date,
+    dates,
     selection.workType,
   );
-  const isDirty = dirtyKeys.has(currentKey);
-  const isUnassignedDirty = dirtyKeys.has(unassignedKey);
+  const isDirty = assignmentsForSelection(
+    baseline,
+    tasks,
+    loadSelection,
+  ).length > 0;
+  const isUnassignedDirty = assignmentsForUnassigned(
+    baseline,
+    tasks,
+    dates,
+    selection.workType,
+  ).length > 0;
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -436,22 +451,29 @@ export function RoutePlannerWorkspace({
     showEmptyDates,
   );
   const unassignedStops = allStops.filter((stop) =>
-    stopMatchesColumn(stop, selection.date, selection.workType, "unassigned"),
+    stop.workType === selection.workType &&
+    stop.truck === null &&
+    stopMatchesPlannerDates(stop, dates),
   );
   const trailerStops = allStops.filter((stop) =>
-    stopMatchesColumn(stop, selection.date, selection.workType, selection.truck),
+    stop.workType === selection.workType &&
+    stop.truck === selection.truck &&
+    stopMatchesPlannerDates(stop, dates),
   );
 
   const requestSelection = useCallback(
     (next: PlannerSelection) => {
-      if (selectionKey(next) === currentKey) return;
+      if (selectionKey({ ...next, dates }) === currentKey) {
+        if (next.date !== selection.date) setSelection(next);
+        return;
+      }
       if (isDirty) {
         setPendingSelection(next);
         return;
       }
       setSelection(next);
     },
-    [currentKey, isDirty],
+    [currentKey, dates, isDirty, selection.date],
   );
 
   function discardSelectionDraft(target: PlannerSelection) {
@@ -459,9 +481,7 @@ export function RoutePlannerWorkspace({
     const affectedIds = new Set<string>();
     for (const task of [...baseline, ...tasks]) {
       if (
-        effectivePlannerWorkDate(task) === selection.date &&
-        task.workType === selection.workType &&
-        taskTruck(task) === selection.truck
+        taskMatchesSelection(task, loadSelection)
       ) {
         affectedIds.add(task.id);
       }
@@ -482,6 +502,7 @@ export function RoutePlannerWorkspace({
   ) {
     const result = moveStop(tasks, stop.taskIds, {
       date: selection.date,
+      dates,
       workType: selection.workType,
       target,
       targetIndex,
@@ -497,7 +518,12 @@ export function RoutePlannerWorkspace({
 
   function applyReschedule(stop: WorkspaceStop, nextWorkDate: string) {
     const eventDate = stop.eventDate.slice(0, 10);
-    const result = rescheduleStopWorkDate(tasks, stop.taskIds, nextWorkDate);
+    const result = rescheduleStopWorkDate(
+      tasks,
+      stop.taskIds,
+      nextWorkDate,
+      dates,
+    );
     if (result.conflict) {
       setNotice(result.conflict);
       return;
@@ -530,7 +556,7 @@ export function RoutePlannerWorkspace({
     const assignments = assignmentsForUnassigned(
       baseline,
       tasks,
-      selection.date,
+      dates,
       selection.workType,
     );
     if (assignments.length === 0) {
@@ -689,7 +715,11 @@ export function RoutePlannerWorkspace({
   });
 
   async function saveCurrentLoad() {
-    const assignments = assignmentsForSelection(baseline, tasks, selection);
+    const assignments = assignmentsForSelection(
+      baseline,
+      tasks,
+      loadSelection,
+    );
     if (assignments.length === 0) {
       setSaveStates((current) => ({ ...current, [currentKey]: "saved" }));
       return;
@@ -728,25 +758,10 @@ export function RoutePlannerWorkspace({
   }
 
   const printTaskIds = useMemo(() => {
-    const printable = tasks.map((task) => ({
-      ...task,
-      deliveryDate: effectivePlannerWorkDate(task),
-      deliveryTruck: taskTruck(task),
-      deliverySequence: task.sequence,
-      rentalName: task.rentalName,
-    }));
-    const groups = buildPrintDayGroups({
-      dates: [selection.date],
-      items: printable,
-      printTruck: selection.truck,
-      printWorkType: selection.workType,
-    });
     return new Set(
-      groups.flatMap((day) =>
-        day.sheets.flatMap((sheet) => sheet.items.map((item) => item.id)),
-      ),
+      tasksForSelection(tasks, loadSelection).map((task) => task.id),
     );
-  }, [tasks, selection]);
+  }, [tasks, dates, selection]);
   const printStops = useMemo(
     () =>
       groupOperationalStops(tasks.filter((task) => printTaskIds.has(task.id))),
@@ -764,6 +779,10 @@ export function RoutePlannerWorkspace({
         .map(([, stops]) => stops),
     );
   }, [printStops]);
+  const trailerInflatableCount = trailerStops.reduce(
+    (count, stop) => count + stop.taskIds.length,
+    0,
+  );
 
   function printCurrentLoad() {
     if (printStops.length === 0) {
@@ -1034,7 +1053,7 @@ export function RoutePlannerWorkspace({
                 <div>
                   <h2 className="rp-panel-title text-lg font-black">Unassigned Work</h2>
                   <p className="rp-panel-meta text-xs font-bold">
-                    {shortDate(selection.date)} · {workLabel(selection.workType)}
+                    {plannerDatesLabel(dates)} · {workLabel(selection.workType)}
                   </p>
                 </div>
                 <span className="rp-badge rounded-full px-2 py-1 text-xs font-black">
@@ -1086,7 +1105,7 @@ export function RoutePlannerWorkspace({
             >
               {unassignedStops.length === 0 ? (
                 <div className="rp-empty flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm font-bold">
-                  No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for this date.
+                  No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for the selected dates.
                 </div>
               ) : (
                 <div
@@ -1134,7 +1153,7 @@ export function RoutePlannerWorkspace({
           >
             <header className="rp-panel-head shrink-0 border-b-2 p-3">
               <h2 className="rp-panel-title truncate text-lg font-black">
-                {shortDate(selection.date)} · {workLabel(selection.workType)} ·{" "}
+                {plannerDatesLabel(dates)} · {workLabel(selection.workType)} ·{" "}
                 {TRUCK_LABELS[selection.truck]}
               </h2>
               <div className="mt-2 grid grid-cols-2 gap-1">
@@ -1183,7 +1202,10 @@ export function RoutePlannerWorkspace({
               </div>
               <div className="mt-2 flex items-center justify-between gap-2 border-t-2 border-slate-300 pt-2">
                 <div className="rp-panel-title min-w-0 text-xs font-black">
-                  <span>{trailerStops.length} stops · </span>
+                  <span>
+                    {trailerStops.length} stops · {trailerInflatableCount} inflatables
+                    {` · max ${TRAILER_INFLATABLE_CAPACITY}/load · `}
+                  </span>
                   <span
                     className={
                       currentSaveState === "error"
@@ -1323,7 +1345,9 @@ export function RoutePlannerWorkspace({
       {printStops.length > 0 ? (
         <section className="route-planner-print hidden print:block">
           <h1 className="text-3xl font-black">Jumping Jax Route Plan</h1>
-          <p className="mt-1 text-lg font-bold">{formatLongDate(selection.date)}</p>
+          <p className="mt-1 text-lg font-bold">
+            {dates.map(formatLongDate).join(" · ")}
+          </p>
           <div className="mt-3 flex gap-3 border-y-2 border-slate-900 py-2 text-lg font-black">
             <span>{workLabel(selection.workType)}</span>
             <span>·</span>
@@ -1350,6 +1374,7 @@ export function RoutePlannerWorkspace({
                       "Products",
                       "Address",
                       "Phone",
+                      "Service / Event",
                       "Requested time",
                       "Notes",
                     ].map((label) => (
@@ -1367,6 +1392,12 @@ export function RoutePlannerWorkspace({
                       <td className="border border-slate-900 p-1">{stop.products.join(", ")}</td>
                       <td className="border border-slate-900 p-1">{stop.eventAddress ?? "—"}</td>
                       <td className="border border-slate-900 p-1">{stop.customerPhone ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">
+                        {formatCompactDate(stop.effectiveWorkDate)}
+                        {stop.effectiveWorkDate !== stop.eventDate.slice(0, 10)
+                          ? ` / Event ${formatCompactDate(stop.eventDate.slice(0, 10))}`
+                          : ""}
+                      </td>
                       <td className="border border-slate-900 p-1">{stop.requestedTime ?? "—"}</td>
                       <td className="border border-slate-900 p-1">
                         {[stop.routeNotes, stop.customerNotes].filter(Boolean).join(" · ") || "—"}

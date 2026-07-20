@@ -23,6 +23,10 @@ import {
   unassignedSelectionKey,
   stopMatchesColumn,
   taskMatchesColumn,
+  taskMatchesPlannerDates,
+  taskMatchesSelection,
+  tasksForSelection,
+  TRAILER_INFLATABLE_CAPACITY,
 } from "./delivery-planner-workspace";
 import { buildPrintDayGroups } from "./delivery-print-layout";
 
@@ -769,6 +773,236 @@ await test("viewing fallback-dated tasks does not mark dirty selection keys by i
   ];
   assert.deepEqual([...dirtySelectionKeys(baseline, baseline)], []);
   assert.deepEqual([...changedTaskIds(baseline, baseline)], []);
+});
+
+await test("Monday pickup candidates include Friday, Saturday, and Sunday events", () => {
+  const plannerDates = ["2026-07-17", "2026-07-18", "2026-07-19"];
+  const pickups = [
+    task("fri-pickup", "pickup", {
+      workDate: null,
+      eventDate: "2026-07-17",
+      spanDays: 4,
+    }),
+    task("sat-pickup", "pickup", {
+      workDate: null,
+      eventDate: "2026-07-18",
+      spanDays: 3,
+    }),
+    task("sun-pickup", "pickup", {
+      workDate: null,
+      eventDate: "2026-07-19",
+      spanDays: 2,
+    }),
+  ];
+  assert.deepEqual(
+    pickups.map(effectivePlannerWorkDate),
+    ["2026-07-20", "2026-07-20", "2026-07-20"],
+  );
+  assert.equal(
+    pickups.every((pickup) => taskMatchesPlannerDates(pickup, plannerDates)),
+    true,
+  );
+  const library = buildLoadLibrary(pickups, plannerDates);
+  assert.deepEqual(library.map((entry) => entry.pickup.unassigned), [1, 1, 1]);
+});
+
+await test("mixed-event-date pickups coexist and reorder in one trailer load", () => {
+  const dates = ["2026-07-17", "2026-07-18", "2026-07-19"];
+  const baseline = [
+    task("fri-route", "pickup", { workDate: null, eventDate: dates[0], spanDays: 4 }),
+    task("sat-route", "pickup", { workDate: null, eventDate: dates[1], spanDays: 3 }),
+    task("sun-route", "pickup", { workDate: null, eventDate: dates[2], spanDays: 2 }),
+  ];
+  let current = baseline;
+  for (const pickup of baseline) {
+    const moved = moveStop(current, [pickup.id], {
+      date: dates[0]!,
+      dates,
+      workType: "pickup",
+      target: "truck-1",
+      targetIndex: Number.MAX_SAFE_INTEGER,
+    });
+    assert.equal(moved.conflict, null);
+    current = moved.tasks;
+  }
+  const reordered = moveStop(current, [baseline[2]!.id], {
+    date: dates[2]!,
+    dates,
+    workType: "pickup",
+    target: "truck-1",
+    targetIndex: 0,
+  });
+  assert.equal(reordered.conflict, null);
+  assert.deepEqual(
+    groupOperationalStops(reordered.tasks).map((stop) => stop.bookingId),
+    [baseline[2]!.bookingId, baseline[0]!.bookingId, baseline[1]!.bookingId],
+  );
+  assert.equal(
+    reordered.tasks.every((pickup) => pickup.workDate === "2026-07-20"),
+    true,
+  );
+});
+
+await test("Friday delivery load accepts Friday and early Saturday events", () => {
+  const dates = ["2026-07-17", "2026-07-18"];
+  const friday = task("fri-delivery", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-17",
+  });
+  const saturday = task("sat-early", "delivery", {
+    workDate: "2026-07-17",
+    eventDate: "2026-07-18",
+  });
+  let current = [friday, saturday];
+  for (const delivery of [friday, saturday]) {
+    current = moveStop(current, [delivery.id], {
+      date: "2026-07-17",
+      dates,
+      workType: "delivery",
+      target: "truck-1",
+      targetIndex: Number.MAX_SAFE_INTEGER,
+    }).tasks;
+  }
+  assert.deepEqual(current.map((delivery) => delivery.eventDate), [
+    "2026-07-17",
+    "2026-07-18",
+  ]);
+  assert.deepEqual(current.map((delivery) => delivery.workDate), [
+    "2026-07-17",
+    "2026-07-17",
+  ]);
+  assert.equal(tasksForSelection(current, {
+    date: dates[0]!, dates, workType: "delivery", truck: "truck-1",
+  }).length, 2);
+});
+
+await test("mixed-date save and reload preserve every stop and sequence", () => {
+  const dates = ["2026-07-17", "2026-07-18"];
+  const baseline = [
+    task("save-fri", "delivery", { workDate: "2026-07-17", eventDate: "2026-07-17" }),
+    task("save-sat", "delivery", { workDate: "2026-07-17", eventDate: "2026-07-18" }),
+  ];
+  let current = baseline;
+  for (const delivery of baseline) {
+    current = moveStop(current, [delivery.id], {
+      date: "2026-07-17", dates, workType: "delivery", target: "truck-2",
+      targetIndex: Number.MAX_SAFE_INTEGER,
+    }).tasks;
+  }
+  const selection = {
+    date: dates[0]!, dates, workType: "delivery" as const, truck: "truck-2" as const,
+  };
+  const payloads = assignmentsForSelection(baseline, current, selection);
+  assert.equal(payloads.length, 2);
+  assert.deepEqual(payloads.map((payload) =>
+    payload.workType === "delivery" ? payload.deliverySequence : null,
+  ), [1, 2]);
+  const reloaded = current.map((delivery) => ({ ...delivery }));
+  assert.deepEqual(
+    groupOperationalStops(tasksForSelection(reloaded, selection)).map((stop) => stop.eventDate),
+    ["2026-07-17", "2026-07-18"],
+  );
+});
+
+await test("selected-date filtering retains assigned stops from every event date", () => {
+  const dates = ["2026-07-17", "2026-07-18", "2026-07-19"];
+  const assigned = dates.map((eventDate, index) => task(`visible-${index}`, "pickup", {
+    workDate: "2026-07-20",
+    eventDate,
+    truck: "truck-1",
+    sequence: index + 1,
+  }));
+  const selection = {
+    date: dates[0]!, dates, workType: "pickup" as const, truck: "truck-1" as const,
+  };
+  assert.equal(tasksForSelection(assigned, selection).length, 3);
+  assert.equal(taskMatchesSelection(assigned[2]!, selection), true);
+});
+
+await test("mixed-date assignment payloads never overwrite event dates", () => {
+  const assigned = task("event-safe", "delivery", {
+    workDate: "2026-07-17",
+    eventDate: "2026-07-18",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  const payload = assignmentForTask(assigned);
+  assert.equal(JSON.stringify(payload).includes("eventDate"), false);
+  assert.equal(JSON.stringify(payload).includes("event_date"), false);
+  assert.equal(assigned.eventDate, "2026-07-18");
+});
+
+await test("operation-specific mixed-date loads never include the sibling work type", () => {
+  const dates = ["2026-07-17", "2026-07-18"];
+  const delivery = task("operation", "delivery", {
+    eventDate: dates[0], truck: "truck-1", sequence: 1,
+  });
+  const pickup = task("operation", "pickup", {
+    eventDate: dates[1], truck: "truck-1", sequence: 1,
+  });
+  const deliveries = tasksForSelection([delivery, pickup], {
+    date: dates[0]!, dates, workType: "delivery", truck: "truck-1",
+  });
+  const pickups = tasksForSelection([delivery, pickup], {
+    date: dates[0]!, dates, workType: "pickup", truck: "truck-1",
+  });
+  assert.deepEqual(deliveries.map((value) => value.id), [delivery.id]);
+  assert.deepEqual(pickups.map((value) => value.id), [pickup.id]);
+});
+
+await test("capacity counts actual inflatable items across mixed-date stops", () => {
+  assert.equal(TRAILER_INFLATABLE_CAPACITY, 3);
+  const dates = ["2026-07-17", "2026-07-18"];
+  const existing = [
+    task("capacity-a", "delivery", {
+      eventDate: dates[0], truck: "truck-1", trailerLoad: 1, sequence: 1,
+    }),
+    task("capacity-b", "delivery", {
+      eventDate: dates[1], truck: "truck-1", trailerLoad: 1, sequence: 2,
+    }),
+  ];
+  const twoItemBooking = [
+    task("capacity-c1", "delivery", { eventDate: dates[0], bookingId: "booking-c" }),
+    task("capacity-c2", "delivery", { eventDate: dates[0], bookingId: "booking-c" }),
+  ];
+  const moved = moveStop(
+    [...existing, ...twoItemBooking],
+    twoItemBooking.map((value) => value.id),
+    {
+      date: dates[0]!, dates, workType: "delivery", target: "truck-1", targetIndex: 2,
+    },
+  );
+  assert.match(moved.conflict ?? "", /capacity is 3 inflatables/);
+  assert.equal(moved.tasks.filter((value) => value.truck === "truck-1").length, 2);
+});
+
+await test("print preparation keeps a mixed-date trailer in saved sequence", () => {
+  const dates = ["2026-07-17", "2026-07-18", "2026-07-19"];
+  const assigned = [
+    task("print-sun", "pickup", { eventDate: dates[2], workDate: "2026-07-20", truck: "truck-2", sequence: 1 }),
+    task("print-fri", "pickup", { eventDate: dates[0], workDate: "2026-07-20", truck: "truck-2", sequence: 2 }),
+    task("print-sat", "pickup", { eventDate: dates[1], workDate: "2026-07-20", truck: "truck-2", sequence: 3 }),
+  ];
+  const printableStops = groupOperationalStops(tasksForSelection(assigned, {
+    date: dates[0]!, dates, workType: "pickup", truck: "truck-2",
+  }));
+  assert.deepEqual(printableStops.map((stop) => stop.sequence), [1, 2, 3]);
+  assert.deepEqual(printableStops.map((stop) => stop.eventDate), [dates[2], dates[0], dates[1]]);
+});
+
+await test("single-date trailer matching remains unchanged", () => {
+  const assigned = task("single-still", "delivery", {
+    workDate: null,
+    eventDate: "2026-07-25",
+    truck: "truck-1",
+    sequence: 1,
+  });
+  assert.equal(taskMatchesSelection(assigned, {
+    date: "2026-07-25", workType: "delivery", truck: "truck-1",
+  }), true);
+  assert.equal(taskMatchesSelection(assigned, {
+    date: "2026-07-26", workType: "delivery", truck: "truck-1",
+  }), false);
 });
 
 

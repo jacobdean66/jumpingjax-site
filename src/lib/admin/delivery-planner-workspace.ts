@@ -14,9 +14,13 @@ export type PlannerColumn = "unassigned" | PlannerTruck;
 
 export type PlannerSelection = {
   date: string;
+  /** Loaded planner dates that make up one mixed-date trailer workspace. */
+  dates?: string[];
   workType: WorkType;
   truck: PlannerTruck;
 };
+
+export const TRAILER_INFLATABLE_CAPACITY = 3;
 
 export type WorkspaceStop = {
   id: string;
@@ -148,6 +152,38 @@ export function stopMatchesColumn(
     stop.effectiveWorkDate === date &&
     stop.workType === workType &&
     (column === "unassigned" ? stop.truck === null : stop.truck === column)
+  );
+}
+
+function selectionDates(selection: PlannerSelection): string[] {
+  const dates = selection.dates?.filter(isYmd) ?? [];
+  return [...new Set(dates.length > 0 ? dates : [selection.date])].sort();
+}
+
+/**
+ * A loaded stop is eligible when either its operation date or its unchanged
+ * booking event date is one of the selected planner dates. The event-date arm
+ * is what lets Friday/Saturday/Sunday rentals share a later pickup load.
+ */
+export function taskMatchesPlannerDates(
+  task: AdminDeliveryWorkTask,
+  dates: string[],
+): boolean {
+  const selected = new Set(dates.filter(isYmd));
+  return (
+    selected.has(effectivePlannerWorkDate(task)) ||
+    selected.has(task.eventDate.slice(0, 10))
+  );
+}
+
+export function stopMatchesPlannerDates(
+  stop: WorkspaceStop,
+  dates: string[],
+): boolean {
+  const selected = new Set(dates.filter(isYmd));
+  return (
+    selected.has(stop.effectiveWorkDate) ||
+    selected.has(stop.eventDate.slice(0, 10))
   );
 }
 
@@ -400,6 +436,7 @@ export function buildLoadLibrary(
   dates: string[],
 ): LibraryDateEntry[] {
   const stops = groupOperationalStops(tasks);
+  const selected = new Set(dates);
   return dates.map((date) => {
     const entry: LibraryDateEntry = {
       date,
@@ -408,7 +445,13 @@ export function buildLoadLibrary(
       pickup: emptyWorkCounts(),
     };
     for (const stop of stops) {
-      if (stop.effectiveWorkDate !== date) continue;
+      // Prefer the operation date when it is loaded. Otherwise place the stop
+      // under its selected event-date context (for example a Monday pickup
+      // derived from a Friday/Saturday/Sunday rental selection).
+      const libraryDate = selected.has(stop.effectiveWorkDate)
+        ? stop.effectiveWorkDate
+        : stop.eventDate.slice(0, 10);
+      if (libraryDate !== date) continue;
       const counts = entry[stop.workType];
       counts.total += 1;
       counts[stop.truck ?? "unassigned"] += 1;
@@ -419,23 +462,33 @@ export function buildLoadLibrary(
 }
 
 export function selectionKey(selection: PlannerSelection): string {
-  return `${selection.date}:${selection.workType}:${selection.truck}`;
+  return `${selectionDates(selection).join(",")}:${selection.workType}:${selection.truck}`;
 }
 
-export function unassignedSelectionKey(date: string, workType: WorkType): string {
-  return `${date}:${workType}:unassigned`;
+export function unassignedSelectionKey(
+  dateOrDates: string | string[],
+  workType: WorkType,
+): string {
+  const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
+  return `${[...new Set(dates.filter(isYmd))].sort().join(",")}:${workType}:unassigned`;
 }
 
 export function taskMatchesSelection(
   task: AdminDeliveryWorkTask,
   selection: PlannerSelection,
 ): boolean {
-  return taskMatchesColumn(
-    task,
-    selection.date,
-    selection.workType,
-    selection.truck,
+  return (
+    task.workType === selection.workType &&
+    asTruck(task.truck) === selection.truck &&
+    taskMatchesPlannerDates(task, selectionDates(selection))
   );
+}
+
+export function tasksForSelection(
+  tasks: AdminDeliveryWorkTask[],
+  selection: PlannerSelection,
+): AdminDeliveryWorkTask[] {
+  return tasks.filter((task) => taskMatchesSelection(task, selection));
 }
 
 function taskRouteState(task: AdminDeliveryWorkTask): string {
@@ -503,7 +556,7 @@ export function dirtySelectionKeys(
 
 function sequenceStops(
   tasks: AdminDeliveryWorkTask[],
-  date: string,
+  dates: string[],
   workType: WorkType,
   truck: PlannerTruck,
   movingTaskIds: Set<string>,
@@ -512,7 +565,9 @@ function sequenceStops(
   const stops = groupOperationalStops(
     tasks.filter(
       (task) =>
-        taskMatchesColumn(task, date, workType, truck) &&
+        task.workType === workType &&
+        asTruck(task.truck) === truck &&
+        taskMatchesPlannerDates(task, dates) &&
         !movingTaskIds.has(task.id),
     ),
   );
@@ -537,6 +592,7 @@ export function rescheduleStopWorkDate(
   tasks: AdminDeliveryWorkTask[],
   taskIds: string[],
   nextWorkDate: string,
+  plannerDates: string[] = [nextWorkDate],
 ): { tasks: AdminDeliveryWorkTask[]; conflict: string | null } {
   if (!isYmd(nextWorkDate)) {
     return { tasks, conflict: "Invalid setup/delivery date." };
@@ -579,14 +635,16 @@ export function rescheduleStopWorkDate(
     if (assignedMoving.length === 0) continue;
     const sequenceByTask = sequenceStops(
       next,
-      nextWorkDate,
+      [...new Set([...plannerDates, nextWorkDate])],
       workType,
       truck,
       new Set(assignedMoving.map((task) => task.id)),
       Number.MAX_SAFE_INTEGER,
     );
     next = next.map((task) =>
-      taskMatchesColumn(task, nextWorkDate, workType, truck)
+      task.workType === workType &&
+      asTruck(task.truck) === truck &&
+      taskMatchesPlannerDates(task, [...new Set([...plannerDates, nextWorkDate])])
         ? {
             ...task,
             sequence: sequenceByTask.get(task.id) ?? task.sequence,
@@ -603,12 +661,14 @@ export function moveStop(
   taskIds: string[],
   options: {
     date: string;
+    dates?: string[];
     workType: WorkType;
     target: PlannerColumn;
     targetIndex: number;
   },
 ): { tasks: AdminDeliveryWorkTask[]; conflict: string | null } {
   const movingIds = new Set(taskIds);
+  const plannerDates = options.dates?.length ? options.dates : [options.date];
   if (movingIds.size !== taskIds.length) {
     return { tasks, conflict: "Duplicate operational task in drag selection." };
   }
@@ -618,13 +678,30 @@ export function moveStop(
     moving.some(
       (task) =>
         task.workType !== options.workType ||
-        effectivePlannerWorkDate(task) !== options.date,
+        !taskMatchesPlannerDates(task, plannerDates),
     )
   ) {
     return { tasks, conflict: "This work task does not belong to the selected load." };
   }
 
   const targetTruck = options.target === "unassigned" ? null : options.target;
+  const targetLoad = moving[0]?.trailerLoad ?? 1;
+  if (targetTruck) {
+    const existingInflatables = tasks.filter(
+      (task) =>
+        !movingIds.has(task.id) &&
+        task.workType === options.workType &&
+        asTruck(task.truck) === targetTruck &&
+        (task.trailerLoad ?? 1) === targetLoad &&
+        taskMatchesPlannerDates(task, plannerDates),
+    ).length;
+    if (existingInflatables + movingIds.size > TRAILER_INFLATABLE_CAPACITY) {
+      return {
+        tasks,
+        conflict: `Trailer load capacity is ${TRAILER_INFLATABLE_CAPACITY} inflatables.`,
+      };
+    }
+  }
   let next = tasks.map((task) => {
     if (!movingIds.has(task.id)) return task;
     const alreadyAssigned = asTruck(task.truck) !== null;
@@ -634,7 +711,8 @@ export function moveStop(
       // Already-assigned null workDate stays null so viewing/reordering alone
       // does not invent a deliveryDate/pickupDate write.
       workDate: targetTruck
-        ? task.workDate ?? (alreadyAssigned ? task.workDate : options.date)
+        ? task.workDate ??
+          (alreadyAssigned ? task.workDate : effectivePlannerWorkDate(task))
         : task.workDate,
       truck: targetTruck,
       trailerLoad: targetTruck ? task.trailerLoad ?? 1 : null,
@@ -646,14 +724,16 @@ export function moveStop(
   for (const truck of ["truck-1", "truck-2"] as const) {
     const sequenceByTask = sequenceStops(
       next,
-      options.date,
+      plannerDates,
       options.workType,
       truck,
       targetTruck === truck ? movingIds : new Set<string>(),
       targetTruck === truck ? options.targetIndex : Number.MAX_SAFE_INTEGER,
     );
     next = next.map((task) =>
-      taskMatchesColumn(task, options.date, options.workType, truck)
+      task.workType === options.workType &&
+      asTruck(task.truck) === truck &&
+      taskMatchesPlannerDates(task, plannerDates)
         ? {
             ...task,
             sequence: sequenceByTask.get(task.id) ?? task.sequence,
@@ -752,13 +832,14 @@ export function rangeDates(anchor: string, length = 7): string[] {
   return result;
 }
 
-/** Persist work-date edits for unassigned stops on one planner day. */
+/** Persist work-date edits for unassigned stops in the loaded planner scope. */
 export function assignmentsForUnassigned(
   baseline: AdminDeliveryWorkTask[],
   current: AdminDeliveryWorkTask[],
-  date: string,
+  dateOrDates: string | string[],
   workType: WorkType,
 ): RouteAssignmentPayload[] {
+  const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
   const changed = changedTaskIds(baseline, current);
   const beforeById = new Map(baseline.map((task) => [task.id, task]));
   return current
@@ -766,12 +847,12 @@ export function assignmentsForUnassigned(
       if (!changed.has(task.id) || task.workType !== workType) return false;
       const afterUnassigned =
         asTruck(task.truck) === null &&
-        effectivePlannerWorkDate(task) === date;
+        taskMatchesPlannerDates(task, dates);
       const before = beforeById.get(task.id);
       const beforeUnassigned = Boolean(
         before &&
           asTruck(before.truck) === null &&
-          effectivePlannerWorkDate(before) === date,
+          taskMatchesPlannerDates(before, dates),
       );
       return afterUnassigned || beforeUnassigned;
     })
