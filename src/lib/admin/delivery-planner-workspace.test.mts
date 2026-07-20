@@ -422,6 +422,10 @@ await test("workspace date selection contains no viewport scrolling command", as
   assert.equal(source.includes("navigatePlannerDates"), true);
   assert.equal(source.includes("filterLibraryDatesForDisplay"), true);
   assert.equal(source.includes("saveUnassignedWorkDates"), true);
+  assert.equal(source.includes('addEventListener("popstate"'), true);
+  assert.equal(source.includes('"pushState"'), true);
+  assert.equal(source.includes("loadRequestIdRef"), true);
+  assert.equal(source.includes("mergePlannerNavigationSearchParams"), true);
   assert.equal(source.includes("Shift 7-day window"), false);
   assert.equal(source.includes("stop.city"), true);
   assert.equal(source.includes("stop.county"), false);
@@ -449,6 +453,8 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
   assert.equal(source.includes("metaKey"), false);
   assert.equal(source.includes("ctrlKey"), false);
   assert.equal(source.includes("shiftKey") && source.includes("onDialogKeyDown"), true);
+  assert.equal(source.includes('role="button"'), false);
+  assert.equal(source.includes("flex h-11 w-full shrink-0"), true);
 });
 
 await test("details modal distinguishes Setup/Delivery from Event", async () => {

@@ -33,6 +33,7 @@ import {
   weekStripContaining,
   todayYmd,
   addDays,
+  mergePlannerNavigationSearchParams,
 } from "./delivery-planner-dates";
 
 type TestFn = () => void | Promise<void>;
@@ -365,6 +366,28 @@ await test("immediate single-date URL is canonical", () => {
   assert.equal(params.get("date"), "2026-07-25");
   assert.equal(params.get("dates"), null);
   assert.equal(params.get("work"), "pickups");
+});
+
+await test("planner URL updates preserve unrelated filters and clear stale date keys", () => {
+  const single = mergePlannerNavigationSearchParams(
+    "?dates=2026-07-19,2026-07-25&date=2026-07-19&work=deliveries&truck=truck-1&status=ready&view=compact",
+    ["2026-07-25"],
+    "2026-07-25",
+    { work: "deliveries", truck: "truck-1" },
+  );
+  assert.equal(single.get("date"), "2026-07-25");
+  assert.equal(single.get("dates"), null);
+  assert.equal(single.get("status"), "ready");
+  assert.equal(single.get("view"), "compact");
+
+  const multi = mergePlannerNavigationSearchParams(
+    single,
+    ["2026-07-25", "2026-07-19", "2026-07-25"],
+    "2026-07-25",
+  );
+  assert.equal(multi.get("dates"), "2026-07-19,2026-07-25");
+  assert.equal(multi.get("date"), "2026-07-25");
+  assert.equal(multi.get("view"), "compact");
 });
 
 console.log("All delivery-planner-dates tests passed.");

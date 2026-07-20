@@ -374,7 +374,7 @@ export function DeliveryDateSelector({
                     key={ymd}
                     type="button"
                     onClick={() => onCalendarDayClick(ymd)}
-                    className={`flex h-10 w-full shrink-0 items-center justify-center rounded-lg text-sm font-black transition ${
+                    className={`flex h-11 w-full shrink-0 items-center justify-center rounded-lg text-sm font-black transition ${
                       isSelected
                         ? "rp-date-day-selected"
                         : isToday
@@ -506,34 +506,29 @@ export function DeliveryDateSelector({
           {multiSession ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {loaded.map((ymd) => (
-                <button
+                <span
                   key={ymd}
-                  type="button"
-                  onClick={() => activateLoaded(ymd)}
                   className={`rp-date-chip inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black ${
                     ymd === active ? "rp-date-chip-active" : ""
                   }`}
                 >
-                  {formatCompactDate(ymd)}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeChip(ymd);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        removeChip(ymd);
-                      }
-                    }}
+                  <button
+                    type="button"
+                    onClick={() => activateLoaded(ymd)}
+                    className="min-h-10 rounded-l-full px-1"
+                    aria-current={ymd === active ? "date" : undefined}
+                  >
+                    {formatCompactDate(ymd)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeChip(ymd)}
+                    className="min-h-10 min-w-10 rounded-r-full"
                     aria-label={`Remove ${formatLongDate(ymd)}`}
                   >
                     ×
-                  </span>
-                </button>
+                  </button>
+                </span>
               ))}
             </div>
           ) : null}
@@ -599,34 +594,29 @@ export function DeliveryDateSelector({
           {multiSession ? (
             <div className="flex flex-wrap gap-1.5 border-t-2 border-slate-600/40 pt-2">
               {loaded.map((ymd) => (
-                <button
+                <span
                   key={ymd}
-                  type="button"
-                  onClick={() => activateLoaded(ymd)}
                   className={`rp-date-chip inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black ${
                     ymd === active ? "rp-date-chip-active" : ""
                   }`}
                 >
-                  {formatCompactDate(ymd)}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeChip(ymd);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        removeChip(ymd);
-                      }
-                    }}
+                  <button
+                    type="button"
+                    onClick={() => activateLoaded(ymd)}
+                    className="min-h-10 rounded-l-full px-1"
+                    aria-current={ymd === active ? "date" : undefined}
+                  >
+                    {formatCompactDate(ymd)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeChip(ymd)}
+                    className="min-h-10 min-w-10 rounded-r-full"
                     aria-label={`Remove ${formatLongDate(ymd)}`}
                   >
                     ×
-                  </span>
-                </button>
+                  </button>
+                </span>
               ))}
             </div>
           ) : null}

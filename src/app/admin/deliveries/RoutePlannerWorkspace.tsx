@@ -20,7 +20,9 @@ import {
   filterLibraryDatesForDisplay,
   formatCompactDate,
   formatLongDate,
+  mergePlannerNavigationSearchParams,
   normalizeSelectedDates,
+  parsePlannerNavigationState,
   todayYmd,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
@@ -64,6 +66,11 @@ const TRUCK_DETAIL: Record<PlannerTruck, string> = {
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type MobilePanel = "library" | "unassigned" | "trailer";
+type PendingRange = {
+  dates: string[];
+  preferredActive?: string;
+  fromHistory?: boolean;
+};
 
 function workLabel(workType: WorkType): string {
   return workType === "delivery" ? "Drop-offs" : "Pickups";
@@ -321,8 +328,16 @@ export function RoutePlannerWorkspace({
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("unassigned");
   const [pendingSelection, setPendingSelection] =
     useState<PlannerSelection | null>(null);
-  const [pendingRange, setPendingRange] = useState<string[] | null>(null);
+  const [pendingRange, setPendingRange] = useState<PendingRange | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
+  const loadRequestIdRef = useRef(0);
+  const suppressHistoryPushRef = useRef(true);
+  const previousNavigationKeyRef = useRef(
+    `${startingActive}|${initialDeliveries.dates.join(",")}`,
+  );
+  const popstateNavigationRef = useRef<
+    (next: { activeDate: string; loadedDates: string[] }) => void
+  >(() => undefined);
 
   const dirtyKeys = useMemo(
     () => dirtySelectionKeys(baseline, tasks),
@@ -351,22 +366,44 @@ export function RoutePlannerWorkspace({
     const loadedForUrl = dates.includes(selection.date)
       ? dates
       : normalizeSelectedDates([selection.date, ...dates]);
-    const params = datesToSearchParams(
+    const params = mergePlannerNavigationSearchParams(
+      current,
       loadedForUrl,
+      selection.date,
       {
         work: selection.workType === "delivery" ? "deliveries" : "pickups",
         truck: selection.truck,
-        load: current.get("load"),
-        status: current.get("status"),
       },
-      selection.date,
     );
-    window.history.replaceState(
+    const navigationKey = `${selection.date}|${loadedForUrl.join(",")}`;
+    const navigationChanged =
+      navigationKey !== previousNavigationKeyRef.current;
+    const method =
+      navigationChanged && !suppressHistoryPushRef.current
+        ? "pushState"
+        : "replaceState";
+    window.history[method](
       window.history.state,
       "",
       `${window.location.pathname}?${params.toString()}`,
     );
+    previousNavigationKeyRef.current = navigationKey;
+    suppressHistoryPushRef.current = false;
   }, [dates, selection.date, selection.truck, selection.workType]);
+
+  useEffect(() => {
+    function onPopState() {
+      const params = new URLSearchParams(window.location.search);
+      const navigation = parsePlannerNavigationState({
+        date: params.get("date"),
+        dates: params.get("dates"),
+      });
+      suppressHistoryPushRef.current = true;
+      popstateNavigationRef.current(navigation);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -555,6 +592,7 @@ export function RoutePlannerWorkspace({
   }
 
   async function loadRange(nextDates: string[], preferredActive?: string) {
+    const requestId = ++loadRequestIdRef.current;
     setLoadingRange(true);
     setNotice(null);
     try {
@@ -574,6 +612,7 @@ export function RoutePlannerWorkspace({
             : "Unable to load this date range.",
         );
       }
+      if (requestId !== loadRequestIdRef.current) return;
       const nextTasks = allPlannerTasks(data);
       setTasks(nextTasks);
       setBaseline(nextTasks);
@@ -596,18 +635,29 @@ export function RoutePlannerWorkspace({
       setExpandedDates((current) => ({ ...current, [activeDate]: true }));
       setSaveStates({});
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
       setNotice(
         error instanceof Error ? error.message : "Unable to load this date range.",
       );
     } finally {
-      setLoadingRange(false);
-      setPendingRange(null);
+      if (requestId === loadRequestIdRef.current) {
+        setLoadingRange(false);
+        setPendingRange(null);
+      }
     }
   }
 
-  function requestRange(nextDates: string[], preferredActive?: string) {
+  function requestRange(
+    nextDates: string[],
+    preferredActive?: string,
+    fromHistory = false,
+  ) {
     if (dirtyKeys.size > 0) {
-      setPendingRange(nextDates);
+      setPendingRange({
+        dates: nextDates,
+        preferredActive,
+        fromHistory,
+      });
       return;
     }
     void loadRange(nextDates, preferredActive);
@@ -631,6 +681,12 @@ export function RoutePlannerWorkspace({
     }
     requestRange(loaded, next.activeDate);
   }
+
+  useEffect(() => {
+    popstateNavigationRef.current = (next) => {
+      requestRange(next.loadedDates, next.activeDate, true);
+    };
+  });
 
   async function saveCurrentLoad() {
     const assignments = assignmentsForSelection(baseline, tasks, selection);
@@ -1337,6 +1393,24 @@ export function RoutePlannerWorkspace({
         open={Boolean(pendingSelection || pendingRange)}
         rangeChange={Boolean(pendingRange)}
         onStay={() => {
+          if (pendingRange?.fromHistory) {
+            const params = mergePlannerNavigationSearchParams(
+              new URLSearchParams(window.location.search),
+              dates,
+              selection.date,
+              {
+                work:
+                  selection.workType === "delivery" ? "deliveries" : "pickups",
+                truck: selection.truck,
+              },
+            );
+            window.history.replaceState(
+              window.history.state,
+              "",
+              `${window.location.pathname}?${params.toString()}`,
+            );
+            suppressHistoryPushRef.current = false;
+          }
           setPendingSelection(null);
           setPendingRange(null);
         }}
@@ -1347,7 +1421,10 @@ export function RoutePlannerWorkspace({
         onDiscard={() => {
           if (pendingRange) {
             setTasks(baseline);
-            void loadRange(pendingRange);
+            void loadRange(
+              pendingRange.dates,
+              pendingRange.preferredActive,
+            );
           } else if (pendingSelection) {
             discardSelectionDraft(pendingSelection);
           }

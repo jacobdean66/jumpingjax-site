@@ -14,6 +14,7 @@ import {
   emptyInventoryCounts,
   loadInventoryRentalCounts,
 } from "@/lib/admin/inventory-counts";
+import { emptyInventoryDimensions } from "@/lib/admin/inventory-ops";
 import {
   AdminAuthError,
   AdminHeader,
@@ -21,6 +22,7 @@ import {
   AdminShell,
   StatTile,
 } from "../_components";
+import { InventoryOpsFields } from "./InventoryOpsFields";
 
 export const dynamic = "force-dynamic";
 
@@ -63,10 +65,14 @@ function categoryHref(token: string, categoryId?: RentalCategoryId) {
 function InventoryForm({
   token,
   item,
+  cancelHref,
 }: {
   token: string;
   item?: AdminInventoryItem;
+  cancelHref: string;
 }) {
+  const dimensions = item?.dimensions ?? emptyInventoryDimensions();
+
   return (
     <form
       action="/api/admin/inventory/item"
@@ -96,6 +102,12 @@ function InventoryForm({
               Delete Item
             </button>
           ) : null}
+          <Link
+            href={cancelHref}
+            className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </Link>
           <button className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-black text-white hover:bg-emerald-600">
             Save Item
           </button>
@@ -231,6 +243,14 @@ function InventoryForm({
           />
         </label>
       </div>
+
+      <InventoryOpsFields
+        key={item?.id ?? "new-item"}
+        blowerRequirements={item?.blowerRequirements ?? []}
+        tarpRequirement={item?.tarpRequirement ?? ""}
+        cleaningSupply={item?.cleaningSupply ?? "disinfectant"}
+        dimensions={dimensions}
+      />
 
       <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
         <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
@@ -440,46 +460,47 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                       : "border-slate-200 bg-white"
                   }`}
                 >
-                <Link
-                  href={`/admin/inventory?${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`}
-                  className="block hover:opacity-95"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-                        {row.categoryLabel}
-                      </p>
-                      <h3 className="mt-1 text-base font-black">{row.title}</h3>
-                    </div>
-                    <p className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                      {money(row.startingPrice)}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                      {row.categoryLabel}
                     </p>
+                    <h3 className="mt-1 text-base font-black">{row.title}</h3>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-wide">
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                      {ROUTE_KIND_LABELS[row.routeKind]}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-1 ${
-                        row.isActive
-                          ? "bg-emerald-100 text-emerald-900"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {row.isActive ? "Active" : "Inactive"}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-1 ${
-                        row.publicVisible
-                          ? "bg-cyan-100 text-cyan-900"
-                          : "bg-amber-100 text-amber-950"
-                      }`}
-                    >
-                      {row.publicVisible ? "Public-ready" : "Review"}
-                    </span>
-                  </div>
-                </Link>
+                  <p className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                    {money(row.startingPrice)}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-wide">
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                    {ROUTE_KIND_LABELS[row.routeKind]}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-1 ${
+                      row.isActive
+                        ? "bg-emerald-100 text-emerald-900"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {row.isActive ? "Active" : "Inactive"}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-1 ${
+                      row.publicVisible
+                        ? "bg-cyan-100 text-cyan-900"
+                        : "bg-amber-100 text-amber-950"
+                    }`}
+                  >
+                    {row.publicVisible ? "Public-ready" : "Review"}
+                  </span>
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/inventory?${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`}
+                    className="rounded-full bg-sky-500 px-3 py-1.5 text-[11px] font-black text-white hover:bg-sky-600"
+                  >
+                    {item?.id === row.id ? "Editing" : "Edit"}
+                  </Link>
                   <Link
                     href={`/admin/rentals?from=2020-01-01&to=${new Date().toISOString().slice(0, 10)}`}
                     className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700 hover:bg-slate-100"
@@ -500,7 +521,11 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
           </div>
         </section>
 
-        <InventoryForm token={token} item={item} />
+        <InventoryForm
+          token={token}
+          item={item}
+          cancelHref={categoryHref(token, activeCategory)}
+        />
       </div>
     </AdminShell>
   );

@@ -111,12 +111,26 @@ export function datesToSearchParams(
   extra?: Record<string, string | undefined | null>,
   activeDate?: string | null,
 ): URLSearchParams {
+  return mergePlannerNavigationSearchParams("", dates, activeDate, extra);
+}
+
+/** Update Route Planner navigation keys while preserving unrelated filters. */
+export function mergePlannerNavigationSearchParams(
+  current: URLSearchParams | string,
+  dates: string[],
+  activeDate?: string | null,
+  extra?: Record<string, string | undefined | null>,
+): URLSearchParams {
   const normalized = normalizeSelectedDates(dates);
   const active =
     isYmd(activeDate) && normalized.includes(activeDate)
       ? activeDate
       : normalized[0]!;
-  const params = new URLSearchParams();
+  const params = new URLSearchParams(
+    typeof current === "string" ? current.replace(/^\?/, "") : current.toString(),
+  );
+  params.delete("date");
+  params.delete("dates");
   if (normalized.length === 1) {
     params.set("date", active);
   } else {
@@ -127,6 +141,8 @@ export function datesToSearchParams(
     for (const [key, value] of Object.entries(extra)) {
       if (value != null && value !== "" && value !== "all") {
         params.set(key, value);
+      } else {
+        params.delete(key);
       }
     }
   }
