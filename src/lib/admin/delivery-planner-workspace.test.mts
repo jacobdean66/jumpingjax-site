@@ -417,9 +417,16 @@ await test("workspace date selection contains no viewport scrolling command", as
   assert.equal(source.includes("Keep draft"), true);
   assert.equal(source.includes("Discard"), true);
   assert.equal(source.includes("DeliveryDateSelector"), true);
-  assert.equal(source.includes('variant="library"'), true);
+  assert.equal(source.includes('variant="bar"'), true);
   assert.equal(source.includes('variant="mobile"'), true);
+  assert.equal(source.includes("navigatePlannerDates"), true);
+  assert.equal(source.includes("filterLibraryDatesForDisplay"), true);
   assert.equal(source.includes("saveUnassignedWorkDates"), true);
+  assert.equal(source.includes('addEventListener("popstate"'), true);
+  assert.equal(source.includes('"pushState"'), true);
+  assert.equal(source.includes("loadRequestIdRef"), true);
+  assert.equal(source.includes("mergePlannerNavigationSearchParams"), true);
+  assert.equal(source.includes("Shift 7-day window"), false);
   assert.equal(source.includes("stop.city"), true);
   assert.equal(source.includes("stop.county"), false);
 });
@@ -429,25 +436,25 @@ await test("mobile date selector supports nonconsecutive multi-select without mo
     new URL("../../app/admin/deliveries/DeliveryDateSelector.tsx", import.meta.url),
     "utf8",
   );
-  assert.equal(source.includes("Select route dates"), true);
-  assert.equal(source.includes("Choose Dates"), true);
-  assert.equal(source.includes('variant === "library"'), true);
+  assert.equal(source.includes("Jump to date"), true);
+  assert.equal(source.includes("Plan multiple dates"), true);
+  assert.equal(source.includes("View Selected Dates"), true);
+  assert.equal(source.includes("weekStripContaining"), true);
+  assert.equal(source.includes("navigateSingle"), true);
   assert.equal(source.includes("Cancel"), true);
   assert.equal(source.includes("toggleDateInDraft"), true);
-  assert.equal(source.includes("Apply dates"), true);
-  assert.equal(source.includes("Clear all"), true);
-  assert.equal(
-    source.includes("setDraftDates(defaultPlanningWindowDates())"),
-    true,
-  );
-  assert.equal(source.includes("defaultPlanningWindowDates()"), true);
-  assert.equal(source.includes("aria-controls={pickerOpen ? dialogId"), true);
+  assert.equal(source.includes("Apply dates"), false);
+  assert.equal(source.includes("Add date"), false);
+  assert.equal(source.includes('type="date"'), false);
+  assert.equal(source.includes("aria-controls={calendarOpen ? dialogId"), true);
   assert.equal(source.includes("id={dialogId}"), true);
-  assert.equal(source.includes("scrollIntoView"), false);
+  assert.equal(source.includes("scrollIntoView"), true);
   assert.equal(source.includes("window.scrollTo"), false);
   assert.equal(source.includes("metaKey"), false);
   assert.equal(source.includes("ctrlKey"), false);
   assert.equal(source.includes("shiftKey") && source.includes("onDialogKeyDown"), true);
+  assert.equal(source.includes('role="button"'), false);
+  assert.equal(source.includes("flex h-11 w-full shrink-0"), true);
 });
 
 await test("details modal distinguishes Setup/Delivery from Event", async () => {
@@ -819,6 +826,18 @@ await test("unassigned setup-date changes are dirty and saveable without trailer
     assert.equal(payloads[0].deliveryDate, "2026-07-17");
     assert.equal(payloads[0].deliveryTruck, null);
   }
+});
+
+
+await test("date navigator source uses shared active-date navigation", async () => {
+  const source = await readFile(
+    new URL("../../app/admin/deliveries/DeliveryDateSelector.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes("Active date"), true);
+  assert.equal(source.includes("rp-date-strip-day-active"), true);
+  assert.equal(source.includes("One tap jumps to that day immediately"), true);
+  assert.equal(source.includes("Plan multiple dates"), true);
 });
 
 console.log("All delivery-planner-workspace tests passed.");

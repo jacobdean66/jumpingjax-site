@@ -3,27 +3,27 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
+  addDays,
   dateToYmd,
   datesForPreset,
-  datesToSearchParams,
-  defaultPlanningWindowDates,
   formatCompactDate,
   formatLongDate,
+  formatStripDayLabel,
   monthMatrix,
   normalizeSelectedDates,
-  parseDatesFromSearchParams,
   removeDateFromDraft,
+  removeLoadedPlannerDate,
   sortUniqueYmd,
-  summarizeSelectedDates,
   toggleDateInDraft,
   todayYmd,
+  weekStripContaining,
   type DatePresetId,
 } from "@/lib/admin/delivery-planner-dates";
 
@@ -36,102 +36,124 @@ const PRESETS: Array<{ id: DatePresetId; label: string }> = [
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 
-function readPreservedFilters(
-  searchParams: URLSearchParams | { get: (key: string) => string | null },
-): Record<string, string | null> {
-  return {
-    work: searchParams.get("work"),
-    truck: searchParams.get("truck"),
-    load: searchParams.get("load"),
-    status: searchParams.get("status"),
-  };
-}
-
-export type DeliveryDateSelectorVariant = "mobile" | "library";
+export type DeliveryDateSelectorVariant = "bar" | "mobile";
 
 export function DeliveryDateSelector({
-  initialDates,
-  selectedDates,
-  onApplyDates,
-  variant = "mobile",
+  activeDate,
+  loadedDates,
+  onNavigate,
+  variant = "bar",
 }: {
-  initialDates: string[];
-  selectedDates?: string[];
-  onApplyDates?: (dates: string[]) => void;
+  activeDate: string;
+  loadedDates: string[];
+  onNavigate: (next: { activeDate: string; loadedDates: string[] }) => void;
   variant?: DeliveryDateSelectorVariant;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const dialogTitleId = useId();
   const dialogId = `${dialogTitleId}-dialog`;
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
 
-  const selected = useMemo(() => {
-    if (selectedDates) return sortUniqueYmd(selectedDates);
-    const fromUrl = parseDatesFromSearchParams({
-      date: searchParams.get("date"),
-      dates: searchParams.get("dates"),
-    });
-    return fromUrl.length > 0 ? fromUrl : normalizeSelectedDates(initialDates);
-  }, [searchParams, initialDates, selectedDates]);
+  const active = normalizeSelectedDates([activeDate])[0]!;
+  const loaded = useMemo(
+    () => normalizeSelectedDates(loadedDates.length > 0 ? loadedDates : [active]),
+    [loadedDates, active],
+  );
+  const multiSession = loaded.length > 1;
+  const strip = useMemo(() => weekStripContaining(active), [active]);
+  const today = todayYmd();
 
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [draftDates, setDraftDates] = useState<string[]>(selected);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [multiMode, setMultiMode] = useState(false);
+  const [draftDates, setDraftDates] = useState<string[]>(loaded);
   const [cursor, setCursor] = useState(() => {
-    const anchor = selected[0] ?? todayYmd();
-    const [year, month] = anchor.split("-").map(Number);
+    const [year, month] = active.split("-").map(Number);
     return new Date(year ?? 2026, (month ?? 1) - 1, 1);
   });
 
-  function applyDates(nextDates: string[]) {
-    // Planner always needs an active window; empty apply means the default 7 days.
-    const normalized =
-      nextDates.length === 0
-        ? defaultPlanningWindowDates()
-        : normalizeSelectedDates(nextDates);
-    if (onApplyDates) {
-      onApplyDates(normalized);
+  useLayoutEffect(() => {
+    const root = stripRef.current;
+    if (!root) return;
+    const selected = root.querySelector<HTMLElement>('[data-strip-active="true"]');
+    selected?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [active, variant]);
+
+  function navigateSingle(ymd: string) {
+    if (!ymd) return;
+    onNavigate({ activeDate: ymd, loadedDates: [ymd] });
+  }
+
+  function activateLoaded(ymd: string) {
+    if (!loaded.includes(ymd)) return;
+    onNavigate({ activeDate: ymd, loadedDates: loaded });
+  }
+
+  function openCalendar(options?: { multi?: boolean }) {
+    const nextMulti = Boolean(options?.multi);
+    setMultiMode(nextMulti);
+    setDraftDates(nextMulti ? loaded : [active]);
+    const [year, month] = active.split("-").map(Number);
+    setCursor(new Date(year ?? 2026, (month ?? 1) - 1, 1));
+    setCalendarOpen(true);
+  }
+
+  function cancelCalendar() {
+    setCalendarOpen(false);
+    setMultiMode(false);
+    queueMicrotask(() => openButtonRef.current?.focus());
+  }
+
+  function commitMulti() {
+    const normalized = sortUniqueYmd(draftDates);
+    if (normalized.length === 0) {
+      navigateSingle(active);
+      cancelCalendar();
       return;
     }
-    const params = datesToSearchParams(
-      normalized,
-      readPreservedFilters(searchParams),
-    );
-    router.replace(`/admin/deliveries?${params.toString()}`, { scroll: false });
-  }
-
-  function openPicker() {
-    setDraftDates(selected);
-    const anchor = selected[0] ?? todayYmd();
-    const [year, month] = anchor.split("-").map(Number);
-    setCursor(new Date(year ?? 2026, (month ?? 1) - 1, 1));
-    setPickerOpen(true);
-  }
-
-  function cancelPicker() {
-    setPickerOpen(false);
+    const nextActive = normalized.includes(active) ? active : normalized[0]!;
+    onNavigate({ activeDate: nextActive, loadedDates: normalized });
+    setCalendarOpen(false);
+    setMultiMode(false);
     queueMicrotask(() => openButtonRef.current?.focus());
   }
 
-  function commitPicker() {
-    applyDates(draftDates);
-    setPickerOpen(false);
-    queueMicrotask(() => openButtonRef.current?.focus());
+  function onCalendarDayClick(ymd: string) {
+    if (!multiMode) {
+      navigateSingle(ymd);
+      setCalendarOpen(false);
+      setMultiMode(false);
+      queueMicrotask(() => openButtonRef.current?.focus());
+      return;
+    }
+    setDraftDates((current) => toggleDateInDraft(current, ymd));
+  }
+
+  function removeChip(ymd: string) {
+    const next = removeLoadedPlannerDate(loaded, active, ymd);
+    if (!next) {
+      navigateSingle(today);
+      return;
+    }
+    onNavigate(next);
   }
 
   useEffect(() => {
-    if (!pickerOpen) return;
+    if (!calendarOpen) return;
     closeButtonRef.current?.focus();
     const previousOverflow = document.body.style.overflow;
+    // Modal scroll lock — body style is intentionally temporary.
+    // eslint-disable-next-line react-hooks/immutability -- document body scroll lock
     document.body.style.overflow = "hidden";
-
     function onKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        setPickerOpen(false);
-        queueMicrotask(() => openButtonRef.current?.focus());
+        cancelCalendar();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -139,7 +161,15 @@ export function DeliveryDateSelector({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [pickerOpen]);
+  }, [calendarOpen]);
+
+  useLayoutEffect(() => {
+    if (!calendarOpen || !dialogRef.current) return;
+    const selected = dialogRef.current.querySelector<HTMLElement>(
+      '[aria-pressed="true"]',
+    );
+    selected?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [calendarOpen, cursor, multiMode, draftDates, active]);
 
   const year = cursor.getFullYear();
   const monthIndex = cursor.getMonth();
@@ -151,13 +181,7 @@ export function DeliveryDateSelector({
     month: "long",
     year: "numeric",
   });
-  const today = todayYmd();
   const draftSet = useMemo(() => new Set(draftDates), [draftDates]);
-  const summary = summarizeSelectedDates(selected);
-  const fullListLabel =
-    selected.length === 0
-      ? "No dates selected"
-      : selected.map(formatCompactDate).join(" · ");
 
   function onDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Tab" || !dialogRef.current) return;
@@ -176,14 +200,64 @@ export function DeliveryDateSelector({
     }
   }
 
-  const dialog = pickerOpen ? (
+  const stripButtons = (
+    <div
+      ref={stripRef}
+      className="rp-date-strip flex min-w-0 items-stretch gap-1 overflow-x-auto overscroll-x-contain pb-0.5"
+      role="list"
+      aria-label="Week dates"
+    >
+      {strip.map((ymd) => {
+        const isActive = ymd === active;
+        const isLoaded = loaded.includes(ymd);
+        return (
+          <button
+            key={ymd}
+            type="button"
+            role="listitem"
+            data-strip-active={isActive ? "true" : "false"}
+            onClick={() => {
+              if (multiSession && isLoaded) {
+                activateLoaded(ymd);
+                return;
+              }
+              navigateSingle(ymd);
+            }}
+            className={`rp-date-strip-day flex min-h-11 min-w-[3.25rem] shrink-0 flex-col items-center justify-center rounded-lg px-2 py-1.5 text-center ${
+              isActive
+                ? "rp-date-strip-day-active"
+                : isLoaded
+                  ? "rp-date-strip-day-loaded"
+                  : "rp-date-strip-day-idle"
+            }`}
+            aria-current={isActive ? "date" : undefined}
+            aria-label={`${formatLongDate(ymd)}${isActive ? ", active" : ""}`}
+          >
+            <span className="text-[10px] font-black uppercase tracking-[0.06em]">
+              {formatStripDayLabel(ymd).split(" ")[0]}
+            </span>
+            <span className="text-sm font-black leading-none">
+              {formatStripDayLabel(ymd).split(" ")[1]}
+            </span>
+            {isActive ? (
+              <span className="rp-date-strip-marker mt-1" aria-hidden="true" />
+            ) : (
+              <span className="mt-1 h-1 w-1" aria-hidden="true" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const calendarDialog = calendarOpen ? (
     <div
       className={`rp-date-sheet-backdrop fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4 ${
-        variant === "mobile" ? "lg:hidden" : "hidden lg:flex"
+        variant === "mobile" ? "" : ""
       }`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) cancelPicker();
+        if (event.target === event.currentTarget) cancelCalendar();
       }}
     >
       <div
@@ -193,51 +267,45 @@ export function DeliveryDateSelector({
         aria-modal="true"
         aria-labelledby={dialogTitleId}
         onKeyDown={onDialogKeyDown}
-        className="rp-date-sheet flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border-2 sm:rounded-2xl"
+        className="rp-date-sheet flex max-h-[min(92dvh,40rem)] w-full max-w-lg flex-col self-end overflow-hidden rounded-t-2xl border-2 sm:self-center sm:rounded-2xl"
       >
         <header className="rp-panel-head flex shrink-0 items-start justify-between gap-3 border-b-2 p-4">
           <div className="min-w-0">
             <h2 id={dialogTitleId} className="rp-panel-title text-lg font-black">
-              Select route dates
+              {multiMode ? "Plan multiple dates" : "Jump to date"}
             </h2>
             <p className="rp-panel-meta mt-1 text-xs font-bold">
-              Tap dates to select or deselect. Nonconsecutive dates are allowed.
-            </p>
-            <p
-              className="rp-eyebrow mt-2 text-xs font-black uppercase tracking-[0.12em]"
-              aria-live="polite"
-            >
-              {draftDates.length === 0
-                ? "No dates selected"
-                : draftDates.length === 1
-                  ? "1 date selected"
-                  : `${draftDates.length} dates selected`}
+              {multiMode
+                ? "Tap dates to select or deselect, then view the selection."
+                : "One tap jumps to that day immediately."}
             </p>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
-            onClick={cancelPicker}
+            onClick={cancelCalendar}
             className="rp-btn min-h-11 min-w-11 rounded-lg px-3 text-sm font-black"
-            aria-label="Close date selector"
+            aria-label="Close calendar"
           >
             Close
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => setDraftDates(datesForPreset(preset.id))}
-                className="rp-btn rounded-full px-3 py-2 text-xs font-black"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          {multiMode ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setDraftDates(datesForPreset(preset.id))}
+                  className="rp-btn rounded-full px-3 py-2 text-xs font-black"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
@@ -248,7 +316,7 @@ export function DeliveryDateSelector({
                     new Date(current.getFullYear(), current.getMonth() - 1, 1),
                 )
               }
-              className="rp-btn flex h-11 w-11 items-center justify-center rounded-lg text-lg font-black"
+              className="rp-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-black"
               aria-label="Previous month"
             >
               ‹
@@ -264,7 +332,7 @@ export function DeliveryDateSelector({
                     new Date(current.getFullYear(), current.getMonth() + 1, 1),
                 )
               }
-              className="rp-btn flex h-11 w-11 items-center justify-center rounded-lg text-lg font-black"
+              className="rp-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-black"
               aria-label="Next month"
             >
               ›
@@ -272,7 +340,7 @@ export function DeliveryDateSelector({
           </div>
 
           <div
-            className="grid grid-cols-7 gap-1"
+            className="grid grid-cols-7 content-start gap-1"
             role="grid"
             aria-label={`${monthLabel} calendar`}
           >
@@ -297,16 +365,16 @@ export function DeliveryDateSelector({
                   );
                 }
                 const ymd = dateToYmd(new Date(year, monthIndex, day));
-                const isSelected = draftSet.has(ymd);
+                const isSelected = multiMode
+                  ? draftSet.has(ymd)
+                  : ymd === active;
                 const isToday = ymd === today;
                 return (
                   <button
                     key={ymd}
                     type="button"
-                    onClick={() =>
-                      setDraftDates((current) => toggleDateInDraft(current, ymd))
-                    }
-                    className={`flex h-11 w-full items-center justify-center rounded-lg text-sm font-black transition ${
+                    onClick={() => onCalendarDayClick(ymd)}
+                    className={`flex h-11 w-full shrink-0 items-center justify-center rounded-lg text-sm font-black transition ${
                       isSelected
                         ? "rp-date-day-selected"
                         : isToday
@@ -325,7 +393,7 @@ export function DeliveryDateSelector({
             )}
           </div>
 
-          {draftDates.length > 0 ? (
+          {multiMode && draftDates.length > 0 ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {draftDates.map((date) => (
                 <button
@@ -346,101 +414,215 @@ export function DeliveryDateSelector({
         </div>
 
         <footer className="rp-panel-head flex shrink-0 flex-wrap gap-2 border-t-2 p-4">
-          <button
-            type="button"
-            onClick={() => setDraftDates(defaultPlanningWindowDates())}
-            className="rp-btn min-h-11 flex-1 rounded-xl px-3 text-sm font-black"
-          >
-            Clear all
-          </button>
-          <button
-            type="button"
-            onClick={cancelPicker}
-            className="rp-btn min-h-11 flex-1 rounded-xl px-3 text-sm font-black"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={commitPicker}
-            className="rp-btn-primary min-h-11 flex-[1.4] rounded-xl px-3 text-sm font-black"
-          >
-            Apply dates
-          </button>
+          {multiMode ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setDraftDates([])}
+                className="rp-btn min-h-11 flex-1 rounded-xl px-3 text-sm font-black"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={cancelCalendar}
+                className="rp-btn min-h-11 flex-1 rounded-xl px-3 text-sm font-black"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={commitMulti}
+                className="rp-btn-primary min-h-11 flex-[1.4] rounded-xl px-3 text-sm font-black"
+              >
+                View Selected Dates
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={cancelCalendar}
+              className="rp-btn min-h-11 w-full rounded-xl px-3 text-sm font-black"
+            >
+              Cancel
+            </button>
+          )}
         </footer>
       </div>
     </div>
   ) : null;
 
-  if (variant === "library") {
+  if (variant === "mobile") {
     return (
       <>
-        <section className="mt-2 hidden shrink-0 print:hidden lg:block">
-          <button
-            ref={openButtonRef}
-            type="button"
-            onClick={openPicker}
-            className="rp-date-mobile-trigger flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border-2 px-3 py-2.5 text-left"
-            aria-haspopup="dialog"
-            aria-expanded={pickerOpen}
-            aria-controls={pickerOpen ? dialogId : undefined}
-          >
-            <span className="min-w-0">
-              <span className="rp-eyebrow block text-[10px] font-black uppercase tracking-[0.14em]">
-                Planning dates
-              </span>
-              <span className="rp-panel-title mt-0.5 block truncate text-xs font-black">
-                {summary}
-              </span>
-            </span>
-            <span className="rp-btn-primary shrink-0 rounded-lg px-3 py-2 text-xs font-black">
-              Choose Dates
-            </span>
-          </button>
-          <p
-            className="rp-panel-meta mt-1.5 text-[10px] font-bold leading-snug"
-            title={fullListLabel}
-          >
-            {fullListLabel}
-          </p>
+        <section className="rp-date-nav rp-date-nav-mobile shrink-0 print:hidden lg:hidden">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigateSingle(addDays(active, -1))}
+              className="rp-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-black"
+              aria-label="Previous day"
+            >
+              ‹
+            </button>
+            <div className="min-w-0 flex-1">{stripButtons}</div>
+            <button
+              type="button"
+              onClick={() => navigateSingle(addDays(active, 1))}
+              className="rp-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-black"
+              aria-label="Next day"
+            >
+              ›
+            </button>
+            <button
+              ref={openButtonRef}
+              type="button"
+              onClick={() => openCalendar()}
+              className="rp-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-black"
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
+              aria-controls={calendarOpen ? dialogId : undefined}
+              aria-label="Open calendar"
+            >
+              Cal
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigateSingle(today)}
+              className="rp-btn-primary min-h-10 rounded-lg px-3 text-xs font-black"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => openCalendar({ multi: true })}
+              className="rp-btn min-h-10 rounded-lg px-3 text-xs font-black"
+            >
+              Plan multiple dates
+            </button>
+          </div>
+          {multiSession ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {loaded.map((ymd) => (
+                <span
+                  key={ymd}
+                  className={`rp-date-chip inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black ${
+                    ymd === active ? "rp-date-chip-active" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => activateLoaded(ymd)}
+                    className="min-h-10 rounded-l-full px-1"
+                    aria-current={ymd === active ? "date" : undefined}
+                  >
+                    {formatCompactDate(ymd)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeChip(ymd)}
+                    className="min-h-10 min-w-10 rounded-r-full"
+                    aria-label={`Remove ${formatLongDate(ymd)}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
-        {dialog}
+        {calendarDialog}
       </>
     );
   }
 
   return (
     <>
-      <section className="rp-date-mobile shrink-0 print:hidden lg:hidden">
-        <button
-          ref={openButtonRef}
-          type="button"
-          onClick={openPicker}
-          className="rp-date-mobile-trigger flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 px-3 py-3 text-left"
-          aria-haspopup="dialog"
-          aria-expanded={pickerOpen}
-          aria-controls={pickerOpen ? dialogId : undefined}
-        >
-          <span className="min-w-0">
-            <span className="rp-eyebrow block text-[10px] font-black uppercase tracking-[0.14em]">
-              Route dates
-            </span>
-            <span className="rp-panel-title mt-0.5 block truncate text-sm font-black">
-              {summary}
-            </span>
-          </span>
-          <span className="rp-btn shrink-0 rounded-lg px-3 py-2 text-xs font-black">
-            Select
-          </span>
-        </button>
-        <p
-          className="rp-panel-meta mt-1.5 px-0.5 text-[11px] font-bold leading-snug"
-          title={fullListLabel}
-        >
-          {fullListLabel}
-        </p>
+      <section className="rp-date-nav rp-date-nav-bar mb-2 hidden shrink-0 print:hidden lg:block">
+        <div className="rp-panel flex flex-col gap-2 rounded-2xl border-2 p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigateSingle(addDays(active, -1))}
+              className="rp-btn flex h-11 min-w-11 items-center justify-center rounded-lg text-lg font-black"
+              aria-label="Previous day"
+            >
+              ‹
+            </button>
+            <button
+              ref={openButtonRef}
+              type="button"
+              onClick={() => openCalendar()}
+              className="rp-date-active-button min-h-11 min-w-[14rem] flex-1 rounded-xl px-4 py-2 text-left"
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
+              aria-controls={calendarOpen ? dialogId : undefined}
+            >
+              <span className="rp-eyebrow block text-[10px] font-black uppercase tracking-[0.14em]">
+                Active date
+              </span>
+              <span className="rp-panel-title mt-0.5 block text-sm font-black">
+                {formatLongDate(active)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateSingle(addDays(active, 1))}
+              className="rp-btn flex h-11 min-w-11 items-center justify-center rounded-lg text-lg font-black"
+              aria-label="Next day"
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateSingle(today)}
+              className="rp-btn-primary min-h-11 rounded-lg px-3 text-xs font-black"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => openCalendar({ multi: true })}
+              className="rp-btn min-h-11 rounded-lg px-3 text-xs font-black"
+            >
+              Plan multiple dates
+            </button>
+          </div>
+          {stripButtons}
+          {multiSession ? (
+            <div className="flex flex-wrap gap-1.5 border-t-2 border-slate-600/40 pt-2">
+              {loaded.map((ymd) => (
+                <span
+                  key={ymd}
+                  className={`rp-date-chip inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black ${
+                    ymd === active ? "rp-date-chip-active" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => activateLoaded(ymd)}
+                    className="min-h-10 rounded-l-full px-1"
+                    aria-current={ymd === active ? "date" : undefined}
+                  >
+                    {formatCompactDate(ymd)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeChip(ymd)}
+                    className="min-h-10 min-w-10 rounded-r-full"
+                    aria-label={`Remove ${formatLongDate(ymd)}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </section>
-      {dialog}
+      {calendarDialog}
     </>
   );
 }
