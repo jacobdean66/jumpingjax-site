@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { RENTAL_OPERATIONAL_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import {
   aggregateScheduleProducts,
   classifyRentalScheduleType,
@@ -447,6 +448,7 @@ export async function loadScheduleEvents(input: {
       )
       .gte("event_date", input.from)
       .lte("event_date", input.to)
+      .in("status", RENTAL_OPERATIONAL_STATUSES)
       .order("event_date", { ascending: true })
       .order("event_start_time", { ascending: true, nullsFirst: false }),
     supabase

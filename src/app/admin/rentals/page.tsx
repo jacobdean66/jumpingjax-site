@@ -20,6 +20,8 @@ import {
 import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
+import { RentalCancellationButton } from "./RentalCancellationButton";
+import { RentalRestoreButton } from "./RentalRestoreButton";
 
 export const dynamic = "force-dynamic";
 
@@ -101,13 +103,36 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
             </>
           )}
           {(booking.status === "pending" || booking.status === "approved") && (
-            <BookingActionButton
-              action="cancel"
+            <RentalCancellationButton
               endpoint={actionHref(booking.id, "cancel")}
-              label="Cancel"
-              tone="cancel"
+              customerName={booking.customerName}
+              eventDate={booking.eventDate}
+              spanDays={booking.spanDays}
+              itemNames={booking.items.map((item) => item.rental_name)}
+              currentStatus={booking.status}
             />
           )}
+          {(booking.status === "cancelled" || booking.status === "canceled") &&
+            <RentalRestoreButton
+              bookingId={booking.id}
+              customerName={booking.customerName}
+              eventDate={booking.eventDate}
+              itemNames={booking.items.map((item) => item.rental_name)}
+            />}
+          {(booking.status === "cancelled" || booking.status === "canceled") &&
+            (booking.googleCalendarEventId ||
+              booking.googleCalendarSecondaryEventId ||
+              booking.googleFoamCalendarEventId) && (
+              <RentalCancellationButton
+                endpoint={actionHref(booking.id, "cancel")}
+                customerName={booking.customerName}
+                eventDate={booking.eventDate}
+                spanDays={booking.spanDays}
+                itemNames={booking.items.map((item) => item.rental_name)}
+                currentStatus={booking.status}
+                retryCalendarOnly
+              />
+            )}
           {booking.singleStopMapUrl && (
             <a
               href={booking.singleStopMapUrl}

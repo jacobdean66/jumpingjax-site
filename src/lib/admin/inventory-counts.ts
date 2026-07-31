@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { rentalContributesToOperationalTotals } from "@/lib/bookings/rental-lifecycle";
 import { todayYmd } from "./operations";
 
 export type InventoryRentalCounts = {
@@ -7,18 +8,12 @@ export type InventoryRentalCounts = {
   futureBookings: number;
 };
 
-const EXCLUDED_STATUSES = new Set([
-  "cancelled",
-  "canceled",
-  "rejected",
-  "deleted",
-]);
-
 /**
- * Past rentals: quantity-weighted line items on non-canceled bookings with
+ * Past rentals: quantity-weighted line items on operational bookings with
  * event_date < today (local calendar date via todayYmd()).
  * Future bookings: event_date >= today (includes today).
- * Canceled/rejected/deleted bookings are excluded from both counts.
+ * Cancelled/rejected/unknown bookings are excluded from active counts but
+ * remain stored and available through historical admin queries.
  * Each booking_rental_items row counts as quantity 1 (unique per item/booking).
  */
 export async function loadInventoryRentalCounts(): Promise<
@@ -70,7 +65,7 @@ export async function loadInventoryRentalCounts(): Promise<
 
     const meta = bookingMeta.get(String(row.booking_id));
     if (!meta) continue;
-    if (EXCLUDED_STATUSES.has(meta.status)) continue;
+    if (!rentalContributesToOperationalTotals(meta.status)) continue;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(meta.eventDate)) continue;
 
     const current = counts.get(rentalItem) ?? {

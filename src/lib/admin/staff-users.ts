@@ -82,7 +82,7 @@ function rowToStaffUser(row: StaffUserRow): AdminStaffUser {
   };
 }
 
-export async function ensureDefaultAdminStaffUsers(): Promise<void> {
+export async function ensureDefaultAdminStaffUsers(): Promise<boolean> {
   const supabase = createServiceRoleClient();
   const { count, error } = await supabase
     .from("admin_staff_users")
@@ -92,7 +92,7 @@ export async function ensureDefaultAdminStaffUsers(): Promise<void> {
     throw new Error(error.message);
   }
 
-  if (count && count > 0) return;
+  if (count && count > 0) return true;
 
   const rows = defaultStaffUsers().map((user) => {
     const { hash, salt } = hashPassword(user.password);
@@ -107,6 +107,8 @@ export async function ensureDefaultAdminStaffUsers(): Promise<void> {
     };
   });
 
+  if (rows.length === 0) return false;
+
   const { error: insertError } = await supabase
     .from("admin_staff_users")
     .upsert(rows, { onConflict: "id" });
@@ -114,6 +116,8 @@ export async function ensureDefaultAdminStaffUsers(): Promise<void> {
   if (insertError) {
     throw new Error(insertError.message);
   }
+
+  return true;
 }
 
 export async function loadAdminStaffUsers(): Promise<AdminStaffUser[]> {
@@ -134,11 +138,16 @@ export async function loadAdminStaffUsers(): Promise<AdminStaffUser[]> {
   return ((data ?? []) as StaffUserRow[]).map(rowToStaffUser);
 }
 
+export type AdminStaffLoginAttempt = {
+  configured: boolean;
+  identity: AdminIdentity | null;
+};
+
 export async function verifyAdminStaffLogin(input: {
   username: string;
   password: string;
-}): Promise<AdminIdentity | null> {
-  await ensureDefaultAdminStaffUsers();
+}): Promise<AdminStaffLoginAttempt> {
+  const configured = await ensureDefaultAdminStaffUsers();
 
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
@@ -153,15 +162,61 @@ export async function verifyAdminStaffLogin(input: {
   }
 
   if (!data || !passwordMatches(input.password, data.password_salt, data.password_hash)) {
-    return null;
+    return { configured, identity: null };
   }
 
   return {
-    id: data.id,
-    username: data.username,
-    name: data.display_name,
-    role: data.role,
+    configured,
+    identity: {
+      id: data.id,
+      username: data.username,
+      name: data.display_name,
+      role: data.role,
+    },
   };
+}
+
+export async function changeAdminStaffPassword(input: {
+  id: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await ensureDefaultAdminStaffUsers();
+
+  if (input.newPassword.length < 12 || input.newPassword.length > 128) {
+    throw new Error("New password must be between 12 and 128 characters.");
+  }
+  if (input.currentPassword === input.newPassword) {
+    throw new Error("Choose a new password that differs from the current password.");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("admin_staff_users")
+    .select("id, username, display_name, role, password_hash, password_salt, is_active")
+    .eq("id", input.id)
+    .eq("is_active", true)
+    .maybeSingle<StaffUserRow>();
+
+  if (error) throw new Error(error.message);
+  if (
+    !data ||
+    !passwordMatches(input.currentPassword, data.password_salt, data.password_hash)
+  ) {
+    throw new Error("The current password is incorrect.");
+  }
+
+  const { hash, salt } = hashPassword(input.newPassword);
+  const { error: updateError } = await supabase
+    .from("admin_staff_users")
+    .update({
+      password_hash: hash,
+      password_salt: salt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.id);
+
+  if (updateError) throw new Error(updateError.message);
 }
 
 export async function saveAdminStaffUser(

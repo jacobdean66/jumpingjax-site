@@ -5,6 +5,15 @@ export type PrintTruckId = "truck-1" | "truck-2";
 export type PrintFilterTruck = "all" | PrintTruckId;
 export type PrintFilterWorkType = "all" | WorkType;
 
+/** Format only the authoritative stored booking total. Null is not zero. */
+export function formatStoredRentalTotal(total: number | null): string {
+  if (total === null || !Number.isFinite(total)) return "Price unavailable";
+  return `Rental total: ${new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(total)}`;
+}
+
 export type PrintPlanItem = {
   id: string;
   workType: WorkType;
