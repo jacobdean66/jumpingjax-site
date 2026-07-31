@@ -45,6 +45,8 @@ export type WorkspaceStop = {
   routeStatus: string | null;
   routeNotes: string | null;
   customerNotes: string | null;
+  /** Authoritative stored booking total; null means the legacy price is unknown. */
+  total: number | null;
   conflictMessages: string[];
 };
 
@@ -377,6 +379,7 @@ export function groupOperationalStops(
         routeStatus: first.routeStatus,
         routeNotes: first.routeNotes,
         customerNotes: first.setupNotes,
+        total: first.total,
         conflictMessages: [
           ...new Set(orderedTasks.flatMap((task) => task.warnings.map((warning) => warning.message))),
         ],

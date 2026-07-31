@@ -4,9 +4,17 @@ import { readFileSync } from "node:fs";
 import {
   buildPrintDayGroups,
   filterNonEmptyPrintLoads,
+  formatStoredRentalTotal,
   printStopWorkLabel,
   type PrintPlanItem,
 } from "./delivery-print-layout";
+
+await test("stored rental totals print without fabricating missing legacy prices", () => {
+  assert.equal(formatStoredRentalTotal(350), "Rental total: $350.00");
+  assert.equal(formatStoredRentalTotal(0), "Rental total: $0.00");
+  assert.equal(formatStoredRentalTotal(null), "Price unavailable");
+  assert.equal(formatStoredRentalTotal(Number.NaN), "Price unavailable");
+});
 
 type TestFn = () => void | Promise<void>;
 
@@ -215,13 +223,13 @@ await test("populated loads remain present and ordered correctly", () => {
 
 await test("route planner print sheet headings use Drop-off and Pickup", () => {
   const planner = readFileSync(
-    new URL("../../app/admin/deliveries/DeliveryPlannerClient.tsx", import.meta.url),
+    new URL("../../app/admin/deliveries/RoutePlannerWorkspace.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(planner, /workTypeLabel="Drop-off"/);
-  assert.match(planner, /workTypeLabel="Pickup"/);
-  assert.doesNotMatch(planner, /workTypeLabel="Deliveries \/ Setups"/);
-  assert.doesNotMatch(planner, /workTypeLabel="Pickups"/);
+  assert.match(planner, /workLabel\(selection\.workType\)/);
+  assert.match(planner, /formatStoredRentalTotal\(stop\.total\)/);
+  assert.match(planner, /max-w-56 break-words/);
+  assert.doesNotMatch(planner, /formatStoredRentalTotal\(stop\.subtotal\)/);
 });
 
 await test("selected date, work type, and trailer print only that load", () => {

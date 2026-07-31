@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { RENTAL_OPERATIONAL_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import {
   loadRouteMatrix,
   routeLegKey,
@@ -594,7 +595,7 @@ export async function loadAdminDeliveriesForDates(
   const { data: rows, error } = await supabase
     .from("bookings")
     .select(RENTAL_DELIVERY_SELECT)
-    .in("status", ["pending", "approved"])
+    .in("status", RENTAL_OPERATIONAL_STATUSES)
     .gte("event_date", windowStart)
     .lte("event_date", windowEnd)
     .order("event_start_time", { ascending: true, nullsFirst: false })
@@ -630,7 +631,7 @@ export async function loadAdminDeliveriesForDates(
     const { data: extraRows, error: extraError } = await supabase
       .from("bookings")
       .select(RENTAL_DELIVERY_SELECT)
-      .in("status", ["pending", "approved"])
+      .in("status", RENTAL_OPERATIONAL_STATUSES)
       .in("id", extraBookingIds);
 
     if (extraError) {

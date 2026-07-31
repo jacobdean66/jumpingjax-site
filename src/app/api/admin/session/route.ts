@@ -21,12 +21,14 @@ export async function POST(req: Request) {
       : typeof body.token === "string"
         ? body.token
         : "";
-  const identity = username
+  const staffAttempt = username
     ? await verifyAdminStaffLogin({ username, password })
-    : null;
+    : { configured: false, identity: null };
   const auth =
-    identity ??
-    verifyAdminLogin(username || null, password || null);
+    staffAttempt.identity ??
+    (staffAttempt.configured
+      ? null
+      : verifyAdminLogin(username || null, password || null));
 
   if (!auth || ("ok" in auth && !auth.ok)) {
     return NextResponse.json({ ok: false }, { status: 401 });

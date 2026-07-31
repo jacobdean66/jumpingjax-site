@@ -180,6 +180,34 @@ function ownerResultPage(input: {
   );
 }
 
+function actionResult(
+  req: Request,
+  input: {
+    title: string;
+    message: string;
+    tone?: "success" | "warning" | "error";
+    bookingId?: string | number | null;
+    status?: number;
+    calendarSyncFailed?: boolean;
+  },
+): Response {
+  if (req.headers.get("accept")?.includes("application/json")) {
+    return Response.json(
+      {
+        ok: (input.status ?? 200) < 400,
+        message: input.message,
+        bookingId: input.bookingId ?? null,
+        calendarSyncFailed: input.calendarSyncFailed === true,
+      },
+      {
+        status: input.status ?? 200,
+        headers: { "Cache-Control": "private, no-store, max-age=0" },
+      },
+    );
+  }
+  return ownerResultPage(input);
+}
+
 async function loadRentalItems(
   supabase: ReturnType<typeof createServiceRoleClient>,
   id: string,
@@ -474,7 +502,7 @@ async function handleRentalConfirm(
 
   if (error) {
     console.error("[api/rentals/confirm] status update error", error);
-    return ownerResultPage({
+    return actionResult(req, {
       title: "Something Went Wrong",
       message:
         "The booking could not be updated. Please check the admin dashboard before trying again.",
@@ -512,18 +540,49 @@ async function handleRentalConfirm(
     }
   }
 
+  if (!booking && action === "cancel" && allowRepair) {
+    const { data: existingBooking, error: existingError } = await supabase
+      .from("bookings")
+      .select(RENTAL_BOOKING_SELECT)
+      .eq("id", id)
+      .in("status", ["cancelled", "canceled"])
+      .maybeSingle<RentalBookingRow>();
+
+    if (existingError) {
+      console.error(
+        "[api/rentals/confirm] cancelled booking reload error",
+        existingError,
+      );
+      return actionResult(req, {
+        title: "Cancellation Recorded",
+        message:
+          "The rental is cancelled, but its Calendar removal could not be retried because the booking could not be reloaded.",
+        tone: "warning",
+        bookingId: id,
+        status: 500,
+        calendarSyncFailed: true,
+      });
+    }
+
+    if (existingBooking) {
+      booking = existingBooking;
+      calendarRepairOnly = true;
+    }
+  }
+
   if (!booking) {
-    return ownerResultPage({
+    return actionResult(req, {
       title: "Already Processed",
       message:
         "This booking has already been handled or could not be found. Check the admin dashboard for the current status.",
       tone: "warning",
       bookingId: id,
+      status: action === "cancel" ? 409 : undefined,
     });
   }
 
   if (action === "cancel") {
-    const clearedCalendarFields: Record<string, null> = {};
+    let calendarSyncFailed = false;
 
     try {
       const deletion = await deleteGoogleCalendarDestinations({
@@ -532,15 +591,10 @@ async function handleRentalConfirm(
       });
       if (deletion.primaryStatus === "failed" || deletion.secondaryStatus === "failed") {
         console.error("[api/rentals/confirm] calendar delete partial failure", deletion);
-      } else {
-        if (deletion.primaryStatus !== "skipped") {
-          clearedCalendarFields.google_calendar_event_id = null;
-        }
-        if (deletion.secondaryStatus !== "skipped") {
-          clearedCalendarFields.google_calendar_secondary_event_id = null;
-        }
+        calendarSyncFailed = true;
       }
     } catch (calendarError) {
+      calendarSyncFailed = true;
       console.error(
         "[api/rentals/confirm] calendar delete error",
         summarizeGoogleCalendarError(calendarError),
@@ -557,12 +611,12 @@ async function handleRentalConfirm(
           eventId: booking.google_foam_calendar_event_id,
           calendarId: foamCalendarId,
         });
-        if (foamDeleted) {
-          clearedCalendarFields.google_foam_calendar_event_id = null;
-        } else {
+        if (!foamDeleted) {
+          calendarSyncFailed = true;
           console.error("[api/rentals/confirm] foam calendar delete failed");
         }
       } catch (calendarError) {
+        calendarSyncFailed = true;
         console.error(
           "[api/rentals/confirm] foam calendar delete error",
           summarizeGoogleCalendarError(calendarError),
@@ -570,14 +624,36 @@ async function handleRentalConfirm(
       }
     }
 
-    if (Object.keys(clearedCalendarFields).length > 0) {
-      await supabase.from("bookings").update(clearedCalendarFields).eq("id", id);
+    await recordWorkflowOutcome({
+      supabase,
+      kind: "rental",
+      bookingId: id,
+      step: "calendar",
+      outcome: calendarSyncFailed ? "failed" : "sent",
+      safeErrorClass: calendarSyncFailed
+        ? "calendar_projection_failed"
+        : undefined,
+    });
+    if (calendarSyncFailed) {
+      await sendBookingOperationalAlert({
+        kind: "rental",
+        bookingId: id,
+        step: "calendar",
+        safeErrorClass: "calendar_projection_failed",
+      });
     }
 
-    return ownerResultPage({
+    const message = calendarSyncFailed
+      ? "The rental is cancelled and inventory is released, but at least one Google Calendar event could not be removed. The stored event IDs were preserved; retry cancellation from the Cancelled view."
+      : calendarRepairOnly
+        ? "The rental was already cancelled and its Google Calendar removal was retried successfully."
+        : "The rental has been cancelled. Inventory is released and the booking history and Calendar event IDs were retained.";
+    return actionResult(req, {
       title: successTitle,
-      message: "The rental has been cancelled.",
+      message,
+      tone: calendarSyncFailed ? "warning" : "success",
       bookingId: booking.id,
+      calendarSyncFailed,
     });
   }
 

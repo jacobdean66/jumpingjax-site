@@ -12,6 +12,8 @@ import {
   type PlannerWorkFilter,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
+import { formatStoredRentalTotal } from "@/lib/admin/delivery-print-layout";
+import { rentalAppearsInRoutePlanner } from "@/lib/bookings/rental-lifecycle";
 
 type TruckId = "truck-1" | "truck-2";
 type ColumnId = "unassigned" | TruckId;
@@ -24,6 +26,7 @@ type PlannedInflatable = {
   customerName: string;
   customerPhone: string | null;
   bookingStatus: string;
+  total: number | null;
   eventDate: string;
   eventStartTime: string | null;
   requestedDeliveryWindow: string | null;
@@ -244,6 +247,7 @@ function taskToPlanned(task: AdminDeliveryWorkTask): PlannedInflatable {
     customerName: task.customerName,
     customerPhone: task.customerPhone,
     bookingStatus: task.bookingStatus,
+    total: task.total,
     eventDate: task.eventDate,
     eventStartTime: task.eventStartTime,
     requestedDeliveryWindow: task.requestedDeliveryWindow,
@@ -277,7 +281,9 @@ function taskToPlanned(task: AdminDeliveryWorkTask): PlannedInflatable {
 
 function flattenDeliveries(deliveries: AdminDeliveriesResult): PlannedInflatable[] {
   const tasks = [...(deliveries.tasks ?? []), ...(deliveries.unscheduled ?? [])];
-  return tasks.map(taskToPlanned);
+  return tasks
+    .filter((task) => rentalAppearsInRoutePlanner(task.bookingStatus))
+    .map(taskToPlanned);
 }
 
 function workScopeKey(item: PlannedInflatable) {
@@ -734,6 +740,9 @@ function LoadSheet({
                           <td>{item.deliverySequence ?? "—"}</td>
                           <td>
                             {item.rentalName}
+                            <div className="delivery-print-rental-total mt-1 text-xs font-black text-slate-900">
+                              {formatStoredRentalTotal(item.total)}
+                            </div>
                             <div className="text-xs font-bold text-slate-500">
                               {item.workType === "pickup" ? "Pickup" : "Delivery"} ·{" "}
                               {printWarningLabel(item.warning)}
