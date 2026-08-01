@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +11,12 @@ import {
   PRIVATE_DURATION_OPTIONS,
   PRIVATE_PARTY_ROOM_ID,
 } from "@/lib/facility-parties/constants";
+import {
+  canNavigateFacilityBookingMonth,
+  facilityBookingHorizonEnd,
+  isDateWithinFacilityBookingHorizon,
+  startOfFacilityBookingMonth,
+} from "@/lib/facility-parties/booking-horizon";
 import {
   listPrivateSlotDispositions,
   listPublicSaturdaySlotDispositions,
@@ -152,6 +159,10 @@ export function FacilityPartyBookingForm({
   const [privateDuration, setPrivateDuration] =
     useState<PrivateDurationMinutes>(90);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [localToday] = useState(() => new Date());
+  const [displayedMonth, setDisplayedMonth] = useState(() =>
+    startOfFacilityBookingMonth(new Date()),
+  );
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -182,6 +193,20 @@ export function FacilityPartyBookingForm({
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
+  const canGoToPreviousMonth = canNavigateFacilityBookingMonth(
+    displayedMonth,
+    "previous",
+    localToday,
+  );
+  const canGoToNextMonth = canNavigateFacilityBookingMonth(
+    displayedMonth,
+    "next",
+    localToday,
+  );
+  const displayedMonthLabel = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(displayedMonth);
 
   const slotDispositions = useMemo(() => {
     if (!date || !dateOk) {
@@ -325,6 +350,12 @@ export function FacilityPartyBookingForm({
     if (!nextDate) {
       setBlocks([]);
     }
+  };
+
+  const navigateMonth = (offset: -1 | 1) => {
+    setDisplayedMonth(
+      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    );
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -662,29 +693,74 @@ export function FacilityPartyBookingForm({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             4 · Date
           </p>
-          <DayPicker
-            mode="single"
-            selected={selectedDate}
-            onSelect={onDateSelect}
-            disabled={(date) => {
-              if (!partyKind) return true;
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+            <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2">
+              <button
+                type="button"
+                aria-label="Previous month"
+                disabled={!canGoToPreviousMonth}
+                onClick={() => navigateMonth(-1)}
+                className="group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-700 bg-cyan-600 shadow-sm transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:shadow-none"
+              >
+                <ChevronLeft
+                  aria-hidden="true"
+                  className="h-6 w-6 text-white group-disabled:text-slate-500"
+                />
+              </button>
+              <p
+                aria-live="polite"
+                className="truncate text-center text-base font-black text-slate-950 sm:text-lg"
+              >
+                {displayedMonthLabel}
+              </p>
+              <button
+                type="button"
+                aria-label="Next month"
+                disabled={!canGoToNextMonth}
+                onClick={() => navigateMonth(1)}
+                className="group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-700 bg-cyan-600 shadow-sm transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:shadow-none"
+              >
+                <ChevronRight
+                  aria-hidden="true"
+                  className="h-6 w-6 text-white group-disabled:text-slate-500"
+                />
+              </button>
+            </div>
+            <DayPicker
+              mode="single"
+              month={displayedMonth}
+              onMonthChange={setDisplayedMonth}
+              startMonth={startOfFacilityBookingMonth(localToday)}
+              endMonth={facilityBookingHorizonEnd()}
+              hideNavigation
+              selected={selectedDate}
+              onSelect={onDateSelect}
+              disabled={(candidateDate) => {
+                if (
+                  !partyKind ||
+                  !isDateWithinFacilityBookingHorizon(candidateDate, localToday)
+                ) {
+                  return true;
+                }
 
-              const day = date.getDay();
+                const day = candidateDate.getDay();
 
-              if (partyKind === "public") {
-                return (
-                  day === 0 ||
-                  day === 1 ||
-                  day === 2
-                );
-              }
+                if (partyKind === "public") {
+                  return day === 0 || day === 1 || day === 2;
+                }
 
-              return false;
-            }}
-            modifiersClassNames={{
-              disabled: "opacity-30 cursor-not-allowed",
-            }}
-          />
+                return false;
+              }}
+              modifiersClassNames={{
+                disabled: "opacity-30 cursor-not-allowed",
+              }}
+              className="mx-auto max-w-full"
+            />
+          </div>
+          <p className="text-xs font-semibold text-slate-600">
+            Online facility party requests are currently open through December
+            31, 2027.
+          </p>
           <p className="text-xs text-slate-500">
             {partyKind === "public"
               ? "Saturday daytime shared slots only."

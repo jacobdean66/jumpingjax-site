@@ -4,6 +4,7 @@ import {
   todayYmd,
 } from "./operations";
 import { loadAdminDeliveries } from "./deliveries";
+import { rentalAppearsInActiveSchedule } from "@/lib/bookings/rental-lifecycle";
 
 export type AdminTask = {
   category: string;
@@ -40,7 +41,7 @@ export async function loadAdminTaskAutomation(input?: {
     ]);
 
   const activeRentals = rentals.filter((booking) =>
-    ["pending", "approved"].includes(booking.status),
+    rentalAppearsInActiveSchedule(booking.status),
   );
   const tasks: AdminTask[] = [];
 

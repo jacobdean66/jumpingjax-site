@@ -8,6 +8,7 @@ import {
   loadAdminDeliveriesForDates,
 } from "@/lib/admin/deliveries";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { RENTAL_OPERATIONAL_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -216,6 +217,34 @@ export async function PATCH(req: Request) {
           );
         }
 
+        const requestedBookingId = nullableText(assignment.bookingId);
+        const { data: storedItem, error: storedItemError } = await supabase
+          .from("booking_rental_items")
+          .select("booking_id")
+          .eq("id", itemId)
+          .maybeSingle<{ booking_id: string | number }>();
+        if (storedItemError) throw new Error(storedItemError.message);
+        const parentBookingId = storedItem?.booking_id ?? requestedBookingId;
+        if (!parentBookingId) {
+          return NextResponse.json(
+            { error: "Route item is not linked to a rental." },
+            { status: 409 },
+          );
+        }
+        const { data: activeParent, error: parentError } = await supabase
+          .from("bookings")
+          .select("id")
+          .eq("id", parentBookingId)
+          .in("status", RENTAL_OPERATIONAL_STATUSES)
+          .maybeSingle<{ id: string | number }>();
+        if (parentError) throw new Error(parentError.message);
+        if (!activeParent) {
+          return NextResponse.json(
+            { error: "Cancelled or inactive rentals cannot be assigned to a route." },
+            { status: 409 },
+          );
+        }
+
         if (workType === "pickup") {
           const { error } = await supabase
             .from("booking_rental_items")
@@ -309,7 +338,7 @@ export async function PATCH(req: Request) {
           delivery_route_notes: nullableText(assignment.deliveryRouteNotes),
         })
         .eq("id", id)
-        .in("status", ["pending", "approved"]);
+        .in("status", RENTAL_OPERATIONAL_STATUSES);
 
       if (error) {
         throw new Error(error.message);

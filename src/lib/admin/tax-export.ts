@@ -1,3 +1,5 @@
+import { rentalIsHistorical } from "@/lib/bookings/rental-lifecycle";
+
 export type TaxExportDateBasis = "event" | "created" | "payment";
 
 export type TaxExportLine = {
@@ -59,8 +61,6 @@ export type TaxExportSourceBooking = {
   items: { rental_item: string; rental_name: string; quantity?: number }[];
 };
 
-const CANCELED_STATUSES = new Set(["cancelled", "canceled", "rejected"]);
-
 function moneyOrNull(value: number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   return Number.isFinite(value) ? value : null;
@@ -88,7 +88,7 @@ export function shouldIncludeInRevenueTotals(input: {
   amountPaid: number | null;
   refundAmount: number | null;
 }): boolean {
-  const canceled = CANCELED_STATUSES.has(input.status.trim().toLowerCase());
+  const canceled = rentalIsHistorical(input.status);
   if (!canceled) return true;
   const paid = input.amountPaid ?? 0;
   const refunded = input.refundAmount ?? 0;

@@ -5,6 +5,10 @@ import {
 } from "@/lib/admin/schedule";
 import { loadAdminDeliveries } from "@/lib/admin/deliveries";
 import { todayYmd } from "@/lib/admin/operations";
+import {
+  rentalAppearsInActiveSchedule,
+  rentalIsHistorical,
+} from "@/lib/bookings/rental-lifecycle";
 
 export type TodayFocusItem = {
   id: string;
@@ -25,10 +29,11 @@ export async function loadTodayFocusItems(): Promise<TodayFocusItem[]> {
   try {
     const events = await loadScheduleEvents({ from: today, to: today });
     for (const event of events) {
+      const rentalEvent =
+        event.type === "rental" || event.type === "foam-party";
       if (
-        event.status === "cancelled" ||
-        event.status === "canceled" ||
-        event.status === "rejected"
+        (rentalEvent && !rentalAppearsInActiveSchedule(event.status)) ||
+        (!rentalEvent && rentalIsHistorical(event.status))
       ) {
         continue;
       }
