@@ -131,9 +131,12 @@ export function AdminNav({
   const rentalSubnav = [
     { label: "Inventory", href: `/admin/inventory${query}` },
     { label: "Damage log", href: `/admin/damage-log${query}` },
+    role === "owner"
+      ? { label: "Change password", href: `/admin/account/password${query}` }
+      : null,
     { label: "End of day", href: `/admin/end-of-day${query}` },
     { label: "Tax / bookings export", href: `/admin/reports/tax-export${query}` },
-  ];
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
     <div className="mt-5 flex flex-col gap-3 print:hidden">

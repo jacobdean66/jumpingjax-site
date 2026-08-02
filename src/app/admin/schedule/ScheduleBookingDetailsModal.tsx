@@ -18,12 +18,12 @@ function eventTimeSummary(event: CalendarEvent): string {
     : "Time not set";
 }
 
+function isFacilityEvent(event: CalendarEvent): boolean {
+  return event.type === "public-party" || event.type === "private-party";
+}
+
 function uncancelEndpoint(event: CalendarEvent): string {
-  const base =
-    event.type === "public-party" || event.type === "private-party"
-      ? "/api/facility/confirm"
-      : "/api/rentals/confirm";
-  return `${base}?id=${encodeURIComponent(event.bookingId)}&action=uncancel`;
+  return `/api/facility/confirm?id=${encodeURIComponent(event.bookingId)}&action=uncancel`;
 }
 
 export function ScheduleBookingDetailsModal({
@@ -163,14 +163,20 @@ export function ScheduleBookingDetailsModal({
         </Link>
 
         {isCancelledStatus(event.status) ? (
-          <div className="mt-3">
-            <BookingActionButton
-              action="uncancel"
-              endpoint={uncancelEndpoint(event)}
-              label="Uncancel"
-              tone="uncancel"
-            />
-          </div>
+          isFacilityEvent(event) ? (
+            <div className="mt-3">
+              <BookingActionButton
+                action="uncancel"
+                endpoint={uncancelEndpoint(event)}
+                label="Uncancel"
+                tone="uncancel"
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-xs font-semibold text-slate-600">
+              Restore this rental from the Rentals dashboard.
+            </p>
+          )
         ) : null}
       </div>
     </div>

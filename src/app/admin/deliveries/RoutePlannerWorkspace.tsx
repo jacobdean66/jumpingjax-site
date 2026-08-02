@@ -26,7 +26,10 @@ import {
   todayYmd,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
-import { filterNonEmptyPrintLoads } from "@/lib/admin/delivery-print-layout";
+import {
+  filterNonEmptyPrintLoads,
+  formatStoredRentalTotal,
+} from "@/lib/admin/delivery-print-layout";
 import {
   allPlannerTasks,
   assignmentsForSelection,
@@ -1391,7 +1394,12 @@ export function RoutePlannerWorkspace({
                     <tr key={stop.id} className="route-print-stop">
                       <td className="border border-slate-900 p-1">{stop.sequence ?? "—"}</td>
                       <td className="border border-slate-900 p-1">{stop.customerName}</td>
-                      <td className="border border-slate-900 p-1">{stop.products.join(", ")}</td>
+                      <td className="max-w-56 break-words border border-slate-900 p-1">
+                        <div>{stop.products.join(", ")}</div>
+                        <div className="mt-1 font-black">
+                          {formatStoredRentalTotal(stop.total)}
+                        </div>
+                      </td>
                       <td className="border border-slate-900 p-1">{stop.eventAddress ?? "—"}</td>
                       <td className="border border-slate-900 p-1">{stop.customerPhone ?? "—"}</td>
                       <td className="border border-slate-900 p-1">

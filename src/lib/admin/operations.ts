@@ -5,7 +5,7 @@ import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
 const RENTAL_SELECT =
-  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_foam_calendar_event_id";
+  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 const FACILITY_SELECT =
   "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total";
@@ -39,6 +39,7 @@ type RentalRow = {
   payment_confirmation_notes: string | null;
   status: string | null;
   google_calendar_event_id: string | null;
+  google_calendar_secondary_event_id: string | null;
   google_foam_calendar_event_id: string | null;
 };
 
@@ -110,6 +111,7 @@ export type AdminRentalBooking = {
   paymentConfirmedBy: string | null;
   paymentConfirmationNotes: string | null;
   googleCalendarEventId: string | null;
+  googleCalendarSecondaryEventId: string | null;
   googleFoamCalendarEventId: string | null;
   items: { rental_item: string; rental_name: string }[];
 };
@@ -315,6 +317,9 @@ export async function loadAdminRentalBookings(input: {
       paymentConfirmedBy: clean(row.payment_confirmed_by),
       paymentConfirmationNotes: clean(row.payment_confirmation_notes),
       googleCalendarEventId: clean(row.google_calendar_event_id),
+      googleCalendarSecondaryEventId: clean(
+        row.google_calendar_secondary_event_id,
+      ),
       googleFoamCalendarEventId: clean(row.google_foam_calendar_event_id),
       items: rawItems.map((item) => ({
         rental_item: clean(item.rental_item) ?? "rental",

@@ -10,10 +10,9 @@ import {
   unavailableYmdsFromBookings,
   type BookingSpanRow,
 } from "@/lib/bookings/unavailableDates";
+import { RENTAL_INVENTORY_BLOCKING_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
 import { getRentalBySlug } from "@/data/rentals";
-
-const ACTIVE_STATUSES = ["pending", "approved", "blocked"] as const;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -49,7 +48,7 @@ export async function GET(req: Request) {
       .from("bookings")
       .select("event_date, span_days")
       .eq("rental_item", rental_item)
-      .in("status", ACTIVE_STATUSES);
+      .in("status", RENTAL_INVENTORY_BLOCKING_STATUSES);
 
     if (error) {
       console.error("[availability] primary booking read failed", { code: error.code });
@@ -78,7 +77,7 @@ export async function GET(req: Request) {
         .from("bookings")
         .select("event_date, span_days")
         .in("id", childIds)
-        .in("status", ACTIVE_STATUSES);
+        .in("status", RENTAL_INVENTORY_BLOCKING_STATUSES);
       if (secondaryError) {
         console.error("[availability] cart booking read failed", { code: secondaryError.code });
         return NextResponse.json(
