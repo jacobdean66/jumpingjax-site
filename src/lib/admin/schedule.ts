@@ -225,8 +225,17 @@ export function calendarDay(value: Date): CalendarDay {
 export function filterScheduleEvents(
   events: readonly CalendarEvent[],
   filters: ScheduleFilters,
+  showCancelled = false,
 ): CalendarEvent[] {
-  return events.filter((event) => filters[event.type]);
+  return events.filter((event) => {
+    if (!filters[event.type]) return false;
+    return showCancelled ? isCancelledStatus(event.status) : !isCancelledStatus(event.status);
+  });
+}
+
+export function isCancelledStatus(status: string): boolean {
+  const normalized = status.trim().toLowerCase();
+  return normalized === "cancelled" || normalized === "canceled";
 }
 
 export function groupEventsByDate(events: readonly CalendarEvent[]) {

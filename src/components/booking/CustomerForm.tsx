@@ -1,6 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  inflatableSetupCartLines,
+  validateInflatableSetupDistances,
+  type InflatableSetupDistanceDrafts,
+  type RentalCartLineInput,
+} from "@/lib/rentals/inflatable-setup-distances";
 
 export type CustomerFields = {
   customerName: string;
@@ -12,11 +18,14 @@ export type CustomerFields = {
   setupAccess: string;
   setupNotes: string;
   paymentMethod: string;
+  inflatableSetupDistances: InflatableSetupDistanceDrafts;
 };
 
 type Props = {
   value: CustomerFields;
   onChange: (next: CustomerFields) => void;
+  cartItems: RentalCartLineInput[];
+  attemptedSubmit?: boolean;
 };
 
 type AddressDistanceResult = {
@@ -29,14 +38,63 @@ type AddressDistanceResult = {
   originAddress: string;
 };
 
-export function CustomerForm({ value, onChange }: Props) {
+export function CustomerForm({
+  value,
+  onChange,
+  cartItems,
+  attemptedSubmit = false,
+}: Props) {
   const [addressResult, setAddressResult] =
     useState<AddressDistanceResult | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [touchedSetupFields, setTouchedSetupFields] = useState<
+    Record<string, { power?: boolean; water?: boolean }>
+  >({});
 
   const patch = (partial: Partial<CustomerFields>) =>
     onChange({ ...value, ...partial });
+
+  const inflatableLines = useMemo(
+    () => inflatableSetupCartLines(cartItems),
+    [cartItems],
+  );
+
+  const setupDistanceErrors = useMemo(
+    () =>
+      validateInflatableSetupDistances(
+        inflatableLines,
+        value.inflatableSetupDistances,
+      ),
+    [inflatableLines, value.inflatableSetupDistances],
+  );
+
+  const patchSetupDistance = (
+    rentalItemId: string,
+    field: "power" | "water",
+    fieldValue: string,
+  ) => {
+    const current = value.inflatableSetupDistances[rentalItemId] ?? {
+      power: "",
+      water: "",
+    };
+    patch({
+      inflatableSetupDistances: {
+        ...value.inflatableSetupDistances,
+        [rentalItemId]: { ...current, [field]: fieldValue },
+      },
+    });
+  };
+
+  const markSetupFieldTouched = (
+    rentalItemId: string,
+    field: "power" | "water",
+  ) => {
+    setTouchedSetupFields((prev) => ({
+      ...prev,
+      [rentalItemId]: { ...prev[rentalItemId], [field]: true },
+    }));
+  };
 
   const mapSrc = useMemo(() => {
     if (!addressResult) return null;
@@ -288,6 +346,140 @@ export function CustomerForm({ value, onChange }: Props) {
             <option value="Other / unsure">Other / unsure</option>
           </select>
         </label>
+
+        {inflatableLines.length > 0 && (
+          <div className="block sm:col-span-2">
+            <h4 className="text-sm font-black uppercase tracking-wide text-cyan-200">
+              Inflatable Setup Locations
+            </h4>
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Please estimate each distance so our crew can bring the correct
+              extension cords, hoses, and setup equipment.
+            </p>
+            <div className="mt-3 space-y-3">
+              {inflatableLines.map((line) => {
+                const draft = value.inflatableSetupDistances[
+                  line.rentalItemId
+                ] ?? { power: "", water: "" };
+                const errors = setupDistanceErrors[line.rentalItemId];
+                const touched = touchedSetupFields[line.rentalItemId];
+                const showPowerError =
+                  Boolean(errors?.power) && (attemptedSubmit || touched?.power);
+                const showWaterError =
+                  Boolean(errors?.water) && (attemptedSubmit || touched?.water);
+                const powerFieldId = `setup-power-${line.rentalItemId}`;
+                const waterFieldId = `setup-water-${line.rentalItemId}`;
+
+                return (
+                  <div
+                    key={line.rentalItemId}
+                    className="rounded-xl border border-white/15 bg-[#071326]/60 p-3"
+                  >
+                    <p className="truncate text-sm font-bold text-white">
+                      {line.rentalName}
+                    </p>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      <label className="block" htmlFor={powerFieldId}>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Distance from power outlet
+                        </span>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <input
+                            id={powerFieldId}
+                            type="number"
+                            required
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            value={draft.power}
+                            onChange={(e) =>
+                              patchSetupDistance(
+                                line.rentalItemId,
+                                "power",
+                                e.target.value,
+                              )
+                            }
+                            onBlur={() =>
+                              markSetupFieldTouched(line.rentalItemId, "power")
+                            }
+                            aria-invalid={showPowerError}
+                            aria-describedby={
+                              showPowerError ? `${powerFieldId}-error` : undefined
+                            }
+                            className="w-full min-w-0 rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                            placeholder="e.g. 50"
+                          />
+                          <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            feet
+                          </span>
+                        </div>
+                        {showPowerError && (
+                          <p
+                            id={`${powerFieldId}-error`}
+                            role="alert"
+                            className="mt-1.5 text-xs text-rose-300"
+                          >
+                            {errors!.power}
+                          </p>
+                        )}
+                      </label>
+
+                      {line.kind === "waterslide" && (
+                        <label className="block" htmlFor={waterFieldId}>
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Distance from water hookup
+                          </span>
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <input
+                              id={waterFieldId}
+                              type="number"
+                              required
+                              min="0"
+                              step="any"
+                              inputMode="decimal"
+                              value={draft.water}
+                              onChange={(e) =>
+                                patchSetupDistance(
+                                  line.rentalItemId,
+                                  "water",
+                                  e.target.value,
+                                )
+                              }
+                              onBlur={() =>
+                                markSetupFieldTouched(line.rentalItemId, "water")
+                              }
+                              aria-invalid={showWaterError}
+                              aria-describedby={
+                                showWaterError
+                                  ? `${waterFieldId}-error`
+                                  : undefined
+                              }
+                              className="w-full min-w-0 rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                              placeholder="e.g. 100"
+                            />
+                            <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">
+                              feet
+                            </span>
+                          </div>
+                          {showWaterError && (
+                            <p
+                              id={`${waterFieldId}-error`}
+                              role="alert"
+                              className="mt-1.5 text-xs text-rose-300"
+                            >
+                              {errors!.water}
+                            </p>
+                          )}
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <label className="block sm:col-span-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
             How will you pay?

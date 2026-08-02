@@ -17,14 +17,16 @@ import type {
 import {
   addDays,
   datesToSearchParams,
+  filterLibraryDatesForDisplay,
+  formatCompactDate,
   formatLongDate,
+  mergePlannerNavigationSearchParams,
+  normalizeSelectedDates,
+  parsePlannerNavigationState,
   todayYmd,
   type WorkType,
 } from "@/lib/admin/delivery-planner-dates";
-import {
-  buildPrintDayGroups,
-  filterNonEmptyPrintLoads,
-} from "@/lib/admin/delivery-print-layout";
+import { filterNonEmptyPrintLoads } from "@/lib/admin/delivery-print-layout";
 import {
   allPlannerTasks,
   assignmentsForSelection,
@@ -32,11 +34,16 @@ import {
   dirtySelectionKeys,
   effectivePlannerWorkDate,
   groupOperationalStops,
+  assignmentsForUnassigned,
   moveStop,
   productSummary,
-  rangeDates,
+  rescheduleStopWorkDate,
   selectionKey,
-  stopMatchesColumn,
+  stopMatchesPlannerDates,
+  taskMatchesSelection,
+  tasksForSelection,
+  TRAILER_INFLATABLE_CAPACITY,
+  unassignedSelectionKey,
   taskSearchText,
   type PlannerColumn,
   type PlannerSelection,
@@ -59,9 +66,19 @@ const TRUCK_DETAIL: Record<PlannerTruck, string> = {
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type MobilePanel = "library" | "unassigned" | "trailer";
+type PendingRange = {
+  dates: string[];
+  preferredActive?: string;
+  fromHistory?: boolean;
+};
 
 function workLabel(workType: WorkType): string {
   return workType === "delivery" ? "Drop-offs" : "Pickups";
+}
+
+function plannerDatesLabel(dates: string[]): string {
+  if (dates.length === 1) return shortDate(dates[0]!);
+  return `${dates.length} selected dates`;
 }
 
 function shortDate(date: string): string {
@@ -114,6 +131,15 @@ function Thumbnail({
         <span className="rp-task-meta mt-2 block text-xs font-bold">
           {stop.city}
         </span>
+        {stop.effectiveWorkDate !== stop.eventDate.slice(0, 10) ? (
+          <span className="rp-eyebrow mt-1.5 block text-[10px] font-black uppercase tracking-[0.08em]">
+            {stop.workType === "delivery" ? "Setup/Delivery" : "Pickup"}:{" "}
+            {formatCompactDate(stop.effectiveWorkDate)}
+            <span className="rp-task-meta mt-0.5 block font-bold normal-case tracking-normal">
+              Event: {formatCompactDate(stop.eventDate.slice(0, 10))}
+            </span>
+          </span>
+        ) : null}
       </button>
       <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
         <span
@@ -262,10 +288,12 @@ function UnsavedSwitchDialog({
 
 export function RoutePlannerWorkspace({
   initialDeliveries,
+  initialActiveDate,
   initialWorkType = "delivery",
   initialTruck = "truck-1",
 }: {
   initialDeliveries: AdminDeliveriesResult;
+  initialActiveDate?: string;
   initialWorkType?: WorkType;
   initialTruck?: PlannerTruck;
 }) {
@@ -273,17 +301,23 @@ export function RoutePlannerWorkspace({
     () => allPlannerTasks(initialDeliveries),
     [initialDeliveries],
   );
+  const startingActive =
+    initialActiveDate &&
+    (initialDeliveries.dates.includes(initialActiveDate) ||
+      initialActiveDate === initialDeliveries.date)
+      ? initialActiveDate
+      : (initialDeliveries.dates[0] ?? initialDeliveries.date);
   const [tasks, setTasks] = useState<AdminDeliveryWorkTask[]>(initialTasks);
   const [baseline, setBaseline] = useState<AdminDeliveryWorkTask[]>(initialTasks);
   const [dates, setDates] = useState(initialDeliveries.dates);
   const [selection, setSelection] = useState<PlannerSelection>({
-    date: initialDeliveries.dates[0] ?? initialDeliveries.date,
+    date: startingActive,
     workType: initialWorkType,
     truck: initialTruck,
   });
   const [showEmptyDates, setShowEmptyDates] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({
-    [initialDeliveries.dates[0] ?? initialDeliveries.date]: true,
+    [startingActive]: true,
   });
   const [search, setSearch] = useState("");
   const [details, setDetails] = useState<WorkspaceStop | null>(null);
@@ -299,15 +333,38 @@ export function RoutePlannerWorkspace({
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("unassigned");
   const [pendingSelection, setPendingSelection] =
     useState<PlannerSelection | null>(null);
-  const [pendingRange, setPendingRange] = useState<string[] | null>(null);
+  const [pendingRange, setPendingRange] = useState<PendingRange | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
+  const loadRequestIdRef = useRef(0);
+  const suppressHistoryPushRef = useRef(true);
+  const previousNavigationKeyRef = useRef(
+    `${startingActive}|${initialDeliveries.dates.join(",")}`,
+  );
+  const popstateNavigationRef = useRef<
+    (next: { activeDate: string; loadedDates: string[] }) => void
+  >(() => undefined);
 
   const dirtyKeys = useMemo(
     () => dirtySelectionKeys(baseline, tasks),
     [baseline, tasks],
   );
-  const currentKey = selectionKey(selection);
-  const isDirty = dirtyKeys.has(currentKey);
+  const loadSelection: PlannerSelection = { ...selection, dates };
+  const currentKey = selectionKey(loadSelection);
+  const unassignedKey = unassignedSelectionKey(
+    dates,
+    selection.workType,
+  );
+  const isDirty = assignmentsForSelection(
+    baseline,
+    tasks,
+    loadSelection,
+  ).length > 0;
+  const isUnassignedDirty = assignmentsForUnassigned(
+    baseline,
+    tasks,
+    dates,
+    selection.workType,
+  ).length > 0;
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -321,18 +378,47 @@ export function RoutePlannerWorkspace({
 
   useEffect(() => {
     const current = new URLSearchParams(window.location.search);
-    const params = datesToSearchParams(dates, {
-      work: selection.workType === "delivery" ? "deliveries" : "pickups",
-      truck: selection.truck,
-      load: current.get("load"),
-      status: current.get("status"),
-    });
-    window.history.replaceState(
+    const loadedForUrl = dates.includes(selection.date)
+      ? dates
+      : normalizeSelectedDates([selection.date, ...dates]);
+    const params = mergePlannerNavigationSearchParams(
+      current,
+      loadedForUrl,
+      selection.date,
+      {
+        work: selection.workType === "delivery" ? "deliveries" : "pickups",
+        truck: selection.truck,
+      },
+    );
+    const navigationKey = `${selection.date}|${loadedForUrl.join(",")}`;
+    const navigationChanged =
+      navigationKey !== previousNavigationKeyRef.current;
+    const method =
+      navigationChanged && !suppressHistoryPushRef.current
+        ? "pushState"
+        : "replaceState";
+    window.history[method](
       window.history.state,
       "",
       `${window.location.pathname}?${params.toString()}`,
     );
-  }, [dates, selection.truck, selection.workType]);
+    previousNavigationKeyRef.current = navigationKey;
+    suppressHistoryPushRef.current = false;
+  }, [dates, selection.date, selection.truck, selection.workType]);
+
+  useEffect(() => {
+    function onPopState() {
+      const params = new URLSearchParams(window.location.search);
+      const navigation = parsePlannerNavigationState({
+        date: params.get("date"),
+        dates: params.get("dates"),
+      });
+      suppressHistoryPushRef.current = true;
+      popstateNavigationRef.current(navigation);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -359,26 +445,35 @@ export function RoutePlannerWorkspace({
     () => buildLoadLibrary(filteredTasks, dates),
     [filteredTasks, dates],
   );
-  const visibleLibrary = library.filter(
-    (entry) => showEmptyDates || entry.total > 0,
+  const visibleLibrary = filterLibraryDatesForDisplay(
+    library,
+    selection.date,
+    showEmptyDates,
   );
   const unassignedStops = allStops.filter((stop) =>
-    stopMatchesColumn(stop, selection.date, selection.workType, "unassigned"),
+    stop.workType === selection.workType &&
+    stop.truck === null &&
+    stopMatchesPlannerDates(stop, dates),
   );
   const trailerStops = allStops.filter((stop) =>
-    stopMatchesColumn(stop, selection.date, selection.workType, selection.truck),
+    stop.workType === selection.workType &&
+    stop.truck === selection.truck &&
+    stopMatchesPlannerDates(stop, dates),
   );
 
   const requestSelection = useCallback(
     (next: PlannerSelection) => {
-      if (selectionKey(next) === currentKey) return;
+      if (selectionKey({ ...next, dates }) === currentKey) {
+        if (next.date !== selection.date) setSelection(next);
+        return;
+      }
       if (isDirty) {
         setPendingSelection(next);
         return;
       }
       setSelection(next);
     },
-    [currentKey, isDirty],
+    [currentKey, dates, isDirty, selection.date],
   );
 
   function discardSelectionDraft(target: PlannerSelection) {
@@ -386,9 +481,7 @@ export function RoutePlannerWorkspace({
     const affectedIds = new Set<string>();
     for (const task of [...baseline, ...tasks]) {
       if (
-        effectivePlannerWorkDate(task) === selection.date &&
-        task.workType === selection.workType &&
-        taskTruck(task) === selection.truck
+        taskMatchesSelection(task, loadSelection)
       ) {
         affectedIds.add(task.id);
       }
@@ -409,6 +502,7 @@ export function RoutePlannerWorkspace({
   ) {
     const result = moveStop(tasks, stop.taskIds, {
       date: selection.date,
+      dates,
       workType: selection.workType,
       target,
       targetIndex,
@@ -420,6 +514,90 @@ export function RoutePlannerWorkspace({
     setTasks(result.tasks);
     setNotice(null);
     setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
+  }
+
+  function applyReschedule(stop: WorkspaceStop, nextWorkDate: string) {
+    const eventDate = stop.eventDate.slice(0, 10);
+    const result = rescheduleStopWorkDate(
+      tasks,
+      stop.taskIds,
+      nextWorkDate,
+      dates,
+    );
+    if (result.conflict) {
+      setNotice(result.conflict);
+      return;
+    }
+    setTasks(result.tasks);
+    setSaveStates((current) => ({ ...current, [currentKey]: "idle" }));
+    setSelection((current) => ({
+      ...current,
+      date: nextWorkDate,
+      workType: stop.workType,
+    }));
+    setExpandedDates((current) => ({ ...current, [nextWorkDate]: true }));
+    const refreshed = groupOperationalStops(result.tasks).find(
+      (candidate) =>
+        candidate.bookingId === stop.bookingId &&
+        candidate.workType === stop.workType &&
+        candidate.effectiveWorkDate === nextWorkDate &&
+        candidate.truck === stop.truck,
+    );
+    setDetails(refreshed ?? null);
+    const assigned = stop.truck === "truck-1" || stop.truck === "truck-2";
+    setNotice(
+      assigned
+        ? `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}. Click Save on the trailer to persist.`
+        : `Setup/Delivery set to ${formatCompactDate(nextWorkDate)}. Event remains ${formatCompactDate(eventDate)}. Click Save on Unassigned Work to persist — trailer assignment is not required.`,
+    );
+  }
+
+  async function saveUnassignedWorkDates() {
+    const assignments = assignmentsForUnassigned(
+      baseline,
+      tasks,
+      dates,
+      selection.workType,
+    );
+    if (assignments.length === 0) {
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "saved" }));
+      return;
+    }
+    setSaveStates((current) => ({ ...current, [unassignedKey]: "saving" }));
+    setSaveErrors((current) => ({ ...current, [unassignedKey]: "" }));
+    try {
+      const response = await fetch("/api/admin/deliveries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignments }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Unable to save setup/delivery dates.");
+      }
+      const savedIds = new Set(
+        assignments.map(
+          (assignment) => `${assignment.itemId}:${assignment.workType}`,
+        ),
+      );
+      const currentById = new Map(tasks.map((task) => [task.id, task]));
+      setBaseline((current) =>
+        current.map((task) =>
+          savedIds.has(task.id) ? currentById.get(task.id) ?? task : task,
+        ),
+      );
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "saved" }));
+      setNotice("Saved setup/delivery date. Event date was not changed.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to save setup/delivery dates.";
+      setSaveStates((current) => ({ ...current, [unassignedKey]: "error" }));
+      setSaveErrors((current) => ({ ...current, [unassignedKey]: message }));
+    }
   }
 
   function handleDrop(
@@ -439,11 +617,13 @@ export function RoutePlannerWorkspace({
     setDragOver(null);
   }
 
-  async function loadRange(nextDates: string[]) {
+  async function loadRange(nextDates: string[], preferredActive?: string) {
+    const requestId = ++loadRequestIdRef.current;
     setLoadingRange(true);
     setNotice(null);
     try {
-      const params = datesToSearchParams(nextDates);
+      const activeHint = preferredActive ?? selection.date;
+      const params = datesToSearchParams(nextDates, undefined, activeHint);
       const response = await fetch(`/api/admin/deliveries?${params.toString()}`, {
         cache: "no-store",
       });
@@ -458,38 +638,88 @@ export function RoutePlannerWorkspace({
             : "Unable to load this date range.",
         );
       }
+      if (requestId !== loadRequestIdRef.current) return;
       const nextTasks = allPlannerTasks(data);
       setTasks(nextTasks);
       setBaseline(nextTasks);
-      setDates(data.dates);
-      const firstPopulated =
-        buildLoadLibrary(nextTasks, data.dates).find((entry) => entry.total > 0)
-          ?.date ??
-        data.dates[0] ??
-        data.date;
-      setSelection((current) => ({ ...current, date: firstPopulated }));
-      setExpandedDates({ [firstPopulated]: true });
+      const activeDate =
+        preferredActive && data.dates.includes(preferredActive)
+          ? preferredActive
+          : preferredActive && nextDates.includes(preferredActive)
+            ? preferredActive
+            : data.dates.includes(selection.date)
+              ? selection.date
+              : (data.dates[0] ?? data.date);
+      const resolvedDates = normalizeSelectedDates(
+        data.dates.length > 0 ? data.dates : nextDates,
+      );
+      const loadedDates = resolvedDates.includes(activeDate)
+        ? resolvedDates
+        : normalizeSelectedDates([activeDate, ...resolvedDates]);
+      setDates(loadedDates);
+      setSelection((current) => ({ ...current, date: activeDate }));
+      setExpandedDates((current) => ({ ...current, [activeDate]: true }));
       setSaveStates({});
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
       setNotice(
         error instanceof Error ? error.message : "Unable to load this date range.",
       );
     } finally {
-      setLoadingRange(false);
-      setPendingRange(null);
+      if (requestId === loadRequestIdRef.current) {
+        setLoadingRange(false);
+        setPendingRange(null);
+      }
     }
   }
 
-  function requestRange(nextDates: string[]) {
+  function requestRange(
+    nextDates: string[],
+    preferredActive?: string,
+    fromHistory = false,
+  ) {
     if (dirtyKeys.size > 0) {
-      setPendingRange(nextDates);
+      setPendingRange({
+        dates: nextDates,
+        preferredActive,
+        fromHistory,
+      });
       return;
     }
-    void loadRange(nextDates);
+    void loadRange(nextDates, preferredActive);
   }
 
+  function navigatePlannerDates(next: {
+    activeDate: string;
+    loadedDates: string[];
+  }) {
+    const loaded = next.loadedDates.length > 0 ? next.loadedDates : [next.activeDate];
+    const sameLoaded =
+      loaded.length === dates.length && loaded.every((value, index) => value === dates[index]);
+    if (sameLoaded) {
+      requestSelection({
+        date: next.activeDate,
+        workType: selection.workType,
+        truck: selection.truck,
+      });
+      setExpandedDates((current) => ({ ...current, [next.activeDate]: true }));
+      return;
+    }
+    requestRange(loaded, next.activeDate);
+  }
+
+  useEffect(() => {
+    popstateNavigationRef.current = (next) => {
+      requestRange(next.loadedDates, next.activeDate, true);
+    };
+  });
+
   async function saveCurrentLoad() {
-    const assignments = assignmentsForSelection(baseline, tasks, selection);
+    const assignments = assignmentsForSelection(
+      baseline,
+      tasks,
+      loadSelection,
+    );
     if (assignments.length === 0) {
       setSaveStates((current) => ({ ...current, [currentKey]: "saved" }));
       return;
@@ -528,25 +758,10 @@ export function RoutePlannerWorkspace({
   }
 
   const printTaskIds = useMemo(() => {
-    const printable = tasks.map((task) => ({
-      ...task,
-      deliveryDate: effectivePlannerWorkDate(task),
-      deliveryTruck: taskTruck(task),
-      deliverySequence: task.sequence,
-      rentalName: task.rentalName,
-    }));
-    const groups = buildPrintDayGroups({
-      dates: [selection.date],
-      items: printable,
-      printTruck: selection.truck,
-      printWorkType: selection.workType,
-    });
     return new Set(
-      groups.flatMap((day) =>
-        day.sheets.flatMap((sheet) => sheet.items.map((item) => item.id)),
-      ),
+      tasksForSelection(tasks, loadSelection).map((task) => task.id),
     );
-  }, [tasks, selection]);
+  }, [tasks, dates, selection]);
   const printStops = useMemo(
     () =>
       groupOperationalStops(tasks.filter((task) => printTaskIds.has(task.id))),
@@ -564,6 +779,10 @@ export function RoutePlannerWorkspace({
         .map(([, stops]) => stops),
     );
   }, [printStops]);
+  const trailerInflatableCount = trailerStops.reduce(
+    (count, stop) => count + stop.taskIds.length,
+    0,
+  );
 
   function printCurrentLoad() {
     if (printStops.length === 0) {
@@ -573,17 +792,7 @@ export function RoutePlannerWorkspace({
     window.print();
   }
 
-  const rangeLabel =
-    dates.length > 1
-      ? `${shortDate(dates[0]!)} – ${shortDate(dates[dates.length - 1]!)}`
-      : shortDate(dates[0] ?? selection.date);
   const currentSaveState = saveStates[currentKey] ?? "idle";
-
-  function applyPlannerDates(nextDates: string[]) {
-    const normalized =
-      nextDates.length > 0 ? nextDates : rangeDates(todayYmd(), 7);
-    requestRange(normalized);
-  }
 
   return (
     <>
@@ -591,21 +800,26 @@ export function RoutePlannerWorkspace({
         ref={plannerRef}
         className="route-planner-screen flex h-full min-h-0 flex-col overflow-hidden print:hidden"
       >
-        <div className="mb-2 shrink-0">
-          <Suspense
-            fallback={
-              <div className="rp-panel rounded-xl border-2 p-3 text-sm font-bold lg:hidden">
-                Loading date controls…
-              </div>
-            }
-          >
-            <DeliveryDateSelector
-              initialDates={dates}
-              selectedDates={dates}
-              onApplyDates={applyPlannerDates}
-            />
-          </Suspense>
-        </div>
+        <Suspense
+          fallback={
+            <div className="rp-panel mb-2 rounded-xl border-2 p-3 text-sm font-bold">
+              Loading date controls…
+            </div>
+          }
+        >
+          <DeliveryDateSelector
+            variant="bar"
+            activeDate={selection.date}
+            loadedDates={dates}
+            onNavigate={navigatePlannerDates}
+          />
+          <DeliveryDateSelector
+            variant="mobile"
+            activeDate={selection.date}
+            loadedDates={dates}
+            onNavigate={navigatePlannerDates}
+          />
+        </Suspense>
 
         <div className="rp-mobile-tabs mb-2 flex shrink-0 items-center gap-1 rounded-xl border-2 p-1 lg:hidden">
           {(["library", "unassigned", "trailer"] as MobilePanel[]).map((panel) => (
@@ -624,27 +838,40 @@ export function RoutePlannerWorkspace({
           ))}
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[15rem_minmax(20rem,1fr)_minmax(24rem,1.15fr)]">
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(23rem,1.45fr)_minmax(17.5rem,0.95fr)_minmax(20rem,1fr)] xl:grid-cols-[minmax(25rem,1.6fr)_minmax(18.5rem,1fr)_minmax(22rem,1.1fr)] 2xl:grid-cols-[minmax(27rem,1.7fr)_minmax(19rem,1fr)_minmax(23rem,1.15fr)]">
           <aside
             className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "library" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
-            <header className="rp-panel-head shrink-0 border-b-2 p-3">
+            <header className="rp-panel-head shrink-0 border-b-2 px-3 py-2.5">
               <div className="flex items-center justify-between">
                 <h2 className="rp-panel-title text-lg font-black">Load Library</h2>
                 <span className="rp-panel-meta text-[10px] font-black uppercase">
-                  {loadingRange ? "Loading…" : rangeLabel}
+                  {loadingRange ? "Loading…" : shortDate(selection.date)}
                 </span>
               </div>
-              <p className="rp-task-meta mt-2 text-[10px] font-bold uppercase tracking-wide">
-                Shift 7-day window
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="rp-task-meta text-[10px] font-bold uppercase tracking-wide">
+                  Active date
+                </p>
+                <label className="rp-task-meta flex items-center gap-1.5 whitespace-nowrap text-[11px] font-bold">
+                  <input
+                    type="checkbox"
+                    checked={showEmptyDates}
+                    onChange={(event) => setShowEmptyDates(event.target.checked)}
+                  />
+                  Show empty dates
+                </label>
+              </div>
               <div className="mt-1 grid grid-cols-3 gap-1">
                 <button
                   type="button"
                   onClick={() =>
-                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, -7), 7))
+                    navigatePlannerDates({
+                      activeDate: addDays(selection.date, -1),
+                      loadedDates: [addDays(selection.date, -1)],
+                    })
                   }
                   className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
@@ -652,7 +879,12 @@ export function RoutePlannerWorkspace({
                 </button>
                 <button
                   type="button"
-                  onClick={() => requestRange(rangeDates(todayYmd(), 7))}
+                  onClick={() =>
+                    navigatePlannerDates({
+                      activeDate: todayYmd(),
+                      loadedDates: [todayYmd()],
+                    })
+                  }
                   className="rp-btn-primary rounded-lg px-2 py-1.5 text-xs font-black"
                 >
                   Today
@@ -660,7 +892,10 @@ export function RoutePlannerWorkspace({
                 <button
                   type="button"
                   onClick={() =>
-                    requestRange(rangeDates(addDays(dates[0] ?? selection.date, 7), 7))
+                    navigatePlannerDates({
+                      activeDate: addDays(selection.date, 1),
+                      loadedDates: [addDays(selection.date, 1)],
+                    })
                   }
                   className="rp-btn rounded-lg px-2 py-1.5 text-xs font-black"
                 >
@@ -674,14 +909,6 @@ export function RoutePlannerWorkspace({
                 placeholder="Customer, product, city, address"
                 className="rp-input mt-2 w-full rounded-lg px-2.5 py-2 text-xs font-semibold outline-none"
               />
-              <label className="rp-task-meta mt-2 flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={showEmptyDates}
-                  onChange={(event) => setShowEmptyDates(event.target.checked)}
-                />
-                Show empty dates
-              </label>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -703,12 +930,20 @@ export function RoutePlannerWorkspace({
                     >
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          navigatePlannerDates({
+                            activeDate: entry.date,
+                            loadedDates: dates.includes(entry.date)
+                              ? dates
+                              : dates.length > 1
+                                ? [...dates, entry.date]
+                                : [entry.date],
+                          });
                           setExpandedDates((current) => ({
                             ...current,
-                            [entry.date]: !expanded,
-                          }))
-                        }
+                            [entry.date]: true,
+                          }));
+                        }}
                         className={`flex w-full items-center justify-between px-2.5 py-2 text-left text-xs font-black ${
                           entry.date === selection.date
                             ? "rp-date-active-head"
@@ -733,15 +968,15 @@ export function RoutePlannerWorkspace({
                                       truck: selection.truck,
                                     })
                                   }
-                                  className={`flex w-full justify-between rounded-md px-2 py-1 text-xs font-black ${
+                                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-xs font-black ${
                                     selection.date === entry.date &&
                                     selection.workType === workType
                                       ? "rp-work-active"
                                       : "rp-task-title hover:bg-slate-100"
                                   }`}
                                 >
-                                  <span>{workLabel(workType)}</span>
-                                  <span>{counts.total}</span>
+                                  <span className="whitespace-nowrap">{workLabel(workType)}</span>
+                                  <span className="whitespace-nowrap">{counts.total}</span>
                                 </button>
                                 <div className="mt-1 grid gap-1 pl-2">
                                   <button
@@ -754,10 +989,10 @@ export function RoutePlannerWorkspace({
                                       });
                                       setMobilePanel("unassigned");
                                     }}
-                                    className="rp-btn flex justify-between rounded px-2 py-1 text-[11px] font-bold"
+                                    className="rp-btn flex items-center justify-between gap-2 rounded px-2 py-1 text-[11px] font-bold"
                                   >
-                                    <span>Unassigned</span>
-                                    <span>{counts.unassigned}</span>
+                                    <span className="whitespace-nowrap">Unassigned</span>
+                                    <span className="whitespace-nowrap">{counts.unassigned}</span>
                                   </button>
                                   {TRUCKS.map((truck) => {
                                     const key = selectionKey({
@@ -781,7 +1016,7 @@ export function RoutePlannerWorkspace({
                                           });
                                           setMobilePanel("trailer");
                                         }}
-                                        className={`flex justify-between rounded border-2 px-2 py-1 text-[11px] font-black ${
+                                        className={`flex items-center justify-between gap-2 rounded border-2 px-2 py-1 text-[11px] font-black ${
                                           truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
                                         } ${
                                           selected
@@ -789,11 +1024,11 @@ export function RoutePlannerWorkspace({
                                             : "rp-btn"
                                         }`}
                                       >
-                                        <span>
+                                        <span className="whitespace-nowrap">
                                           {TRUCK_LABELS[truck]}
                                           {dirtyKeys.has(key) ? " •" : ""}
                                         </span>
-                                        <span>{counts[truck]}</span>
+                                        <span className="whitespace-nowrap">{counts[truck]}</span>
                                       </button>
                                     );
                                   })}
@@ -820,13 +1055,45 @@ export function RoutePlannerWorkspace({
                 <div>
                   <h2 className="rp-panel-title text-lg font-black">Unassigned Work</h2>
                   <p className="rp-panel-meta text-xs font-bold">
-                    {shortDate(selection.date)} · {workLabel(selection.workType)}
+                    {plannerDatesLabel(dates)} · {workLabel(selection.workType)}
                   </p>
                 </div>
                 <span className="rp-badge rounded-full px-2 py-1 text-xs font-black">
                   {unassignedStops.length}
                 </span>
               </div>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t-2 border-slate-300 pt-2">
+                <p className="rp-task-meta min-w-0 text-[11px] font-bold">
+                  Open a card to change Setup/Delivery date without editing the event.
+                  {isUnassignedDirty ? (
+                    <span className="mt-0.5 block text-amber-700">
+                      Unsaved setup-date changes — Save to persist.
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block">
+                      Trailer assignment is optional for saving a setup date.
+                    </span>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void saveUnassignedWorkDates()}
+                  disabled={
+                    !isUnassignedDirty ||
+                    (saveStates[unassignedKey] ?? "idle") === "saving"
+                  }
+                  className="rp-btn-save shrink-0 rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {(saveStates[unassignedKey] ?? "idle") === "saving"
+                    ? "Saving…"
+                    : "Save"}
+                </button>
+              </div>
+              {saveStates[unassignedKey] === "error" ? (
+                <p className="mt-2 rounded-lg border border-rose-400 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-900">
+                  {saveErrors[unassignedKey]}
+                </p>
+              ) : null}
             </header>
             <div
               className={`min-h-0 flex-1 overflow-y-auto p-3 ${
@@ -840,7 +1107,7 @@ export function RoutePlannerWorkspace({
             >
               {unassignedStops.length === 0 ? (
                 <div className="rp-empty flex h-full min-h-40 items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm font-bold">
-                  No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for this date.
+                  No unassigned {selection.workType === "delivery" ? "drop-offs" : "pickups"} for the selected dates.
                 </div>
               ) : (
                 <div
@@ -888,7 +1155,7 @@ export function RoutePlannerWorkspace({
           >
             <header className="rp-panel-head shrink-0 border-b-2 p-3">
               <h2 className="rp-panel-title truncate text-lg font-black">
-                {shortDate(selection.date)} · {workLabel(selection.workType)} ·{" "}
+                {plannerDatesLabel(dates)} · {workLabel(selection.workType)} ·{" "}
                 {TRUCK_LABELS[selection.truck]}
               </h2>
               <div className="mt-2 grid grid-cols-2 gap-1">
@@ -937,7 +1204,10 @@ export function RoutePlannerWorkspace({
               </div>
               <div className="mt-2 flex items-center justify-between gap-2 border-t-2 border-slate-300 pt-2">
                 <div className="rp-panel-title min-w-0 text-xs font-black">
-                  <span>{trailerStops.length} stops · </span>
+                  <span>
+                    {trailerStops.length} stops · {trailerInflatableCount} inflatables
+                    {` · max ${TRAILER_INFLATABLE_CAPACITY}/load · `}
+                  </span>
                   <span
                     className={
                       currentSaveState === "error"
@@ -1077,7 +1347,9 @@ export function RoutePlannerWorkspace({
       {printStops.length > 0 ? (
         <section className="route-planner-print hidden print:block">
           <h1 className="text-3xl font-black">Jumping Jax Route Plan</h1>
-          <p className="mt-1 text-lg font-bold">{formatLongDate(selection.date)}</p>
+          <p className="mt-1 text-lg font-bold">
+            {dates.map(formatLongDate).join(" · ")}
+          </p>
           <div className="mt-3 flex gap-3 border-y-2 border-slate-900 py-2 text-lg font-black">
             <span>{workLabel(selection.workType)}</span>
             <span>·</span>
@@ -1104,6 +1376,7 @@ export function RoutePlannerWorkspace({
                       "Products",
                       "Address",
                       "Phone",
+                      "Service / Event",
                       "Requested time",
                       "Notes",
                     ].map((label) => (
@@ -1121,6 +1394,12 @@ export function RoutePlannerWorkspace({
                       <td className="border border-slate-900 p-1">{stop.products.join(", ")}</td>
                       <td className="border border-slate-900 p-1">{stop.eventAddress ?? "—"}</td>
                       <td className="border border-slate-900 p-1">{stop.customerPhone ?? "—"}</td>
+                      <td className="border border-slate-900 p-1">
+                        {formatCompactDate(stop.effectiveWorkDate)}
+                        {stop.effectiveWorkDate !== stop.eventDate.slice(0, 10)
+                          ? ` / Event ${formatCompactDate(stop.eventDate.slice(0, 10))}`
+                          : ""}
+                      </td>
                       <td className="border border-slate-900 p-1">{stop.requestedTime ?? "—"}</td>
                       <td className="border border-slate-900 p-1">
                         {[stop.routeNotes, stop.customerNotes].filter(Boolean).join(" · ") || "—"}
@@ -1136,12 +1415,35 @@ export function RoutePlannerWorkspace({
 
       <RoutePlannerDetailsModal
         stop={details}
+        plannerDates={dates}
+        onRescheduleWorkDate={(nextWorkDate) => {
+          if (!details) return;
+          applyReschedule(details, nextWorkDate);
+        }}
         onClose={() => setDetails(null)}
       />
       <UnsavedSwitchDialog
         open={Boolean(pendingSelection || pendingRange)}
         rangeChange={Boolean(pendingRange)}
         onStay={() => {
+          if (pendingRange?.fromHistory) {
+            const params = mergePlannerNavigationSearchParams(
+              new URLSearchParams(window.location.search),
+              dates,
+              selection.date,
+              {
+                work:
+                  selection.workType === "delivery" ? "deliveries" : "pickups",
+                truck: selection.truck,
+              },
+            );
+            window.history.replaceState(
+              window.history.state,
+              "",
+              `${window.location.pathname}?${params.toString()}`,
+            );
+            suppressHistoryPushRef.current = false;
+          }
           setPendingSelection(null);
           setPendingRange(null);
         }}
@@ -1152,7 +1454,10 @@ export function RoutePlannerWorkspace({
         onDiscard={() => {
           if (pendingRange) {
             setTasks(baseline);
-            void loadRange(pendingRange);
+            void loadRange(
+              pendingRange.dates,
+              pendingRange.preferredActive,
+            );
           } else if (pendingSelection) {
             discardSelectionDraft(pendingSelection);
           }

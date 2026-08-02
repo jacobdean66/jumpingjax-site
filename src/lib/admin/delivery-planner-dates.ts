@@ -19,7 +19,28 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const ADMIN_OPERATIONS_TIME_ZONE = "America/New_York";
 
 export function isYmd(value: string | null | undefined): value is string {
-  return Boolean(value && YMD_RE.test(value));
+  if (!value || !YMD_RE.test(value)) return false;
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1
+  ) {
+    return false;
+  }
+  // Civil calendar check via UTC components — no local timezone day shift.
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
 }
 
 /** Calendar YYYY-MM-DD in America/New_York for the given instant. */
@@ -88,23 +109,154 @@ export function parseDatesFromSearchParams(params: {
 export function datesToSearchParams(
   dates: string[],
   extra?: Record<string, string | undefined | null>,
+  activeDate?: string | null,
+): URLSearchParams {
+  return mergePlannerNavigationSearchParams("", dates, activeDate, extra);
+}
+
+/** Update Route Planner navigation keys while preserving unrelated filters. */
+export function mergePlannerNavigationSearchParams(
+  current: URLSearchParams | string,
+  dates: string[],
+  activeDate?: string | null,
+  extra?: Record<string, string | undefined | null>,
 ): URLSearchParams {
   const normalized = normalizeSelectedDates(dates);
-  const params = new URLSearchParams();
+  const active =
+    isYmd(activeDate) && normalized.includes(activeDate)
+      ? activeDate
+      : normalized[0]!;
+  const params = new URLSearchParams(
+    typeof current === "string" ? current.replace(/^\?/, "") : current.toString(),
+  );
+  params.delete("date");
+  params.delete("dates");
   if (normalized.length === 1) {
-    params.set("date", normalized[0]!);
+    params.set("date", active);
   } else {
     params.set("dates", normalized.join(","));
-    params.set("date", normalized[0]!);
+    params.set("date", active);
   }
   if (extra) {
     for (const [key, value] of Object.entries(extra)) {
       if (value != null && value !== "" && value !== "all") {
         params.set(key, value);
+      } else {
+        params.delete(key);
       }
     }
   }
   return params;
+}
+
+export type PlannerNavigationState = {
+  activeDate: string;
+  loadedDates: string[];
+};
+
+/**
+ * Resolve active vs loaded dates from URL params.
+ * `date` is the active viewed day when valid; `dates` lists a multi-date session.
+ */
+export function parsePlannerNavigationState(params: {
+  date?: string | null;
+  dates?: string | null;
+}): PlannerNavigationState {
+  const hasDatesList = params.dates != null && params.dates.trim() !== "";
+  const listed = hasDatesList
+    ? sortUniqueYmd(
+        params.dates!.split(/[,\s]+/).map((part) => part.trim()),
+      )
+    : [];
+  const explicitActive = isYmd(params.date) ? params.date : null;
+
+  let loadedDates: string[];
+  if (listed.length > 0) {
+    loadedDates = listed;
+    if (explicitActive && !loadedDates.includes(explicitActive)) {
+      loadedDates = normalizeSelectedDates([...loadedDates, explicitActive]);
+    }
+  } else if (explicitActive) {
+    loadedDates = [explicitActive];
+  } else {
+    loadedDates = normalizeSelectedDates([]);
+  }
+
+  const activeDate =
+    explicitActive && loadedDates.includes(explicitActive)
+      ? explicitActive
+      : loadedDates[0]!;
+
+  return { activeDate, loadedDates };
+}
+
+/** Sunday–Saturday strip containing the active civil date. */
+export function weekStripContaining(activeYmd: string): string[] {
+  const anchor = isYmd(activeYmd) ? activeYmd : todayYmd();
+  const [year, month, day] = anchor.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  const sunday = addDays(anchor, -date.getDay());
+  return Array.from({ length: 7 }, (_, offset) => addDays(sunday, offset));
+}
+
+/** Compact strip label, e.g. "Sat 25". */
+export function formatStripDayLabel(ymd: string): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+  return `${weekday} ${day ?? ""}`.trim();
+}
+
+/**
+ * After removing a loaded date, pick a new active date.
+ * Prefer the nearest remaining date (later first, else earlier).
+ */
+export function nearestRemainingDate(
+  loadedDates: string[],
+  removedActive: string,
+): string | null {
+  const remaining = sortUniqueYmd(
+    loadedDates.filter((value) => value !== removedActive),
+  );
+  if (remaining.length === 0) return null;
+  const later = remaining.find((value) => compareYmd(value, removedActive) > 0);
+  if (later) return later;
+  return remaining[remaining.length - 1]!;
+}
+
+export function removeLoadedPlannerDate(
+  loadedDates: string[],
+  activeDate: string,
+  removeDate: string,
+): PlannerNavigationState | null {
+  if (!isYmd(removeDate)) {
+    return {
+      activeDate: isYmd(activeDate) ? activeDate : normalizeDeliveryDate(activeDate),
+      loadedDates: normalizeSelectedDates(loadedDates),
+    };
+  }
+  const nextLoaded = sortUniqueYmd(
+    loadedDates.filter((value) => value !== removeDate),
+  );
+  if (nextLoaded.length === 0) return null;
+  if (activeDate !== removeDate && nextLoaded.includes(activeDate)) {
+    return { activeDate, loadedDates: nextLoaded };
+  }
+  const nextActive = nearestRemainingDate(loadedDates, removeDate);
+  if (!nextActive) return null;
+  return { activeDate: nextActive, loadedDates: nextLoaded };
+}
+
+/** Keep the active date visible even when empty-date filtering is on. */
+export function filterLibraryDatesForDisplay<T extends { date: string; total: number }>(
+  entries: T[],
+  activeDate: string,
+  showEmptyDates: boolean,
+): T[] {
+  if (showEmptyDates) return entries;
+  return entries.filter(
+    (entry) => entry.total > 0 || entry.date === activeDate,
+  );
 }
 
 /** Saturday + Sunday for the weekend containing `anchor` (or next if Mon–Fri). */
@@ -287,6 +439,28 @@ export function formatCompactDate(ymd: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Compact month/day label without weekday (e.g. "Jul 17"). */
+export function formatMonthDay(ymd: string): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Human summary for the date-selector control.
+ * 0 -> prompt, 1 -> long date, 2-3 -> "Jul 17, Jul 19", else count.
+ */
+export function summarizeSelectedDates(selected: string[]): string {
+  const dates = sortUniqueYmd(selected);
+  if (dates.length === 0) return "Select route dates";
+  if (dates.length === 1) return formatLongDate(dates[0]!);
+  if (dates.length <= 3) return dates.map(formatMonthDay).join(", ");
+  return `${dates.length} dates selected`;
 }
 
 export function monthMatrix(

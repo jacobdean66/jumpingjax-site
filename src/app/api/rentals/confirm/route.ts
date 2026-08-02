@@ -431,7 +431,12 @@ async function handleRentalConfirm(
     });
   }
 
-  if (action !== "confirm" && action !== "reject" && action !== "cancel") {
+  if (
+    action !== "confirm" &&
+    action !== "reject" &&
+    action !== "cancel" &&
+    action !== "uncancel"
+  ) {
     return ownerResultPage({
       title: "Invalid Action",
       message: "This confirmation link is not valid.",
@@ -442,19 +447,27 @@ async function handleRentalConfirm(
   }
 
   const status =
-    action === "reject" ? "rejected" : action === "cancel" ? "cancelled" : "approved";
+    action === "reject"
+      ? "rejected"
+      : action === "cancel"
+        ? "cancelled"
+        : "approved";
   const successMessage =
     action === "reject"
       ? "Rental rejected"
       : action === "cancel"
         ? "Rental cancelled"
-        : "Rental confirmed";
+        : action === "uncancel"
+          ? "Rental restored"
+          : "Rental confirmed";
   const successTitle =
     action === "reject"
       ? "Rental Rejected"
       : action === "cancel"
         ? "Rental Cancelled"
-        : "Rental Confirmed";
+        : action === "uncancel"
+          ? "Rental Restored"
+          : "Rental Confirmed";
 
   const supabase = createServiceRoleClient();
 
@@ -467,7 +480,9 @@ async function handleRentalConfirm(
   updateQuery =
     action === "cancel"
       ? updateQuery.in("status", ["pending", "approved"])
-      : updateQuery.eq("status", "pending");
+      : action === "uncancel"
+        ? updateQuery.eq("status", "cancelled")
+        : updateQuery.eq("status", "pending");
 
   const { data: updatedBooking, error } =
     await updateQuery.maybeSingle<RentalBookingRow>();
@@ -618,7 +633,7 @@ async function handleRentalConfirm(
   let rentalCalendarResult: CalendarRepairResult | null = null;
   let foamCalendarResult: CalendarRepairResult | null = null;
 
-  if (action === "confirm") {
+  if (action === "confirm" || action === "uncancel") {
     try {
       rentalCalendarResult = await createMissingRentalCalendarEvent({
         supabase,
@@ -679,6 +694,17 @@ async function handleRentalConfirm(
       bookingId: id,
       step: "calendar",
       safeErrorClass: "calendar_projection_failed",
+    });
+  }
+
+  if (action === "uncancel") {
+    return ownerResultPage({
+      title: successTitle,
+      message: calendarFailed
+        ? "The rental has been restored, but Calendar still requires attention."
+        : "The rental has been restored and the calendar event was recreated.",
+      tone: calendarFailed ? "warning" : "success",
+      bookingId: booking.id,
     });
   }
 

@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 
+import {
+  formatCompactDate,
+  isYmd,
+  sortUniqueYmd,
+} from "@/lib/admin/delivery-planner-dates";
 import {
   productSummary,
   type WorkspaceStop,
@@ -39,13 +44,19 @@ function Detail({
 
 export function RoutePlannerDetailsModal({
   stop,
+  plannerDates = [],
+  onRescheduleWorkDate,
   onClose,
 }: {
   stop: WorkspaceStop | null;
+  /** Selected planner dates offered as quick setup/pickup targets. */
+  plannerDates?: string[];
+  onRescheduleWorkDate?: (nextWorkDate: string) => void;
   onClose: () => void;
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const previousOverflow = useRef("");
 
   useEffect(() => {
@@ -64,11 +75,19 @@ export function RoutePlannerDetailsModal({
     };
   }, [stop, onClose]);
 
+  const dateChoices = useMemo(() => {
+    if (!stop) return [];
+    return sortUniqueYmd([...plannerDates, stop.effectiveWorkDate, stop.eventDate]);
+  }, [plannerDates, stop]);
+
   if (!stop) return null;
 
+  const eventYmd = stop.eventDate.slice(0, 10);
+  const setupLabel =
+    stop.workType === "delivery" ? "Setup/Delivery" : "Pickup";
   const bookingHref = `/admin/rentals?from=${encodeURIComponent(stop.eventDate)}&to=${encodeURIComponent(stop.eventDate)}#booking-${encodeURIComponent(stop.bookingId)}`;
   const trailer = stop.truck === "truck-1"
-    ? "Trailer 1 · Short Trailer"
+    ? "Trailer 1 ┬╖ Short Trailer"
     : stop.truck === "truck-2"
       ? "Trailer 2 · Long Trailer"
       : "Unassigned";
@@ -111,6 +130,17 @@ export function RoutePlannerDetailsModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <dl className="grid gap-4 sm:grid-cols-2">
+            <Detail label={setupLabel}>
+              {formatCompactDate(stop.effectiveWorkDate)}
+            </Detail>
+            <Detail label="Event">
+              {formatCompactDate(eventYmd)}
+              {stop.effectiveWorkDate !== eventYmd ? (
+                <span className="rp-task-meta mt-0.5 block text-xs font-medium">
+                  Customer event date is not changed by route planning
+                </span>
+              ) : null}
+            </Detail>
             <Detail label="Customer phone">
               {stop.customerPhone ? (
                 <a className="rp-link underline" href={`tel:${stop.customerPhone}`}>
@@ -144,6 +174,62 @@ export function RoutePlannerDetailsModal({
             <Detail label="Route notes">{stop.routeNotes ?? "None"}</Detail>
             <Detail label="Customer notes">{stop.customerNotes ?? "None"}</Detail>
           </dl>
+
+          {onRescheduleWorkDate ? (
+            <div className="mt-5 rounded-xl border-2 border-slate-400 p-3">
+              <p className="rp-panel-meta text-[10px] font-black uppercase tracking-[0.12em]">
+                Change {setupLabel.toLowerCase()} date
+              </p>
+              <p className="rp-task-meta mt-1 text-xs font-semibold">
+                Moves this stop on the route planner only. Event stays{" "}
+                {formatCompactDate(eventYmd)}. After Apply date, click Save
+                (Unassigned Work or the assigned trailer) to persist.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label className="rp-task-meta grid min-w-[10rem] flex-1 gap-1 text-xs font-bold">
+                  Operational date
+                  <input
+                    key={`${stop.id}:${stop.effectiveWorkDate}`}
+                    ref={dateInputRef}
+                    type="date"
+                    defaultValue={stop.effectiveWorkDate}
+                    className="rp-input rounded-lg px-3 py-2 text-sm font-semibold"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = dateInputRef.current?.value ?? "";
+                    if (!isYmd(next) || next === stop.effectiveWorkDate) return;
+                    onRescheduleWorkDate(next);
+                  }}
+                  className="rp-btn-primary self-end rounded-lg px-4 py-2 text-sm font-black"
+                >
+                  Apply date
+                </button>
+              </div>
+              {dateChoices.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {dateChoices.map((date) => (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => onRescheduleWorkDate(date)}
+                      disabled={date === stop.effectiveWorkDate}
+                      className={`rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45 ${
+                        date === stop.effectiveWorkDate
+                          ? "rp-date-day-selected"
+                          : "rp-date-chip"
+                      }`}
+                    >
+                      {formatCompactDate(date)}
+                      {date === eventYmd ? " ┬╖ Event" : ""}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {stop.conflictMessages.length > 0 ? (
             <div className="mt-5 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
