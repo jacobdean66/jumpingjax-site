@@ -985,7 +985,7 @@ export function FacilityPartyBookingForm({
                   <span>
                     I understand the $50 deposit is due within one week of
                     making this reservation and can be paid directly to Jumping
-                    Jax.
+                    Jax in person or over the phone.
                   </span>
                 </label>
                 <label className="block">

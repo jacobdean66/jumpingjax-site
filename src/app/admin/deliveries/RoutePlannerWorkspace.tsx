@@ -838,22 +838,32 @@ export function RoutePlannerWorkspace({
           ))}
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[15rem_minmax(20rem,1fr)_minmax(24rem,1.15fr)]">
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(23rem,1.45fr)_minmax(17.5rem,0.95fr)_minmax(20rem,1fr)] xl:grid-cols-[minmax(25rem,1.6fr)_minmax(18.5rem,1fr)_minmax(22rem,1.1fr)] 2xl:grid-cols-[minmax(27rem,1.7fr)_minmax(19rem,1fr)_minmax(23rem,1.15fr)]">
           <aside
             className={`rp-panel min-h-0 overflow-hidden rounded-2xl border-2 ${
               mobilePanel === "library" ? "flex" : "hidden"
             } flex-col lg:flex`}
           >
-            <header className="rp-panel-head shrink-0 border-b-2 p-3">
+            <header className="rp-panel-head shrink-0 border-b-2 px-3 py-2.5">
               <div className="flex items-center justify-between">
                 <h2 className="rp-panel-title text-lg font-black">Load Library</h2>
                 <span className="rp-panel-meta text-[10px] font-black uppercase">
                   {loadingRange ? "Loading…" : shortDate(selection.date)}
                 </span>
               </div>
-              <p className="rp-task-meta mt-2 text-[10px] font-bold uppercase tracking-wide">
-                Active date
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="rp-task-meta text-[10px] font-bold uppercase tracking-wide">
+                  Active date
+                </p>
+                <label className="rp-task-meta flex items-center gap-1.5 whitespace-nowrap text-[11px] font-bold">
+                  <input
+                    type="checkbox"
+                    checked={showEmptyDates}
+                    onChange={(event) => setShowEmptyDates(event.target.checked)}
+                  />
+                  Show empty dates
+                </label>
+              </div>
               <div className="mt-1 grid grid-cols-3 gap-1">
                 <button
                   type="button"
@@ -899,14 +909,6 @@ export function RoutePlannerWorkspace({
                 placeholder="Customer, product, city, address"
                 className="rp-input mt-2 w-full rounded-lg px-2.5 py-2 text-xs font-semibold outline-none"
               />
-              <label className="rp-task-meta mt-2 flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={showEmptyDates}
-                  onChange={(event) => setShowEmptyDates(event.target.checked)}
-                />
-                Show empty dates
-              </label>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -966,15 +968,15 @@ export function RoutePlannerWorkspace({
                                       truck: selection.truck,
                                     })
                                   }
-                                  className={`flex w-full justify-between rounded-md px-2 py-1 text-xs font-black ${
+                                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-xs font-black ${
                                     selection.date === entry.date &&
                                     selection.workType === workType
                                       ? "rp-work-active"
                                       : "rp-task-title hover:bg-slate-100"
                                   }`}
                                 >
-                                  <span>{workLabel(workType)}</span>
-                                  <span>{counts.total}</span>
+                                  <span className="whitespace-nowrap">{workLabel(workType)}</span>
+                                  <span className="whitespace-nowrap">{counts.total}</span>
                                 </button>
                                 <div className="mt-1 grid gap-1 pl-2">
                                   <button
@@ -987,10 +989,10 @@ export function RoutePlannerWorkspace({
                                       });
                                       setMobilePanel("unassigned");
                                     }}
-                                    className="rp-btn flex justify-between rounded px-2 py-1 text-[11px] font-bold"
+                                    className="rp-btn flex items-center justify-between gap-2 rounded px-2 py-1 text-[11px] font-bold"
                                   >
-                                    <span>Unassigned</span>
-                                    <span>{counts.unassigned}</span>
+                                    <span className="whitespace-nowrap">Unassigned</span>
+                                    <span className="whitespace-nowrap">{counts.unassigned}</span>
                                   </button>
                                   {TRUCKS.map((truck) => {
                                     const key = selectionKey({
@@ -1014,7 +1016,7 @@ export function RoutePlannerWorkspace({
                                           });
                                           setMobilePanel("trailer");
                                         }}
-                                        className={`flex justify-between rounded border-2 px-2 py-1 text-[11px] font-black ${
+                                        className={`flex items-center justify-between gap-2 rounded border-2 px-2 py-1 text-[11px] font-black ${
                                           truck === "truck-1" ? "rp-truck-1" : "rp-truck-2"
                                         } ${
                                           selected
@@ -1022,11 +1024,11 @@ export function RoutePlannerWorkspace({
                                             : "rp-btn"
                                         }`}
                                       >
-                                        <span>
+                                        <span className="whitespace-nowrap">
                                           {TRUCK_LABELS[truck]}
                                           {dirtyKeys.has(key) ? " •" : ""}
                                         </span>
-                                        <span>{counts[truck]}</span>
+                                        <span className="whitespace-nowrap">{counts[truck]}</span>
                                       </button>
                                     );
                                   })}
