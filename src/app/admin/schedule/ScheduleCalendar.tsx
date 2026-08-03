@@ -28,6 +28,7 @@ import { ScheduleBookingDetailsModal } from "./ScheduleBookingDetailsModal";
 import { ScheduleDayBlock } from "./ScheduleDayBlock";
 
 const FILTER_STORAGE_KEY = "jumpingjax:schedule-filters:v2";
+const SHOW_CANCELLED_STORAGE_KEY = "jumpingjax:schedule-show-cancelled:v1";
 
 const FILTER_OPTIONS: {
   type: ScheduleEventType;
@@ -59,6 +60,11 @@ function restoreFilters(): ScheduleFilters {
   } catch {
     return DEFAULT_SCHEDULE_FILTERS;
   }
+}
+
+function restoreShowCancelled(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(SHOW_CANCELLED_STORAGE_KEY) === "true";
 }
 
 function eventTimeSummary(event: CalendarEvent): string {
@@ -302,6 +308,9 @@ export function ScheduleCalendar({
   const [filters, setFilters] = useState<ScheduleFilters>(() =>
     restoreFilters(),
   );
+  const [showCancelled, setShowCancelled] = useState<boolean>(() =>
+    restoreShowCancelled(),
+  );
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [todayYmd] = useState(() => toYmd(new Date()));
@@ -312,9 +321,16 @@ export function ScheduleCalendar({
     window.sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
 
+  useEffect(() => {
+    window.sessionStorage.setItem(
+      SHOW_CANCELLED_STORAGE_KEY,
+      String(showCancelled),
+    );
+  }, [showCancelled]);
+
   const visibleEvents = useMemo(
-    () => filterScheduleEvents(events, filters),
-    [events, filters],
+    () => filterScheduleEvents(events, filters, showCancelled),
+    [events, filters, showCancelled],
   );
   const eventsByDate = useMemo(
     () => groupEventsByDate(visibleEvents),
@@ -523,6 +539,25 @@ export function ScheduleCalendar({
           <p className="mt-3 text-xs font-semibold text-slate-600">
             Foam Parties includes bookings with any foam-party product, including
             mixed carts that also have other rentals.
+          </p>
+        </fieldset>
+
+        <fieldset className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <legend className="px-1 text-sm font-black text-slate-700">
+            Cancelled view
+          </legend>
+          <label className="inline-flex min-h-11 items-center gap-2 text-sm font-black text-slate-800">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(event) => setShowCancelled(event.target.checked)}
+              className="h-4 w-4 accent-orange-600"
+            />
+            Cancelled bookings
+          </label>
+          <p className="mt-2 text-xs font-semibold text-slate-600">
+            Cancelled bookings are excluded from the active Schedule. Turn this on
+            to review only cancelled bookings that match the selected types.
           </p>
         </fieldset>
 
