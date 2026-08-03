@@ -96,6 +96,12 @@ export const DEFAULT_SCHEDULE_FILTERS: ScheduleFilters = {
   "private-party": true,
 };
 
+const CANCELLED_SCHEDULE_STATUSES = new Set(["cancelled", "canceled"]);
+
+export function isCancelledStatus(status: string | null | undefined): boolean {
+  return CANCELLED_SCHEDULE_STATUSES.has(status?.trim().toLowerCase() ?? "");
+}
+
 export function parseScheduleDate(value: string | undefined): Date {
   if (!value) return new Date();
   const [year, month, day] = value.split("-").map(Number);
@@ -226,8 +232,12 @@ export function calendarDay(value: Date): CalendarDay {
 export function filterScheduleEvents(
   events: readonly CalendarEvent[],
   filters: ScheduleFilters,
+  showCancelled = false,
 ): CalendarEvent[] {
-  return events.filter((event) => filters[event.type]);
+  return events.filter(
+    (event) =>
+      filters[event.type] && isCancelledStatus(event.status) === showCancelled,
+  );
 }
 
 export function groupEventsByDate(events: readonly CalendarEvent[]) {
@@ -448,7 +458,7 @@ export async function loadScheduleEvents(input: {
       )
       .gte("event_date", input.from)
       .lte("event_date", input.to)
-      .in("status", RENTAL_OPERATIONAL_STATUSES)
+      .in("status", [...RENTAL_OPERATIONAL_STATUSES, "cancelled", "canceled"])
       .order("event_date", { ascending: true })
       .order("event_start_time", { ascending: true, nullsFirst: false }),
     supabase

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 export function SiteChrome() {
   const pathname = usePathname();
+  const isHome = pathname === "/";
 
   if (
     pathname.startsWith("/admin") ||
@@ -37,7 +38,7 @@ export function SiteChrome() {
         >
           Jumping Jax
         </Link>
-        <nav className="site-mobile-nav grid w-full min-w-0 grid-cols-1 gap-2 text-xs font-semibold md:w-auto md:flex md:flex-wrap md:items-center md:justify-end md:text-base">
+        <nav className="hidden w-full min-w-0 grid-cols-1 gap-2 text-xs font-semibold md:flex md:w-auto md:flex-wrap md:items-center md:justify-end md:text-base">
           <Link
             href="/"
             className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-cyan-100 px-3 py-2 text-center leading-tight text-cyan-950 shadow-[0_4px_0_rgba(14,116,144,0.15)] transition hover:-translate-y-0.5 hover:bg-cyan-200 md:px-4"
@@ -83,6 +84,105 @@ export function SiteChrome() {
             Book Now
           </Link>
         </nav>
+        {isHome ? (
+          <nav className="grid w-full max-w-[16rem] grid-cols-2 gap-2 justify-self-center text-xs font-semibold md:hidden">
+            <div className="grid grid-rows-2 gap-2">
+              <Link
+                href="/rentals"
+                className="flex aspect-square min-h-11 min-w-0 items-center justify-center rounded-2xl bg-pink-100 px-3 py-2 text-center text-sm font-black leading-tight text-pink-950 shadow-[0_4px_0_rgba(190,24,93,0.15)] transition hover:-translate-y-0.5 hover:bg-pink-200"
+              >
+                Rentals
+              </Link>
+              <Link
+                href="/facility-parties"
+                className="flex aspect-square min-h-11 min-w-0 items-center justify-center rounded-2xl bg-lime-100 px-3 py-2 text-center text-sm font-black leading-tight text-lime-950 shadow-[0_4px_0_rgba(77,124,15,0.15)] transition hover:-translate-y-0.5 hover:bg-lime-200"
+              >
+                Facility Parties
+              </Link>
+            </div>
+            <div className="grid grid-rows-5 gap-2">
+              <Link
+                href="/"
+                className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-cyan-100 px-3 py-2 text-center leading-tight text-cyan-950 shadow-[0_4px_0_rgba(14,116,144,0.15)] transition hover:-translate-y-0.5 hover:bg-cyan-200"
+              >
+                Home
+              </Link>
+              <Link
+                href="/rentals/foam-parties"
+                className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-sky-100 px-3 py-2 text-center leading-tight text-sky-950 shadow-[0_4px_0_rgba(3,105,161,0.15)] transition hover:-translate-y-0.5 hover:bg-sky-200"
+              >
+                Foam Parties
+              </Link>
+              <Link
+                href="/#contact"
+                className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-orange-100 px-3 py-2 text-center leading-tight text-orange-950 shadow-[0_4px_0_rgba(194,65,12,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-200"
+              >
+                Contact
+              </Link>
+              <a
+                href="https://waiver.smartwaiver.com/w/53e5041a939c7/web/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-lime-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-lime-200"
+              >
+                Waiver
+              </a>
+              <Link
+                href="/rentals"
+                className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-yellow-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-yellow-200"
+              >
+                Book Now
+              </Link>
+            </div>
+          </nav>
+        ) : (
+          <nav className="site-mobile-nav grid w-full min-w-0 grid-cols-1 gap-2 text-xs font-semibold md:hidden">
+            <Link
+              href="/"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-cyan-100 px-3 py-2 text-center leading-tight text-cyan-950 shadow-[0_4px_0_rgba(14,116,144,0.15)] transition hover:-translate-y-0.5 hover:bg-cyan-200"
+            >
+              Home
+            </Link>
+            <Link
+              href="/facility-parties"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-lime-100 px-3 py-2 text-center leading-tight text-lime-950 shadow-[0_4px_0_rgba(77,124,15,0.15)] transition hover:-translate-y-0.5 hover:bg-lime-200"
+            >
+              Facility Parties
+            </Link>
+            <Link
+              href="/rentals"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-pink-100 px-3 py-2 text-center leading-tight text-pink-950 shadow-[0_4px_0_rgba(190,24,93,0.15)] transition hover:-translate-y-0.5 hover:bg-pink-200"
+            >
+              Rentals
+            </Link>
+            <Link
+              href="/rentals/foam-parties"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-sky-100 px-3 py-2 text-center leading-tight text-sky-950 shadow-[0_4px_0_rgba(3,105,161,0.15)] transition hover:-translate-y-0.5 hover:bg-sky-200"
+            >
+              Foam Parties
+            </Link>
+            <Link
+              href="/#contact"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-orange-100 px-3 py-2 text-center leading-tight text-orange-950 shadow-[0_4px_0_rgba(194,65,12,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-200"
+            >
+              Contact
+            </Link>
+            <a
+              href="https://waiver.smartwaiver.com/w/53e5041a939c7/web/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-lime-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-lime-200"
+            >
+              Waiver
+            </a>
+            <Link
+              href="/rentals"
+              className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-yellow-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-yellow-200"
+            >
+              Book Now
+            </Link>
+          </nav>
+        )}
       </div>
       <div className="jj-party-ribbon px-4 py-2 text-center text-xs font-black uppercase text-white sm:text-sm">
         Open Play | Birthday Parties | Water Slides | Foam Parties | Bounce Houses
