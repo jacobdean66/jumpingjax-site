@@ -20,12 +20,6 @@ import { insertPendingBooking } from "@/lib/supabase/booking-data";
 import { getRentalBySlug } from "@/data/rentals";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
-  formatInflatableSetupDistanceLines,
-  hasRequiredInflatableSetupDistances,
-  inflatableSetupCartLines,
-  parseInflatableSetupDistancesFromRequest,
-} from "@/lib/rentals/inflatable-setup-distances";
-import {
   initializeBookingWorkflow,
   recordWorkflowOutcome,
 } from "@/lib/bookings/workflow-state";
@@ -101,25 +95,6 @@ export async function POST(req: Request) {
   ) {
     return new Response(
       JSON.stringify({ error: "rental_items is required" }),
-      { status: 400 },
-    );
-  }
-
-  const requiredInflatableLines = inflatableSetupCartLines(normalizedRentalItems);
-  const inflatableSetupDistances = parseInflatableSetupDistancesFromRequest(
-    body.inflatable_setup_distances,
-  );
-  if (
-    !hasRequiredInflatableSetupDistances(
-      requiredInflatableLines,
-      inflatableSetupDistances,
-    )
-  ) {
-    return NextResponse.json(
-      {
-        error:
-          "A valid setup distance (in feet) is required for every inflatable in your cart.",
-      },
       { status: 400 },
     );
   }
@@ -322,13 +297,6 @@ export async function POST(req: Request) {
     mileageFee,
     distanceMiles,
   });
-  const inflatableSetupDistanceLines =
-    inflatableSetupDistances.length > 0
-      ? [
-          "Inflatable setup distances:",
-          ...formatInflatableSetupDistanceLines(inflatableSetupDistances),
-        ]
-      : [];
 
   let emailsSent = false;
   let customerReceiptFailed = false;
@@ -368,7 +336,6 @@ export async function POST(req: Request) {
             setupNotes ? `Setup notes: ${setupNotes}` : null,
             paymentMethod ? `Payment method: ${paymentMethod}` : null,
             "",
-            ...inflatableSetupDistanceLines,
             ...deliveryFeeLines,
             estimatedTotalLine,
             "Final quote will be confirmed by Jumping Jax.",
@@ -437,7 +404,6 @@ export async function POST(req: Request) {
               ? `Payment method: ${paymentMethod}`
               : "Payment method: (not provided)",
             "",
-            ...inflatableSetupDistanceLines,
             ...deliveryFeeLines,
             estimatedTotalLine,
             notes ? `Notes: ${notes}` : "Notes: (none)",

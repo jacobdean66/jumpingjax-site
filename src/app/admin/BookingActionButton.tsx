@@ -4,10 +4,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 type BookingActionButtonProps = {
-  action: "confirm" | "reject" | "cancel" | "uncancel";
+  action: "confirm" | "reject";
   endpoint: string;
   label: string;
-  tone: "confirm" | "reject" | "cancel" | "uncancel";
+  tone: "confirm" | "reject";
 };
 
 export function BookingActionButton({
@@ -44,21 +44,15 @@ export function BookingActionButton({
       setMessage(
         action === "reject"
           ? "Rejected"
-          : action === "cancel"
-            ? "Cancelled"
-            : action === "uncancel"
-              ? "Restored"
-              : label.toLowerCase().includes("calendar")
-                ? text || "Calendar sync complete"
-                : "Confirmed",
+          : label.toLowerCase().includes("calendar")
+            ? text || "Calendar sync complete"
+            : "Confirmed",
       );
-      if (action !== "uncancel") {
-        const nextParams = new URLSearchParams(searchParams.toString());
-        const currentStatus = nextParams.get("status");
-        if (!currentStatus || currentStatus === "all") {
-          nextParams.set("status", "pending");
-          router.replace(`${pathname}?${nextParams.toString()}`);
-        }
+      const nextParams = new URLSearchParams(searchParams.toString());
+      const currentStatus = nextParams.get("status");
+      if (!currentStatus || currentStatus === "all") {
+        nextParams.set("status", "pending");
+        router.replace(`${pathname}?${nextParams.toString()}`);
       }
       router.refresh();
     } catch {
@@ -71,11 +65,7 @@ export function BookingActionButton({
   const classes =
     tone === "confirm"
       ? "rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white hover:bg-emerald-600 disabled:cursor-wait disabled:bg-emerald-300"
-      : tone === "cancel"
-        ? "rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600 disabled:cursor-wait disabled:bg-orange-300"
-        : tone === "uncancel"
-          ? "rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white hover:bg-sky-600 disabled:cursor-wait disabled:bg-sky-300"
-          : "rounded-full bg-rose-500 px-4 py-2 text-xs font-black text-white hover:bg-rose-600 disabled:cursor-wait disabled:bg-rose-300";
+      : "rounded-full bg-rose-500 px-4 py-2 text-xs font-black text-white hover:bg-rose-600 disabled:cursor-wait disabled:bg-rose-300";
 
   return (
     <span className="inline-flex flex-col items-start gap-1">

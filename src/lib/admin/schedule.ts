@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { RENTAL_OPERATIONAL_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import {
   aggregateScheduleProducts,
   classifyRentalScheduleType,
@@ -225,17 +226,8 @@ export function calendarDay(value: Date): CalendarDay {
 export function filterScheduleEvents(
   events: readonly CalendarEvent[],
   filters: ScheduleFilters,
-  showCancelled = false,
 ): CalendarEvent[] {
-  return events.filter((event) => {
-    if (!filters[event.type]) return false;
-    return showCancelled ? isCancelledStatus(event.status) : !isCancelledStatus(event.status);
-  });
-}
-
-export function isCancelledStatus(status: string): boolean {
-  const normalized = status.trim().toLowerCase();
-  return normalized === "cancelled" || normalized === "canceled";
+  return events.filter((event) => filters[event.type]);
 }
 
 export function groupEventsByDate(events: readonly CalendarEvent[]) {
@@ -456,6 +448,7 @@ export async function loadScheduleEvents(input: {
       )
       .gte("event_date", input.from)
       .lte("event_date", input.to)
+      .in("status", RENTAL_OPERATIONAL_STATUSES)
       .order("event_date", { ascending: true })
       .order("event_start_time", { ascending: true, nullsFirst: false }),
     supabase

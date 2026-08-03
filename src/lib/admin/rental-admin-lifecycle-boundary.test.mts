@@ -11,7 +11,7 @@ test("availability, schedule, Route Planner, and Driver data share lifecycle con
     source("../../app/api/unavailable-dates/route.ts"),
     /RENTAL_INVENTORY_BLOCKING_STATUSES/,
   );
-  assert.match(source("./schedule.ts"), /isCancelledStatus/);
+  assert.match(source("./schedule.ts"), /RENTAL_OPERATIONAL_STATUSES/);
   assert.match(source("./deliveries.ts"), /RENTAL_OPERATIONAL_STATUSES/);
   assert.match(
     source("../../app/api/admin/deliveries/route.ts"),

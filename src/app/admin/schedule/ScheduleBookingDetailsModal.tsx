@@ -3,27 +3,18 @@
 import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
 
-import { isCancelledStatus, type CalendarEvent } from "@/lib/admin/schedule";
+import type { CalendarEvent } from "@/lib/admin/schedule";
 import {
   scheduleTypeLabel,
   scheduleTypeTone,
 } from "@/lib/admin/schedule-display";
 import { formatProductLabel } from "@/lib/admin/schedule-products";
 import { StatusBadge } from "../_components";
-import { BookingActionButton } from "../BookingActionButton";
 
 function eventTimeSummary(event: CalendarEvent): string {
   return event.displayTime && event.displayTime !== "Time not set"
     ? event.displayTime
     : "Time not set";
-}
-
-function isFacilityEvent(event: CalendarEvent): boolean {
-  return event.type === "public-party" || event.type === "private-party";
-}
-
-function uncancelEndpoint(event: CalendarEvent): string {
-  return `/api/facility/confirm?id=${encodeURIComponent(event.bookingId)}&action=uncancel`;
 }
 
 export function ScheduleBookingDetailsModal({
@@ -161,23 +152,6 @@ export function ScheduleBookingDetailsModal({
         >
           Open full details
         </Link>
-
-        {isCancelledStatus(event.status) ? (
-          isFacilityEvent(event) ? (
-            <div className="mt-3">
-              <BookingActionButton
-                action="uncancel"
-                endpoint={uncancelEndpoint(event)}
-                label="Uncancel"
-                tone="uncancel"
-              />
-            </div>
-          ) : (
-            <p className="mt-3 text-xs font-semibold text-slate-600">
-              Restore this rental from the Rentals dashboard.
-            </p>
-          )
-        ) : null}
       </div>
     </div>
   );
