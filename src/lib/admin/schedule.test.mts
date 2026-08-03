@@ -150,6 +150,30 @@ await test("all three filters enabled shows all records", () => {
   assert.equal(filterScheduleEvents(fixtureEvents(), DEFAULT_SCHEDULE_FILTERS).length, 9);
 });
 
+await test("cancelled bookings are hidden by default and isolated by the Cancelled view", () => {
+  const events = [
+    ...fixtureEvents(),
+    ...rentalRowsToEvents([{ ...rental(20), status: "cancelled" }]),
+    ...facilityRowsToEvents([{ ...facility("cancelled-facility", "private"), status: "canceled" }]),
+  ];
+
+  assert.equal(filterScheduleEvents(events, DEFAULT_SCHEDULE_FILTERS).length, 9);
+  assert.deepEqual(
+    filterScheduleEvents(events, DEFAULT_SCHEDULE_FILTERS, true).map(
+      (event) => event.status,
+    ),
+    ["cancelled", "canceled"],
+  );
+  assert.equal(
+    filterScheduleEvents(
+      events,
+      filters({ rental: false, "public-party": false }),
+      true,
+    ).length,
+    1,
+  );
+});
+
 await test("each individual filter shows only its matching type", () => {
   const events = fixtureEvents();
   assert.deepEqual(

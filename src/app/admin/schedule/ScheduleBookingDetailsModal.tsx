@@ -3,27 +3,21 @@
 import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
 
-import { isCancelledStatus, type CalendarEvent } from "@/lib/admin/schedule";
+import {
+  isCancelledStatus,
+  type CalendarEvent,
+} from "@/lib/admin/schedule";
 import {
   scheduleTypeLabel,
   scheduleTypeTone,
 } from "@/lib/admin/schedule-display";
 import { formatProductLabel } from "@/lib/admin/schedule-products";
 import { StatusBadge } from "../_components";
-import { BookingActionButton } from "../BookingActionButton";
 
 function eventTimeSummary(event: CalendarEvent): string {
   return event.displayTime && event.displayTime !== "Time not set"
     ? event.displayTime
     : "Time not set";
-}
-
-function isFacilityEvent(event: CalendarEvent): boolean {
-  return event.type === "public-party" || event.type === "private-party";
-}
-
-function uncancelEndpoint(event: CalendarEvent): string {
-  return `/api/facility/confirm?id=${encodeURIComponent(event.bookingId)}&action=uncancel`;
 }
 
 export function ScheduleBookingDetailsModal({
@@ -156,28 +150,19 @@ export function ScheduleBookingDetailsModal({
         </div>
 
         <Link
-          href={event.detailHref}
+          href={
+            isCancelledStatus(event.status) &&
+            (event.type === "rental" || event.type === "foam-party")
+              ? `/admin/rentals?status=cancelled#booking-${encodeURIComponent(event.bookingId)}`
+              : event.detailHref
+          }
           className="mt-5 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400"
         >
-          Open full details
+          {isCancelledStatus(event.status) &&
+          (event.type === "rental" || event.type === "foam-party")
+            ? "Open Rentals dashboard to restore"
+            : "Open full details"}
         </Link>
-
-        {isCancelledStatus(event.status) ? (
-          isFacilityEvent(event) ? (
-            <div className="mt-3">
-              <BookingActionButton
-                action="uncancel"
-                endpoint={uncancelEndpoint(event)}
-                label="Uncancel"
-                tone="uncancel"
-              />
-            </div>
-          ) : (
-            <p className="mt-3 text-xs font-semibold text-slate-600">
-              Restore this rental from the Rentals dashboard.
-            </p>
-          )
-        ) : null}
       </div>
     </div>
   );

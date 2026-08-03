@@ -822,29 +822,6 @@ export function isCategoryId(id: string): id is RentalCategoryId {
   return (CATEGORY_IDS as readonly string[]).includes(id);
 }
 
-/**
- * Categories whose units are actual air-filled inflatables requiring blower
- * power at setup. Excludes foam parties, accessories (tables/chairs/
- * generators/concessions/balloons), and yard games (dunk tank, basketball
- * game) — none of those are inflatable units.
- */
-const INFLATABLE_CATEGORY_IDS: ReadonlySet<RentalCategoryId> = new Set([
-  "bounce-houses",
-  "combos",
-  "inflatable-games",
-  "obstacle-courses",
-  "slides",
-  "water-slides",
-]);
-
-export function isInflatableRental(rental: Pick<Rental, "categoryId">): boolean {
-  return INFLATABLE_CATEGORY_IDS.has(rental.categoryId);
-}
-
-export function isWaterslideRental(rental: Pick<Rental, "categoryId">): boolean {
-  return rental.categoryId === "water-slides";
-}
-
 export function rentalsInCategory(categoryId: RentalCategoryId): Rental[] {
   return RENTALS.filter((r) => r.categoryId === categoryId);
 }

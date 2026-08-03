@@ -23,11 +23,6 @@ import {
   isFoamPartyRentalItem,
   normalizeDistanceMiles,
 } from "@/lib/rentals/rental-pricing-text";
-import {
-  buildInflatableSetupDistancePayload,
-  inflatableSetupCartLines,
-  isInflatableSetupDistancesValid,
-} from "@/lib/rentals/inflatable-setup-distances";
 import { BookingDateCalendar } from "./BookingDateCalendar";
 import { BookingSummary } from "./BookingSummary";
 import { CustomerForm, type CustomerFields } from "./CustomerForm";
@@ -52,7 +47,6 @@ const emptyCustomer: CustomerFields = {
   setupAccess: "",
   setupNotes: "",
   paymentMethod: "",
-  inflatableSetupDistances: {},
 };
 
 const STANDARD_DELIVERY_WINDOWS = [
@@ -337,7 +331,6 @@ export function RentalBookingPanel({
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(ONE_DAY_RENTAL_DURATION.id);
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [deliveryTime, setDeliveryTime] = useState("");
   const [eventStartTime, setEventStartTime] = useState("");
 
@@ -529,11 +522,6 @@ export function RentalBookingPanel({
     return "ok";
   }, [selectedYmd, selectionValid]);
 
-  const inflatableCartLines = useMemo(
-    () => inflatableSetupCartLines(selectedRentalItems),
-    [selectedRentalItems],
-  );
-
   const customerOk = useMemo(() => {
     const phoneDigits = digitsOnly(customer.customerPhone);
     const verifiedDistanceMiles = normalizeDistanceMiles(customer.distanceMiles);
@@ -547,13 +535,9 @@ export function RentalBookingPanel({
       customer.setupAccess.trim().length > 0 &&
       customer.paymentMethod.trim().length > 0 &&
       selectedDeliveryTime.trim().length > 0 &&
-      eventStartTime.trim().length > 0 &&
-      isInflatableSetupDistancesValid(
-        inflatableCartLines,
-        customer.inflatableSetupDistances,
-      )
+      eventStartTime.trim().length > 0
     );
-  }, [customer, selectedDeliveryTime, eventStartTime, inflatableCartLines]);
+  }, [customer, selectedDeliveryTime, eventStartTime]);
 
   const distanceMiles = normalizeDistanceMiles(customer.distanceMiles);
   const deliveryFee = selectionValid && duration
@@ -641,7 +625,6 @@ export function RentalBookingPanel({
 
     setSubmitError(null);
     clearSubmitSuccess();
-    setAttemptedSubmit(true);
 
     if (reserveReason) {
       setSubmitError(reserveReason);
@@ -672,10 +655,6 @@ export function RentalBookingPanel({
           requested_delivery_window: selectedDeliveryTime,
           event_start_time: eventStartTime,
           distance_miles: distanceMiles,
-          inflatable_setup_distances: buildInflatableSetupDistancePayload(
-            inflatableCartLines,
-            customer.inflatableSetupDistances,
-          ),
           delivery_fee: deliveryFee ?? 0,
           mileage_fee: mileageFee ?? 0,
           setup_surface: customer.setupSurface,
@@ -991,12 +970,7 @@ export function RentalBookingPanel({
                   selectionMessageTone={selectionMessageTone}
                   distanceMiles={customer.distanceMiles}
                 />
-                <CustomerForm
-                  value={customer}
-                  onChange={setCustomer}
-                  cartItems={selectedRentalItems}
-                  attemptedSubmit={attemptedSubmit}
-                />
+                <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
                   <label className="mb-5 block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">

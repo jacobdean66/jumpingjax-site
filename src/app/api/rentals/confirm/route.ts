@@ -180,6 +180,34 @@ function ownerResultPage(input: {
   );
 }
 
+function actionResult(
+  req: Request,
+  input: {
+    title: string;
+    message: string;
+    tone?: "success" | "warning" | "error";
+    bookingId?: string | number | null;
+    status?: number;
+    calendarSyncFailed?: boolean;
+  },
+): Response {
+  if (req.headers.get("accept")?.includes("application/json")) {
+    return Response.json(
+      {
+        ok: (input.status ?? 200) < 400,
+        message: input.message,
+        bookingId: input.bookingId ?? null,
+        calendarSyncFailed: input.calendarSyncFailed === true,
+      },
+      {
+        status: input.status ?? 200,
+        headers: { "Cache-Control": "private, no-store, max-age=0" },
+      },
+    );
+  }
+  return ownerResultPage(input);
+}
+
 async function loadRentalItems(
   supabase: ReturnType<typeof createServiceRoleClient>,
   id: string,
@@ -474,7 +502,7 @@ async function handleRentalConfirm(
 
   if (error) {
     console.error("[api/rentals/confirm] status update error", error);
-    return ownerResultPage({
+    return actionResult(req, {
       title: "Something Went Wrong",
       message:
         "The booking could not be updated. Please check the admin dashboard before trying again.",

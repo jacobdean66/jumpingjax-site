@@ -51,7 +51,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
+function actionHref(id: string, action: "confirm" | "reject") {
   return `/api/facility/confirm?id=${encodeURIComponent(id)}&action=${action}`;
 }
 
@@ -95,16 +95,6 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               endpoint={actionHref(booking.id, "reject")}
               label="Reject"
               tone="reject"
-            />
-          </div>
-        )}
-        {(booking.status === "pending" || booking.status === "confirmed") && (
-          <div className="flex flex-wrap gap-2 print:hidden">
-            <BookingActionButton
-              action="cancel"
-              endpoint={actionHref(booking.id, "cancel")}
-              label="Cancel"
-              tone="cancel"
             />
           </div>
         )}

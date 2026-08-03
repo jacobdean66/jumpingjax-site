@@ -8,7 +8,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export type BookingDecision = {
   bookingId: string;
-  action: ApprovalAction | "cancel" | "uncancel";
+  action: ApprovalAction | "cancel";
 };
 
 const PRIVATE_HEADERS = {
@@ -106,8 +106,7 @@ export async function resolveDecisionRequest(
   const actionAllowed =
     action === "confirm" ||
     action === "reject" ||
-    (options?.allowCancel === true &&
-      (action === "cancel" || action === "uncancel"));
+    (options?.allowCancel === true && action === "cancel");
   if (!bookingId || !actionAllowed) {
     return { ok: false, response: approvalErrorResponse("invalid", 400) };
   }

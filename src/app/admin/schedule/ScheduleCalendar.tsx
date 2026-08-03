@@ -324,7 +324,7 @@ export function ScheduleCalendar({
   useEffect(() => {
     window.sessionStorage.setItem(
       SHOW_CANCELLED_STORAGE_KEY,
-      showCancelled ? "true" : "false",
+      String(showCancelled),
     );
   }, [showCancelled]);
 
@@ -542,27 +542,22 @@ export function ScheduleCalendar({
           </p>
         </fieldset>
 
-        <fieldset
-          className={`mt-4 rounded-2xl border p-4 ${
-            showCancelled ? "border-rose-400 bg-rose-50" : "border-slate-200 bg-slate-50"
-          }`}
-        >
+        <fieldset className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
           <legend className="px-1 text-sm font-black text-slate-700">
-            Cancelled bookings
+            Cancelled view
           </legend>
-          <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800">
+          <label className="inline-flex min-h-11 items-center gap-2 text-sm font-black text-slate-800">
             <input
               type="checkbox"
               checked={showCancelled}
               onChange={(event) => setShowCancelled(event.target.checked)}
-              className="h-4 w-4 accent-rose-600"
+              className="h-4 w-4 accent-orange-600"
             />
-            Show only cancelled bookings
+            Cancelled bookings
           </label>
-          <p className="mt-3 text-xs font-semibold text-slate-600">
-            Cancelled bookings (rentals, foam parties, and facility parties) are
-            hidden from the schedule by default. Turn this on to view all
-            cancelled items and uncancel them from the details panel.
+          <p className="mt-2 text-xs font-semibold text-slate-600">
+            Cancelled bookings are excluded from the active Schedule. Turn this on
+            to review only cancelled bookings that match the selected types.
           </p>
         </fieldset>
 
