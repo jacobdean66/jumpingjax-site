@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  escapeLikePattern,
   filterAndRankSearchResults,
   normalizeSearchQuery,
   type SearchableParticipant,
@@ -71,13 +72,24 @@ test("common duplicate first names are disambiguated by last name and dob order"
   assert.equal(results[1]?.lastName, "Smith");
 });
 
-test("expired results remain visible with expired flag", () => {
+test("expired results remain visible with expired flag and privacy-minimized fields", () => {
   const results = filterAndRankSearchResults(base, "ava jones");
   assert.equal(results.length, 1);
   assert.equal(results[0]?.expired, true);
+  assert.equal(results[0]?.birthYear, 2018);
+  assert.equal(results[0]?.signerLastInitial, "J");
+  assert.equal((results[0] as { dob?: string }).dob, undefined);
 });
 
-test("search query validation rejects short or empty queries", () => {
+test("search query validation rejects short, empty, and wildcard queries", () => {
   assert.throws(() => normalizeSearchQuery(" "), WaiverSearchValidationError);
   assert.throws(() => normalizeSearchQuery("a"), WaiverSearchValidationError);
+  assert.throws(() => normalizeSearchQuery("%"), WaiverSearchValidationError);
+  assert.throws(() => normalizeSearchQuery("sm_th"), WaiverSearchValidationError);
+  assert.throws(() => normalizeSearchQuery("a,b"), WaiverSearchValidationError);
+  assert.throws(() => normalizeSearchQuery("(ava)"), WaiverSearchValidationError);
+});
+
+test("escapeLikePattern escapes wildcards", () => {
+  assert.equal(escapeLikePattern("a%b_c"), "a\\%b\\_c");
 });

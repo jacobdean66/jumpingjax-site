@@ -1,5 +1,17 @@
 /**
  * Daily report aggregation for Open Play admissions.
+ *
+ * Reporting semantics (provisional — Jacob decision still required):
+ * - paidAttendance: count of *active* attendees whose original unitPriceCents > 0
+ *   (check-in price), NOT net retained payment after refunds.
+ * - Fully refunded but still-active attendees still count as paidAttendance.
+ * - Voided visits are excluded from attendance counts; their ledger rows still
+ *   affect cash/card totals (voids/refunds/corrections remain in the day ledger).
+ * - correctionCount: logical method-correction pairs (two ledger rows = one).
+ * - voids/refunds: raw entry counts.
+ * - Negative method totals can occur after voids/refunds outweigh charges for
+ *   a filtered slice; combined day totals should normally be >= 0 when the day
+ *   only contains self-consistent visits, but are not clamped here.
  */
 
 import type { AdmissionClassification } from "./pricing";
@@ -41,6 +53,11 @@ export type DailyReport = {
   corrections: number;
   voids: number;
   refunds: number;
+  /**
+   * Explicit marker that paidAttendance uses original check-in price, not net
+   * retained payment. Requires Jacob confirmation before UI copy freezes.
+   */
+  paidAttendanceBasis: "original_unit_price_active_attendees";
   visits: Array<{
     visitId: string;
     status: VisitSnapshot["status"];
@@ -96,6 +113,7 @@ export function buildDailyReport(
     corrections: totals.correctionCount,
     voids: totals.voidCount,
     refunds: totals.refundCount,
+    paidAttendanceBasis: "original_unit_price_active_attendees",
     visits: dayVisits.map((visit) => {
       const visitTotals = sumMethodTotals(visit.payments);
       return {

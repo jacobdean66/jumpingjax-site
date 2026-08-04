@@ -27,8 +27,13 @@ export async function getAuthorizedWaiverDocument(options: {
     .eq("submission_id", options.submissionId)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to load waiver document");
   if (!data) return null;
+
+  // Pending-upload documents are not ready for retrieval.
+  if (data.status === "pending_upload" || data.status === "failed") {
+    return null;
+  }
 
   await ensureWaiverDocumentsBucket();
   const signedUrl = await createWaiverDocumentSignedUrl(
@@ -36,7 +41,7 @@ export async function getAuthorizedWaiverDocument(options: {
     expiresInSeconds,
   );
 
-  await supabase.from("open_play_audit_events").insert({
+  const { error: auditError } = await supabase.from("open_play_audit_events").insert({
     actor_staff_id: options.staffId,
     action: "document_accessed",
     entity_type: "waiver_document",
@@ -46,6 +51,9 @@ export async function getAuthorizedWaiverDocument(options: {
       expiresInSeconds,
     },
   });
+  if (auditError) {
+    throw new Error("Unable to audit document access");
+  }
 
   return {
     submissionId: data.submission_id,

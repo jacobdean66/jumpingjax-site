@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
-
 import { rateLimit } from "@/lib/rate-limit";
-import { getCompletionByToken } from "@/lib/waivers/submit";
+import { publicSafeError } from "@/lib/open-play/staff-auth";
+import { getCompletionByToken, WaiverSubmitError } from "@/lib/waivers/submit";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,28 +18,19 @@ export async function GET(
 
   const { token } = await context.params;
   if (!token || token.length < 32 || token.length > 128) {
-    return NextResponse.json(
-      { ok: false, error: "Invalid completion token", code: "not_found" },
-      { status: 404, headers: { "Cache-Control": "private, no-store" } },
-    );
+    return publicSafeError("not_found", 404, "Waiver not found");
   }
 
   try {
     const completion = await getCompletionByToken({ token });
     if (!completion) {
-      return NextResponse.json(
-        { ok: false, error: "Waiver not found", code: "not_found" },
-        { status: 404, headers: { "Cache-Control": "private, no-store" } },
-      );
+      return publicSafeError("not_found", 404, "Waiver not found");
     }
 
     return NextResponse.json(
       {
         ok: true,
-        submissionId: completion.submissionId,
-        signerFirstName: completion.signerFirstName,
-        signerLastName: completion.signerLastName,
-        signedAt: completion.signedAt,
+        // Minimal confirmation payload — no signer PII.
         expiresOn: completion.expiresOn,
         expired: completion.expired,
         participantCount: completion.participantCount,
@@ -48,13 +39,9 @@ export async function GET(
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Lookup failed",
-        code: "database",
-      },
-      { status: 503, headers: { "Cache-Control": "private, no-store" } },
-    );
+    if (error instanceof WaiverSubmitError && error.code === "token_expired") {
+      return publicSafeError("token_expired", 410, "Completion token has expired");
+    }
+    return publicSafeError("database", 503);
   }
 }

@@ -7,11 +7,7 @@ import {
   type VisitAttendeeRequest,
   type ParticipantRecord,
 } from "./check-in";
-import {
-  buildChargeEntry,
-  shouldCreateCharge,
-  type PaymentEntry,
-} from "./ledger";
+import { shouldCreateCharge, type PaymentEntry } from "./ledger";
 
 export { CheckInValidationError };
 
@@ -35,13 +31,32 @@ export type CreateVisitResult = {
   paymentEntries: PaymentEntry[];
 };
 
+type RpcOutcome = {
+  outcome: string;
+  visit_id?: string;
+  business_day_ymd?: string;
+  attendees?: Array<{
+    attendee_id: string;
+    participant_id: string;
+    classification: string;
+    unit_price_cents: number;
+  }>;
+  payments?: Array<{
+    id: string;
+    attendee_id: string;
+    method: "cash" | "card";
+    amount_cents: number;
+  }>;
+  participant_id?: string;
+  error_message?: string;
+};
+
 export async function createOpenPlayVisit(
   input: CreateVisitInput,
 ): Promise<CreateVisitResult> {
   const supabase = createServiceRoleClient();
   const now = input.now ?? new Date();
   const createdAt = now.toISOString();
-  const businessDayYmd = input.visitDateYmd;
 
   const participantIds = input.attendees.map((item) => item.participantId);
   const { data: participantRows, error: participantError } = await supabase
@@ -52,7 +67,7 @@ export async function createOpenPlayVisit(
     .in("id", participantIds);
 
   if (participantError) {
-    throw new CheckInValidationError(participantError.message);
+    throw new CheckInValidationError("Unable to load participants");
   }
 
   const participantsById = new Map<string, ParticipantRecord>();
@@ -83,103 +98,71 @@ export async function createOpenPlayVisit(
     requests: input.attendees,
   });
 
-  const { data: visit, error: visitError } = await supabase
-    .from("open_play_visits")
-    .insert({
-      visit_date: input.visitDateYmd,
-      business_day_ymd: businessDayYmd,
-      created_by_staff_id: input.staffId,
-      status: "open",
-      notes: input.notes?.trim() || null,
-      created_at: createdAt,
-    })
-    .select("id")
-    .single();
-
-  if (visitError || !visit) {
-    throw new Error(visitError?.message || "Unable to create visit");
-  }
-
-  const attendees: CreateVisitResult["attendees"] = [];
-  const paymentEntries: PaymentEntry[] = [];
-
-  for (const item of prepared) {
-    const attendeeId = randomUUID();
-    const { error: attendeeError } = await supabase
-      .from("open_play_visit_attendees")
-      .insert({
-        id: attendeeId,
-        visit_id: visit.id,
+  const payload = {
+    visit_date: input.visitDateYmd,
+    staff_id: input.staffId,
+    notes: input.notes?.trim() || null,
+    attendees: prepared.map((item) => {
+      const attendeeId = randomUUID();
+      const paymentId = randomUUID();
+      return {
+        attendee_id: attendeeId,
+        payment_id: shouldCreateCharge(item.unitPriceCents) ? paymentId : null,
         participant_id: item.participantId,
         waiver_submission_id: item.waiverSubmissionId,
         classification: item.classification,
         age_years_on_visit: item.ageYearsOnVisit,
         unit_price_cents: item.unitPriceCents,
-        status: "active",
-        created_at: createdAt,
-      });
-    if (attendeeError) {
-      throw new Error(attendeeError.message);
-    }
+        payment_method: item.paymentMethod,
+      };
+    }),
+  };
 
-    attendees.push({
-      attendeeId,
-      participantId: item.participantId,
-      classification: item.classification,
-      unitPriceCents: item.unitPriceCents,
-    });
-
-    if (shouldCreateCharge(item.unitPriceCents) && item.paymentMethod) {
-      const paymentId = randomUUID();
-      const entry = buildChargeEntry(
-        {
-          visitId: visit.id,
-          attendeeId,
-          method: item.paymentMethod,
-          amountCents: item.unitPriceCents,
-          createdByStaffId: input.staffId,
-        },
-        paymentId,
-        createdAt,
-      );
-      const { error: paymentError } = await supabase
-        .from("open_play_payment_entries")
-        .insert({
-          id: entry.id,
-          visit_id: entry.visitId,
-          attendee_id: entry.attendeeId,
-          entry_type: entry.entryType,
-          method: entry.method,
-          amount_cents: entry.amountCents,
-          related_entry_id: null,
-          reason: null,
-          created_by_staff_id: entry.createdByStaffId,
-          created_at: entry.createdAt,
-        });
-      if (paymentError) {
-        throw new Error(paymentError.message);
-      }
-      paymentEntries.push(entry);
-    }
+  const { data, error } = await supabase.rpc("create_open_play_visit_atomic", {
+    p_payload: payload,
+  });
+  if (error) {
+    throw new Error("Unable to create visit");
   }
 
-  await supabase.from("open_play_audit_events").insert({
-    actor_staff_id: input.staffId,
-    action: "visit_created",
-    entity_type: "open_play_visit",
-    entity_id: visit.id,
-    detail: {
-      visitDate: input.visitDateYmd,
-      businessDayYmd,
-      attendeeCount: attendees.length,
-      chargeCount: paymentEntries.length,
-    },
-  });
+  const result = data as RpcOutcome;
+  if (result.outcome === "duplicate_same_day_attendee") {
+    throw new CheckInValidationError(
+      "Participant is already checked in for this business day",
+    );
+  }
+  if (result.outcome === "payment_method_required") {
+    throw new CheckInValidationError("Paid attendees require a cash or card payment method");
+  }
+  if (result.outcome === "free_attendee_cannot_have_payment_method") {
+    throw new CheckInValidationError("Free watching adults must not include a payment method");
+  }
+  if (result.outcome !== "created" || !result.visit_id) {
+    throw new Error("Unable to create visit");
+  }
+
+  const paymentEntries: PaymentEntry[] = (result.payments ?? []).map((payment) => ({
+    id: payment.id,
+    visitId: result.visit_id!,
+    attendeeId: payment.attendee_id,
+    entryType: "charge",
+    method: payment.method,
+    amountCents: payment.amount_cents,
+    relatedEntryId: null,
+    reason: null,
+    createdByStaffId: input.staffId,
+    createdAt,
+  }));
 
   return {
-    visitId: visit.id,
-    businessDayYmd,
-    attendees,
+    visitId: result.visit_id,
+    businessDayYmd: result.business_day_ymd ?? input.visitDateYmd,
+    attendees: (result.attendees ?? []).map((attendee) => ({
+      attendeeId: attendee.attendee_id,
+      participantId: attendee.participant_id,
+      classification: attendee.classification,
+      unitPriceCents: attendee.unit_price_cents,
+    })),
     paymentEntries,
   };
 }

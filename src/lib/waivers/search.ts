@@ -8,6 +8,7 @@ export type SearchableParticipant = {
   submissionId: string;
   firstName: string;
   lastName: string;
+  /** Full DOB is retained for disambiguation; UI should prefer derived display. */
   dob: string;
   role: "child" | "adult_signer" | "adult_covered";
   expiresOnYmd: string;
@@ -22,11 +23,13 @@ export type StaffSearchResult = {
   firstName: string;
   lastName: string;
   fullName: string;
-  dob: string;
+  /** Year of birth only in API responses for privacy minimization. */
+  birthYear: number;
   role: "child" | "adult_signer" | "adult_covered";
   expiresOnYmd: string;
   expired: boolean;
-  signerName: string;
+  /** Last initial only for disambiguation. */
+  signerLastInitial: string;
 };
 
 export const MAX_WAIVER_SEARCH_QUERY_LENGTH = 80;
@@ -39,6 +42,8 @@ export class WaiverSearchValidationError extends Error {
     this.name = "WaiverSearchValidationError";
   }
 }
+
+const FORBIDDEN_SEARCH_CHARS = /[%_,()\\]/;
 
 export function normalizeSearchQuery(raw: string | null | undefined): string {
   const trimmed = (raw ?? "").trim().replace(/\s+/g, " ");
@@ -53,7 +58,19 @@ export function normalizeSearchQuery(raw: string | null | undefined): string {
       `Search query must be ${MAX_WAIVER_SEARCH_QUERY_LENGTH} characters or fewer`,
     );
   }
+  if (FORBIDDEN_SEARCH_CHARS.test(trimmed) || trimmed === "*" || trimmed === "?") {
+    throw new WaiverSearchValidationError("Search query contains unsupported characters");
+  }
+  // Reject wildcard-only / punctuation-only queries.
+  if (!/[a-z0-9]/i.test(trimmed)) {
+    throw new WaiverSearchValidationError("Search query must include letters or digits");
+  }
   return trimmed;
+}
+
+/** Escape LIKE metacharacters for defensive construction outside PostgREST filters. */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
 export function matchesNameQuery(
@@ -70,17 +87,18 @@ export function matchesNameQuery(
 export function toStaffSearchResult(
   participant: SearchableParticipant,
 ): StaffSearchResult {
+  const birthYear = Number(participant.dob.slice(0, 4));
   return {
     participantId: participant.participantId,
     submissionId: participant.submissionId,
     firstName: participant.firstName,
     lastName: participant.lastName,
     fullName: `${participant.firstName} ${participant.lastName}`.trim(),
-    dob: participant.dob,
+    birthYear: Number.isFinite(birthYear) ? birthYear : 0,
     role: participant.role,
     expiresOnYmd: participant.expiresOnYmd,
     expired: participant.expired,
-    signerName: `${participant.signerFirstName} ${participant.signerLastName}`.trim(),
+    signerLastInitial: (participant.signerLastName.trim()[0] || "").toUpperCase(),
   };
 }
 
@@ -91,7 +109,7 @@ export function filterAndRankSearchResults(
   const query = normalizeSearchQuery(rawQuery);
   const q = query.toLowerCase();
 
-  const matched = participants
+  return participants
     .filter((participant) => matchesNameQuery(participant, query))
     .map((participant) => {
       const first = participant.firstName.trim().toLowerCase();
@@ -115,6 +133,4 @@ export function filterAndRankSearchResults(
     })
     .slice(0, MAX_WAIVER_SEARCH_RESULTS)
     .map((item) => toStaffSearchResult(item.participant));
-
-  return matched;
 }

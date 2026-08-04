@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { verifyAdminAccess } from "@/lib/admin/session";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireOwnerAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import { isYmd } from "@/lib/open-play/pricing";
 import { getOpenPlayDailyReport } from "@/lib/open-play/report-service";
 
@@ -15,13 +15,8 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
-  const auth = await verifyAdminAccess();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { ok: false, error: "Staff authentication required", code: "unauthorized" },
-      { status: auth.reason === "missing_config" ? 503 : 401 },
-    );
-  }
+  const auth = await requireOwnerAuth();
+  if (!auth.ok) return auth.response;
 
   const date = new URL(req.url).searchParams.get("date") ?? "";
   if (!isYmd(date)) {
@@ -37,14 +32,7 @@ export async function GET(req: Request) {
       { ok: true, report },
       { headers: { "Cache-Control": "private, no-store" } },
     );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Report failed",
-        code: "database",
-      },
-      { status: 503 },
-    );
+  } catch {
+    return publicSafeError("database", 503);
   }
 }

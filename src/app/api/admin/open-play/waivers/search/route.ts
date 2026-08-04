@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { verifyAdminAccess } from "@/lib/admin/session";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireStaffAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import {
   searchWaiversForStaff,
   WaiverSearchValidationError,
@@ -17,13 +17,8 @@ export async function GET(req: Request) {
   });
   if (limited) return limited;
 
-  const auth = await verifyAdminAccess();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { ok: false, error: "Staff authentication required", code: "unauthorized" },
-      { status: auth.reason === "missing_config" ? 503 : 401 },
-    );
-  }
+  const auth = await requireStaffAuth();
+  if (!auth.ok) return auth.response;
 
   const url = new URL(req.url);
   const q = url.searchParams.get("q") ?? "";
@@ -41,13 +36,6 @@ export async function GET(req: Request) {
         { status: 400 },
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Search failed",
-        code: "database",
-      },
-      { status: 503 },
-    );
+    return publicSafeError("database", 503);
   }
 }

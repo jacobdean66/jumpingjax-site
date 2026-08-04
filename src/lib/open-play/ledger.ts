@@ -61,6 +61,7 @@ export type DailyPaymentTotals = {
   cashTotalCents: number;
   cardTotalCents: number;
   combinedTotalCents: number;
+  /** Logical method-correction pairs (debit+credit counted as one). */
   correctionCount: number;
   voidCount: number;
   refundCount: number;
@@ -105,6 +106,55 @@ function assertSameVisit(visitId: string, entry: PaymentEntry): void {
   }
 }
 
+export function relatedEntriesForCharge(
+  entries: PaymentEntry[],
+  chargeId: string,
+): PaymentEntry[] {
+  return entries.filter((entry) => entry.relatedEntryId === chargeId);
+}
+
+export function isChargeVoided(entries: PaymentEntry[], chargeId: string): boolean {
+  return relatedEntriesForCharge(entries, chargeId).some(
+    (entry) => entry.entryType === "void",
+  );
+}
+
+export function refundedAmountCents(entries: PaymentEntry[], chargeId: string): number {
+  return relatedEntriesForCharge(entries, chargeId)
+    .filter((entry) => entry.entryType === "refund")
+    .reduce((sum, entry) => sum + Math.abs(entry.amountCents), 0);
+}
+
+export function remainingChargeValueCents(
+  entries: PaymentEntry[],
+  chargeId: string,
+): number {
+  const charge = findEntry(entries, chargeId);
+  if (charge.entryType !== "charge") {
+    throw new LedgerValidationError("Remaining value requires an original charge");
+  }
+  if (isChargeVoided(entries, chargeId)) return 0;
+  return charge.amountCents - refundedAmountCents(entries, chargeId);
+}
+
+export function effectivePaymentMethod(
+  entries: PaymentEntry[],
+  chargeId: string,
+): PaymentMethod {
+  const charge = findEntry(entries, chargeId);
+  if (charge.entryType !== "charge") {
+    throw new LedgerValidationError("Effective method requires an original charge");
+  }
+  let method = charge.method;
+  const corrections = relatedEntriesForCharge(entries, chargeId)
+    .filter((entry) => entry.entryType === "correction")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  for (const entry of corrections) {
+    if (entry.amountCents > 0) method = entry.method;
+  }
+  return method;
+}
+
 export function shouldCreateCharge(unitPriceCents: number): boolean {
   return unitPriceCents > 0;
 }
@@ -132,12 +182,6 @@ export function buildChargeEntry(
   };
 }
 
-/**
- * Cash↔card correction is modeled as:
- * 1) a negative correction on the original method
- * 2) a positive correction on the destination method
- * Both reference the original charge and keep the original row unchanged.
- */
 export function buildMethodCorrectionEntries(
   draft: MethodCorrectionDraft,
   existing: PaymentEntry[],
@@ -153,6 +197,15 @@ export function buildMethodCorrectionEntries(
   assertSameVisit(draft.visitId, related);
   if (related.entryType !== "charge") {
     throw new LedgerValidationError("Method corrections must reference an original charge");
+  }
+  if (isChargeVoided(existing, related.id)) {
+    throw new LedgerValidationError("Cannot correct a voided charge");
+  }
+  if (refundedAmountCents(existing, related.id) > 0) {
+    throw new LedgerValidationError("Cannot correct a charge after refunds");
+  }
+  if (effectivePaymentMethod(existing, related.id) !== related.method) {
+    throw new LedgerValidationError("Method has already been corrected");
   }
   if (related.method !== draft.fromMethod) {
     throw new LedgerValidationError("fromMethod must match the original charge method");
@@ -203,12 +256,19 @@ export function buildVoidEntry(
   if (related.entryType !== "charge") {
     throw new LedgerValidationError("Voids must reference an original charge");
   }
+  if (isChargeVoided(existing, related.id)) {
+    throw new LedgerValidationError("Charge is already voided");
+  }
+  if (refundedAmountCents(existing, related.id) > 0) {
+    throw new LedgerValidationError("Cannot void a charge after refunds");
+  }
+  const method = effectivePaymentMethod(existing, related.id);
   return {
     id,
     visitId: draft.visitId,
     attendeeId: draft.attendeeId ?? related.attendeeId,
     entryType: "void",
-    method: related.method,
+    method,
     amountCents: -Math.abs(related.amountCents),
     relatedEntryId: related.id,
     reason,
@@ -230,8 +290,16 @@ export function buildRefundEntry(
   if (related.entryType !== "charge") {
     throw new LedgerValidationError("Refunds must reference an original charge");
   }
-  if (draft.amountCents > related.amountCents) {
-    throw new LedgerValidationError("Refund cannot exceed the original charge amount");
+  if (isChargeVoided(existing, related.id)) {
+    throw new LedgerValidationError("Cannot refund a voided charge");
+  }
+  const remaining = remainingChargeValueCents(existing, related.id);
+  if (draft.amountCents > remaining) {
+    throw new LedgerValidationError("Refund cannot exceed the remaining charge value");
+  }
+  const method = effectivePaymentMethod(existing, related.id);
+  if (draft.method !== method) {
+    throw new LedgerValidationError("Refund method must match the effective payment method");
   }
   return {
     id,
@@ -250,14 +318,14 @@ export function buildRefundEntry(
 export function sumMethodTotals(entries: PaymentEntry[]): DailyPaymentTotals {
   let cashTotalCents = 0;
   let cardTotalCents = 0;
-  let correctionCount = 0;
+  let correctionRows = 0;
   let voidCount = 0;
   let refundCount = 0;
 
   for (const entry of entries) {
     if (entry.method === "cash") cashTotalCents += entry.amountCents;
     if (entry.method === "card") cardTotalCents += entry.amountCents;
-    if (entry.entryType === "correction") correctionCount += 1;
+    if (entry.entryType === "correction") correctionRows += 1;
     if (entry.entryType === "void") voidCount += 1;
     if (entry.entryType === "refund") refundCount += 1;
   }
@@ -266,7 +334,8 @@ export function sumMethodTotals(entries: PaymentEntry[]): DailyPaymentTotals {
     cashTotalCents,
     cardTotalCents,
     combinedTotalCents: cashTotalCents + cardTotalCents,
-    correctionCount,
+    // Provisional: one cash↔card correction is two rows but one logical event.
+    correctionCount: Math.floor(correctionRows / 2),
     voidCount,
     refundCount,
   };

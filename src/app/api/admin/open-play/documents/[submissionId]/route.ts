@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { verifyAdminAccess } from "@/lib/admin/session";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireOwnerAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import { getAuthorizedWaiverDocument } from "@/lib/waivers/documents-service";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +17,8 @@ export async function GET(
   });
   if (limited) return limited;
 
-  const auth = await verifyAdminAccess();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { ok: false, error: "Staff authentication required", code: "unauthorized" },
-      { status: auth.reason === "missing_config" ? 503 : 401 },
-    );
-  }
+  const auth = await requireOwnerAuth();
+  if (!auth.ok) return auth.response;
 
   const { submissionId } = await context.params;
   if (!/^[0-9a-f-]{36}$/i.test(submissionId)) {
@@ -36,14 +31,11 @@ export async function GET(
   try {
     const document = await getAuthorizedWaiverDocument({
       submissionId,
-      staffId: auth.identity.id,
+      staffId: auth.auth.identity.id,
       expiresInSeconds: 60,
     });
     if (!document) {
-      return NextResponse.json(
-        { ok: false, error: "Document not found", code: "not_found" },
-        { status: 404 },
-      );
+      return publicSafeError("not_found", 404, "Document not found");
     }
 
     return NextResponse.json(
@@ -57,14 +49,7 @@ export async function GET(
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Document access failed",
-        code: "database",
-      },
-      { status: 503 },
-    );
+  } catch {
+    return publicSafeError("database", 503);
   }
 }

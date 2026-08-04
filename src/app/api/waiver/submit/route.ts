@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { rateLimit } from "@/lib/rate-limit";
+import { publicSafeError } from "@/lib/open-play/staff-auth";
 import { submitWaiver, WaiverSubmitError } from "@/lib/waivers/submit";
-import type { SubmissionDraft } from "@/lib/waivers/validation";
+import {
+  WAIVER_LIMITS,
+  type SubmissionDraft,
+} from "@/lib/waivers/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -22,22 +26,29 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  const contentLength = Number(req.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > 256 * 1024) {
-    return NextResponse.json(
-      { ok: false, error: "Request body is too large", code: "payload_too_large" },
-      { status: 413 },
-    );
+  const contentLengthHeader = req.headers.get("content-length");
+  if (contentLengthHeader) {
+    const contentLength = Number(contentLengthHeader);
+    if (Number.isFinite(contentLength) && contentLength > WAIVER_LIMITS.maxBodyBytes) {
+      return publicSafeError("payload_too_large", 413, "Request body is too large");
+    }
+  }
+
+  let rawText: string;
+  try {
+    rawText = await req.text();
+  } catch {
+    return publicSafeError("invalid_body", 400, "Unable to read request body");
+  }
+  if (rawText.length > WAIVER_LIMITS.maxBodyBytes) {
+    return publicSafeError("payload_too_large", 413, "Request body is too large");
   }
 
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    body = JSON.parse(rawText) as Record<string, unknown>;
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON request body", code: "invalid_json" },
-      { status: 400 },
-    );
+    return publicSafeError("invalid_json", 400, "Invalid JSON request body");
   }
 
   const participantsRaw = Array.isArray(body.participants) ? body.participants : [];
@@ -72,12 +83,10 @@ export async function POST(req: Request) {
       ),
     },
     source: asString(body.source) as SubmissionDraft["source"],
-    signatureStoragePath: asString(body.signatureStoragePath),
     signatureContentType: asString(body.signatureContentType) || "image/png",
     idempotencyKey:
       asString(body.idempotencyKey) ||
-      req.headers.get("idempotency-key") ||
-      null,
+      asString(req.headers.get("idempotency-key")),
   };
 
   try {
@@ -95,6 +104,8 @@ export async function POST(req: Request) {
         submissionId: result.submissionId,
         publicToken: result.publicToken,
         expiresOn: result.expiresOn,
+        tokenExpiresAt: result.tokenExpiresAt,
+        reused: result.reusedExisting,
       },
       {
         status: result.reusedExisting ? 200 : 201,
@@ -103,24 +114,20 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     if (error instanceof WaiverSubmitError) {
-      const status =
-        error.code === "template_inactive"
-          ? 409
-          : error.code === "validation"
-            ? 400
-            : 503;
-      return NextResponse.json(
-        { ok: false, error: error.message, code: error.code },
-        { status, headers: { "Cache-Control": "private, no-store" } },
+      const statusByCode: Record<string, number> = {
+        validation: 400,
+        template_inactive: 409,
+        idempotency_conflict: 409,
+        incomplete_prior_state: 409,
+        misconfigured: 503,
+        token_expired: 410,
+      };
+      return publicSafeError(
+        error.code,
+        statusByCode[error.code] ?? 503,
+        error.code === "validation" ? error.message : "Request could not be completed",
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Submission failed",
-        code: "database",
-      },
-      { status: 503, headers: { "Cache-Control": "private, no-store" } },
-    );
+    return publicSafeError("database", 503);
   }
 }

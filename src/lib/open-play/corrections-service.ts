@@ -1,10 +1,5 @@
-import { randomUUID } from "node:crypto";
-
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
-  buildMethodCorrectionEntries,
-  buildRefundEntry,
-  buildVoidEntry,
   LedgerValidationError,
   type PaymentEntry,
   type PaymentMethod,
@@ -44,31 +39,16 @@ export type CorrectionRequest =
       reason: string;
     };
 
-function mapPaymentRow(row: {
-  id: string;
-  visit_id: string;
-  attendee_id: string | null;
-  entry_type: PaymentEntry["entryType"];
-  method: PaymentMethod;
-  amount_cents: number;
-  related_entry_id: string | null;
-  reason: string | null;
-  created_by_staff_id: string;
-  created_at: string;
-}): PaymentEntry {
-  return {
-    id: row.id,
-    visitId: row.visit_id,
-    attendeeId: row.attendee_id,
-    entryType: row.entry_type,
-    method: row.method,
-    amountCents: row.amount_cents,
-    relatedEntryId: row.related_entry_id,
-    reason: row.reason,
-    createdByStaffId: row.created_by_staff_id,
-    createdAt: row.created_at,
-  };
-}
+type RpcOutcome = {
+  outcome: string;
+  entries?: Array<{
+    id: string;
+    entry_type: PaymentEntry["entryType"];
+    method: PaymentMethod;
+    amount_cents: number;
+  }>;
+  related_entry_id?: string;
+};
 
 export async function applyVisitCorrection(options: {
   visitId: string;
@@ -78,137 +58,81 @@ export async function applyVisitCorrection(options: {
 }): Promise<{ entries: PaymentEntry[] }> {
   const supabase = createServiceRoleClient();
   const now = (options.now ?? new Date()).toISOString();
+  const correction = options.correction;
 
-  const { data: visit, error: visitError } = await supabase
-    .from("open_play_visits")
-    .select("id, status")
-    .eq("id", options.visitId)
-    .maybeSingle();
-  if (visitError) throw new Error(visitError.message);
-  if (!visit) throw new LedgerValidationError("Visit not found");
-  if (visit.status === "voided") {
-    throw new LedgerValidationError("Voided visits cannot accept corrections");
+  const payload: Record<string, unknown> = {
+    visit_id: options.visitId,
+    staff_id: options.staffId,
+    type: correction.type,
+    reason: correction.reason,
+  };
+
+  if (correction.type === "method_correction") {
+    payload.related_entry_id = correction.relatedEntryId;
+    payload.from_method = correction.fromMethod;
+    payload.to_method = correction.toMethod;
+    payload.amount_cents = correction.amountCents;
+    payload.attendee_id = correction.attendeeId ?? null;
+  } else if (correction.type === "void") {
+    payload.related_entry_id = correction.relatedEntryId;
+    payload.attendee_id = correction.attendeeId ?? null;
+    payload.remove_attendee_id = correction.removeAttendeeId ?? null;
+  } else if (correction.type === "refund") {
+    payload.related_entry_id = correction.relatedEntryId;
+    payload.method = correction.method;
+    payload.amount_cents = correction.amountCents;
+    payload.attendee_id = correction.attendeeId ?? null;
+  } else {
+    payload.attendee_id = correction.attendeeId;
+    payload.related_entry_id = correction.relatedEntryId ?? null;
   }
 
-  const { data: paymentRows, error: paymentError } = await supabase
-    .from("open_play_payment_entries")
-    .select("*")
-    .eq("visit_id", options.visitId);
-  if (paymentError) throw new Error(paymentError.message);
+  const { data, error } = await supabase.rpc(
+    "apply_open_play_visit_correction_atomic",
+    { p_payload: payload },
+  );
+  if (error) {
+    throw new Error("Unable to apply correction");
+  }
 
-  const existing = (paymentRows ?? []).map(mapPaymentRow);
-  let newEntries: PaymentEntry[] = [];
+  const result = data as RpcOutcome;
+  const outcomeMap: Record<string, string> = {
+    visit_not_found: "Visit not found",
+    visit_voided: "Voided visits cannot accept corrections",
+    related_entry_invalid: "Related payment entry is invalid",
+    charge_already_voided: "Charge is already voided",
+    void_after_refund_rejected: "Cannot void a charge after refunds",
+    refund_after_void_rejected: "Cannot refund a voided charge",
+    refund_exceeds_remaining: "Refund cannot exceed the remaining charge value",
+    refund_method_mismatch: "Refund method must match the effective payment method",
+    method_already_corrected: "Method has already been corrected",
+    correction_after_refund_rejected: "Cannot correct a charge after refunds",
+    correction_amount_or_method_mismatch: "Correction amount or method mismatch",
+    financial_reversal_required:
+      "Attendee removal requires financial reversal of remaining charges",
+    attendee_not_found_or_removed: "Attendee not found or already removed",
+    invalid_input: "Invalid correction request",
+    unsupported_type: "Unsupported correction type",
+  };
 
-  if (options.correction.type === "method_correction") {
-    newEntries = buildMethodCorrectionEntries(
-      {
-        visitId: options.visitId,
-        relatedEntryId: options.correction.relatedEntryId,
-        fromMethod: options.correction.fromMethod,
-        toMethod: options.correction.toMethod,
-        amountCents: options.correction.amountCents,
-        reason: options.correction.reason,
-        createdByStaffId: options.staffId,
-        attendeeId: options.correction.attendeeId,
-      },
-      existing,
-      { debitId: randomUUID(), creditId: randomUUID() },
-      now,
+  if (result.outcome !== "applied") {
+    throw new LedgerValidationError(
+      outcomeMap[result.outcome] || "Unable to apply correction",
     );
-  } else if (options.correction.type === "void") {
-    newEntries = [
-      buildVoidEntry(
-        {
-          visitId: options.visitId,
-          relatedEntryId: options.correction.relatedEntryId,
-          reason: options.correction.reason,
-          createdByStaffId: options.staffId,
-          attendeeId: options.correction.attendeeId,
-        },
-        existing,
-        randomUUID(),
-        now,
-      ),
-    ];
-    if (options.correction.removeAttendeeId) {
-      const { error } = await supabase
-        .from("open_play_visit_attendees")
-        .update({ status: "removed" })
-        .eq("id", options.correction.removeAttendeeId)
-        .eq("visit_id", options.visitId);
-      if (error) throw new Error(error.message);
-    }
-  } else if (options.correction.type === "refund") {
-    newEntries = [
-      buildRefundEntry(
-        {
-          visitId: options.visitId,
-          relatedEntryId: options.correction.relatedEntryId,
-          method: options.correction.method,
-          amountCents: options.correction.amountCents,
-          reason: options.correction.reason,
-          createdByStaffId: options.staffId,
-          attendeeId: options.correction.attendeeId,
-        },
-        existing,
-        randomUUID(),
-        now,
-      ),
-    ];
-  } else if (options.correction.type === "remove_attendee") {
-    const { error } = await supabase
-      .from("open_play_visit_attendees")
-      .update({ status: "removed" })
-      .eq("id", options.correction.attendeeId)
-      .eq("visit_id", options.visitId);
-    if (error) throw new Error(error.message);
-
-    if (options.correction.relatedEntryId) {
-      newEntries = [
-        buildVoidEntry(
-          {
-            visitId: options.visitId,
-            relatedEntryId: options.correction.relatedEntryId,
-            reason: options.correction.reason,
-            createdByStaffId: options.staffId,
-            attendeeId: options.correction.attendeeId,
-          },
-          existing,
-          randomUUID(),
-          now,
-        ),
-      ];
-    }
   }
 
-  if (newEntries.length > 0) {
-    const { error } = await supabase.from("open_play_payment_entries").insert(
-      newEntries.map((entry) => ({
-        id: entry.id,
-        visit_id: entry.visitId,
-        attendee_id: entry.attendeeId,
-        entry_type: entry.entryType,
-        method: entry.method,
-        amount_cents: entry.amountCents,
-        related_entry_id: entry.relatedEntryId,
-        reason: entry.reason,
-        created_by_staff_id: entry.createdByStaffId,
-        created_at: entry.createdAt,
-      })),
-    );
-    if (error) throw new Error(error.message);
-  }
+  const entries: PaymentEntry[] = (result.entries ?? []).map((entry) => ({
+    id: entry.id,
+    visitId: options.visitId,
+    attendeeId: null,
+    entryType: entry.entry_type,
+    method: entry.method,
+    amountCents: entry.amount_cents,
+    relatedEntryId: null,
+    reason: correction.reason,
+    createdByStaffId: options.staffId,
+    createdAt: now,
+  }));
 
-  await supabase.from("open_play_audit_events").insert({
-    actor_staff_id: options.staffId,
-    action: `visit_${options.correction.type}`,
-    entity_type: "open_play_visit",
-    entity_id: options.visitId,
-    detail: {
-      correctionType: options.correction.type,
-      entryCount: newEntries.length,
-    },
-  });
-
-  return { entries: newEntries };
+  return { entries };
 }

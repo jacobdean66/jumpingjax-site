@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { verifyAdminAccess } from "@/lib/admin/session";
 import { rateLimit } from "@/lib/rate-limit";
-import {
-  isYmd,
-  PricingMismatchError,
-} from "@/lib/open-play/pricing";
+import { requireStaffAuth, publicSafeError } from "@/lib/open-play/staff-auth";
+import { isYmd, PricingMismatchError } from "@/lib/open-play/pricing";
 import {
   CheckInValidationError,
   createOpenPlayVisit,
@@ -22,22 +19,14 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  const auth = await verifyAdminAccess();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { ok: false, error: "Staff authentication required", code: "unauthorized" },
-      { status: auth.reason === "missing_config" ? 503 : 401 },
-    );
-  }
+  const auth = await requireStaffAuth();
+  if (!auth.ok) return auth.response;
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON request body", code: "invalid_json" },
-      { status: 400 },
-    );
+    return publicSafeError("invalid_json", 400, "Invalid JSON request body");
   }
 
   const visitDateYmd = typeof body.visitDate === "string" ? body.visitDate : "";
@@ -72,7 +61,7 @@ export async function POST(req: Request) {
     const result = await createOpenPlayVisit({
       visitDateYmd,
       notes: typeof body.notes === "string" ? body.notes : null,
-      staffId: auth.identity.id,
+      staffId: auth.auth.identity.id,
       attendees,
     });
 
@@ -96,13 +85,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Visit creation failed",
-        code: "database",
-      },
-      { status: 503 },
-    );
+    return publicSafeError("database", 503);
   }
 }

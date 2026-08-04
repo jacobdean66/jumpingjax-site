@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { verifyAdminAccess } from "@/lib/admin/session";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireOwnerAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import {
   applyVisitCorrection,
   LedgerValidationError,
@@ -21,13 +21,8 @@ export async function POST(
   });
   if (limited) return limited;
 
-  const auth = await verifyAdminAccess();
-  if (!auth.ok) {
-    return NextResponse.json(
-      { ok: false, error: "Staff authentication required", code: "unauthorized" },
-      { status: auth.reason === "missing_config" ? 503 : 401 },
-    );
-  }
+  const auth = await requireOwnerAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
@@ -41,10 +36,7 @@ export async function POST(
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Invalid JSON request body", code: "invalid_json" },
-      { status: 400 },
-    );
+    return publicSafeError("invalid_json", 400, "Invalid JSON request body");
   }
 
   const type = typeof body.type === "string" ? body.type : "";
@@ -102,7 +94,7 @@ export async function POST(
   try {
     const result = await applyVisitCorrection({
       visitId: id,
-      staffId: auth.identity.id,
+      staffId: auth.auth.identity.id,
       correction,
     });
     return NextResponse.json(
@@ -116,13 +108,6 @@ export async function POST(
         { status: 400 },
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Correction failed",
-        code: "database",
-      },
-      { status: 503 },
-    );
+    return publicSafeError("database", 503);
   }
 }

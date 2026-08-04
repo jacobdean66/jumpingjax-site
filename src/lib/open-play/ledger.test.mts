@@ -7,6 +7,8 @@ import {
   buildRefundEntry,
   buildVoidEntry,
   cloneEntries,
+  LedgerValidationError,
+  remainingChargeValueCents,
   sumMethodTotals,
 } from "./ledger";
 import { buildDailyReport } from "./daily-report";
@@ -73,7 +75,7 @@ test("cash-to-card correction preserves original charge", () => {
   const totals = sumMethodTotals([original, ...corrections]);
   assert.equal(totals.cashTotalCents, 0);
   assert.equal(totals.cardTotalCents, 700);
-  assert.equal(totals.correctionCount, 2);
+  assert.equal(totals.correctionCount, 1);
 });
 
 test("card-to-cash correction preserves original charge", () => {
@@ -255,4 +257,291 @@ test("daily report counts classifications and ledger adjustments", () => {
   assert.equal(report.watchingAdults, 1);
   assert.equal(report.paidAttendance, 3);
   assert.equal(report.totalAttendance, 4);
+});
+
+test("repeated void is rejected", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const original = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const voidEntry = buildVoidEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      reason: "first void",
+      createdByStaffId: "owner",
+    },
+    [original],
+    "v1",
+    createdAt,
+  );
+  assert.throws(
+    () =>
+      buildVoidEntry(
+        {
+          visitId: "v1",
+          relatedEntryId: "p1",
+          reason: "second void",
+          createdByStaffId: "owner",
+        },
+        [original, voidEntry],
+        "v2",
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+});
+
+test("repeated method correction is rejected", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const original = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const first = buildMethodCorrectionEntries(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      fromMethod: "cash",
+      toMethod: "card",
+      amountCents: 700,
+      reason: "switch",
+      createdByStaffId: "owner",
+    },
+    [original],
+    { debitId: "c1", creditId: "c2" },
+    createdAt,
+  );
+  assert.throws(
+    () =>
+      buildMethodCorrectionEntries(
+        {
+          visitId: "v1",
+          relatedEntryId: "p1",
+          fromMethod: "cash",
+          toMethod: "card",
+          amountCents: 700,
+          reason: "again",
+          createdByStaffId: "owner",
+        },
+        [original, ...first],
+        { debitId: "c3", creditId: "c4" },
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+});
+
+test("cumulative refunds and refund/void ordering rules", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const original = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "card",
+      amountCents: 1000,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const firstRefund = buildRefundEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      method: "card",
+      amountCents: 400,
+      reason: "partial",
+      createdByStaffId: "owner",
+    },
+    [original],
+    "r1",
+    createdAt,
+  );
+  assert.equal(remainingChargeValueCents([original, firstRefund], "p1"), 600);
+  const secondRefund = buildRefundEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      method: "card",
+      amountCents: 600,
+      reason: "remainder",
+      createdByStaffId: "owner",
+    },
+    [original, firstRefund],
+    "r2",
+    createdAt,
+  );
+  assert.equal(remainingChargeValueCents([original, firstRefund, secondRefund], "p1"), 0);
+  assert.throws(
+    () =>
+      buildRefundEntry(
+        {
+          visitId: "v1",
+          relatedEntryId: "p1",
+          method: "card",
+          amountCents: 1,
+          reason: "too much",
+          createdByStaffId: "owner",
+        },
+        [original, firstRefund, secondRefund],
+        "r3",
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+  assert.throws(
+    () =>
+      buildVoidEntry(
+        {
+          visitId: "v1",
+          relatedEntryId: "p1",
+          reason: "after refund",
+          createdByStaffId: "owner",
+        },
+        [original, firstRefund],
+        "v1",
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+
+  const voidable = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a2",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p2",
+    createdAt,
+  );
+  const voided = buildVoidEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p2",
+      reason: "void first",
+      createdByStaffId: "owner",
+    },
+    [voidable],
+    "vv",
+    createdAt,
+  );
+  assert.throws(
+    () =>
+      buildRefundEntry(
+        {
+          visitId: "v1",
+          relatedEntryId: "p2",
+          method: "cash",
+          amountCents: 100,
+          reason: "after void",
+          createdByStaffId: "owner",
+        },
+        [voidable, voided],
+        "rr",
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+});
+
+test("incorrect refund payment method is rejected", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const original = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  assert.throws(
+    () =>
+      buildRefundEntry(
+        {
+          visitId: "v1",
+          relatedEntryId: "p1",
+          method: "card",
+          amountCents: 700,
+          reason: "wrong method",
+          createdByStaffId: "owner",
+        },
+        [original],
+        "r1",
+        createdAt,
+      ),
+    LedgerValidationError,
+  );
+});
+
+test("daily report marks paidAttendance basis and counts logical corrections", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const charge = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const corrections = buildMethodCorrectionEntries(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      fromMethod: "cash",
+      toMethod: "card",
+      amountCents: 700,
+      reason: "switch",
+      createdByStaffId: "owner",
+    },
+    [charge],
+    { debitId: "c1", creditId: "c2" },
+    createdAt,
+  );
+  const report = buildDailyReport("2026-08-03", [
+    {
+      id: "v1",
+      visitDate: "2026-08-03",
+      businessDayYmd: "2026-08-03",
+      status: "open",
+      notes: null,
+      createdAt,
+      attendees: [
+        {
+          id: "a1",
+          visitId: "v1",
+          classification: "child_2_or_under",
+          unitPriceCents: 700,
+          status: "active",
+        },
+      ],
+      payments: [charge, ...corrections],
+    },
+  ]);
+  assert.equal(report.corrections, 1);
+  assert.equal(report.paidAttendanceBasis, "original_unit_price_active_attendees");
+  assert.equal(report.paidAttendance, 1);
 });
