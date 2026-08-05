@@ -1,11 +1,11 @@
 import { revalidatePath } from "next/cache";
-import { Buffer } from "node:buffer";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import {
   normalizeInventorySlug,
   saveInventoryItem,
 } from "@/lib/admin/inventory";
+import { isInlineImageDataUrl } from "@/lib/admin/inventory-image-constants";
 import {
   normalizeBlowerRequirements,
   parsePositiveDimension,
@@ -13,9 +13,6 @@ import {
   type DimensionConfidence,
   type DimensionUnit,
 } from "@/lib/admin/inventory-ops";
-import { createServiceRoleClient } from "@/lib/supabase/admin";
-
-const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
 
 function checkboxValue(value: FormDataEntryValue | null): boolean {
   return value === "on" || value === "true";
@@ -28,14 +25,6 @@ function numberValue(value: FormDataEntryValue | null, fallback: number): number
 
 function fileValue(value: FormDataEntryValue | null): File | null {
   return value instanceof File && value.size > 0 ? value : null;
-}
-
-function safeFileName(value: string): string {
-  const name = value.trim().toLowerCase() || "rental-image";
-  return name
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 function parseBlowerRequirementsField(value: FormDataEntryValue | null): unknown {
@@ -55,39 +44,6 @@ function optionalDimensionConfidence(
   return raw as DimensionConfidence;
 }
 
-async function uploadInventoryImage(input: {
-  file: File;
-  slug: string;
-}): Promise<string> {
-  const supabase = createServiceRoleClient();
-
-  const { error: bucketError } = await supabase.storage.createBucket(INVENTORY_IMAGE_BUCKET, {
-    public: true,
-  });
-  if (bucketError && !bucketError.message.toLowerCase().includes("already")) {
-    throw new Error(bucketError.message);
-  }
-
-  const extension = safeFileName(input.file.name).split(".").pop() ?? "jpg";
-  const path = `${input.slug}/${Date.now()}.${extension}`;
-  const bytes = Buffer.from(await input.file.arrayBuffer());
-
-  const { error } = await supabase.storage
-    .from(INVENTORY_IMAGE_BUCKET)
-    .upload(path, bytes, {
-      contentType: input.file.type || "application/octet-stream",
-      upsert: true,
-    });
-
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage
-    .from(INVENTORY_IMAGE_BUCKET)
-    .getPublicUrl(path);
-
-  return data.publicUrl;
-}
-
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const token = String(formData.get("token") ?? "");
@@ -98,17 +54,29 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Images must upload directly to storage via signed URL before Save.
+    // Reject any file bytes here so large photos cannot hit Vercel's 413 limit.
+    if (fileValue(formData.get("imageFile"))) {
+      throw new Error(
+        "Photo uploads must go directly to storage. Refresh the inventory page and try again.",
+      );
+    }
+
     const title = String(formData.get("title") ?? "");
     const slug = normalizeInventorySlug(String(formData.get("slug") ?? ""), title);
-    const imageFile = fileValue(formData.get("imageFile"));
-    const imageSrc = imageFile
-      ? await uploadInventoryImage({ file: imageFile, slug })
-      : String(formData.get("imageSrc") ?? "");
+    const imageSrc = String(formData.get("imageSrc") ?? "").trim();
+    if (isInlineImageDataUrl(imageSrc)) {
+      throw new Error(
+        "Inline image data is not allowed. Upload the photo to storage first.",
+      );
+    }
 
-    await saveInventoryItem({
+    const categoryId = String(formData.get("categoryId") ?? "");
+    const publicVisible = checkboxValue(formData.get("publicVisible"));
+    const saved = await saveInventoryItem({
       id: String(formData.get("id") ?? "") || undefined,
       slug,
-      categoryId: String(formData.get("categoryId") ?? ""),
+      categoryId,
       title,
       shortDescription: String(formData.get("shortDescription") ?? ""),
       description: String(formData.get("description") ?? ""),
@@ -123,7 +91,7 @@ export async function POST(req: NextRequest) {
       routeKind: String(formData.get("routeKind") ?? ""),
       estimatedSetupMinutes: numberValue(formData.get("estimatedSetupMinutes"), 45),
       isActive: checkboxValue(formData.get("isActive")),
-      publicVisible: checkboxValue(formData.get("publicVisible")),
+      publicVisible,
       blowerRequirements: normalizeBlowerRequirements(
         parseBlowerRequirementsField(formData.get("blowerRequirements")),
       ),
@@ -143,20 +111,35 @@ export async function POST(req: NextRequest) {
     });
 
     revalidatePath("/admin/inventory");
+    revalidatePath("/rentals");
+    revalidatePath(`/rentals/${saved.categoryId}`);
+    revalidatePath(`/rentals/${saved.categoryId}/${saved.slug}`);
+
+    const params = new URLSearchParams({
+      token,
+      item: saved.id,
+      category: saved.categoryId,
+      message: publicVisible
+        ? "Inventory item saved and approved for the public website. It is still in inventory."
+        : "Inventory item saved. It is still in inventory.",
+    });
+
     return NextResponse.redirect(
-      new URL(
-        `/admin/inventory?token=${encodeURIComponent(token)}&message=${encodeURIComponent("Inventory item saved")}`,
-        req.url,
-      ),
+      new URL(`/admin/inventory?${params.toString()}`, req.url),
       { status: 303 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Inventory save failed";
+    const params = new URLSearchParams({
+      token,
+      error: message,
+    });
+    const existingId = String(formData.get("id") ?? "").trim();
+    const categoryId = String(formData.get("categoryId") ?? "").trim();
+    if (existingId) params.set("item", existingId);
+    if (categoryId) params.set("category", categoryId);
     return NextResponse.redirect(
-      new URL(
-        `/admin/inventory?token=${encodeURIComponent(token)}&error=${encodeURIComponent(message)}`,
-        req.url,
-      ),
+      new URL(`/admin/inventory?${params.toString()}`, req.url),
       { status: 303 },
     );
   }

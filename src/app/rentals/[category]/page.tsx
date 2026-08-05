@@ -5,11 +5,13 @@ import {
   CATEGORY_COPY,
   CATEGORY_IDS,
   isCategoryId,
-  rentalsInCategory,
 } from "@/data/rentals";
 import { RentalCard } from "@/components/rentals/RentalCard";
+import { loadWebsiteRentalsInCategory } from "@/lib/rentals/public-catalog";
 
 type Props = { params: Promise<{ category: string }> };
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return CATEGORY_IDS.map((category) => ({ category }));
@@ -30,7 +32,7 @@ export default async function RentalCategoryPage({ params }: Props) {
   if (!isCategoryId(category)) notFound();
 
   const copy = CATEGORY_COPY[category];
-  const rentals = rentalsInCategory(category);
+  const rentals = await loadWebsiteRentalsInCategory(category);
 
   return (
     <main className="min-h-screen scroll-smooth overflow-x-hidden bg-cyan-50 px-4 pb-24 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">

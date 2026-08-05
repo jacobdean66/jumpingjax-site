@@ -17,8 +17,8 @@ import {
 import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/rate-limit";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
-import { getRentalBySlug } from "@/data/rentals";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import {
   initializeBookingWorkflow,
   recordWorkflowOutcome,
@@ -79,13 +79,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many rental items" }, { status: 400 });
   }
 
-  const normalizedRentalItems = requestedRentalItems.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const slug = (item as { rental_item?: unknown }).rental_item;
-    if (typeof slug !== "string") return [];
-    const rental = getRentalBySlug(slug.trim());
-    return rental ? [{ rental_item: rental.slug, rental_name: rental.title }] : [];
-  });
+  const normalizedRentalItems = (
+    await Promise.all(
+      requestedRentalItems.map(async (item) => {
+        if (!item || typeof item !== "object") return null;
+        const slug = (item as { rental_item?: unknown }).rental_item;
+        if (typeof slug !== "string") return null;
+        const rental = await getWebsiteRentalBySlug(slug.trim());
+        return rental
+          ? {
+              rental_item: rental.slug,
+              rental_name: rental.title,
+              starting_price: rental.startingPrice,
+            }
+          : null;
+      }),
+    )
+  ).filter(
+    (
+      item,
+    ): item is {
+      rental_item: string;
+      rental_name: string;
+      starting_price: number;
+    } => item !== null,
+  );
 
   if (
     normalizedRentalItems.length === 0 ||

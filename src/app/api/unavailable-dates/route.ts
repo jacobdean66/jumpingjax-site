@@ -12,12 +12,15 @@ import {
 } from "@/lib/bookings/unavailableDates";
 import { RENTAL_INVENTORY_BLOCKING_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import { isSupabaseServiceConfigured } from "@/lib/supabase/admin";
-import { getRentalBySlug } from "@/data/rentals";
+import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const rental_item = searchParams.get("rental_item")?.trim();
-  if (!rental_item || !getRentalBySlug(rental_item)) {
+  const rental = rental_item
+    ? await getWebsiteRentalBySlug(rental_item)
+    : undefined;
+  if (!rental_item || !rental) {
     return NextResponse.json(
       { error: "A valid rental_item is required" },
       { status: 400, headers: { "Cache-Control": "no-store" } },
