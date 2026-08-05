@@ -14,7 +14,6 @@ import {
   emptyInventoryCounts,
   loadInventoryRentalCounts,
 } from "@/lib/admin/inventory-counts";
-import { emptyInventoryDimensions } from "@/lib/admin/inventory-ops";
 import {
   AdminAuthError,
   AdminHeader,
@@ -22,7 +21,7 @@ import {
   AdminShell,
   StatTile,
 } from "../_components";
-import { InventoryOpsFields } from "./InventoryOpsFields";
+import { InventoryItemForm } from "./InventoryItemForm";
 
 export const dynamic = "force-dynamic";
 
@@ -60,241 +59,6 @@ function categoryHref(token: string, categoryId?: RentalCategoryId) {
   const params = new URLSearchParams({ token });
   if (categoryId) params.set("category", categoryId);
   return `/admin/inventory?${params.toString()}`;
-}
-
-function InventoryForm({
-  token,
-  item,
-  cancelHref,
-}: {
-  token: string;
-  item?: AdminInventoryItem;
-  cancelHref: string;
-}) {
-  const dimensions = item?.dimensions ?? emptyInventoryDimensions();
-
-  return (
-    <form
-      action="/api/admin/inventory/item"
-      method="post"
-      encType="multipart/form-data"
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-    >
-      <input type="hidden" name="token" value={token} />
-      {item ? <input type="hidden" name="id" value={item.id} /> : null}
-      <input type="hidden" name="imageSrc" value={item?.imageSrc ?? ""} />
-
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-            Inventory Editor
-          </p>
-          <h2 className="mt-2 text-2xl font-black">
-            {item ? `Edit ${item.title}` : "Add a rental item"}
-          </h2>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {item ? (
-            <button
-              formAction="/api/admin/inventory/delete"
-              className="rounded-full bg-rose-500 px-5 py-3 text-sm font-black text-white hover:bg-rose-600"
-            >
-              Delete Item
-            </button>
-          ) : null}
-          <Link
-            href={cancelHref}
-            className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </Link>
-          <button className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-black text-white hover:bg-emerald-600">
-            Save Item
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <label className="text-sm font-bold text-slate-700">
-          Item name
-          <input
-            name="title"
-            required
-            defaultValue={item?.title ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Category
-          <select
-            name="categoryId"
-            defaultValue={item?.categoryId ?? "bounce-houses"}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          >
-            {CATEGORY_IDS.map((id) => (
-              <option key={id} value={id}>
-                {CATEGORY_COPY[id].title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Starting price
-          <input
-            name="startingPrice"
-            type="number"
-            min="0"
-            step="1"
-            defaultValue={item?.startingPrice ?? 0}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Rental photo
-          <input
-            name="imageFile"
-            type="file"
-            accept="image/*"
-            className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-950 file:mr-4 file:rounded-full file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-black file:text-white hover:file:bg-sky-600"
-          />
-          {item?.imageSrc ? (
-            <span className="mt-2 block break-all text-xs font-semibold text-slate-500">
-              Current photo saved.
-            </span>
-          ) : (
-            <span className="mt-2 block text-xs font-semibold text-slate-500">
-              Choose a photo from this computer.
-            </span>
-          )}
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Image description
-          <input
-            name="imageAlt"
-            defaultValue={item?.imageAlt ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-4">
-        <label className="text-sm font-bold text-slate-700">
-          Short card description
-          <textarea
-            name="shortDescription"
-            rows={3}
-            defaultValue={item?.shortDescription ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Full page description
-          <textarea
-            name="description"
-            rows={5}
-            defaultValue={item?.description ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Age recommendation
-          <input
-            name="ageRecommendation"
-            defaultValue={item?.ageRecommendation ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Setup requirements
-          <textarea
-            name="setupRequirements"
-            rows={5}
-            defaultValue={(item?.setupRequirements ?? []).join("\n")}
-            placeholder="One requirement per line"
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <label className="text-sm font-bold text-slate-700">
-          Route planner type
-          <select
-            name="routeKind"
-            defaultValue={item?.routeKind ?? "standard"}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          >
-            {Object.entries(ROUTE_KIND_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Setup minutes
-          <input
-            name="estimatedSetupMinutes"
-            type="number"
-            min="0"
-            max="240"
-            defaultValue={item?.estimatedSetupMinutes ?? 45}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-      </div>
-
-      <InventoryOpsFields
-        key={item?.id ?? "new-item"}
-        blowerRequirements={item?.blowerRequirements ?? []}
-        tarpRequirement={item?.tarpRequirement ?? ""}
-        cleaningSupply={item?.cleaningSupply ?? "disinfectant"}
-        dimensions={dimensions}
-      />
-
-      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-        <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
-          <input
-            name="isActive"
-            type="checkbox"
-            defaultChecked={item?.isActive ?? true}
-            className="mt-1 h-4 w-4"
-          />
-          Active for employees
-        </label>
-        <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
-          <input
-            name="publicVisible"
-            type="checkbox"
-            defaultChecked={item?.publicVisible ?? false}
-            className="mt-1 h-4 w-4"
-          />
-          Approved for public website later
-        </label>
-      </div>
-
-      <details className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-black text-slate-800">
-          Advanced website settings
-        </summary>
-        <div className="mt-4 grid gap-3">
-          <label className="text-sm font-bold text-slate-700">
-            Website link name
-            <input
-              name="slug"
-              defaultValue={item?.slug ?? ""}
-              placeholder="Leave blank to make this automatically"
-              className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-            />
-          </label>
-          <p className="text-xs font-semibold leading-relaxed text-slate-500">
-            This is made automatically from the item name. Only change it if a
-            manager asks you to.
-          </p>
-        </div>
-      </details>
-    </form>
-  );
 }
 
 export default async function AdminInventoryPage({ searchParams }: Props) {
@@ -521,7 +285,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
           </div>
         </section>
 
-        <InventoryForm
+        <InventoryItemForm
           token={token}
           item={item}
           cancelHref={categoryHref(token, activeCategory)}

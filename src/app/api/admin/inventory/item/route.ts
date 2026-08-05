@@ -1,11 +1,11 @@
 import { revalidatePath } from "next/cache";
-import { Buffer } from "node:buffer";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import {
   normalizeInventorySlug,
   saveInventoryItem,
 } from "@/lib/admin/inventory";
+import { isInlineImageDataUrl } from "@/lib/admin/inventory-image-constants";
 import {
   normalizeBlowerRequirements,
   parsePositiveDimension,
@@ -13,9 +13,6 @@ import {
   type DimensionConfidence,
   type DimensionUnit,
 } from "@/lib/admin/inventory-ops";
-import { createServiceRoleClient } from "@/lib/supabase/admin";
-
-const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
 
 function checkboxValue(value: FormDataEntryValue | null): boolean {
   return value === "on" || value === "true";
@@ -28,14 +25,6 @@ function numberValue(value: FormDataEntryValue | null, fallback: number): number
 
 function fileValue(value: FormDataEntryValue | null): File | null {
   return value instanceof File && value.size > 0 ? value : null;
-}
-
-function safeFileName(value: string): string {
-  const name = value.trim().toLowerCase() || "rental-image";
-  return name
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 function parseBlowerRequirementsField(value: FormDataEntryValue | null): unknown {
@@ -55,39 +44,6 @@ function optionalDimensionConfidence(
   return raw as DimensionConfidence;
 }
 
-async function uploadInventoryImage(input: {
-  file: File;
-  slug: string;
-}): Promise<string> {
-  const supabase = createServiceRoleClient();
-
-  const { error: bucketError } = await supabase.storage.createBucket(INVENTORY_IMAGE_BUCKET, {
-    public: true,
-  });
-  if (bucketError && !bucketError.message.toLowerCase().includes("already")) {
-    throw new Error(bucketError.message);
-  }
-
-  const extension = safeFileName(input.file.name).split(".").pop() ?? "jpg";
-  const path = `${input.slug}/${Date.now()}.${extension}`;
-  const bytes = Buffer.from(await input.file.arrayBuffer());
-
-  const { error } = await supabase.storage
-    .from(INVENTORY_IMAGE_BUCKET)
-    .upload(path, bytes, {
-      contentType: input.file.type || "application/octet-stream",
-      upsert: true,
-    });
-
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage
-    .from(INVENTORY_IMAGE_BUCKET)
-    .getPublicUrl(path);
-
-  return data.publicUrl;
-}
-
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const token = String(formData.get("token") ?? "");
@@ -98,12 +54,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Images must upload directly to storage via signed URL before Save.
+    // Reject any file bytes here so large photos cannot hit Vercel's 413 limit.
+    if (fileValue(formData.get("imageFile"))) {
+      throw new Error(
+        "Photo uploads must go directly to storage. Refresh the inventory page and try again.",
+      );
+    }
+
     const title = String(formData.get("title") ?? "");
     const slug = normalizeInventorySlug(String(formData.get("slug") ?? ""), title);
-    const imageFile = fileValue(formData.get("imageFile"));
-    const imageSrc = imageFile
-      ? await uploadInventoryImage({ file: imageFile, slug })
-      : String(formData.get("imageSrc") ?? "");
+    const imageSrc = String(formData.get("imageSrc") ?? "").trim();
+    if (isInlineImageDataUrl(imageSrc)) {
+      throw new Error(
+        "Inline image data is not allowed. Upload the photo to storage first.",
+      );
+    }
 
     await saveInventoryItem({
       id: String(formData.get("id") ?? "") || undefined,
