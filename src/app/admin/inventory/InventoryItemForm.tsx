@@ -329,8 +329,12 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
             defaultChecked={item?.publicVisible ?? false}
             className="mt-1 h-4 w-4"
           />
-          Approved for public website later
+          Show on public website
         </label>
+        <p className="sm:col-span-2 text-xs font-semibold leading-relaxed text-slate-500">
+          Approving for the website only removes the Review status. The item stays
+          in this inventory list either way.
+        </p>
       </div>
 
       <details className="mt-5 rounded-xl border border-slate-200 bg-white p-4">

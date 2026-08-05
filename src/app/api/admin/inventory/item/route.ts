@@ -71,10 +71,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await saveInventoryItem({
+    const categoryId = String(formData.get("categoryId") ?? "");
+    const publicVisible = checkboxValue(formData.get("publicVisible"));
+    const saved = await saveInventoryItem({
       id: String(formData.get("id") ?? "") || undefined,
       slug,
-      categoryId: String(formData.get("categoryId") ?? ""),
+      categoryId,
       title,
       shortDescription: String(formData.get("shortDescription") ?? ""),
       description: String(formData.get("description") ?? ""),
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
       routeKind: String(formData.get("routeKind") ?? ""),
       estimatedSetupMinutes: numberValue(formData.get("estimatedSetupMinutes"), 45),
       isActive: checkboxValue(formData.get("isActive")),
-      publicVisible: checkboxValue(formData.get("publicVisible")),
+      publicVisible,
       blowerRequirements: normalizeBlowerRequirements(
         parseBlowerRequirementsField(formData.get("blowerRequirements")),
       ),
@@ -109,20 +111,35 @@ export async function POST(req: NextRequest) {
     });
 
     revalidatePath("/admin/inventory");
+    revalidatePath("/rentals");
+    revalidatePath(`/rentals/${saved.categoryId}`);
+    revalidatePath(`/rentals/${saved.categoryId}/${saved.slug}`);
+
+    const params = new URLSearchParams({
+      token,
+      item: saved.id,
+      category: saved.categoryId,
+      message: publicVisible
+        ? "Inventory item saved and approved for the public website. It is still in inventory."
+        : "Inventory item saved. It is still in inventory.",
+    });
+
     return NextResponse.redirect(
-      new URL(
-        `/admin/inventory?token=${encodeURIComponent(token)}&message=${encodeURIComponent("Inventory item saved")}`,
-        req.url,
-      ),
+      new URL(`/admin/inventory?${params.toString()}`, req.url),
       { status: 303 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Inventory save failed";
+    const params = new URLSearchParams({
+      token,
+      error: message,
+    });
+    const existingId = String(formData.get("id") ?? "").trim();
+    const categoryId = String(formData.get("categoryId") ?? "").trim();
+    if (existingId) params.set("item", existingId);
+    if (categoryId) params.set("category", categoryId);
     return NextResponse.redirect(
-      new URL(
-        `/admin/inventory?token=${encodeURIComponent(token)}&error=${encodeURIComponent(message)}`,
-        req.url,
-      ),
+      new URL(`/admin/inventory?${params.toString()}`, req.url),
       { status: 303 },
     );
   }

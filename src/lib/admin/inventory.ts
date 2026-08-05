@@ -344,7 +344,9 @@ export async function syncCurrentRentalInventory(): Promise<number> {
   return rows.length;
 }
 
-export async function saveInventoryItem(input: SaveInventoryInput): Promise<void> {
+export async function saveInventoryItem(
+  input: SaveInventoryInput,
+): Promise<{ id: string; categoryId: RentalCategoryId; slug: string }> {
   const categoryId = isCategoryId(input.categoryId)
     ? input.categoryId
     : "bounce-houses";
@@ -376,12 +378,59 @@ export async function saveInventoryItem(input: SaveInventoryInput): Promise<void
   };
 
   const supabase = createServiceRoleClient();
-  const query = input.id
-    ? supabase.from("rental_inventory_items").update(row).eq("id", input.id)
-    : supabase.from("rental_inventory_items").insert(row);
+  if (input.id) {
+    const { error } = await supabase
+      .from("rental_inventory_items")
+      .update(row)
+      .eq("id", input.id);
+    if (error) throw new Error(error.message);
+    return { id: input.id, categoryId, slug };
+  }
 
-  const { error } = await query;
+  const { data, error } = await supabase
+    .from("rental_inventory_items")
+    .insert(row)
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+  return { id: String(data.id), categoryId, slug };
+}
+
+/**
+ * Approve/hide for the public website only.
+ * Does not delete the item or remove it from admin inventory.
+ */
+export async function setInventoryPublicVisibility(input: {
+  id: string;
+  publicVisible: boolean;
+}): Promise<{ id: string; categoryId: RentalCategoryId; slug: string }> {
+  const cleanId = input.id.trim();
+  if (!cleanId) {
+    throw new Error("Inventory item id is required.");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("rental_inventory_items")
+    .update({
+      public_visible: input.publicVisible,
+      source: "admin",
+    })
+    .eq("id", cleanId)
+    .select("id, slug, category_id")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const categoryId = isCategoryId(String(data.category_id))
+    ? (data.category_id as RentalCategoryId)
+    : "bounce-houses";
+
+  return {
+    id: String(data.id),
+    categoryId,
+    slug: String(data.slug),
+  };
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {

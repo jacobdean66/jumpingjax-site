@@ -118,11 +118,16 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-4">
         <StatTile label="Inventory items" value={items.length} />
         <StatTile label="Active for staff" value={activeCount} />
         <StatTile label="Needs review" value={reviewCount} />
+        <StatTile label="On website" value={publicCount} />
       </div>
+      <p className="mt-3 text-sm font-semibold text-slate-600">
+        Approving an item for the website keeps it in this inventory list. Review
+        only controls public website visibility.
+      </p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         <form action="/api/admin/inventory/sync" method="post">
@@ -138,6 +143,11 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
           Add New Item
         </Link>
       </div>
+      <p className="mt-3 max-w-3xl text-xs font-semibold leading-relaxed text-slate-500">
+        Sync once to mark existing catalog units as already on the website. After
+        that, use Approve for website on Review items. Approving never deletes
+        inventory rows.
+      </p>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -198,7 +208,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
               </h2>
             </div>
             <p className="text-xs font-bold text-slate-500">
-              Public-ready: {publicCount}
+              On website: {publicCount}
             </p>
           </div>
 
@@ -215,6 +225,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
               filteredItems.map((row) => {
                 const counts =
                   rentalCounts.get(row.slug) ?? emptyInventoryCounts(row.slug);
+                const itemQuery = `${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`;
                 return (
                 <div
                   key={row.id}
@@ -255,16 +266,43 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                         : "bg-amber-100 text-amber-950"
                     }`}
                   >
-                    {row.publicVisible ? "Public-ready" : "Review"}
+                    {row.publicVisible ? "On website" : "Review"}
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
-                    href={`/admin/inventory?${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`}
+                    href={`/admin/inventory?${itemQuery}`}
                     className="rounded-full bg-sky-500 px-3 py-1.5 text-[11px] font-black text-white hover:bg-sky-600"
                   >
                     {item?.id === row.id ? "Editing" : "Edit"}
                   </Link>
+                  <form
+                    action="/api/admin/inventory/visibility"
+                    method="post"
+                    className="inline"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input type="hidden" name="id" value={row.id} />
+                    {activeCategory ? (
+                      <input type="hidden" name="category" value={activeCategory} />
+                    ) : null}
+                    <input
+                      type="hidden"
+                      name="publicVisible"
+                      value={row.publicVisible ? "false" : "true"}
+                    />
+                    <button
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-black ${
+                        row.publicVisible
+                          ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          : "bg-cyan-500 text-white hover:bg-cyan-600"
+                      }`}
+                    >
+                      {row.publicVisible
+                        ? "Remove from website"
+                        : "Approve for website"}
+                    </button>
+                  </form>
                   <Link
                     href={`/admin/rentals?from=2020-01-01&to=${new Date().toISOString().slice(0, 10)}`}
                     className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700 hover:bg-slate-100"

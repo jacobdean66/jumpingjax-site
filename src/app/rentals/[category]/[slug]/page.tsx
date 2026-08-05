@@ -12,12 +12,14 @@ import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
   RENTALS,
-  getRentalInCategory,
   isCategoryId,
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
+import { getWebsiteRentalInCategory } from "@/lib/rentals/public-catalog";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return RENTALS.map((r) => ({
@@ -28,7 +30,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category, slug } = await params;
-  const rental = getRentalInCategory(category, slug);
+  const rental = await getWebsiteRentalInCategory(category, slug);
   if (!rental) return { title: "Rental | Jumping Jax" };
   return {
     title: `${rental.title} | Jumping Jax`,
@@ -40,7 +42,7 @@ export default async function RentalDetailPage({ params }: Props) {
   const { category, slug } = await params;
   if (!isCategoryId(category)) notFound();
 
-  const rental = getRentalInCategory(category, slug);
+  const rental = await getWebsiteRentalInCategory(category, slug);
   if (!rental) notFound();
 
   const initialUnavailableYmds: string[] = [];

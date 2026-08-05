@@ -20,6 +20,7 @@ export const RENTAL_PRICES_INCLUDE_TAX = true;
 export type RentalLineInput = {
   rental_item?: string;
   rental_name?: string;
+  starting_price?: number;
 };
 
 // Kept only for rendering/recalculating historical rows. New bookings are
@@ -110,10 +111,14 @@ export function estimateRentalLineSubtotal(
   const slug =
     typeof item.rental_item === "string" ? item.rental_item.trim() : "";
   const rental = slug ? getRentalBySlug(slug) : undefined;
-  if (!rental) return null;
+  const startingPrice =
+    typeof item.starting_price === "number" && Number.isFinite(item.starting_price)
+      ? item.starting_price
+      : rental?.startingPrice;
+  if (startingPrice == null) return null;
 
   return estimateRentalSubtotal(
-    rental.startingPrice,
+    startingPrice,
     durationMultiplierForRentalItem(slug, durationLabel, spanDays),
   );
 }
@@ -199,7 +204,12 @@ export function buildRentalListWithPrices(
         slug ||
         "Rental";
       const rental = slug ? getRentalBySlug(slug) : undefined;
-      if (!rental) {
+      const startingPrice =
+        typeof item.starting_price === "number" &&
+        Number.isFinite(item.starting_price)
+          ? item.starting_price
+          : rental?.startingPrice;
+      if (startingPrice == null) {
         return `- ${name}`;
       }
       const itemEstimate = estimateRentalLineSubtotal(
@@ -207,7 +217,7 @@ export function buildRentalListWithPrices(
         durationLabel,
         spanDays,
       );
-      return `- ${name} (estimated ${formatUsd(itemEstimate ?? rental.startingPrice)})`;
+      return `- ${name} (estimated ${formatUsd(itemEstimate ?? startingPrice)})`;
     })
     .join("\n");
 }
