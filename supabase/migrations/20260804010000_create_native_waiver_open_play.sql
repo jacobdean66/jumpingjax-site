@@ -687,6 +687,17 @@ begin
   end if;
 
   if new.entry_type = 'charge' then
+    if new.attendee_id is null then
+      raise exception 'charge_requires_attendee' using errcode = '23514';
+    end if;
+    if not exists (
+      select 1 from public.open_play_visit_attendees a
+      where a.id = new.attendee_id
+        and a.unit_price_cents = new.amount_cents
+        and a.unit_price_cents > 0
+    ) then
+      raise exception 'charge_amount_mismatch' using errcode = '23514';
+    end if;
     return new;
   end if;
 
@@ -868,6 +879,40 @@ create table if not exists public.smartwaiver_document_imports (
     check (error_message is null or length(error_message) <= 1000),
   created_at timestamptz not null default now()
 );
+
+
+create or replace function public.prevent_open_play_visit_rewrite()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'open_play_visits cannot be deleted' using errcode = 'P0001';
+  end if;
+  if new.visit_date is distinct from old.visit_date
+     or new.business_day_ymd is distinct from old.business_day_ymd
+     or new.created_by_staff_id is distinct from old.created_by_staff_id
+     or new.created_at is distinct from old.created_at then
+    raise exception 'open_play_visit identity fields are immutable' using errcode = 'P0001';
+  end if;
+  if old.status = new.status then
+    return new;
+  end if;
+  if old.status = 'open' and new.status in ('finalized', 'voided') then
+    return new;
+  end if;
+  if old.status = 'finalized' and new.status = 'voided' then
+    return new;
+  end if;
+  raise exception 'unsupported open_play_visit status transition' using errcode = 'P0001';
+end;
+$$;
+
+drop trigger if exists prevent_open_play_visit_rewrite_trg on public.open_play_visits;
+create trigger prevent_open_play_visit_rewrite_trg
+  before update or delete on public.open_play_visits
+  for each row
+  execute function public.prevent_open_play_visit_rewrite();
 
 -- ---------------------------------------------------------------------------
 -- Indexes
@@ -1064,6 +1109,34 @@ begin
     return jsonb_build_object('outcome', 'invalid_signature_content_type');
   end if;
 
+  -- SQL-side consent verification (independent of TypeScript).
+  if coalesce((p_payload#>>'{consent,acknowledgedRisk}')::boolean, false) is not true
+     or coalesce((p_payload#>>'{consent,acknowledgedTerms}')::boolean, false) is not true
+     or coalesce((p_payload#>>'{consent,isLegalGuardian}')::boolean, false) is not true then
+    return jsonb_build_object('outcome', 'consent_required');
+  end if;
+
+  -- Pre-validate every DOB before any DML.
+  for v_participant in select value from jsonb_array_elements(p_payload->'participants')
+  loop
+    if coalesce(v_participant->>'role', '') not in ('child', 'adult_signer', 'adult_covered') then
+      return jsonb_build_object('outcome', 'invalid_input');
+    end if;
+    begin
+      if to_char((trim(v_participant->>'dob'))::date, 'YYYY-MM-DD')
+           is distinct from trim(v_participant->>'dob') then
+        return jsonb_build_object('outcome', 'invalid_dob');
+      end if;
+      if (trim(v_participant->>'dob'))::date
+           > (v_signed_at at time zone 'America/New_York')::date then
+        return jsonb_build_object('outcome', 'future_dob');
+      end if;
+    exception
+      when others then
+        return jsonb_build_object('outcome', 'invalid_dob');
+    end;
+  end loop;
+
   insert into public.waiver_submissions (
     public_token_hash, idempotency_key, request_hash, template_id, template_version_id,
     signer_first_name, signer_last_name, signer_email, signer_phone,
@@ -1197,12 +1270,11 @@ exception
       );
     end if;
     return jsonb_build_object('outcome', 'idempotency_conflict');
+  when sqlstate 'P0001' then
+    -- Rolls back all writes; SQLERRM carries our stable outcome code.
+    return jsonb_build_object('outcome', SQLERRM);
   when others then
-    return jsonb_build_object(
-      'outcome', 'failed',
-      'error_code', SQLSTATE,
-      'error_message', SQLERRM
-    );
+    return jsonb_build_object('outcome', 'failed', 'error_code', SQLSTATE);
 end;
 $$;
 
@@ -1226,6 +1298,7 @@ declare
   v_created_payments jsonb := '[]'::jsonb;
   v_price integer;
   v_method text;
+  v_seen uuid[] := array[]::uuid[];
 begin
   if v_visit_date is null or v_staff is null
      or jsonb_typeof(p_payload->'attendees') <> 'array'
@@ -1236,8 +1309,54 @@ begin
 
   v_business := to_char(v_visit_date, 'YYYY-MM-DD');
 
+  -- Pre-validate every attendee BEFORE any DML so soft failures cannot leave state.
+  for v_attendee in select value from jsonb_array_elements(p_payload->'attendees')
+  loop
+    v_participant_id := nullif(v_attendee->>'participant_id', '')::uuid;
+    v_price := (v_attendee->>'unit_price_cents')::integer;
+    v_method := nullif(v_attendee->>'payment_method', '');
+    if v_participant_id is null or v_price is null then
+      return jsonb_build_object('outcome', 'invalid_input');
+    end if;
+    if v_participant_id = any (v_seen) then
+      return jsonb_build_object('outcome', 'duplicate_same_day_attendee', 'participant_id', v_participant_id);
+    end if;
+    v_seen := array_append(v_seen, v_participant_id);
+    if exists (
+      select 1 from public.open_play_visit_attendees
+      where participant_id = v_participant_id
+        and business_day_ymd = v_business
+        and status = 'active'
+    ) then
+      return jsonb_build_object('outcome', 'duplicate_same_day_attendee', 'participant_id', v_participant_id);
+    end if;
+    if v_price > 0 and v_method not in ('cash', 'card') then
+      return jsonb_build_object('outcome', 'payment_method_required');
+    end if;
+    if v_price = 0 and v_method is not null then
+      return jsonb_build_object('outcome', 'free_attendee_cannot_have_payment_method');
+    end if;
+    if v_price < 0 then
+      return jsonb_build_object('outcome', 'invalid_input');
+    end if;
+  end loop;
+
   -- Serialize same-day participant check-ins.
   perform pg_advisory_xact_lock(hashtextextended('open_play_day:' || v_business, 0));
+
+  -- Re-check duplicates under lock (concurrent insert race).
+  for v_attendee in select value from jsonb_array_elements(p_payload->'attendees')
+  loop
+    v_participant_id := nullif(v_attendee->>'participant_id', '')::uuid;
+    if exists (
+      select 1 from public.open_play_visit_attendees
+      where participant_id = v_participant_id
+        and business_day_ymd = v_business
+        and status = 'active'
+    ) then
+      return jsonb_build_object('outcome', 'duplicate_same_day_attendee', 'participant_id', v_participant_id);
+    end if;
+  end loop;
 
   insert into public.open_play_visits (
     visit_date, business_day_ymd, created_by_staff_id, status, notes
@@ -1252,13 +1371,21 @@ begin
     v_method := nullif(v_attendee->>'payment_method', '');
     v_attendee_id := coalesce(nullif(v_attendee->>'attendee_id', '')::uuid, gen_random_uuid());
 
+    -- After DML has begun, all failures MUST raise so the exception handler rolls back.
     if exists (
       select 1 from public.open_play_visit_attendees
       where participant_id = v_participant_id
         and business_day_ymd = v_business
         and status = 'active'
     ) then
-      return jsonb_build_object('outcome', 'duplicate_same_day_attendee', 'participant_id', v_participant_id);
+      raise exception using errcode = 'P0001', message = 'duplicate_same_day_attendee';
+    end if;
+
+    if v_price > 0 and v_method not in ('cash', 'card') then
+      raise exception using errcode = 'P0001', message = 'payment_method_required';
+    end if;
+    if v_price = 0 and v_method is not null then
+      raise exception using errcode = 'P0001', message = 'free_attendee_cannot_have_payment_method';
     end if;
 
     insert into public.open_play_visit_attendees (
@@ -1284,9 +1411,6 @@ begin
     ));
 
     if v_price > 0 then
-      if v_method not in ('cash', 'card') then
-        return jsonb_build_object('outcome', 'payment_method_required');
-      end if;
       v_payment_id := coalesce(nullif(v_attendee->>'payment_id', '')::uuid, gen_random_uuid());
       insert into public.open_play_payment_entries (
         id, visit_id, attendee_id, entry_type, method, amount_cents,
@@ -1301,8 +1425,6 @@ begin
         'method', v_method,
         'amount_cents', v_price
       ));
-    elsif v_method is not null then
-      return jsonb_build_object('outcome', 'free_attendee_cannot_have_payment_method');
     end if;
   end loop;
 
@@ -1326,9 +1448,12 @@ begin
   );
 exception
   when unique_violation then
+    -- Rolls back all writes in this block, then returns stable outcome.
     return jsonb_build_object('outcome', 'duplicate_same_day_attendee');
+  when sqlstate 'P0001' then
+    return jsonb_build_object('outcome', SQLERRM);
   when others then
-    return jsonb_build_object('outcome', 'failed', 'error_code', SQLSTATE, 'error_message', SQLERRM);
+    return jsonb_build_object('outcome', 'failed', 'error_code', SQLSTATE);
 end;
 $$;
 
@@ -1360,6 +1485,7 @@ declare
   v_corr record;
   v_void_count integer;
   v_refund_sum integer;
+  v_updated integer;
 begin
   if v_visit_id is null or v_staff is null or v_type is null or v_reason is null then
     return jsonb_build_object('outcome', 'invalid_input');
@@ -1437,6 +1563,16 @@ begin
     loop
       if v_corr.amount_cents > 0 then v_effective := v_corr.method; end if;
     end loop;
+    v_attendee_id := nullif(p_payload->>'remove_attendee_id', '')::uuid;
+    -- Validate attendee removal target BEFORE writing the void.
+    if v_attendee_id is not null then
+      if not exists (
+        select 1 from public.open_play_visit_attendees
+        where id = v_attendee_id and visit_id = v_visit_id and status = 'active'
+      ) then
+        return jsonb_build_object('outcome', 'attendee_not_found_or_removed');
+      end if;
+    end if;
     v_void_id := gen_random_uuid();
     insert into public.open_play_payment_entries (
       id, visit_id, attendee_id, entry_type, method, amount_cents, related_entry_id, reason, created_by_staff_id
@@ -1446,13 +1582,13 @@ begin
     v_entries := jsonb_build_array(jsonb_build_object(
       'id', v_void_id, 'entry_type', 'void', 'method', v_effective, 'amount_cents', -abs(v_related.amount_cents)
     ));
-    v_attendee_id := nullif(p_payload->>'remove_attendee_id', '')::uuid;
     if v_attendee_id is not null then
       update public.open_play_visit_attendees
       set status = 'removed'
       where id = v_attendee_id and visit_id = v_visit_id and status = 'active';
-      if not found then
-        return jsonb_build_object('outcome', 'attendee_not_found_or_removed');
+      get diagnostics v_updated = row_count;
+      if v_updated <> 1 then
+        raise exception using errcode = 'P0001', message = 'attendee_not_found_or_removed';
       end if;
     end if;
 
@@ -1501,6 +1637,12 @@ begin
     if v_attendee_id is null then
       return jsonb_build_object('outcome', 'invalid_input');
     end if;
+    if not exists (
+      select 1 from public.open_play_visit_attendees
+      where id = v_attendee_id and visit_id = v_visit_id and status = 'active'
+    ) then
+      return jsonb_build_object('outcome', 'attendee_not_found_or_removed');
+    end if;
     -- Require financial reversal when an active charge remains.
     if v_related_id is null then
       select id into v_related_id
@@ -1523,7 +1665,6 @@ begin
         return jsonb_build_object('outcome', 'financial_reversal_required', 'related_entry_id', v_related_id);
       end if;
     else
-      -- Void remaining charge then remove.
       select * into v_related from public.open_play_payment_entries where id = v_related_id for update;
       if not found or v_related.visit_id <> v_visit_id or v_related.attendee_id is distinct from v_attendee_id then
         return jsonb_build_object('outcome', 'related_entry_invalid');
@@ -1556,8 +1697,9 @@ begin
     update public.open_play_visit_attendees
     set status = 'removed'
     where id = v_attendee_id and visit_id = v_visit_id and status = 'active';
-    if not found then
-      return jsonb_build_object('outcome', 'attendee_not_found_or_removed');
+    get diagnostics v_updated = row_count;
+    if v_updated <> 1 then
+      raise exception using errcode = 'P0001', message = 'attendee_not_found_or_removed';
     end if;
 
   else
@@ -1576,8 +1718,10 @@ begin
 
   return jsonb_build_object('outcome', 'applied', 'entries', v_entries);
 exception
+  when sqlstate 'P0001' then
+    return jsonb_build_object('outcome', SQLERRM);
   when others then
-    return jsonb_build_object('outcome', 'failed', 'error_code', SQLSTATE, 'error_message', SQLERRM);
+    return jsonb_build_object('outcome', 'failed', 'error_code', SQLSTATE);
 end;
 $$;
 

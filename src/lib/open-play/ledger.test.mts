@@ -542,6 +542,157 @@ test("daily report marks paidAttendance basis and counts logical corrections", (
     },
   ]);
   assert.equal(report.corrections, 1);
-  assert.equal(report.paidAttendanceBasis, "original_unit_price_active_attendees");
+  assert.equal(report.paidAttendanceBasis, "net_retained_admission_payment");
   assert.equal(report.paidAttendance, 1);
+});
+
+
+test("fully refunded attendee is not paid attendance; removed and voided excluded", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const charge = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "cash",
+      amountCents: 700,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const refund = buildRefundEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      method: "cash",
+      amountCents: 700,
+      reason: "full refund",
+      createdByStaffId: "owner",
+    },
+    [charge],
+    "r1",
+    createdAt,
+  );
+  const report = buildDailyReport("2026-08-03", [
+    {
+      id: "v1",
+      visitDate: "2026-08-03",
+      businessDayYmd: "2026-08-03",
+      status: "open",
+      notes: null,
+      createdAt,
+      attendees: [
+        {
+          id: "a1",
+          visitId: "v1",
+          classification: "child_2_or_under",
+          unitPriceCents: 700,
+          status: "active",
+        },
+        {
+          id: "a2",
+          visitId: "v1",
+          classification: "watching_adult",
+          unitPriceCents: 0,
+          status: "active",
+        },
+        {
+          id: "a3",
+          visitId: "v1",
+          classification: "playing_adult",
+          unitPriceCents: 700,
+          status: "removed",
+        },
+      ],
+      payments: [charge, refund],
+    },
+    {
+      id: "v2",
+      visitDate: "2026-08-03",
+      businessDayYmd: "2026-08-03",
+      status: "voided",
+      notes: null,
+      createdAt,
+      attendees: [
+        {
+          id: "a9",
+          visitId: "v2",
+          classification: "child_3_plus",
+          unitPriceCents: 1000,
+          status: "active",
+        },
+      ],
+      payments: [],
+    },
+  ]);
+  assert.equal(report.totalAttendance, 2);
+  assert.equal(report.paidAttendance, 0);
+  assert.equal(report.watchingAdults, 1);
+  assert.equal(report.paidAttendanceBasis, "net_retained_admission_payment");
+});
+
+test("multiple partial refunds count as separate refund operations", () => {
+  const createdAt = "2026-08-03T15:00:00.000Z";
+  const charge = buildChargeEntry(
+    {
+      visitId: "v1",
+      attendeeId: "a1",
+      method: "card",
+      amountCents: 1000,
+      createdByStaffId: "owner",
+    },
+    "p1",
+    createdAt,
+  );
+  const r1 = buildRefundEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      method: "card",
+      amountCents: 400,
+      reason: "partial 1",
+      createdByStaffId: "owner",
+    },
+    [charge],
+    "r1",
+    createdAt,
+  );
+  const r2 = buildRefundEntry(
+    {
+      visitId: "v1",
+      relatedEntryId: "p1",
+      method: "card",
+      amountCents: 300,
+      reason: "partial 2",
+      createdByStaffId: "owner",
+    },
+    [charge, r1],
+    "r2",
+    createdAt,
+  );
+  const totals = sumMethodTotals([charge, r1, r2]);
+  assert.equal(totals.refundCount, 2);
+  assert.equal(totals.cardTotalCents, 300);
+  const report = buildDailyReport("2026-08-03", [
+    {
+      id: "v1",
+      visitDate: "2026-08-03",
+      businessDayYmd: "2026-08-03",
+      status: "open",
+      notes: null,
+      createdAt,
+      attendees: [
+        {
+          id: "a1",
+          visitId: "v1",
+          classification: "child_3_plus",
+          unitPriceCents: 1000,
+          status: "active",
+        },
+      ],
+      payments: [charge, r1, r2],
+    },
+  ]);
+  assert.equal(report.paidAttendance, 1);
+  assert.equal(report.refunds, 2);
 });

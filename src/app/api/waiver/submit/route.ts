@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { rateLimit } from "@/lib/rate-limit";
 import { publicSafeError } from "@/lib/open-play/staff-auth";
+import { BodyTooLargeError, readRequestTextWithLimit } from "@/lib/waivers/read-body";
 import { submitWaiver, WaiverSubmitError } from "@/lib/waivers/submit";
 import {
   WAIVER_LIMITS,
@@ -26,22 +27,14 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  const contentLengthHeader = req.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = Number(contentLengthHeader);
-    if (Number.isFinite(contentLength) && contentLength > WAIVER_LIMITS.maxBodyBytes) {
-      return publicSafeError("payload_too_large", 413, "Request body is too large");
-    }
-  }
-
   let rawText: string;
   try {
-    rawText = await req.text();
-  } catch {
+    rawText = await readRequestTextWithLimit(req, WAIVER_LIMITS.maxBodyBytes);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      return publicSafeError("payload_too_large", 413, "Request body is too large");
+    }
     return publicSafeError("invalid_body", 400, "Unable to read request body");
-  }
-  if (rawText.length > WAIVER_LIMITS.maxBodyBytes) {
-    return publicSafeError("payload_too_large", 413, "Request body is too large");
   }
 
   let body: Record<string, unknown>;

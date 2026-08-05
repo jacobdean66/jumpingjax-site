@@ -151,8 +151,15 @@ export async function submitWaiver(options: {
     case "template_inactive":
     case "template_version_not_current":
       throw new WaiverSubmitError("template_inactive", "Template is not available for signing");
+    case "consent_required":
+    case "invalid_dob":
+    case "future_dob":
     case "invalid_input":
     case "invalid_signature_content_type":
+    case "signer_participant_mismatch":
+    case "child_guardian_missing":
+    case "too_many_adults":
+    case "too_many_children":
       throw new WaiverSubmitError("validation", "Invalid waiver submission");
     default:
       throw new WaiverSubmitError("database", "Unable to submit waiver");

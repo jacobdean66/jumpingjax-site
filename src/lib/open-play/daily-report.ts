@@ -1,17 +1,15 @@
 /**
  * Daily report aggregation for Open Play admissions.
  *
- * Reporting semantics (provisional — Jacob decision still required):
- * - paidAttendance: count of *active* attendees whose original unitPriceCents > 0
- *   (check-in price), NOT net retained payment after refunds.
- * - Fully refunded but still-active attendees still count as paidAttendance.
- * - Voided visits are excluded from attendance counts; their ledger rows still
- *   affect cash/card totals (voids/refunds/corrections remain in the day ledger).
- * - correctionCount: logical method-correction pairs (two ledger rows = one).
- * - voids/refunds: raw entry counts.
- * - Negative method totals can occur after voids/refunds outweigh charges for
- *   a filtered slice; combined day totals should normally be >= 0 when the day
- *   only contains self-consistent visits, but are not clamped here.
+ * Approved business semantics:
+ * - Cash/card/combined totals = net retained amounts after corrections, voids, refunds.
+ * - Total attendance = active attendees on non-voided visits.
+ * - Paid attendance = active attendees with positive net retained admission payment.
+ * - Watching adults count in total attendance but not paid attendance when net is 0.
+ * - Fully refunded attendees are not paid attendance.
+ * - Removed attendees and voided-visit attendees are excluded from attendance.
+ * - One method-correction operation (debit+credit pair) counts as one correction.
+ * - Each void entry / each refund entry counts as one operation.
  */
 
 import type { AdmissionClassification } from "./pricing";
@@ -53,11 +51,7 @@ export type DailyReport = {
   corrections: number;
   voids: number;
   refunds: number;
-  /**
-   * Explicit marker that paidAttendance uses original check-in price, not net
-   * retained payment. Requires Jacob confirmation before UI copy freezes.
-   */
-  paidAttendanceBasis: "original_unit_price_active_attendees";
+  paidAttendanceBasis: "net_retained_admission_payment";
   visits: Array<{
     visitId: string;
     status: VisitSnapshot["status"];
@@ -70,6 +64,20 @@ export type DailyReport = {
     combinedTotalCents: number;
   }>;
 };
+
+/** Net retained payment for one attendee across a visit ledger. */
+export function netRetainedAdmissionCents(
+  payments: PaymentEntry[],
+  attendeeId: string,
+): number {
+  let total = 0;
+  for (const entry of payments) {
+    if (entry.attendeeId === attendeeId) {
+      total += entry.amountCents;
+    }
+  }
+  return total;
+}
 
 export function buildDailyReport(
   businessDayYmd: string,
@@ -91,7 +99,8 @@ export function buildDailyReport(
     for (const attendee of visit.attendees) {
       if (attendee.status !== "active") continue;
       totalAttendance += 1;
-      if (attendee.unitPriceCents > 0) paidAttendance += 1;
+      const net = netRetainedAdmissionCents(visit.payments, attendee.id);
+      if (net > 0) paidAttendance += 1;
       if (attendee.classification === "child_2_or_under") childrenAge2OrYounger += 1;
       if (attendee.classification === "child_3_plus") childrenAge3OrOlder += 1;
       if (attendee.classification === "playing_adult") playingAdults += 1;
@@ -113,7 +122,7 @@ export function buildDailyReport(
     corrections: totals.correctionCount,
     voids: totals.voidCount,
     refunds: totals.refundCount,
-    paidAttendanceBasis: "original_unit_price_active_attendees",
+    paidAttendanceBasis: "net_retained_admission_payment",
     visits: dayVisits.map((visit) => {
       const visitTotals = sumMethodTotals(visit.payments);
       return {
