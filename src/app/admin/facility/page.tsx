@@ -19,6 +19,7 @@ import {
 import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
+import { FacilityEditButton } from "./FacilityEditButton";
 
 export const dynamic = "force-dynamic";
 
@@ -82,20 +83,25 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             {booking.readableTime ?? "Time not set"}
           </p>
         </div>
-        {booking.status === "pending" && (
+        {(booking.status === "pending" || booking.status === "confirmed") && (
           <div className="flex flex-wrap gap-2 print:hidden">
-            <BookingActionButton
-              action="confirm"
-              endpoint={actionHref(booking.id, "confirm")}
-              label="Confirm"
-              tone="confirm"
-            />
-            <BookingActionButton
-              action="reject"
-              endpoint={actionHref(booking.id, "reject")}
-              label="Reject"
-              tone="reject"
-            />
+            <FacilityEditButton booking={booking} />
+            {booking.status === "pending" && (
+              <>
+                <BookingActionButton
+                  action="confirm"
+                  endpoint={actionHref(booking.id, "confirm")}
+                  label="Confirm"
+                  tone="confirm"
+                />
+                <BookingActionButton
+                  action="reject"
+                  endpoint={actionHref(booking.id, "reject")}
+                  label="Reject"
+                  tone="reject"
+                />
+              </>
+            )}
           </div>
         )}
         {booking.calendarNeedsRepair && (

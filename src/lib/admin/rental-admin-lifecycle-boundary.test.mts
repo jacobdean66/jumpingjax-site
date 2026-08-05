@@ -61,6 +61,32 @@ test("Cancelled tab exposes original details and restore action", () => {
   }
 });
 
+test("admin rentals expose edit for pending and approved bookings", () => {
+  const page = source("../../app/admin/rentals/page.tsx");
+  assert.match(page, /RentalEditButton/);
+  assert.match(
+    page,
+    /booking\.status === "pending" \|\| booking\.status === "approved"/,
+  );
+  assert.match(
+    source("../../app/api/admin/rentals/[id]/route.ts"),
+    /rentalBookingIsEditable/,
+  );
+});
+
+test("admin facility exposes edit for pending and confirmed parties", () => {
+  const page = source("../../app/admin/facility/page.tsx");
+  assert.match(page, /FacilityEditButton/);
+  assert.match(
+    page,
+    /booking\.status === "pending" \|\| booking\.status === "confirmed"/,
+  );
+  assert.match(
+    source("../../app/api/admin/facility/[id]/route.ts"),
+    /facilityBookingIsEditable/,
+  );
+});
+
 test("route assignment writes are constrained by the shared operational status policy", () => {
   const route = source("../../app/api/admin/deliveries/route.ts");
   assert.match(route, /RENTAL_OPERATIONAL_STATUSES/);

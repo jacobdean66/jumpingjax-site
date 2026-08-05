@@ -21,6 +21,7 @@ import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { RentalCancellationButton } from "./RentalCancellationButton";
+import { RentalEditButton } from "./RentalEditButton";
 import { RentalRestoreButton } from "./RentalRestoreButton";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,9 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
+          {(booking.status === "pending" || booking.status === "approved") && (
+            <RentalEditButton booking={booking} />
+          )}
           {booking.status === "pending" && (
             <>
               <BookingActionButton
