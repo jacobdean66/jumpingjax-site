@@ -135,10 +135,14 @@ async function syncApprovedRentalCalendar(input: {
     input.booking.event_start_time,
   );
 
-  const rentalOnlyItems = input.items.filter(
+  const calendarItems = input.items.map((item) => ({
+    rental_item: item.rental_item,
+    rental_name: item.rental_name ?? undefined,
+  }));
+  const rentalOnlyItems = calendarItems.filter(
     (item) => !isFoamPartyRentalItem(item.rental_item),
   );
-  const foamItems = input.items.filter((item) =>
+  const foamItems = calendarItems.filter((item) =>
     isFoamPartyRentalItem(item.rental_item),
   );
 
@@ -148,7 +152,7 @@ async function syncApprovedRentalCalendar(input: {
     const description = buildRentalCalendarDescription({
       items: rentalOnlyItems,
       durationLabel:
-        rentalOnlyItems.length === input.items.length ? durationLabel : "One Day",
+        rentalOnlyItems.length === calendarItems.length ? durationLabel : "One Day",
       spanDays,
       total: input.booking.total,
       deliveryFee: input.booking.delivery_fee,
