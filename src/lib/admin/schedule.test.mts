@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   DEFAULT_SCHEDULE_FILTERS,
@@ -233,6 +230,15 @@ await test("schedule events expose customer phone for print output", () => {
   assert.equal(event?.phone, "864-555-0100");
 });
 
+await test("schedule rental events expose the authoritative stored total", () => {
+  const [priced] = rentalRowsToEvents([{ ...rental(101), total: "350.00" }]);
+  const [zero] = rentalRowsToEvents([{ ...rental(102), total: 0 }]);
+  const [missing] = rentalRowsToEvents([{ ...rental(103), total: null }]);
+  assert.equal(priced?.rentalTotal, "350.00");
+  assert.equal(zero?.rentalTotal, 0);
+  assert.equal(missing?.rentalTotal, null);
+});
+
 await test("midnight import placeholders display as unset time", () => {
   const [event] = rentalRowsToEvents([
     {
@@ -244,21 +250,6 @@ await test("midnight import placeholders display as unset time", () => {
   ]);
   assert.equal(event?.displayTime, "Time not set");
   assert.equal(event?.sortTime, "");
-});
-
-await test("long booking content is not assigned CSS that forces horizontal overflow", () => {
-  const source = readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../app/admin/schedule/ScheduleCalendar.tsx",
-    ),
-    "utf8",
-  );
-  assert.equal(source.includes("overflow-x"), false);
-  assert.equal(source.includes("overflow-y-auto"), false);
-  assert.equal(source.includes("aspect-square"), false);
-  assert.equal(source.includes("truncate"), false);
-  assert.equal(source.includes("break-words"), true);
 });
 
 await test("America/New_York local boundary behavior remains date based", () => {

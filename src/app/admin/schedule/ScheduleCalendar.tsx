@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MutableRefObject } from "react";
 
 import {
   DEFAULT_SCHEDULE_FILTERS,
@@ -16,10 +16,15 @@ import {
 } from "@/lib/admin/schedule";
 import { formatProductLabel } from "@/lib/admin/schedule-products";
 import {
+  eventsForSchedulePrint,
+  formatSelectedDatesHeading,
   printOrientationForView,
   resolvePrintDays,
+  schedulePrintRowText,
 } from "@/lib/admin/schedule-print";
-import { StatusBadge } from "../_components";
+
+import { ScheduleBookingDetailsModal } from "./ScheduleBookingDetailsModal";
+import { ScheduleDayBlock } from "./ScheduleDayBlock";
 
 const FILTER_STORAGE_KEY = "jumpingjax:schedule-filters:v2";
 
@@ -32,22 +37,6 @@ const FILTER_OPTIONS: {
   { type: "public-party", label: "Public facility parties" },
   { type: "private-party", label: "Private facility parties" },
 ];
-
-function typeLabel(type: ScheduleEventType): string {
-  if (type === "rental") return "RENTAL";
-  if (type === "foam-party") return "FOAM PARTY";
-  if (type === "public-party") return "PUBLIC PARTY";
-  return "PRIVATE PARTY";
-}
-
-function typeTone(type: ScheduleEventType): string {
-  if (type === "rental") return "border-sky-200 bg-sky-50 text-sky-950";
-  if (type === "foam-party") return "border-cyan-200 bg-cyan-50 text-cyan-950";
-  if (type === "public-party") {
-    return "border-pink-200 bg-pink-50 text-pink-950";
-  }
-  return "border-violet-200 bg-violet-50 text-violet-950";
-}
 
 function isScheduleFilters(value: unknown): value is ScheduleFilters {
   if (!value || typeof value !== "object") return false;
@@ -65,129 +54,6 @@ function restoreFilters(): ScheduleFilters {
   } catch {
     return DEFAULT_SCHEDULE_FILTERS;
   }
-}
-
-function eventTimeSummary(event: CalendarEvent): string {
-  return event.displayTime && event.displayTime !== "Time not set"
-    ? event.displayTime
-    : "Time not set";
-}
-
-function ProductList({
-  products,
-  compact = false,
-}: {
-  products: CalendarEvent["products"];
-  compact?: boolean;
-}) {
-  if (products.length === 0) return null;
-  if (compact && products.length > 2) {
-    return (
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs font-black">
-          {products.length} products
-        </summary>
-        <ul className="mt-2 flex flex-wrap gap-1">
-          {products.map((product) => (
-            <li
-              key={`${product.rentalItem}-${product.name}`}
-              className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-bold"
-            >
-              {formatProductLabel(product)}
-            </li>
-          ))}
-        </ul>
-      </details>
-    );
-  }
-
-  return (
-    <ul className="mt-2 flex flex-wrap gap-1">
-      {products.map((product) => (
-        <li
-          key={`${product.rentalItem}-${product.name}`}
-          className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-bold print:border-slate-900"
-        >
-          {formatProductLabel(product)}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function EventCard({ event }: { event: CalendarEvent }) {
-  return (
-    <article
-      className={`rounded-xl border p-3 shadow-sm print:break-inside-avoid print:border-slate-900 print:bg-white print:text-black print:shadow-none ${typeTone(event.type)}`}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-950 print:border print:border-slate-900 print:bg-white">
-          {typeLabel(event.type)}
-        </span>
-        <StatusBadge status={event.status} />
-      </div>
-
-      <h3 className="mt-3 break-words text-base font-black leading-snug">
-        {event.customer}
-      </h3>
-      <ProductList products={event.products} compact />
-      {event.products.length === 0 ? (
-        <p className="mt-1 break-words text-sm font-bold">{event.title}</p>
-      ) : null}
-      {event.phone ? (
-        <p className="mt-2 break-words text-xs font-black text-slate-700 print:text-black">
-          Phone: {event.phone}
-        </p>
-      ) : null}
-      <dl className="mt-3 grid gap-2 text-xs font-semibold leading-relaxed text-slate-700 print:text-black">
-        <div>
-          <dt className="font-black uppercase tracking-wide text-slate-500 print:text-black">
-            Time
-          </dt>
-          <dd className="break-words">{eventTimeSummary(event)}</dd>
-        </div>
-        {event.room ? (
-          <div>
-            <dt className="font-black uppercase tracking-wide text-slate-500 print:text-black">
-              Room
-            </dt>
-            <dd className="break-words">{event.room}</dd>
-          </div>
-        ) : null}
-        {event.location ? (
-          <div>
-            <dt className="font-black uppercase tracking-wide text-slate-500 print:text-black">
-              Location
-            </dt>
-            <dd className="break-words">{event.location}</dd>
-          </div>
-        ) : null}
-      </dl>
-      <details className="mt-3 print:hidden">
-        <summary className="cursor-pointer text-xs font-black uppercase tracking-wide">
-          Details
-        </summary>
-        <div className="mt-3 grid gap-2 border-t border-current/10 pt-3 text-xs">
-          {event.details.map((detail) => (
-            <div key={detail.label}>
-              <p className="font-black uppercase tracking-wide opacity-70">
-                {detail.label}
-              </p>
-              <p className="break-words font-semibold">
-                {detail.value || "Not set"}
-              </p>
-            </div>
-          ))}
-        </div>
-      </details>
-      <Link
-        href={event.detailHref}
-        className="mt-3 inline-flex rounded-full bg-slate-950 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 print:hidden"
-      >
-        Open full details
-      </Link>
-    </article>
-  );
 }
 
 function PrintAgenda({
@@ -211,7 +77,7 @@ function PrintAgenda({
     <section className={className}>
       <h1 className="text-2xl font-black">Jumping Jax Schedule</h1>
       <div className="mt-2 grid gap-1 text-sm">
-        <p>Date range: {heading}</p>
+        <p>{heading}</p>
         <p>
           Booking types:{" "}
           {noTypesSelected ? "No booking types selected" : selectedLabels.join(", ")}
@@ -227,50 +93,23 @@ function PrintAgenda({
           days.map((day) => {
             const events = eventsByDate[day.ymd] ?? [];
             return (
-              <section key={day.ymd} className="break-inside-avoid">
-                <h2 className="border-b border-slate-900 pb-1 text-base font-black">
+              <section
+                key={day.ymd}
+                className={`schedule-print-day${events.length <= 2 ? " schedule-print-day-small" : ""}`}
+              >
+                <h2 className="schedule-print-day-heading border-b border-slate-900 pb-1 text-base font-black">
                   {day.dayName}, {day.label}
                 </h2>
                 {events.length === 0 ? (
                   <p className="mt-2 text-sm font-semibold">No bookings</p>
                 ) : (
-                  <ul className="mt-2 grid gap-2">
+                  <ul className="schedule-print-bookings mt-2">
                     {events.map((event) => (
                       <li
                         key={event.id}
-                        className="break-inside-avoid border border-slate-900 p-2 text-sm"
+                        className="schedule-print-booking-row border border-slate-900 p-2 text-sm"
                       >
-                        <span className="font-black">{typeLabel(event.type)}</span>
-                        {" - "}
-                        <span>{event.customer}</span>
-                        {event.phone ? (
-                          <>
-                            {" - "}
-                            <span>{event.phone}</span>
-                          </>
-                        ) : null}
-                        {" - "}
-                        <span>
-                          {event.products.length > 0
-                            ? event.products.map(formatProductLabel).join(", ")
-                            : event.title}
-                        </span>
-                        {" - "}
-                        <span>{eventTimeSummary(event)}</span>
-                        {event.room ? (
-                          <>
-                            {" - "}
-                            <span>{event.room}</span>
-                          </>
-                        ) : null}
-                        {event.location ? (
-                          <>
-                            {" - "}
-                            <span>{event.location}</span>
-                          </>
-                        ) : null}
-                        {" - "}
-                        <span>{event.status}</span>
+                        {schedulePrintRowText(event)}
                       </li>
                     ))}
                   </ul>
@@ -387,6 +226,14 @@ function ScheduleEmailPanel({
   );
 }
 
+function calendarGridClass(view: ScheduleView): string {
+  if (view === "day") return "mt-6 grid gap-4";
+  if (view === "week") {
+    return "mt-6 grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-7";
+  }
+  return "mt-6 grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7";
+}
+
 export function ScheduleCalendar({
   days,
   events,
@@ -399,6 +246,7 @@ export function ScheduleCalendar({
   dayHref,
   weekHref,
   monthHref,
+  focusMonth,
 }: {
   days: CalendarDay[];
   events: CalendarEvent[];
@@ -411,11 +259,13 @@ export function ScheduleCalendar({
   dayHref: string;
   weekHref: string;
   monthHref: string;
+  focusMonth?: number;
 }) {
   const [filters, setFilters] = useState<ScheduleFilters>(() =>
     restoreFilters(),
   );
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const emailSendingLockRef = useRef(false);
   const printOrientation = printOrientationForView(view);
 
@@ -434,17 +284,31 @@ export function ScheduleCalendar({
   const selectedLabels = selectedFilterLabels(filters);
   const noTypesSelected = selectedLabels.length === 0;
 
+  const printEvents = useMemo(
+    () => eventsForSchedulePrint(visibleEvents, selectedDates),
+    [visibleEvents, selectedDates],
+  );
+  const emailEvents = useMemo(() => {
+    if (selectedDates.length === 0) return visibleEvents;
+    const selected = new Set(selectedDates);
+    return visibleEvents.filter((event) => selected.has(event.date));
+  }, [visibleEvents, selectedDates]);
+  const printEventsByDate = useMemo(
+    () => groupEventsByDate(printEvents),
+    [printEvents],
+  );
+
   const printDays = useMemo(
     () =>
       resolvePrintDays({
         days,
         selectedDates,
-        eventsByDate,
+        eventsByDate: printEventsByDate,
         // Keep intentionally selected dates even when empty so print/email do
         // not fall back to the full view.
         includeEmpty: selectedDates.length > 0,
       }),
-    [days, selectedDates, eventsByDate],
+    [days, selectedDates, printEventsByDate],
   );
 
   const agendaDays = useMemo(() => {
@@ -452,16 +316,14 @@ export function ScheduleCalendar({
     return days;
   }, [selectedDates.length, printDays, days]);
 
-  const printEvents = useMemo(() => {
-    if (selectedDates.length === 0) return visibleEvents;
-    const selected = new Set(selectedDates);
-    return visibleEvents.filter((event) => selected.has(event.date));
-  }, [visibleEvents, selectedDates]);
-
   const printHeading =
     selectedDates.length > 0
-      ? [...selectedDates].sort().join(", ")
-      : heading;
+      ? `Selected dates: ${formatSelectedDatesHeading(selectedDates)}`
+      : `Date range: ${heading}`;
+
+  const closeDetails = useCallback(() => {
+    setSelectedEvent(null);
+  }, []);
 
   function updateFilter(type: ScheduleEventType, checked: boolean) {
     setFilters((current) => ({ ...current, [type]: checked }));
@@ -483,6 +345,12 @@ export function ScheduleCalendar({
     setSelectedDates([]);
   }
 
+  function isOutsideMonth(day: CalendarDay): boolean {
+    if (view !== "month" || focusMonth === undefined) return false;
+    const month = Number(day.ymd.slice(5, 7));
+    return month !== focusMonth + 1;
+  }
+
   return (
     <>
       <style jsx global>{`
@@ -494,6 +362,28 @@ export function ScheduleCalendar({
           html,
           body {
             background: #fff !important;
+          }
+          .schedule-print-day {
+            break-inside: auto;
+            page-break-inside: auto;
+          }
+          .schedule-print-day-small {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .schedule-print-day-heading {
+            break-after: avoid;
+            page-break-after: avoid;
+          }
+          .schedule-print-bookings {
+            display: block;
+          }
+          .schedule-print-booking-row {
+            margin-top: 0.35rem;
+            overflow-wrap: anywhere;
+            word-break: normal;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
         }
       `}</style>
@@ -711,47 +601,18 @@ export function ScheduleCalendar({
             <p className="text-lg font-black">No booking types selected.</p>
           </div>
         ) : (
-          <div
-            className={
-              view === "day"
-                ? "mt-6 grid gap-4"
-                : "mt-6 grid items-start gap-3 lg:grid-cols-7"
-            }
-          >
+          <div className={calendarGridClass(view)}>
             {days.map((day) => {
               const dayEvents = eventsByDate[day.ymd] ?? [];
               return (
-                <section
+                <ScheduleDayBlock
                   key={day.ymd}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                >
-                  <div>
-                    <p className="text-xs font-black text-slate-500">
-                      {day.dayName}
-                    </p>
-                    <h3 className="mt-1 text-lg font-black leading-none">
-                      {day.label}
-                    </h3>
-                    {dayEvents.length > 0 ? (
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        {dayEvents.length} booking
-                        {dayEvents.length === 1 ? "" : "s"}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 grid gap-2">
-                    {dayEvents.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-slate-200 bg-white px-2 py-2 text-xs font-bold text-slate-500">
-                        No bookings
-                      </p>
-                    ) : (
-                      dayEvents.map((event) => (
-                        <EventCard key={event.id} event={event} />
-                      ))
-                    )}
-                  </div>
-                </section>
+                  day={day}
+                  events={dayEvents}
+                  density={view}
+                  isOutsideMonth={isOutsideMonth(day)}
+                  onSelectBooking={setSelectedEvent}
+                />
               );
             })}
           </div>
@@ -779,7 +640,7 @@ export function ScheduleCalendar({
           </button>
         </div>
         <ScheduleEmailPanel
-          events={printEvents}
+          events={emailEvents}
           dates={
             selectedDates.length > 0
               ? [...selectedDates].sort()
@@ -792,7 +653,7 @@ export function ScheduleCalendar({
           <PrintAgenda
             className="block"
             days={agendaDays}
-            eventsByDate={eventsByDate}
+            eventsByDate={printEventsByDate}
             heading={printHeading}
             selectedLabels={selectedLabels}
             visibleCount={printEvents.length}
@@ -805,13 +666,18 @@ export function ScheduleCalendar({
         <PrintAgenda
           className="block"
           days={agendaDays}
-          eventsByDate={eventsByDate}
+          eventsByDate={printEventsByDate}
           heading={printHeading}
           selectedLabels={selectedLabels}
           visibleCount={printEvents.length}
           noTypesSelected={noTypesSelected}
         />
       </div>
+
+      <ScheduleBookingDetailsModal
+        event={selectedEvent}
+        onClose={closeDetails}
+      />
     </>
   );
 }

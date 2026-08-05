@@ -36,6 +36,8 @@ export type CalendarEvent = {
   detailHref: string;
   products: ScheduleProduct[];
   details: { label: string; value: string | null }[];
+  /** Authoritative stored bookings.total. Present only for rental bookings. */
+  rentalTotal?: number | string | null;
 };
 
 type RentalRow = {
@@ -350,6 +352,7 @@ export function rentalRowsToEvents(
       room: null,
       detailHref: `/admin/rentals?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}#booking-${encodeURIComponent(bookingId)}`,
       products,
+      rentalTotal: row.total,
       details: [
         { label: "Customer", value: clean(row.customer_name) },
         { label: "Products", value: title },
