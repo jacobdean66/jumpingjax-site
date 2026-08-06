@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   LedgerValidationError,
   type PaymentEntry,
+  type PaymentEntryType,
   type PaymentMethod,
 } from "./ledger";
 
@@ -39,16 +40,124 @@ export type CorrectionRequest =
       reason: string;
     };
 
+export type CorrectionRpcEntry = {
+  id: string;
+  entry_type: PaymentEntryType;
+  method: PaymentMethod;
+  amount_cents: number;
+  /** Present when the RPC includes ledger identity on the success row. */
+  attendee_id?: string | null;
+  /** Present when the RPC includes the related charge id on the success row. */
+  related_entry_id?: string | null;
+};
+
 type RpcOutcome = {
   outcome: string;
-  entries?: Array<{
-    id: string;
-    entry_type: PaymentEntry["entryType"];
-    method: PaymentMethod;
-    amount_cents: number;
-  }>;
+  entries?: CorrectionRpcEntry[];
   related_entry_id?: string;
 };
+
+/** Accept only the payment methods supported by the Open Play ledger contract. */
+export function parsePaymentMethod(value: unknown): PaymentMethod | null {
+  if (value === "cash" || value === "card") return value;
+  return null;
+}
+
+/**
+ * Parse a corrections POST body into a typed CorrectionRequest.
+ * Rejects missing/invalid payment methods instead of coercing to cash.
+ * Returns null for an unsupported type so the route can keep code "validation".
+ */
+export function parseCorrectionRequest(
+  body: Record<string, unknown>,
+): CorrectionRequest | null {
+  const type = typeof body.type === "string" ? body.type : "";
+
+  if (type === "method_correction") {
+    const fromMethod = parsePaymentMethod(body.fromMethod);
+    const toMethod = parsePaymentMethod(body.toMethod);
+    if (!fromMethod || !toMethod) {
+      throw new LedgerValidationError(
+        "Payment method must be cash or card",
+      );
+    }
+    return {
+      type: "method_correction",
+      relatedEntryId: String(body.relatedEntryId ?? ""),
+      fromMethod,
+      toMethod,
+      amountCents: Number(body.amountCents),
+      reason: String(body.reason ?? ""),
+      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
+    };
+  }
+
+  if (type === "void") {
+    return {
+      type: "void",
+      relatedEntryId: String(body.relatedEntryId ?? ""),
+      reason: String(body.reason ?? ""),
+      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
+      removeAttendeeId: body.removeAttendeeId
+        ? String(body.removeAttendeeId)
+        : null,
+    };
+  }
+
+  if (type === "refund") {
+    const method = parsePaymentMethod(body.method);
+    if (!method) {
+      throw new LedgerValidationError(
+        "Payment method must be cash or card",
+      );
+    }
+    return {
+      type: "refund",
+      relatedEntryId: String(body.relatedEntryId ?? ""),
+      method,
+      amountCents: Number(body.amountCents),
+      reason: String(body.reason ?? ""),
+      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
+    };
+  }
+
+  if (type === "remove_attendee") {
+    return {
+      type: "remove_attendee",
+      attendeeId: String(body.attendeeId ?? ""),
+      relatedEntryId: body.relatedEntryId ? String(body.relatedEntryId) : null,
+      reason: String(body.reason ?? ""),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Map RPC success entry rows onto the public PaymentEntry contract.
+ * Preserves attendeeId / relatedEntryId when the RPC supplies them;
+ * leaves them null only when the RPC omits them or returns null.
+ */
+export function mapCorrectionRpcEntries(options: {
+  visitId: string;
+  staffId: string;
+  reason: string;
+  createdAt: string;
+  entries: CorrectionRpcEntry[];
+}): PaymentEntry[] {
+  return options.entries.map((entry) => ({
+    id: entry.id,
+    visitId: options.visitId,
+    attendeeId: entry.attendee_id ?? null,
+    entryType: entry.entry_type,
+    method: entry.method,
+    amountCents: entry.amount_cents,
+    relatedEntryId: entry.related_entry_id ?? null,
+    reason: options.reason,
+    createdByStaffId: options.staffId,
+    createdAt: options.createdAt,
+  }));
+}
 
 export async function applyVisitCorrection(options: {
   visitId: string;
@@ -121,18 +230,13 @@ export async function applyVisitCorrection(options: {
     );
   }
 
-  const entries: PaymentEntry[] = (result.entries ?? []).map((entry) => ({
-    id: entry.id,
-    visitId: options.visitId,
-    attendeeId: null,
-    entryType: entry.entry_type,
-    method: entry.method,
-    amountCents: entry.amount_cents,
-    relatedEntryId: null,
-    reason: correction.reason,
-    createdByStaffId: options.staffId,
-    createdAt: now,
-  }));
-
-  return { entries };
+  return {
+    entries: mapCorrectionRpcEntries({
+      visitId: options.visitId,
+      staffId: options.staffId,
+      reason: correction.reason,
+      createdAt: now,
+      entries: result.entries ?? [],
+    }),
+  };
 }

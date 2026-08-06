@@ -5,7 +5,7 @@ import { requireOwnerAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import {
   applyVisitCorrection,
   LedgerValidationError,
-  type CorrectionRequest,
+  parseCorrectionRequest,
 } from "@/lib/open-play/corrections-service";
 
 export const dynamic = "force-dynamic";
@@ -39,45 +39,17 @@ export async function POST(
     return publicSafeError("invalid_json", 400, "Invalid JSON request body");
   }
 
-  const type = typeof body.type === "string" ? body.type : "";
-  let correction: CorrectionRequest | null = null;
-
-  if (type === "method_correction") {
-    correction = {
-      type: "method_correction",
-      relatedEntryId: String(body.relatedEntryId ?? ""),
-      fromMethod: body.fromMethod === "card" ? "card" : "cash",
-      toMethod: body.toMethod === "card" ? "card" : "cash",
-      amountCents: Number(body.amountCents),
-      reason: String(body.reason ?? ""),
-      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
-    };
-  } else if (type === "void") {
-    correction = {
-      type: "void",
-      relatedEntryId: String(body.relatedEntryId ?? ""),
-      reason: String(body.reason ?? ""),
-      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
-      removeAttendeeId: body.removeAttendeeId
-        ? String(body.removeAttendeeId)
-        : null,
-    };
-  } else if (type === "refund") {
-    correction = {
-      type: "refund",
-      relatedEntryId: String(body.relatedEntryId ?? ""),
-      method: body.method === "card" ? "card" : "cash",
-      amountCents: Number(body.amountCents),
-      reason: String(body.reason ?? ""),
-      attendeeId: body.attendeeId ? String(body.attendeeId) : null,
-    };
-  } else if (type === "remove_attendee") {
-    correction = {
-      type: "remove_attendee",
-      attendeeId: String(body.attendeeId ?? ""),
-      relatedEntryId: body.relatedEntryId ? String(body.relatedEntryId) : null,
-      reason: String(body.reason ?? ""),
-    };
+  let correction;
+  try {
+    correction = parseCorrectionRequest(body);
+  } catch (error) {
+    if (error instanceof LedgerValidationError) {
+      return NextResponse.json(
+        { ok: false, error: error.message, code: error.code },
+        { status: 400 },
+      );
+    }
+    throw error;
   }
 
   if (!correction) {
