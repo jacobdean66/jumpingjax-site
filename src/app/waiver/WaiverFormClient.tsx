@@ -13,7 +13,12 @@ import {
 import { ParticipantCard } from "@/components/waiver/ParticipantCard";
 import { SignaturePad } from "@/components/waiver/SignaturePad";
 import { WaiverStepProgress } from "@/components/waiver/StepProgress";
-import { loadActiveWaiverTemplate, submitPublicWaiver } from "@/lib/waivers/public-client";
+import {
+  applyActiveTemplateToFormState,
+  clearActiveTemplateFromFormState,
+  fetchActiveWaiverTemplate,
+  submitPublicWaiver,
+} from "@/lib/waivers/public-client";
 import { messageForPublicWaiverError } from "@/lib/waivers/public-errors";
 import {
   buildPublicSubmitBody,
@@ -24,7 +29,6 @@ import {
   type WaiverFormState,
   type WaiverFormStep,
   validateLegalStep,
-  validateConsentStep,
   validateParticipantsStep,
   validateSignatureStep,
   validateSignerStep,
@@ -70,20 +74,14 @@ function ErrorSummary({
 export function WaiverFormClient() {
   const router = useRouter();
   const [step, setStep] = useState<WaiverFormStep>("signer");
-  const [state, setState] = useState<WaiverFormState>(() => {
-    const initial = createInitialWaiverFormState();
-    const template = loadActiveWaiverTemplate();
-    return {
-      ...initial,
-      legalTemplateAvailable: template.available,
-      legalBodyHtml: null,
-      legalVersionLabel: null,
-      templateVersionId: "",
-    };
-  });
+  const [state, setState] = useState<WaiverFormState>(() =>
+    createInitialWaiverFormState(),
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [templateLoadError, setTemplateLoadError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const idempotencyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const errorTitleId = useId();
@@ -91,6 +89,38 @@ export function WaiverFormClient() {
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function loadTemplate() {
+      setTemplateLoading(true);
+      setTemplateLoadError(null);
+      // Clear any prior template fields before fetch so stale content cannot submit.
+      setState((prev) => clearActiveTemplateFromFormState(prev));
+
+      const result = await fetchActiveWaiverTemplate({ signal: controller.signal });
+      if (cancelled) return;
+
+      if (!result.available) {
+        setState((prev) => clearActiveTemplateFromFormState(prev));
+        setTemplateLoadError(result.message);
+        setTemplateLoading(false);
+        return;
+      }
+
+      setState((prev) => applyActiveTemplateToFormState(prev, result.template));
+      setTemplateLoadError(null);
+      setTemplateLoading(false);
+    }
+
+    void loadTemplate();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
 
   const goNext = () => {
     setFormError(null);
@@ -109,7 +139,8 @@ export function WaiverFormClient() {
       return;
     }
     if (step === "legal") {
-      const nextErrors = validateConsentStep(state.consent);
+      // Includes template availability + consent — fail closed without server version.
+      const nextErrors = validateLegalStep(state);
       setErrors(nextErrors);
       if (Object.keys(nextErrors).length) return;
       setStep("signature");
@@ -159,8 +190,16 @@ export function WaiverFormClient() {
       return;
     }
 
-    if (!state.legalTemplateAvailable || !state.templateVersionId.trim()) {
-      setFormError(messageForPublicWaiverError("missing_template"));
+    if (
+      templateLoading ||
+      templateLoadError ||
+      !state.legalTemplateAvailable ||
+      !state.legalBodyHtml ||
+      !state.templateVersionId.trim()
+    ) {
+      setFormError(
+        templateLoadError ?? messageForPublicWaiverError("missing_template"),
+      );
       setStep("legal");
       return;
     }
@@ -429,7 +468,14 @@ export function WaiverFormClient() {
             <div className="space-y-4">
               <ErrorSummary errors={errors} titleId={errorTitleId} />
 
-              {state.legalTemplateAvailable && state.legalBodyHtml ? (
+              {templateLoading ? (
+                <div
+                  role="status"
+                  className="rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-4 text-sm font-semibold text-cyan-950"
+                >
+                  Loading the current waiver terms…
+                </div>
+              ) : state.legalTemplateAvailable && state.legalBodyHtml ? (
                 <div className="space-y-2">
                   {state.legalVersionLabel ? (
                     <p className="text-sm font-bold text-slate-700">
@@ -438,21 +484,23 @@ export function WaiverFormClient() {
                   ) : null}
                   <div
                     className="max-h-[50vh] overflow-y-auto rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-900 sm:text-base"
-                    // Backend-owned immutable HTML only — never client-authored legal text.
+                    // Exact API legalHtml only — never invent or paraphrase legal text.
                     dangerouslySetInnerHTML={{ __html: state.legalBodyHtml }}
                   />
                 </div>
               ) : (
                 <div
-                  role="status"
+                  role="alert"
                   className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-950"
                 >
                   <p className="font-black">Legal text unavailable</p>
                   <p className="mt-2">
-                    This site cannot load the backend-owned waiver legal text yet.
-                    A public template/version API is not part of the reviewed
-                    backend contract, so the wording is not shown here and online
-                    submission cannot be completed until that contract exists.
+                    {templateLoadError ??
+                      messageForPublicWaiverError("missing_template")}
+                  </p>
+                  <p className="mt-2 font-semibold">
+                    Online submission is blocked until the active waiver loads
+                    successfully.
                   </p>
                 </div>
               )}
@@ -648,7 +696,13 @@ export function WaiverFormClient() {
                 <button
                   type="button"
                   className={primaryBtnClass}
-                  disabled={submitting}
+                  disabled={
+                    submitting ||
+                    templateLoading ||
+                    !state.legalTemplateAvailable ||
+                    !state.templateVersionId.trim() ||
+                    !state.legalBodyHtml
+                  }
                   onClick={(event) => {
                     void onSubmit(event);
                   }}
@@ -656,7 +710,18 @@ export function WaiverFormClient() {
                   {submitting ? "Submitting…" : "Submit waiver"}
                 </button>
               ) : step !== "submit" ? (
-                <button type="button" className={primaryBtnClass} onClick={goNext}>
+                <button
+                  type="button"
+                  className={primaryBtnClass}
+                  disabled={
+                    step === "legal" &&
+                    (templateLoading ||
+                      !state.legalTemplateAvailable ||
+                      !state.templateVersionId.trim() ||
+                      !state.legalBodyHtml)
+                  }
+                  onClick={goNext}
+                >
                   Continue
                 </button>
               ) : null}
