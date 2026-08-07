@@ -21,6 +21,7 @@ import {
   SOCIAL_POST_MEDIA_PREVIEW_COPY,
   resolveSocialPostMediaPreviewState,
 } from "@/lib/social-posts/social-post-media-preview";
+import type { AgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 
 type Props = {
@@ -28,6 +29,7 @@ type Props = {
   token: string;
   sourceImages: SocialSourceImage[];
   marketingMemory: MarketingMemorySnapshot;
+  agentUiProtection: AgentUiProtectionStatus;
 };
 
 type JsonResponse = {
@@ -304,6 +306,7 @@ export default function SocialPostsAdminClient({
   token,
   sourceImages,
   marketingMemory,
+  agentUiProtection,
 }: Props) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -712,10 +715,11 @@ export default function SocialPostsAdminClient({
                             {(["facebook", "instagram"] as const).map((platform) => (
                               <label
                                 key={platform}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black capitalize"
+                                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black capitalize"
                               >
                                 <input
                                   type="checkbox"
+                                  className="size-5 shrink-0"
                                   checked={draft.platforms.includes(platform)}
                                   onChange={(event) => {
                                     const next = event.target.checked
@@ -859,6 +863,7 @@ export default function SocialPostsAdminClient({
                       post={post}
                       token={token}
                       sourceImages={sourceImages}
+                      agentUiProtection={agentUiProtection}
                       onSourceImageChange={(url) => void updatePostSourceImage(post.id, url)}
                       onGenerateComplete={() => router.refresh()}
                       onMessage={setMessage}

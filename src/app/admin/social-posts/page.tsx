@@ -9,6 +9,7 @@ import { replayMarketingMemory } from "@/lib/social-posts/marketing-memory/marke
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import { getSocialPostAdminSchemaLoadError } from "@/lib/social-posts/social-post-schema-readiness";
 import { SOCIAL_SOURCE_IMAGES } from "@/lib/social-posts/social-source-images";
+import { getAgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import AgentDraftForm from "./AgentDraftForm";
 import SourceImageField from "./SourceImageField";
 import SocialPostsAdminClient from "./SocialPostsAdminClient";
@@ -64,6 +65,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
     posts,
     campaigns: SOCIAL_CAMPAIGNS,
   });
+  const agentUiProtection = getAgentUiProtectionStatus();
 
   return (
     <main className="sp-page">
@@ -86,7 +88,11 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
           </div>
         ) : null}
 
-        <AgentDraftForm token={token} sourceImages={SOCIAL_SOURCE_IMAGES} />
+        <AgentDraftForm
+          token={token}
+          sourceImages={SOCIAL_SOURCE_IMAGES}
+          agentUiProtection={agentUiProtection}
+        />
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-4">
@@ -157,12 +163,24 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
             <div>
               <p className="text-sm font-black text-slate-700">Platforms</p>
               <div className="mt-2 flex flex-wrap gap-3">
-                <label className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
-                  <input type="checkbox" name="platforms" value="facebook" defaultChecked />
+                <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
+                  <input
+                    type="checkbox"
+                    name="platforms"
+                    value="facebook"
+                    defaultChecked
+                    className="size-5 shrink-0"
+                  />
                   Facebook
                 </label>
-                <label className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
-                  <input type="checkbox" name="platforms" value="instagram" defaultChecked />
+                <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
+                  <input
+                    type="checkbox"
+                    name="platforms"
+                    value="instagram"
+                    defaultChecked
+                    className="size-5 shrink-0"
+                  />
                   Instagram
                 </label>
               </div>
@@ -184,6 +202,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
             token={token}
             sourceImages={SOCIAL_SOURCE_IMAGES}
             marketingMemory={marketingMemory}
+            agentUiProtection={agentUiProtection}
           />
         )}
       </section>
