@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PwaRegistration } from "@/components/PwaRegistration";
 import { SiteChrome } from "./SiteChrome";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import "./globals.css";
@@ -16,6 +17,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(getCanonicalSiteUrl()),
+  applicationName: "Jumping Jax Operations",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Jumping Jax",
+  },
   title: {
     default: "Jumping Jax | Inflatable Rentals & Party Venue in Greenwood, SC",
     template: "%s | Jumping Jax",
@@ -49,6 +57,10 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#0f1f3d",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -60,6 +72,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
+        <PwaRegistration />
         <SiteChrome />
         <div>{children}</div>
       </body>
