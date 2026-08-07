@@ -1,10 +1,12 @@
 /**
  * Public waiver API client helpers (browser).
- * Uses only the reviewed routes: POST /api/waiver/submit and
- * GET /api/waiver/complete/[token].
+ * Routes used:
+ * - GET  /api/waiver/template/active
+ * - POST /api/waiver/submit
+ * - GET  /api/waiver/complete/[token]
  *
- * No public template/version route exists at the reviewed SHA, so template
- * loading is intentionally a documented no-op that returns unavailable.
+ * Legal HTML and version identity come only from the active-template API.
+ * Callers never supply template/version IDs to that route.
  */
 
 import {
@@ -12,7 +14,7 @@ import {
   parsePublicWaiverErrorResponse,
   type PublicWaiverErrorCode,
 } from "@/lib/waivers/public-errors";
-import type { PublicSubmitBody } from "@/lib/waivers/public-form";
+import type { PublicSubmitBody, WaiverFormState } from "@/lib/waivers/public-form";
 
 export type SubmitWaiverSuccess = {
   ok: true;
@@ -45,29 +47,191 @@ export type CompletionFailure = {
   status: number;
 };
 
-export type ActiveTemplateResult = {
-  available: false;
-  reason: "no_public_template_route";
-  detail: string;
+export type ActiveWaiverTemplatePayload = {
+  templateId: string;
+  versionId: string;
+  versionNumber: number;
+  title: string;
+  slug: string;
+  legalHtml: string;
+  publishedAt: string;
 };
 
+export type ActiveTemplateSuccess = {
+  available: true;
+  template: ActiveWaiverTemplatePayload;
+};
+
+export type ActiveTemplateFailure = {
+  available: false;
+  code: PublicWaiverErrorCode | string;
+  message: string;
+  status: number;
+};
+
+export type ActiveTemplateResult = ActiveTemplateSuccess | ActiveTemplateFailure;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 /**
- * There is no public waiver-template/version API at the reviewed backend SHA.
- * Do not invent a route or manufacture legal text.
+ * Parse the public active-template success payload.
+ * Rejects incomplete shapes so stale/partial data cannot be used.
  */
-export function loadActiveWaiverTemplate(): ActiveTemplateResult {
+export function parseActiveTemplateSuccessPayload(
+  payload: unknown,
+): ActiveWaiverTemplatePayload | null {
+  if (!payload || typeof payload !== "object") return null;
+  const body = payload as {
+    ok?: unknown;
+    template?: Partial<ActiveWaiverTemplatePayload> | null;
+  };
+  if (body.ok !== true || !body.template || typeof body.template !== "object") {
+    return null;
+  }
+  const t = body.template;
+  if (
+    !isNonEmptyString(t.templateId) ||
+    !isNonEmptyString(t.versionId) ||
+    !UUID_RE.test(t.versionId.trim()) ||
+    !isNonEmptyString(t.title) ||
+    !isNonEmptyString(t.slug) ||
+    !isNonEmptyString(t.legalHtml) ||
+    !isNonEmptyString(t.publishedAt) ||
+    typeof t.versionNumber !== "number" ||
+    !Number.isInteger(t.versionNumber) ||
+    t.versionNumber < 1
+  ) {
+    return null;
+  }
+  return {
+    templateId: t.templateId.trim(),
+    versionId: t.versionId.trim(),
+    versionNumber: t.versionNumber,
+    title: t.title.trim(),
+    slug: t.slug.trim(),
+    // Exact stored legal HTML — do not transform.
+    legalHtml: t.legalHtml,
+    publishedAt: t.publishedAt.trim(),
+  };
+}
+
+/** Apply a successful active-template load onto form state. */
+export function applyActiveTemplateToFormState(
+  state: WaiverFormState,
+  template: ActiveWaiverTemplatePayload,
+): WaiverFormState {
+  return {
+    ...state,
+    templateVersionId: template.versionId,
+    legalBodyHtml: template.legalHtml,
+    legalVersionLabel: `${template.title} (v${template.versionNumber})`,
+    legalTemplateAvailable: true,
+  };
+}
+
+/** Clear template fields so submission cannot use stale content. */
+export function clearActiveTemplateFromFormState(
+  state: WaiverFormState,
+): WaiverFormState {
+  return {
+    ...state,
+    templateVersionId: "",
+    legalBodyHtml: null,
+    legalVersionLabel: null,
+    legalTemplateAvailable: false,
+  };
+}
+
+/**
+ * Load the single active waiver template/version from the public API.
+ * Fail closed on 404 / 409 / 503 / network / unexpected shapes.
+ */
+export async function fetchActiveWaiverTemplate(options?: {
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<ActiveTemplateResult> {
+  const fetchImpl = options?.fetchImpl ?? fetch;
+  let response: Response;
+  try {
+    response = await fetchImpl("/api/waiver/template/active", {
+      method: "GET",
+      signal: options?.signal,
+      cache: "no-store",
+    });
+  } catch {
+    return {
+      available: false,
+      code: "network",
+      message: messageForPublicWaiverError("network"),
+      status: 0,
+    };
+  }
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (response.ok) {
+    const template = parseActiveTemplateSuccessPayload(payload);
+    if (!template) {
+      return {
+        available: false,
+        code: "unknown",
+        message: messageForPublicWaiverError("unknown"),
+        status: response.status,
+      };
+    }
+    return { available: true, template };
+  }
+
+  const parsed = parsePublicWaiverErrorResponse(payload, response.status);
+  // Map active-template 404 to missing_template so completion "not_found" copy stays intact.
+  if (response.status === 404 || parsed.code === "not_found") {
+    return {
+      available: false,
+      code: "missing_template",
+      message: messageForPublicWaiverError("missing_template"),
+      status: response.status,
+    };
+  }
   return {
     available: false,
-    reason: "no_public_template_route",
-    detail:
-      "No public GET route exposes waiver_template_versions.body_html or templateVersionId. Tables are RLS-denied to anon/authenticated.",
+    code: parsed.code,
+    message: parsed.message,
+    status: response.status,
   };
+}
+
+/** @deprecated Prefer fetchActiveWaiverTemplate — kept name for call-site clarity during migration. */
+export async function loadActiveWaiverTemplate(options?: {
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<ActiveTemplateResult> {
+  return fetchActiveWaiverTemplate(options);
 }
 
 export async function submitPublicWaiver(
   body: PublicSubmitBody,
   options?: { signal?: AbortSignal },
 ): Promise<SubmitWaiverSuccess | SubmitWaiverFailure> {
+  // Fail closed: never submit without a server-issued version id.
+  if (!body.templateVersionId.trim() || !UUID_RE.test(body.templateVersionId.trim())) {
+    return {
+      ok: false,
+      code: "missing_template",
+      message: messageForPublicWaiverError("missing_template"),
+      status: 0,
+    };
+  }
+
   let response: Response;
   try {
     response = await fetch("/api/waiver/submit", {

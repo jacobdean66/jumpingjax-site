@@ -19,6 +19,8 @@ export type PublicWaiverErrorCode =
   | "network"
   | "unknown"
   | "missing_template"
+  | "ambiguous_active_template"
+  | "incomplete_template"
   | "empty_signature"
   | "client_validation";
 
@@ -42,7 +44,11 @@ const MESSAGES: Record<PublicWaiverErrorCode, string> = {
   network: "Connection problem. Check your signal and try again.",
   unknown: "Something went wrong. Please try again.",
   missing_template:
-    "The waiver legal text is not available from the server yet, so this form cannot be completed online.",
+    "The waiver legal text is not available from the server, so this form cannot be completed online.",
+  ambiguous_active_template:
+    "The active waiver is not uniquely defined right now. Please ask staff for help.",
+  incomplete_template:
+    "The active waiver could not be loaded completely. Please ask staff for help or try again later.",
   empty_signature: "Please draw your signature before continuing.",
   client_validation: "Please fix the items below before continuing.",
 };

@@ -404,7 +404,7 @@ export function canNavigateToStep(
     if (step === "signer") errors = validateSignerStep(state.signer);
     else if (step === "participants") {
       errors = validateParticipantsStep(state.signer, state.participants);
-    } else if (step === "legal") errors = validateConsentStep(state.consent);
+    }     else if (step === "legal") errors = validateLegalStep(state);
     else if (step === "signature") errors = validateSignatureStep(state);
     if (Object.keys(errors).length > 0) {
       return { ok: false, errors, blockedAt: step };

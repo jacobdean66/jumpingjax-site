@@ -102,6 +102,20 @@ test("legal step reports missing public template contract", () => {
   assert.match(errors.template ?? "", /not available/i);
 });
 
+test("legal step accepts server-loaded template version + exact html presence gate", () => {
+  const state = createInitialWaiverFormState();
+  state.consent = {
+    acknowledgedRisk: true,
+    acknowledgedTerms: true,
+    isLegalGuardian: true,
+  };
+  state.legalTemplateAvailable = true;
+  state.templateVersionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+  state.legalBodyHtml = "<p>Exact</p>";
+  const errors = validateLegalStep(state);
+  assert.deepEqual(errors, {});
+});
+
 test("empty signature is rejected", () => {
   const state = createInitialWaiverFormState();
   state.signaturePresent = false;
