@@ -25,6 +25,7 @@ import {
   type CameraPreset,
   type MotionPreset,
 } from "@/lib/social-posts/video-director";
+import type { AgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 import type { SocialPostAdminRateLimitCategory } from "@/lib/social-posts/social-post-admin-rate-limit-core";
 import {
@@ -40,6 +41,7 @@ type Props = {
   post: SocialPost;
   token: string;
   sourceImages: SocialSourceImage[];
+  agentUiProtection: AgentUiProtectionStatus;
   onSourceImageChange: (url: string) => void;
   onGenerateComplete: () => void;
   onMessage: (message: string) => void;
@@ -202,12 +204,13 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between text-left"
+        aria-expanded={expanded}
+        className="flex min-h-11 w-full items-center justify-between gap-3 py-1 text-left"
       >
         <h3 className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
           {title}
         </h3>
-        <span className="text-xs font-black text-violet-700">
+        <span className="shrink-0 rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700">
           {expanded ? "Hide" : "Show"}
         </span>
       </button>
@@ -272,10 +275,12 @@ export default function DirectorsConsole({
   post,
   token,
   sourceImages,
+  agentUiProtection,
   onSourceImageChange,
   onGenerateComplete,
   onMessage,
 }: Props) {
+  const modelActionsDisabled = agentUiProtection.modelActionsDisabled;
   const [localFailure, setLocalFailure] = useState<LocalizedFailure | null>(null);
   const [previewFailure, setPreviewFailure] = useState<LocalizedFailure | null>(null);
   const [imageStatusFailure, setImageStatusFailure] = useState<LocalizedFailure | null>(null);
@@ -626,7 +631,11 @@ export default function DirectorsConsole({
   }, [post.id, imageStatus, generatedImageUrl, token, imageVerification, verificationRateLimited, applyApiFailure]);
 
   const fetchPreview = useCallback(async () => {
-    if (videoPreviewInFlightRef.current || previewLoading) {
+    if (
+      modelActionsDisabled ||
+      videoPreviewInFlightRef.current ||
+      previewLoading
+    ) {
       return null;
     }
     videoPreviewInFlightRef.current = true;
@@ -691,7 +700,16 @@ export default function DirectorsConsole({
       videoPreviewInFlightRef.current = false;
       setPreviewLoading(false);
     }
-  }, [post.id, token, motionPreset, cameraPreset, previewKey, previewLoading, applyApiFailure]);
+  }, [
+    post.id,
+    token,
+    motionPreset,
+    cameraPreset,
+    previewKey,
+    previewLoading,
+    applyApiFailure,
+    modelActionsDisabled,
+  ]);
 
   async function copyPrompt() {
     if (!finalPrompt.trim()) return;
@@ -708,7 +726,11 @@ export default function DirectorsConsole({
   }
 
   const fetchImagePreview = useCallback(async () => {
-    if (imagePreviewInFlightRef.current || imagePreviewLoading) {
+    if (
+      modelActionsDisabled ||
+      imagePreviewInFlightRef.current ||
+      imagePreviewLoading
+    ) {
       return;
     }
     imagePreviewInFlightRef.current = true;
@@ -778,6 +800,7 @@ export default function DirectorsConsole({
     imagePreviewKey,
     imagePreviewLoading,
     applyApiFailure,
+    modelActionsDisabled,
   ]);
 
   async function generateImage() {
@@ -1247,6 +1270,27 @@ export default function DirectorsConsole({
               Model-backed creative direction with deterministic fallback. Preview never generates an image.
               Approved catalog assets only. No Independent Reviewer agent — owner approval remains required.
             </p>
+            <p className="text-xs font-semibold text-slate-700">
+              {imagePreview?.complianceDecision
+                ? `Compliance: ${imagePreview.complianceDecision}${
+                    imagePreview.generationReady
+                      ? " — generation ready"
+                      : ` — locked (${imagePreview.generationReadyReason ?? "not allow"})`
+                  }`
+                : `${agentUiProtection.complianceWaitingLabel}${
+                    modelActionsDisabled && agentUiProtection.reason
+                      ? ` — ${agentUiProtection.reason}`
+                      : ""
+                  }`}
+            </p>
+            {modelActionsDisabled && agentUiProtection.reason ? (
+              <div
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950"
+              >
+                {agentUiProtection.reason}
+              </div>
+            ) : null}
             {imagePreview?.agentSource ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
                 Agent status:{" "}
@@ -1293,15 +1337,24 @@ export default function DirectorsConsole({
 
             <button
               type="button"
-              disabled={imagePreviewLoading || previewRateLimited}
+              disabled={
+                modelActionsDisabled || imagePreviewLoading || previewRateLimited
+              }
               onClick={() => void fetchImagePreview()}
-              className="min-h-10 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+              title={
+                modelActionsDisabled
+                  ? (agentUiProtection.reason ?? undefined)
+                  : undefined
+              }
+              className="min-h-11 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {imagePreviewLoading
                 ? "Image Director Agent…"
-                : previewRateLimited
-                  ? "Preview rate-limited"
-                  : "Preview Image Prompt"}
+                : modelActionsDisabled
+                  ? "Preview Image Prompt unavailable"
+                  : previewRateLimited
+                    ? "Preview rate-limited"
+                    : "Preview Image Prompt"}
             </button>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1317,7 +1370,7 @@ export default function DirectorsConsole({
                 type="button"
                 disabled={!imagePrompt.trim()}
                 onClick={() => void copyImagePrompt()}
-                className="ml-auto rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white disabled:opacity-50"
+                className="ml-auto min-h-11 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
               >
                 {imageCopied ? "Copied" : "Copy Image Prompt"}
               </button>
@@ -1412,14 +1465,6 @@ export default function DirectorsConsole({
                   />
                 ) : null}
 
-                {imagePreview?.complianceDecision ? (
-                  <p className="text-xs font-semibold text-slate-700">
-                    Compliance: {imagePreview.complianceDecision}
-                    {imagePreview.generationReady
-                      ? " — generation ready"
-                      : ` — locked (${imagePreview.generationReadyReason ?? "not allow"})`}
-                  </p>
-                ) : null}
                 <button
                   type="button"
                   disabled={
@@ -1429,7 +1474,7 @@ export default function DirectorsConsole({
                     generationRateLimited
                   }
                   onClick={() => void generateImage()}
-                  className="min-h-10 w-full rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-full bg-violet-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
                   title={
                     generationRateLimited
                       ? "Generation is temporarily rate-limited"
@@ -1595,6 +1640,31 @@ export default function DirectorsConsole({
               Model-backed shot planning with deterministic fallback. Preview never generates a video.
               Approved catalog assets only. No Independent Reviewer agent — owner approval remains required.
             </p>
+            <p className="text-xs font-semibold text-slate-700">
+              {videoComplianceDecision
+                ? `Compliance: ${videoComplianceDecision}${
+                    videoGenerationReady
+                      ? " — generation ready"
+                      : ` — locked (${videoGenerationReadyReason ?? "not allow"})`
+                  }${
+                    videoPreviewFingerprint
+                      ? ` · fp ${videoPreviewFingerprint.slice(0, 8)}`
+                      : ""
+                  }`
+                : `${agentUiProtection.complianceWaitingLabel}${
+                    modelActionsDisabled && agentUiProtection.reason
+                      ? ` — ${agentUiProtection.reason}`
+                      : ""
+                  }`}
+            </p>
+            {modelActionsDisabled && agentUiProtection.reason ? (
+              <div
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950"
+              >
+                {agentUiProtection.reason}
+              </div>
+            ) : null}
             {videoAgentSource ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
                 Agent status:{" "}
@@ -1620,7 +1690,7 @@ export default function DirectorsConsole({
                 type="button"
                 disabled={!finalPrompt.trim()}
                 onClick={() => void copyPrompt()}
-                className="ml-auto rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white disabled:opacity-50"
+                className="ml-auto min-h-11 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
               >
                 {copied ? "Copied" : "Copy Prompt"}
               </button>
@@ -1725,27 +1795,25 @@ export default function DirectorsConsole({
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                disabled={previewLoading || previewRateLimited}
+                disabled={
+                  modelActionsDisabled || previewLoading || previewRateLimited
+                }
                 onClick={() => void fetchPreview()}
-                className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+                title={
+                  modelActionsDisabled
+                    ? (agentUiProtection.reason ?? undefined)
+                    : undefined
+                }
+                className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {previewLoading
                   ? "Video Director Agent…"
-                  : previewRateLimited
-                    ? "Preview rate-limited"
-                    : "Preview Final Prompt"}
+                  : modelActionsDisabled
+                    ? "Preview Final Prompt unavailable"
+                    : previewRateLimited
+                      ? "Preview rate-limited"
+                      : "Preview Final Prompt"}
               </button>
-              {videoComplianceDecision ? (
-                <p className="w-full text-xs font-semibold text-slate-700">
-                  Compliance: {videoComplianceDecision}
-                  {videoGenerationAllowed
-                    ? " — generation ready"
-                    : ` — locked (${videoGenerationReadyReason ?? "not allow"})`}
-                  {videoPreviewFingerprint
-                    ? ` · fp ${videoPreviewFingerprint.slice(0, 8)}`
-                    : ""}
-                </p>
-              ) : null}
               {!post.media_url &&
               (post.status === "draft" || post.status === "approved") ? (
                 <button

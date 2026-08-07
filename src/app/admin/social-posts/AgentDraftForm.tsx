@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
+import type { AgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 import SourceImageField from "./SourceImageField";
 
 type Props = {
   token: string;
   sourceImages: SocialSourceImage[];
+  agentUiProtection: AgentUiProtectionStatus;
 };
 
 type AgentDraftResponse = {
@@ -64,7 +66,11 @@ const PREMADE_GOALS = [
 
 const CUSTOM_GOAL_VALUE = "custom";
 
-export default function AgentDraftForm({ token, sourceImages }: Props) {
+export default function AgentDraftForm({
+  token,
+  sourceImages,
+  agentUiProtection,
+}: Props) {
   const router = useRouter();
   const [selectedGoal, setSelectedGoal] = useState<string>(PREMADE_GOALS[0]);
   const [pending, setPending] = useState(false);
@@ -72,10 +78,11 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  const modelActionsDisabled = agentUiProtection.modelActionsDisabled;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlightRef.current || pending) {
+    if (modelActionsDisabled || inFlightRef.current || pending) {
       return;
     }
 
@@ -179,7 +186,22 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
           after the model. Nothing is published from this action. No Independent
           Reviewer agent exists — owner approval remains mandatory.
         </p>
+        <p className="mt-2 text-sm font-semibold text-slate-700">
+          {agentUiProtection.complianceWaitingLabel}
+          {modelActionsDisabled && agentUiProtection.reason
+            ? ` — ${agentUiProtection.reason}`
+            : ""}
+        </p>
       </div>
+
+      {modelActionsDisabled && agentUiProtection.reason ? (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-950"
+        >
+          {agentUiProtection.reason}
+        </div>
+      ) : null}
 
       {agentStatus ? (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800">
@@ -299,11 +321,20 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
         <div className="flex items-end">
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || modelActionsDisabled}
             aria-busy={pending}
+            title={
+              modelActionsDisabled
+                ? (agentUiProtection.reason ?? undefined)
+                : undefined
+            }
             className="min-h-11 w-full rounded-full bg-violet-600 px-5 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? "Social Strategy Agent…" : "Create AI Draft"}
+            {pending
+              ? "Social Strategy Agent…"
+              : modelActionsDisabled
+                ? "Create AI Draft unavailable"
+                : "Create AI Draft"}
           </button>
         </div>
       </form>
