@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { RENTALS } from "../../data/rentals";
 import {
+  FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
   ONE_DAY_RENTAL_DURATION,
   rangeHasBlocked,
@@ -14,6 +15,8 @@ import {
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
   estimateRentalLineSubtotal,
+  foamDurationLabelForBooking,
+  resolveNewFoamDurationLabel,
   resolveNewRentalDuration,
 } from "./rental-pricing-text";
 import {
@@ -23,11 +26,19 @@ import {
 import { PRIVATE_DURATION_OPTIONS } from "../facility-parties/constants";
 
 const standardRentals = RENTALS.filter((rental) => rental.slug !== "foam-party");
+const foamRental = RENTALS.find((rental) => rental.slug === "foam-party")!;
 const first = standardRentals[0]!;
 const second = standardRentals[1]!;
 const cart = [
   { rental_item: first.slug, rental_name: first.title },
   { rental_item: second.slug, rental_name: second.title },
+];
+const mixedFoamCart = [
+  { rental_item: first.slug, rental_name: first.title },
+  { rental_item: foamRental.slug, rental_name: foamRental.title },
+];
+const foamOnlyCart = [
+  { rental_item: foamRental.slug, rental_name: foamRental.title },
 ];
 
 test("standard rental customers can select only One Day", () => {
@@ -81,6 +92,65 @@ test("legacy half-day records remain readable without changing new options", () 
   );
   assert.match(confirmationRoute, /booking\.duration/);
   assert.doesNotMatch(confirmationRoute, /duration\s*!==\s*["']One Day/);
+});
+
+test("mixed foam + inflatable carts keep One Day rental duration and accept foam time", () => {
+  assert.deepEqual(resolveNewRentalDuration(mixedFoamCart, "1 hour"), {
+    label: "One Day",
+    spanDays: 1,
+  });
+  assert.equal(
+    resolveNewFoamDurationLabel(mixedFoamCart, "1 hour", "One Day"),
+    "1 hour",
+  );
+  assert.equal(
+    resolveNewFoamDurationLabel(mixedFoamCart, "", "One Day"),
+    FOAM_DURATION_OPTIONS[0]!.label,
+  );
+});
+
+test("mixed foam carts price foam from foam duration and inflatables from One Day", () => {
+  const oneHour = FOAM_DURATION_OPTIONS.find((option) => option.label === "1 hour")!;
+  const expectedFoam = Math.round(
+    foamRental.startingPrice * oneHour.priceMultiplier,
+  );
+  assert.equal(
+    estimateRentalLineSubtotal(mixedFoamCart[1]!, "One Day", 1, "1 hour"),
+    expectedFoam,
+  );
+  assert.equal(
+    estimateRentalLineSubtotal(mixedFoamCart[0]!, "One Day", 1, "1 hour"),
+    first.startingPrice,
+  );
+  assert.equal(
+    estimateCartRentalSubtotal(mixedFoamCart, "One Day", 1, "1 hour"),
+    first.startingPrice + expectedFoam,
+  );
+  assert.equal(
+    estimateCartGrandTotal(
+      mixedFoamCart,
+      "One Day",
+      1,
+      RENTAL_DELIVERY_BASE_FEE,
+      "1 hour",
+    ),
+    first.startingPrice + expectedFoam + RENTAL_DELIVERY_BASE_FEE,
+  );
+});
+
+test("foam-only carts still use booking duration as foam time", () => {
+  assert.deepEqual(resolveNewRentalDuration(foamOnlyCart, "2 hours"), {
+    label: "2 hours",
+    spanDays: 1,
+  });
+  assert.equal(
+    resolveNewFoamDurationLabel(foamOnlyCart, "", "2 hours"),
+    "2 hours",
+  );
+  assert.equal(
+    foamDurationLabelForBooking(foamOnlyCart, "2 hours", null),
+    "2 hours",
+  );
 });
 
 test("facility-party duration and pricing defaults remain unchanged", () => {

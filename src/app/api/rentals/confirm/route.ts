@@ -9,6 +9,7 @@ import {
 import {
   buildRentalCalendarDescription,
   buildRentalListWithPrices,
+  foamDurationLabelForBooking,
   formatEstimatedTotalLine,
   isFoamPartyRentalItem,
   rentalCalendarDateTimes,
@@ -24,7 +25,7 @@ import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 
 const RENTAL_BOOKING_SELECT =
-  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
+  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 type RentalBookingRow = {
   id: number | string;
@@ -35,6 +36,7 @@ type RentalBookingRow = {
   rental_name: string | null;
   event_date: string;
   duration: string | null;
+  foam_duration: string | null;
   span_days: number | null;
   event_address: string | null;
   delivery_time: string | null;
@@ -236,6 +238,7 @@ async function createMissingRentalCalendarEvent(input: {
   eventDate: string;
   spanDays: number;
   durationLabel: string;
+  foamDurationLabel: string | null;
   bookingTotal: number | null;
   customerName: string | null;
   customerEmail: string | null;
@@ -261,6 +264,7 @@ async function createMissingRentalCalendarEvent(input: {
   const description = buildRentalCalendarDescription({
     items: rentalOnlyItems,
     durationLabel: rentalDurationLabel,
+    foamDurationLabel: input.foamDurationLabel,
     spanDays: input.spanDays,
     total: input.bookingTotal,
     deliveryFee: input.booking.delivery_fee,
@@ -352,6 +356,7 @@ async function createMissingFoamCalendarEvent(input: {
   eventDate: string;
   spanDays: number;
   durationLabel: string;
+  foamDurationLabel: string | null;
   bookingTotal: number | null;
   customerName: string | null;
   customerEmail: string | null;
@@ -373,9 +378,12 @@ async function createMissingFoamCalendarEvent(input: {
     input.spanDays,
     input.booking.event_start_time,
   );
+  const foamDurationLabel =
+    input.foamDurationLabel ?? input.durationLabel;
   const description = buildRentalCalendarDescription({
     items: foamItems,
-    durationLabel: input.durationLabel,
+    durationLabel: foamDurationLabel,
+    foamDurationLabel,
     spanDays: input.spanDays,
     total: input.bookingTotal,
     deliveryFee: input.booking.delivery_fee,
@@ -684,10 +692,16 @@ async function handleRentalConfirm(
         : null;
 
   const calendarItems = await loadRentalItems(supabase, id, booking);
+  const foamDurationLabel = foamDurationLabelForBooking(
+    calendarItems,
+    durationLabel,
+    booking.foam_duration,
+  );
   const rentalListText = buildRentalListWithPrices(
     calendarItems,
     durationLabel,
     spanDays,
+    foamDurationLabel,
   );
   const estimatedTotalLine = formatEstimatedTotalLine(bookingTotal);
 
@@ -704,6 +718,7 @@ async function handleRentalConfirm(
         eventDate,
         spanDays,
         durationLabel,
+        foamDurationLabel,
         bookingTotal,
         customerName,
         customerEmail,
@@ -726,6 +741,7 @@ async function handleRentalConfirm(
         eventDate,
         spanDays,
         durationLabel,
+        foamDurationLabel,
         bookingTotal,
         customerName,
         customerEmail,
@@ -846,6 +862,9 @@ async function handleRentalConfirm(
             ? `Requested delivery window: ${booking.delivery_time.trim()}`
             : null,
         durationParts.length > 0 ? `Duration: ${durationParts.join(" - ")}` : null,
+        foamDurationLabel && foamDurationLabel !== durationLabel
+          ? `Foam time: ${foamDurationLabel}`
+          : null,
         booking.event_address?.trim()
           ? `Event address: ${booking.event_address.trim()}`
           : null,

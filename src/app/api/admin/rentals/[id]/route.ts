@@ -20,13 +20,14 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import {
   buildRentalCalendarDescription,
+  foamDurationLabelForBooking,
   isFoamPartyRentalItem,
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const RENTAL_EDIT_SELECT =
-  "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
+  "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 type RentalEditRow = {
   id: number | string;
@@ -38,6 +39,7 @@ type RentalEditRow = {
   rental_name: string | null;
   event_date: string;
   duration: string | null;
+  foam_duration: string | null;
   span_days: number | null;
   event_address: string | null;
   delivery_time: string | null;
@@ -145,6 +147,11 @@ async function syncApprovedRentalCalendar(input: {
   const foamItems = calendarItems.filter((item) =>
     isFoamPartyRentalItem(item.rental_item),
   );
+  const foamDurationLabel = foamDurationLabelForBooking(
+    calendarItems,
+    durationLabel,
+    input.booking.foam_duration,
+  );
 
   let ok = true;
 
@@ -153,6 +160,7 @@ async function syncApprovedRentalCalendar(input: {
       items: rentalOnlyItems,
       durationLabel:
         rentalOnlyItems.length === calendarItems.length ? durationLabel : "One Day",
+      foamDurationLabel,
       spanDays,
       total: input.booking.total,
       deliveryFee: input.booking.delivery_fee,
@@ -216,9 +224,11 @@ async function syncApprovedRentalCalendar(input: {
   }
 
   if (foamItems.length > 0 && input.booking.google_foam_calendar_event_id) {
+    const foamCalendarDuration = foamDurationLabel ?? durationLabel;
     const foamDescription = buildRentalCalendarDescription({
       items: foamItems,
-      durationLabel,
+      durationLabel: foamCalendarDuration,
+      foamDurationLabel: foamCalendarDuration,
       spanDays,
       total: input.booking.total,
       deliveryFee: input.booking.delivery_fee,

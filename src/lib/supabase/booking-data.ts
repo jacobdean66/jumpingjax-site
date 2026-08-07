@@ -36,6 +36,7 @@ export type CreateBookingInput = {
   phone: string;
   eventDateYmd: string;
   durationLabel: string;
+  foamDurationLabel?: string | null;
   spanDays: number;
   eventAddress: string;
   delivery_time?: string;
@@ -106,6 +107,7 @@ export async function insertPendingBooking(
       status: string;
       rental_name?: string;
       duration?: string;
+      foam_duration?: string | null;
       event_address?: string;
       delivery_time?: string;
       event_start_time?: string;
@@ -128,6 +130,7 @@ export async function insertPendingBooking(
       customer_phone: input.phone.trim(),
       event_date: input.eventDateYmd,
       duration: input.durationLabel,
+      foam_duration: input.foamDurationLabel?.trim() || null,
       span_days: spanDays,
       event_address: input.eventAddress.trim(),
       delivery_time: input.delivery_time,
