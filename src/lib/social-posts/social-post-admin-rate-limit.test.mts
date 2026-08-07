@@ -21,6 +21,7 @@ test("rate limit allows requests up to category limit", () => {
     polling: { limit: 2, windowMs: 60_000 },
     preview: { limit: 2, windowMs: 60_000 },
     verification: { limit: 2, windowMs: 60_000 },
+    draft: { limit: 2, windowMs: 60_000 },
   };
 
   const first = checkSocialPostAdminRateLimit({
@@ -59,6 +60,7 @@ test("rate limit buckets are isolated per category and client", () => {
     polling: { limit: 1, windowMs: 60_000 },
     preview: { limit: 1, windowMs: 60_000 },
     verification: { limit: 1, windowMs: 60_000 },
+    draft: { limit: 1, windowMs: 60_000 },
   };
 
   const generation = checkSocialPostAdminRateLimit({

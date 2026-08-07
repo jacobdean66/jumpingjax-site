@@ -18,10 +18,32 @@ import {
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import {
   getSocialPostById,
+  listSocialPosts,
   startSocialPostImageGeneration,
 } from "@/lib/social-posts/social-post-data";
-import { socialVideoSourceImageUrl } from "@/lib/social-posts/social-video-utils";
-import { sourceImageCategory } from "@/lib/social-posts/video-director";
+import { resolveApprovedAssetContext } from "@/lib/social-posts/agents/approved-asset-context";
+import { evaluateEditedPromptCompliance } from "@/lib/social-posts/agents/agent-compliance-gate";
+import {
+  AGENT_INPUT_LIMITS,
+  AgentInputValidationError,
+  boundOptionalText,
+} from "@/lib/social-posts/agents/agent-input-bounds";
+import {
+  beginAgentIdempotentAction,
+  completeAgentIdempotentAction,
+  failAgentIdempotentAction,
+  normalizeIdempotencyKey,
+} from "@/lib/social-posts/agents/agent-idempotency";
+import { buildSocialPostAdminRateLimitClientKey } from "@/lib/social-posts/social-post-admin-rate-limit-core";
+import {
+  complianceAllowsPaidGeneration,
+  paidGenerationDeniedResponse,
+} from "@/lib/social-posts/agents/generation-gate";
+import {
+  paidGenerationProtectionBlock,
+  protectionMetadata,
+} from "@/lib/social-posts/agents/agent-protection-mode";
+import { buildImageGenerationFingerprint } from "@/lib/social-posts/agents/preview-fingerprint";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -33,6 +55,7 @@ type GenerateImageRequest = {
   imageDirectionPreset?: string | null;
   sourceImageUrl?: string | null;
   mode?: "edit" | "generate" | null;
+  idempotencyKey?: string;
 };
 
 function normalizeProviderStatus(status: string): string {
@@ -44,6 +67,8 @@ function normalizeProviderStatus(status: string): string {
 
 export async function POST(req: NextRequest, context: RouteContext) {
   const route = "/api/social-posts/[id]/generate-image";
+  let idemStoreKey: string | null = null;
+  let fingerprint = "";
 
   try {
     const body = (await req.json()) as GenerateImageRequest;
@@ -61,13 +86,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return schemaGuard;
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
-      route,
-      category: "generation",
-      token: body.token,
-    });
-    if (limited) {
-      return limited;
+    const protectionBlock = paidGenerationProtectionBlock();
+    if (protectionBlock) {
+      return NextResponse.json(protectionBlock, { status: 503 });
     }
 
     const { id } = await context.params;
@@ -87,13 +108,32 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
+    const limited = socialPostAdminRateLimitResponse(req, {
+      route,
+      category: "generation",
+      token: body.token,
+    });
+    if (limited) {
+      return limited;
+    }
+
     const preset = normalizeImageStudioPresetValue(body.imageDirectionPreset);
-    const resolvedSourceImageUrl = socialVideoSourceImageUrl(
-      typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
+    const candidateUrl =
+      (typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
         ? body.sourceImageUrl.trim()
-        : post.source_image_url,
-    );
-    const category = sourceImageCategory(resolvedSourceImageUrl);
+        : null) ||
+      post.source_image_url ||
+      null;
+    const assetResolved = resolveApprovedAssetContext(candidateUrl);
+    if (!assetResolved.ok) {
+      return NextResponse.json(
+        { ok: false, error: assetResolved.error, code: "unapproved_asset" },
+        { status: 400 },
+      );
+    }
+
+    const resolvedSourceImageUrl = assetResolved.asset?.url ?? null;
+    const category = assetResolved.asset?.category ?? null;
     const campaignName =
       getSocialCampaign(post.campaign_id)?.label ??
       (post.campaign_id ? post.campaign_id : null);
@@ -101,7 +141,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const { prompt: builtPrompt } = buildImageDirectorPrompt({
       originalSourceImageUrl: resolvedSourceImageUrl,
       campaignName,
-      postPrompt: post.prompt ?? "",
+      postPrompt: (post.prompt ?? "").slice(0, AGENT_INPUT_LIMITS.prompt),
       sourceImageCategory: category,
       imageStudioPreset: preset,
       platforms: post.platforms,
@@ -109,7 +149,44 @@ export async function POST(req: NextRequest, context: RouteContext) {
       formatVariantId: post.format_variant_id,
     });
 
-    const generationPrompt = body.finalImagePrompt?.trim() || builtPrompt;
+    const editedPrompt = boundOptionalText(
+      body.finalImagePrompt,
+      "finalImagePrompt",
+      AGENT_INPUT_LIMITS.prompt,
+    );
+    const generationPrompt = editedPrompt || builtPrompt;
+
+    let compliance;
+    try {
+      const posts = await listSocialPosts();
+      compliance = evaluateEditedPromptCompliance({
+        prompt: generationPrompt,
+        caption: post.caption,
+        title: post.title,
+        campaignId: post.campaign_id,
+        posts,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Authoritative compliance specifications could not be loaded.",
+          code: "compliance_specs_unavailable",
+        },
+        { status: 503 },
+      );
+    }
+
+    // Models cannot override: quarantine and block both deny paid generation.
+    if (!complianceAllowsPaidGeneration(compliance)) {
+      return NextResponse.json(paidGenerationDeniedResponse(compliance), {
+        status: 422,
+      });
+    }
+
     const mediaFormat = resolvePostMediaFormat({
       platforms: post.platforms,
       placement: post.post_placement,
@@ -119,6 +196,44 @@ export async function POST(req: NextRequest, context: RouteContext) {
       mode: body.mode,
       sourceImageUrl: resolvedSourceImageUrl,
     });
+
+    fingerprint = buildImageGenerationFingerprint({
+      postId: id,
+      prompt: generationPrompt,
+      preset,
+      mode,
+      assetId: assetResolved.asset?.url ?? null,
+      aspectRatio: mediaFormat.aspectRatio,
+    });
+    const idempotencyKey = normalizeIdempotencyKey(
+      body.idempotencyKey ?? req.headers.get("idempotency-key"),
+    );
+    const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
+    const idem = beginAgentIdempotentAction({
+      clientKey,
+      action: "generate-image",
+      idempotencyKey,
+      fingerprint,
+    });
+    if (idem.kind === "replay") {
+      return NextResponse.json(idem.body, { status: idem.status });
+    }
+    if (idem.kind === "in_progress") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "An identical image generation request is already in progress.",
+          code: "duplicate_in_progress",
+          retryAfterSeconds: idem.retryAfterSeconds,
+          protection: protectionMetadata(),
+        },
+        {
+          status: 409,
+          headers: { "Retry-After": String(idem.retryAfterSeconds) },
+        },
+      );
+    }
+    idemStoreKey = idem.storeKey;
 
     const result = await startImageGeneration({
       prompt: generationPrompt,
@@ -185,7 +300,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     revalidatePath("/admin/social-posts");
 
-    return NextResponse.json({
+    const responseBody = {
       ok: true,
       post: updatedPost,
       predictionId: result.predictionId,
@@ -197,8 +312,32 @@ export async function POST(req: NextRequest, context: RouteContext) {
       aspectRatio: mediaFormat.aspectRatio,
       formatVariantId: mediaFormat.variantId,
       recommendedDimensions: `${mediaFormat.recommendedWidth}x${mediaFormat.recommendedHeight}`,
+      asset: assetResolved.asset,
+      compliance,
+      protection: protectionMetadata(),
+      publication: {
+        published: false,
+        note: "Image generation started only after compliance allow. Nothing was published.",
+      },
+    };
+
+    completeAgentIdempotentAction({
+      storeKey: idemStoreKey,
+      fingerprint,
+      status: 200,
+      body: responseBody,
     });
+    return NextResponse.json(responseBody);
   } catch (error) {
+    if (idemStoreKey) {
+      failAgentIdempotentAction(idemStoreKey);
+    }
+    if (error instanceof AgentInputValidationError) {
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       {
         ok: false,

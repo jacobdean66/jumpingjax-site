@@ -30,6 +30,7 @@ const CATEGORY_LABELS: Record<SocialPostAdminRateLimitCategory, string> = {
   polling: "status polling",
   preview: "director preview",
   verification: "image verification",
+  draft: "AI draft planning",
 };
 
 export function socialPostAdminRateLimitCategoryLabel(
