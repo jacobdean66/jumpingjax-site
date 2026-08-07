@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
 import SourceImageField from "./SourceImageField";
@@ -14,6 +14,37 @@ type Props = {
 type AgentDraftResponse = {
   ok?: boolean;
   error?: string;
+  agent?: {
+    agentId?: string;
+    source?: "model" | "deterministic-fallback";
+    provider?: string;
+    model?: string | null;
+    requestId?: string;
+    fallbackReason?: string | null;
+    failureKind?: string | null;
+  };
+  compliance?: {
+    deterministic?: boolean;
+    resultState?: string;
+    decision?: "allow" | "quarantine" | "block";
+    summary?: string;
+    allowedToProceed?: boolean;
+  };
+  generationReady?: boolean;
+  generationReadyReason?: string;
+  workflow?: {
+    independentReviewerImplemented?: boolean;
+    ownerApprovalRequired?: boolean;
+    note?: string;
+  };
+  strategy?: {
+    ownerInputRequired?: string[];
+    factualConstraints?: string[];
+  };
+  publication?: {
+    published?: boolean;
+    note?: string;
+  };
 };
 
 const PREMADE_GOALS = [
@@ -39,15 +70,23 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (inFlightRef.current || pending) {
+      return;
+    }
+
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
+    inFlightRef.current = true;
     setPending(true);
     setMessage(null);
     setError(null);
+    setAgentStatus("Social Strategy / Copy Agent running…");
 
     const customGoal = String(form.get("custom_goal") ?? "").trim();
     const goal = selectedGoal === CUSTOM_GOAL_VALUE ? customGoal : selectedGoal;
@@ -69,18 +108,61 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
       const data = (await response.json()) as AgentDraftResponse;
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error ?? "AI draft could not be created.");
+        const complianceDecision = data.compliance?.decision;
+        const prefix =
+          complianceDecision === "block"
+            ? "Blocked by deterministic compliance. "
+            : complianceDecision === "quarantine"
+              ? "Quarantined by deterministic compliance. "
+              : "";
+        throw new Error(
+          `${prefix}${data.error ?? "AI draft could not be created."}`,
+        );
       }
+
+      const sourceLabel =
+        data.agent?.source === "model"
+          ? "model-backed"
+          : data.agent?.source === "deterministic-fallback"
+            ? "deterministic fallback"
+            : "unknown";
+      const ownerNeeds = data.strategy?.ownerInputRequired?.length
+        ? ` Owner input needed: ${data.strategy.ownerInputRequired.slice(0, 2).join(" ")}`
+        : "";
+      const complianceDecision = data.compliance?.decision ?? null;
+      const complianceNote = data.compliance?.summary
+        ? ` Compliance: ${complianceDecision ?? "unknown"} — ${data.compliance.summary}`
+        : "";
+      const quarantineLabel =
+        complianceDecision === "quarantine"
+          ? " QUARANTINE working draft only — not compliant, not publishable, not generation-ready."
+          : "";
+      const generationNote = data.generationReadyReason
+        ? ` ${data.generationReadyReason}`
+        : " Paid generation remains locked until compliance allow on the exact prompt.";
+      const workflowNote =
+        data.workflow?.independentReviewerImplemented === false
+          ? " No Independent Reviewer agent. Owner approval required."
+          : "";
 
       setSelectedGoal(PREMADE_GOALS[0]);
       if (formElement) {
         formElement.reset();
       }
-      setMessage("AI draft created");
+      setAgentStatus(
+        `Social Strategy / Copy Agent ${sourceLabel}${
+          data.agent?.model ? ` (${data.agent.model})` : ""
+        }${data.agent?.failureKind ? ` [${data.agent.failureKind}]` : ""}.`,
+      );
+      setMessage(
+        `AI draft created (${sourceLabel}). Not published.${ownerNeeds}${complianceNote}${quarantineLabel}${generationNote}${workflowNote}`,
+      );
       router.refresh();
     } catch (caught) {
+      setAgentStatus(null);
       setError(caught instanceof Error ? caught.message : "AI draft failed.");
     } finally {
+      inFlightRef.current = false;
       setPending(false);
     }
   }
@@ -91,9 +173,20 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
         <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
           Create AI Draft
         </p>
-        <h2 className="mt-1 text-2xl font-black">Agent social post plan</h2>
+        <h2 className="mt-1 text-2xl font-black">Social Strategy / Copy Agent</h2>
+        <p className="mt-1 text-sm font-semibold text-slate-600">
+          Creates a structured draft plan only. Deterministic compliance runs
+          after the model. Nothing is published from this action. No Independent
+          Reviewer agent exists — owner approval remains mandatory.
+        </p>
       </div>
 
+      {agentStatus ? (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800">
+          {pending ? "Running: " : "Last run: "}
+          {agentStatus}
+        </div>
+      ) : null}
       {message ? (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
           {message}
@@ -121,7 +214,7 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
             ))}
           </select>
           <span className="mt-1 block text-xs font-semibold text-slate-500">
-            Campaigns guide the Creative Director rules while the goal can still refine the post.
+            Campaigns guide strategy while the goal can still refine the post.
           </span>
         </label>
 
@@ -207,9 +300,10 @@ export default function AgentDraftForm({ token, sourceImages }: Props) {
           <button
             type="submit"
             disabled={pending}
+            aria-busy={pending}
             className="min-h-11 w-full rounded-full bg-violet-600 px-5 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? "Creating..." : "Create AI Draft"}
+            {pending ? "Social Strategy Agent…" : "Create AI Draft"}
           </button>
         </div>
       </form>

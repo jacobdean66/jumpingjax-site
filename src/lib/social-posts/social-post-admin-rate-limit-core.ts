@@ -2,7 +2,8 @@ export type SocialPostAdminRateLimitCategory =
   | "generation"
   | "polling"
   | "preview"
-  | "verification";
+  | "verification"
+  | "draft";
 
 export type SocialPostAdminRateLimitConfig = {
   limit: number;
@@ -21,6 +22,8 @@ export const SOCIAL_POST_ADMIN_RATE_LIMITS: Record<
   preview: { limit: 40, windowMs: 60 * 1000 },
   // Sharp verification + remote image fetch.
   verification: { limit: 60, windowMs: 60 * 1000 },
+  // Social Strategy / regenerate — one intentional charged planning burst.
+  draft: { limit: 8, windowMs: 5 * 60 * 1000 },
 };
 
 type Bucket = {

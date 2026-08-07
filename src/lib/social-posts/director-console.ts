@@ -27,6 +27,9 @@ export type DirectorPreviewInput = {
   businessFocus: SocialPostBusinessFocus;
   postSourceImageUrl: string | null;
   approvedImageUrl?: string | null;
+  /** When set by a route that already authorized the asset, skip re-resolve. */
+  verifiedSourceImageUrl?: string | null;
+  postId?: string | null;
   motionPreset?: string | null;
   cameraPreset?: string | null;
   creativeSource?: string | null;
@@ -64,6 +67,8 @@ export type DirectorPreviewResult = {
   generationSettings: GenerationSettings;
   safetyWarnings: string[];
   costEstimate: CostEstimate;
+  videoDirection?: import("./agents/video-director-agent").VideoDirectorCreativeDirection;
+  agentDiagnostics?: import("./agents/agent-types").AgentDiagnostics;
 };
 
 const PRODUCT_IMAGE_CATEGORIES = new Set([
@@ -227,8 +232,9 @@ export function estimateDirectorCosts(
   const openAiUsd = 0;
   const videoGenerationUsd = qualityMode === "high" ? 0.45 : 0.15;
   const notes = [
-    "OpenAI cost is $0 for preview/generate because the Creative Director prompt is already stored.",
-    "Video cost is a rough draft-mode estimate for the external AI Video App.",
+    "Deterministic preview path does not call the language model.",
+    "Model-backed Video Director preview may add a small planning cost when enabled.",
+    "Video cost is a rough draft-mode estimate for the external AI Video App and is not charged by preview alone.",
   ];
 
   return {
@@ -283,5 +289,111 @@ export function buildDirectorPreview(
     generationSettings,
     safetyWarnings,
     costEstimate: estimateDirectorCosts(generationSettings.qualityMode),
+  };
+}
+
+/**
+ * Model-backed Video Director preview. Falls back to deterministic prompt rewriting.
+ * Does not start video generation.
+ * Requires approved catalog assets when a source image URL is present.
+ */
+export async function buildDirectorPreviewWithAgent(
+  input: DirectorPreviewInput,
+): Promise<DirectorPreviewResult> {
+  const { runVideoDirectorAgent } = await import("./agents/video-director-agent");
+  const { resolveVideoSourceAssetContext } = await import(
+    "./agents/approved-asset-context"
+  );
+
+  const motionPreset = normalizeMotionPresetValue(input.motionPreset);
+  const cameraPreset = normalizeCameraPresetValue(input.cameraPreset);
+
+  const assetResolved = resolveVideoSourceAssetContext({
+    candidateUrl:
+      input.verifiedSourceImageUrl?.trim() ||
+      input.approvedImageUrl?.trim() ||
+      input.postSourceImageUrl?.trim() ||
+      null,
+    postApprovedImageUrl: input.approvedImageUrl,
+    postId: input.postId ?? "preview",
+  });
+  if (!assetResolved.ok) {
+    throw new Error(assetResolved.error);
+  }
+
+  const resolvedSourceImageUrl =
+    input.verifiedSourceImageUrl?.trim() || assetResolved.url;
+  const approvedAssetSummary = assetResolved.metadataSummary;
+  const sourceImageCategory = assetResolved.category;
+  const sourceImageLabel = assetResolved.label;
+
+  const generationSettings = getGenerationSettings(motionPreset, cameraPreset, {
+    platforms: input.platforms,
+    postPlacement: input.postPlacement,
+  });
+
+  const agentResult = await runVideoDirectorAgent({
+    originalPrompt: input.originalPrompt,
+    campaignId: input.campaignId,
+    goal: input.goal,
+    businessFocus: input.businessFocus,
+    sourceImageUrl: resolvedSourceImageUrl,
+    approvedAssetSummary,
+    sourceImageCategory,
+    sourceImageLabel,
+    motionPreset,
+    cameraPreset,
+    platforms: input.platforms,
+    postPlacement: input.postPlacement,
+    durationSeconds: generationSettings.durationSeconds,
+    aspectRatio: generationSettings.aspectRatio,
+  });
+
+  const baseline = buildDirectorPreview({
+    ...input,
+    approvedImageUrl: resolvedSourceImageUrl,
+    postSourceImageUrl: resolvedSourceImageUrl,
+  });
+  if (!agentResult.ok) {
+    return {
+      ...baseline,
+      resolvedSourceImageUrl,
+      sourceImageCategory,
+      sourceImageLabel,
+      agentDiagnostics: agentResult.diagnostics,
+    };
+  }
+
+  const finalVideoPrompt = agentResult.output.finalVideoGenerationPrompt;
+  const safetyWarnings = getDirectorSafetyWarnings({
+    finalPrompt: finalVideoPrompt,
+    campaignId: input.campaignId,
+    resolvedSourceImageUrl,
+  });
+
+  const openAiUsd =
+    agentResult.diagnostics.source === "model" ? 0.01 : 0;
+  const costEstimate: CostEstimate = {
+    openAiUsd,
+    videoGenerationUsd: baseline.costEstimate.videoGenerationUsd,
+    totalUsd: openAiUsd + baseline.costEstimate.videoGenerationUsd,
+    notes: [
+      agentResult.diagnostics.source === "model"
+        ? "Video Director used one model-backed planning call (no video generated)."
+        : `Video Director used deterministic fallback: ${agentResult.diagnostics.fallbackReason ?? "unknown"}.`,
+      "Video generation cost is only incurred if Generate Media is explicitly started.",
+    ],
+  };
+
+  return {
+    ...baseline,
+    resolvedSourceImageUrl,
+    sourceImageCategory,
+    sourceImageLabel,
+    finalVideoPrompt,
+    safetyWarnings,
+    costEstimate,
+    videoDirection: agentResult.output,
+    agentDiagnostics: agentResult.diagnostics,
   };
 }

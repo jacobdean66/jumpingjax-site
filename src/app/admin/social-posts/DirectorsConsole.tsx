@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DirectorPreviewResult } from "@/lib/social-posts/director-console";
 import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import {
@@ -45,10 +45,64 @@ type Props = {
   onMessage: (message: string) => void;
 };
 
+type ComplianceDecision = "allow" | "quarantine" | "block";
+
+type CompliancePayload = {
+  decision?: ComplianceDecision;
+  allowedToProceed?: boolean;
+  summary?: string;
+  resultState?: string;
+};
+
+type ImageDirectorPreviewResponse = {
+  ok?: boolean;
+  error?: string;
+  finalImagePrompt?: string;
+  warnings?: string[];
+  costEstimate?: ImageDirectorCostEstimate;
+  preset?: ImageDirectionPreset;
+  sourceImageCategory?: string | null;
+  fingerprint?: string;
+  generationReady?: boolean;
+  generationReadyReason?: string;
+  compliance?: CompliancePayload;
+  direction?: {
+    visualConcept?: string;
+    composition?: string;
+    subject?: string;
+    backgroundEnvironment?: string;
+    textOverlayRecommendation?: string;
+    aspectRatioOrFraming?: string;
+    brandConstraints?: string[];
+    prohibitedOrRiskyElements?: string[];
+    finalImageGenerationPrompt?: string;
+  } | null;
+  agent?: {
+    agentId?: string;
+    source?: "model" | "deterministic-fallback";
+    provider?: string;
+    model?: string | null;
+    requestId?: string;
+    fallbackReason?: string | null;
+  } | null;
+};
+
 type PreviewResponse = {
   ok?: boolean;
   error?: string;
   preview?: DirectorPreviewResult;
+  fingerprint?: string;
+  generationReady?: boolean;
+  generationReadyReason?: string;
+  compliance?: CompliancePayload;
+  agent?: {
+    agentId?: string;
+    source?: "model" | "deterministic-fallback";
+    provider?: string;
+    model?: string | null;
+    requestId?: string;
+    fallbackReason?: string | null;
+  } | null;
 };
 
 type GenerateResponse = {
@@ -71,16 +125,6 @@ const VIDEO_POLL_ATTEMPTS = 120;
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
-
-type ImageDirectorPreviewResponse = {
-  ok?: boolean;
-  error?: string;
-  finalImagePrompt?: string;
-  warnings?: string[];
-  costEstimate?: ImageDirectorCostEstimate;
-  preset?: ImageDirectionPreset;
-  sourceImageCategory?: string | null;
-};
 
 type ImageGenerateResponse = {
   ok?: boolean;
@@ -258,11 +302,41 @@ export default function DirectorsConsole({
   const [imagePrompt, setImagePrompt] = useState("");
   const [imagePreview, setImagePreview] = useState<{
     cacheKey: string;
+    previewedPrompt: string;
+    fingerprint?: string | null;
     safetyWarnings: string[];
     costEstimate: ImageDirectorCostEstimate;
+    agentSource?: "model" | "deterministic-fallback" | null;
+    agentModel?: string | null;
+    agentFallbackReason?: string | null;
+    directionSummary?: string | null;
+    complianceDecision?: ComplianceDecision | null;
+    generationReady?: boolean;
+    generationReadyReason?: string | null;
   } | null>(null);
+  const [videoComplianceDecision, setVideoComplianceDecision] =
+    useState<ComplianceDecision | null>(null);
+  const [videoGenerationReady, setVideoGenerationReady] = useState(false);
+  const [videoGenerationReadyReason, setVideoGenerationReadyReason] = useState<
+    string | null
+  >(null);
+  const [videoPreviewFingerprint, setVideoPreviewFingerprint] = useState<
+    string | null
+  >(null);
+  const [videoPreviewedPrompt, setVideoPreviewedPrompt] = useState<string | null>(
+    null,
+  );
   const [imageCopied, setImageCopied] = useState(false);
   const [imagePreviewLoading, setImagePreviewLoading] = useState(false);
+  const [videoAgentSource, setVideoAgentSource] = useState<
+    "model" | "deterministic-fallback" | null
+  >(null);
+  const [videoAgentModel, setVideoAgentModel] = useState<string | null>(null);
+  const [videoAgentFallbackReason, setVideoAgentFallbackReason] = useState<
+    string | null
+  >(null);
+  const imagePreviewInFlightRef = useRef(false);
+  const videoPreviewInFlightRef = useRef(false);
   const [imageGenerating, setImageGenerating] = useState(false);
   const [activeImageGeneration, setActiveImageGeneration] = useState<{
     status: string | null;
@@ -308,7 +382,11 @@ export default function DirectorsConsole({
     ],
   );
 
-  const previewStale = preview !== null && previewKey !== preview.cacheKey;
+  const previewStale =
+    preview !== null &&
+    (previewKey !== preview.cacheKey ||
+      (videoPreviewedPrompt !== null &&
+        finalPrompt.trim() !== videoPreviewedPrompt.trim()));
 
   const sourceImageUrl =
     preview?.resolvedSourceImageUrl ??
@@ -352,7 +430,21 @@ export default function DirectorsConsole({
   );
 
   const imagePreviewStale =
-    imagePreview !== null && imagePreviewKey !== imagePreview.cacheKey;
+    imagePreview !== null &&
+    (imagePreviewKey !== imagePreview.cacheKey ||
+      imagePrompt.trim() !== imagePreview.previewedPrompt.trim());
+
+  const imageGenerationAllowed =
+    !!imagePreview &&
+    !imagePreviewStale &&
+    imagePreview.generationReady === true &&
+    imagePreview.complianceDecision === "allow";
+
+  const videoGenerationAllowed =
+    !!preview &&
+    !previewStale &&
+    videoGenerationReady &&
+    videoComplianceDecision === "allow";
 
   const previewRateLimited = isSocialPostRateLimitCooldownActive(
     rateLimitCooldowns.preview,
@@ -534,6 +626,10 @@ export default function DirectorsConsole({
   }, [post.id, imageStatus, generatedImageUrl, token, imageVerification, verificationRateLimited, applyApiFailure]);
 
   const fetchPreview = useCallback(async () => {
+    if (videoPreviewInFlightRef.current || previewLoading) {
+      return null;
+    }
+    videoPreviewInFlightRef.current = true;
     setPreviewLoading(true);
     setPreviewFailure(null);
     setLocalFailure(null);
@@ -569,6 +665,22 @@ export default function DirectorsConsole({
       const nextPreview = { ...data.preview, cacheKey: previewKey };
       setPreview(nextPreview);
       setFinalPrompt(nextPreview.finalVideoPrompt);
+      setVideoPreviewedPrompt(nextPreview.finalVideoPrompt);
+      setVideoPreviewFingerprint(data.fingerprint ?? null);
+      setVideoComplianceDecision(data.compliance?.decision ?? null);
+      setVideoGenerationReady(data.generationReady === true);
+      setVideoGenerationReadyReason(data.generationReadyReason ?? null);
+      setVideoAgentSource(
+        data.agent?.source ?? data.preview.agentDiagnostics?.source ?? null,
+      );
+      setVideoAgentModel(
+        data.agent?.model ?? data.preview.agentDiagnostics?.model ?? null,
+      );
+      setVideoAgentFallbackReason(
+        data.agent?.fallbackReason ??
+          data.preview.agentDiagnostics?.fallbackReason ??
+          null,
+      );
       return nextPreview;
     } catch (caught) {
       setPreviewFailure({
@@ -576,9 +688,10 @@ export default function DirectorsConsole({
       });
       return null;
     } finally {
+      videoPreviewInFlightRef.current = false;
       setPreviewLoading(false);
     }
-  }, [post.id, token, motionPreset, cameraPreset, previewKey, applyApiFailure]);
+  }, [post.id, token, motionPreset, cameraPreset, previewKey, previewLoading, applyApiFailure]);
 
   async function copyPrompt() {
     if (!finalPrompt.trim()) return;
@@ -595,6 +708,10 @@ export default function DirectorsConsole({
   }
 
   const fetchImagePreview = useCallback(async () => {
+    if (imagePreviewInFlightRef.current || imagePreviewLoading) {
+      return;
+    }
+    imagePreviewInFlightRef.current = true;
     setImagePreviewLoading(true);
     setLocalFailure(null);
 
@@ -632,8 +749,17 @@ export default function DirectorsConsole({
       setImagePrompt(data.finalImagePrompt);
       setImagePreview({
         cacheKey: imagePreviewKey,
+        previewedPrompt: data.finalImagePrompt,
+        fingerprint: data.fingerprint ?? null,
         safetyWarnings: data.warnings ?? [],
         costEstimate: data.costEstimate ?? estimateImageDirectorCost(),
+        agentSource: data.agent?.source ?? null,
+        agentModel: data.agent?.model ?? null,
+        agentFallbackReason: data.agent?.fallbackReason ?? null,
+        directionSummary: data.direction?.visualConcept ?? null,
+        complianceDecision: data.compliance?.decision ?? null,
+        generationReady: data.generationReady === true,
+        generationReadyReason: data.generationReadyReason ?? null,
       });
     } catch (caught) {
       setLocalFailure({
@@ -641,6 +767,7 @@ export default function DirectorsConsole({
           caught instanceof Error ? caught.message : "Image director preview failed",
       });
     } finally {
+      imagePreviewInFlightRef.current = false;
       setImagePreviewLoading(false);
     }
   }, [
@@ -649,12 +776,22 @@ export default function DirectorsConsole({
     token,
     imageDirectionPreset,
     imagePreviewKey,
+    imagePreviewLoading,
     applyApiFailure,
   ]);
 
   async function generateImage() {
     if (!imagePrompt.trim()) {
       setLocalFailure({ message: "Preview the image prompt before generating." });
+      return;
+    }
+
+    if (!imageGenerationAllowed) {
+      setLocalFailure({
+        message:
+          imagePreview?.generationReadyReason ??
+          "Generate Image requires a fresh preview with compliance allow. Quarantine/block stay locked.",
+      });
       return;
     }
 
@@ -805,6 +942,15 @@ export default function DirectorsConsole({
   async function generateVideo() {
     if (!finalPrompt.trim()) {
       setLocalFailure({ message: "Preview the final prompt before generating video." });
+      return;
+    }
+
+    if (!videoGenerationAllowed) {
+      setLocalFailure({
+        message:
+          videoGenerationReadyReason ??
+          "Generate Video requires a fresh preview with compliance allow. Quarantine/block stay locked.",
+      });
       return;
     }
 
@@ -1093,10 +1239,29 @@ export default function DirectorsConsole({
           </Section>
 
           <CollapsibleSection
-            title="3. Image Director"
+            title="3. Image Director Agent"
             expanded={imageDirectorExpanded}
             onToggle={() => setImageDirectorExpanded((current) => !current)}
           >
+            <p className="text-xs font-semibold text-slate-600">
+              Model-backed creative direction with deterministic fallback. Preview never generates an image.
+              Approved catalog assets only. No Independent Reviewer agent — owner approval remains required.
+            </p>
+            {imagePreview?.agentSource ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
+                Agent status:{" "}
+                {imagePreview.agentSource === "model"
+                  ? `model-backed${imagePreview.agentModel ? ` (${imagePreview.agentModel})` : ""}`
+                  : `deterministic fallback${
+                      imagePreview.agentFallbackReason
+                        ? ` — ${imagePreview.agentFallbackReason}`
+                        : ""
+                    }`}
+                {imagePreview.directionSummary
+                  ? ` · Concept: ${imagePreview.directionSummary}`
+                  : ""}
+              </div>
+            ) : null}
             <label className="block">
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">
                 Image Direction Preset
@@ -1133,7 +1298,7 @@ export default function DirectorsConsole({
               className="min-h-10 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
             >
               {imagePreviewLoading
-                ? "Previewing..."
+                ? "Image Director Agent…"
                 : previewRateLimited
                   ? "Preview rate-limited"
                   : "Preview Image Prompt"}
@@ -1247,13 +1412,20 @@ export default function DirectorsConsole({
                   />
                 ) : null}
 
+                {imagePreview?.complianceDecision ? (
+                  <p className="text-xs font-semibold text-slate-700">
+                    Compliance: {imagePreview.complianceDecision}
+                    {imagePreview.generationReady
+                      ? " — generation ready"
+                      : ` — locked (${imagePreview.generationReadyReason ?? "not allow"})`}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   disabled={
                     imageGenerating ||
                     imagePreviewLoading ||
-                    imagePreviewStale ||
-                    !imagePrompt.trim() ||
+                    !imageGenerationAllowed ||
                     generationRateLimited
                   }
                   onClick={() => void generateImage()}
@@ -1261,8 +1433,8 @@ export default function DirectorsConsole({
                   title={
                     generationRateLimited
                       ? "Generation is temporarily rate-limited"
-                      : imagePreviewStale
-                        ? "Preview again after changing presets or source image"
+                      : !imageGenerationAllowed
+                        ? "Requires fresh preview with compliance allow"
                         : undefined
                   }
                 >
@@ -1358,8 +1530,7 @@ export default function DirectorsConsole({
                       type="button"
                       disabled={
                         imageGenerating ||
-                        imagePreviewStale ||
-                        !imagePrompt.trim() ||
+                        !imageGenerationAllowed ||
                         generationRateLimited
                       }
                       onClick={() => void generateImage()}
@@ -1419,7 +1590,23 @@ export default function DirectorsConsole({
             />
           </Section>
 
-          <Section title="5. Video Director">
+          <Section title="5. Video Director Agent">
+            <p className="text-xs font-semibold text-slate-600">
+              Model-backed shot planning with deterministic fallback. Preview never generates a video.
+              Approved catalog assets only. No Independent Reviewer agent — owner approval remains required.
+            </p>
+            {videoAgentSource ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
+                Agent status:{" "}
+                {videoAgentSource === "model"
+                  ? `model-backed${videoAgentModel ? ` (${videoAgentModel})` : ""}`
+                  : `deterministic fallback${
+                      videoAgentFallbackReason
+                        ? ` — ${videoAgentFallbackReason}`
+                        : ""
+                    }`}
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">
                 Final Video Prompt
@@ -1543,19 +1730,29 @@ export default function DirectorsConsole({
                 className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
               >
                 {previewLoading
-                  ? "Previewing..."
+                  ? "Video Director Agent…"
                   : previewRateLimited
                     ? "Preview rate-limited"
                     : "Preview Final Prompt"}
               </button>
+              {videoComplianceDecision ? (
+                <p className="w-full text-xs font-semibold text-slate-700">
+                  Compliance: {videoComplianceDecision}
+                  {videoGenerationAllowed
+                    ? " — generation ready"
+                    : ` — locked (${videoGenerationReadyReason ?? "not allow"})`}
+                  {videoPreviewFingerprint
+                    ? ` · fp ${videoPreviewFingerprint.slice(0, 8)}`
+                    : ""}
+                </p>
+              ) : null}
               {!post.media_url &&
               (post.status === "draft" || post.status === "approved") ? (
                 <button
                   type="button"
                   disabled={
                     generating ||
-                    !finalPrompt.trim() ||
-                    previewStale ||
+                    !videoGenerationAllowed ||
                     generationRateLimited
                   }
                   onClick={() => void generateVideo()}
@@ -1563,8 +1760,8 @@ export default function DirectorsConsole({
                   title={
                     generationRateLimited
                       ? "Generation is temporarily rate-limited"
-                      : previewStale
-                        ? "Preview again after changing presets or source image"
+                      : !videoGenerationAllowed
+                        ? "Requires fresh preview with compliance allow"
                         : undefined
                   }
                 >

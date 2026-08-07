@@ -2,7 +2,12 @@ import {
   SOCIAL_SOURCE_IMAGES,
   type SocialSourceImage,
 } from "@/lib/social-posts/social-source-images";
-import { planWithOpenAICreativeDirector } from "./openai-creative-director";
+import {
+  runSocialStrategyAgent,
+  type SocialStrategyAgentInput,
+  type SocialStrategyPlan,
+} from "./agents/social-strategy-agent";
+import type { AgentDiagnostics } from "./agents/agent-types";
 import { getSocialCampaign } from "./social-campaigns";
 
 export type SocialAgentInput = {
@@ -11,6 +16,11 @@ export type SocialAgentInput = {
   platform?: "facebook" | "instagram" | "both";
   mediaType?: "image" | "video";
   businessFocus?: "rentals" | "facility-parties" | "both";
+  audience?: string;
+  tone?: string;
+  callToAction?: string;
+  seasonalContext?: string | null;
+  assetContext?: string | null;
 };
 
 export type SocialAgentPlan = {
@@ -22,6 +32,12 @@ export type SocialAgentPlan = {
   businessFocus: "rentals" | "facility-parties" | "both";
   sourceImageUrl: string | null;
   campaignId: string | null;
+};
+
+export type SocialAgentPlanResult = {
+  plan: SocialAgentPlan;
+  strategy: SocialStrategyPlan;
+  diagnostics: AgentDiagnostics;
 };
 
 function normalizePlatforms(
@@ -204,32 +220,56 @@ function createRuleBasedSocialAgentPlan(input: SocialAgentInput): SocialAgentPla
   };
 }
 
-export async function createSocialAgentPlan(
-  input: SocialAgentInput,
-): Promise<SocialAgentPlan> {
-  const fallbackPlan = createRuleBasedSocialAgentPlan(input);
+function planFromStrategy(strategy: SocialStrategyPlan): SocialAgentPlan {
+  return {
+    title: strategy.title,
+    caption: strategy.caption,
+    mediaType: strategy.mediaType,
+    platforms: strategy.platforms,
+    generationPrompt: strategy.generationPrompt,
+    businessFocus: strategy.businessFocus,
+    sourceImageUrl: chooseSourceImageUrl(
+      strategy.goal,
+      strategy.businessFocus,
+      strategy.sourceImageKeywords,
+    ),
+    campaignId: strategy.campaignId,
+  };
+}
 
-  if (!process.env.OPENAI_API_KEY?.trim()) {
-    return fallbackPlan;
-  }
-
-  const openAiPlan = await planWithOpenAICreativeDirector(input);
-  if (!openAiPlan) {
-    return fallbackPlan;
+export async function createSocialAgentPlanWithMeta(
+  input: SocialStrategyAgentInput,
+  options?: { client?: import("./agents/llm-json-client").LlmJsonClient },
+): Promise<SocialAgentPlanResult> {
+  const result = await runSocialStrategyAgent(input, { client: options?.client });
+  if (!result.ok) {
+    const { buildDeterministicSocialStrategyPlan } = await import(
+      "./agents/social-strategy-agent"
+    );
+    const strategy = buildDeterministicSocialStrategyPlan(input);
+    return {
+      plan: createRuleBasedSocialAgentPlan(input),
+      strategy,
+      diagnostics: {
+        ...result.diagnostics,
+        source: "deterministic-fallback",
+        fallbackReason: result.error,
+      },
+    };
   }
 
   return {
-    title: openAiPlan.title,
-    caption: openAiPlan.caption,
-    mediaType: openAiPlan.mediaType,
-    platforms: openAiPlan.platforms,
-    generationPrompt: openAiPlan.generationPrompt,
-    businessFocus: openAiPlan.businessFocus,
-    sourceImageUrl: chooseSourceImageUrl(
-      openAiPlan.goal,
-      openAiPlan.businessFocus,
-      openAiPlan.sourceImageKeywords,
-    ),
-    campaignId: openAiPlan.campaignId,
+    plan: planFromStrategy(result.output),
+    strategy: result.output,
+    diagnostics: result.diagnostics,
   };
 }
+
+export async function createSocialAgentPlan(
+  input: SocialAgentInput,
+): Promise<SocialAgentPlan> {
+  const { plan } = await createSocialAgentPlanWithMeta(input);
+  return plan;
+}
+
+export { createRuleBasedSocialAgentPlan };
