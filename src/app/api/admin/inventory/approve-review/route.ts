@@ -1,17 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+import { approveInventoryItemsForWebsite } from "@/lib/admin/inventory";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
-import { setInventoryPublicVisibility } from "@/lib/admin/inventory";
-
-function checkboxValue(value: FormDataEntryValue | null): boolean {
-  return value === "on" || value === "true" || value === "1";
-}
 
 function inventoryRedirect(
   req: NextRequest,
   token: string,
   params: {
-    item?: string;
     category?: string;
     visibility?: string;
     message?: string;
@@ -19,7 +14,6 @@ function inventoryRedirect(
   },
 ) {
   const search = new URLSearchParams({ token });
-  if (params.item) search.set("item", params.item);
   if (params.category) search.set("category", params.category);
   if (params.visibility) search.set("visibility", params.visibility);
   if (params.message) search.set("message", params.message);
@@ -31,16 +25,18 @@ function inventoryRedirect(
 }
 
 /**
- * Toggle website approval only.
+ * Approve one or more review items for the public website.
  * Approved items stay in admin inventory; they are never deleted here.
  */
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const token = String(formData.get("token") ?? "");
-  const id = String(formData.get("id") ?? "");
   const category = String(formData.get("category") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "").trim();
-  const publicVisible = checkboxValue(formData.get("publicVisible"));
+  const ids = formData
+    .getAll("ids")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
   const auth = await verifyAdminOwnerAccess();
 
   if (!auth.ok) {
@@ -48,31 +44,29 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const saved = await setInventoryPublicVisibility({
-      id,
-      publicVisible,
-    });
+    const result = await approveInventoryItemsForWebsite(ids);
 
     revalidatePath("/admin/inventory");
     revalidatePath("/rentals");
-    revalidatePath(`/rentals/${saved.categoryId}`);
-    revalidatePath(`/rentals/${saved.categoryId}/${saved.slug}`);
+    for (const item of result.items) {
+      revalidatePath(`/rentals/${item.categoryId}`);
+      revalidatePath(`/rentals/${item.categoryId}/${item.slug}`);
+    }
 
     return inventoryRedirect(req, token, {
-      item: saved.id,
-      category: category || saved.categoryId,
-      visibility: visibility || undefined,
-      message: publicVisible
-        ? "Item approved for the public website. It is still in inventory."
-        : "Item removed from the public website. It is still in inventory.",
+      category: category || undefined,
+      visibility: visibility || "review",
+      message:
+        result.approvedCount === 1
+          ? "1 item approved for the public website. It is still in inventory."
+          : `${result.approvedCount} items approved for the public website. They are still in inventory.`,
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Website visibility update failed";
+      error instanceof Error ? error.message : "Website approval failed";
     return inventoryRedirect(req, token, {
-      item: id || undefined,
       category: category || undefined,
-      visibility: visibility || undefined,
+      visibility: visibility || "review",
       error: message,
     });
   }
