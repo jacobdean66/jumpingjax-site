@@ -75,6 +75,27 @@ export function buildImageGenerationFingerprint(input: {
   });
 }
 
+export function buildImageConceptGenerationFingerprint(input: {
+  postId: string;
+  prompt: string;
+  preset: string | null | undefined;
+  mode: string | null | undefined;
+  assetId: string | null | undefined;
+  conceptId: string | null | undefined;
+  providerId: string | null | undefined;
+}): string {
+  return buildAgentActionFingerprint({
+    action: "generate-image-concepts",
+    postId: input.postId,
+    promptHash: hashBoundedContent(input.prompt),
+    preset: input.preset ?? null,
+    mode: input.mode ?? null,
+    assetId: input.assetId ?? null,
+    conceptId: input.conceptId ?? null,
+    providerId: input.providerId ?? null,
+  });
+}
+
 export function buildVideoGenerationFingerprint(input: {
   postId: string;
   prompt: string;

@@ -307,9 +307,12 @@ test("P1: every billable model route fails closed before provider work (route wi
   for (const relPath of [
     "src/app/api/social-posts/[id]/generate-image/route.ts",
     "src/app/api/social-posts/[id]/generate-media/route.ts",
+    "src/app/api/social-posts/[id]/generate-image-concepts/route.ts",
   ]) {
     const src = routeSource(relPath);
     assert.match(src, /paidGenerationProtectionBlock\(\)/);
+    assert.match(src, /beginAgentIdempotentActionAsync\(/);
+    assert.match(src, /durableAgentStoreErrorResponse\(/);
   }
 });
 

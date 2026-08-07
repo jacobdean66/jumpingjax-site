@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
+import { buildSocialPostAdminRateLimitClientKey } from "@/lib/social-posts/social-post-admin-rate-limit-core";
 import {
   buildImageDirectorPrompt,
   normalizeImageStudioPresetValue,
@@ -28,6 +29,18 @@ import {
 } from "@/lib/social-posts/social-post-data";
 import { socialVideoSourceImageUrl } from "@/lib/social-posts/social-video-utils";
 import { sourceImageCategory } from "@/lib/social-posts/video-director";
+import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
+import {
+  beginAgentIdempotentActionAsync,
+  completeAgentIdempotentActionAsync,
+  failAgentIdempotentActionAsync,
+  normalizeIdempotencyKey,
+} from "@/lib/social-posts/agents/agent-idempotency";
+import {
+  paidGenerationProtectionBlock,
+  protectionMetadata,
+} from "@/lib/social-posts/agents/agent-protection-mode";
+import { buildImageConceptGenerationFingerprint } from "@/lib/social-posts/agents/preview-fingerprint";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -42,6 +55,7 @@ type GenerateConceptsRequest = {
   providerId?: string | null;
   mode?: "edit" | "generate" | null;
   conceptId?: "A" | "B" | "C" | "D" | null;
+  idempotencyKey?: string;
 };
 
 function normalizeProviderStatus(status: string): string {
@@ -53,6 +67,8 @@ function normalizeProviderStatus(status: string): string {
 
 export async function POST(req: NextRequest, context: RouteContext) {
   const route = "/api/social-posts/[id]/generate-image-concepts";
+  let idemStoreKey: string | null = null;
+  let fingerprint = "";
 
   try {
     const body = (await req.json()) as GenerateConceptsRequest;
@@ -68,6 +84,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const schemaGuard = await socialPostAdminSchemaGuardResponse();
     if (schemaGuard) {
       return schemaGuard;
+    }
+
+    // Paid image-provider concept generation: fail closed before any
+    // quota use or provider start when durable protection is unavailable.
+    const protectionBlock = await paidGenerationProtectionBlock();
+    if (protectionBlock) {
+      return NextResponse.json(protectionBlock, { status: 503 });
     }
 
     const limited = await socialPostAdminRateLimitResponse(req, {
@@ -122,6 +145,46 @@ export async function POST(req: NextRequest, context: RouteContext) {
       mode: body.mode,
       sourceImageUrl: resolvedSourceImageUrl,
     });
+
+    fingerprint = buildImageConceptGenerationFingerprint({
+      postId: id,
+      prompt: generationPrompt,
+      preset,
+      mode,
+      assetId: resolvedSourceImageUrl,
+      conceptId: body.conceptId ?? null,
+      providerId: body.providerId ?? null,
+    });
+    const idempotencyKey = normalizeIdempotencyKey(
+      body.idempotencyKey ?? req.headers.get("idempotency-key"),
+    );
+    const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
+    const idem = await beginAgentIdempotentActionAsync({
+      clientKey,
+      action: "generate-image-concepts",
+      idempotencyKey,
+      fingerprint,
+    });
+    if (idem.kind === "replay") {
+      return NextResponse.json(idem.body, { status: idem.status });
+    }
+    if (idem.kind === "in_progress") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "An identical image-concept generation request is already in progress.",
+          code: "duplicate_in_progress",
+          retryAfterSeconds: idem.retryAfterSeconds,
+          protection: protectionMetadata(),
+        },
+        {
+          status: 409,
+          headers: { "Retry-After": String(idem.retryAfterSeconds) },
+        },
+      );
+    }
+    idemStoreKey = idem.storeKey;
 
     if (body.conceptId) {
       const existing = post.image_concepts.find((item) => item.id === body.conceptId);
@@ -190,11 +253,23 @@ export async function POST(req: NextRequest, context: RouteContext) {
       const updatedPost = await upsertSocialPostImageConcept(id, persisted);
       revalidatePath("/admin/social-posts");
 
-      return NextResponse.json({
+      const responseBody = {
         ok: true,
         concepts: updatedPost.image_concepts,
         post: updatedPost,
+        protection: protectionMetadata(),
+        publication: {
+          published: false,
+          note: "Image concept regeneration started only. Nothing was published.",
+        },
+      };
+      await completeAgentIdempotentActionAsync({
+        storeKey: idemStoreKey,
+        fingerprint,
+        status: 200,
+        body: responseBody,
       });
+      return NextResponse.json(responseBody);
     }
 
     const concepts = await startImageConceptGenerations({
@@ -261,14 +336,31 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const updatedPost = await saveSocialPostImageConcepts(id, persisted);
     revalidatePath("/admin/social-posts");
 
-    return NextResponse.json({
+    const responseBody = {
       ok: true,
       concepts: updatedPost.image_concepts,
       post: updatedPost,
       preset,
       sourceImageCategory: category,
+      protection: protectionMetadata(),
+      publication: {
+        published: false,
+        note: "Image concept generation started only. Nothing was published.",
+      },
+    };
+    await completeAgentIdempotentActionAsync({
+      storeKey: idemStoreKey,
+      fingerprint,
+      status: 200,
+      body: responseBody,
     });
+    return NextResponse.json(responseBody);
   } catch (error) {
+    if (idemStoreKey) {
+      await failAgentIdempotentActionAsync(idemStoreKey);
+    }
+    const storeUnavailable = durableAgentStoreErrorResponse(error);
+    if (storeUnavailable) return storeUnavailable;
     return NextResponse.json(
       {
         ok: false,

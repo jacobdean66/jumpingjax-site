@@ -19,6 +19,7 @@ export type DurableAgentIdempotencyAction =
   | "director-preview"
   | "image-director-preview"
   | "generate-image"
+  | "generate-image-concepts"
   | "generate-media";
 
 export type DurableAgentIdempotencyBeginResult =
