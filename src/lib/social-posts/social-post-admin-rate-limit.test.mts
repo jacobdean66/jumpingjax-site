@@ -100,10 +100,10 @@ test("rate limit response uses structured 429 contract", async () => {
   };
 
   for (let attempt = 0; attempt < SOCIAL_POST_ADMIN_RATE_LIMITS.generation.limit; attempt += 1) {
-    assert.equal(socialPostAdminRateLimitResponse(request, input), null);
+    assert.equal(await socialPostAdminRateLimitResponse(request, input), null);
   }
 
-  const blocked = socialPostAdminRateLimitResponse(request, input);
+  const blocked = await socialPostAdminRateLimitResponse(request, input);
   assert.ok(blocked);
   const body = await responseBody(blocked);
   assert.equal(blocked.status, 429);

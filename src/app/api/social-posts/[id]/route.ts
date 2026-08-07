@@ -39,11 +39,12 @@ import {
   requireExactStringArray,
   scanProhibitedBusinessClaims,
 } from "@/lib/social-posts/agents/agent-input-bounds";
+import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
 import {
-  beginAgentIdempotentAction,
+  beginAgentIdempotentActionAsync,
   buildAgentActionFingerprint,
-  completeAgentIdempotentAction,
-  failAgentIdempotentAction,
+  completeAgentIdempotentActionAsync,
+  failAgentIdempotentActionAsync,
   normalizeIdempotencyKey,
 } from "@/lib/social-posts/agents/agent-idempotency";
 import { evaluateAgentComplianceGateWithPosts } from "@/lib/social-posts/agents/agent-compliance-gate";
@@ -357,7 +358,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         // Regeneration is a billable model-backed action: fail closed before
         // any lookup, quota use, or provider call when durable protection is
         // unavailable (production).
-        const modelBlock = billableModelProtectionBlock();
+        const modelBlock = await billableModelProtectionBlock();
         if (modelBlock) {
           return NextResponse.json(modelBlock, { status: 503 });
         }
@@ -371,7 +372,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           );
         }
 
-        const limited = socialPostAdminRateLimitResponse(req, {
+        const limited = await socialPostAdminRateLimitResponse(req, {
           route: "/api/social-posts/[id]#regenerate",
           category: "draft",
           token: body.token,
@@ -416,7 +417,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           body.idempotencyKey ?? req.headers.get("idempotency-key"),
         );
         const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
-        const idem = beginAgentIdempotentAction({
+        const idem = await beginAgentIdempotentActionAsync({
           clientKey,
           action: "regenerate",
           idempotencyKey,
@@ -494,7 +495,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
                 note: "Nothing was persisted or published.",
               },
             };
-            completeAgentIdempotentAction({
+            await completeAgentIdempotentActionAsync({
               storeKey: idem.storeKey,
               fingerprint,
               status: 422,
@@ -516,7 +517,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             });
             if (!transition.eligible) {
               const denied = statusTransitionDeniedBody(transition);
-              completeAgentIdempotentAction({
+              await completeAgentIdempotentActionAsync({
                 storeKey: idem.storeKey,
                 fingerprint,
                 status: 422,
@@ -581,7 +582,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
                 : "Draft fields updated only. Nothing was published.",
             },
           };
-          completeAgentIdempotentAction({
+          await completeAgentIdempotentActionAsync({
             storeKey: idem.storeKey,
             fingerprint,
             status: 200,
@@ -589,7 +590,9 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           });
           return NextResponse.json(okBody);
         } catch (error) {
-          failAgentIdempotentAction(idem.storeKey);
+          await failAgentIdempotentActionAsync(idem.storeKey);
+          const storeUnavailable = durableAgentStoreErrorResponse(error);
+          if (storeUnavailable) return storeUnavailable;
           if (error instanceof AgentInputValidationError) {
             return NextResponse.json(
               { ok: false, error: error.message },
@@ -820,6 +823,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         },
       });
     } catch (error) {
+      const storeUnavailable = durableAgentStoreErrorResponse(error);
+      if (storeUnavailable) return storeUnavailable;
       if (error instanceof AgentInputValidationError) {
         return NextResponse.json(
           { ok: false, error: error.message },

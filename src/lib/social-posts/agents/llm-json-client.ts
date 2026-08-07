@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { createRequestId, sanitizeAgentError } from "./agent-types";
+import { isDurableAgentStoreReady } from "./agent-durable-store";
 import { getAgentProtectionMode } from "./agent-protection-mode";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
@@ -111,7 +112,10 @@ export function createOpenAiJsonClient(options?: {
       // Non-bypassable billable boundary: no OpenAI request may start when
       // durable shared protection is unavailable (production fail-closed).
       const protectionMode = getAgentProtectionMode(protectionEnv);
-      if (protectionMode.kind === "disabled") {
+      const durableReady =
+        protectionMode.kind !== "durable-supabase" ||
+        (await isDurableAgentStoreReady(protectionEnv));
+      if (protectionMode.kind === "disabled" || !durableReady) {
         return {
           ok: false,
           error:

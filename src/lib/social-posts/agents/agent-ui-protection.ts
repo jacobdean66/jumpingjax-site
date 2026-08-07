@@ -4,6 +4,7 @@
  * pre-disable billable actions before click. Server-side 503 remains authoritative.
  */
 
+import { isDurableAgentStoreReady } from "./agent-durable-store";
 import {
   getAgentProtectionMode,
   type AgentProtectionMode,
@@ -26,11 +27,15 @@ export type AgentUiProtectionStatus = {
   mode: AgentProtectionMode;
 };
 
-export function getAgentUiProtectionStatus(
+export async function getAgentUiProtectionStatus(
   env: NodeJS.ProcessEnv = process.env,
-): AgentUiProtectionStatus {
+): Promise<AgentUiProtectionStatus> {
   const mode = getAgentProtectionMode(env);
-  const modelActionsDisabled = mode.kind === "disabled";
+  let modelActionsDisabled = mode.kind === "disabled";
+
+  if (mode.kind === "durable-supabase") {
+    modelActionsDisabled = !(await isDurableAgentStoreReady(env));
+  }
 
   return {
     modelActionsDisabled,

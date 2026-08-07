@@ -16,11 +16,12 @@ import {
   boundNullableText,
   boundOptionalText,
 } from "@/lib/social-posts/agents/agent-input-bounds";
+import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
 import {
-  beginAgentIdempotentAction,
+  beginAgentIdempotentActionAsync,
   buildAgentActionFingerprint,
-  completeAgentIdempotentAction,
-  failAgentIdempotentAction,
+  completeAgentIdempotentActionAsync,
+  failAgentIdempotentActionAsync,
   normalizeIdempotencyKey,
 } from "@/lib/social-posts/agents/agent-idempotency";
 import { evaluateAgentComplianceGateWithPosts } from "@/lib/social-posts/agents/agent-compliance-gate";
@@ -124,12 +125,12 @@ export async function POST(req: Request) {
 
     // Agent drafting is a billable model-backed action: fail closed before
     // any quota use or provider call when durable protection is unavailable.
-    const modelBlock = billableModelProtectionBlock();
+    const modelBlock = await billableModelProtectionBlock();
     if (modelBlock) {
       return NextResponse.json(modelBlock, { status: 503 });
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
+    const limited = await socialPostAdminRateLimitResponse(req, {
       route: "/api/social-posts/agent-draft",
       category: "draft",
       token: body.token,
@@ -172,7 +173,7 @@ export async function POST(req: Request) {
     });
 
     const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
-    const idem = beginAgentIdempotentAction({
+    const idem = await beginAgentIdempotentActionAsync({
       clientKey,
       action: "agent-draft",
       idempotencyKey,
@@ -218,7 +219,7 @@ export async function POST(req: Request) {
         candidateId: "explicit:agent-draft-live-candidate",
       });
     } catch (error) {
-      failAgentIdempotentAction(idemStoreKey);
+      await failAgentIdempotentActionAsync(idemStoreKey);
       return NextResponse.json(
         {
           ok: false,
@@ -249,7 +250,7 @@ export async function POST(req: Request) {
           note: "Nothing was persisted or published.",
         },
       };
-      completeAgentIdempotentAction({
+      await completeAgentIdempotentActionAsync({
         storeKey: idemStoreKey,
         fingerprint,
         status: 422,
@@ -303,7 +304,7 @@ export async function POST(req: Request) {
       },
     };
 
-    completeAgentIdempotentAction({
+    await completeAgentIdempotentActionAsync({
       storeKey: idemStoreKey,
       fingerprint,
       status: 200,
@@ -312,8 +313,11 @@ export async function POST(req: Request) {
     return NextResponse.json(responseBody);
   } catch (error) {
     if (idemStoreKey) {
-      failAgentIdempotentAction(idemStoreKey);
+      await failAgentIdempotentActionAsync(idemStoreKey);
     }
+
+    const storeUnavailable = durableAgentStoreErrorResponse(error);
+    if (storeUnavailable) return storeUnavailable;
 
     if (error instanceof SyntaxError) {
       return NextResponse.json(

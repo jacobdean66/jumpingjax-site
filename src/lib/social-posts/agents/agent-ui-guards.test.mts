@@ -27,8 +27,8 @@ const socialPostsAdminClient = readFileSync(
   "utf8",
 );
 
-test("getAgentUiProtectionStatus pre-disables model actions when durable protection unavailable", () => {
-  const status = getAgentUiProtectionStatus({
+test("getAgentUiProtectionStatus pre-disables model actions when durable protection unavailable", async () => {
+  const status = await getAgentUiProtectionStatus({
     NODE_ENV: "production",
     VERCEL_ENV: "production",
   });
@@ -38,8 +38,8 @@ test("getAgentUiProtectionStatus pre-disables model actions when durable protect
   assert.equal(status.mode.kind, "disabled");
 });
 
-test("getAgentUiProtectionStatus allows model actions in affirmative local development", () => {
-  const status = getAgentUiProtectionStatus({
+test("getAgentUiProtectionStatus allows model actions in affirmative local development", async () => {
+  const status = await getAgentUiProtectionStatus({
     NODE_ENV: "development",
   });
   assert.equal(status.modelActionsDisabled, false);
