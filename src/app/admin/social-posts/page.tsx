@@ -65,7 +65,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
     posts,
     campaigns: SOCIAL_CAMPAIGNS,
   });
-  const agentUiProtection = getAgentUiProtectionStatus();
+  const agentUiProtection = await getAgentUiProtectionStatus();
 
   return (
     <main className="sp-page">

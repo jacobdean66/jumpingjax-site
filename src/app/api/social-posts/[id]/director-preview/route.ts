@@ -7,10 +7,11 @@ import {
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
+import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
 import {
-  beginAgentIdempotentAction,
-  completeAgentIdempotentAction,
-  failAgentIdempotentAction,
+  beginAgentIdempotentActionAsync,
+  completeAgentIdempotentActionAsync,
+  failAgentIdempotentActionAsync,
   normalizeIdempotencyKey,
 } from "@/lib/social-posts/agents/agent-idempotency";
 import { buildSocialPostAdminRateLimitClientKey } from "@/lib/social-posts/social-post-admin-rate-limit-core";
@@ -63,12 +64,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
     // Video Director preview is a billable model-backed action: fail closed
     // before any lookup, quota use, or provider call when durable
     // protection is unavailable.
-    const modelBlock = billableModelProtectionBlock();
+    const modelBlock = await billableModelProtectionBlock();
     if (modelBlock) {
       return NextResponse.json(modelBlock, { status: 503 });
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
+    const limited = await socialPostAdminRateLimitResponse(req, {
       route,
       category: "preview",
       token: body.token,
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       body.idempotencyKey ?? req.headers.get("idempotency-key"),
     );
     const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
-    const idem = beginAgentIdempotentAction({
+    const idem = await beginAgentIdempotentActionAsync({
       clientKey,
       action: "director-preview",
       idempotencyKey,
@@ -193,7 +194,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         posts,
       });
     } catch (error) {
-      failAgentIdempotentAction(idemStoreKey);
+      await failAgentIdempotentActionAsync(idemStoreKey);
       return NextResponse.json(
         {
           ok: false,
@@ -236,7 +237,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       },
     };
 
-    completeAgentIdempotentAction({
+    await completeAgentIdempotentActionAsync({
       storeKey: idemStoreKey,
       fingerprint,
       status: 200,
@@ -245,8 +246,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json(responseBody);
   } catch (error) {
     if (idemStoreKey) {
-      failAgentIdempotentAction(idemStoreKey);
+      await failAgentIdempotentActionAsync(idemStoreKey);
     }
+    const storeUnavailable = durableAgentStoreErrorResponse(error);
+    if (storeUnavailable) return storeUnavailable;
     if (error instanceof AgentInputValidationError) {
       return NextResponse.json(
         { ok: false, error: error.message },

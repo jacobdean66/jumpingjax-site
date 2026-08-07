@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return schemaGuard;
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
+    const limited = await socialPostAdminRateLimitResponse(req, {
       route,
       category: "generation",
       token: body.token,

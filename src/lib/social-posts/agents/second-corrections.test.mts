@@ -69,7 +69,7 @@ test("block cannot persist; quarantine persistence policy does not unlock genera
   assert.equal(ready.generationReady, false);
 });
 
-test("durable store is blocked; production paid generation disabled; local process-local allowed", () => {
+test("durable store is blocked; production paid generation disabled; local process-local allowed", async () => {
   const prod = getAgentProtectionMode({
     NODE_ENV: "production",
     VERCEL: "1",
@@ -78,7 +78,7 @@ test("durable store is blocked; production paid generation disabled; local proce
   assert.equal(prod.kind, "disabled");
   assert.match(prod.kind === "disabled" ? prod.reason : "", new RegExp(DURABLE_STORE_BLOCKER));
 
-  const blocked = paidGenerationProtectionBlock({
+  const blocked = await paidGenerationProtectionBlock({
     NODE_ENV: "production",
     VERCEL_ENV: "production",
   } as NodeJS.ProcessEnv);
@@ -249,14 +249,14 @@ test("owner-approved generated stills require matching post.approved_image_url",
   }
 });
 
-test("auth/404-before-provider orchestration helpers: protection and compliance gates short-circuit", () => {
+test("auth/404-before-provider orchestration helpers: protection and compliance gates short-circuit", async () => {
   // Route order helpers: protection/compliance denial never starts a provider.
   let providerCalls = 0;
   const startProvider = () => {
     providerCalls += 1;
   };
 
-  const protection = paidGenerationProtectionBlock({
+  const protection = await paidGenerationProtectionBlock({
     NODE_ENV: "production",
     VERCEL_ENV: "production",
   } as NodeJS.ProcessEnv);

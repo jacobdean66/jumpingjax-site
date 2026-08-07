@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   billableModelProtectionBlock,
@@ -12,7 +13,7 @@ import { createOpenAiJsonClient } from "./llm-json-client";
 import { evaluateAgentComplianceGate } from "./agent-compliance-gate";
 import { statusTransitionDecision } from "./status-transition-gate";
 
-const ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../../../..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 function env(vars: Record<string, string>): NodeJS.ProcessEnv {
   return vars as unknown as NodeJS.ProcessEnv;
@@ -22,7 +23,7 @@ function env(vars: Record<string, string>): NodeJS.ProcessEnv {
 /* Objective A — process-local override hardening                      */
 /* ------------------------------------------------------------------ */
 
-test("A1: VERCEL_ENV=production + local override stays fail-closed", () => {
+test("A1: VERCEL_ENV=production + local override stays fail-closed", async () => {
   const mode = getAgentProtectionMode(
     env({
       AGENT_ALLOW_PROCESS_LOCAL_PROTECTION: "1",
@@ -33,7 +34,7 @@ test("A1: VERCEL_ENV=production + local override stays fail-closed", () => {
   );
   assert.equal(mode.kind, "disabled");
   assert.ok(
-    billableModelProtectionBlock(
+    await billableModelProtectionBlock(
       env({
         AGENT_ALLOW_PROCESS_LOCAL_PROTECTION: "1",
         VERCEL_ENV: "production",
@@ -41,7 +42,7 @@ test("A1: VERCEL_ENV=production + local override stays fail-closed", () => {
     ),
   );
   assert.ok(
-    paidGenerationProtectionBlock(
+    await paidGenerationProtectionBlock(
       env({
         AGENT_ALLOW_PROCESS_LOCAL_PROTECTION: "1",
         VERCEL_ENV: "production",
@@ -50,7 +51,7 @@ test("A1: VERCEL_ENV=production + local override stays fail-closed", () => {
   );
 });
 
-test("A2: VERCEL_ENV=preview + local override stays fail-closed", () => {
+test("A2: VERCEL_ENV=preview + local override stays fail-closed", async () => {
   const mode = getAgentProtectionMode(
     env({
       AGENT_ALLOW_PROCESS_LOCAL_PROTECTION: "1",
@@ -61,7 +62,7 @@ test("A2: VERCEL_ENV=preview + local override stays fail-closed", () => {
   );
   assert.equal(mode.kind, "disabled");
   assert.ok(
-    billableModelProtectionBlock(
+    await billableModelProtectionBlock(
       env({ AGENT_ALLOW_PROCESS_LOCAL_PROTECTION: "1", VERCEL_ENV: "preview" }),
     ),
   );
