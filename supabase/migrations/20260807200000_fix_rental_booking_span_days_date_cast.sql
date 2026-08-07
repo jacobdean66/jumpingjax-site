@@ -1,8 +1,5 @@
--- Allow foam party package duration to be stored independently of the
--- booking-level rental duration (One Day) when foam is mixed with inflatables.
-
-alter table public.bookings
-  add column if not exists foam_duration text null;
+-- Production bookings.span_days is bigint. Cast the inclusive span offset
+-- before adding it to a date so the rental booking RPC works on production.
 
 create or replace function public.create_rental_booking_atomic(
   p_booking jsonb,
@@ -27,7 +24,6 @@ begin
     raise exception using errcode = '22023', message = 'invalid_booking_input';
   end if;
 
-  -- Identical retries return the original row without sending a second write.
   select id into v_existing_id
   from public.bookings
   where idempotency_key = p_idempotency_key;
@@ -35,7 +31,6 @@ begin
     return v_existing_id::text;
   end if;
 
-  -- Every request touching the same item/date pair takes the same locks in order.
   for v_item in
     select jsonb_build_object(
       'rental_item', item.value->>'rental_item',
