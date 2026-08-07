@@ -21,6 +21,7 @@ type Props = {
   cartItems: RentalCartItem[];
   selectedYmd: string | null;
   duration: DurationOption | undefined;
+  foamDuration?: DurationOption | undefined;
   selectionValid: boolean;
   selectionMessage?: string;
   selectionMessageTone?: "info" | "warn" | "ok";
@@ -31,6 +32,7 @@ export function BookingSummary({
   cartItems,
   selectedYmd,
   duration,
+  foamDuration,
   selectionValid,
   selectionMessage,
   selectionMessageTone = "info",
@@ -38,10 +40,16 @@ export function BookingSummary({
 }: Props) {
   const durationLabel = duration?.label ?? "";
   const spanDays = duration?.spanDays ?? 1;
+  const foamDurationLabel = foamDuration?.label ?? null;
   const showPrices = Boolean(duration && selectionValid);
 
   const subtotal = showPrices
-    ? estimateCartRentalSubtotal(cartItems, durationLabel, spanDays)
+    ? estimateCartRentalSubtotal(
+        cartItems,
+        durationLabel,
+        spanDays,
+        foamDurationLabel,
+      )
     : null;
   const normalizedDistanceMiles = normalizeDistanceMiles(distanceMiles);
   const deliveryFee = showPrices
@@ -56,6 +64,7 @@ export function BookingSummary({
         durationLabel,
         spanDays,
         deliveryFee ?? undefined,
+        foamDurationLabel,
       )
     : null;
 
@@ -73,7 +82,12 @@ export function BookingSummary({
           const rental = getRentalBySlug(item.rental_item);
           const lineEstimate =
             showPrices && rental
-              ? estimateRentalLineSubtotal(item, durationLabel, spanDays)
+              ? estimateRentalLineSubtotal(
+                  item,
+                  durationLabel,
+                  spanDays,
+                  foamDurationLabel,
+                )
               : null;
 
           return (
@@ -100,6 +114,14 @@ export function BookingSummary({
             {duration?.label ?? "—"}
           </dd>
         </div>
+        {foamDurationLabel && (
+          <div className="flex justify-between gap-3 border-b border-white/10 pb-3">
+            <dt className="text-slate-400">Foam time</dt>
+            <dd className="text-right font-medium text-slate-100">
+              {foamDurationLabel}
+            </dd>
+          </div>
+        )}
         <div className="flex justify-between gap-3 border-b border-white/10 pb-3">
           <dt className="text-slate-400">Rental subtotal</dt>
           <dd className="font-semibold tabular-nums text-white">

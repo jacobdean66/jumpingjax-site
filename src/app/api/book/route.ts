@@ -8,6 +8,7 @@ import {
   formatDeliveryFeeLines,
   formatEstimatedTotalLine,
   normalizeDistanceMiles,
+  resolveNewFoamDurationLabel,
   resolveNewRentalDuration,
 } from "@/lib/rentals/rental-pricing-text";
 import {
@@ -171,12 +172,23 @@ export async function POST(req: Request) {
   }
   const requestedDurationLabel =
     typeof body.duration === "string" ? body.duration.trim() : "";
+  const requestedFoamDurationLabel =
+    typeof body.foam_duration === "string" ? body.foam_duration.trim() : "";
+  const lineItems = normalizedRentalItems as {
+    rental_item?: string;
+    rental_name?: string;
+  }[];
   const resolvedDuration = resolveNewRentalDuration(
-    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    lineItems,
     requestedDurationLabel,
   );
   const durationLabel = resolvedDuration.label;
   const spanDays = resolvedDuration.spanDays;
+  const foamDurationLabel = resolveNewFoamDurationLabel(
+    lineItems,
+    requestedFoamDurationLabel || requestedDurationLabel,
+    durationLabel,
+  );
   const eventAddress =
     typeof body.event_address === "string" ? body.event_address.trim() : "";
   const distanceMiles = normalizeDistanceMiles(body.distance_miles);
@@ -229,15 +241,17 @@ export async function POST(req: Request) {
       ? body.notes.trim()
       : "";
   const subtotal = estimateCartRentalSubtotal(
-    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    lineItems,
     durationLabel,
     spanDays,
+    foamDurationLabel,
   );
   const total = estimateCartGrandTotal(
-    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    lineItems,
     durationLabel,
     spanDays,
     deliveryFee,
+    foamDurationLabel,
   );
 
   const result = await insertPendingBooking({
@@ -248,6 +262,7 @@ export async function POST(req: Request) {
     phone: customerPhone,
     eventDateYmd,
     durationLabel,
+    foamDurationLabel,
     spanDays,
     eventAddress,
     event_start_time: eventStartTime,
@@ -303,11 +318,16 @@ export async function POST(req: Request) {
   else if (spanDays === 1 && !durationLabel) durationParts.push("1 day");
   const durationLine =
     durationParts.length > 0 ? durationParts.join(" — ") : null;
+  const foamDurationLine =
+    foamDurationLabel && foamDurationLabel !== durationLabel
+      ? `Foam time: ${foamDurationLabel}`
+      : null;
 
   const rentalListText = buildRentalListWithPrices(
-    normalizedRentalItems as { rental_item?: string; rental_name?: string }[],
+    lineItems,
     durationLabel,
     spanDays,
+    foamDurationLabel,
   );
   const estimatedTotalLine = formatEstimatedTotalLine(total);
   const deliveryFeeLines = formatDeliveryFeeLines({
@@ -343,6 +363,7 @@ export async function POST(req: Request) {
             rentalListText,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : null,
+            foamDurationLine,
             `Official party start time: ${eventStartTime}`,
             `Requested delivery window: ${requestedDeliveryWindow}`,
             `Name: ${customerName}`,
@@ -400,6 +421,7 @@ export async function POST(req: Request) {
             rentalListText,
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
+            foamDurationLine,
             `Official party start time: ${eventStartTime}`,
             `Requested delivery window: ${requestedDeliveryWindow}`,
             `Customer: ${customerName}`,

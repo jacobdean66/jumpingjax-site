@@ -16,6 +16,8 @@ import {
   rangeHasBlocked,
 } from "@/lib/mockBooking";
 import {
+  cartContainsFoamParty,
+  cartContainsStandardRental,
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
   estimateMileageFee,
@@ -330,6 +332,9 @@ export function RentalBookingPanel({
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(ONE_DAY_RENTAL_DURATION.id);
+  const [foamDurationId, setFoamDurationId] = useState(
+    FOAM_DURATION_OPTIONS[0]!.id,
+  );
   const [customer, setCustomer] = useState<CustomerFields>(emptyCustomer);
   const [deliveryTime, setDeliveryTime] = useState("");
   const [eventStartTime, setEventStartTime] = useState("");
@@ -386,6 +391,9 @@ export function RentalBookingPanel({
   const isFoamOnlyCart = selectedRentalItems.every((item) =>
     isFoamPartyRentalItem(item.rental_item),
   );
+  const hasFoamParty = cartContainsFoamParty(selectedRentalItems);
+  const hasStandardRental = cartContainsStandardRental(selectedRentalItems);
+  const isMixedFoamCart = hasFoamParty && hasStandardRental;
   const durationOptions = isFoamOnlyCart
     ? FOAM_DURATION_OPTIONS
     : MOCK_DURATION_OPTIONS;
@@ -395,6 +403,12 @@ export function RentalBookingPanel({
   )
     ? durationId
     : durationOptions[0]!.id;
+
+  const selectedFoamDurationId = FOAM_DURATION_OPTIONS.some(
+    (option) => option.id === foamDurationId,
+  )
+    ? foamDurationId
+    : FOAM_DURATION_OPTIONS[0]!.id;
 
   const displayCartItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length > 0) {
@@ -492,6 +506,18 @@ export function RentalBookingPanel({
     [durationOptions, selectedDurationId],
   );
 
+  const foamDuration = useMemo(
+    () =>
+      hasFoamParty
+        ? FOAM_DURATION_OPTIONS.find((d) => d.id === selectedFoamDurationId)
+        : undefined,
+    [hasFoamParty, selectedFoamDurationId],
+  );
+
+  const effectiveFoamDurationLabel = isFoamOnlyCart
+    ? duration?.label ?? null
+    : foamDuration?.label ?? null;
+
   const selectionValid = useMemo(() => {
     if (!selectedYmd || !duration) return false;
     return !rangeHasBlocked(selectedYmd, duration.spanDays, blockedSet);
@@ -553,6 +579,7 @@ export function RentalBookingPanel({
           selectedRentalItems,
           duration.label,
           duration.spanDays,
+          effectiveFoamDurationLabel,
         )
       : null;
   const totalAmount =
@@ -562,6 +589,7 @@ export function RentalBookingPanel({
           duration.label,
           duration.spanDays,
           deliveryFee ?? undefined,
+          effectiveFoamDurationLabel,
         )
       : null;
 
@@ -662,6 +690,7 @@ export function RentalBookingPanel({
           setup_notes: customer.setupNotes,
           payment_method: customer.paymentMethod,
           duration: duration?.label ?? "",
+          foam_duration: effectiveFoamDurationLabel ?? "",
           span_days: duration?.spanDays ?? 1,
           subtotal: subtotal ?? 0,
           total: totalAmount ?? 0,
@@ -944,7 +973,7 @@ export function RentalBookingPanel({
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
                     2. {isFoamOnlyCart ? "Foam time" : "Rental duration"}
                   </h3>
-                  <div className="mt-3">
+                  <div className="mt-3 space-y-4">
                     {isFoamOnlyCart ? (
                       <DurationSelector
                         options={durationOptions}
@@ -956,6 +985,18 @@ export function RentalBookingPanel({
                         Rental duration: {ONE_DAY_RENTAL_DURATION.label}
                       </p>
                     )}
+                    {isMixedFoamCart && (
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
+                          Foam time
+                        </p>
+                        <DurationSelector
+                          options={FOAM_DURATION_OPTIONS}
+                          value={selectedFoamDurationId}
+                          onChange={setFoamDurationId}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -965,6 +1006,9 @@ export function RentalBookingPanel({
                   cartItems={selectedRentalItems}
                   selectedYmd={selectedYmd}
                   duration={duration}
+                  foamDuration={
+                    isMixedFoamCart ? foamDuration : undefined
+                  }
                   selectionValid={selectionValid}
                   selectionMessage={selectionMessage}
                   selectionMessageTone={selectionMessageTone}

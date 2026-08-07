@@ -167,6 +167,10 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
           </ul>
           <div className="compact-print-detail-grid mt-4 grid gap-3 sm:grid-cols-2">
             <Detail label="Duration" value={booking.duration ?? "Standard"} />
+            {booking.foamDuration &&
+              booking.foamDuration !== booking.duration && (
+                <Detail label="Foam time" value={booking.foamDuration} />
+              )}
             <Detail label="Span" value={`${booking.spanDays} day(s)`} />
             <Detail
               label="Delivery window"

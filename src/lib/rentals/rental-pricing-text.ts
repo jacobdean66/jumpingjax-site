@@ -57,25 +57,86 @@ export function isFoamPartyRentalItem(slug: string | null | undefined): boolean 
   return slug?.trim() === FOAM_PARTY_RENTAL_ITEM;
 }
 
+export function cartContainsFoamParty(items: RentalLineInput[]): boolean {
+  return items.some((item) => isFoamPartyRentalItem(item.rental_item));
+}
+
+export function cartContainsStandardRental(items: RentalLineInput[]): boolean {
+  return items.some((item) => !isFoamPartyRentalItem(item.rental_item));
+}
+
+export function resolveFoamDurationOption(
+  requestedFoamDurationLabel: string | null | undefined,
+) {
+  const label = requestedFoamDurationLabel?.trim() ?? "";
+  return (
+    FOAM_DURATION_OPTIONS.find((option) => option.label === label) ??
+    FOAM_DURATION_OPTIONS[0]!
+  );
+}
+
+/**
+ * Booking-level duration for new rentals.
+ * Mixed carts (foam + inflatable/accessory) always use One Day.
+ * Foam-only carts use the selected foam package label.
+ */
 export function resolveNewRentalDuration(
   items: RentalLineInput[],
   requestedDurationLabel: string,
 ): { label: string; spanDays: number } {
-  const containsStandardRental = items.some(
-    (item) => !isFoamPartyRentalItem(item.rental_item),
-  );
-  if (containsStandardRental) {
+  if (cartContainsStandardRental(items)) {
     return {
       label: ONE_DAY_RENTAL_DURATION.label,
       spanDays: ONE_DAY_RENTAL_DURATION.spanDays,
     };
   }
 
-  const foamDuration = FOAM_DURATION_OPTIONS.find(
-    (option) => option.label === requestedDurationLabel.trim(),
-  );
-  const resolved = foamDuration ?? FOAM_DURATION_OPTIONS[0]!;
+  const resolved = resolveFoamDurationOption(requestedDurationLabel);
   return { label: resolved.label, spanDays: resolved.spanDays };
+}
+
+/**
+ * Foam package label for carts that include foam.
+ * Mixed carts read an independent foam duration; foam-only carts reuse booking duration.
+ */
+export function resolveNewFoamDurationLabel(
+  items: RentalLineInput[],
+  requestedFoamDurationLabel: string | null | undefined,
+  bookingDurationLabel: string,
+): string | null {
+  if (!cartContainsFoamParty(items)) {
+    return null;
+  }
+
+  if (cartContainsStandardRental(items)) {
+    return resolveFoamDurationOption(requestedFoamDurationLabel).label;
+  }
+
+  return resolveFoamDurationOption(
+    requestedFoamDurationLabel?.trim() || bookingDurationLabel,
+  ).label;
+}
+
+/** Resolve foam package for stored bookings (including historical foam-only rows). */
+export function foamDurationLabelForBooking(
+  items: RentalLineInput[],
+  bookingDurationLabel: string | null | undefined,
+  foamDurationLabel: string | null | undefined,
+): string | null {
+  if (!cartContainsFoamParty(items)) {
+    return null;
+  }
+
+  const storedFoam = foamDurationLabel?.trim() ?? "";
+  if (storedFoam) {
+    return resolveFoamDurationOption(storedFoam).label;
+  }
+
+  const bookingLabel = bookingDurationLabel?.trim() ?? "";
+  const fromBooking = FOAM_DURATION_OPTIONS.find(
+    (option) => option.label === bookingLabel,
+  );
+  return fromBooking?.label ?? FOAM_DURATION_OPTIONS[0]!.label;
 }
 
 export function formatUsd(amount: number): string {
@@ -93,20 +154,22 @@ function durationMultiplierForRentalItem(
   slug: string,
   durationLabel: string,
   spanDays: number,
+  foamDurationLabel?: string | null,
 ): number {
-  const label = durationLabel.trim();
   if (isFoamPartyRentalItem(slug)) {
-    const foamByLabel = FOAM_DURATION_OPTIONS.find((d) => d.label === label);
+    const foamLabel = (foamDurationLabel ?? durationLabel).trim();
+    const foamByLabel = FOAM_DURATION_OPTIONS.find((d) => d.label === foamLabel);
     return foamByLabel?.priceMultiplier ?? FOAM_DURATION_OPTIONS[0]!.priceMultiplier;
   }
 
-  return standardDurationMultiplier(label, spanDays);
+  return standardDurationMultiplier(durationLabel.trim(), spanDays);
 }
 
 export function estimateRentalLineSubtotal(
   item: RentalLineInput,
   durationLabel: string,
   spanDays: number,
+  foamDurationLabel?: string | null,
 ): number | null {
   const slug =
     typeof item.rental_item === "string" ? item.rental_item.trim() : "";
@@ -119,7 +182,12 @@ export function estimateRentalLineSubtotal(
 
   return estimateRentalSubtotal(
     startingPrice,
-    durationMultiplierForRentalItem(slug, durationLabel, spanDays),
+    durationMultiplierForRentalItem(
+      slug,
+      durationLabel,
+      spanDays,
+      foamDurationLabel,
+    ),
   );
 }
 
@@ -127,12 +195,14 @@ export function estimateCartRentalSubtotal(
   items: RentalLineInput[],
   durationLabel: string,
   spanDays: number,
+  foamDurationLabel?: string | null,
 ): number {
   return items.reduce((sum, item) => {
     const lineSubtotal = estimateRentalLineSubtotal(
       item,
       durationLabel,
       spanDays,
+      foamDurationLabel,
     );
     return sum + (lineSubtotal ?? 0);
   }, 0);
@@ -143,9 +213,15 @@ export function estimateCartGrandTotal(
   durationLabel: string,
   spanDays: number,
   serviceFee: number = RENTAL_DELIVERY_BASE_FEE,
+  foamDurationLabel?: string | null,
 ): number {
   return (
-    estimateCartRentalSubtotal(items, durationLabel, spanDays) + serviceFee
+    estimateCartRentalSubtotal(
+      items,
+      durationLabel,
+      spanDays,
+      foamDurationLabel,
+    ) + serviceFee
   );
 }
 
@@ -194,6 +270,7 @@ export function buildRentalListWithPrices(
   items: RentalLineInput[],
   durationLabel: string,
   spanDays: number,
+  foamDurationLabel?: string | null,
 ): string {
   return items
     .map((item) => {
@@ -209,15 +286,21 @@ export function buildRentalListWithPrices(
         Number.isFinite(item.starting_price)
           ? item.starting_price
           : rental?.startingPrice;
+      const foamLabel =
+        isFoamPartyRentalItem(slug) && foamDurationLabel?.trim()
+          ? foamDurationLabel.trim()
+          : null;
+      const displayName = foamLabel ? `${name} — ${foamLabel}` : name;
       if (startingPrice == null) {
-        return `- ${name}`;
+        return `- ${displayName}`;
       }
       const itemEstimate = estimateRentalLineSubtotal(
         item,
         durationLabel,
         spanDays,
+        foamDurationLabel,
       );
-      return `- ${name} (estimated ${formatUsd(itemEstimate ?? startingPrice)})`;
+      return `- ${displayName} (estimated ${formatUsd(itemEstimate ?? startingPrice)})`;
     })
     .join("\n");
 }
@@ -233,6 +316,7 @@ export function buildRentalCalendarDescription(input: {
   items: RentalLineInput[];
   durationLabel: string;
   spanDays: number;
+  foamDurationLabel?: string | null;
   total: number | null | undefined;
   deliveryFee?: number | null;
   mileageFee?: number | null;
@@ -251,6 +335,11 @@ export function buildRentalCalendarDescription(input: {
   paymentMethod?: string | null;
   bookingId: string;
 }): string {
+  const foamDurationLabel = foamDurationLabelForBooking(
+    input.items,
+    input.durationLabel,
+    input.foamDurationLabel,
+  );
   const lines = [
     `Booking ID: ${input.bookingId}`,
     `Customer: ${input.customerName}`,
@@ -266,6 +355,9 @@ export function buildRentalCalendarDescription(input: {
         ? `Requested delivery window: ${input.deliveryTime}`
       : null,
     input.durationLabel ? `Duration: ${input.durationLabel}` : null,
+    foamDurationLabel && foamDurationLabel !== input.durationLabel
+      ? `Foam time: ${foamDurationLabel}`
+      : null,
     input.spanDays > 1 ? `Span: ${input.spanDays} days` : null,
     input.eventAddress ? `Event address: ${input.eventAddress}` : null,
     input.setupSurface ? `Setup surface: ${input.setupSurface}` : null,
@@ -278,6 +370,7 @@ export function buildRentalCalendarDescription(input: {
       input.items,
       input.durationLabel,
       input.spanDays,
+      foamDurationLabel,
     ),
     "",
     ...(input.deliveryFee != null && input.mileageFee != null
