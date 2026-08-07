@@ -25,11 +25,14 @@ import { InventoryItemForm } from "./InventoryItemForm";
 
 export const dynamic = "force-dynamic";
 
+type VisibilityFilter = "all" | "review" | "public";
+
 type Props = {
   searchParams?: Promise<{
     token?: string;
     item?: string;
     category?: string;
+    visibility?: string;
     message?: string;
     error?: string;
   }>;
@@ -55,9 +58,23 @@ function isCategoryId(value: string | undefined): value is RentalCategoryId {
   return Boolean(value && (CATEGORY_IDS as readonly string[]).includes(value));
 }
 
-function categoryHref(token: string, categoryId?: RentalCategoryId) {
+function parseVisibilityFilter(value: string | undefined): VisibilityFilter {
+  if (value === "review" || value === "public") return value;
+  return "all";
+}
+
+function inventoryHref(
+  token: string,
+  options?: {
+    categoryId?: RentalCategoryId;
+    visibility?: VisibilityFilter;
+  },
+) {
   const params = new URLSearchParams({ token });
-  if (categoryId) params.set("category", categoryId);
+  if (options?.categoryId) params.set("category", options.categoryId);
+  if (options?.visibility && options.visibility !== "all") {
+    params.set("visibility", options.visibility);
+  }
   return `/admin/inventory?${params.toString()}`;
 }
 
@@ -88,9 +105,19 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
   const activeCategory = isCategoryId(resolved?.category)
     ? resolved.category
     : undefined;
-  const filteredItems = activeCategory
+  const visibilityFilter = parseVisibilityFilter(resolved?.visibility);
+  const needsReview = (row: AdminInventoryItem) =>
+    row.isActive && !row.publicVisible;
+  const categoryScopedItems = activeCategory
     ? items.filter((row) => row.categoryId === activeCategory)
     : items;
+  const filteredItems =
+    visibilityFilter === "review"
+      ? categoryScopedItems.filter(needsReview)
+      : visibilityFilter === "public"
+        ? categoryScopedItems.filter((row) => row.publicVisible)
+        : categoryScopedItems;
+  const reviewItems = filteredItems.filter(needsReview);
   const categoryCounts = CATEGORY_IDS.reduce<Record<string, number>>(
     (counts, categoryId) => ({
       ...counts,
@@ -100,7 +127,15 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
   );
   const activeCount = items.filter((row) => row.isActive).length;
   const publicCount = items.filter((row) => row.publicVisible).length;
-  const reviewCount = items.filter((row) => row.isActive && !row.publicVisible).length;
+  const reviewCount = items.filter(needsReview).length;
+  const listTitle =
+    visibilityFilter === "review"
+      ? "Needs review"
+      : visibilityFilter === "public"
+        ? "On website"
+        : activeCategory
+          ? CATEGORY_COPY[activeCategory].title
+          : `${items.length} items`;
 
   return (
     <AdminShell>
@@ -119,14 +154,33 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
       ) : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-4">
-        <StatTile label="Inventory items" value={items.length} />
+        <StatTile
+          label="Inventory items"
+          value={items.length}
+          href={inventoryHref(token)}
+        />
         <StatTile label="Active for staff" value={activeCount} />
-        <StatTile label="Needs review" value={reviewCount} />
-        <StatTile label="On website" value={publicCount} />
+        <StatTile
+          label="Needs review"
+          value={reviewCount}
+          href={inventoryHref(token, {
+            categoryId: activeCategory,
+            visibility: "review",
+          })}
+        />
+        <StatTile
+          label="On website"
+          value={publicCount}
+          href={inventoryHref(token, {
+            categoryId: activeCategory,
+            visibility: "public",
+          })}
+        />
       </div>
       <p className="mt-3 text-sm font-semibold text-slate-600">
-        Approving an item for the website keeps it in this inventory list. Review
-        only controls public website visibility.
+        Click Needs review to open items waiting for website approval. Approving
+        keeps them in this inventory list; review only controls public website
+        visibility.
       </p>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -136,8 +190,25 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
             Sync Current Website Catalog
           </button>
         </form>
+        {reviewItems.length > 0 ? (
+          <form action="/api/admin/inventory/approve-review" method="post">
+            <input type="hidden" name="token" value={token} />
+            {activeCategory ? (
+              <input type="hidden" name="category" value={activeCategory} />
+            ) : null}
+            {visibilityFilter !== "all" ? (
+              <input type="hidden" name="visibility" value={visibilityFilter} />
+            ) : null}
+            {reviewItems.map((row) => (
+              <input key={row.id} type="hidden" name="ids" value={row.id} />
+            ))}
+            <button className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white hover:bg-cyan-600">
+              Approve all for website ({reviewItems.length})
+            </button>
+          </form>
+        ) : null}
         <Link
-          href={`/admin/inventory?${query}`}
+          href={inventoryHref(token)}
           className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
         >
           Add New Item
@@ -145,8 +216,8 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
       </div>
       <p className="mt-3 max-w-3xl text-xs font-semibold leading-relaxed text-slate-500">
         Sync once to mark existing catalog units as already on the website. After
-        that, use Approve for website on Review items. Approving never deletes
-        inventory rows.
+        that, open Needs review and approve items for the website. Approving never
+        deletes inventory rows.
       </p>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -157,6 +228,11 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
             </p>
             <h2 className="mt-1 text-2xl font-black">
               {activeCategory ? CATEGORY_COPY[activeCategory].title : "All inventory"}
+              {visibilityFilter === "review"
+                ? " · Needs review"
+                : visibilityFilter === "public"
+                  ? " · On website"
+                  : ""}
             </h2>
           </div>
           <p className="text-sm font-bold text-slate-500">
@@ -165,7 +241,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Link
-            href={categoryHref(token)}
+            href={inventoryHref(token, { visibility: visibilityFilter })}
             className={`rounded-xl border p-3 transition hover:border-sky-300 hover:bg-sky-50 ${
               !activeCategory
                 ? "border-sky-400 bg-sky-50"
@@ -178,7 +254,10 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
           {CATEGORY_IDS.map((categoryId) => (
             <Link
               key={categoryId}
-              href={categoryHref(token, categoryId)}
+              href={inventoryHref(token, {
+                categoryId,
+                visibility: visibilityFilter,
+              })}
               className={`rounded-xl border p-3 transition hover:border-sky-300 hover:bg-sky-50 ${
                 activeCategory === categoryId
                   ? "border-sky-400 bg-sky-50"
@@ -201,11 +280,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
               <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                 Current Inventory
               </p>
-              <h2 className="mt-2 text-2xl font-black">
-                {activeCategory
-                  ? CATEGORY_COPY[activeCategory].title
-                  : `${items.length} items`}
-              </h2>
+              <h2 className="mt-2 text-2xl font-black">{listTitle}</h2>
             </div>
             <p className="text-xs font-bold text-slate-500">
               On website: {publicCount}
@@ -219,13 +294,17 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold text-slate-600">
-                No items are in this category yet.
+                {visibilityFilter === "review"
+                  ? "Nothing needs website review right now."
+                  : visibilityFilter === "public"
+                    ? "No items are on the website in this view yet."
+                    : "No items are in this category yet."}
               </div>
             ) : (
               filteredItems.map((row) => {
                 const counts =
                   rentalCounts.get(row.slug) ?? emptyInventoryCounts(row.slug);
-                const itemQuery = `${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}&item=${encodeURIComponent(row.id)}`;
+                const itemQuery = `${query}${activeCategory ? `&category=${encodeURIComponent(activeCategory)}` : ""}${visibilityFilter !== "all" ? `&visibility=${encodeURIComponent(visibilityFilter)}` : ""}&item=${encodeURIComponent(row.id)}`;
                 return (
                 <div
                   key={row.id}
@@ -286,6 +365,13 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
                     {activeCategory ? (
                       <input type="hidden" name="category" value={activeCategory} />
                     ) : null}
+                    {visibilityFilter !== "all" ? (
+                      <input
+                        type="hidden"
+                        name="visibility"
+                        value={visibilityFilter}
+                      />
+                    ) : null}
                     <input
                       type="hidden"
                       name="publicVisible"
@@ -326,7 +412,10 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
         <InventoryItemForm
           token={token}
           item={item}
-          cancelHref={categoryHref(token, activeCategory)}
+          cancelHref={inventoryHref(token, {
+            categoryId: activeCategory,
+            visibility: visibilityFilter,
+          })}
         />
       </div>
     </AdminShell>

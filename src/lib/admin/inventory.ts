@@ -433,6 +433,52 @@ export async function setInventoryPublicVisibility(input: {
   };
 }
 
+/**
+ * Approve multiple inventory items for the public website.
+ * Keeps every row in admin inventory; only flips public_visible.
+ */
+export async function approveInventoryItemsForWebsite(
+  ids: string[],
+): Promise<{
+  approvedCount: number;
+  items: Array<{ id: string; categoryId: RentalCategoryId; slug: string }>;
+}> {
+  const cleanIds = Array.from(
+    new Set(ids.map((id) => id.trim()).filter(Boolean)),
+  );
+  if (cleanIds.length === 0) {
+    throw new Error("At least one inventory item id is required.");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("rental_inventory_items")
+    .update({
+      public_visible: true,
+      source: "admin",
+    })
+    .in("id", cleanIds)
+    .select("id, slug, category_id");
+
+  if (error) throw new Error(error.message);
+
+  const items = (data ?? []).map((row) => {
+    const categoryId = isCategoryId(String(row.category_id))
+      ? (row.category_id as RentalCategoryId)
+      : "bounce-houses";
+    return {
+      id: String(row.id),
+      categoryId,
+      slug: String(row.slug),
+    };
+  });
+
+  return {
+    approvedCount: items.length,
+    items,
+  };
+}
+
 export async function deleteInventoryItem(id: string): Promise<void> {
   const cleanId = id.trim();
   if (!cleanId) {
