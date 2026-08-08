@@ -21,6 +21,7 @@ export type AgentIdempotencyAction =
   | "director-preview"
   | "image-director-preview"
   | "generate-image"
+  | "generate-image-concepts"
   | "generate-media";
 
 type InFlightEntry = {

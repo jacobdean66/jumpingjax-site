@@ -21,6 +21,7 @@ import {
 import {
   buildImageDirectorPreviewFingerprint,
   buildVideoDirectorPreviewFingerprint,
+  buildImageConceptGenerationFingerprint,
   buildImageGenerationFingerprint,
   buildVideoGenerationFingerprint,
   isPreviewFingerprintStale,
@@ -161,6 +162,31 @@ test("image/video generation idempotency collapses concurrent duplicates and rep
   });
   assert.equal(v1.kind, "proceed");
   assert.equal(v2.kind, "in_progress");
+
+  resetAgentIdempotencyStoreForTests();
+  const conceptsFp = buildImageConceptGenerationFingerprint({
+    postId: "post-1",
+    prompt: "Concept batch prompt",
+    preset: "kids-playing",
+    mode: "edit",
+    assetId: "https://example.com/a.png",
+    conceptId: null,
+    providerId: null,
+  });
+  const c1 = beginAgentIdempotentAction({
+    clientKey: "client",
+    action: "generate-image-concepts",
+    idempotencyKey: "concepts-1",
+    fingerprint: conceptsFp,
+  });
+  const c2 = beginAgentIdempotentAction({
+    clientKey: "client",
+    action: "generate-image-concepts",
+    idempotencyKey: "concepts-1",
+    fingerprint: conceptsFp,
+  });
+  assert.equal(c1.kind, "proceed");
+  assert.equal(c2.kind, "in_progress");
 });
 
 test("changed prompt/preset/placement produce new preview fingerprints (stale replay prevention)", () => {
