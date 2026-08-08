@@ -1,0 +1,16 @@
+{
+  "name": "jumpingjax-waiver-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex Supervisor / Cursor Builder orchestration scaffold for Jumping Jax waiver work. Dependency-free Node.js bootstrap.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dry-run": "node src/orchestrator.mjs --mode dry-run",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {},
+  "optionalDependenciesNote": "No packages required. Built-in Node.js modules only (fs, path, crypto, assert, url, os). Optional future packages may be documented in README but must not be installed in this bootstrap."
+}

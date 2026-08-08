@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jumpingjax.local/schemas/review-result.schema.json",
+  "title": "CursorReviewerResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taskId",
+    "verdict",
+    "findings",
+    "severity",
+    "evidence",
+    "requiredCorrections",
+    "remainingUnverifiedBehavior"
+  ],
+  "properties": {
+    "taskId": { "type": "string", "minLength": 1 },
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVED", "CHANGES_REQUIRED", "BLOCKED"]
+    },
+    "findings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["none", "low", "medium", "high", "critical"]
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "requiredCorrections": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "remainingUnverifiedBehavior": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sessionId": { "type": "string" },
+    "readOnlyConfirmed": {
+      "type": "boolean",
+      "const": true
+    }
+  }
+}

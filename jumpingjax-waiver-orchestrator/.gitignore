@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+*.log
+logs/*.jsonl
+!logs/.gitkeep
+.project-state.backup.json
+project/PROJECT-STATE.local.json
+.DS_Store
+Thumbs.db
+*.tar.gz
+*.sha256
+secrets/
+.credentials/

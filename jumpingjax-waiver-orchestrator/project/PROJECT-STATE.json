@@ -1,0 +1,57 @@
+{
+  "project": "jumping-jax-waiver",
+  "mode": "dry-run",
+  "status": "IDLE",
+  "activeTaskId": null,
+  "activeTaskTitle": null,
+  "builderSessionId": null,
+  "reviewerSessionId": null,
+  "taskIteration": 0,
+  "maxTaskIterations": 10,
+  "projectIteration": 0,
+  "maxProjectIterations": 100,
+  "lastBuilderStatus": null,
+  "lastReviewVerdict": null,
+  "blockedReason": null,
+  "requiresJacobApproval": false,
+  "completedTasks": [],
+  "pendingTasks": [
+    {
+      "id": "DRYRUN-001",
+      "title": "Prove orchestration only",
+      "goal": "Prove orchestration only via mock correction loop without Jumping Jax repository access.",
+      "allowedFiles": [
+        "dry-run-workspace/**"
+      ],
+      "acceptanceCriteria": [
+        "Mock builder/reviewer loop completes with APPROVED",
+        "Final state is READY_FOR_JACOB_REVIEW",
+        "No Jumping Jax /workspace access"
+      ],
+      "requiredTests": [
+        "node --test test/*.test.mjs",
+        "node src/orchestrator.mjs --mode dry-run"
+      ],
+      "forbiddenActions": [
+        "commit",
+        "push",
+        "pull_request_create",
+        "merge",
+        "deploy",
+        "migration",
+        "dependency_install",
+        "lockfile_modification",
+        "environment_variable_mutation",
+        "production_data_mutation",
+        "live_cursor_api",
+        "touch_jumpingjax_workspace"
+      ],
+      "status": "pending",
+      "dependencies": [],
+      "notes": "Scaffold dry-run only. No waiver implementation.",
+      "maxIterations": 10
+    }
+  ],
+  "updatedAt": null,
+  "transitionHistory": []
+}
