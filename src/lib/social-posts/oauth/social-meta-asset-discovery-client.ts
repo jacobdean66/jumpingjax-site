@@ -11,6 +11,8 @@ import {
 export type MetaGraphPageAccount = Readonly<{
   id: string;
   name: string;
+  /** Page access token from Graph; never serialize into client/API responses. */
+  access_token?: string;
   instagram_business_account?: Readonly<{
     id: string;
     username?: string;
@@ -26,12 +28,21 @@ export type MetaGraphAccountsResponse = Readonly<{
   }>;
 }>;
 
+/** Server-only page token material collected during discovery. Never return to clients. */
+export type MetaDiscoveredPageAccessSecret = Readonly<{
+  pageId: string;
+  pageName: string;
+  accessToken: string;
+}>;
+
 export type MetaAssetDiscoveryClientResult = Readonly<
   | {
       ok: true;
       assets: readonly DiscoveredProviderAsset[];
       pageCount: number;
       instagramCount: number;
+      /** Server-only; must not be forwarded to browser redirects or JSON responses. */
+      pageAccessSecrets: readonly MetaDiscoveredPageAccessSecret[];
     }
   | {
       ok: false;
@@ -51,7 +62,7 @@ export async function fetchMetaAuthorizedAssets(input: {
   );
   url.searchParams.set(
     "fields",
-    "id,name,instagram_business_account{id,username,name}",
+    "id,name,access_token,instagram_business_account{id,username,name}",
   );
 
   try {
@@ -74,6 +85,7 @@ export async function fetchMetaAuthorizedAssets(input: {
     }
 
     const assets: DiscoveredProviderAsset[] = [];
+    const pageAccessSecrets: MetaDiscoveredPageAccessSecret[] = [];
     let pageCount = 0;
     let instagramCount = 0;
 
@@ -81,10 +93,22 @@ export async function fetchMetaAuthorizedAssets(input: {
       if (!page.id?.trim() || !page.name?.trim()) continue;
 
       pageCount += 1;
+      const pageId = page.id.trim();
+      const pageName = page.name.trim();
+      const pageAccessToken =
+        typeof page.access_token === "string" ? page.access_token.trim() : "";
+      if (pageAccessToken) {
+        pageAccessSecrets.push({
+          pageId,
+          pageName,
+          accessToken: pageAccessToken,
+        });
+      }
+
       const pageAsset = normalizeMetaFacebookPageAsset({
         discoveredAssetId: `discovered-asset:${input.discoveryRunId}:page:${page.id}`,
-        pageId: page.id.trim(),
-        pageName: page.name.trim(),
+        pageId,
+        pageName,
       });
       const pageErrors = validateDiscoveredProviderAsset(pageAsset);
       if (pageErrors.length === 0) {
@@ -116,6 +140,7 @@ export async function fetchMetaAuthorizedAssets(input: {
       assets,
       pageCount,
       instagramCount,
+      pageAccessSecrets,
     };
   } catch (error) {
     return {

@@ -6,6 +6,7 @@ import {
   fetchMetaAuthorizedAssets,
 } from "./social-meta-asset-discovery-client";
 import { loadMetaAccessTokenForPublicationTarget } from "./social-oauth-token-loader";
+import { persistMetaPageAccessTokenToVault } from "./social-oauth-vault-integration";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -49,6 +50,8 @@ export type SocialMetaAssetDiscoveryResult = Readonly<
       assets: readonly DiscoveredProviderAsset[];
       pageCount: number;
       instagramCount: number;
+      /** Count of Page access tokens vaulted (never the tokens themselves). */
+      pageAccessTokensVaulted: number;
     }
   | { ok: false; code: string; message: string }
 >;
@@ -135,12 +138,28 @@ export async function discoverMetaAssetsForPublicationTarget(input: {
     return persist;
   }
 
+  let pageAccessTokensVaulted = 0;
+  for (const secret of discovery.pageAccessSecrets) {
+    const vaulted = await persistMetaPageAccessTokenToVault({
+      publicationTargetId: input.publicationTargetId,
+      pageId: secret.pageId,
+      pageName: secret.pageName,
+      accessToken: secret.accessToken,
+      adminActorId: input.adminActorId,
+      config,
+    });
+    if (vaulted.ok) {
+      pageAccessTokensVaulted += 1;
+    }
+  }
+
   return {
     ok: true,
     discoveryRunId,
     assets: discovery.assets,
     pageCount: discovery.pageCount,
     instagramCount: discovery.instagramCount,
+    pageAccessTokensVaulted,
   };
 }
 
@@ -152,7 +171,7 @@ async function persistDiscoveredAssets(input: {
   assets: readonly DiscoveredProviderAsset[];
   pageCount: number;
   instagramCount: number;
-}): Promise<SocialMetaAssetDiscoveryResult> {
+}): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
   const client = createServiceRoleClient();
   const { error: runError } = await client.from("social_meta_asset_discovery_runs").insert({
     discovery_run_id: input.discoveryRunId,
@@ -201,13 +220,7 @@ async function persistDiscoveredAssets(input: {
     }
   }
 
-  return {
-    ok: true,
-    discoveryRunId: input.discoveryRunId,
-    assets: input.assets,
-    pageCount: input.pageCount,
-    instagramCount: input.instagramCount,
-  };
+  return { ok: true };
 }
 
 async function recordDiscoveryRun(input: {
