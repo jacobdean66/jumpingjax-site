@@ -193,6 +193,7 @@ import {
   resolveSocialOAuthRuntimeConfig,
 } from "@/lib/social-posts/oauth/social-oauth-config";
 import { buildSocialOAuthOrchestrationDiagnostics } from "@/lib/social-posts/oauth/social-oauth-orchestration-integration";
+import { countActiveMetaPageAccessVaultRecords } from "@/lib/social-posts/oauth/social-oauth-token-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -227,6 +228,7 @@ type Props = {
     meta_assets_pages?: string;
     meta_assets_instagram?: string;
     meta_assets_binding_id?: string;
+    meta_page_tokens_vaulted?: string;
     oauth_refresh?: string;
     oauth_refresh_error?: string;
     oauth_refresh_message?: string;
@@ -2870,6 +2872,16 @@ export default async function AdminPublicationExecutionPage({
   });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
+  const activePageAccessTokenCount = filters.publicationTargetId
+    ? await countActiveMetaPageAccessVaultRecords(filters.publicationTargetId)
+    : 0;
+  const metaPublishReadinessLabel = !oauthConnectConfigured
+    ? "Meta not configured"
+    : oauthConnectionReplay.summary.connectedCount < 1
+      ? "Meta OAuth not connected"
+      : activePageAccessTokenCount < 1
+        ? "Page discovered/bound — Page access token missing"
+        : "Page access token vaulted — publish still requires durable execution authorization (draft Approve is not enough)";
   const oauthStatus = resolved.oauth ?? "";
   const oauthStatusMessage = resolved.oauth_message ?? "";
   const metaAssetsStatus = resolved.meta_assets ?? "";
@@ -3579,7 +3591,20 @@ export default async function AdminPublicationExecutionPage({
                   <Field label="Failed Sessions" value={oauthConnectionReplay.summary.failedCount} />
                   <Field label="Intent Count" value={oauthConnectionReplay.summary.intentCount} />
                   <Field label="Callback Events" value={oauthConnectionReplay.summary.callbackEventCount} />
+                  <Field
+                    label="Vaulted Page Access Tokens"
+                    value={
+                      filters.publicationTargetId
+                        ? String(activePageAccessTokenCount)
+                        : "set target filter"
+                    }
+                  />
+                  <Field label="Meta Publish Readiness" value={metaPublishReadinessLabel} />
                 </div>
+                <p className="mt-3 text-xs font-semibold text-slate-500">
+                  Draft Approve on Social Posts is local status only. External Meta publication
+                  requires durable owner approval + execution authorization. Tokens are never shown.
+                </p>
 
                 {auth.role === "owner" && filters.publicationTargetId ? (
                   <form
@@ -3662,9 +3687,9 @@ export default async function AdminPublicationExecutionPage({
                     </h2>
                     <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
                       Live Meta asset discovery lists authorized Facebook Pages and linked
-                      Instagram Business accounts, then binds a selected asset to an existing
-                      publication target. Identity mapping only — no publishing, scheduling,
-                      or execution authority.
+                      Instagram Business accounts, vaults Page access tokens server-side, then
+                      binds a selected asset to an existing publication target. Identity + secure
+                      token storage only — discovery does not publish. Draft Approve is not publish.
                     </p>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
@@ -3679,6 +3704,9 @@ export default async function AdminPublicationExecutionPage({
                     {resolved.meta_assets_error ? ` (${resolved.meta_assets_error})` : ""}
                     {resolved.meta_assets_pages
                       ? ` — pages: ${resolved.meta_assets_pages}, instagram: ${resolved.meta_assets_instagram ?? "0"}`
+                      : ""}
+                    {resolved.meta_page_tokens_vaulted
+                      ? ` — page tokens vaulted: ${resolved.meta_page_tokens_vaulted}`
                       : ""}
                     {resolved.meta_assets_binding_id
                       ? ` — binding: ${resolved.meta_assets_binding_id}`

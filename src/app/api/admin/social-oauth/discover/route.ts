@@ -38,5 +38,9 @@ export async function POST(req: NextRequest) {
   redirectUrl.searchParams.set("meta_assets", "discovered");
   redirectUrl.searchParams.set("meta_assets_pages", String(discovery.pageCount));
   redirectUrl.searchParams.set("meta_assets_instagram", String(discovery.instagramCount));
+  redirectUrl.searchParams.set(
+    "meta_page_tokens_vaulted",
+    String(discovery.pageAccessTokensVaulted),
+  );
   return NextResponse.redirect(redirectUrl, { status: 303 });
 }

@@ -302,6 +302,85 @@ async function appendBindingAuditEvent(input: {
   });
 }
 
+export type ActiveBoundMetaPageResolveResult = Readonly<
+  | {
+      ok: true;
+      pageId: string;
+      bindingId: string;
+      assetKind: DiscoveredProviderAsset["assetKind"];
+    }
+  | { ok: false; code: string; message: string }
+>;
+
+/**
+ * Resolve the currently active Meta Page bound to a publication target.
+ * Uses active binding row + publication target externalId (full Page ID stored
+ * on the target at bind time; binding table keeps only redacted id).
+ */
+export async function resolveActiveBoundMetaPageForPublicationTarget(
+  publicationTargetId: string,
+): Promise<ActiveBoundMetaPageResolveResult> {
+  const targetId = publicationTargetId.trim();
+  if (!targetId) {
+    return {
+      ok: false,
+      code: "publication_target_required",
+      message: "publicationTargetId is required to resolve the bound Meta Page.",
+    };
+  }
+
+  const snapshot = await loadSocialMetaBindingPersistenceSnapshot();
+  const activeBinding = snapshot.bindings.find(
+    (binding) =>
+      binding.publication_target_id === targetId &&
+      binding.binding_state === "active",
+  );
+
+  if (!activeBinding) {
+    return {
+      ok: false,
+      code: "meta_page_unbound",
+      message:
+        "No active Meta publication-target binding exists. Bind a Page before publishing.",
+    };
+  }
+
+  if (activeBinding.asset_kind !== "facebook_page") {
+    return {
+      ok: false,
+      code: "meta_bound_asset_not_page",
+      message:
+        "Active Meta binding is not a Facebook Page. Organic Page publish denied.",
+    };
+  }
+
+  const targetResult = await getPublicationTargetById(targetId);
+  if (!targetResult.ok) {
+    return {
+      ok: false,
+      code: "publication_target_not_found",
+      message: "Publication target could not be resolved for bound Meta Page check.",
+    };
+  }
+
+  const pageId = targetResult.value.externalId?.trim() ?? "";
+  if (!pageId) {
+    return {
+      ok: false,
+      code: "meta_page_unbound",
+      message:
+        "Publication target has an active binding but no bound Meta Page external id.",
+    };
+  }
+
+  return {
+    ok: true,
+    pageId,
+    bindingId: activeBinding.binding_id,
+    assetKind: activeBinding.asset_kind,
+  };
+}
+
 export async function loadSocialMetaBindingPersistenceSnapshot(): Promise<
   Readonly<{
     bindings: readonly SocialMetaPublicationTargetBindingRow[];
