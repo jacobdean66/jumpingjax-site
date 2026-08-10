@@ -194,6 +194,8 @@ import {
 } from "@/lib/social-posts/oauth/social-oauth-config";
 import { buildSocialOAuthOrchestrationDiagnostics } from "@/lib/social-posts/oauth/social-oauth-orchestration-integration";
 import { countActiveMetaPageAccessVaultRecords } from "@/lib/social-posts/oauth/social-oauth-token-loader";
+import { evaluateMetaOrganicPublishReadiness } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
+import { resolveVerifiedMetaOrganicPublishGates } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -229,6 +231,10 @@ type Props = {
     meta_assets_instagram?: string;
     meta_assets_binding_id?: string;
     meta_page_tokens_vaulted?: string;
+    meta_publish?: string;
+    meta_publish_error?: string;
+    meta_publish_message?: string;
+    meta_publish_external_id?: string;
     oauth_refresh?: string;
     oauth_refresh_error?: string;
     oauth_refresh_message?: string;
@@ -2875,13 +2881,32 @@ export default async function AdminPublicationExecutionPage({
   const activePageAccessTokenCount = filters.publicationTargetId
     ? await countActiveMetaPageAccessVaultRecords(filters.publicationTargetId)
     : 0;
-  const metaPublishReadinessLabel = !oauthConnectConfigured
-    ? "Meta not configured"
-    : oauthConnectionReplay.summary.connectedCount < 1
-      ? "Meta OAuth not connected"
-      : activePageAccessTokenCount < 1
-        ? "Page discovered/bound — Page access token missing"
-        : "Page access token vaulted — publish still requires durable execution authorization (draft Approve is not enough)";
+  const metaPublishStatusParam = resolved.meta_publish ?? "";
+  const verifiedPublishGates = await resolveVerifiedMetaOrganicPublishGates({
+    publicationTargetId: filters.publicationTargetId,
+    socialPostId: filters.socialPostId,
+    authorizationId: resolved.exec_auth_id ?? null,
+    authorizationSnapshot,
+  });
+  const metaOrganicPublishReadiness = await evaluateMetaOrganicPublishReadiness({
+    publicationTargetId: filters.publicationTargetId,
+    verifiedOwnerApproval: verifiedPublishGates.verifiedOwnerApproval,
+    verifiedValidExecutionAuthorization:
+      verifiedPublishGates.verifiedValidExecutionAuthorization,
+    complianceAllowed: verifiedPublishGates.complianceAllowed,
+    durableStatus: verifiedPublishGates.durableStatus,
+    publishStatusHint:
+      metaPublishStatusParam === "recovery" ||
+      (metaPublishStatusParam === "failed" &&
+        resolved.meta_publish_error === "publish_completion_uncertain")
+        ? "failed"
+        : metaPublishStatusParam === "publishing"
+          ? "publishing"
+          : metaPublishStatusParam === "failed"
+            ? "failed"
+            : "idle",
+  });
+  const metaPublishReadinessLabel = metaOrganicPublishReadiness.label;
   const oauthStatus = resolved.oauth ?? "";
   const oauthStatusMessage = resolved.oauth_message ?? "";
   const metaAssetsStatus = resolved.meta_assets ?? "";
@@ -3600,11 +3625,47 @@ export default async function AdminPublicationExecutionPage({
                     }
                   />
                   <Field label="Meta Publish Readiness" value={metaPublishReadinessLabel} />
+                  <Field
+                    label="Publish Control State"
+                    value={metaOrganicPublishReadiness.state}
+                  />
                 </div>
                 <p className="mt-3 text-xs font-semibold text-slate-500">
                   Draft Approve on Social Posts is local status only. External Meta publication
-                  requires durable owner approval + execution authorization. Tokens are never shown.
+                  requires durable owner approval + real execution authorization (intent id alone
+                  is not enough) + bound Page + deterministic compliance allow + durable publish
+                  claim store. Tokens are never shown. Agents/LLMs cannot publish. Published
+                  requires a durable claim result — query params alone are not enough.
                 </p>
+                {metaOrganicPublishReadiness.state === "durable_ledger_unavailable" ? (
+                  <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-950">
+                    Durable Meta publish claim store unavailable. Publish remains fail-closed.
+                  </div>
+                ) : null}
+                {metaOrganicPublishReadiness.state === "recovery_required" ? (
+                  <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
+                    Recovery / manual review required. Meta may already have the post. Do not
+                    mint a new execution authorization to retry.{" "}
+                    {verifiedPublishGates.durableStatus.kind === "uncertain" &&
+                    verifiedPublishGates.durableStatus.externalPostId
+                      ? `Known external id: ${verifiedPublishGates.durableStatus.externalPostId}`
+                      : "No durable external id recorded yet."}
+                  </div>
+                ) : null}
+                {metaPublishStatusParam ? (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    Publish result: {metaPublishStatusParam}
+                    {resolved.meta_publish_message
+                      ? ` — ${resolved.meta_publish_message}`
+                      : ""}
+                    {resolved.meta_publish_error
+                      ? ` (${resolved.meta_publish_error})`
+                      : ""}
+                    {resolved.meta_publish_external_id
+                      ? ` — external id: ${resolved.meta_publish_external_id}`
+                      : ""}
+                  </div>
+                ) : null}
 
                 {auth.role === "owner" && filters.publicationTargetId ? (
                   <form
@@ -3634,6 +3695,56 @@ export default async function AdminPublicationExecutionPage({
                     Set a publication target filter to enable the owner connect control.
                   </p>
                 )}
+
+                {auth.role === "owner" &&
+                filters.publicationTargetId &&
+                filters.socialPostId &&
+                metaOrganicPublishReadiness.pageId ? (
+                  <form
+                    className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4"
+                    action="/api/admin/social-meta/publish"
+                    method="post"
+                  >
+                    <input type="hidden" name="token" value={token} />
+                    <input
+                      type="hidden"
+                      name="social_post_id"
+                      value={filters.socialPostId}
+                    />
+                    <input
+                      type="hidden"
+                      name="publication_target_id"
+                      value={filters.publicationTargetId}
+                    />
+                    <input
+                      type="hidden"
+                      name="page_id"
+                      value={metaOrganicPublishReadiness.pageId}
+                    />
+                    <input
+                      type="hidden"
+                      name="authorization_id"
+                      value={resolved.exec_auth_id ?? ""}
+                    />
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-amber-700 px-5 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!metaOrganicPublishReadiness.canPublish}
+                    >
+                      Publish to Facebook
+                    </button>
+                    <p className="max-w-xl text-xs font-semibold text-amber-900">
+                      Owner-only explicit action. Enabled only when server readiness is
+                      ready_to_publish. Not available to agents/LLMs. Draft Approve is not
+                      enough.
+                    </p>
+                  </form>
+                ) : auth.role === "owner" ? (
+                  <p className="mt-4 text-sm font-semibold text-slate-600">
+                    Set social post + publication target filters (and complete Connect/Discover/Bind
+                    + durable authorization) to enable Publish to Facebook.
+                  </p>
+                ) : null}
 
                 <div className="mt-4">
                   <OAuthDiagnosticsList
