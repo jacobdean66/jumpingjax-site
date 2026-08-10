@@ -13,6 +13,12 @@ type Props = {
   agentUiProtection: AgentUiProtectionStatus;
 };
 
+type WorkflowStage = {
+  stageId?: string;
+  status?: "pending" | "running" | "completed" | "failed" | "skipped";
+  summary?: string;
+};
+
 type AgentDraftResponse = {
   ok?: boolean;
   error?: string;
@@ -37,6 +43,10 @@ type AgentDraftResponse = {
   workflow?: {
     independentReviewerImplemented?: boolean;
     ownerApprovalRequired?: boolean;
+    maxCreativeDirectorRevisions?: number;
+    revisionUsed?: boolean;
+    modelCallsUsed?: number;
+    stages?: WorkflowStage[];
     note?: string;
   };
   strategy?: {
@@ -66,6 +76,26 @@ const PREMADE_GOALS = [
 
 const CUSTOM_GOAL_VALUE = "custom";
 
+const STAGE_LABELS: Record<string, string> = {
+  campaign_strategist: "Campaign Strategist",
+  creative_director: "Creative Director",
+  independent_reviewer: "Independent Reviewer",
+  deterministic_compliance: "Deterministic Compliance",
+  creative_director_revision: "Revision",
+  final_deterministic_compliance: "Deterministic Compliance",
+  owner_ready: "Owner Approval Required",
+};
+
+function formatStageLine(stage: WorkflowStage): string | null {
+  if (!stage.stageId) return null;
+  const label = STAGE_LABELS[stage.stageId] ?? stage.stageId;
+  if (stage.status === "completed") return `${label}: completed`;
+  if (stage.status === "failed") return `${label}: failed`;
+  if (stage.status === "skipped") return `${label}: skipped`;
+  if (stage.status === "running") return `${label}: running`;
+  return null;
+}
+
 export default function AgentDraftForm({
   token,
   sourceImages,
@@ -77,6 +107,7 @@ export default function AgentDraftForm({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const [completedStages, setCompletedStages] = useState<string[]>([]);
   const inFlightRef = useRef(false);
   const modelActionsDisabled = agentUiProtection.modelActionsDisabled;
 
@@ -93,7 +124,10 @@ export default function AgentDraftForm({
     setPending(true);
     setMessage(null);
     setError(null);
-    setAgentStatus("Social Strategy / Copy Agent running…");
+    setCompletedStages([]);
+    setAgentStatus(
+      "Orchestrating: Campaign Strategist → Creative Director → Independent Reviewer → compliance…",
+    );
 
     const customGoal = String(form.get("custom_goal") ?? "").trim();
     const goal = selectedGoal === CUSTOM_GOAL_VALUE ? customGoal : selectedGoal;
@@ -122,6 +156,10 @@ export default function AgentDraftForm({
             : complianceDecision === "quarantine"
               ? "Quarantined by deterministic compliance. "
               : "";
+        const stageLines = (data.workflow?.stages ?? [])
+          .map(formatStageLine)
+          .filter((line): line is string => Boolean(line));
+        setCompletedStages(stageLines);
         throw new Error(
           `${prefix}${data.error ?? "AI draft could not be created."}`,
         );
@@ -147,22 +185,34 @@ export default function AgentDraftForm({
       const generationNote = data.generationReadyReason
         ? ` ${data.generationReadyReason}`
         : " Paid generation remains locked until compliance allow on the exact prompt.";
-      const workflowNote =
-        data.workflow?.independentReviewerImplemented === false
-          ? " No Independent Reviewer agent. Owner approval required."
+      const revisionNote = data.workflow?.revisionUsed
+        ? " One Creative Director revision was used."
+        : "";
+      const ownerGate =
+        data.workflow?.ownerApprovalRequired !== false
+          ? " Owner approval required (model review is advisory only)."
           : "";
+
+      const stageLines = (data.workflow?.stages ?? [])
+        .map(formatStageLine)
+        .filter((line): line is string => Boolean(line));
+      // Always surface owner-approval as a distinct non-completed gate.
+      if (!stageLines.some((line) => line.startsWith("Owner Approval Required"))) {
+        stageLines.push("Owner Approval Required: pending (Jacob)");
+      }
+      setCompletedStages(stageLines);
 
       setSelectedGoal(PREMADE_GOALS[0]);
       if (formElement) {
         formElement.reset();
       }
       setAgentStatus(
-        `Social Strategy / Copy Agent ${sourceLabel}${
-          data.agent?.model ? ` (${data.agent.model})` : ""
-        }${data.agent?.failureKind ? ` [${data.agent.failureKind}]` : ""}.`,
+        `Orchestration finished (${sourceLabel}${
+          data.agent?.model ? ` · ${data.agent.model}` : ""
+        }${data.agent?.failureKind ? ` · ${data.agent.failureKind}` : ""}).`,
       );
       setMessage(
-        `AI draft created (${sourceLabel}). Not published.${ownerNeeds}${complianceNote}${quarantineLabel}${generationNote}${workflowNote}`,
+        `AI draft created via multi-agent workflow (${sourceLabel}). Not published.${revisionNote}${ownerGate}${ownerNeeds}${complianceNote}${quarantineLabel}${generationNote}`,
       );
       router.refresh();
     } catch (caught) {
@@ -180,11 +230,14 @@ export default function AgentDraftForm({
         <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
           Create AI Draft
         </p>
-        <h2 className="mt-1 text-2xl font-black">Social Strategy / Copy Agent</h2>
+        <h2 className="mt-1 text-2xl font-black">
+          Multi-agent Social Posts workflow
+        </h2>
         <p className="mt-1 text-sm font-semibold text-slate-600">
-          Creates a structured draft plan only. Deterministic compliance runs
-          after the model. Nothing is published from this action. No Independent
-          Reviewer agent exists — owner approval remains mandatory.
+          One click runs Campaign Strategist → Creative Director → Independent
+          Reviewer → deterministic compliance (at most one Creative Director
+          revision). Model review is advisory. Jacob remains the only owner
+          approver. Nothing is published from this action.
         </p>
         <p className="mt-2 text-sm font-semibold text-slate-700">
           {agentUiProtection.complianceWaitingLabel}
@@ -209,6 +262,20 @@ export default function AgentDraftForm({
           {agentStatus}
         </div>
       ) : null}
+
+      {completedStages.length > 0 ? (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+            Workflow stages
+          </p>
+          <ul className="mt-2 space-y-1 text-sm font-semibold text-slate-800">
+            {completedStages.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {message ? (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
           {message}
@@ -256,7 +323,7 @@ export default function AgentDraftForm({
             <option value={CUSTOM_GOAL_VALUE}>Custom goal</option>
           </select>
           <span className="mt-1 block text-xs font-semibold text-slate-500">
-            Choose a goal so the agent knows what kind of post to create.
+            Choose a goal so the agents know what kind of post to create.
           </span>
         </label>
 
@@ -331,7 +398,7 @@ export default function AgentDraftForm({
             className="min-h-11 w-full rounded-full bg-violet-600 px-5 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending
-              ? "Social Strategy Agent…"
+              ? "Running multi-agent workflow…"
               : modelActionsDisabled
                 ? "Create AI Draft unavailable"
                 : "Create AI Draft"}

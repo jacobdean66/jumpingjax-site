@@ -10,11 +10,16 @@ export type AgentFailureKind =
   | "empty_response"
   | "unknown";
 
+export type AgentId =
+  | "campaign-strategist"
+  | "creative-director"
+  | "independent-reviewer"
+  | "social-strategy-copy"
+  | "image-director"
+  | "video-director";
+
 export type AgentDiagnostics = {
-  agentId:
-    | "social-strategy-copy"
-    | "image-director"
-    | "video-director";
+  agentId: AgentId;
   source: AgentOutputSource;
   provider: AgentProviderId;
   model: string | null;
