@@ -182,11 +182,26 @@ test("getActiveWaiverTemplate maps thrown misconfiguration", async () => {
   );
 });
 
-test("legal HTML is not rewritten by mapping", () => {
+test("legal HTML without date token is not rewritten by mapping", () => {
   const awkward =
     "<script>alert(1)</script><p>Still exact bytes &#x26; &#39;</p>\n";
   const mapped = mapActiveTemplateRows([baseRow({ body_html: awkward })]);
   assert.equal(mapped.legalHtml, awkward);
+});
+
+test("legal HTML date token is substituted at map time without mutating stored row", () => {
+  const stored =
+    "<p>facility,on {{WAIVER_CURRENT_DATE}} I hereby agree</p>";
+  const row = baseRow({ body_html: stored });
+  const mapped = mapActiveTemplateRows([row], {
+    now: new Date("2026-08-09T18:00:00.000Z"),
+  });
+  assert.equal(row.body_html, stored);
+  assert.equal(mapped.versionId, row.version_id);
+  assert.equal(
+    mapped.legalHtml,
+    "<p>facility,on August 9, 2026 I hereby agree</p>",
+  );
 });
 
 test("route is GET-only, force-dynamic, no-store, and unauthenticated", () => {
@@ -216,6 +231,8 @@ test("service uses service-role client and does not invent legal text", () => {
   assert.match(source, /\.eq\("status", "active"\)/);
   assert.match(source, /current_version_id/);
   assert.match(source, /body_html/);
+  assert.match(source, /renderWaiverLegalHtmlDateTokens/);
+  assert.match(source, /\{\{WAIVER_CURRENT_DATE\}\}/);
   assert.doesNotMatch(source, /lorem ipsum/i);
   assert.doesNotMatch(source, /hard-?coded legal/i);
   assert.doesNotMatch(source, /published_by_staff_id/);

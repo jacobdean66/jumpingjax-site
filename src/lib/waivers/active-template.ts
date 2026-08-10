@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { renderWaiverLegalHtmlDateTokens } from "./legal-html-date";
 
 /**
  * Public active waiver template/version contract.
@@ -9,7 +10,9 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
  * - that id joins to waiver_template_versions (same template)
  *
  * Exactly one such template row is required. Zero or many → fail closed.
- * Legal content is the stored body_html; never invent or rewrite it.
+ * Legal content is the stored body_html. The only allowed transform is
+ * substituting the explicit {{WAIVER_CURRENT_DATE}} token at response time.
+ * Stored rows (including body_sha256 of source HTML) are never mutated.
  */
 
 export type ActiveWaiverTemplate = {
@@ -68,6 +71,7 @@ function isNonEmptyString(value: unknown): value is string {
  */
 export function mapActiveTemplateRows(
   rows: ActiveTemplateDbRow[],
+  options?: { now?: Date },
 ): ActiveWaiverTemplate {
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new ActiveTemplateError(
@@ -118,8 +122,10 @@ export function mapActiveTemplateRows(
     versionNumber: row.version_number,
     title: row.template_title,
     slug: row.template_slug,
-    // Exact stored legal HTML — do not transform.
-    legalHtml: row.body_html,
+    // Stored source HTML with only {{WAIVER_CURRENT_DATE}} substituted.
+    legalHtml: renderWaiverLegalHtmlDateTokens(row.body_html, {
+      now: options?.now,
+    }),
     publishedAt: row.published_at,
   };
 }
