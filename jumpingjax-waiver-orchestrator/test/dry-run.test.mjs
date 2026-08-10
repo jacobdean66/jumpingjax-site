@@ -3,19 +3,23 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { runOrchestrator } from '../src/orchestrator.mjs';
 import { StateStore, createInitialState } from '../src/state-store.mjs';
 import { createMockAdapter } from '../src/adapters/cursor-mock.mjs';
-import { isForbiddenWorkspacePath, loadSafetyPolicy } from '../src/safety-policy.mjs';
+import { isForbiddenWorkspacePath, isAllowedDryRunWorkspace, loadSafetyPolicy } from '../src/safety-policy.mjs';
 
 const orchestratorRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function freshHarness() {
+  const runId = `run-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  // Builder workspace must stay under the orchestrator-owned allowed fixture.
+  const dryWorkspace = path.join(orchestratorRoot, 'dry-run-workspace', '.test-runs', runId, 'workspace');
+  // Keep state/log atomic renames off the checkout to avoid Windows EPERM flakes.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jj-orch-dry-'));
   const statePath = path.join(dir, 'PROJECT-STATE.json');
   const logDir = path.join(dir, 'logs');
-  const dryWorkspace = path.join(dir, 'dry-run-workspace');
   fs.mkdirSync(dryWorkspace, { recursive: true });
   fs.mkdirSync(logDir, { recursive: true });
 
@@ -43,7 +47,8 @@ function freshHarness() {
 
 test('dry-run cannot target /workspace', async () => {
   const policy = loadSafetyPolicy(path.join(orchestratorRoot, 'config', 'safety-policy.json'));
-  assert.equal(isForbiddenWorkspacePath('/workspace', policy), true);
+  assert.equal(isForbiddenWorkspacePath('/workspace', policy, { orchestratorRoot }), true);
+  assert.equal(isAllowedDryRunWorkspace('/workspace', policy, { orchestratorRoot }), false);
 
   const { statePath, logDir, store } = freshHarness();
   const { state } = await runOrchestrator({
@@ -56,11 +61,33 @@ test('dry-run cannot target /workspace', async () => {
     adapter: createMockAdapter(),
   });
   assert.equal(state.status, 'BLOCKED');
-  assert.match(state.blockedReason || '', /forbidden workspace|Dry-run cannot target/i);
+  assert.match(state.blockedReason || '', /forbidden workspace|Dry-run cannot target|safe fixture/i);
+});
+
+test('dry-run rejects unprotected app descendant outside fixture', async () => {
+  const { statePath, logDir, store } = freshHarness();
+  const appSrc = path.join(orchestratorRoot, '..', 'src');
+  const { state } = await runOrchestrator({
+    root: orchestratorRoot,
+    statePath,
+    logDir,
+    store,
+    mode: 'dry-run',
+    builderWorkspace: appSrc,
+    adapter: createMockAdapter(),
+  });
+  assert.equal(state.status, 'BLOCKED');
 });
 
 test('mock correction loop reaches APPROVED and READY_FOR_JACOB_REVIEW', async () => {
   const { statePath, logDir, dryWorkspace, store } = freshHarness();
+  assert.equal(
+    isAllowedDryRunWorkspace(dryWorkspace, loadSafetyPolicy(path.join(orchestratorRoot, 'config', 'safety-policy.json')), {
+      orchestratorRoot,
+    }),
+    true,
+  );
+
   const { state, transitions } = await runOrchestrator({
     root: orchestratorRoot,
     statePath,
@@ -77,7 +104,6 @@ test('mock correction loop reaches APPROVED and READY_FOR_JACOB_REVIEW', async (
   assert.equal(state.lastReviewVerdict, 'APPROVED');
   assert.equal(state.requiresJacobApproval, false);
 
-  // Exact expected transition sequence for DRYRUN-001 mock loop
   const expected = [
     'IDLE->TASK_SELECTED',
     'TASK_SELECTED->BUILDING',
@@ -91,7 +117,6 @@ test('mock correction loop reaches APPROVED and READY_FOR_JACOB_REVIEW', async (
   ];
   assert.deepEqual(transitions, expected);
 
-  // Resume persistence: reloading must not reset to IDLE
   const resumed = new StateStore(statePath).load();
   assert.equal(resumed.status, 'READY_FOR_JACOB_REVIEW');
   assert.deepEqual(resumed.completedTasks, ['DRYRUN-001']);
@@ -140,7 +165,6 @@ test('owner approval gate stops orchestration', async () => {
 
 test('max task iterations stop at BLOCKED_MAX_ITERATIONS', async () => {
   const { statePath, logDir, dryWorkspace, store } = freshHarness();
-  // Force tiny max and a reviewer that always requires changes
   const current = store.load();
   current.maxTaskIterations = 2;
   current.pendingTasks[0].maxIterations = 2;

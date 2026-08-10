@@ -30,15 +30,17 @@
     "autonomous_production_mutation"
   ],
   "hardBlockDisposition": "BLOCKED",
-  "forbiddenPathPatterns": [
-    "/workspace",
-    "jumpingjax-site"
+  "protectedRoots": [
+    "/workspace"
   ],
   "dryRun": {
     "forbidJumpingJaxRepoAccess": true,
     "forbidLiveCursorApi": true,
     "forbidPaidProviderCalls": true,
-    "allowedAdapters": ["mock"]
+    "allowedAdapters": ["mock"],
+    "allowedFixtureRelativeToOrchestrator": [
+      "dry-run-workspace"
+    ]
   },
   "roles": {
     "codexSupervisor": {

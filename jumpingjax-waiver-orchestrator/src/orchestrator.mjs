@@ -20,7 +20,7 @@ import {
 import {
   loadSafetyPolicy,
   evaluateAction,
-  isForbiddenWorkspacePath,
+  evaluateDryRunWorkspace,
 } from './safety-policy.mjs';
 import { createMockAdapter } from './adapters/cursor-mock.mjs';
 import { createCloudApiAdapter } from './adapters/cursor-cloud-api.mjs';
@@ -103,17 +103,17 @@ export async function runOrchestrator(options = {}) {
     process.env.CURSOR_BUILDER_WORKSPACE ||
     path.join(paths.root, 'dry-run-workspace');
 
-  // Dry-run must never target Jumping Jax checkout
-  if ((mode === 'dry-run' || mode === 'mock') && isForbiddenWorkspacePath(builderWorkspace, policy)) {
-    const evaluation = {
-      ok: false,
-      disposition: 'BLOCKED',
-      reason: `Dry-run cannot target forbidden workspace: ${builderWorkspace}`,
-    };
-    logger.error('Refusing dry-run against forbidden workspace', { builderWorkspace });
-    state = applySafetyStop(state, evaluation, logger);
-    store.save(state);
-    return { state, transitions: state.transitionHistory.map((t) => `${t.from}->${t.to}`) };
+  const pathOptions = { orchestratorRoot: paths.root };
+
+  // Dry-run must use an orchestrator-owned safe fixture; never the app checkout.
+  if (mode === 'dry-run' || mode === 'mock') {
+    const workspaceGate = evaluateDryRunWorkspace(builderWorkspace, policy, pathOptions);
+    if (!workspaceGate.ok) {
+      logger.error('Refusing dry-run workspace', { builderWorkspace, reason: workspaceGate.reason });
+      state = applySafetyStop(state, workspaceGate, logger);
+      store.save(state);
+      return { state, transitions: state.transitionHistory.map((t) => `${t.from}->${t.to}`) };
+    }
   }
 
   const adapter = options.adapter || selectAdapter(mode, options.adapterOptions || {});
@@ -210,15 +210,14 @@ export async function runOrchestrator(options = {}) {
         adapter: adapter.name,
         attemptLiveApi: false,
         missingCursorApiKey: !process.env.CURSOR_API_KEY,
+        orchestratorRoot: paths.root,
       }, policy);
-      // noop is ok; explicit checks:
-      if ((mode === 'dry-run' || mode === 'mock') && isForbiddenWorkspacePath(builderWorkspace, policy)) {
-        state = applySafetyStop(state, {
-          ok: false,
-          disposition: 'BLOCKED',
-          reason: `Dry-run cannot target forbidden workspace: ${builderWorkspace}`,
-        }, logger);
-        break;
+      if ((mode === 'dry-run' || mode === 'mock')) {
+        const workspaceGate = evaluateDryRunWorkspace(builderWorkspace, policy, pathOptions);
+        if (!workspaceGate.ok) {
+          state = applySafetyStop(state, workspaceGate, logger);
+          break;
+        }
       }
       void pre;
 

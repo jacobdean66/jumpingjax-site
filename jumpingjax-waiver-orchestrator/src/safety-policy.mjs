@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_POLICY_PATH = path.resolve(__dirname, '../config/safety-policy.json');
+export const DEFAULT_ORCHESTRATOR_ROOT = path.resolve(__dirname, '..');
 
 export function loadSafetyPolicy(policyPath = DEFAULT_POLICY_PATH) {
   const raw = fs.readFileSync(policyPath, 'utf8');
@@ -11,26 +12,119 @@ export function loadSafetyPolicy(policyPath = DEFAULT_POLICY_PATH) {
 }
 
 /**
- * Normalize path for comparison (lowercase on win-like, strip trailing separators).
+ * Canonicalize a path for relationship checks:
+ * resolve (collapses . / ..), unify separators, strip trailing slashes, lowercase.
  */
 export function normalizePath(p) {
   if (!p) return '';
-  return path.resolve(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  const resolved = path.resolve(String(p));
+  return resolved.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 }
 
-export function isForbiddenWorkspacePath(targetPath, policy = loadSafetyPolicy()) {
-  const normalized = normalizePath(targetPath);
-  for (const pattern of policy.forbiddenPathPatterns || []) {
-    const needle = String(pattern).replace(/\\/g, '/').toLowerCase();
-    if (normalized === needle || normalized.includes(needle)) {
-      return true;
+/**
+ * True when `child` is exactly `parent` or a descendant of `parent`.
+ * Uses canonical paths only — not substring matching.
+ */
+export function isSameOrDescendant(childPath, parentPath) {
+  const child = normalizePath(childPath);
+  const parent = normalizePath(parentPath);
+  if (!child || !parent) return false;
+  return child === parent || child.startsWith(`${parent}/`);
+}
+
+/**
+ * Resolve protected application roots from policy + orchestrator location.
+ * Default: absolute mounts in policy.protectedRoots, plus the parent of the
+ * orchestrator package when that package is named jumpingjax-waiver-orchestrator.
+ */
+export function resolveProtectedApplicationRoots(policy = loadSafetyPolicy(), options = {}) {
+  const orchestratorRoot = normalizePath(options.orchestratorRoot || DEFAULT_ORCHESTRATOR_ROOT);
+  const roots = new Set();
+
+  for (const entry of policy.protectedRoots || []) {
+    if (!entry) continue;
+    // Absolute policy roots only (e.g. /workspace). Relative names are not substring needles.
+    if (path.isAbsolute(String(entry)) || String(entry).startsWith('/')) {
+      roots.add(normalizePath(entry));
     }
   }
-  // Explicit dry-run protection for Jumping Jax checkout mount
-  if (normalized === '/workspace' || normalized.startsWith('/workspace/')) {
-    return true;
+
+  // Cloud / legacy checkout mount
+  roots.add(normalizePath('/workspace'));
+
+  const base = path.basename(orchestratorRoot);
+  if (base === 'jumpingjax-waiver-orchestrator') {
+    roots.add(normalizePath(path.dirname(orchestratorRoot)));
   }
-  return false;
+
+  for (const extra of options.extraProtectedRoots || []) {
+    if (extra) roots.add(normalizePath(extra));
+  }
+
+  return [...roots];
+}
+
+/**
+ * Orchestrator-owned dry-run fixture roots (safe even when under a protected repo).
+ */
+export function resolveAllowedDryRunFixtureRoots(policy = loadSafetyPolicy(), options = {}) {
+  const orchestratorRoot = options.orchestratorRoot || DEFAULT_ORCHESTRATOR_ROOT;
+  const relative = policy.dryRun?.allowedFixtureRelativeToOrchestrator || ['dry-run-workspace'];
+  const roots = relative.map((rel) => normalizePath(path.join(orchestratorRoot, rel)));
+
+  for (const extra of options.extraAllowedFixtureRoots || []) {
+    if (extra) roots.push(normalizePath(extra));
+  }
+  return roots;
+}
+
+export function isUnderAllowedDryRunFixture(targetPath, policy = loadSafetyPolicy(), options = {}) {
+  const target = normalizePath(targetPath);
+  return resolveAllowedDryRunFixtureRoots(policy, options).some((root) => isSameOrDescendant(target, root));
+}
+
+/**
+ * Forbidden when target is the protected application root or a descendant,
+ * unless it is inside an explicitly allowed orchestrator dry-run fixture.
+ */
+export function isForbiddenWorkspacePath(targetPath, policy = loadSafetyPolicy(), options = {}) {
+  const target = normalizePath(targetPath);
+  if (!target) return true;
+
+  if (isUnderAllowedDryRunFixture(target, policy, options)) {
+    return false;
+  }
+
+  const protectedRoots = resolveProtectedApplicationRoots(policy, options);
+  return protectedRoots.some((root) => isSameOrDescendant(target, root));
+}
+
+/**
+ * Dry-run builder workspaces must be inside a configured safe fixture root.
+ * Fail closed for arbitrary external paths.
+ */
+export function isAllowedDryRunWorkspace(targetPath, policy = loadSafetyPolicy(), options = {}) {
+  if (!targetPath) return false;
+  if (isForbiddenWorkspacePath(targetPath, policy, options)) return false;
+  return isUnderAllowedDryRunFixture(targetPath, policy, options);
+}
+
+export function evaluateDryRunWorkspace(targetPath, policy = loadSafetyPolicy(), options = {}) {
+  if (isAllowedDryRunWorkspace(targetPath, policy, options)) {
+    return { ok: true, disposition: null, reason: null };
+  }
+  if (isForbiddenWorkspacePath(targetPath, policy, options)) {
+    return {
+      ok: false,
+      disposition: 'BLOCKED',
+      reason: `Dry-run cannot target forbidden workspace: ${targetPath}`,
+    };
+  }
+  return {
+    ok: false,
+    disposition: 'BLOCKED',
+    reason: `Dry-run workspace outside configured safe fixture roots: ${targetPath}`,
+  };
 }
 
 /**
@@ -39,6 +133,11 @@ export function isForbiddenWorkspacePath(targetPath, policy = loadSafetyPolicy()
  */
 export function evaluateAction(action, context = {}, policy = loadSafetyPolicy()) {
   const name = String(action || '').trim();
+  const pathOptions = {
+    orchestratorRoot: context.orchestratorRoot || DEFAULT_ORCHESTRATOR_ROOT,
+    extraProtectedRoots: context.extraProtectedRoots,
+    extraAllowedFixtureRoots: context.extraAllowedFixtureRoots,
+  };
 
   if ((policy.ownerOnlyActions || []).includes(name)) {
     return {
@@ -57,12 +156,9 @@ export function evaluateAction(action, context = {}, policy = loadSafetyPolicy()
   }
 
   if (context.mode === 'dry-run' || context.mode === 'mock') {
-    if (context.builderWorkspace && isForbiddenWorkspacePath(context.builderWorkspace, policy)) {
-      return {
-        ok: false,
-        disposition: 'BLOCKED',
-        reason: `Dry-run cannot target forbidden workspace: ${context.builderWorkspace}`,
-      };
+    if (context.builderWorkspace) {
+      const ws = evaluateDryRunWorkspace(context.builderWorkspace, policy, pathOptions);
+      if (!ws.ok) return ws;
     }
     if (context.adapter && policy.dryRun?.allowedAdapters && !policy.dryRun.allowedAdapters.includes(context.adapter)) {
       return {

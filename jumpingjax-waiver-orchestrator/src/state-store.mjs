@@ -16,6 +16,8 @@ export function createInitialState(overrides = {}) {
     activeTaskTitle: null,
     builderSessionId: null,
     reviewerSessionId: null,
+    supervisorSessionId: null,
+    supervisorThreadId: null,
     taskIteration: 0,
     maxTaskIterations: 10,
     projectIteration: 0,
@@ -88,7 +90,17 @@ export class StateStore {
       fs.closeSync(fd);
     }
 
-    fs.renameSync(tmpPath, this.statePath);
+    // Windows can return EPERM when renaming over an existing file; replace safely.
+    try {
+      fs.renameSync(tmpPath, this.statePath);
+    } catch (err) {
+      if ((err.code === 'EPERM' || err.code === 'EEXIST') && fs.existsSync(this.statePath)) {
+        fs.rmSync(this.statePath, { force: true });
+        fs.renameSync(tmpPath, this.statePath);
+      } else {
+        throw err;
+      }
+    }
 
     // Best-effort fsync of directory entry on platforms that support it
     try {
