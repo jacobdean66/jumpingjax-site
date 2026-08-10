@@ -6,6 +6,8 @@
   "activeTaskTitle": null,
   "builderSessionId": null,
   "reviewerSessionId": null,
+  "supervisorSessionId": null,
+  "supervisorThreadId": null,
   "taskIteration": 0,
   "maxTaskIterations": 10,
   "projectIteration": 0,
@@ -19,18 +21,16 @@
     {
       "id": "DRYRUN-001",
       "title": "Prove orchestration only",
-      "goal": "Prove orchestration only via mock correction loop without Jumping Jax repository access.",
+      "goal": "Demonstrate Codex Supervisor → Cursor Builder → Cursor Reviewer loop without touching Jumping Jax application code",
       "allowedFiles": [
         "dry-run-workspace/**"
       ],
       "acceptanceCriteria": [
-        "Mock builder/reviewer loop completes with APPROVED",
-        "Final state is READY_FOR_JACOB_REVIEW",
-        "No Jumping Jax /workspace access"
+        "Mock or dry-run loop reaches APPROVED then READY_FOR_JACOB_REVIEW",
+        "No Jumping Jax application repo mutation"
       ],
       "requiredTests": [
-        "node --test test/*.test.mjs",
-        "node src/orchestrator.mjs --mode dry-run"
+        "Orchestrator dry-run / state-machine / safety tests"
       ],
       "forbiddenActions": [
         "commit",
@@ -42,16 +42,11 @@
         "dependency_install",
         "lockfile_modification",
         "environment_variable_mutation",
-        "production_data_mutation",
-        "live_cursor_api",
-        "touch_jumpingjax_workspace"
+        "production_data_mutation"
       ],
-      "status": "pending",
-      "dependencies": [],
-      "notes": "Scaffold dry-run only. No waiver implementation.",
-      "maxIterations": 10
+      "status": "pending"
     }
   ],
-  "updatedAt": null,
-  "transitionHistory": []
+  "transitionHistory": [],
+  "updatedAt": null
 }

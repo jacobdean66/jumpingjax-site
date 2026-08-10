@@ -1,10 +1,12 @@
-# Jumping Jax — Waiver Orchestrator Scaffold
+# Jumping Jax — Waiver Orchestrator
 
-Portable **Codex Supervisor / Cursor Builder** orchestration framework.
+Portable **Codex Supervisor / Cursor Builder / Cursor Reviewer** orchestration package.
 
 > Cursor implements. Codex supervises. Jacob owns approval gates.
 
-This scaffold lives **outside** the Jumping Jax application repository and must never modify that checkout during dry-run.
+This package can live beside the Jumping Jax application repository. Dry-run and live smoke
+modes must use the orchestrator-owned `dry-run-workspace` fixture and must not mutate the
+dirty Jumping Jax application checkout.
 
 ## Architecture
 
@@ -20,66 +22,122 @@ Codex
 Cursor Builder  -->  Cursor Reviewer  -->  Codex decision loop
 ```
 
-Deterministic state transitions are enforced in ordinary code (`src/state-machine.mjs`). Models cannot override them.
+Deterministic transitions live in ordinary code (`src/state-machine.mjs`,
+`src/supervisor-authority.mjs`). Models cannot override them.
 
-## Modes
+## Prerequisites
 
-| Mode | Adapter | Credentials | Live Cursor calls |
-|---|---|---|---|
-| `dry-run` / `mock` | Mock | None | No |
-| `cloud-api` | Cursor Cloud Agents API | `CURSOR_API_KEY` | Scaffolded; live disabled until verified |
-| `cli` | Local headless `agent` CLI | `CURSOR_API_KEY` | Scaffolded; live disabled in bootstrap |
+- Node.js ≥ 18
+- `npm install` inside this package (required for `@openai/codex-sdk`)
+- For live Cursor smoke: standalone **Cursor Agent CLI** authenticated via `agent login`
+  and/or `CURSOR_API_KEY`
+- For live Codex smoke: Codex auth via `~/.codex/auth.json` and/or `CODEX_API_KEY` /
+  `OPENAI_API_KEY` (presence checked; values never logged)
 
-ACP (`agent acp`) is a documented future transport option for custom clients; it is not wired as a primary adapter in this bootstrap.
-
-## Quick start (mock / dry-run)
-
-Requires Node.js ≥ 18. **No npm install.**
+## Install
 
 ```bash
-node --test test/*.test.mjs
-node src/orchestrator.mjs --mode dry-run
+cd jumpingjax-waiver-orchestrator
+npm install
 ```
 
-Dry-run uses a disposable builder workspace under this orchestrator folder (or `CURSOR_BUILDER_WORKSPACE` if set). It **refuses** `/workspace` and other forbidden Jumping Jax checkout paths.
+Dependency:
 
-## Windows future deployment
+- `@openai/codex-sdk` — live Codex supervisor transport
 
-Final paths and authentication will be configured on **Jacob's Windows PC**.
+## Tests
 
-- Do **not** hard-code Linux VM paths into runtime assumptions.
-- Set `ORCHESTRATOR_ROOT`, `CURSOR_BUILDER_WORKSPACE`, and `CURSOR_API_KEY` via local env (see `config/example.env`).
-- Cursor Agent CLI binary location will differ on Windows; set `CURSOR_AGENT_BIN` if needed.
-- Extract this archive to a Windows directory outside the dirty Jumping Jax checkout.
+```bash
+npm test
+```
 
-## Secrets
+Runs state-machine, state-store, safety-policy, dry-run, supervisor, and Cursor transport tests.
 
-Documented variable **names** only (never commit values):
+## Mock / dry-run orchestration
 
-- `CURSOR_API_KEY` — required for `cloud-api` and `cli` modes; fail-closed when missing
-- `CURSOR_CLOUD_API_BASE` — optional API base (verify before live use)
-- `CURSOR_BUILDER_WORKSPACE` — builder workspace absolute path
-- `CURSOR_AGENT_BIN` — optional CLI binary path/name
-- `ORCHESTRATOR_MODE` — `dry-run` | `mock` | `cloud-api` | `cli`
+```bash
+npm run dry-run
+npm run supervisor-mock
+```
 
-## Safety
+Dry-run uses the disposable `dry-run-workspace/` fixture (gitignored contents).
+The CLI/cloud adapters refuse workspaces outside that safe fixture root.
 
-Hard-stops before: commit, push, PR, merge, deploy, migration, dependency install, lockfile modification, env mutation, production changes, destructive Git, publication, paid-media, provider spending, unexpected dirty workspace.
+## Live Codex smoke
+
+```bash
+npm run codex-smoke
+```
+
+Exercises authenticated Codex SDK start/resume without mutating Jumping Jax app files.
+
+## Live Cursor / end-to-end smoke
+
+```bash
+npm run cursor-auth-probe
+npm run cursor-live-e2e
+```
+
+`cursor-live-e2e` runs a bounded Codex → Cursor Builder → Cursor Reviewer → Codex cycle
+against `dry-run-workspace` only. It must not touch application source, Git history, or
+production.
+
+## Cursor Agent CLI (Windows)
+
+Preferred discovery (no secrets printed):
+
+1. `%LOCALAPPDATA%\cursor-agent\versions\<latest>\node.exe` + `index.js` (argv-safe)
+2. `%LOCALAPPDATA%\cursor-agent\agent.cmd`
+3. Override with `CURSOR_AGENT_BIN` if needed
+
+Authenticate with the standalone Agent CLI (`agent login`). Desktop `cursor agent` is not
+the required transport for this package.
+
+Optional `CURSOR_API_KEY` enables Cloud API adapter auth and also satisfies CLI credential
+presence checks.
+
+## Codex auth
+
+Codex live mode expects:
+
+- installed `@openai/codex-sdk` + platform-bundled Codex CLI under `node_modules`, or
+  `CODEX_CLI_PATH` override
+- auth via Codex home (`~/.codex/auth.json`) and/or env `CODEX_API_KEY` / `OPENAI_API_KEY`
+
+## Persistent project state
+
+- Tracked default: `project/PROJECT-STATE.json` — valid dry-run scaffold (`IDLE`)
+- Tracked plan: `project/PROJECT-PLAN.md` — dry-run task only
+- Local operational snapshots (if any): gitignored
+  `project/PROJECT-STATE.operational.local.json` / `project/PROJECT-STATE.local.json`
+- Writes are atomic (temp + fsync + rename) via `StateStore`
+
+## Owner gates
+
+Hard-stops before: commit, push, PR create/update, merge, deploy, migration, dependency
+install, lockfile modification, env mutation, production data mutation, destructive Git,
+publication, paid-media, provider spending, unexpected dirty workspace.
 
 Owner-only actions → `NEEDS_JACOB_APPROVAL` (stop).  
 Hard blocks → `BLOCKED` (stop).  
 Codex cannot authorize owner actions. Cursor cannot self-approve review/escalation.
 
-## Project status files
+This package does **not** automatically commit, push, merge, deploy, migrate, or mutate
+production.
 
-- `project/MASTER-WAIVER-SPEC.md` — placeholder; requires ChatGPT authoritative context
-- `project/PROJECT-PLAN.md` — dry-run task only (`DRYRUN-001`)
-- `project/PROJECT-STATE.json` — persistent state (atomic writes)
+## Modes
 
-## Optional packages
+| Mode | Adapter | Live calls |
+|---|---|---|
+| `dry-run` / `mock` / `supervisor-mock` | Mock | No |
+| `cloud-api` | Cursor Cloud Agents API | Fail-closed without `CURSOR_API_KEY`; live opt-in |
+| `cli` | Standalone Cursor Agent CLI | Auth via login and/or `CURSOR_API_KEY`; live opt-in |
+| `codex-live` / `supervisor-live` | Codex SDK supervisor + Cursor adapters | Live opt-in |
 
-None required. If a future package would help (e.g. Ajv for JSON Schema), document it as OPTIONAL and do not install it in this bootstrap.
+## Secrets
+
+Documented variable **names** only in `config/example.env`. Never commit real values.
 
 ## License / ownership
 
-Internal Jumping Jax engineering scaffold. Not for production autonomous deployment.
+Internal Jumping Jax engineering scaffold. Not for unsupervised production deployment.

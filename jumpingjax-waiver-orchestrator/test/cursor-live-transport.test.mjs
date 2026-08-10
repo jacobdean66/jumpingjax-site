@@ -51,6 +51,8 @@ test('CLI adapter uses argv spawn and parses structured builder JSON', async () 
       assert.ok(Array.isArray(args));
       assert.ok(args.includes('--workspace'));
       assert.ok(args.includes(path.resolve(dryWorkspace)));
+      assert.ok(args.includes('--trust'));
+      assert.ok(args.includes('--force'));
       // Prompt is a discrete argv element, not shell-interpolated.
       assert.equal(typeof args[args.length - 1], 'string');
       return {

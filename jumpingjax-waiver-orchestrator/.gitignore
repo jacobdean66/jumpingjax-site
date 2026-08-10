@@ -8,6 +8,8 @@ dry-run-workspace/
 !dry-run-workspace/.gitkeep
 .project-state.backup.json
 project/PROJECT-STATE.local.json
+project/PROJECT-STATE.operational.local.json
+project/PROJECT-STATE.json.bak
 .DS_Store
 Thumbs.db
 *.tar.gz

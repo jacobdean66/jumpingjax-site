@@ -12,7 +12,8 @@
     "supervisor-mock": "node -e \"import('./src/supervisor-loop.mjs').then(m=>m.runSupervisorOrchestration({mode:'supervisor-mock'}).then(r=>{console.log(JSON.stringify({status:r.state.status,actions:r.actions,transitions:r.transitions},null,2)); process.exitCode=r.state.status==='READY_FOR_JACOB_REVIEW'?0:2}))\"",
     "codex-smoke": "node scripts/codex-smoke.mjs",
     "cursor-auth-probe": "node scripts/cursor-auth-probe.mjs",
-    "test": "node --test test/state-machine.test.mjs test/state-store.test.mjs test/safety-policy.test.mjs test/dry-run.test.mjs test/supervisor.test.mjs test/cursor-live-transport.test.mjs"
+    "cursor-live-e2e": "node scripts/cursor-live-e2e-smoke.mjs",
+    "test": "node --test test/state-machine.test.mjs test/state-store.test.mjs test/safety-policy.test.mjs test/dry-run.test.mjs test/supervisor.test.mjs test/cursor-live-transport.test.mjs test/scaffold-defaults.test.mjs"
   },
   "dependencies": {
     "@openai/codex-sdk": "^0.147.0"
