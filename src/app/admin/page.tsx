@@ -54,6 +54,19 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   const query = "";
   const tools: AdminLink[] = [
+    ...(auth.role === "owner"
+      ? [
+          {
+            title: "Ad Analytics",
+            eyebrow: "Owner Tools",
+            description:
+              "Read-only Meta campaign, ad set, and ad performance — spend, results, and status without opening Ads Manager.",
+            href: "/admin/ad-analytics",
+            cta: "Open ad analytics",
+            accent: "info" as const,
+          },
+        ]
+      : []),
     {
       title: "AI Ads",
       eyebrow: "Generator",
