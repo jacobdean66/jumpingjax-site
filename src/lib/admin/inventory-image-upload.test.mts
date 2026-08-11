@@ -7,7 +7,7 @@ import {
   isInlineImageDataUrl,
   safeInventoryImageFileName,
   VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
-} from "./inventory-image-constants.ts";
+} from "./inventory-image-constants";
 
 function multipartRequestBytes(
   fields: Record<string, string>,

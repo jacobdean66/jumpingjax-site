@@ -6,7 +6,7 @@ import {
   parseFacilityEditInput,
   parseRentalEditInput,
   rentalBookingIsEditable,
-} from "./booking-edit.ts";
+} from "./booking-edit";
 
 test("approved rentals and confirmed facility parties are editable", () => {
   assert.equal(rentalBookingIsEditable("pending"), true);

@@ -10,6 +10,8 @@ export interface RentalSelection {
 export type RentalCartItem = {
   rental_item: string;
   rental_name: string;
+  /** Catalog price captured when the item is added; refreshed by the booking page. */
+  starting_price?: number;
 };
 
 export interface CustomerInfo {

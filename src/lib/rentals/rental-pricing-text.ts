@@ -196,16 +196,19 @@ export function estimateCartRentalSubtotal(
   durationLabel: string,
   spanDays: number,
   foamDurationLabel?: string | null,
-): number {
-  return items.reduce((sum, item) => {
+): number | null {
+  let subtotal = 0;
+  for (const item of items) {
     const lineSubtotal = estimateRentalLineSubtotal(
       item,
       durationLabel,
       spanDays,
       foamDurationLabel,
     );
-    return sum + (lineSubtotal ?? 0);
-  }, 0);
+    if (lineSubtotal == null) return null;
+    subtotal += lineSubtotal;
+  }
+  return subtotal;
 }
 
 export function estimateCartGrandTotal(
@@ -214,15 +217,14 @@ export function estimateCartGrandTotal(
   spanDays: number,
   serviceFee: number = RENTAL_DELIVERY_BASE_FEE,
   foamDurationLabel?: string | null,
-): number {
-  return (
-    estimateCartRentalSubtotal(
-      items,
-      durationLabel,
-      spanDays,
-      foamDurationLabel,
-    ) + serviceFee
+): number | null {
+  const subtotal = estimateCartRentalSubtotal(
+    items,
+    durationLabel,
+    spanDays,
+    foamDurationLabel,
   );
+  return subtotal == null ? null : subtotal + serviceFee;
 }
 
 export function normalizeDistanceMiles(value: unknown): number | null {
