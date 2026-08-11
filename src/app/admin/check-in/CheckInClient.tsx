@@ -8,7 +8,6 @@ import {
   CheckInSearchForm,
   CheckInSearchResults,
 } from "@/components/open-play/CheckInSearch";
-import { CheckInReviewPanel } from "@/components/open-play/CheckInReviewPanel";
 import { CheckInSuccessPanel } from "@/components/open-play/CheckInSuccessPanel";
 import {
   buildVisitCreateBody,
@@ -53,7 +52,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchStatusRef = useRef<HTMLDivElement | null>(null);
-  const reviewErrorRef = useRef<HTMLDivElement | null>(null);
+  const submitErrorRef = useRef<HTMLDivElement | null>(null);
   const successHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const submitLockRef = useRef(false);
   const searchRequestIdRef = useRef(0);
@@ -147,7 +146,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
   useEffect(() => {
     if (submitError) {
       window.requestAnimationFrame(() => {
-        reviewErrorRef.current?.focus();
+        submitErrorRef.current?.focus();
       });
     }
   }, [submitError]);
@@ -166,6 +165,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
       }
       return [...current, resultToDraft(result)];
     });
+    setSubmitError(null);
   }
 
   function removeAttendee(participantId: string) {
@@ -200,17 +200,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
     );
   }
 
-  function goToReview() {
-    const gate = canSubmitCheckInGroup(attendees, resolvedVisitDate);
-    if (!gate.ok) {
-      setSubmitError(gate.message);
-      setStep("review");
-      return;
-    }
-    setSubmitError(null);
-    setStep("review");
-  }
-
   async function submitVisit() {
     if (submitLockRef.current || submitting) return;
 
@@ -243,7 +232,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
         return;
       }
       setSubmitError(
-        mapped?.message || "Check-in failed. Review the group and try again.",
+        mapped?.message || "Check-in failed. Fix the group and try again.",
       );
     } finally {
       setSubmitting(false);
@@ -281,28 +270,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
     );
   }
 
-  if (step === "review") {
-    return (
-      <div className="mx-auto mt-6 max-w-xl">
-        <CheckInReviewPanel
-          visitDateYmd={resolvedVisitDate}
-          attendees={attendees}
-          totals={totals}
-          submitting={submitting}
-          error={submitError}
-          onBack={() => {
-            setSubmitError(null);
-            setStep("search");
-          }}
-          onSubmit={() => {
-            void submitVisit();
-          }}
-          errorRef={reviewErrorRef}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto mt-4 max-w-xl space-y-4 pb-28">
       <p className="text-sm font-semibold text-slate-600">
@@ -316,6 +283,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
         onQueryChange={setQuery}
         onSubmit={handleExplicitSearch}
         loading={displaySearchLoading}
+        disabled={submitting}
         inputRef={searchInputRef}
       />
 
@@ -349,9 +317,14 @@ export function CheckInClient({ visitDateYmd }: Props) {
             </p>
           ) : null}
           {submitError ? (
-            <p className="mt-3 text-sm font-semibold text-rose-700" role="alert">
+            <div
+              ref={submitErrorRef}
+              tabIndex={-1}
+              className="mt-3 text-sm font-semibold text-rose-700 outline-none"
+              role="alert"
+            >
               {submitError}
-            </p>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -374,11 +347,17 @@ export function CheckInClient({ visitDateYmd }: Props) {
         <div className="mx-auto flex max-w-xl gap-3">
           <button
             type="button"
-            disabled={attendees.length === 0}
-            onClick={goToReview}
+            disabled={attendees.length === 0 || submitting}
+            onClick={() => {
+              void submitVisit();
+            }}
             className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Review {attendees.length > 0 ? `(${attendees.length})` : "group"}
+            {submitting
+              ? "Checking in…"
+              : attendees.length > 0
+                ? `Confirm check-in (${attendees.length})`
+                : "Confirm check-in"}
           </button>
         </div>
       </div>

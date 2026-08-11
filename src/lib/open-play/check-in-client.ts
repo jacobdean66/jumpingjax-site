@@ -18,7 +18,7 @@ export type { StaffSearchResult, AdultPlayMode, AdmissionClassification };
 
 export type PaymentMethodChoice = "cash" | "card";
 
-export type CheckInStep = "search" | "review" | "success";
+export type CheckInStep = "search" | "success";
 
 export type SelectedAttendeeDraft = {
   /** Stable selection key = participantId */

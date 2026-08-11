@@ -133,18 +133,14 @@ export function CheckInSearchResults({
       {results.map((result) => {
         const selected = selectedIds.has(result.participantId);
         const expired = result.expired;
-        return (
-          <article
-            key={result.participantId}
-            role="listitem"
-            className={
-              expired
-                ? "rounded-2xl border border-rose-200 bg-rose-50 p-4"
-                : selected
-                  ? "rounded-2xl border-2 border-sky-500 bg-sky-50 p-4"
-                  : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-            }
-          >
+        const cardClass = expired
+          ? "rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left"
+          : selected
+            ? "w-full rounded-2xl border-2 border-sky-500 bg-sky-50 p-4 text-left"
+            : "w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50/70 active:bg-sky-50";
+
+        const details = (
+          <>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-xl font-black leading-tight text-slate-950">
@@ -158,6 +154,7 @@ export function CheckInSearchResults({
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
                   Expires {result.expiresOnYmd}
+                  {result.role ? ` · ${result.role.replaceAll("_", " ")}` : ""}
                 </p>
               </div>
               <span
@@ -170,8 +167,17 @@ export function CheckInSearchResults({
                 {expired ? "Expired" : "Valid"}
               </span>
             </div>
+          </>
+        );
 
-            {expired ? (
+        if (expired) {
+          return (
+            <article
+              key={result.participantId}
+              role="listitem"
+              className={cardClass}
+            >
+              {details}
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-rose-800">
                   A new waiver is required before check-in.
@@ -185,16 +191,37 @@ export function CheckInSearchResults({
                   Open waiver form
                 </Link>
               </div>
-            ) : (
-              <button
-                type="button"
-                disabled={selected}
-                onClick={() => onSelect(result)}
-                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-sky-500 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-sky-200"
+            </article>
+          );
+        }
+
+        return (
+          <article key={result.participantId} role="listitem">
+            <button
+              type="button"
+              disabled={selected}
+              onClick={() => onSelect(result)}
+              aria-pressed={selected}
+              aria-label={
+                selected
+                  ? `${result.fullName} already in today’s group`
+                  : `Select ${result.fullName} and show check-in details`
+              }
+              className={`${cardClass} disabled:cursor-default`}
+            >
+              {details}
+              <p
+                className={
+                  selected
+                    ? "mt-4 text-sm font-black text-sky-800"
+                    : "mt-4 text-sm font-black text-sky-700"
+                }
               >
-                {selected ? "Already in today’s group" : "Add to today’s group"}
-              </button>
-            )}
+                {selected
+                  ? "Already in today’s group — details above"
+                  : "Tap name to add · details open in today’s group"}
+              </p>
+            </button>
           </article>
         );
       })}
