@@ -88,7 +88,9 @@ export function AdminNav({
     | "staff"
     | "employee-schedule"
     | "tasks"
-    | "tax-export";
+    | "tax-export"
+    | "giveaway"
+    | "ad-analytics";
 }) {
   const query = "";
   const rentalActive =
@@ -115,6 +117,16 @@ export function AdminNav({
     },
     role === "owner"
       ? { id: "ai-ads" as const, label: "AI Ads", href: `/admin/ai-ads${query}` }
+      : null,
+    role === "owner"
+      ? { id: "giveaway" as const, label: "Giveaway Draw", href: `/admin/giveaway${query}` }
+      : null,
+    role === "owner"
+      ? {
+          id: "ad-analytics" as const,
+          label: "Ad Analytics",
+          href: `/admin/ad-analytics${query}`,
+        }
       : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
     role === "owner"

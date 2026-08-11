@@ -54,6 +54,28 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   const query = "";
   const tools: AdminLink[] = [
+    ...(auth.role === "owner"
+      ? [
+          {
+            title: "Giveaway Draw",
+            eyebrow: "Owner Tools",
+            description:
+              "Review private nomination stories, choose a shortlist, and randomly select a giveaway nominee.",
+            href: "/admin/giveaway",
+            cta: "Open giveaway draw",
+            accent: "warn" as const,
+          },
+          {
+            title: "Ad Analytics",
+            eyebrow: "Owner Tools",
+            description:
+              "Read-only Meta campaign, ad set, and ad performance — spend, results, and status without opening Ads Manager.",
+            href: "/admin/ad-analytics",
+            cta: "Open ad analytics",
+            accent: "info" as const,
+          },
+        ]
+      : []),
     {
       title: "AI Ads",
       eyebrow: "Generator",
