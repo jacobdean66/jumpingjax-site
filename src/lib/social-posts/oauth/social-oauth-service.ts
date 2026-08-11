@@ -1,10 +1,15 @@
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "../../supabase/admin";
 import {
-  SOCIAL_META_OAUTH_SCOPES,
+  META_AD_ANALYTICS_OAUTH_TARGET_ID,
   SOCIAL_OAUTH_INTENT_TTL_MS,
   buildMetaOAuthCallbackUri,
+  isAllowlistedOAuthReturnPath,
   isSocialOAuthConnectConfigured,
+  oauthReturnPathForPurpose,
+  resolveOAuthPurposeFromIntent,
   resolveSocialOAuthRuntimeConfig,
+  scopesForOAuthPurpose,
+  type SocialMetaOAuthPurpose,
   type SocialOAuthRuntimeConfig,
 } from "./social-oauth-config";
 import {
@@ -92,7 +97,13 @@ export type SocialOAuthSessionRow = Readonly<{
 }>;
 
 export type SocialOAuthConnectResult = Readonly<
-  | { ok: true; authorizeUrl: string; intentId: string; stateRefId: string }
+  | {
+      ok: true;
+      authorizeUrl: string;
+      intentId: string;
+      stateRefId: string;
+      purpose: SocialMetaOAuthPurpose;
+    }
   | { ok: false; code: string; message: string }
 >;
 
@@ -103,12 +114,14 @@ export type SocialOAuthCallbackResult = Readonly<
       redirectPath: string;
       sessionId: string;
       accessCredentialRefId: string;
+      purpose: SocialMetaOAuthPurpose;
     }
   | {
       ok: false;
       outcome: Exclude<SocialOAuthCallbackOutcome, "success">;
       redirectPath: string;
       message: string;
+      purpose: SocialMetaOAuthPurpose;
     }
 >;
 
@@ -116,11 +129,31 @@ export function isSocialOAuthStoreConfigured(): boolean {
   return isSupabaseServiceConfigured();
 }
 
+function sanitizeCallbackMessage(message: string): string {
+  return message
+    .replace(/(access[_-]?token|bearer\s+[a-z0-9._-]+|EAAG[A-Za-z0-9]+)/gi, "[redacted]")
+    .replace(/[?&](code|state)=[^&\s]+/gi, "")
+    .slice(0, 280);
+}
+
+function buildPurposeRedirect(
+  purpose: SocialMetaOAuthPurpose,
+  oauthStatus: string,
+): string {
+  const params = new URLSearchParams({ oauth: oauthStatus, provider: "meta" });
+  const path = oauthReturnPathForPurpose(purpose, params.toString());
+  return isAllowlistedOAuthReturnPath(path)
+    ? path
+    : oauthReturnPathForPurpose(purpose, "oauth=provider_error");
+}
+
 export async function createMetaOAuthConnectIntent(input: {
   publicationTargetId: string;
   adminActorId: string;
+  purpose?: SocialMetaOAuthPurpose;
   config?: SocialOAuthRuntimeConfig;
 }): Promise<SocialOAuthConnectResult> {
+  const purpose = input.purpose ?? "publication";
   const config = input.config ?? resolveSocialOAuthRuntimeConfig();
   if (!isSocialOAuthConnectConfigured(config)) {
     return {
@@ -146,6 +179,19 @@ export async function createMetaOAuthConnectIntent(input: {
     };
   }
 
+  const publicationTargetId =
+    purpose === "ad_analytics"
+      ? META_AD_ANALYTICS_OAUTH_TARGET_ID
+      : input.publicationTargetId.trim();
+  if (!publicationTargetId) {
+    return {
+      ok: false,
+      code: "publication_target_required",
+      message: "publication_target_id is required for publication OAuth.",
+    };
+  }
+
+  const scopes = scopesForOAuthPurpose(purpose);
   const stateMaterial = generateOAuthStateMaterial();
   const encryptedVerifier = serializeOAuthEnvelope(
     encryptOAuthSecret(stateMaterial.pkce.codeVerifier, config.vaultMasterKey),
@@ -158,9 +204,9 @@ export async function createMetaOAuthConnectIntent(input: {
     oauth_state: stateMaterial.oauthState,
     state_ref_id: stateMaterial.stateRefId,
     provider: "meta",
-    publication_target_id: input.publicationTargetId,
+    publication_target_id: publicationTargetId,
     redirect_uri: redirectUri,
-    scopes: [...SOCIAL_META_OAUTH_SCOPES],
+    scopes: [...scopes],
     pkce_challenge: stateMaterial.pkce.codeChallenge,
     encrypted_verifier_ref: encryptedVerifier,
     admin_actor_id: input.adminActorId,
@@ -179,7 +225,7 @@ export async function createMetaOAuthConnectIntent(input: {
     session_id: sessionId,
     intent_id: stateMaterial.intentId,
     provider: "meta",
-    publication_target_id: input.publicationTargetId,
+    publication_target_id: publicationTargetId,
     lifecycle_state: "awaiting_callback",
     admin_actor_id: input.adminActorId,
   });
@@ -195,6 +241,7 @@ export async function createMetaOAuthConnectIntent(input: {
     appId: config.metaAppId,
     redirectUri,
     oauthState: stateMaterial.oauthState,
+    scopes,
   });
 
   return {
@@ -202,6 +249,7 @@ export async function createMetaOAuthConnectIntent(input: {
     authorizeUrl,
     intentId: stateMaterial.intentId,
     stateRefId: stateMaterial.stateRefId,
+    purpose,
   };
 }
 
@@ -210,14 +258,17 @@ export async function handleMetaOAuthCallback(input: {
   authorizationCode: string | null;
   error: string | null;
   errorReason: string | null;
+  purposeHint?: SocialMetaOAuthPurpose | null;
   config?: SocialOAuthRuntimeConfig;
 }): Promise<SocialOAuthCallbackResult> {
   const config = input.config ?? resolveSocialOAuthRuntimeConfig();
-  const redirectBase = "/admin/social-posts/publication-execution";
+  const fallbackPurpose: SocialMetaOAuthPurpose =
+    input.purposeHint === "ad_analytics" ? "ad_analytics" : "publication";
 
   if (!config.oauthEnabled || !config.metaOAuthEnabled) {
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=disabled`,
+      purpose: fallbackPurpose,
+      redirectPath: buildPurposeRedirect(fallbackPurpose, "disabled"),
       outcome: "disabled",
       message: "OAuth is disabled.",
     });
@@ -225,23 +276,33 @@ export async function handleMetaOAuthCallback(input: {
 
   if (input.error === "access_denied") {
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=denied`,
+      purpose: fallbackPurpose,
+      redirectPath: buildPurposeRedirect(fallbackPurpose, "denied"),
       outcome: "denied",
-      message: input.errorReason ?? "Owner denied Meta authorization.",
+      message: sanitizeCallbackMessage(
+        input.errorReason ?? "Owner denied Meta authorization.",
+      ),
     });
   }
 
   if (!input.oauthState || !input.authorizationCode) {
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=provider_error`,
+      purpose: fallbackPurpose,
+      redirectPath: buildPurposeRedirect(fallbackPurpose, "provider_error"),
       outcome: "provider_error",
       message: "Meta callback was missing state or authorization code.",
     });
   }
 
-  if (!isSocialOAuthStoreConfigured() || !config.vaultMasterKey || !config.metaAppId || !config.metaAppSecret) {
+  if (
+    !isSocialOAuthStoreConfigured() ||
+    !config.vaultMasterKey ||
+    !config.metaAppId ||
+    !config.metaAppSecret
+  ) {
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=exchange_failed`,
+      purpose: fallbackPurpose,
+      redirectPath: buildPurposeRedirect(fallbackPurpose, "exchange_failed"),
       outcome: "exchange_failed",
       message: "OAuth storage or Meta configuration is unavailable.",
     });
@@ -256,17 +317,22 @@ export async function handleMetaOAuthCallback(input: {
 
   if (intentError || !intentRow) {
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=state_mismatch`,
+      purpose: fallbackPurpose,
+      redirectPath: buildPurposeRedirect(fallbackPurpose, "state_mismatch"),
       outcome: "state_mismatch",
       message: "OAuth state could not be matched to a pending intent.",
     });
   }
 
   const intent = intentRow as SocialOAuthAuthorizationIntentRow;
+  const purpose = resolveOAuthPurposeFromIntent({
+    publicationTargetId: intent.publication_target_id,
+    scopes: intent.scopes,
+  });
+
   if (!constantTimeEqual(intent.oauth_state, input.oauthState)) {
-    return recordAndReturn(client, intent, {
-      redirectBase,
-      redirectPath: `${redirectBase}?oauth=state_mismatch`,
+    return recordAndReturn(client, intent, purpose, {
+      redirectPath: buildPurposeRedirect(purpose, "state_mismatch"),
       outcome: "state_mismatch",
       message: "OAuth state mismatch.",
     });
@@ -276,32 +342,29 @@ export async function handleMetaOAuthCallback(input: {
     const idempotentSuccess = await loadConnectedOAuthCallbackSuccess(
       client,
       intent.intent_id,
-      redirectBase,
+      purpose,
     );
-    if (idempotentSuccess) {
-      return idempotentSuccess;
-    }
+    if (idempotentSuccess) return idempotentSuccess;
 
     return finalizeCallback({
-      redirectPath: `${redirectBase}?oauth=provider_error`,
+      purpose,
+      redirectPath: buildPurposeRedirect(purpose, "provider_error"),
       outcome: "provider_error",
       message: "OAuth intent was already consumed.",
     });
   }
 
   if (Date.parse(intent.expires_at) < Date.now()) {
-    return recordAndReturn(client, intent, {
-      redirectBase,
-      redirectPath: `${redirectBase}?oauth=expired`,
+    return recordAndReturn(client, intent, purpose, {
+      redirectPath: buildPurposeRedirect(purpose, "expired"),
       outcome: "expired",
       message: "OAuth intent expired before callback completed.",
     });
   }
 
   if (!validateMetaRedirectUri(intent.redirect_uri, config)) {
-    return recordAndReturn(client, intent, {
-      redirectBase,
-      redirectPath: `${redirectBase}?oauth=provider_error`,
+    return recordAndReturn(client, intent, purpose, {
+      redirectPath: buildPurposeRedirect(purpose, "provider_error"),
       outcome: "provider_error",
       message: "OAuth redirect URI is not allowlisted.",
     });
@@ -315,11 +378,10 @@ export async function handleMetaOAuthCallback(input: {
   });
 
   if (!exchange.ok) {
-    return recordAndReturn(client, intent, {
-      redirectBase,
-      redirectPath: `${redirectBase}?oauth=exchange_failed`,
+    return recordAndReturn(client, intent, purpose, {
+      redirectPath: buildPurposeRedirect(purpose, "exchange_failed"),
       outcome: "exchange_failed",
-      message: exchange.message,
+      message: sanitizeCallbackMessage(exchange.message),
       errorCode: exchange.errorCode,
     });
   }
@@ -333,11 +395,10 @@ export async function handleMetaOAuthCallback(input: {
   });
 
   if (!vaultWrite.ok) {
-    return recordAndReturn(client, intent, {
-      redirectBase,
-      redirectPath: `${redirectBase}?oauth=vault_write_failed`,
+    return recordAndReturn(client, intent, purpose, {
+      redirectPath: buildPurposeRedirect(purpose, "vault_write_failed"),
       outcome: "vault_write_failed",
-      message: vaultWrite.message,
+      message: sanitizeCallbackMessage(vaultWrite.message),
       errorCode: vaultWrite.code,
     });
   }
@@ -375,16 +436,17 @@ export async function handleMetaOAuthCallback(input: {
   return {
     ok: true,
     outcome: "success",
-    redirectPath: `${redirectBase}?oauth=connected&provider=meta`,
+    redirectPath: buildPurposeRedirect(purpose, "connected"),
     sessionId,
     accessCredentialRefId: vaultWrite.accessCredentialRefId,
+    purpose,
   };
 }
 
 async function loadConnectedOAuthCallbackSuccess(
   client: ReturnType<typeof createServiceRoleClient>,
   intentId: string,
-  redirectBase: string,
+  purpose: SocialMetaOAuthPurpose,
 ): Promise<SocialOAuthCallbackResult | null> {
   const { data: sessionRow } = await client
     .from("social_oauth_sessions")
@@ -403,17 +465,18 @@ async function loadConnectedOAuthCallbackSuccess(
   return {
     ok: true,
     outcome: "success",
-    redirectPath: `${redirectBase}?oauth=connected&provider=meta`,
+    redirectPath: buildPurposeRedirect(purpose, "connected"),
     sessionId: sessionRow.session_id,
     accessCredentialRefId: sessionRow.access_credential_ref_id,
+    purpose,
   };
 }
 
 async function recordAndReturn(
   client: ReturnType<typeof createServiceRoleClient>,
   intent: SocialOAuthAuthorizationIntentRow,
+  purpose: SocialMetaOAuthPurpose,
   input: {
-    redirectBase: string;
     redirectPath: string;
     outcome: Exclude<SocialOAuthCallbackOutcome, "success">;
     message: string;
@@ -423,11 +486,9 @@ async function recordAndReturn(
   const idempotentSuccess = await loadConnectedOAuthCallbackSuccess(
     client,
     intent.intent_id,
-    input.redirectBase,
+    purpose,
   );
-  if (idempotentSuccess) {
-    return idempotentSuccess;
-  }
+  if (idempotentSuccess) return idempotentSuccess;
 
   const callbackEventId = `oauth-callback:${intent.intent_id}:${input.outcome}`;
   await client.from("social_oauth_callback_events").insert({
@@ -457,10 +518,16 @@ async function recordAndReturn(
     })
     .eq("intent_id", intent.intent_id);
 
-  return finalizeCallback(input);
+  return finalizeCallback({
+    purpose,
+    redirectPath: input.redirectPath,
+    outcome: input.outcome,
+    message: sanitizeCallbackMessage(input.message),
+  });
 }
 
 function finalizeCallback(input: {
+  purpose: SocialMetaOAuthPurpose;
   redirectPath: string;
   outcome: Exclude<SocialOAuthCallbackOutcome, "success">;
   message: string;
@@ -469,7 +536,8 @@ function finalizeCallback(input: {
     ok: false,
     outcome: input.outcome,
     redirectPath: input.redirectPath,
-    message: input.message,
+    message: sanitizeCallbackMessage(input.message),
+    purpose: input.purpose,
   };
 }
 

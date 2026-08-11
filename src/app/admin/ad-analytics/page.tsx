@@ -22,6 +22,9 @@ type SearchParams = Promise<{
   until?: string;
   status?: string;
   campaign_id?: string;
+  oauth?: string;
+  oauth_message?: string;
+  oauth_error?: string;
 }>;
 
 function freshnessTone(freshness: string): string {
@@ -94,19 +97,35 @@ export default async function AdminAdAnalyticsPage({
         ) : null}
         {(dashboard.freshness === "permission_blocked" ||
           dashboard.freshness === "token_expired" ||
-          (dashboard.connection.hasConnectedSession &&
-            dashboard.connection.hasAdsRead === false)) && (
-          <p className="mt-2">
-            Reconnect Meta with the read-only <code>ads_read</code> permission:{" "}
-            <Link
-              href={dashboard.connection.reconnectPath}
-              className="font-black underline"
-            >
-              Publication execution → Meta OAuth
-            </Link>
-            . Do not grant <code>ads_management</code> just for this dashboard.
-          </p>
+          dashboard.freshness === "unavailable" ||
+          dashboard.freshness === "misconfigured" ||
+          dashboard.connection.hasAdsRead === false ||
+          !dashboard.connection.hasConnectedSession) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <form action="/api/admin/ad-analytics/oauth/connect" method="post">
+              <button
+                type="submit"
+                className="inline-flex min-h-10 items-center justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
+              >
+                Connect Meta for Analytics
+              </button>
+            </form>
+            <p className="text-sm font-semibold">
+              Requests read-only <code>ads_read</code> only. Does not request
+              publishing permissions or <code>ads_management</code>.
+            </p>
+          </div>
         )}
+        {params.oauth ? (
+          <p className="mt-2">
+            Meta connect status:{" "}
+            <span className="font-black uppercase">
+              {params.oauth.replaceAll("_", " ")}
+            </span>
+            {params.oauth_message ? ` — ${params.oauth_message}` : null}
+            {params.oauth_error ? ` (${params.oauth_error})` : null}
+          </p>
+        ) : null}
       </div>
 
       <form className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 lg:grid-cols-6 lg:items-end">
