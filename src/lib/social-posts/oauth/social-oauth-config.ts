@@ -7,6 +7,8 @@ export const SOCIAL_META_OAUTH_SCOPES = [
   "instagram_basic",
   "instagram_content_publish",
   "business_management",
+  /** Read-only Marketing API / Insights access for owner ad analytics. */
+  "ads_read",
 ] as const;
 
 export type SocialMetaOAuthScope = (typeof SOCIAL_META_OAUTH_SCOPES)[number];
