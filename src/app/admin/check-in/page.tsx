@@ -23,8 +23,8 @@ export default async function AdminCheckInPage() {
       <AdminHeader eyebrow="Open Play" title="Check-in" />
       <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
-        Front-desk Open Play admissions for today&apos;s America/New_York business
-        day. Search completed waivers, build a group, then confirm cash or card.
+        Front-desk Open Play admissions for today. Search completed waivers,
+        build a group, then confirm cash or card.
       </p>
       <OpenPlayDeskNav active="check-in" showOwnerTools={isOwner} />
       {isOwner ? (

@@ -282,7 +282,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
       >
         <fieldset disabled={browseLocked}>
           <label htmlFor="corrections-date" className="block text-sm font-bold text-slate-700">
-            Business day (America/New_York)
+            Report date
             <input
               id="corrections-date"
               type="date"
@@ -293,7 +293,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
             />
           </label>
           <p className="mt-2 text-xs font-semibold text-slate-500">
-            Loads visits and ledgers from the owner daily-report contract for this business day.
+            Loads visits and ledgers for the selected date.
           </p>
           <button
             type="submit"
@@ -421,7 +421,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
                 setMutation({
                   status: "error",
                   message:
-                    "That visit UUID is not in the loaded business day. Load the correct day or confirm the id.",
+                    "That visit UUID is not in the selected date. Load the correct date or confirm the id.",
                   visitId: id,
                 });
               }

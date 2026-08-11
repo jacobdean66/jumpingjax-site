@@ -274,8 +274,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
     <div className="mx-auto mt-4 max-w-xl space-y-4 pb-28">
       <p className="text-sm font-semibold text-slate-600">
         Visit date <span className="font-black text-slate-950">{resolvedVisitDate}</span>
-        {" · "}
-        America/New_York business day
       </p>
 
       <CheckInSearchForm

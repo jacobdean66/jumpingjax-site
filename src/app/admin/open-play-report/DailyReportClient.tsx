@@ -144,7 +144,7 @@ export function DailyReportClient({ initialDateYmd }: Props) {
         }}
       >
         <label htmlFor="report-date" className="block text-sm font-bold text-slate-700">
-          Business day (America/New_York)
+          Report date
           <input
             id="report-date"
             name="report-date"
@@ -159,8 +159,7 @@ export function DailyReportClient({ initialDateYmd }: Props) {
           />
         </label>
         <p className="mt-2 text-xs font-semibold text-slate-500">
-          A business day is local midnight to the next local midnight in
-          America/New_York.
+          Choose a date to load its visits and totals.
         </p>
         <button
           type="submit"
