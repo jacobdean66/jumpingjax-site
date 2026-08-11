@@ -146,6 +146,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
       ? [
           { label: "Open Play Daily report", href: `/admin/open-play-report` },
           { label: "Open Play Corrections", href: `/admin/open-play-corrections` },
+          { label: "Download waiver CSV", href: `/admin/waivers` },
         ]
       : []),
     { label: "Website Settings", href: `/admin/site-settings?${query}` },
@@ -175,6 +176,9 @@ export default async function AdminHomePage({ searchParams }: Props) {
             </Link>
             <Link className="ah-nav-link" href={`/admin/rentals?${query}`}>
               Rentals
+            </Link>
+            <Link className="ah-nav-link" href="/admin/check-in">
+              Waiver Dashboard
             </Link>
             <Link
               className="ah-nav-link ah-nav-link-accent"

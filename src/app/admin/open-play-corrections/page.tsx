@@ -4,10 +4,9 @@ import { OpenPlayDeskNav } from "@/components/open-play/OpenPlayDeskNav";
 import {
   AdminAuthError,
   AdminHeader,
+  AdminNav,
   AdminShell,
 } from "../_components";
-import { AdminBackButton } from "../AdminBackButton";
-import { AdminLogoutButton } from "../AdminLogoutButton";
 import { CorrectionsClient } from "./CorrectionsClient";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +19,8 @@ export default async function AdminOpenPlayCorrectionsPage() {
 
   return (
     <AdminShell>
-      <AdminHeader eyebrow="Open Play" title="Corrections">
-        <div className="flex flex-wrap gap-2">
-          <AdminBackButton label="Back" />
-          <AdminLogoutButton />
-        </div>
-      </AdminHeader>
+      <AdminHeader eyebrow="Open Play" title="Corrections" />
+      <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
         Owner-only method corrections, refunds, voids, and attendee removals. Original ledger
         entries stay visible; adjustments are appended by the server.

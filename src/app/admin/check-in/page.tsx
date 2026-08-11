@@ -4,10 +4,9 @@ import { OpenPlayDeskNav } from "@/components/open-play/OpenPlayDeskNav";
 import {
   AdminAuthError,
   AdminHeader,
+  AdminNav,
   AdminShell,
 } from "../_components";
-import { AdminBackButton } from "../AdminBackButton";
-import { AdminLogoutButton } from "../AdminLogoutButton";
 import { CheckInClient } from "./CheckInClient";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +20,8 @@ export default async function AdminCheckInPage() {
 
   return (
     <AdminShell>
-      <AdminHeader eyebrow="Open Play" title="Check-in">
-        <div className="flex flex-wrap gap-2">
-          <AdminBackButton label="Back" />
-          <AdminLogoutButton />
-        </div>
-      </AdminHeader>
+      <AdminHeader eyebrow="Open Play" title="Check-in" />
+      <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
         Front-desk Open Play admissions for today&apos;s America/New_York business
         day. Search completed waivers, build a group, then confirm cash or card.
