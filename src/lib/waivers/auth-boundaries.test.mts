@@ -40,6 +40,7 @@ test("admin routes distinguish staff vs owner authorization", () => {
     "src/app/api/admin/open-play/visits/[id]/corrections/route.ts",
     "src/app/api/admin/open-play/daily-report/route.ts",
     "src/app/api/admin/open-play/documents/[submissionId]/route.ts",
+    "src/app/api/admin/open-play/waivers/export/route.ts",
   ];
   for (const route of ownerRoutes) {
     const source = readRoute(route);

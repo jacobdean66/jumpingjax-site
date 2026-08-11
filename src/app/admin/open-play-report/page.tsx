@@ -7,11 +7,11 @@ import {
   AdminNav,
   AdminShell,
 } from "../_components";
-import { CorrectionsClient } from "./CorrectionsClient";
+import { DailyReportClient } from "./DailyReportClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminOpenPlayCorrectionsPage() {
+export default async function AdminOpenPlayDailyReportPage() {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
@@ -19,14 +19,14 @@ export default async function AdminOpenPlayCorrectionsPage() {
 
   return (
     <AdminShell>
-      <AdminHeader eyebrow="Open Play" title="Corrections" />
+      <AdminHeader eyebrow="Open Play" title="Daily report" />
       <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
-        Owner-only method corrections, refunds, voids, and attendee removals. Original ledger
-        entries stay visible; adjustments are appended by the server.
+        Owner-only net retained admissions for one America/New_York business day.
+        Totals include the effect of corrections, voids, and refunds.
       </p>
-      <OpenPlayDeskNav active="corrections" showOwnerTools />
-      <CorrectionsClient initialDateYmd={initialDateYmd} />
+      <OpenPlayDeskNav active="daily-report" showOwnerTools />
+      <DailyReportClient initialDateYmd={initialDateYmd} />
     </AdminShell>
   );
 }

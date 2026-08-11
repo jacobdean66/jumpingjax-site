@@ -103,6 +103,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
       accent: "ops",
     },
     {
+      title: "Open Play Check-in",
+      eyebrow: "Front Desk",
+      description:
+        "Search native waivers, check guests in for Open Play, and open owner report or corrections tools.",
+      href: `/admin/check-in`,
+      cta: "Open check-in",
+      accent: "ops",
+    },
+    {
       title: "Rental Dashboard",
       eyebrow: "Bookings",
       description:
@@ -132,6 +141,14 @@ export default async function AdminHomePage({ searchParams }: Props) {
   ];
 
   const quickLinks = [
+    { label: "Open Play Check-in", href: `/admin/check-in` },
+    ...(auth.role === "owner"
+      ? [
+          { label: "Open Play Daily report", href: `/admin/open-play-report` },
+          { label: "Open Play Corrections", href: `/admin/open-play-corrections` },
+          { label: "Download waiver CSV", href: `/admin/waivers` },
+        ]
+      : []),
     { label: "Website Settings", href: `/admin/site-settings?${query}` },
     { label: "Recovery Snapshot", href: `/admin/recovery-snapshot?${query}` },
     {
@@ -159,6 +176,9 @@ export default async function AdminHomePage({ searchParams }: Props) {
             </Link>
             <Link className="ah-nav-link" href={`/admin/rentals?${query}`}>
               Rentals
+            </Link>
+            <Link className="ah-nav-link" href="/admin/check-in">
+              Waiver Dashboard
             </Link>
             <Link
               className="ah-nav-link ah-nav-link-accent"

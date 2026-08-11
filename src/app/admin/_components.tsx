@@ -89,13 +89,16 @@ export function AdminNav({
     | "employee-schedule"
     | "tasks"
     | "tax-export"
-    | "ad-analytics";
+    | "ad-analytics"
+    | "open-play"
+    | "waiver-export";
 }) {
   const query = "";
   const rentalActive =
     active === "rentals" ||
     active === "inventory" ||
     active === "damage-log" ||
+    active === "waiver-export" ||
     active === "tax-export" ||
     active === "end-of-day";
 
@@ -105,6 +108,12 @@ export function AdminNav({
       id: "rentals" as const,
       label: "Rentals",
       href: `/admin/rentals${query}`,
+      prominent: true,
+    },
+    {
+      id: "open-play" as const,
+      label: "Waiver Dashboard",
+      href: `/admin/check-in${query}`,
       prominent: true,
     },
     { id: "facility" as const, label: "Facility", href: `/admin/facility${query}` },
@@ -139,6 +148,9 @@ export function AdminNav({
   const rentalSubnav = [
     { label: "Inventory", href: `/admin/inventory${query}` },
     { label: "Damage log", href: `/admin/damage-log${query}` },
+    role === "owner"
+      ? { label: "Waiver CSV", href: `/admin/waivers${query}` }
+      : null,
     role === "owner"
       ? { label: "Change password", href: `/admin/account/password${query}` }
       : null,
