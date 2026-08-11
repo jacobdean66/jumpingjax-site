@@ -31,7 +31,7 @@ export function DailyReportActivity({ report }: Props) {
           Visit activity
         </h2>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          No visits recorded for this business day.
+          No visits recorded for this date.
         </p>
       </section>
     );

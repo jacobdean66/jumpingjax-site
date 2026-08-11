@@ -22,8 +22,8 @@ export default async function AdminOpenPlayDailyReportPage() {
       <AdminHeader eyebrow="Open Play" title="Daily report" />
       <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
-        Owner-only net retained admissions for one America/New_York business day.
-        Totals include the effect of corrections, voids, and refunds.
+        Owner-only net retained admissions for the selected date. Totals include
+        the effect of corrections, voids, and refunds.
       </p>
       <OpenPlayDeskNav active="daily-report" showOwnerTools />
       <DailyReportClient initialDateYmd={initialDateYmd} />
