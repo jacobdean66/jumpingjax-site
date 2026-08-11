@@ -1,9 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import {
-  createSocialAgentPlanWithMeta,
-  type SocialAgentInput,
-} from "@/lib/social-posts/social-agent";
+import type { SocialAgentInput } from "@/lib/social-posts/social-agent";
 import { createSocialPost } from "@/lib/social-posts/social-post-data";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
@@ -24,7 +21,6 @@ import {
   failAgentIdempotentActionAsync,
   normalizeIdempotencyKey,
 } from "@/lib/social-posts/agents/agent-idempotency";
-import { evaluateAgentComplianceGateWithPosts } from "@/lib/social-posts/agents/agent-compliance-gate";
 import {
   DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
   complianceBlocksPersistence,
@@ -33,6 +29,11 @@ import {
   billableModelProtectionBlock,
   protectionMetadata,
 } from "@/lib/social-posts/agents/agent-protection-mode";
+import {
+  buildOrchestrationWorkflowSummary,
+  orchestrationPersistableFields,
+  runSocialPostOrchestrator,
+} from "@/lib/social-posts/agents/social-post-orchestrator";
 
 const VALID_PLATFORMS = ["facebook", "instagram", "both"] as const;
 const VALID_MEDIA_TYPES = ["image", "video"] as const;
@@ -98,7 +99,6 @@ function validateInput(body: AgentDraftRequest): SocialAgentInput {
       "seasonalContext",
       AGENT_INPUT_LIMITS.seasonalContext,
     ),
-    // Caller-supplied free-text assetContext is ignored; verified catalog asset wins.
     assetContext: null,
   };
 }
@@ -123,8 +123,6 @@ export async function POST(req: Request) {
       return schemaGuard;
     }
 
-    // Agent drafting is a billable model-backed action: fail closed before
-    // any quota use or provider call when durable protection is unavailable.
     const modelBlock = await billableModelProtectionBlock();
     if (modelBlock) {
       return NextResponse.json(modelBlock, { status: 503 });
@@ -199,52 +197,46 @@ export async function POST(req: Request) {
     }
     idemStoreKey = idem.storeKey;
 
-    const { plan, strategy, diagnostics } =
-      await createSocialAgentPlanWithMeta(strategyInput);
+    const orchestration = await runSocialPostOrchestrator({
+      request: strategyInput,
+    });
 
-    // Prefer verified catalog asset over model-chosen URL.
-    const sourceImageUrl = assetResolved.asset?.url ?? plan.sourceImageUrl;
-    const creativeSource =
-      diagnostics.source === "model" ? "openai" : "rule-fallback";
+    const compliance =
+      orchestration.finalCompliance ?? orchestration.compliance;
+    const persistable = orchestrationPersistableFields(
+      orchestration,
+      assetResolved.asset?.url ?? null,
+    );
 
-    let compliance;
-    try {
-      compliance = await evaluateAgentComplianceGateWithPosts({
-        title: plan.title,
-        caption: plan.caption,
-        generationPrompt: plan.generationPrompt,
-        campaignId: plan.campaignId,
-        platforms: plan.platforms,
-        mediaType: plan.mediaType,
-        candidateId: "explicit:agent-draft-live-candidate",
-      });
-    } catch (error) {
-      await failAgentIdempotentActionAsync(idemStoreKey);
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Authoritative compliance specifications could not be loaded.",
-          code: "compliance_specs_unavailable",
-        },
-        { status: 503 },
-      );
-    }
-
-    // Policy: blocked drafts must not persist via agent-draft.
-    if (complianceBlocksPersistence(compliance)) {
+    if (
+      !orchestration.ok ||
+      orchestration.outcome === "failed" ||
+      orchestration.outcome === "compliance_blocked" ||
+      !persistable ||
+      !compliance
+    ) {
+      const blocked =
+        compliance && complianceBlocksPersistence(compliance)
+          ? true
+          : orchestration.outcome === "compliance_blocked";
       const bodyOut = {
         ok: false,
-        error: "Draft blocked by deterministic compliance validation.",
-        code: "compliance_blocked",
-        plan,
-        strategy,
-        agent: diagnostics,
+        error:
+          orchestration.error ??
+          (blocked
+            ? "Draft blocked by deterministic compliance validation."
+            : "Agent workflow failed."),
+        code: blocked ? "compliance_blocked" : "orchestration_failed",
+        orchestration,
+        strategist: orchestration.strategist,
+        creative: orchestration.creative,
+        reviewer: orchestration.reviewer,
+        agent: orchestration.diagnostics[0] ?? null,
+        agents: orchestration.diagnostics,
         compliance,
         draftPolicy: DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
         protection: protectionMetadata(),
+        workflow: buildOrchestrationWorkflowSummary(orchestration),
         publication: {
           published: false,
           note: "Nothing was persisted or published.",
@@ -253,25 +245,23 @@ export async function POST(req: Request) {
       await completeAgentIdempotentActionAsync({
         storeKey: idemStoreKey,
         fingerprint,
-        status: 422,
+        status: blocked ? 422 : 500,
         body: bodyOut,
       });
-      return NextResponse.json(bodyOut, { status: 422 });
+      return NextResponse.json(bodyOut, { status: blocked ? 422 : 500 });
     }
 
-    // Quarantine may persist only as a labeled non-approved working draft.
-    // It is not compliant, not generation-ready, and does not unlock paid media.
     const post = await createSocialPost({
-      title: plan.title,
-      campaign_id: plan.campaignId,
-      goal: input.goal,
-      prompt: plan.generationPrompt,
-      caption: plan.caption,
-      media_type: plan.mediaType,
-      business_focus: plan.businessFocus,
-      source_image_url: sourceImageUrl,
-      platforms: plan.platforms,
-      creative_source: creativeSource,
+      title: persistable.title,
+      campaign_id: persistable.campaign_id,
+      goal: input.goal ?? persistable.goal,
+      prompt: persistable.prompt,
+      caption: persistable.caption,
+      media_type: persistable.media_type,
+      business_focus: persistable.business_focus,
+      source_image_url: persistable.source_image_url,
+      platforms: persistable.platforms,
+      creative_source: persistable.creative_source,
     });
 
     revalidatePath("/admin/social-posts");
@@ -279,28 +269,42 @@ export async function POST(req: Request) {
     const responseBody = {
       ok: true,
       post,
-      plan,
-      strategy,
-      agent: diagnostics,
+      plan: {
+        title: persistable.title,
+        caption: persistable.caption,
+        generationPrompt: persistable.prompt,
+        mediaType: persistable.media_type,
+        platforms: persistable.platforms,
+        businessFocus: persistable.business_focus,
+        sourceImageUrl: persistable.source_image_url,
+        campaignId: persistable.campaign_id,
+      },
+      strategist: orchestration.strategist,
+      creative: orchestration.creative,
+      reviewer: orchestration.reviewer,
+      orchestration,
+      agent:
+        orchestration.diagnostics.find(
+          (item) => item.agentId === "creative-director",
+        ) ??
+        orchestration.diagnostics[0] ??
+        null,
+      agents: orchestration.diagnostics,
       asset: assetResolved.asset,
       compliance,
       draftPolicy: DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
       generationReady: false,
       generationReadyReason: quarantined
         ? "Quarantined working draft saved. Paid generation stays locked until compliance allow on the exact prompt."
-        : "Draft saved. Paid generation still requires a fresh compliance allow on the exact generation prompt.",
+        : "Draft saved after agent workflow. Paid generation still requires a fresh compliance allow on the exact generation prompt.",
       protection: protectionMetadata(),
-      workflow: {
-        independentReviewerImplemented: false,
-        ownerApprovalRequired: true,
-        note: "Social Strategy / Copy Agent draft only. Owner approval remains mandatory. No Independent Reviewer agent exists yet.",
-      },
+      workflow: buildOrchestrationWorkflowSummary(orchestration),
       publication: {
         published: false,
         status: post.status,
         note: quarantined
           ? "QUARANTINE: non-approved working draft persisted for owner review. Not compliant, not publishable, not generation-ready."
-          : "Draft created only. Save/Approve/Schedule/Posted restrictions are unchanged; nothing was published.",
+          : "Owner-ready draft created only. Jacob approval remains required; nothing was published or scheduled.",
       },
     };
 

@@ -1,9 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createSocialAgentPlanWithMeta,
-  type SocialAgentInput,
-} from "@/lib/social-posts/social-agent";
+import { type SocialAgentInput } from "@/lib/social-posts/social-agent";
 import {
   acceptSocialPostGeneratedImage,
   deleteSocialPost,
@@ -62,6 +59,11 @@ import {
   statusTransitionDecision,
   statusTransitionDeniedBody,
 } from "@/lib/social-posts/agents/status-transition-gate";
+import {
+  buildOrchestrationWorkflowSummary,
+  orchestrationPersistableFields,
+  runSocialPostOrchestrator,
+} from "@/lib/social-posts/agents/social-post-orchestrator";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -442,38 +444,93 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         }
 
         try {
-          const { plan, diagnostics } =
-            await createSocialAgentPlanWithMeta(agentInput);
-          const creativeSource =
-            diagnostics.source === "model" ? "openai" : "rule-fallback";
+          // Full orchestrated chain supplies creative fields. Exact-state
+          // compliance below always evaluates the hybrid fields that will
+          // actually be persisted (never a full package that is not saved).
+          const orchestration = await runSocialPostOrchestrator({
+            request: agentInput,
+          });
+          const persistable = orchestrationPersistableFields(
+            orchestration,
+            assetResolved.asset?.url ?? null,
+          );
+
+          if (
+            !orchestration.ok ||
+            orchestration.outcome === "failed" ||
+            !persistable
+          ) {
+            const failed = {
+              ok: false,
+              error:
+                orchestration.error ??
+                "Regeneration orchestration failed before persistence.",
+              code: "orchestration_failed",
+              orchestration,
+              strategist: orchestration.strategist,
+              creative: orchestration.creative,
+              reviewer: orchestration.reviewer,
+              agent:
+                orchestration.diagnostics.find(
+                  (item) => item.agentId === "creative-director",
+                ) ??
+                orchestration.diagnostics[0] ??
+                null,
+              agents: orchestration.diagnostics,
+              compliance:
+                orchestration.finalCompliance ?? orchestration.compliance,
+              draftPolicy: DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
+              protection: protectionMetadata(),
+              workflow: buildOrchestrationWorkflowSummary(orchestration),
+              publication: {
+                published: false,
+                note: "Nothing was persisted or published.",
+              },
+            };
+            await completeAgentIdempotentActionAsync({
+              storeKey: idem.storeKey,
+              fingerprint,
+              status: 500,
+              body: failed,
+            });
+            return NextResponse.json(failed, { status: 500 });
+          }
 
           const nextTitle =
             body.action === "regenerate_all"
-              ? plan.title
+              ? persistable.title
               : stringValue(body.title) || existing.title;
           const nextCaption =
-            body.action === "regenerate_caption" || body.action === "regenerate_all"
-              ? plan.caption
+            body.action === "regenerate_caption" ||
+            body.action === "regenerate_all"
+              ? persistable.caption
               : stringValue(body.caption) || existing.caption;
           const nextPrompt =
-            body.action === "regenerate_prompt" || body.action === "regenerate_all"
-              ? plan.generationPrompt
+            body.action === "regenerate_prompt" ||
+            body.action === "regenerate_all"
+              ? persistable.prompt
               : stringValue(body.prompt) || existing.prompt;
+          const nextCampaignId =
+            body.action === "regenerate_all"
+              ? persistable.campaign_id
+              : stringValue(body.campaign_id) || existing.campaign_id;
 
+          // Exact-state invariant: compliance evaluates ONLY the fields that
+          // will be persisted after this partial/full regeneration — never the
+          // full orchestrated package when only a subset of fields is saved.
           const compliance = await evaluateAgentComplianceGateWithPosts({
             title: nextTitle ?? "Regenerated draft",
             caption: nextCaption ?? "",
             generationPrompt: nextPrompt ?? "",
-            campaignId:
-              body.action === "regenerate_all"
-                ? plan.campaignId
-                : existing.campaign_id,
+            campaignId: nextCampaignId,
             platforms:
-              body.action === "regenerate_all" ? plan.platforms : existing.platforms,
+              body.action === "regenerate_all"
+                ? persistable.platforms
+                : existing.platforms,
             // Evaluate the RESULTING media type that will be persisted.
             mediaType:
               body.action === "regenerate_all"
-                ? plan.mediaType
+                ? persistable.media_type
                 : resolveResultingMediaType(
                     stringValue(body.media_type),
                     existing.media_type,
@@ -486,10 +543,21 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
               ok: false,
               error: "Regeneration blocked by deterministic compliance validation.",
               code: "compliance_blocked",
-              agent: diagnostics,
+              orchestration,
+              strategist: orchestration.strategist,
+              creative: orchestration.creative,
+              reviewer: orchestration.reviewer,
+              agent:
+                orchestration.diagnostics.find(
+                  (item) => item.agentId === "creative-director",
+                ) ??
+                orchestration.diagnostics[0] ??
+                null,
+              agents: orchestration.diagnostics,
               compliance,
               draftPolicy: DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
               protection: protectionMetadata(),
+              workflow: buildOrchestrationWorkflowSummary(orchestration),
               publication: {
                 published: false,
                 note: "Nothing was persisted or published.",
@@ -529,36 +597,33 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
           const post = await updateSocialPostDraft(id, {
             title: nextTitle,
-            campaign_id:
-              body.action === "regenerate_all"
-                ? plan.campaignId
-                : stringValue(body.campaign_id) || existing.campaign_id,
+            campaign_id: nextCampaignId,
             goal: goal || existing.goal,
             prompt: nextPrompt,
             caption: nextCaption,
             media_type:
               body.action === "regenerate_all"
-                ? plan.mediaType
+                ? persistable.media_type
                 : stringValue(body.media_type) || existing.media_type,
             business_focus:
               body.action === "regenerate_all"
-                ? plan.businessFocus
+                ? persistable.business_focus
                 : stringValue(body.business_focus) || existing.business_focus,
             source_image_url:
               body.action === "regenerate_all"
-                ? assetResolved.asset?.url ?? plan.sourceImageUrl
+                ? assetResolved.asset?.url ?? persistable.source_image_url
                 : assetResolved.asset?.url ||
                   stringValue(body.source_image_url) ||
                   existing.source_image_url,
             platforms:
               body.action === "regenerate_all"
-                ? plan.platforms
+                ? persistable.platforms
                 : arrayValue(body.platforms),
             post_placement:
               stringValue(body.post_placement) || existing.post_placement,
             format_variant_id:
               stringValue(body.format_variant_id) || existing.format_variant_id,
-            creative_source: creativeSource,
+            creative_source: persistable.creative_source,
             status: stringValue(body.status) || existing.status,
             scheduled_for: stringValue(body.scheduled_for) || null,
           });
@@ -567,7 +632,17 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           const okBody = {
             ok: true,
             post,
-            agent: diagnostics,
+            orchestration,
+            strategist: orchestration.strategist,
+            creative: orchestration.creative,
+            reviewer: orchestration.reviewer,
+            agent:
+              orchestration.diagnostics.find(
+                (item) => item.agentId === "creative-director",
+              ) ??
+              orchestration.diagnostics[0] ??
+              null,
+            agents: orchestration.diagnostics,
             compliance,
             draftPolicy: DRAFT_COMPLIANCE_PERSISTENCE_POLICY,
             generationReady: false,
@@ -575,6 +650,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
               ? "Quarantined working draft updated. Paid generation stays locked until compliance allow."
               : "Draft updated. Paid generation still requires compliance allow on the exact prompt.",
             protection: protectionMetadata(),
+            workflow: buildOrchestrationWorkflowSummary(orchestration),
             publication: {
               published: false,
               note: quarantined
