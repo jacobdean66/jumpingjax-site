@@ -183,7 +183,7 @@ await test("requestOwnerApproval writes proposal before event", async () => {
 });
 
 await test("requestOwnerApproval appends approval requested lifecycle event", async () => {
-  let appended: SocialOwnerApprovalEventRecord | null = null;
+  const appendedEvents: SocialOwnerApprovalEventRecord[] = [];
   const result = await requestOwnerApproval({
     request: requestInput(),
     dependencies: {
@@ -191,15 +191,16 @@ await test("requestOwnerApproval appends approval requested lifecycle event", as
         return { ok: true, value: proposal };
       },
       async appendEvent(input) {
-        appended = input.event;
+        appendedEvents.push(input.event);
         return { ok: true, value: input.event };
       },
     },
   });
 
   assert.equal(result.ok, true);
-  assert.equal(appended?.eventType, "approval_requested");
-  assert.equal(appended?.eventSequence, 1);
+  assert.equal(appendedEvents.length, 1);
+  assert.equal(appendedEvents[0]!.eventType, "approval_requested");
+  assert.equal(appendedEvents[0]!.eventSequence, 1);
 });
 
 await test("requestOwnerApproval returns explicit repository failure if proposal write fails", async () => {
