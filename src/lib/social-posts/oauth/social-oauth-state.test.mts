@@ -55,6 +55,7 @@ test("buildMetaAuthorizeUrl includes state and scopes", () => {
   assert.equal(url.searchParams.get("state"), "state-123");
   assert.equal(url.searchParams.get("code_challenge"), null);
   assert.ok(url.searchParams.get("scope")?.includes("pages_show_list"));
+  assert.ok(url.searchParams.get("scope")?.includes("ads_read"));
 });
 
 console.log("social-oauth-state tests passed");
