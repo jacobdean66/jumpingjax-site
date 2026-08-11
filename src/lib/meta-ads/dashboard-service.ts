@@ -31,8 +31,7 @@ import {
   type NormalizedInsights,
 } from "./types";
 
-const RECONNECT_PATH =
-  "/admin/social-posts/publication-execution#meta-oauth";
+const RECONNECT_PATH = "/api/admin/ad-analytics/oauth/connect";
 
 function totalsFromInsights(
   insights: NormalizedInsights,
