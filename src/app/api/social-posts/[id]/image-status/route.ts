@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return schemaGuard;
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
+    const limited = await socialPostAdminRateLimitResponse(req, {
       route,
       category: "polling",
       token,

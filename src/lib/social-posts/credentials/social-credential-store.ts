@@ -100,6 +100,11 @@ export function configureSocialCredentialStoreTestDependencies(
   testStorage = storage;
 }
 
+/** True when unit tests have injected an in-memory credential store. */
+export function isSocialCredentialStoreTestDependenciesConfigured(): boolean {
+  return testStorage !== null;
+}
+
 export function isSocialCredentialStoreConfigured(): boolean {
   return isSupabaseServiceConfigured();
 }

@@ -1,4 +1,8 @@
-import { META_ADS_REQUIRED_SCOPE } from "./config";
+import {
+  META_ADS_BUSINESS_SCOPE,
+  META_ADS_REQUIRED_SCOPE,
+  META_ADS_REQUIRED_SCOPES,
+} from "./config";
 import { metaAdsGraphGet, type MetaAdsHttpResult } from "./http-client";
 import { sanitizedError } from "./errors";
 
@@ -11,11 +15,15 @@ export type MetaAdsPermissionCheck = Readonly<
   | {
       ok: true;
       hasAdsRead: boolean;
+      hasBusinessManagement: boolean;
+      hasRequiredScopes: boolean;
       granted: readonly string[];
     }
   | {
       ok: false;
       hasAdsRead: false;
+      hasBusinessManagement: false;
+      hasRequiredScopes: false;
       error: import("./errors").MetaAdsSanitizedError;
     }
 >;
@@ -34,11 +42,19 @@ export async function checkMetaAdsReadPermission(input: {
   if (!result.ok) {
     // Fall back: treat permission endpoint failure as unknown → caller may probe adaccounts.
     if (result.error.code === "permission_missing" || result.error.code === "token_expired") {
-      return { ok: false, hasAdsRead: false, error: result.error };
+      return {
+        ok: false,
+        hasAdsRead: false,
+        hasBusinessManagement: false,
+        hasRequiredScopes: false,
+        error: result.error,
+      };
     }
     return {
       ok: true,
       hasAdsRead: false,
+      hasBusinessManagement: false,
+      hasRequiredScopes: false,
       granted: [],
     };
   }
@@ -47,9 +63,14 @@ export async function checkMetaAdsReadPermission(input: {
     .filter((row) => row.status === "granted" && row.permission)
     .map((row) => String(row.permission));
 
+  const hasAdsRead = granted.includes(META_ADS_REQUIRED_SCOPE);
+  const hasBusinessManagement = granted.includes(META_ADS_BUSINESS_SCOPE);
+
   return {
     ok: true,
-    hasAdsRead: granted.includes(META_ADS_REQUIRED_SCOPE),
+    hasAdsRead,
+    hasBusinessManagement,
+    hasRequiredScopes: hasAdsRead && hasBusinessManagement,
     granted,
   };
 }
@@ -57,7 +78,7 @@ export async function checkMetaAdsReadPermission(input: {
 export function missingAdsReadError() {
   return sanitizedError(
     "permission_missing",
-    `This Meta connection does not include ${META_ADS_REQUIRED_SCOPE}. Reconnect Meta OAuth to grant read-only ad reporting access. ads_management is not required.`,
+    `This Meta connection is missing required analytics permissions (${META_ADS_REQUIRED_SCOPES.join(", ")}). Reconnect Meta for Analytics. ads_management is not required.`,
     "permission_blocked",
   );
 }

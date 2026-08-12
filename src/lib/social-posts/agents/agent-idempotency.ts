@@ -1,11 +1,19 @@
 import { createHash } from "node:crypto";
 import { AGENT_INPUT_LIMITS, AgentInputValidationError } from "./agent-input-bounds";
+import {
+  DurableAgentStoreError,
+  durableBeginAgentIdempotentAction,
+  durableCompleteAgentIdempotentAction,
+  durableFailAgentIdempotentAction,
+} from "./agent-durable-store";
+import {
+  usesDurableAgentProtection,
+  usesProcessLocalAgentProtection,
+} from "./agent-protection-mode";
 
 /**
- * Process-local idempotency aid only.
- * NOT durable across Vercel instances/regions/cold starts.
- * See agent-protection-mode.ts — production paid generation stays disabled
- * until a shared durable store is approved.
+ * Process-local idempotency aid + async facade that selects durable Supabase
+ * storage when protection mode requires it.
  */
 export type AgentIdempotencyAction =
   | "agent-draft"
@@ -13,6 +21,7 @@ export type AgentIdempotencyAction =
   | "director-preview"
   | "image-director-preview"
   | "generate-image"
+  | "generate-image-concepts"
   | "generate-media";
 
 type InFlightEntry = {
@@ -149,4 +158,61 @@ export function completeAgentIdempotentAction(input: {
 
 export function failAgentIdempotentAction(storeKey: string): void {
   inFlight.delete(storeKey);
+}
+
+/** Async entrypoint used by billable routes. */
+export async function beginAgentIdempotentActionAsync(input: {
+  clientKey: string;
+  action: AgentIdempotencyAction;
+  idempotencyKey: string | null;
+  fingerprint: string;
+}): Promise<AgentIdempotencyBeginResult> {
+  if (usesProcessLocalAgentProtection()) {
+    return beginAgentIdempotentAction(input);
+  }
+  if (usesDurableAgentProtection()) {
+    return durableBeginAgentIdempotentAction(input);
+  }
+  // Never fall back to process-local Maps when durable protection is required
+  // but unavailable (Vercel production/preview fail-closed).
+  throw new DurableAgentStoreError(
+    "Durable shared protection unavailable; refusing process-local idempotency.",
+  );
+}
+
+export async function completeAgentIdempotentActionAsync(input: {
+  storeKey: string;
+  fingerprint: string;
+  status: number;
+  body: unknown;
+}): Promise<void> {
+  if (usesProcessLocalAgentProtection()) {
+    completeAgentIdempotentAction(input);
+    return;
+  }
+  if (usesDurableAgentProtection()) {
+    await durableCompleteAgentIdempotentAction(input);
+    return;
+  }
+  throw new DurableAgentStoreError(
+    "Durable shared protection unavailable; refusing process-local idempotency complete.",
+  );
+}
+
+export async function failAgentIdempotentActionAsync(
+  storeKey: string,
+): Promise<void> {
+  if (usesProcessLocalAgentProtection()) {
+    failAgentIdempotentAction(storeKey);
+    return;
+  }
+  if (usesDurableAgentProtection()) {
+    try {
+      await durableFailAgentIdempotentAction(storeKey);
+    } catch {
+      // Best-effort cleanup — do not mask the original route error.
+    }
+    return;
+  }
+  // Disabled: no durable in-flight record to clear; never touch process-local Maps.
 }

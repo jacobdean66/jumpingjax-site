@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   APPROVAL_READY_STATUSES,
@@ -18,7 +19,7 @@ import {
 } from "./agent-protection-mode";
 import { createOpenAiJsonClient } from "./llm-json-client";
 
-const ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../../../..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 function routeSource(relPath: string): string {
   return readFileSync(path.join(ROOT, relPath), "utf8");
@@ -214,24 +215,24 @@ test("P1: environment detection fails safe on missing, malformed, or ambiguous e
   );
 });
 
-test("P1: billable model block and paid media block both fail closed in production", () => {
+test("P1: billable model block and paid media block both fail closed in production", async () => {
   const prodEnv = {
     NODE_ENV: "production",
     VERCEL_ENV: "production",
   } as NodeJS.ProcessEnv;
 
-  const modelBlock = billableModelProtectionBlock(prodEnv);
+  const modelBlock = await billableModelProtectionBlock(prodEnv);
   assert.ok(modelBlock);
   assert.equal(modelBlock?.code, "durable_protection_unavailable");
   assert.match(modelBlock?.error ?? "", /Model-backed \(OpenAI\)/);
   // Truthful, non-leaky message.
   assert.doesNotMatch(modelBlock?.error ?? "", /sk-|api[_-]?key|stack|SQL/i);
 
-  const mediaBlock = paidGenerationProtectionBlock(prodEnv);
+  const mediaBlock = await paidGenerationProtectionBlock(prodEnv);
   assert.ok(mediaBlock);
   assert.equal(mediaBlock?.code, "durable_protection_unavailable");
 
-  assert.equal(billableModelProtectionBlock({ NODE_ENV: "test" } as NodeJS.ProcessEnv), null);
+  assert.equal(await billableModelProtectionBlock({ NODE_ENV: "test" } as NodeJS.ProcessEnv), null);
 });
 
 test("P1: LLM client boundary refuses billable calls in production — provider spy stays at zero", async () => {
@@ -285,7 +286,7 @@ test("P1: every billable model route fails closed before provider work (route wi
   for (const relPath of billableModelRoutes) {
     const src = routeSource(relPath);
     const blockIdx = src.indexOf("billableModelProtectionBlock()");
-    const idemIdx = src.indexOf("beginAgentIdempotentAction({");
+    const idemIdx = src.indexOf("beginAgentIdempotentActionAsync({");
     assert.ok(blockIdx > -1, `${relPath} must call billableModelProtectionBlock`);
     assert.ok(
       idemIdx === -1 || blockIdx < idemIdx,
@@ -306,9 +307,12 @@ test("P1: every billable model route fails closed before provider work (route wi
   for (const relPath of [
     "src/app/api/social-posts/[id]/generate-image/route.ts",
     "src/app/api/social-posts/[id]/generate-media/route.ts",
+    "src/app/api/social-posts/[id]/generate-image-concepts/route.ts",
   ]) {
     const src = routeSource(relPath);
     assert.match(src, /paidGenerationProtectionBlock\(\)/);
+    assert.match(src, /beginAgentIdempotentActionAsync\(/);
+    assert.match(src, /durableAgentStoreErrorResponse\(/);
   }
 });
 
@@ -333,8 +337,10 @@ test("P1: retries/regeneration flags/preview variants cannot re-enable billable 
     "utf8",
   );
   const guardIdx = client.indexOf("getAgentProtectionMode(protectionEnv)");
+  const durableIdx = client.indexOf("isDurableAgentStoreReady(protectionEnv)");
   const callIdx = client.indexOf("chat.completions.create");
   assert.ok(guardIdx > -1 && callIdx > -1 && guardIdx < callIdx);
+  assert.ok(durableIdx > -1 && durableIdx < callIdx);
 
   // openai-creative-director delegates to the guarded agent path and makes
   // no direct completion call.

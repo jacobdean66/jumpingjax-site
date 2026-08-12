@@ -893,6 +893,17 @@ export function mapProviderAccountRecordToReference(
   };
 }
 
+/**
+ * Domain metadata/reference views must not carry ciphertext blobs.
+ * Persistence rows still store the encrypted envelope in encrypted_payload_ref;
+ * token loaders read that row field directly.
+ */
+export function redactEncryptedPayloadRefForDomain(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "oauth-envelope:missing:****";
+  return `oauth-envelope:ref:len=${trimmed.length}:****`;
+}
+
 export function mapVaultRecordRowToMetadata(
   record: SocialCredentialVaultRecordRow,
 ): SocialCredentialVaultRecordMetadata {
@@ -904,7 +915,7 @@ export function mapVaultRecordRowToMetadata(
     accountRefId: record.account_ref_id,
     providerAccountId: record.provider_account_id,
     publicationTargetId: record.publication_target_id,
-    encryptedPayloadRef: record.encrypted_payload_ref,
+    encryptedPayloadRef: redactEncryptedPayloadRefForDomain(record.encrypted_payload_ref),
     keyVersion: record.key_version,
     lifecyclePhase: record.lifecycle_phase,
     supersededAt: record.superseded_at,
@@ -948,7 +959,7 @@ export function mapVaultRecordRowToCredentialReference(
     provider: record.provider,
     credentialKind: record.credential_kind,
     accountRefId: record.account_ref_id,
-    redactedHint: record.encrypted_payload_ref,
+    redactedHint: redactEncryptedPayloadRefForDomain(record.encrypted_payload_ref),
     referencesOnly: true,
     containsSecretValue: false,
     containsTokenValue: false,

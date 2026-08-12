@@ -1,17 +1,26 @@
 export const SOCIAL_META_OAUTH_VERSION = "d16-w1-v1" as const;
 
-export const SOCIAL_META_OAUTH_SCOPES = [
-  "pages_show_list",
-  "pages_read_engagement",
-  "pages_manage_posts",
-  "instagram_basic",
-  "instagram_content_publish",
-  "business_management",
-  /** Read-only Marketing API / Insights access for owner ad analytics. */
-  "ads_read",
-] as const;
-
-export type SocialMetaOAuthScope = (typeof SOCIAL_META_OAUTH_SCOPES)[number];
+export {
+  META_AD_ANALYTICS_OAUTH_TARGET_ID,
+  META_OAUTH_PURPOSE_COOKIE,
+  SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES,
+  SOCIAL_META_OAUTH_PURPOSES,
+  SOCIAL_META_OAUTH_SCOPES,
+  SOCIAL_META_PUBLICATION_OAUTH_SCOPES,
+  intentRequestsAdsRead,
+  intentRequestsAnalyticsScopes,
+  intentRequestsBusinessManagement,
+  intentRequestsPublishingScopes,
+  isAllowlistedOAuthReturnPath,
+  isSocialMetaOAuthPurpose,
+  oauthReturnPathForPurpose,
+  resolveOAuthPurposeFromIntent,
+  scopesForOAuthPurpose,
+  type SocialMetaAdAnalyticsOAuthScope,
+  type SocialMetaOAuthPurpose,
+  type SocialMetaOAuthScope,
+  type SocialMetaPublicationOAuthScope,
+} from "./social-oauth-purpose";
 
 export const SOCIAL_OAUTH_INTENT_TTL_MS = 10 * 60 * 1000;
 

@@ -43,7 +43,7 @@ test("oauth envelope round trip encrypts and decrypts", () => {
   assert.equal(decryptOAuthSecret(hydrated, key), "secret-token");
 });
 
-test("buildMetaAuthorizeUrl includes state and scopes", () => {
+test("buildMetaAuthorizeUrl includes state and publication scopes", () => {
   const url = new URL(
     buildMetaAuthorizeUrl({
       appId: "app-id",
@@ -55,7 +55,22 @@ test("buildMetaAuthorizeUrl includes state and scopes", () => {
   assert.equal(url.searchParams.get("state"), "state-123");
   assert.equal(url.searchParams.get("code_challenge"), null);
   assert.ok(url.searchParams.get("scope")?.includes("pages_show_list"));
-  assert.ok(url.searchParams.get("scope")?.includes("ads_read"));
+  assert.equal(url.searchParams.get("scope")?.includes("ads_read"), false);
+});
+
+test("buildMetaAuthorizeUrl accepts analytics-only scopes", () => {
+  const url = new URL(
+    buildMetaAuthorizeUrl({
+      appId: "app-id",
+      redirectUri: "https://jumpingjaxllc.com/api/admin/social-oauth/callback",
+      oauthState: "state-analytics",
+      scopes: ["ads_read", "business_management"],
+    }),
+  );
+  assert.equal(url.searchParams.get("scope"), "ads_read,business_management");
+  assert.equal(url.searchParams.get("scope")?.includes("pages_manage_posts"), false);
+  assert.equal(url.searchParams.get("scope")?.includes("instagram_content_publish"), false);
+  assert.equal(url.searchParams.get("scope")?.includes("ads_management"), false);
 });
 
 console.log("social-oauth-state tests passed");

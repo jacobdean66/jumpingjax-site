@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   SOCIAL_META_OAUTH_SCOPES,
   type SocialMetaOAuthScope,
@@ -180,6 +181,27 @@ export function redactMetaAccountId(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length <= 4) return "***";
   return `***${trimmed.slice(-4)}`;
+}
+
+/**
+ * Non-colliding server-side vault identity for a Meta Page.
+ * Uses a full SHA-256 of the Page ID (not last-4 redaction) so distinct pages
+ * never share an account_ref_id. Digest is not a secret and is safe in vault metadata.
+ */
+export function buildMetaPageVaultAccountRefId(pageId: string): string {
+  const normalized = pageId.trim();
+  const digest = createHash("sha256")
+    .update(`meta-page-vault-v1:${normalized}`)
+    .digest("hex");
+  return `meta-page:${digest}`;
+}
+
+/** Stable provider_account_id including full page id (server-only identity). */
+export function buildMetaPageVaultProviderAccountId(
+  publicationTargetId: string,
+  pageId: string,
+): string {
+  return `meta-page-account:${publicationTargetId.trim()}:${pageId.trim()}`;
 }
 
 export function validateMetaRedirectUri(

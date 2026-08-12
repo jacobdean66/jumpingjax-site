@@ -28,10 +28,11 @@ import {
   AgentInputValidationError,
   boundOptionalText,
 } from "@/lib/social-posts/agents/agent-input-bounds";
+import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
 import {
-  beginAgentIdempotentAction,
-  completeAgentIdempotentAction,
-  failAgentIdempotentAction,
+  beginAgentIdempotentActionAsync,
+  completeAgentIdempotentActionAsync,
+  failAgentIdempotentActionAsync,
   normalizeIdempotencyKey,
 } from "@/lib/social-posts/agents/agent-idempotency";
 import { buildSocialPostAdminRateLimitClientKey } from "@/lib/social-posts/social-post-admin-rate-limit-core";
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return schemaGuard;
     }
 
-    const protectionBlock = paidGenerationProtectionBlock();
+    const protectionBlock = await paidGenerationProtectionBlock();
     if (protectionBlock) {
       return NextResponse.json(protectionBlock, { status: 503 });
     }
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const limited = socialPostAdminRateLimitResponse(req, {
+    const limited = await socialPostAdminRateLimitResponse(req, {
       route,
       category: "generation",
       token: body.token,
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       body.idempotencyKey ?? req.headers.get("idempotency-key"),
     );
     const clientKey = buildSocialPostAdminRateLimitClientKey(req, body.token);
-    const idem = beginAgentIdempotentAction({
+    const idem = await beginAgentIdempotentActionAsync({
       clientKey,
       action: "generate-image",
       idempotencyKey,
@@ -321,7 +322,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       },
     };
 
-    completeAgentIdempotentAction({
+    await completeAgentIdempotentActionAsync({
       storeKey: idemStoreKey,
       fingerprint,
       status: 200,
@@ -330,8 +331,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json(responseBody);
   } catch (error) {
     if (idemStoreKey) {
-      failAgentIdempotentAction(idemStoreKey);
+      await failAgentIdempotentActionAsync(idemStoreKey);
     }
+    const storeUnavailable = durableAgentStoreErrorResponse(error);
+    if (storeUnavailable) return storeUnavailable;
     if (error instanceof AgentInputValidationError) {
       return NextResponse.json(
         { ok: false, error: error.message },

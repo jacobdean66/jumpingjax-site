@@ -31,8 +31,7 @@ import {
   type NormalizedInsights,
 } from "./types";
 
-const RECONNECT_PATH =
-  "/admin/social-posts/publication-execution#meta-oauth";
+const RECONNECT_PATH = "/api/admin/ad-analytics/oauth/connect";
 
 function totalsFromInsights(
   insights: NormalizedInsights,
@@ -64,6 +63,8 @@ function baseConnection(publicationTargetId: string | null) {
     configured: isSocialOAuthConnectConfigured(resolveSocialOAuthRuntimeConfig()),
     hasConnectedSession: Boolean(publicationTargetId),
     hasAdsRead: null as boolean | null,
+    hasBusinessManagement: null as boolean | null,
+    hasRequiredScopes: null as boolean | null,
     publicationTargetId,
     reconnectPath: RECONNECT_PATH,
   };
@@ -172,6 +173,8 @@ export async function loadMetaAdsDashboard(
         ...baseConnection(null),
         hasConnectedSession: false,
         hasAdsRead: false,
+        hasBusinessManagement: false,
+        hasRequiredScopes: false,
       },
     });
   }
@@ -190,6 +193,23 @@ export async function loadMetaAdsDashboard(
       connection: {
         ...baseConnection(tokenResult.publicationTargetId),
         hasAdsRead: false,
+        hasBusinessManagement: false,
+        hasRequiredScopes: false,
+      },
+    });
+  }
+
+  if (!permission.hasRequiredScopes) {
+    return emptyView({
+      freshness: "permission_blocked",
+      message: missingAdsReadError().message,
+      dateRange,
+      errors: [missingAdsReadError()],
+      connection: {
+        ...baseConnection(tokenResult.publicationTargetId),
+        hasAdsRead: permission.hasAdsRead,
+        hasBusinessManagement: permission.hasBusinessManagement,
+        hasRequiredScopes: false,
       },
     });
   }
@@ -202,7 +222,7 @@ export async function loadMetaAdsDashboard(
   if (!accountsResult.ok) {
     const blocked =
       accountsResult.error.code === "permission_missing" ||
-      !permission.hasAdsRead;
+      !permission.hasRequiredScopes;
     const error = blocked ? missingAdsReadError() : accountsResult.error;
     return emptyView({
       freshness: error.freshness,
@@ -211,7 +231,9 @@ export async function loadMetaAdsDashboard(
       errors: [error],
       connection: {
         ...baseConnection(tokenResult.publicationTargetId),
-        hasAdsRead: false,
+        hasAdsRead: permission.hasAdsRead,
+        hasBusinessManagement: permission.hasBusinessManagement,
+        hasRequiredScopes: false,
       },
     });
   }
@@ -227,6 +249,8 @@ export async function loadMetaAdsDashboard(
         connection: {
           ...baseConnection(tokenResult.publicationTargetId),
           hasAdsRead: true,
+          hasBusinessManagement: true,
+          hasRequiredScopes: true,
         },
       }),
       accounts,
@@ -258,6 +282,8 @@ export async function loadMetaAdsDashboard(
           connection: {
             ...baseConnection(tokenResult.publicationTargetId),
             hasAdsRead: true,
+            hasBusinessManagement: true,
+            hasRequiredScopes: true,
           },
         }),
         accounts,
@@ -285,6 +311,8 @@ export async function loadMetaAdsDashboard(
         connection: {
           ...baseConnection(tokenResult.publicationTargetId),
           hasAdsRead: true,
+          hasBusinessManagement: true,
+          hasRequiredScopes: true,
         },
       }),
       accounts,
@@ -328,6 +356,8 @@ export async function loadMetaAdsDashboard(
     connection: {
       ...baseConnection(tokenResult.publicationTargetId),
       hasAdsRead: true,
+      hasBusinessManagement: true,
+      hasRequiredScopes: true,
     },
     accounts,
     selectedAccountId: selected.id,
