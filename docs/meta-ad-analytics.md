@@ -10,16 +10,17 @@ Read-only Meta Marketing API reporting for Jumping Jax paid ads.
 
 ## Permissions
 
-Required Meta permission for analytics (read-only):
+Required Meta permissions for analytics:
 
-- `ads_read`
+- `ads_read` (read-only ad reporting)
+- `business_management` (Business Manager ad-account discovery)
 
 Not required for analytics:
 
 - `ads_management`
 - Page/Instagram publishing scopes (`pages_manage_posts`, `instagram_content_publish`, etc.)
 
-Use **Connect Meta for Analytics** on `/admin/ad-analytics`. That flow requests `ads_read` only and stores an analytics-purpose session (`ad-analytics` target id). Publication OAuth on Publication execution remains separate and still uses publishing scopes.
+Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. That flow requests `ads_read` and `business_management` only and stores an analytics-purpose session (`ad-analytics` target id). Older `ads_read`-only sessions require reconnect. Publication OAuth on Publication execution remains separate and still uses publishing scopes.
 
 Also confirm in Meta Developer / Business settings:
 

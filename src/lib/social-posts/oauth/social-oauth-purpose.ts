@@ -15,8 +15,11 @@ export const SOCIAL_META_PUBLICATION_OAUTH_SCOPES = [
   "business_management",
 ] as const;
 
-/** Read-only Marketing API / Insights access for owner ad analytics. */
-export const SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES = ["ads_read"] as const;
+/** Read-only Marketing API reporting + Business Manager account discovery. */
+export const SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES = [
+  "ads_read",
+  "business_management",
+] as const;
 
 /** @deprecated Prefer SOCIAL_META_PUBLICATION_OAUTH_SCOPES for publication connects. */
 export const SOCIAL_META_OAUTH_SCOPES = SOCIAL_META_PUBLICATION_OAUTH_SCOPES;
@@ -94,6 +97,21 @@ export function isAllowlistedOAuthReturnPath(pathWithQuery: string): boolean {
 
 export function intentRequestsAdsRead(scopes: readonly string[]): boolean {
   return scopes.includes("ads_read");
+}
+
+export function intentRequestsBusinessManagement(
+  scopes: readonly string[],
+): boolean {
+  return scopes.includes("business_management");
+}
+
+/** True when an intent requested the full analytics scope contract. */
+export function intentRequestsAnalyticsScopes(
+  scopes: readonly string[],
+): boolean {
+  return (
+    intentRequestsAdsRead(scopes) && intentRequestsBusinessManagement(scopes)
+  );
 }
 
 export function intentRequestsPublishingScopes(scopes: readonly string[]): boolean {

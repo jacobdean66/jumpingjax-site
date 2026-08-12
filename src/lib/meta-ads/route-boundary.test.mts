@@ -36,6 +36,7 @@ test("meta-ads client never uses ads_management and stays read-only GET", () => 
   assert.doesNotMatch(http, /method: "POST"/);
   assert.doesNotMatch(marketing, /ads_management/);
   assert.match(purpose, /"ads_read"/);
+  assert.match(purpose, /"business_management"/);
   assert.doesNotMatch(purpose, /ads_management/);
   assert.match(config, /SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES/);
 });
