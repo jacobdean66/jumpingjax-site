@@ -11,9 +11,11 @@ import {
 import { CheckInSuccessPanel } from "@/components/open-play/CheckInSuccessPanel";
 import {
   buildVisitCreateBody,
+  buildLegacyCheckInBody,
   canSubmitCheckInGroup,
   computeGroupTotalsPreview,
   createOpenPlayVisitRequest,
+  createLegacyCheckInRequest,
   formatCents,
   resultToDraft,
   searchWaivers,
@@ -59,7 +61,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
   const searchAbortRef = useRef<AbortController | null>(null);
 
   const selectedIds = useMemo(
-    () => new Set(attendees.map((item) => item.participantId)),
+    () => new Set(attendees.map((item) => item.selectionKey)),
     [attendees],
   );
 
@@ -159,25 +161,37 @@ export function CheckInClient({ visitDateYmd }: Props) {
 
   function addAttendee(result: StaffSearchResult) {
     if (result.expired) return;
+    if (result.source === "legacy_smartwaiver" && result.checkInEligible === false) {
+      return;
+    }
+    const key = result.selectionKey || result.participantId;
     setAttendees((current) => {
-      if (current.some((item) => item.participantId === result.participantId)) {
+      if (current.some((item) => item.selectionKey === key)) {
+        return current;
+      }
+      if (current.length > 0 && current[0]?.source !== result.source) {
+        setSubmitError(
+          "Finish this group first, then check in guests from the other waiver system.",
+        );
         return current;
       }
       return [...current, resultToDraft(result)];
     });
-    setSubmitError(null);
+    if (attendees.length === 0 || attendees[0]?.source === result.source) {
+      setSubmitError(null);
+    }
   }
 
-  function removeAttendee(participantId: string) {
+  function removeAttendee(selectionKey: string) {
     setAttendees((current) =>
-      current.filter((item) => item.participantId !== participantId),
+      current.filter((item) => item.selectionKey !== selectionKey),
     );
   }
 
-  function setAdultMode(participantId: string, mode: AdultPlayMode) {
+  function setAdultMode(selectionKey: string, mode: AdultPlayMode) {
     setAttendees((current) =>
       current.map((item) => {
-        if (item.participantId !== participantId) return item;
+        if (item.selectionKey !== selectionKey) return item;
         return {
           ...item,
           adultMode: mode,
@@ -188,12 +202,12 @@ export function CheckInClient({ visitDateYmd }: Props) {
   }
 
   function setPaymentMethod(
-    participantId: string,
+    selectionKey: string,
     method: PaymentMethodChoice | null,
   ) {
     setAttendees((current) =>
       current.map((item) =>
-        item.participantId === participantId
+        item.selectionKey === selectionKey
           ? { ...item, paymentMethod: method }
           : item,
       ),
@@ -214,11 +228,40 @@ export function CheckInClient({ visitDateYmd }: Props) {
     setSubmitError(null);
 
     try {
-      const body = buildVisitCreateBody({
+      const nativeBody = buildVisitCreateBody({
         visitDateYmd: resolvedVisitDate,
         attendees,
       });
-      const created = await createOpenPlayVisitRequest(body);
+      const legacyBody = buildLegacyCheckInBody({
+        visitDateYmd: resolvedVisitDate,
+        attendees,
+      });
+
+      let created: VisitCreateSuccess | null = null;
+      if (nativeBody.attendees.length > 0) {
+        created = await createOpenPlayVisitRequest(nativeBody);
+      }
+      if (legacyBody.attendees.length > 0) {
+        const legacyCreated = await createLegacyCheckInRequest(legacyBody);
+        created = created
+          ? {
+              ...created,
+              attendees: [...created.attendees, ...legacyCreated.attendees],
+              paymentEntries: [
+                ...created.paymentEntries,
+                ...legacyCreated.paymentEntries,
+              ],
+            }
+          : legacyCreated;
+      }
+      if (!created) {
+        throw {
+          code: "validation",
+          message: "No attendees to check in.",
+          correctable: true,
+          requiresSignIn: false,
+        } satisfies StaffFacingError;
+      }
       setSuccess(created);
       setAttendees([]);
       setResults(null);

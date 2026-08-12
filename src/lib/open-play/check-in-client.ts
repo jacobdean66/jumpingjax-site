@@ -21,9 +21,12 @@ export type PaymentMethodChoice = "cash" | "card";
 export type CheckInStep = "search" | "success";
 
 export type SelectedAttendeeDraft = {
-  /** Stable selection key = participantId */
+  /** Stable selection key = participantId or legacy:<id> */
+  selectionKey: string;
   participantId: string;
   submissionId: string;
+  legacyParticipantId?: string;
+  source: StaffSearchResult["source"];
   firstName: string;
   lastName: string;
   fullName: string;
@@ -64,6 +67,17 @@ export type VisitCreateRequestBody = {
   notes?: string | null;
   attendees: Array<{
     participantId: string;
+    adultMode: AdultPlayMode | null;
+    clientPriceCents: number | null;
+    paymentMethod: PaymentMethodChoice | null;
+  }>;
+};
+
+export type LegacyCheckInRequestBody = {
+  visitDate: string;
+  notes?: string | null;
+  attendees: Array<{
+    legacyParticipantId: string;
     adultMode: AdultPlayMode | null;
     clientPriceCents: number | null;
     paymentMethod: PaymentMethodChoice | null;
@@ -111,6 +125,7 @@ export type StaffFacingError = {
 
 const SEARCH_PATH = "/api/admin/open-play/waivers/search";
 const VISIT_PATH = "/api/admin/open-play/visits";
+const LEGACY_VISIT_PATH = "/api/admin/open-play/legacy-check-ins";
 
 export function todayBusinessDayYmd(now: Date = new Date()): string {
   return businessDayYmdFromInstant(now);
@@ -143,9 +158,15 @@ export function isAdultRole(role: StaffSearchResult["role"]): boolean {
 }
 
 export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft {
+  if (result.source === "legacy_smartwaiver" && !result.checkInEligible) {
+    throw new Error("Legacy Smartwaiver record is not eligible for check-in");
+  }
   return {
+    selectionKey: result.selectionKey || result.participantId,
     participantId: result.participantId,
     submissionId: result.submissionId,
+    legacyParticipantId: result.legacyParticipantId,
+    source: result.source ?? "native",
     firstName: result.firstName,
     lastName: result.lastName,
     fullName: result.fullName,
@@ -322,6 +343,13 @@ export function canSubmitCheckInGroup(
     return { ok: false, message: "Select at least one person attending today." };
   }
 
+  if (new Set(attendees.map((attendee) => attendee.source)).size > 1) {
+    return {
+      ok: false,
+      message: "Check in Native and Legacy Smartwaiver guests as separate groups.",
+    };
+  }
+
   for (const attendee of attendees) {
     if (isAdultRole(attendee.role) && !attendee.adultMode) {
       return {
@@ -374,10 +402,11 @@ export function buildVisitCreateBody(options: {
   attendees: SelectedAttendeeDraft[];
   notes?: string | null;
 }): VisitCreateRequestBody {
+  const native = options.attendees.filter((item) => item.source !== "legacy_smartwaiver");
   return {
     visitDate: options.visitDateYmd,
     notes: options.notes ?? null,
-    attendees: options.attendees.map((attendee) => {
+    attendees: native.map((attendee) => {
       const preview = previewAdmissionPrice({
         role: attendee.role,
         birthYear: attendee.birthYear,
@@ -388,14 +417,43 @@ export function buildVisitCreateBody(options: {
       const isAdult = isAdultRole(attendee.role);
       const unitPriceCents = preview.unitPriceCents;
       const requiresPayment = attendeeRequiresPaymentMethod(preview);
-      const paymentMethod = requiresPayment ? attendee.paymentMethod : null;
 
       return {
         participantId: attendee.participantId,
         adultMode: isAdult ? attendee.adultMode : null,
         clientPriceCents:
           preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
-        paymentMethod,
+        paymentMethod: requiresPayment ? attendee.paymentMethod : null,
+      };
+    }),
+  };
+}
+
+export function buildLegacyCheckInBody(options: {
+  visitDateYmd: string;
+  attendees: SelectedAttendeeDraft[];
+  notes?: string | null;
+}): LegacyCheckInRequestBody {
+  const legacy = options.attendees.filter((item) => item.source === "legacy_smartwaiver");
+  return {
+    visitDate: options.visitDateYmd,
+    notes: options.notes ?? null,
+    attendees: legacy.map((attendee) => {
+      const preview = previewAdmissionPrice({
+        role: attendee.role,
+        birthYear: attendee.birthYear,
+        visitDateYmd: options.visitDateYmd,
+        adultMode: attendee.adultMode,
+      });
+      const isAdult = isAdultRole(attendee.role);
+      const unitPriceCents = preview.unitPriceCents;
+      const requiresPayment = attendeeRequiresPaymentMethod(preview);
+      return {
+        legacyParticipantId: attendee.legacyParticipantId ?? "",
+        adultMode: isAdult ? attendee.adultMode : null,
+        clientPriceCents:
+          preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
+        paymentMethod: requiresPayment ? attendee.paymentMethod : null,
       };
     }),
   };
@@ -638,6 +696,45 @@ export async function createOpenPlayVisitRequest(
   return {
     ok: true,
     visitId: payload.visitId,
+    businessDayYmd: payload.businessDayYmd ?? body.visitDate,
+    attendees: Array.isArray(payload.attendees) ? payload.attendees : [],
+    paymentEntries: Array.isArray(payload.paymentEntries)
+      ? payload.paymentEntries
+      : [],
+  };
+}
+
+export async function createLegacyCheckInRequest(
+  body: LegacyCheckInRequestBody,
+  signal?: AbortSignal,
+): Promise<VisitCreateSuccess> {
+  const response = await fetch(LEGACY_VISIT_PATH, {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  let payload: (ApiErrorPayload & Partial<VisitCreateSuccess>) | null = null;
+  try {
+    payload = (await response.json()) as ApiErrorPayload & Partial<VisitCreateSuccess>;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || payload?.ok !== true) {
+    throw mapStaffApiError({
+      status: response.status,
+      payload,
+      fallbackMessage: "Legacy check-in failed. Review the group and try again.",
+    });
+  }
+
+  return {
+    ok: true,
+    visitId: payload.visitId ?? `legacy-batch:${body.visitDate}`,
     businessDayYmd: payload.businessDayYmd ?? body.visitDate,
     attendees: Array.isArray(payload.attendees) ? payload.attendees : [],
     paymentEntries: Array.isArray(payload.paymentEntries)

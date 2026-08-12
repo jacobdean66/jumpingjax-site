@@ -131,9 +131,13 @@ export function CheckInSearchResults({
         {results.length} result{results.length === 1 ? "" : "s"}
       </div>
       {results.map((result) => {
-        const selected = selectedIds.has(result.participantId);
+        const selectionKey = result.selectionKey || result.participantId;
+        const selected = selectedIds.has(selectionKey);
         const expired = result.expired;
-        const cardClass = expired
+        const legacy = result.source === "legacy_smartwaiver";
+        const ineligible = legacy && result.checkInEligible === false;
+        const blocked = expired || ineligible;
+        const cardClass = blocked
           ? "rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left"
           : selected
             ? "w-full rounded-2xl border-2 border-sky-500 bg-sky-50 p-4 text-left"
@@ -147,7 +151,7 @@ export function CheckInSearchResults({
                   {result.fullName}
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-600">
-                  Born {result.birthYear}
+                  Born {result.birthYear || "—"}
                   {result.signerLastInitial
                     ? ` · Signer ${result.signerLastInitial}.`
                     : ""}
@@ -156,31 +160,39 @@ export function CheckInSearchResults({
                   Expires {result.expiresOnYmd}
                   {result.role ? ` · ${result.role.replaceAll("_", " ")}` : ""}
                 </p>
+                {legacy ? (
+                  <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-800">
+                    {result.sourceLabel || "Legacy Smartwaiver"}
+                    {ineligible ? " · Name search only (missing DOB)" : ""}
+                  </p>
+                ) : null}
               </div>
               <span
                 className={
-                  expired
+                  blocked
                     ? "shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white"
                     : "shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800"
                 }
               >
-                {expired ? "Expired" : "Valid"}
+                {expired ? "Expired" : ineligible ? "No check-in" : "Valid"}
               </span>
             </div>
           </>
         );
 
-        if (expired) {
+        if (blocked) {
           return (
             <article
-              key={result.participantId}
+              key={selectionKey}
               role="listitem"
               className={cardClass}
             >
               {details}
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-rose-800">
-                  A new waiver is required before check-in.
+                  {ineligible
+                    ? "This Legacy Smartwaiver record is searchable but cannot be checked in without a date of birth. Have the guest sign a Native Waiver."
+                    : "A new waiver is required before check-in."}
                 </p>
                 <Link
                   href="/waiver"
@@ -196,7 +208,7 @@ export function CheckInSearchResults({
         }
 
         return (
-          <article key={result.participantId} role="listitem">
+          <article key={selectionKey} role="listitem">
             <button
               type="button"
               disabled={selected}

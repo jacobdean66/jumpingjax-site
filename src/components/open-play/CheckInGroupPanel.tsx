@@ -13,10 +13,10 @@ import {
 type Props = {
   attendees: SelectedAttendeeDraft[];
   visitDateYmd: string;
-  onRemove: (participantId: string) => void;
-  onAdultModeChange: (participantId: string, mode: AdultPlayMode) => void;
+  onRemove: (selectionKey: string) => void;
+  onAdultModeChange: (selectionKey: string, mode: AdultPlayMode) => void;
   onPaymentMethodChange: (
-    participantId: string,
+    selectionKey: string,
     method: PaymentMethodChoice | null,
   ) => void;
 };
@@ -76,7 +76,7 @@ export function CheckInGroupPanel({
 
           return (
             <li
-              key={attendee.participantId}
+              key={attendee.selectionKey}
               className="rounded-xl border border-slate-200 bg-slate-50 p-4"
             >
               <div className="flex items-start justify-between gap-3">
@@ -93,7 +93,7 @@ export function CheckInGroupPanel({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onRemove(attendee.participantId)}
+                  onClick={() => onRemove(attendee.selectionKey)}
                   className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-700"
                 >
                   Remove
@@ -116,10 +116,10 @@ export function CheckInGroupPanel({
                       <input
                         type="radio"
                         className="h-5 w-5"
-                        name={`adult-mode-${attendee.participantId}`}
+                        name={`adult-mode-${attendee.selectionKey}`}
                         checked={attendee.adultMode === "playing"}
                         onChange={() =>
-                          onAdultModeChange(attendee.participantId, "playing")
+                          onAdultModeChange(attendee.selectionKey, "playing")
                         }
                       />
                       <span className="text-sm font-bold text-slate-800">
@@ -136,10 +136,10 @@ export function CheckInGroupPanel({
                       <input
                         type="radio"
                         className="h-5 w-5"
-                        name={`adult-mode-${attendee.participantId}`}
+                        name={`adult-mode-${attendee.selectionKey}`}
                         checked={attendee.adultMode === "watching"}
                         onChange={() =>
-                          onAdultModeChange(attendee.participantId, "watching")
+                          onAdultModeChange(attendee.selectionKey, "watching")
                         }
                       />
                       <span className="text-sm font-bold text-slate-800">
@@ -185,10 +185,10 @@ export function CheckInGroupPanel({
                         <input
                           type="radio"
                           className="h-5 w-5"
-                          name={`pay-${attendee.participantId}`}
+                          name={`pay-${attendee.selectionKey}`}
                           checked={attendee.paymentMethod === method}
                           onChange={() =>
-                            onPaymentMethodChange(attendee.participantId, method)
+                            onPaymentMethodChange(attendee.selectionKey, method)
                           }
                         />
                         {method}
