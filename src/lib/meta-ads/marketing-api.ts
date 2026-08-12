@@ -74,6 +74,43 @@ const AD_FIELDS = [
   "creative{id,thumbnail_url,effective_object_story_id,object_story_spec,link_url,object_url,instagram_actor_id}",
 ].join(",");
 
+// Meta validates effective_status against a different enum for each edge.
+// Keep these lists aligned with the current generated Business SDK models;
+// passing ad-only review statuses to campaigns or ad sets returns OAuth #100.
+const CAMPAIGN_EFFECTIVE_STATUSES = [
+  "ACTIVE",
+  "ARCHIVED",
+  "DELETED",
+  "IN_PROCESS",
+  "PAUSED",
+  "WITH_ISSUES",
+] as const;
+
+const ADSET_EFFECTIVE_STATUSES = [
+  "ACTIVE",
+  "ARCHIVED",
+  "CAMPAIGN_PAUSED",
+  "DELETED",
+  "IN_PROCESS",
+  "PAUSED",
+  "WITH_ISSUES",
+] as const;
+
+const AD_EFFECTIVE_STATUSES = [
+  "ACTIVE",
+  "ADSET_PAUSED",
+  "ARCHIVED",
+  "CAMPAIGN_PAUSED",
+  "DELETED",
+  "DISAPPROVED",
+  "IN_PROCESS",
+  "PAUSED",
+  "PENDING_BILLING_INFO",
+  "PENDING_REVIEW",
+  "PREAPPROVED",
+  "WITH_ISSUES",
+] as const;
+
 function actPath(accountId: string): string {
   const id = accountId.replace(/^act_/, "");
   return `act_${id}`;
@@ -253,19 +290,7 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: CAMPAIGN_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
+          effective_status: JSON.stringify(CAMPAIGN_EFFECTIVE_STATUSES),
         },
       }),
       metaAdsGraphGetAllPages<Record<string, unknown>>({
@@ -274,20 +299,7 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: ADSET_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "ADSET_PAUSED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
+          effective_status: JSON.stringify(ADSET_EFFECTIVE_STATUSES),
         },
       }),
       metaAdsGraphGetAllPages<Record<string, unknown>>({
@@ -296,20 +308,7 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: AD_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "ADSET_PAUSED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
+          effective_status: JSON.stringify(AD_EFFECTIVE_STATUSES),
         },
       }),
       fetchInsightsByObject({
