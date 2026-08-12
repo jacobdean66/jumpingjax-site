@@ -67,12 +67,12 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: true,
-        visitId: `legacy:${result.businessDayYmd}:${result.checkInIds[0] ?? "none"}`,
+        visitId: result.visitId,
         businessDayYmd: result.businessDayYmd,
         attendees: result.attendees,
         paymentEntries: result.paymentEntries.map((entry) => ({
           id: entry.id,
-          visitId: `legacy:${result.businessDayYmd}`,
+          visitId: result.visitId,
           attendeeId: entry.attendeeId,
           entryType: "charge",
           method: entry.method,

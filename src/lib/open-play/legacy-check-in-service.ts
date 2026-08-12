@@ -22,6 +22,7 @@ export type LegacyCheckInInput = {
 };
 
 export type LegacyCheckInResult = {
+  visitId: string;
   businessDayYmd: string;
   checkInIds: string[];
   attendees: Array<{
@@ -52,6 +53,7 @@ type LegacyParticipantRow = {
 
 type LegacyCheckInRpcOutcome = {
   outcome: string;
+  legacy_visit_id?: string;
   check_in_ids?: string[];
   attendees?: Array<{
     attendee_id: string;
@@ -103,6 +105,7 @@ export async function createLegacySmartwaiverCheckIns(
   }
 
   const prepared: Record<string, unknown>[] = [];
+  const visitId = randomUUID();
   for (const request of input.attendees) {
     const row = byId.get(request.legacyParticipantId);
     if (!row) {
@@ -183,6 +186,7 @@ export async function createLegacySmartwaiverCheckIns(
     "create_smartwaiver_legacy_check_ins_atomic",
     {
       p_payload: {
+        legacy_visit_id: visitId,
         business_day_ymd: input.visitDateYmd,
         staff_id: input.staffId,
         notes: input.notes?.trim() || null,
@@ -205,6 +209,7 @@ export async function createLegacySmartwaiverCheckIns(
   }
 
   return {
+    visitId: outcome.legacy_visit_id ?? visitId,
     businessDayYmd: input.visitDateYmd,
     checkInIds: outcome.check_in_ids ?? [],
     attendees: (outcome.attendees ?? []).map((item) => ({

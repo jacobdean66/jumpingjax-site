@@ -149,9 +149,12 @@ export function CheckInGroupPanel({
                   </div>
                 </fieldset>
               ) : (
-                <p className="mt-4 text-sm font-semibold text-slate-700">
-                  Child attendance · {preview.label}
-                </p>
+                <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                  <p className="text-sm font-black text-sky-950">{preview.label}</p>
+                  <p className="mt-1 text-xs font-semibold text-sky-800">
+                    Child price is selected automatically from the waiver date of birth.
+                  </p>
+                </div>
               )}
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

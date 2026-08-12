@@ -172,6 +172,7 @@ test("daily report counts classifications and ledger adjustments", () => {
   const report = buildDailyReport("2026-08-03", [
     {
       id: "v1",
+      source: "legacy_smartwaiver",
       visitDate: "2026-08-03",
       businessDayYmd: "2026-08-03",
       status: "open",
@@ -249,6 +250,7 @@ test("daily report counts classifications and ledger adjustments", () => {
   ]);
 
   assert.equal(report.cashTotalCents, 1400);
+  assert.equal(report.visits[0]?.source, "legacy_smartwaiver");
   assert.equal(report.cardTotalCents, 1000);
   assert.equal(report.combinedTotalCents, 2400);
   assert.equal(report.childrenAge2OrYounger, 1);

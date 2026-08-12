@@ -22,15 +22,11 @@ export async function getOpenPlayDailyReport(
     .eq("business_day_ymd", dateYmd);
 
   if (visitError) throw new Error(visitError.message);
-  if (!visits?.length) {
-    return buildDailyReport(dateYmd, []);
-  }
-
-  const visitIds = visits.map((visit) => visit.id);
+  const visitIds = (visits ?? []).map((visit) => visit.id);
   const { data: attendees, error: attendeeError } = await supabase
     .from("open_play_visit_attendees")
     .select("id, visit_id, classification, unit_price_cents, status")
-    .in("visit_id", visitIds);
+    .in("visit_id", visitIds.length ? visitIds : ["00000000-0000-0000-0000-000000000000"]);
   if (attendeeError) throw new Error(attendeeError.message);
 
   const { data: payments, error: paymentError } = await supabase
@@ -38,10 +34,10 @@ export async function getOpenPlayDailyReport(
     .select(
       "id, visit_id, attendee_id, entry_type, method, amount_cents, related_entry_id, reason, created_by_staff_id, created_at",
     )
-    .in("visit_id", visitIds);
+    .in("visit_id", visitIds.length ? visitIds : ["00000000-0000-0000-0000-000000000000"]);
   if (paymentError) throw new Error(paymentError.message);
 
-  const snapshots: VisitSnapshot[] = visits.map((visit) => {
+  const snapshots: VisitSnapshot[] = (visits ?? []).map((visit) => {
     const visitAttendees =
       attendees
         ?.filter((item) => item.visit_id === visit.id)
@@ -71,6 +67,7 @@ export async function getOpenPlayDailyReport(
 
     return {
       id: visit.id,
+      source: "native",
       visitDate: visit.visit_date,
       businessDayYmd: visit.business_day_ymd,
       status: visit.status as VisitSnapshot["status"],
@@ -80,6 +77,65 @@ export async function getOpenPlayDailyReport(
       payments: visitPayments,
     };
   });
+
+  const { data: legacyVisits, error: legacyVisitError } = await supabase
+    .from("smartwaiver_legacy_visits")
+    .select("id, visit_date, business_day_ymd, status, notes, created_at")
+    .eq("business_day_ymd", dateYmd);
+  if (legacyVisitError) throw new Error(legacyVisitError.message);
+
+  const legacyVisitIds = (legacyVisits ?? []).map((visit) => visit.id);
+  const legacyIds = legacyVisitIds.length
+    ? legacyVisitIds
+    : ["00000000-0000-0000-0000-000000000000"];
+  const [{ data: legacyAttendees, error: legacyAttendeeError }, { data: legacyPayments, error: legacyPaymentError }] =
+    await Promise.all([
+      supabase
+        .from("smartwaiver_legacy_check_ins")
+        .select("id, legacy_visit_id, classification, unit_price_cents, status")
+        .in("legacy_visit_id", legacyIds),
+      supabase
+        .from("smartwaiver_legacy_payment_entries")
+        .select("id, legacy_visit_id, legacy_check_in_id, entry_type, method, amount_cents, related_entry_id, reason, created_by_staff_id, created_at")
+        .in("legacy_visit_id", legacyIds),
+    ]);
+  if (legacyAttendeeError) throw new Error(legacyAttendeeError.message);
+  if (legacyPaymentError) throw new Error(legacyPaymentError.message);
+
+  for (const visit of legacyVisits ?? []) {
+    snapshots.push({
+      id: visit.id,
+      source: "legacy_smartwaiver",
+      visitDate: visit.visit_date,
+      businessDayYmd: visit.business_day_ymd,
+      status: visit.status as VisitSnapshot["status"],
+      notes: visit.notes,
+      createdAt: visit.created_at,
+      attendees: (legacyAttendees ?? [])
+        .filter((item) => item.legacy_visit_id === visit.id)
+        .map((item) => ({
+          id: item.id,
+          visitId: item.legacy_visit_id,
+          classification: item.classification as AdmissionClassification,
+          unitPriceCents: item.unit_price_cents,
+          status: item.status as "active" | "removed",
+        })),
+      payments: (legacyPayments ?? [])
+        .filter((item) => item.legacy_visit_id === visit.id)
+        .map((item) => ({
+          id: item.id,
+          visitId: item.legacy_visit_id,
+          attendeeId: item.legacy_check_in_id,
+          entryType: item.entry_type as PaymentEntry["entryType"],
+          method: item.method as PaymentMethod,
+          amountCents: item.amount_cents,
+          relatedEntryId: item.related_entry_id,
+          reason: item.reason,
+          createdByStaffId: item.created_by_staff_id,
+          createdAt: item.created_at,
+        })),
+    });
+  }
 
   return buildDailyReport(dateYmd, snapshots);
 }

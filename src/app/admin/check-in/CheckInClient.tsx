@@ -179,6 +179,12 @@ export function CheckInClient({ visitDateYmd }: Props) {
     });
     if (attendees.length === 0 || attendees[0]?.source === result.source) {
       setSubmitError(null);
+      window.requestAnimationFrame(() => {
+        document.getElementById("check-in-group-heading")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
     }
   }
 

@@ -230,7 +230,12 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
     const controller = new AbortController();
 
     try {
-      const result = await postVisitCorrection(postedVisitId, payload, controller.signal);
+      const result = await postVisitCorrection(
+        postedVisitId,
+        payload,
+        visit.source,
+        controller.signal,
+      );
       commitGate(settleCorrectionMutation(gateRef.current, "success"));
       setMutation({
         status: "success",
@@ -380,6 +385,11 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
                     </span>
                     <span className="mt-1 break-all text-xs font-semibold opacity-80">
                       {item.visitId}
+                    </span>
+                    <span className="mt-1 text-xs font-black uppercase tracking-wide opacity-80">
+                      {item.source === "legacy_smartwaiver"
+                        ? "Legacy Smartwaiver"
+                        : "Native waiver"}
                     </span>
                   </button>
                 </li>

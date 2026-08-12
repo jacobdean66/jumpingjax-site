@@ -26,8 +26,11 @@ export type VisitAttendeeSnapshot = {
   status: "active" | "removed";
 };
 
+export type OpenPlayVisitSource = "native" | "legacy_smartwaiver";
+
 export type VisitSnapshot = {
   id: string;
+  source?: OpenPlayVisitSource;
   visitDate: string;
   businessDayYmd: string;
   status: "open" | "finalized" | "voided";
@@ -54,6 +57,7 @@ export type DailyReport = {
   paidAttendanceBasis: "net_retained_admission_payment";
   visits: Array<{
     visitId: string;
+    source: OpenPlayVisitSource;
     status: VisitSnapshot["status"];
     notes: string | null;
     createdAt: string;
@@ -127,6 +131,7 @@ export function buildDailyReport(
       const visitTotals = sumMethodTotals(visit.payments);
       return {
         visitId: visit.id,
+        source: visit.source ?? "native",
         status: visit.status,
         notes: visit.notes,
         createdAt: visit.createdAt,

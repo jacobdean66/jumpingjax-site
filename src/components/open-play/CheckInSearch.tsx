@@ -231,7 +231,7 @@ export function CheckInSearchResults({
               >
                 {selected
                   ? "Already in today’s group — details above"
-                  : "Tap name to add · details open in today’s group"}
+                  : `Select ${result.firstName} for check-in`}
               </p>
             </button>
           </article>

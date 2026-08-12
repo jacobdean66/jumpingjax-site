@@ -100,6 +100,11 @@ export function DailyReportActivity({ report }: Props) {
                     {visit.attendees.length === 1 ? "" : "s"} · {ledger.length} ledger
                     entr{ledger.length === 1 ? "y" : "ies"}
                   </p>
+                  <p className="mt-1 text-xs font-black uppercase tracking-wide text-amber-800">
+                    {visit.source === "legacy_smartwaiver"
+                      ? "Legacy Smartwaiver"
+                      : "Native waiver"}
+                  </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
                   {open ? "Hide" : "Details"}
