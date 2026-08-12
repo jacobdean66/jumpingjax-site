@@ -37,16 +37,18 @@ export function RentalCard({
         className="group flex h-full touch-manipulation flex-col overflow-hidden rounded-2xl border-2 border-cyan-100 bg-white shadow-[0_12px_36px_rgba(236,72,153,0.14)] outline-none ring-pink-300/0 transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-[0_18px_48px_rgba(6,182,212,0.18)] active:scale-[0.99] active:brightness-[0.97] focus-visible:ring-2 focus-visible:ring-pink-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fff8e8]"
       >
         <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-slate-900">
-          <Image
-            src={rental.imageSrc}
-            alt={rental.imageAlt}
-            fill
-            priority={imagePriority}
-            fetchPriority={imagePriority ? "high" : "low"}
-            sizes={imageSizes}
-            quality={imagePriority ? 82 : 72}
-            className="object-cover object-center transition duration-300 ease-out group-hover:scale-[1.03]"
-          />
+          {rental.imageSrc ? (
+            <Image
+              src={rental.imageSrc}
+              alt={rental.imageAlt}
+              fill
+              priority={imagePriority}
+              fetchPriority={imagePriority ? "high" : "low"}
+              sizes={imageSizes}
+              quality={imagePriority ? 82 : 72}
+              className="object-cover object-center transition duration-300 ease-out group-hover:scale-[1.03]"
+            />
+          ) : null}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-pink-950/75 via-sky-950/10 to-transparent" />
           <p className="absolute bottom-3 left-3 right-3 text-xs font-semibold uppercase tracking-wide text-white">
             {isFoamPartyRentalItem(rental.slug)
