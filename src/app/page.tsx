@@ -162,16 +162,18 @@ export default async function Home() {
                 className="flex min-h-0 flex-col overflow-hidden rounded-2xl border-2 border-cyan-100 bg-white p-6 shadow-[0_14px_36px_rgba(236,72,153,0.16)] sm:p-7"
               >
                 <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-2xl bg-slate-900">
-                  <Image
-                    src={rental.imageSrc}
-                    alt={rental.imageAlt}
-                    fill
-                    priority={index === 0}
-                    fetchPriority={index === 0 ? "high" : "low"}
-                    sizes={FEATURED_IMAGE_SIZES}
-                    quality={index === 0 ? 82 : 74}
-                    className="object-cover object-center"
-                  />
+                  {rental.imageSrc ? (
+                    <Image
+                      src={rental.imageSrc}
+                      alt={rental.imageAlt}
+                      fill
+                      priority={index === 0}
+                      fetchPriority={index === 0 ? "high" : "low"}
+                      sizes={FEATURED_IMAGE_SIZES}
+                      quality={index === 0 ? 82 : 74}
+                      className="object-cover object-center"
+                    />
+                  ) : null}
                 </div>
 
                 <h3 className="mt-5 line-clamp-2 min-h-[2.75rem] text-pretty text-xl font-bold leading-snug sm:text-2xl">

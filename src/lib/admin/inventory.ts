@@ -1,4 +1,5 @@
 import { CATEGORY_COPY, CATEGORY_IDS, RENTALS, type RentalCategoryId } from "@/data/rentals";
+import { shouldPreserveInventoryImageOnSync } from "@/lib/admin/inventory-image-constants";
 import {
   catalogSyncOmitsOperationalFields,
   parseInventoryOperationalFields,
@@ -336,12 +337,49 @@ export async function syncCurrentRentalInventory(): Promise<number> {
   const supabase = createServiceRoleClient();
   const rows = buildCatalogSyncRows();
 
+  // Preserve phone/admin uploads so Sync cannot blank public photos.
+  const { data: existingRows, error: existingError } = await supabase
+    .from("rental_inventory_items")
+    .select("slug, image_src, image_alt, source");
+  if (existingError) throw new Error(existingError.message);
+
+  const existingBySlug = new Map(
+    ((existingRows ?? []) as Array<{
+      slug: string;
+      image_src: string | null;
+      image_alt: string | null;
+      source: string | null;
+    }>).map((row) => [row.slug, row]),
+  );
+
+  const mergedRows = rows.map((row) => {
+    const slug = String(row.slug ?? "");
+    const existing = existingBySlug.get(slug);
+    const catalogImageSrc = String(row.image_src ?? "");
+    if (
+      !shouldPreserveInventoryImageOnSync({
+        existingImageSrc: existing?.image_src,
+        existingSource: existing?.source,
+        catalogImageSrc,
+      })
+    ) {
+      return row;
+    }
+    return {
+      ...row,
+      image_src: existing?.image_src?.trim() || catalogImageSrc,
+      image_alt:
+        existing?.image_alt?.trim() ||
+        String(row.image_alt ?? row.title ?? ""),
+    };
+  });
+
   const { error } = await supabase
     .from("rental_inventory_items")
-    .upsert(rows, { onConflict: "slug" });
+    .upsert(mergedRows, { onConflict: "slug" });
 
   if (error) throw new Error(error.message);
-  return rows.length;
+  return mergedRows.length;
 }
 
 export async function saveInventoryItem(
@@ -358,6 +396,20 @@ export async function saveInventoryItem(
     throw new Error("Item name and slug are required.");
   }
 
+  const supabase = createServiceRoleClient();
+  let imageSrc = input.imageSrc.trim();
+
+  // Editing other fields without re-uploading must never wipe a saved photo.
+  if (input.id && !imageSrc) {
+    const { data: existing, error: existingError } = await supabase
+      .from("rental_inventory_items")
+      .select("image_src")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    imageSrc = String(existing?.image_src ?? "").trim();
+  }
+
   const row = {
     slug,
     category_id: categoryId,
@@ -365,7 +417,7 @@ export async function saveInventoryItem(
     short_description: input.shortDescription.trim(),
     description: input.description.trim(),
     starting_price: input.startingPrice,
-    image_src: input.imageSrc.trim(),
+    image_src: imageSrc,
     image_alt: input.imageAlt.trim() || input.title.trim(),
     age_recommendation: input.ageRecommendation.trim(),
     setup_requirements: input.setupRequirements,
@@ -377,7 +429,6 @@ export async function saveInventoryItem(
     ...ops,
   };
 
-  const supabase = createServiceRoleClient();
   if (input.id) {
     const { error } = await supabase
       .from("rental_inventory_items")

@@ -7,7 +7,10 @@ import {
   CATEGORY_IDS,
 } from "@/data/rentals";
 import type { AdminInventoryItem } from "@/lib/admin/inventory";
-import { INVENTORY_IMAGE_BUCKET } from "@/lib/admin/inventory-image-constants";
+import {
+  INVENTORY_IMAGE_BUCKET,
+  isWebSafeInventoryImageUpload,
+} from "@/lib/admin/inventory-image-constants";
 import { emptyInventoryDimensions } from "@/lib/admin/inventory-ops";
 import { supabase, isSupabaseBrowserConfigured } from "@/lib/supabaseClient";
 import { InventoryOpsFields } from "./InventoryOpsFields";
@@ -95,6 +98,16 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
       const imageFile = imageInput?.files?.[0];
 
       if (imageFile && imageFile.size > 0) {
+        if (
+          !isWebSafeInventoryImageUpload({
+            fileName: imageFile.name,
+            contentType: imageFile.type,
+          })
+        ) {
+          throw new Error(
+            'Use a JPG, PNG, WEBP, or GIF photo. iPhone HEIC photos will not show on the website — choose "Most Compatible" or export as JPG first.',
+          );
+        }
         const title = String(formData.get("title") ?? "");
         const slug = String(formData.get("slug") ?? "");
         const publicUrl = await uploadInventoryImageDirect({
@@ -211,18 +224,18 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
           <input
             name="imageFile"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
             disabled={busy}
             className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-950 file:mr-4 file:rounded-full file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-black file:text-white hover:file:bg-sky-600"
           />
           {item?.imageSrc ? (
             <span className="mt-2 block break-all text-xs font-semibold text-slate-500">
               Current photo saved. New photos upload directly to storage before
-              Save.
+              Save. Use JPG/PNG/WEBP (not HEIC).
             </span>
           ) : (
             <span className="mt-2 block text-xs font-semibold text-slate-500">
-              Choose a photo from this computer. It uploads to storage before
+              Choose a JPG, PNG, or WEBP photo. It uploads to storage before
               Save.
             </span>
           )}

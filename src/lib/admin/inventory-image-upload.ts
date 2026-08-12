@@ -8,7 +8,10 @@ export {
   buildInventoryImageStoragePath,
   INVENTORY_IMAGE_BUCKET,
   isInlineImageDataUrl,
+  isInventoryStorageImageUrl,
+  isWebSafeInventoryImageUpload,
   safeInventoryImageFileName,
+  shouldPreserveInventoryImageOnSync,
   VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
 } from "@/lib/admin/inventory-image-constants";
 
