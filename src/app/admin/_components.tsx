@@ -91,7 +91,8 @@ export function AdminNav({
     | "tax-export"
     | "ad-analytics"
     | "open-play"
-    | "waiver-export";
+    | "waiver-export"
+    | "ai-receptionist";
 }) {
   const query = "";
   const rentalActive =
@@ -125,6 +126,13 @@ export function AdminNav({
     },
     role === "owner"
       ? { id: "ai-ads" as const, label: "AI Ads", href: `/admin/ai-ads${query}` }
+      : null,
+    role === "owner"
+      ? {
+          id: "ai-receptionist" as const,
+          label: "AI Phone (Sim)",
+          href: `/admin/ai-receptionist${query}`,
+        }
       : null,
     role === "owner"
       ? {
