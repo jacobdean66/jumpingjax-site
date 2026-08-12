@@ -14,7 +14,7 @@ const range: MetaAdsResolvedDateRange = {
   dayCount: 7,
 };
 
-test("hierarchy requests use object-specific Meta effective-status enums", async () => {
+test("hierarchy requests omit Meta's fragile effective-status parameter", async () => {
   const urls: URL[] = [];
   const fetchImpl: typeof fetch = async (input) => {
     urls.push(new URL(String(input)));
@@ -38,41 +38,13 @@ test("hierarchy requests use object-specific Meta effective-status enums", async
 
   assert.equal(result.ok, true);
 
-  function statusesFor(edge: "campaigns" | "adsets" | "ads"): string[] {
+  function requestFor(edge: "campaigns" | "adsets" | "ads"): URL {
     const request = urls.find((url) => url.pathname.endsWith(`/act_1711925889991527/${edge}`));
     assert.ok(request, `missing ${edge} request`);
-    return JSON.parse(request.searchParams.get("effective_status") ?? "[]") as string[];
+    return request;
   }
 
-  assert.deepEqual(statusesFor("campaigns"), [
-    "ACTIVE",
-    "ARCHIVED",
-    "DELETED",
-    "IN_PROCESS",
-    "PAUSED",
-    "WITH_ISSUES",
-  ]);
-  assert.deepEqual(statusesFor("adsets"), [
-    "ACTIVE",
-    "ARCHIVED",
-    "CAMPAIGN_PAUSED",
-    "DELETED",
-    "IN_PROCESS",
-    "PAUSED",
-    "WITH_ISSUES",
-  ]);
-  assert.deepEqual(statusesFor("ads"), [
-    "ACTIVE",
-    "ADSET_PAUSED",
-    "ARCHIVED",
-    "CAMPAIGN_PAUSED",
-    "DELETED",
-    "DISAPPROVED",
-    "IN_PROCESS",
-    "PAUSED",
-    "PENDING_BILLING_INFO",
-    "PENDING_REVIEW",
-    "PREAPPROVED",
-    "WITH_ISSUES",
-  ]);
+  assert.equal(requestFor("campaigns").searchParams.has("effective_status"), false);
+  assert.equal(requestFor("adsets").searchParams.has("effective_status"), false);
+  assert.equal(requestFor("ads").searchParams.has("effective_status"), false);
 });
