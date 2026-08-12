@@ -99,7 +99,9 @@ export default async function AdminAdAnalyticsPage({
           dashboard.freshness === "token_expired" ||
           dashboard.freshness === "unavailable" ||
           dashboard.freshness === "misconfigured" ||
+          dashboard.connection.hasRequiredScopes === false ||
           dashboard.connection.hasAdsRead === false ||
+          dashboard.connection.hasBusinessManagement === false ||
           !dashboard.connection.hasConnectedSession) && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <form action="/api/admin/ad-analytics/oauth/connect" method="post">
@@ -107,12 +109,15 @@ export default async function AdminAdAnalyticsPage({
                 type="submit"
                 className="inline-flex min-h-10 items-center justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
               >
-                Connect Meta for Analytics
+                {dashboard.connection.hasConnectedSession
+                  ? "Reconnect Meta for Analytics"
+                  : "Connect Meta for Analytics"}
               </button>
             </form>
             <p className="text-sm font-semibold">
-              Requests read-only <code>ads_read</code> only. Does not request
-              publishing permissions or <code>ads_management</code>.
+              Requests read-only <code>ads_read</code> plus{" "}
+              <code>business_management</code> for ad-account discovery. Does
+              not request publishing permissions or <code>ads_management</code>.
             </p>
           </div>
         )}

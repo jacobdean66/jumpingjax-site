@@ -124,6 +124,8 @@ export type MetaAdsConnectionState = Readonly<{
   configured: boolean;
   hasConnectedSession: boolean;
   hasAdsRead: boolean | null;
+  hasBusinessManagement: boolean | null;
+  hasRequiredScopes: boolean | null;
   publicationTargetId: string | null;
   reconnectPath: string;
 }>;

@@ -8,6 +8,8 @@ export {
   SOCIAL_META_OAUTH_SCOPES,
   SOCIAL_META_PUBLICATION_OAUTH_SCOPES,
   intentRequestsAdsRead,
+  intentRequestsAnalyticsScopes,
+  intentRequestsBusinessManagement,
   intentRequestsPublishingScopes,
   isAllowlistedOAuthReturnPath,
   isSocialMetaOAuthPurpose,

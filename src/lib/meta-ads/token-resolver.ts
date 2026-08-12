@@ -1,7 +1,7 @@
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "../supabase/admin";
 import {
   META_AD_ANALYTICS_OAUTH_TARGET_ID,
-  intentRequestsAdsRead,
+  intentRequestsAnalyticsScopes,
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
 } from "../social-posts/oauth/social-oauth-config";
@@ -20,7 +20,8 @@ export type MetaAdsTokenResolution = Readonly<
 
 /**
  * Resolve a Meta user access token from the latest connected analytics OAuth session.
- * Requires an intent that requested ads_read and ignores awaiting_callback rows.
+ * Requires an intent that requested ads_read + business_management.
+ * Ignores awaiting_callback rows and older ads_read-only sessions.
  */
 export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolution> {
   const config = resolveSocialOAuthRuntimeConfig();
@@ -79,6 +80,8 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
     };
   }
 
+  let sawIncompleteScopeSession = false;
+
   for (const session of sessions) {
     const intentId = String(session.intent_id ?? "");
     if (!intentId) continue;
@@ -88,7 +91,10 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
       .eq("intent_id", intentId)
       .maybeSingle();
     const scopes = (intent?.scopes as string[] | null) ?? [];
-    if (!intentRequestsAdsRead(scopes)) continue;
+    if (!intentRequestsAnalyticsScopes(scopes)) {
+      sawIncompleteScopeSession = true;
+      continue;
+    }
 
     const tokenResult = await loadMetaAccessTokenForPublicationTarget({
       publicationTargetId: META_AD_ANALYTICS_OAUTH_TARGET_ID,
@@ -125,7 +131,9 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
     ok: false,
     error: sanitizedError(
       "permission_missing",
-      "Connected Meta session is missing ads_read. Reconnect Meta for Analytics.",
+      sawIncompleteScopeSession
+        ? "Connected Meta session is missing business_management (and/or ads_read). Reconnect Meta for Analytics."
+        : "Connected Meta session is missing required analytics permissions. Reconnect Meta for Analytics.",
       "permission_blocked",
     ),
   };

@@ -8,6 +8,9 @@ import {
   META_AD_ANALYTICS_OAUTH_TARGET_ID,
   SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES,
   SOCIAL_META_PUBLICATION_OAUTH_SCOPES,
+  intentRequestsAdsRead,
+  intentRequestsAnalyticsScopes,
+  intentRequestsBusinessManagement,
   intentRequestsPublishingScopes,
   isAllowlistedOAuthReturnPath,
   oauthReturnPathForPurpose,
@@ -22,9 +25,15 @@ function read(rel: string): string {
   return readFileSync(join(repoRoot, rel), "utf8");
 }
 
-test("analytics scopes are ads_read only and exclude publishing", () => {
-  assert.deepEqual([...SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES], ["ads_read"]);
-  assert.equal(SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES.includes("ads_management" as never), false);
+test("analytics scopes request ads_read and business_management, exclude publishing", () => {
+  assert.deepEqual(
+    [...SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES],
+    ["ads_read", "business_management"],
+  );
+  assert.equal(
+    SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES.includes("ads_management" as never),
+    false,
+  );
   for (const scope of [
     "pages_manage_posts",
     "instagram_content_publish",
@@ -36,11 +45,19 @@ test("analytics scopes are ads_read only and exclude publishing", () => {
       false,
     );
   }
+  assert.equal(intentRequestsAnalyticsScopes(["ads_read"]), false);
+  assert.equal(
+    intentRequestsAnalyticsScopes(["ads_read", "business_management"]),
+    true,
+  );
+  assert.equal(intentRequestsAdsRead(["ads_read"]), true);
+  assert.equal(intentRequestsBusinessManagement(["business_management"]), true);
 });
 
 test("publication scopes retain publishing permissions and exclude ads_read", () => {
   assert.ok(SOCIAL_META_PUBLICATION_OAUTH_SCOPES.includes("pages_manage_posts"));
   assert.ok(SOCIAL_META_PUBLICATION_OAUTH_SCOPES.includes("instagram_content_publish"));
+  assert.ok(SOCIAL_META_PUBLICATION_OAUTH_SCOPES.includes("business_management"));
   assert.equal(
     (SOCIAL_META_PUBLICATION_OAUTH_SCOPES as readonly string[]).includes("ads_read"),
     false,
@@ -51,7 +68,7 @@ test("purpose helpers separate analytics and publication return paths", () => {
   assert.equal(
     resolveOAuthPurposeFromIntent({
       publicationTargetId: META_AD_ANALYTICS_OAUTH_TARGET_ID,
-      scopes: ["ads_read"],
+      scopes: ["ads_read", "business_management"],
     }),
     "ad_analytics",
   );
@@ -92,9 +109,19 @@ test("callback route clears purpose cookie and never forwards code/state", () =>
   assert.doesNotMatch(route, /searchParams\.set\("state"/);
 });
 
-test("ad analytics page exposes Connect Meta for Analytics control", () => {
+test("ad analytics page exposes connect/reconnect and accurate scope copy", () => {
   const page = read("src/app/admin/ad-analytics/page.tsx");
   assert.match(page, /Connect Meta for Analytics/);
+  assert.match(page, /Reconnect Meta for Analytics/);
+  assert.match(page, /business_management/);
   assert.match(page, /\/api\/admin\/ad-analytics\/oauth\/connect/);
+  assert.doesNotMatch(page, /ads_read<\/code> only/);
   assert.doesNotMatch(page, /Publication execution → Meta OAuth/);
+});
+
+test("token resolver requires full analytics scope contract", () => {
+  const resolver = read("src/lib/meta-ads/token-resolver.ts");
+  assert.match(resolver, /intentRequestsAnalyticsScopes/);
+  assert.match(resolver, /business_management/);
+  assert.doesNotMatch(resolver, /ads_management/);
 });

@@ -64,12 +64,13 @@ test("buildMetaAuthorizeUrl accepts analytics-only scopes", () => {
       appId: "app-id",
       redirectUri: "https://jumpingjaxllc.com/api/admin/social-oauth/callback",
       oauthState: "state-analytics",
-      scopes: ["ads_read"],
+      scopes: ["ads_read", "business_management"],
     }),
   );
-  assert.equal(url.searchParams.get("scope"), "ads_read");
+  assert.equal(url.searchParams.get("scope"), "ads_read,business_management");
   assert.equal(url.searchParams.get("scope")?.includes("pages_manage_posts"), false);
   assert.equal(url.searchParams.get("scope")?.includes("instagram_content_publish"), false);
+  assert.equal(url.searchParams.get("scope")?.includes("ads_management"), false);
 });
 
 console.log("social-oauth-state tests passed");
