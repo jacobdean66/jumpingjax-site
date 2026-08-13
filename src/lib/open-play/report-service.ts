@@ -41,6 +41,8 @@ export async function getOpenPlayDailyReport(
     (participants ?? []).map((participant) => [
       participant.id,
       {
+        firstName: participant.first_name,
+        lastName: participant.last_name,
         fullName: `${participant.first_name} ${participant.last_name}`.trim(),
         birthDate: participant.dob,
       },
@@ -62,6 +64,10 @@ export async function getOpenPlayDailyReport(
         .map((item) => ({
           id: item.id,
           visitId: item.visit_id,
+          participantRecordId: item.participant_id,
+          source: "native" as const,
+          firstName: participantsById.get(item.participant_id)?.firstName,
+          lastName: participantsById.get(item.participant_id)?.lastName,
           fullName: participantsById.get(item.participant_id)?.fullName ?? "Unknown attendee",
           birthDate: participantsById.get(item.participant_id)?.birthDate,
           ageYearsOnVisit: item.age_years_on_visit,
@@ -138,6 +144,8 @@ export async function getOpenPlayDailyReport(
     (legacyParticipants ?? []).map((participant) => [
       participant.id,
       {
+        firstName: participant.first_name,
+        lastName: participant.last_name,
         fullName: `${participant.first_name} ${participant.last_name}`.trim(),
         birthDate: participant.dob,
       },
@@ -158,6 +166,10 @@ export async function getOpenPlayDailyReport(
         .map((item) => ({
           id: item.id,
           visitId: item.legacy_visit_id,
+          participantRecordId: item.legacy_participant_id,
+          source: "legacy_smartwaiver" as const,
+          firstName: legacyParticipantsById.get(item.legacy_participant_id)?.firstName,
+          lastName: legacyParticipantsById.get(item.legacy_participant_id)?.lastName,
           fullName:
             legacyParticipantsById.get(item.legacy_participant_id)?.fullName ??
             "Unknown attendee",

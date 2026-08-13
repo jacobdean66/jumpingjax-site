@@ -21,6 +21,10 @@ import {
 export type VisitAttendeeSnapshot = {
   id: string;
   visitId: string;
+  participantRecordId?: string;
+  source?: "native" | "legacy_smartwaiver";
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   birthDate?: string;
   ageYearsOnVisit?: number;
