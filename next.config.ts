@@ -39,6 +39,7 @@ function supabaseStorageRemotePatterns(): NonNullable<
 }
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   allowedDevOrigins: ["192.168.7.161"],
   images: {
     // Qualities used across rental cards / detail / homepage.
@@ -49,7 +50,36 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   async headers() {
+    const securityHeaders = [
+      {
+        key: "Content-Security-Policy",
+        value: [
+          "default-src 'self'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+          "object-src 'none'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-scripts.com",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob: https:",
+          "font-src 'self' data:",
+          "connect-src 'self' https://*.supabase.co https://*.googleapis.com https://api.openai.com https://jhrlymlxhiuzlsowixxp.supabase.co",
+          "media-src 'self' blob: https:",
+          "worker-src 'self' blob:",
+          "upgrade-insecure-requests",
+        ].join("; "),
+      },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+    ];
     return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         source: "/sw.js",
         headers: [
