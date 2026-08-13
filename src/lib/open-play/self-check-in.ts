@@ -6,6 +6,11 @@ export type SelfCheckInInput = {
   ageYears: number;
 };
 
+export type SelfCheckInSelection = {
+  source: "native" | "legacy";
+  participantId: string;
+};
+
 export class SelfCheckInValidationError extends Error {
   readonly code = "validation" as const;
   constructor(message: string) {
@@ -34,6 +39,16 @@ export function parseSelfCheckInInput(value: unknown): SelfCheckInInput {
   return { firstName, lastName, ageYears };
 }
 
+export function parseSelfCheckInSelection(value: unknown): SelfCheckInSelection {
+  const body = (value ?? {}) as Record<string, unknown>;
+  const source = body.source;
+  const participantId = typeof body.participantId === "string" ? body.participantId.trim() : "";
+  if ((source !== "native" && source !== "legacy") || !participantId || participantId.length > 100) {
+    throw new SelfCheckInValidationError("Choose a waiver from the list.");
+  }
+  return { source, participantId };
+}
+
 export function dobMatchesAge(dobYmd: string | null, visitDateYmd: string, age: number): boolean {
   if (!dobYmd || !isYmd(dobYmd) || !isYmd(visitDateYmd)) return false;
   try {
@@ -42,4 +57,3 @@ export function dobMatchesAge(dobYmd: string | null, visitDateYmd: string, age: 
     return false;
   }
 }
-
