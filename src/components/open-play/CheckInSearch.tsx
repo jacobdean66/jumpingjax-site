@@ -34,6 +34,7 @@ export function CheckInSearchForm({
         <input
           ref={inputRef}
           id="check-in-search"
+          autoFocus
           type="search"
           name="check-in-search"
           autoComplete="off"
@@ -41,7 +42,7 @@ export function CheckInSearchForm({
           spellCheck={false}
           enterKeyHint="search"
           value={query}
-          disabled={disabled || loading}
+          disabled={disabled}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Type a name"
           className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-sky-500 disabled:opacity-60"

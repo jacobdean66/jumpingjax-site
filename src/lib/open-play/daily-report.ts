@@ -21,6 +21,8 @@ import {
 export type VisitAttendeeSnapshot = {
   id: string;
   visitId: string;
+  fullName?: string;
+  ageYearsOnVisit?: number;
   classification: AdmissionClassification;
   unitPriceCents: number;
   status: "active" | "removed";

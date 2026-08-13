@@ -25,9 +25,24 @@ export async function getOpenPlayDailyReport(
   const visitIds = (visits ?? []).map((visit) => visit.id);
   const { data: attendees, error: attendeeError } = await supabase
     .from("open_play_visit_attendees")
-    .select("id, visit_id, classification, unit_price_cents, status")
+    .select("id, visit_id, participant_id, age_years_on_visit, classification, unit_price_cents, status")
     .in("visit_id", visitIds.length ? visitIds : ["00000000-0000-0000-0000-000000000000"]);
   if (attendeeError) throw new Error(attendeeError.message);
+
+  const participantIds = [...new Set((attendees ?? []).map((item) => item.participant_id))];
+  const { data: participants, error: participantError } = participantIds.length
+    ? await supabase
+        .from("waiver_participants")
+        .select("id, first_name, last_name")
+        .in("id", participantIds)
+    : { data: [], error: null };
+  if (participantError) throw new Error(participantError.message);
+  const participantsById = new Map(
+    (participants ?? []).map((participant) => [
+      participant.id,
+      `${participant.first_name} ${participant.last_name}`.trim(),
+    ]),
+  );
 
   const { data: payments, error: paymentError } = await supabase
     .from("open_play_payment_entries")
@@ -44,6 +59,8 @@ export async function getOpenPlayDailyReport(
         .map((item) => ({
           id: item.id,
           visitId: item.visit_id,
+          fullName: participantsById.get(item.participant_id) ?? "Unknown attendee",
+          ageYearsOnVisit: item.age_years_on_visit,
           classification: item.classification as AdmissionClassification,
           unitPriceCents: item.unit_price_cents,
           status: item.status as "active" | "removed",

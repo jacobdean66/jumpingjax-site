@@ -21,7 +21,7 @@ export function OpenPlayDeskNav({ active, showOwnerTools = false }: Props) {
       className="mt-4 flex flex-wrap gap-2 print:hidden"
     >
       <Link
-        href="/admin/check-in"
+        href="/admin/check-in#check-in-desk"
         className={active === "check-in" ? activeClass : linkClass}
         aria-current={active === "check-in" ? "page" : undefined}
       >
@@ -30,14 +30,20 @@ export function OpenPlayDeskNav({ active, showOwnerTools = false }: Props) {
       {showOwnerTools ? (
         <>
           <Link
-            href="/admin/open-play-report"
+            href="/admin/open-play-report#daily-report"
             className={active === "daily-report" ? activeClass : linkClass}
             aria-current={active === "daily-report" ? "page" : undefined}
           >
             Daily report
           </Link>
           <Link
-            href="/admin/open-play-corrections"
+            href="/admin/open-play-report#todays-check-ins"
+            className={linkClass}
+          >
+            Today&apos;s check-ins
+          </Link>
+          <Link
+            href="/admin/open-play-corrections#corrections"
             className={active === "corrections" ? activeClass : linkClass}
             aria-current={active === "corrections" ? "page" : undefined}
           >

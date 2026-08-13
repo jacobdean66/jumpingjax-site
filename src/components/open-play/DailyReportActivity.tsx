@@ -19,13 +19,19 @@ type Props = {
 
 export function DailyReportActivity({ report }: Props) {
   const visits = sortVisitsForDisplay(report);
+  const checkedIn = visits.flatMap((visit) =>
+    visit.status === "voided"
+      ? []
+      : visit.attendees.filter((attendee) => attendee.status === "active"),
+  );
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
 
   if (visits.length === 0) {
     return (
       <section
+        id="todays-check-ins"
         aria-labelledby="daily-report-activity-heading"
-        className="rounded-2xl border border-dashed border-slate-300 bg-white p-4"
+        className="scroll-mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4"
       >
         <h2 id="daily-report-activity-heading" className="text-xl font-black text-slate-950">
           Visit activity
@@ -48,16 +54,33 @@ export function DailyReportActivity({ report }: Props) {
 
   return (
     <section
+      id="todays-check-ins"
       aria-labelledby="daily-report-activity-heading"
-      className="space-y-3"
+      className="scroll-mt-4 space-y-3"
     >
       <h2 id="daily-report-activity-heading" className="text-xl font-black text-slate-950">
-        Visit activity
+        Today&apos;s check-ins
       </h2>
       <p className="text-sm font-semibold text-slate-600">
-        Original charges and later adjustments remain visible. Expand a visit for
-        attendees and ledger detail.
+        Everyone checked in for this business day. Expand a visit for attendee,
+        payment, and correction details.
       </p>
+
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {checkedIn.map((attendee) => (
+          <li
+            key={attendee.id}
+            className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"
+          >
+            <p className="font-black text-slate-950">
+              {attendee.fullName ?? "Unknown attendee"}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
+              Age {attendee.ageYearsOnVisit ?? "—"}
+            </p>
+          </li>
+        ))}
+      </ul>
 
       <ul className="grid gap-3">
         {visits.map((visit) => {
@@ -127,7 +150,11 @@ export function DailyReportActivity({ report }: Props) {
                           key={attendee.id}
                           className="rounded-xl border border-slate-200 bg-slate-50 p-3"
                         >
-                          <p className="text-sm font-black text-slate-950">
+                          <p className="text-base font-black text-slate-950">
+                            {attendee.fullName ?? "Unknown attendee"}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-slate-600">
+                            Age {attendee.ageYearsOnVisit ?? "—"} ·{" "}
                             {classificationLabel(attendee.classification)}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-600">

@@ -111,9 +111,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
         if (cancelled || requestId !== searchRequestIdRef.current) return;
         setResults(next);
         setSearchLoading(false);
-        window.requestAnimationFrame(() => {
-          searchStatusRef.current?.focus();
-        });
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
         if (requestId !== searchRequestIdRef.current) return;
@@ -125,9 +122,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
         }
         setSearchError(mapped?.message || "Search failed. Try again.");
         setResults([]);
-        window.requestAnimationFrame(() => {
-          searchStatusRef.current?.focus();
-        });
       }
     })();
 
@@ -320,7 +314,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
   }
 
   return (
-    <div className="mx-auto mt-4 max-w-xl space-y-4 pb-28">
+    <div id="check-in-desk" className="mx-auto mt-4 max-w-xl scroll-mt-4 space-y-4 pb-28">
       <p className="text-sm font-semibold text-slate-600">
         Visit date <span className="font-black text-slate-950">{resolvedVisitDate}</span>
       </p>

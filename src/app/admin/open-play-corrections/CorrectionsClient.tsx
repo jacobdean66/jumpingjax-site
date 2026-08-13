@@ -275,7 +275,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
   });
 
   return (
-    <div className="mx-auto mt-4 max-w-xl space-y-4 pb-10">
+    <div id="corrections" className="mx-auto mt-4 max-w-xl scroll-mt-4 space-y-4 pb-10">
       <form
         className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-slate-100/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white sm:shadow-sm"
         onSubmit={(event) => {
