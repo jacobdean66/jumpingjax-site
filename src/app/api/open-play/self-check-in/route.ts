@@ -4,9 +4,10 @@ import { rateLimit } from "@/lib/rate-limit";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import {
   parseSelfCheckInInput,
+  parseSelfCheckInSelection,
   SelfCheckInValidationError,
 } from "@/lib/open-play/self-check-in";
-import { createPublicSelfCheckIn } from "@/lib/open-play/self-check-in-service";
+import { createPublicSelfCheckIn, findPublicWaiverMatches } from "@/lib/open-play/self-check-in-service";
 import { publicSafeError } from "@/lib/open-play/staff-auth";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +29,21 @@ export async function POST(req: Request) {
 
   try {
     const input = parseSelfCheckInInput(body);
+    const mode = (body as Record<string, unknown>).mode;
+    if (mode !== "check-in") {
+      const matches = await findPublicWaiverMatches({
+        input,
+        businessDayYmd: businessDayYmdFromInstant(new Date()),
+      });
+      return NextResponse.json(
+        { ok: true, matches },
+        { status: 200, headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+    const selection = parseSelfCheckInSelection(body);
     const result = await createPublicSelfCheckIn({
       input,
+      selection,
       businessDayYmd: businessDayYmdFromInstant(new Date()),
     });
     if (result.needsWaiver) {
@@ -49,4 +63,3 @@ export async function POST(req: Request) {
     return publicSafeError("database", 503, "Check-in is temporarily unavailable.");
   }
 }
-
