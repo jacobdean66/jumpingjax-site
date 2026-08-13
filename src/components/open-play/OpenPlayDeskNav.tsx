@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type DeskSurface = "check-in" | "daily-report" | "whos-here";
+type DeskSurface = "check-in" | "daily-report" | "whos-here" | "corrections";
 
 type Props = {
   active: DeskSurface;
