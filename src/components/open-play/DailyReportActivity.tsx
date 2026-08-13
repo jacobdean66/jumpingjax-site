@@ -144,7 +144,7 @@ export function DailyReportActivity({ report }: Props) {
   }
 
   async function saveProfile() {
-    if (!selected?.attendee.participantRecordId) return;
+    if (!selected) return;
     setSaving(true);
     setSaveError(null);
     setSavedMessage(null);
@@ -156,7 +156,7 @@ export function DailyReportActivity({ report }: Props) {
         throw new Error("Enter a valid admission amount between $0 and $500.");
       }
       const source = selected.attendee.source ?? selected.visitSource;
-      if (source === "legacy_smartwaiver") {
+      if (source === "legacy_smartwaiver" && selected.attendee.participantRecordId) {
         const response = await fetch("/api/admin/open-play/attendee-profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -198,7 +198,7 @@ export function DailyReportActivity({ report }: Props) {
         [selected.attendee.id]: { amountCents, paymentOption: draftPaymentOption },
       }));
       setEditing(false);
-      setSavedMessage("Child and admission details saved.");
+      setSavedMessage("Check-in details saved.");
       router.refresh();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The child details could not be saved.");
@@ -231,10 +231,7 @@ export function DailyReportActivity({ report }: Props) {
   const selectedAdmission = selected ? admissionFor(selected) : null;
   const canEditProfile =
     (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
-  const canEdit = Boolean(
-    selected?.attendee.participantRecordId &&
-    selected.attendee.classification.startsWith("child_"),
-  );
+  const canEdit = selected?.attendee.status === "active";
 
   return (
     <section
@@ -286,7 +283,7 @@ export function DailyReportActivity({ report }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-                  Child check-in card
+                  Check-in details
                 </p>
                 <h3 id="child-card-title" className="mt-2 text-2xl font-black text-slate-950">
                   {selectedName || "Guest"}
@@ -443,9 +440,10 @@ export function DailyReportActivity({ report }: Props) {
                     type="button"
                     disabled={
                       saving ||
-                      !draft.firstName.trim() ||
-                      !draft.lastName.trim() ||
-                      !draft.birthDate ||
+                      (canEditProfile &&
+                        (!draft.firstName.trim() ||
+                          !draft.lastName.trim() ||
+                          !draft.birthDate)) ||
                       (draftPaymentOption !== "free_pass" && !draftAmount)
                     }
                     onClick={() => void saveProfile()}

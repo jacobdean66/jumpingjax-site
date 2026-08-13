@@ -100,16 +100,10 @@ export async function PATCH(req: Request) {
   const targetMethod = paymentOption === "card" ? "card" : "cash";
   const reason = paymentOption === "free_pass"
     ? "Admission changed to free pass"
-    : "Admission amount edited from child card";
+    : "Admission amount edited from check-in details";
   const inserts: Array<Record<string, unknown>> = [];
 
   if (!originalCharge && amountCents > 0) {
-    if (source === "native") {
-      return NextResponse.json(
-        { ok: false, error: "A free native admission cannot be changed into a paid admission." },
-        { status: 400 },
-      );
-    }
     inserts.push({
       [paymentVisitColumn]: visitId,
       [paymentAttendeeColumn]: attendeeId,
