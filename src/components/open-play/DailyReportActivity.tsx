@@ -246,10 +246,10 @@ export function DailyReportActivity({ report }: Props) {
         Today&apos;s check-ins
       </h2>
       <p className="text-sm font-semibold text-slate-600">
-        Tap a child to open their full check-in card.
+        {checkedIn.length} participant{checkedIn.length === 1 ? "" : "s"} · tap a name for details.
       </p>
 
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {checkedIn.map((item) => {
           const profile = profileFor(item.attendee);
           const name = `${profile.firstName} ${profile.lastName}`.trim() || "Guest";
@@ -259,15 +259,12 @@ export function DailyReportActivity({ report }: Props) {
               <button
                 type="button"
                 onClick={() => openCard(item)}
-                className="group w-full rounded-2xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 p-4 text-left shadow-[0_8px_0_#059669,0_14px_24px_rgba(15,23,42,0.18)] transition duration-150 hover:-translate-y-1 hover:shadow-[0_11px_0_#059669,0_18px_28px_rgba(15,23,42,0.2)] active:translate-y-1 active:shadow-[0_3px_0_#059669,0_8px_16px_rgba(15,23,42,0.16)]"
+                className="group w-full rounded-xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 px-3 py-2 text-left shadow-[0_4px_0_#059669,0_7px_12px_rgba(15,23,42,0.14)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_0_#059669,0_9px_14px_rgba(15,23,42,0.16)] active:translate-y-0.5 active:shadow-[0_2px_0_#059669]"
                 aria-label={`Open child card for ${name}`}
               >
-                <span className="block text-lg font-black text-slate-950">{name}</span>
-                <span className="mt-1 block text-sm font-bold text-emerald-900">
+                <span className="block truncate text-sm font-black text-slate-950">{name}</span>
+                <span className="block text-xs font-bold text-emerald-900">
                   Age {age ?? item.attendee.ageYearsOnVisit ?? "Not recorded"}
-                </span>
-                <span className="mt-2 block text-xs font-black uppercase tracking-wide text-sky-700">
-                  View child card
                 </span>
               </button>
             </li>

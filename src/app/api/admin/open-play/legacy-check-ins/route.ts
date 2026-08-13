@@ -42,8 +42,8 @@ export async function POST(req: Request) {
         ? (row.adultMode as "playing" | "watching")
         : null;
     const paymentMethod =
-      row.paymentMethod === "cash" || row.paymentMethod === "card"
-        ? (row.paymentMethod as "cash" | "card")
+      row.paymentMethod === "cash" || row.paymentMethod === "card" || row.paymentMethod === "free_pass"
+        ? (row.paymentMethod as "cash" | "card" | "free_pass")
         : null;
     return {
       legacyParticipantId:
@@ -52,6 +52,8 @@ export async function POST(req: Request) {
       adultMode,
       clientPriceCents:
         typeof row.clientPriceCents === "number" ? row.clientPriceCents : null,
+      overridePriceCents:
+        typeof row.overridePriceCents === "number" ? row.overridePriceCents : null,
       paymentMethod,
     };
   });

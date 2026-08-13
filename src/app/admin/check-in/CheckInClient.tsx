@@ -196,6 +196,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
           ...item,
           adultMode: mode,
           paymentMethod: mode === "watching" ? null : item.paymentMethod,
+          priceOverrideCents: mode === "watching" ? null : item.priceOverrideCents,
         };
       }),
     );
@@ -208,7 +209,26 @@ export function CheckInClient({ visitDateYmd }: Props) {
     setAttendees((current) =>
       current.map((item) =>
         item.selectionKey === selectionKey
-          ? { ...item, paymentMethod: method }
+          ? {
+              ...item,
+              paymentMethod: method,
+              priceOverrideCents:
+                method === "free_pass"
+                  ? 0
+                  : item.paymentMethod === "free_pass"
+                    ? null
+                    : item.priceOverrideCents,
+            }
+          : item,
+      ),
+    );
+  }
+
+  function setPrice(selectionKey: string, amountCents: number | null) {
+    setAttendees((current) =>
+      current.map((item) =>
+        item.selectionKey === selectionKey
+          ? { ...item, priceOverrideCents: amountCents }
           : item,
       ),
     );
@@ -268,6 +288,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
       setQuery("");
       setDebouncedQuery("");
       setStep("success");
+      router.refresh();
     } catch (error) {
       const mapped = error as StaffFacingError;
       if (mapped?.requiresSignIn) {
@@ -334,6 +355,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
         onRemove={removeAttendee}
         onAdultModeChange={setAdultMode}
         onPaymentMethodChange={setPaymentMethod}
+        onPriceChange={setPrice}
       />
 
       {attendees.length > 0 ? (

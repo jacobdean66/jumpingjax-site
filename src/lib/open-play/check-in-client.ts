@@ -16,7 +16,7 @@ import type { StaffSearchResult } from "@/lib/waivers/search";
 
 export type { StaffSearchResult, AdultPlayMode, AdmissionClassification };
 
-export type PaymentMethodChoice = "cash" | "card";
+export type PaymentMethodChoice = "cash" | "card" | "free_pass";
 
 export type CheckInStep = "search" | "success";
 
@@ -37,6 +37,7 @@ export type SelectedAttendeeDraft = {
   /** Required for adult_signer / adult_covered; ignored for children. */
   adultMode: AdultPlayMode | null;
   paymentMethod: PaymentMethodChoice | null;
+  priceOverrideCents: number | null;
 };
 
 export type PricePreview = {
@@ -70,6 +71,7 @@ export type VisitCreateRequestBody = {
     adultMode: AdultPlayMode | null;
     clientPriceCents: number | null;
     paymentMethod: PaymentMethodChoice | null;
+    overridePriceCents: number | null;
   }>;
 };
 
@@ -81,6 +83,7 @@ export type LegacyCheckInRequestBody = {
     adultMode: AdultPlayMode | null;
     clientPriceCents: number | null;
     paymentMethod: PaymentMethodChoice | null;
+    overridePriceCents: number | null;
   }>;
 };
 
@@ -176,6 +179,7 @@ export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft 
     signerLastInitial: result.signerLastInitial,
     adultMode: isAdultRole(result.role) ? null : null,
     paymentMethod: null,
+    priceOverrideCents: null,
   };
 }
 
@@ -313,9 +317,10 @@ export function computeGroupTotalsPreview(
     const requiresPayment = attendeeRequiresPaymentMethod(preview);
     if (!requiresPayment) continue;
 
+    if (attendee.paymentMethod === "free_pass") continue;
     paidAttendanceCount += 1;
     const priceForTotals =
-      preview.unitPriceCents ??
+      attendee.priceOverrideCents ?? preview.unitPriceCents ??
       Math.min(...preview.possiblePricesCents.filter((value) => value > 0));
 
     if (attendee.paymentMethod === "cash") cashTotalCents += priceForTotals;
@@ -366,13 +371,32 @@ export function canSubmitCheckInGroup(
     });
 
     if (
-      attendeeRequiresPaymentMethod(preview) &&
-      attendee.paymentMethod !== "cash" &&
-      attendee.paymentMethod !== "card"
+      attendee.priceOverrideCents !== null &&
+      (!Number.isInteger(attendee.priceOverrideCents) ||
+        attendee.priceOverrideCents < 0 ||
+        attendee.priceOverrideCents > 50_000)
     ) {
       return {
         ok: false,
-        message: `Choose cash or card for ${attendee.fullName}.`,
+        message: `Enter a valid price between $0 and $500 for ${attendee.fullName}.`,
+      };
+    }
+    if (attendee.priceOverrideCents === 0 && attendee.paymentMethod !== "free_pass") {
+      return {
+        ok: false,
+        message: `Choose Free pass for ${attendee.fullName} when the price is $0.00.`,
+      };
+    }
+
+    if (
+      attendeeRequiresPaymentMethod(preview) &&
+      attendee.paymentMethod !== "cash" &&
+      attendee.paymentMethod !== "card" &&
+      attendee.paymentMethod !== "free_pass"
+    ) {
+      return {
+        ok: false,
+        message: `Choose cash, card, or free pass for ${attendee.fullName}.`,
       };
     }
 
@@ -424,6 +448,8 @@ export function buildVisitCreateBody(options: {
         clientPriceCents:
           preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
         paymentMethod: requiresPayment ? attendee.paymentMethod : null,
+        overridePriceCents:
+          attendee.paymentMethod === "free_pass" ? 0 : attendee.priceOverrideCents,
       };
     }),
   };
@@ -454,6 +480,8 @@ export function buildLegacyCheckInBody(options: {
         clientPriceCents:
           preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
         paymentMethod: requiresPayment ? attendee.paymentMethod : null,
+        overridePriceCents:
+          attendee.paymentMethod === "free_pass" ? 0 : attendee.priceOverrideCents,
       };
     }),
   };
@@ -752,13 +780,19 @@ export function authoritativeVisitTotals(success: VisitCreateSuccess): {
 } {
   let cashTotalCents = 0;
   let cardTotalCents = 0;
+  const retainedByAttendee = new Map<string, number>();
   for (const entry of success.paymentEntries) {
-    if (entry.entryType !== "charge") continue;
     if (entry.method === "cash") cashTotalCents += entry.amountCents;
     if (entry.method === "card") cardTotalCents += entry.amountCents;
+    if (entry.attendeeId) {
+      retainedByAttendee.set(
+        entry.attendeeId,
+        (retainedByAttendee.get(entry.attendeeId) ?? 0) + entry.amountCents,
+      );
+    }
   }
   const paidAttendanceCount = success.attendees.filter(
-    (item) => item.unitPriceCents > 0,
+    (item) => (retainedByAttendee.get(item.attendeeId) ?? 0) > 0,
   ).length;
   return {
     cashTotalCents,

@@ -154,6 +154,53 @@ export async function createOpenPlayVisit(
     createdAt,
   }));
 
+  const adjustmentRows: Array<Record<string, unknown>> = [];
+  for (const [index, item] of prepared.entries()) {
+    if (item.targetPriceCents === item.unitPriceCents) continue;
+    const payloadAttendee = payload.attendees[index];
+    const original = (result.payments ?? []).find(
+      (payment) => payment.attendee_id === payloadAttendee?.attendee_id,
+    );
+    if (!payloadAttendee || !original) {
+      throw new Error("Unable to apply custom admission price");
+    }
+    const adjustmentId = randomUUID();
+    const amountCents = item.targetPriceCents - item.unitPriceCents;
+    const reason = item.targetPriceCents === 0
+      ? "Free pass selected at check-in"
+      : "Custom admission price selected at check-in";
+    adjustmentRows.push({
+      id: adjustmentId,
+      visit_id: result.visit_id,
+      attendee_id: payloadAttendee.attendee_id,
+      entry_type: "correction",
+      method: item.paymentMethod ?? "cash",
+      amount_cents: amountCents,
+      related_entry_id: original.id,
+      reason,
+      created_by_staff_id: input.staffId,
+    });
+    paymentEntries.push({
+      id: adjustmentId,
+      visitId: result.visit_id,
+      attendeeId: payloadAttendee.attendee_id,
+      entryType: "correction",
+      method: item.paymentMethod ?? "cash",
+      amountCents,
+      relatedEntryId: original.id,
+      reason,
+      createdByStaffId: input.staffId,
+      createdAt,
+    });
+  }
+
+  if (adjustmentRows.length) {
+    const { error: adjustmentError } = await supabase
+      .from("open_play_payment_entries")
+      .insert(adjustmentRows);
+    if (adjustmentError) throw new Error("Unable to apply custom admission price");
+  }
+
   return {
     visitId: result.visit_id,
     businessDayYmd: result.business_day_ymd ?? input.visitDateYmd,

@@ -19,6 +19,7 @@ type Props = {
     selectionKey: string,
     method: PaymentMethodChoice | null,
   ) => void;
+  onPriceChange: (selectionKey: string, amountCents: number | null) => void;
 };
 
 export function CheckInGroupPanel({
@@ -27,6 +28,7 @@ export function CheckInGroupPanel({
   onRemove,
   onAdultModeChange,
   onPaymentMethodChange,
+  onPriceChange,
 }: Props) {
   if (attendees.length === 0) {
     return (
@@ -149,17 +151,50 @@ export function CheckInGroupPanel({
                   </div>
                 </fieldset>
               ) : (
-                <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3">
-                  <p className="text-sm font-black text-sky-950">{preview.label}</p>
-                  <p className="mt-1 text-xs font-semibold text-sky-800">
-                    Child price is selected automatically from the waiver date of birth.
-                  </p>
-                </div>
+                <label className="mt-4 block rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-black text-sky-950">
+                  Admission price
+                  <span className="mt-2 flex min-h-11 items-center rounded-lg border border-sky-300 bg-white px-3">
+                    <span>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="0.01"
+                      inputMode="decimal"
+                      disabled={attendee.paymentMethod === "free_pass"}
+                      value={
+                        attendee.paymentMethod === "free_pass"
+                          ? "0.00"
+                          : attendee.priceOverrideCents === null
+                            ? preview.unitPriceCents === null
+                              ? ""
+                              : (preview.unitPriceCents / 100).toFixed(2)
+                            : (attendee.priceOverrideCents / 100).toFixed(2)
+                      }
+                      placeholder={preview.uncertain ? "$7.00 or $10.00" : undefined}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        onPriceChange(
+                          attendee.selectionKey,
+                          value === "" ? null : Math.round(Number(value) * 100),
+                        );
+                      }}
+                      className="min-h-9 w-full bg-transparent px-2 text-base font-black outline-none disabled:text-slate-500"
+                    />
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold text-sky-800">
+                    Default from the waiver birthday; edit it when needed.
+                  </span>
+                </label>
               )}
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-base font-black text-slate-950">
-                  {preview.unitPriceCents !== null
+                  {attendee.paymentMethod === "free_pass"
+                    ? "Free pass"
+                    : attendee.priceOverrideCents !== null
+                      ? formatCents(attendee.priceOverrideCents)
+                      : preview.unitPriceCents !== null
                     ? formatCents(preview.unitPriceCents)
                     : preview.label}
                 </p>
@@ -175,8 +210,8 @@ export function CheckInGroupPanel({
                   <legend className="text-sm font-bold text-slate-700">
                     Payment method
                   </legend>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {(["cash", "card"] as const).map((method) => (
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {(["cash", "card", "free_pass"] as const).map((method) => (
                       <label
                         key={method}
                         className={
@@ -194,7 +229,7 @@ export function CheckInGroupPanel({
                             onPaymentMethodChange(attendee.selectionKey, method)
                           }
                         />
-                        {method}
+                        {method === "free_pass" ? "Free pass" : method}
                       </label>
                     ))}
                   </div>

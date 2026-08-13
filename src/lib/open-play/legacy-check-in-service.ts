@@ -157,10 +157,22 @@ export async function createLegacySmartwaiverCheckIns(
     }
 
     assertClientPriceMatches(unitPriceCents, request.clientPriceCents ?? null);
-    const paymentMethod = request.paymentMethod ?? null;
+    const freePass = request.paymentMethod === "free_pass";
+    const overridePriceCents = request.overridePriceCents ?? unitPriceCents;
+    if (
+      !Number.isInteger(overridePriceCents) ||
+      overridePriceCents < 0 ||
+      overridePriceCents > 50_000
+    ) {
+      throw new CheckInValidationError("Admission price must be between $0 and $500");
+    }
+    if (unitPriceCents > 0) {
+      unitPriceCents = freePass ? 0 : overridePriceCents;
+    }
+    const paymentMethod = freePass ? null : request.paymentMethod ?? null;
     if (unitPriceCents > 0 && paymentMethod !== "cash" && paymentMethod !== "card") {
       throw new CheckInValidationError(
-        "Paid attendees require a cash or card payment method",
+        "Paid attendees require cash, card, or free pass",
       );
     }
     if (unitPriceCents === 0 && paymentMethod) {
