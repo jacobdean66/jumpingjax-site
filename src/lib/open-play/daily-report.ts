@@ -22,6 +22,7 @@ export type VisitAttendeeSnapshot = {
   id: string;
   visitId: string;
   fullName?: string;
+  birthDate?: string;
   ageYearsOnVisit?: number;
   classification: AdmissionClassification;
   unitPriceCents: number;

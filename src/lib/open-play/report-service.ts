@@ -33,14 +33,17 @@ export async function getOpenPlayDailyReport(
   const { data: participants, error: participantError } = participantIds.length
     ? await supabase
         .from("waiver_participants")
-        .select("id, first_name, last_name")
+        .select("id, first_name, last_name, dob")
         .in("id", participantIds)
     : { data: [], error: null };
   if (participantError) throw new Error(participantError.message);
   const participantsById = new Map(
     (participants ?? []).map((participant) => [
       participant.id,
-      `${participant.first_name} ${participant.last_name}`.trim(),
+      {
+        fullName: `${participant.first_name} ${participant.last_name}`.trim(),
+        birthDate: participant.dob,
+      },
     ]),
   );
 
@@ -59,7 +62,8 @@ export async function getOpenPlayDailyReport(
         .map((item) => ({
           id: item.id,
           visitId: item.visit_id,
-          fullName: participantsById.get(item.participant_id) ?? "Unknown attendee",
+          fullName: participantsById.get(item.participant_id)?.fullName ?? "Unknown attendee",
+          birthDate: participantsById.get(item.participant_id)?.birthDate,
           ageYearsOnVisit: item.age_years_on_visit,
           classification: item.classification as AdmissionClassification,
           unitPriceCents: item.unit_price_cents,
@@ -109,7 +113,7 @@ export async function getOpenPlayDailyReport(
     await Promise.all([
       supabase
         .from("smartwaiver_legacy_check_ins")
-        .select("id, legacy_visit_id, classification, unit_price_cents, status")
+        .select("id, legacy_visit_id, legacy_participant_id, age_years_on_visit, classification, unit_price_cents, status")
         .in("legacy_visit_id", legacyIds),
       supabase
         .from("smartwaiver_legacy_payment_entries")
@@ -118,6 +122,27 @@ export async function getOpenPlayDailyReport(
     ]);
   if (legacyAttendeeError) throw new Error(legacyAttendeeError.message);
   if (legacyPaymentError) throw new Error(legacyPaymentError.message);
+
+  const legacyParticipantIds = [
+    ...new Set((legacyAttendees ?? []).map((item) => item.legacy_participant_id)),
+  ];
+  const { data: legacyParticipants, error: legacyParticipantError } =
+    legacyParticipantIds.length
+      ? await supabase
+          .from("smartwaiver_legacy_participants")
+          .select("id, first_name, last_name, dob")
+          .in("id", legacyParticipantIds)
+      : { data: [], error: null };
+  if (legacyParticipantError) throw new Error(legacyParticipantError.message);
+  const legacyParticipantsById = new Map(
+    (legacyParticipants ?? []).map((participant) => [
+      participant.id,
+      {
+        fullName: `${participant.first_name} ${participant.last_name}`.trim(),
+        birthDate: participant.dob,
+      },
+    ]),
+  );
 
   for (const visit of legacyVisits ?? []) {
     snapshots.push({
@@ -133,6 +158,11 @@ export async function getOpenPlayDailyReport(
         .map((item) => ({
           id: item.id,
           visitId: item.legacy_visit_id,
+          fullName:
+            legacyParticipantsById.get(item.legacy_participant_id)?.fullName ??
+            "Unknown attendee",
+          birthDate: legacyParticipantsById.get(item.legacy_participant_id)?.birthDate,
+          ageYearsOnVisit: item.age_years_on_visit,
           classification: item.classification as AdmissionClassification,
           unitPriceCents: item.unit_price_cents,
           status: item.status as "active" | "removed",

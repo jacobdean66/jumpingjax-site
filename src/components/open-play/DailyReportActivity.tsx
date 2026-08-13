@@ -17,6 +17,18 @@ type Props = {
   report: DailyReport;
 };
 
+function formatBirthday(value: string | undefined): string {
+  if (!value) return "Not recorded";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 export function DailyReportActivity({ report }: Props) {
   const visits = sortVisitsForDisplay(report);
   const checkedIn = visits.flatMap((visit) =>
@@ -76,7 +88,10 @@ export function DailyReportActivity({ report }: Props) {
               {attendee.fullName ?? "Unknown attendee"}
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-600">
-              Age {attendee.ageYearsOnVisit ?? "—"}
+              Birthday {formatBirthday(attendee.birthDate)}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
+              Age {attendee.ageYearsOnVisit ?? "Not recorded"}
             </p>
           </li>
         ))}
@@ -154,7 +169,8 @@ export function DailyReportActivity({ report }: Props) {
                             {attendee.fullName ?? "Unknown attendee"}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-600">
-                            Age {attendee.ageYearsOnVisit ?? "—"} ·{" "}
+                            Birthday {formatBirthday(attendee.birthDate)} · Age{" "}
+                            {attendee.ageYearsOnVisit ?? "Not recorded"} ·{" "}
                             {classificationLabel(attendee.classification)}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-600">
