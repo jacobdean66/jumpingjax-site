@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-type DeskSurface = "check-in" | "daily-report" | "corrections";
+type DeskSurface = "check-in" | "daily-report" | "whos-here" | "corrections";
 
 type Props = {
   active: DeskSurface;
-  /** Owner-only destinations (daily report, corrections) are shown when true. */
+  /** Owner-only daily report is shown when true. */
   showOwnerTools?: boolean;
 };
 
@@ -27,29 +27,21 @@ export function OpenPlayDeskNav({ active, showOwnerTools = false }: Props) {
       >
         Check-in
       </Link>
+      <Link
+        href="/admin/whos-here"
+        className={active === "whos-here" ? activeClass : linkClass}
+        aria-current={active === "whos-here" ? "page" : undefined}
+      >
+        Who&apos;s here
+      </Link>
       {showOwnerTools ? (
-        <>
-          <Link
-            href="/admin/open-play-report#daily-report"
-            className={active === "daily-report" ? activeClass : linkClass}
-            aria-current={active === "daily-report" ? "page" : undefined}
-          >
-            Daily report
-          </Link>
-          <Link
-            href="/admin/open-play-report#todays-check-ins"
-            className={linkClass}
-          >
-            Today&apos;s check-ins
-          </Link>
-          <Link
-            href="/admin/open-play-corrections#corrections"
-            className={active === "corrections" ? activeClass : linkClass}
-            aria-current={active === "corrections" ? "page" : undefined}
-          >
-            Corrections
-          </Link>
-        </>
+        <Link
+          href="/admin/open-play-report#daily-report"
+          className={active === "daily-report" ? activeClass : linkClass}
+          aria-current={active === "daily-report" ? "page" : undefined}
+        >
+          Daily report
+        </Link>
       ) : null}
     </nav>
   );
