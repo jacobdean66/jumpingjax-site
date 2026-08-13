@@ -7,6 +7,7 @@ import {
   type SocialMediaImageContentSignals,
   type SocialMediaImageVerificationResult,
 } from "./social-media-image-verification-core";
+import { validatedRemoteMediaUrl } from "./social-media-storage";
 
 export type {
   SocialMediaImageContentSignals,
@@ -40,7 +41,10 @@ export async function analyzeImageContentSignals(
   const sharp = await loadSharp();
   if (!sharp) return null;
 
-  const response = await fetch(imageUrl, { cache: "no-store" });
+  const response = await fetch(validatedRemoteMediaUrl(imageUrl), {
+    cache: "no-store",
+    redirect: "error",
+  });
   if (!response.ok) return null;
 
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -142,7 +146,10 @@ export async function verifySocialMediaImageFromUrl(input: {
 
   let response: Response;
   try {
-    response = await fetch(input.imageUrl, { cache: "no-store" });
+    response = await fetch(validatedRemoteMediaUrl(input.imageUrl), {
+      cache: "no-store",
+      redirect: "error",
+    });
   } catch {
     return {
       ok: false,

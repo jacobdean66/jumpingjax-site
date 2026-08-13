@@ -30,7 +30,7 @@ const ALLOWED_REMOTE_MEDIA_HOST_SUFFIXES = [
   ".jumpingjaxllc.com",
 ];
 
-function validatedRemoteMediaUrl(value: string): URL {
+export function validatedRemoteMediaUrl(value: string): URL {
   const parsed = new URL(value);
   const hostname = parsed.hostname.toLowerCase();
   if (

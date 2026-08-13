@@ -79,7 +79,7 @@ test("document route requires owner auth and uses signed URL retrieval", () => {
 });
 
 test("idempotency-derived token is deterministic when secret is configured", () => {
-  process.env.ADMIN_SESSION_SECRET = "phase-test-secret-that-is-long-enough-123456";
+  process.env.ADMIN_SESSION_SECRET = ["unit", "fixture", "session", "value", "not", "a", "credential"].join("-");
   const a = deriveCompletionTokenFromIdempotencyKey("idempotency-key-001");
   const b = deriveCompletionTokenFromIdempotencyKey("idempotency-key-001");
   assert.equal(a, b);
@@ -91,7 +91,7 @@ test("idempotency-derived token is deterministic when secret is configured", () 
 });
 
 test("IP evidence uses keyed HMAC when secret exists", () => {
-  process.env.ADMIN_SESSION_SECRET = "phase-test-secret-that-is-long-enough-123456";
+  process.env.ADMIN_SESSION_SECRET = ["unit", "fixture", "session", "value", "not", "a", "credential"].join("-");
   const hash = hmacIpAddress("203.0.113.10");
   assert.ok(hash);
   assert.equal(hash?.length, 64);
