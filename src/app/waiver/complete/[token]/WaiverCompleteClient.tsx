@@ -10,6 +10,8 @@ import {
   type CompletionSuccess,
 } from "@/lib/waivers/public-client";
 
+const PENDING_SELF_CHECK_IN_KEY = "jumpingjax:pending-self-check-in";
+
 type LoadState =
   | { status: "loading" }
   | { status: "ok"; data: CompletionSuccess }
@@ -31,7 +33,11 @@ export function WaiverCompleteClient() {
   const params = useParams<{ token: string }>();
   const token = typeof params.token === "string" ? params.token : "";
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [selfCheckInState, setSelfCheckInState] = useState<
+    "idle" | "submitting" | "complete" | "error"
+  >("idle");
   const requestIdRef = useRef(0);
+  const selfCheckInAttemptedRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,6 +57,33 @@ export function WaiverCompleteClient() {
     })();
     return () => controller.abort();
   }, [token]);
+
+  useEffect(() => {
+    if (state.status !== "ok" || selfCheckInAttemptedRef.current) return;
+    const saved = window.sessionStorage.getItem(PENDING_SELF_CHECK_IN_KEY);
+    if (!saved) return;
+    selfCheckInAttemptedRef.current = true;
+    void (async () => {
+      await Promise.resolve();
+      setSelfCheckInState("submitting");
+      try {
+        const payload = JSON.parse(saved) as Record<string, unknown>;
+        const response = await fetch("/api/open-play/self-check-in", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = (await response.json().catch(() => null)) as
+          | { ok?: boolean }
+          | null;
+        if (!response.ok || !result?.ok) throw new Error("retry failed");
+        window.sessionStorage.removeItem(PENDING_SELF_CHECK_IN_KEY);
+        setSelfCheckInState("complete");
+      } catch {
+        setSelfCheckInState("error");
+      }
+    })();
+  }, [state]);
 
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-10 text-slate-950 sm:px-6 sm:py-14">
@@ -116,6 +149,24 @@ export function WaiverCompleteClient() {
               A final signed PDF is not provided on this page. Staff can help if
               you need a record at the facility.
             </p>
+            {selfCheckInState !== "idle" ? (
+              <div
+                className={`mt-5 rounded-2xl border px-4 py-4 text-sm font-bold ${
+                  selfCheckInState === "complete"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : selfCheckInState === "error"
+                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                      : "border-cyan-200 bg-cyan-50 text-cyan-900"
+                }`}
+                role="status"
+              >
+                {selfCheckInState === "submitting"
+                  ? "Finishing your Open Play check-in…"
+                  : selfCheckInState === "complete"
+                    ? "Waiver and check-in complete. Please see the front desk."
+                    : "Your waiver is saved. Please return to check-in to finish."}
+              </div>
+            ) : null}
           </>
         ) : null}
 
@@ -131,6 +182,14 @@ export function WaiverCompleteClient() {
         ) : null}
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {selfCheckInState === "error" ? (
+            <Link
+              href="/check-in"
+              className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-base font-black text-white"
+            >
+              Finish check-in
+            </Link>
+          ) : null}
           <Link
             href="/waiver"
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-orange-600 px-7 text-base font-black text-white shadow-[0_5px_0_rgba(154,52,18,0.25)] transition hover:bg-orange-700"
