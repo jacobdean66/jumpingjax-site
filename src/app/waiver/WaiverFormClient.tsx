@@ -257,9 +257,17 @@ export function WaiverFormClient() {
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-8 text-slate-950 sm:px-6 sm:py-12">
       <section className="mx-auto w-full max-w-xl rounded-[1.75rem] border-2 border-white bg-white/95 px-4 py-6 shadow-[0_18px_48px_rgba(8,145,178,0.16)] sm:px-7 sm:py-8">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">
-          Jumping Jax waiver
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">
+            Jumping Jax waiver
+          </p>
+          <Link
+            href="/"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border-2 border-cyan-300 bg-cyan-50 px-5 text-sm font-black text-cyan-950 transition hover:bg-cyan-100"
+          >
+            View Website
+          </Link>
+        </div>
         <h1
           ref={headingRef}
           tabIndex={-1}
