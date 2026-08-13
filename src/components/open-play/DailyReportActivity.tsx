@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
@@ -18,14 +19,23 @@ type Attendee = DailyReport["visits"][number]["attendees"][number];
 
 type SelectedCard = {
   attendee: Attendee;
+  visitId: string;
   checkedInAt: string;
   visitSource?: "native" | "legacy_smartwaiver";
+  payments: DailyReport["visits"][number]["payments"];
 };
 
 type ProfileOverride = {
   firstName: string;
   lastName: string;
   birthDate: string;
+};
+
+type PaymentOption = "cash" | "card" | "free_pass";
+
+type AdmissionOverride = {
+  amountCents: number;
+  paymentOption: PaymentOption;
 };
 
 function formatBirthday(value: string | undefined): string {
@@ -60,6 +70,7 @@ function checkInTime(value: string): string {
 }
 
 export function DailyReportActivity({ report }: Props) {
+  const router = useRouter();
   const visits = sortVisitsForDisplay(report);
   const checkedIn = visits.flatMap((visit) =>
     visit.status === "voided"
@@ -68,8 +79,10 @@ export function DailyReportActivity({ report }: Props) {
           .filter((attendee) => attendee.status === "active")
           .map((attendee) => ({
             attendee,
+            visitId: visit.visitId,
             checkedInAt: visit.createdAt,
             visitSource: visit.source,
+            payments: visit.payments,
           })),
   );
   const [selected, setSelected] = useState<SelectedCard | null>(null);
@@ -83,6 +96,23 @@ export function DailyReportActivity({ report }: Props) {
     birthDate: "",
   });
   const [overrides, setOverrides] = useState<Record<string, ProfileOverride>>({});
+  const [admissionOverrides, setAdmissionOverrides] = useState<Record<string, AdmissionOverride>>({});
+  const [draftAmount, setDraftAmount] = useState("");
+  const [draftPaymentOption, setDraftPaymentOption] = useState<PaymentOption>("cash");
+
+  function admissionFor(item: SelectedCard): AdmissionOverride {
+    const saved = admissionOverrides[item.attendee.id];
+    if (saved) return saved;
+    const entries = item.payments.filter((entry) => entry.attendeeId === item.attendee.id);
+    const amountCents = Math.max(0, entries.reduce((total, entry) => total + entry.amountCents, 0));
+    let paymentOption: PaymentOption = "cash";
+    for (const entry of entries) {
+      if (entry.entryType === "charge" || (entry.entryType === "correction" && entry.amountCents > 0)) {
+        paymentOption = entry.method;
+      }
+    }
+    return { amountCents, paymentOption: amountCents === 0 ? "free_pass" : paymentOption };
+  }
 
   function profileFor(attendee: Attendee): ProfileOverride {
     return (
@@ -95,8 +125,11 @@ export function DailyReportActivity({ report }: Props) {
   }
 
   function openCard(item: SelectedCard) {
+    const admission = admissionFor(item);
     setSelected(item);
     setDraft(profileFor(item.attendee));
+    setDraftAmount((admission.amountCents / 100).toFixed(2));
+    setDraftPaymentOption(admission.paymentOption);
     setEditing(false);
     setSaveError(null);
     setSavedMessage(null);
@@ -116,26 +149,57 @@ export function DailyReportActivity({ report }: Props) {
     setSaveError(null);
     setSavedMessage(null);
     try {
-      const response = await fetch("/api/admin/open-play/attendee-profile", {
+      const amountCents = draftPaymentOption === "free_pass"
+        ? 0
+        : Math.round(Number(draftAmount) * 100);
+      if (!Number.isInteger(amountCents) || amountCents < 0 || amountCents > 50_000) {
+        throw new Error("Enter a valid admission amount between $0 and $500.");
+      }
+      const source = selected.attendee.source ?? selected.visitSource;
+      if (source === "legacy_smartwaiver") {
+        const response = await fetch("/api/admin/open-play/attendee-profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            participantId: selected.attendee.participantRecordId,
+            source,
+            firstName: draft.firstName,
+            lastName: draft.lastName,
+            birthDate: draft.birthDate,
+          }),
+        });
+        const result = (await response.json().catch(() => null)) as
+          | { ok?: boolean; error?: string; profile?: ProfileOverride }
+          | null;
+        if (!response.ok || !result?.ok) {
+          throw new Error(result?.error || "The child details could not be saved.");
+        }
+      }
+      const admissionResponse = await fetch("/api/admin/open-play/attendee-admission", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          participantId: selected.attendee.participantRecordId,
-          source: selected.attendee.source ?? selected.visitSource,
-          firstName: draft.firstName,
-          lastName: draft.lastName,
-          birthDate: draft.birthDate,
+          attendeeId: selected.attendee.id,
+          visitId: selected.visitId,
+          source,
+          amountCents,
+          paymentOption: draftPaymentOption,
         }),
       });
-      const result = (await response.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; profile?: ProfileOverride }
+      const admissionResult = (await admissionResponse.json().catch(() => null)) as
+        | { ok?: boolean; error?: string }
         | null;
-      if (!response.ok || !result?.ok) {
-        throw new Error(result?.error || "The child details could not be saved.");
+      if (!admissionResponse.ok || !admissionResult?.ok) {
+        throw new Error(admissionResult?.error || "The admission details could not be saved.");
       }
       setOverrides((current) => ({ ...current, [selected.attendee.id]: draft }));
+      setAdmissionOverrides((current) => ({
+        ...current,
+        [selected.attendee.id]: { amountCents, paymentOption: draftPaymentOption },
+      }));
       setEditing(false);
-      setSavedMessage("Child details saved.");
+      setSavedMessage("Child and admission details saved.");
+      router.refresh();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The child details could not be saved.");
     } finally {
@@ -164,9 +228,13 @@ export function DailyReportActivity({ report }: Props) {
   const selectedName = selectedProfile
     ? `${selectedProfile.firstName} ${selectedProfile.lastName}`.trim()
     : "";
-  const canEdit =
-    selected?.attendee.source === "legacy_smartwaiver" &&
-    Boolean(selected.attendee.participantRecordId);
+  const selectedAdmission = selected ? admissionFor(selected) : null;
+  const canEditProfile =
+    (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
+  const canEdit = Boolean(
+    selected?.attendee.participantRecordId &&
+    selected.attendee.classification.startsWith("child_"),
+  );
 
   return (
     <section
@@ -243,6 +311,7 @@ export function DailyReportActivity({ report }: Props) {
                   First name
                   <input
                     value={draft.firstName}
+                    disabled={!canEditProfile}
                     onChange={(event) => setDraft((current) => ({ ...current, firstName: event.target.value }))}
                     className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
                     maxLength={100}
@@ -253,6 +322,7 @@ export function DailyReportActivity({ report }: Props) {
                   Last name
                   <input
                     value={draft.lastName}
+                    disabled={!canEditProfile}
                     onChange={(event) => setDraft((current) => ({ ...current, lastName: event.target.value }))}
                     className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
                     maxLength={100}
@@ -264,11 +334,46 @@ export function DailyReportActivity({ report }: Props) {
                   <input
                     type="date"
                     value={draft.birthDate}
+                    disabled={!canEditProfile}
                     max={new Date().toISOString().slice(0, 10)}
                     onChange={(event) => setDraft((current) => ({ ...current, birthDate: event.target.value }))}
                     className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
                     required
                   />
+                </label>
+                <label className="text-sm font-black text-slate-700">
+                  Payment option
+                  <select
+                    value={draftPaymentOption}
+                    onChange={(event) => {
+                      const option = event.target.value as PaymentOption;
+                      setDraftPaymentOption(option);
+                      if (option === "free_pass") setDraftAmount("0.00");
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="free_pass">Free pass</option>
+                  </select>
+                </label>
+                <label className="text-sm font-black text-slate-700">
+                  Admission amount
+                  <span className="mt-2 flex min-h-12 items-center rounded-xl border border-slate-300 bg-white/90 px-4 focus-within:border-emerald-500">
+                    <span className="font-black text-slate-600">$</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="500"
+                      step="0.01"
+                      value={draftAmount}
+                      disabled={draftPaymentOption === "free_pass"}
+                      onChange={(event) => setDraftAmount(event.target.value)}
+                      className="min-h-10 w-full bg-transparent px-2 text-base outline-none disabled:text-slate-500"
+                      required
+                    />
+                  </span>
                 </label>
               </div>
             ) : (
@@ -292,7 +397,13 @@ export function DailyReportActivity({ report }: Props) {
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Admission</dt>
                   <dd className="mt-1 font-black text-slate-950">
-                    {classificationLabel(selected.attendee.classification)} · {formatCents(selected.attendee.unitPriceCents)}
+                    {classificationLabel(selected.attendee.classification)} · {formatCents(selectedAdmission?.amountCents ?? selected.attendee.unitPriceCents)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Payment option</dt>
+                  <dd className="mt-1 font-black capitalize text-slate-950">
+                    {(selectedAdmission?.paymentOption ?? "cash").replace("_", " ")}
                   </dd>
                 </div>
                 <div>
@@ -320,7 +431,10 @@ export function DailyReportActivity({ report }: Props) {
                     type="button"
                     disabled={saving}
                     onClick={() => {
+                      const admission = admissionFor(selected);
                       setDraft(profileFor(selected.attendee));
+                      setDraftAmount((admission.amountCents / 100).toFixed(2));
+                      setDraftPaymentOption(admission.paymentOption);
                       setEditing(false);
                       setSaveError(null);
                     }}
@@ -330,7 +444,13 @@ export function DailyReportActivity({ report }: Props) {
                   </button>
                   <button
                     type="button"
-                    disabled={saving || !draft.firstName.trim() || !draft.lastName.trim() || !draft.birthDate}
+                    disabled={
+                      saving ||
+                      !draft.firstName.trim() ||
+                      !draft.lastName.trim() ||
+                      !draft.birthDate ||
+                      (draftPaymentOption !== "free_pass" && !draftAmount)
+                    }
                     onClick={() => void saveProfile()}
                     className="min-h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-[0_5px_0_#047857] active:translate-y-1 active:shadow-none disabled:opacity-50"
                   >
@@ -350,7 +470,10 @@ export function DailyReportActivity({ report }: Props) {
                     type="button"
                     disabled={!canEdit}
                     onClick={() => {
+                      const admission = admissionFor(selected);
                       setDraft(profileFor(selected.attendee));
+                      setDraftAmount((admission.amountCents / 100).toFixed(2));
+                      setDraftPaymentOption(admission.paymentOption);
                       setEditing(true);
                       setSaveError(null);
                       setSavedMessage(null);
