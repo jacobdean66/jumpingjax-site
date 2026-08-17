@@ -84,6 +84,7 @@ export function AdminNav({
     | "end-of-day"
     | "driver"
     | "ai-ads"
+    | "ai-receptionist"
     | "inventory"
     | "site-settings"
     | "damage-log"
@@ -92,6 +93,7 @@ export function AdminNav({
     | "tasks"
     | "tax-export"
     | "ad-analytics"
+    | "nominations"
     | "security"
     | "open-play"
     | "waiver-export";
@@ -131,9 +133,23 @@ export function AdminNav({
       : null,
     role === "owner"
       ? {
+          id: "ai-receptionist" as const,
+          label: "AI Phone (Sim)",
+          href: `/admin/ai-receptionist${query}`,
+        }
+      : null,
+    role === "owner"
+      ? {
           id: "ad-analytics" as const,
           label: "Ad Analytics",
           href: `/admin/ad-analytics${query}`,
+        }
+      : null,
+    role === "owner"
+      ? {
+          id: "nominations" as const,
+          label: "Nominations",
+          href: `/admin/nominations${query}`,
         }
       : null,
     role === "owner"
