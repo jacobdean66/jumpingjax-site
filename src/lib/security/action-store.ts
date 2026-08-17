@@ -17,6 +17,13 @@ export type SecurityObservation = {
 };
 
 export type PendingAikidoScan = { scanId: number; correlationId: string };
+export type LatestAikidoScan = {
+  state: "not_run" | "pending" | "passed" | "findings";
+  checkedAt: string | null;
+  issueCount: number | null;
+  message: string;
+  detailsUrl: string | null;
+};
 
 export async function beginSecurityAction(input: {
   actorId: string;
@@ -144,6 +151,46 @@ export async function loadPendingAikidoScan(actorId: string): Promise<PendingAik
   }
 }
 
+export async function loadLatestAikidoScan(actorId: string): Promise<LatestAikidoScan> {
+  const fallback: LatestAikidoScan = {
+    state: "not_run",
+    checkedAt: null,
+    issueCount: null,
+    message: "Run the first production repository scan to establish a verified baseline.",
+    detailsUrl: null,
+  };
+  try {
+    const client = createServiceRoleClient();
+    const { data, error } = await client
+      .from("security_scan_jobs")
+      .select("status, result_state, issue_count, message, details_url, requested_at, completed_at")
+      .eq("actor_id", actorId)
+      .order("requested_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return fallback;
+    if (data.status === "pending") {
+      return {
+        state: "pending",
+        checkedAt: String(data.requested_at),
+        issueCount: null,
+        message: "Aikido is scanning the production repository.",
+        detailsUrl: null,
+      };
+    }
+    const state = data.result_state === "passed" ? "passed" : "findings";
+    return {
+      state,
+      checkedAt: data.completed_at ? String(data.completed_at) : String(data.requested_at),
+      issueCount: typeof data.issue_count === "number" ? data.issue_count : null,
+      message: String(data.message || (state === "passed" ? "The latest scan passed." : "The latest scan found issues.")).slice(0, 240),
+      detailsUrl: typeof data.details_url === "string" && data.details_url.startsWith("https://app.aikido.dev/") ? data.details_url : null,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export async function validateAikidoScanJob(input: PendingAikidoScan & { actorId: string }): Promise<boolean> {
   const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
   if (!deploymentSha) return false;
@@ -160,7 +207,7 @@ export async function validateAikidoScanJob(input: PendingAikidoScan & { actorId
   return !error && Boolean(data);
 }
 
-export async function completeAikidoScanJob(input: PendingAikidoScan & { actorId: string; passed: boolean; message: string }): Promise<boolean> {
+export async function completeAikidoScanJob(input: PendingAikidoScan & { actorId: string; passed: boolean; message: string; issueCount: number | null; detailsUrl: string | null }): Promise<boolean> {
   const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
   if (!deploymentSha) return false;
   const client = createServiceRoleClient();
@@ -171,6 +218,8 @@ export async function completeAikidoScanJob(input: PendingAikidoScan & { actorId
     p_deployment_sha: deploymentSha,
     p_passed: input.passed,
     p_message: input.message,
+    p_issue_count: input.issueCount,
+    p_details_url: input.detailsUrl,
   });
   if (error) throw new Error("security_scan_completion_unavailable");
   return data === true;

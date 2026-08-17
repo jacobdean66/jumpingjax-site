@@ -53,8 +53,8 @@ test("provider endpoints are fixed and redirects are rejected", () => {
 test("repair control cannot mutate, merge, or deploy", () => {
   const client = read("src/app/admin/security/SecurityDashboardClient.tsx");
   const apiFiles = ["status", "scan", "health"];
-  assert.match(client, /Prepare fix review/);
-  assert.match(client, /disabled/);
+  assert.match(client, /AutoFix opens in Aikido for review/);
+  assert.match(client, /actionUrl/);
   assert.equal(apiFiles.some((name) => /fix|merge|deploy/.test(name)), false);
   assert.doesNotMatch(client, /\/api\/admin\/security\/(fix|merge|deploy)/);
 });
