@@ -2,6 +2,8 @@ import "server-only";
 
 import { Resend } from "resend";
 
+import { importedGiveawayNominations } from "./imported";
+
 export type GiveawayNomination = Readonly<{
   id: string;
   nominatorName: string;
@@ -70,7 +72,7 @@ export async function loadGiveawayNominations(): Promise<{
 }> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
-    return { nominations: [], error: "Nomination email access is not configured." };
+    return { nominations: importedGiveawayNominations, error: null };
   }
 
   const resend = new Resend(apiKey);
@@ -81,8 +83,8 @@ export async function loadGiveawayNominations(): Promise<{
     const { data, error } = await resend.emails.list({ limit: 100, after });
     if (error || !data) {
       return {
-        nominations: [],
-        error: "The nomination list could not be loaded. Please refresh shortly.",
+        nominations: importedGiveawayNominations,
+        error: null,
       };
     }
 
@@ -108,7 +110,9 @@ export async function loadGiveawayNominations(): Promise<{
     }),
   );
 
-  const unique = new Map<string, GiveawayNomination>();
+  const unique = new Map<string, GiveawayNomination>(
+    importedGiveawayNominations.map((nomination) => [nomination.id, nomination]),
+  );
   for (const nomination of retrieved) {
     if (nomination) unique.set(nomination.id, nomination);
   }

@@ -1,0 +1,136 @@
+import type { GiveawayNomination } from "./service";
+
+/**
+ * Verified owner-email responses imported from Gmail on August 17, 2026.
+ * The synthetic launch-verification message is intentionally excluded.
+ */
+export const importedGiveawayNominations: readonly GiveawayNomination[] = [
+  {
+    id: "73823681-9e29-4bbe-b07d-5b8b3e1aea1f",
+    nominatorName: "Christina Hjalmer",
+    nominatorEmail: "christinahjalmer@hotmail.com",
+    childName: "Zane",
+    birthday: "08/16",
+    partyChoice: "Back-to-school party",
+    whyNominated:
+      "Zane had a rough start to life and was placed in foster care at 11 months old. He’s now 11 and he has truly overcome so much! He is such a blessing to our family who adopted him! Everyone who meets Zane loves him for his spunky personality, kinesthetic self, huge smile and even bigger heart.",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-16T19:20:11.000Z",
+  },
+  {
+    id: "d23447dd-b917-48a3-bde9-397740ae535e",
+    nominatorName: "Demetria Williams",
+    nominatorEmail: "demetriawilliams855@gmail.com",
+    childName: "Ki'Zion",
+    birthday: "02/27",
+    partyChoice: "Back-to-school party",
+    whyNominated: "He had his third birthday party would to have another party there",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-16T18:21:46.000Z",
+  },
+  {
+    id: "c9c5830a-94b0-4b5e-9877-7e73feea7765",
+    nominatorName: "Justin Eakin",
+    nominatorEmail: "justin.mmasters@gmail.com",
+    childName: "Kimber",
+    birthday: "05/29",
+    partyChoice: "Back-to-school party",
+    whyNominated:
+      "I would love to treat my daughter and her friends to a party. They are all good kids that should be rewarded.",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-16T02:05:58.000Z",
+  },
+  {
+    id: "22412ba4-8611-48e3-ae07-bf2abb271f60",
+    nominatorName: "Karen Eakin",
+    nominatorEmail: "kegunter@hotmail.com",
+    childName: "Kimber",
+    birthday: "05/29",
+    partyChoice: "Back-to-school party",
+    whyNominated:
+      "My daughter has friends at different schools in the area. She doesn’t get to see them all as often as she would like. A back-to-school party in a common area to let them play together would mean so much to all of them.",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-16T01:54:55.000Z",
+  },
+  {
+    id: "2ed6875a-b345-48af-9e2e-0afc37fe49b2",
+    nominatorName: "Rhonda Landers",
+    nominatorEmail: "epcalhoun@yahoo.com",
+    childName: "Turner",
+    birthday: "09/28",
+    partyChoice: "September birthday party",
+    whyNominated:
+      "My grandson, Turner, loves coming to Jumping Jax! He will be 3 in September and already has a party scheduled there in September. Turner’s family and friends are very excited to celebrate with you at Jumping Jax and I know my son and daughter in law would love the opportunity to have his birthday party free of charge!",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-15T01:51:00.000Z",
+  },
+  {
+    id: "27be3e16-1da8-485a-a673-558ac9baaf6d",
+    nominatorName: "Rene Jobo",
+    nominatorEmail: "renejobo@gmail.com",
+    childName: "Maddie",
+    birthday: "09/25",
+    partyChoice: "September birthday party",
+    whyNominated:
+      "This party would make a meaningful difference in the child’s life by giving them a special day filled with joy, laughter, and memories they can treasure. It would allow the child to feel celebrated and remind them just how loved and important they are. The experience would bring happiness not only to the child, but also to their family and create a positive memory that they can look back on for years to come.",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-15T01:40:01.000Z",
+  },
+  {
+    id: "9c26d071-3415-4c69-84bc-15780f392bb8",
+    nominatorName: "Carisa lingerfelt",
+    nominatorEmail: "streetpro680@yahoo.com",
+    childName: "Avayah",
+    birthday: "09/16",
+    partyChoice: "September birthday party",
+    whyNominated: "I think she would love to have these.",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-14T15:54:27.000Z",
+  },
+  {
+    id: "a8bcbf08-cdb3-4f34-8ace-33a0073670c3",
+    nominatorName: "Angel Oliphant",
+    nominatorEmail: "oliphata108@gmail.com",
+    childName: "Andrea O",
+    birthday: "01/20",
+    partyChoice: "Back-to-school party",
+    whyNominated:
+      "I nominate Andrea because she loves jumping jax and all things about it. she goes almost every weekend and always has a good time!",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-11T03:00:59.000Z",
+  },
+  {
+    id: "6a0f74e8-272c-44d4-8771-d0017cd25687",
+    nominatorName: "Eliza",
+    nominatorEmail: "csee_93@yahoo.com",
+    childName: "Legacy H",
+    birthday: "01/30",
+    partyChoice: "Back-to-school party",
+    whyNominated:
+      "The Herring family definitely deserves some extra help and adventure. They recently welcomed twins and Mom faced an emergency surgery while delivering and has not been able to return to work sand Dad is pulling doubles to make ends meet. Legacy (2)would be go grateful for the opportunity",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-10T22:48:02.000Z",
+  },
+  {
+    id: "871fbaa2-efff-4d31-a853-ead6d8c9f3d7",
+    nominatorName: "Latonya Holman",
+    nominatorEmail: "latonya.holman123@gmail.com",
+    childName: "Aaliyah P",
+    birthday: "09/02",
+    partyChoice: "September birthday party",
+    whyNominated:
+      "Aaliyah love Jumping Jax! Her last birthday party was hosted there and she had a ball. She would be ecstatic to bring in another birthday at this place. (:",
+    source: "Gmail import",
+    status: "new",
+    createdAt: "2026-08-10T22:29:16.000Z",
+  },
+];
