@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { resolveOpenAIClientOptions } from "@/lib/security/protected-openai-config";
 import { createRequestId, sanitizeAgentError } from "./agent-types";
 import { isDurableAgentStoreReady } from "./agent-durable-store";
 import { getAgentProtectionMode } from "./agent-protection-mode";
@@ -87,8 +88,11 @@ export function createOpenAiJsonClient(options?: {
   /** Test override for durable-protection environment detection. */
   env?: NodeJS.ProcessEnv;
 }): LlmJsonClient {
+  const allowTestOverride = process.env.NODE_ENV !== "production" || options?.env?.NODE_ENV === "test";
+  const explicitApiKey = allowTestOverride ? options?.apiKey?.trim() : null;
+  const protectedOptions = explicitApiKey ? null : resolveOpenAIClientOptions();
   const apiKey =
-    options?.apiKey?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+    explicitApiKey || protectedOptions?.apiKey || "";
   const configuredModel = options?.model?.trim() || resolveModel();
   const protectionEnv = options?.env;
 
@@ -142,7 +146,7 @@ export function createOpenAiJsonClient(options?: {
       }
 
       const client = new OpenAI({
-        apiKey,
+        ...(protectedOptions ?? { apiKey }),
         timeout: timeoutMs,
         maxRetries: LLM_DEFAULTS.maxRetries,
         ...(options?.fetchImpl ? { fetch: options.fetchImpl } : {}),
