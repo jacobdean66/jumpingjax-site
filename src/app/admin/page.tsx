@@ -57,6 +57,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
     ...(auth.role === "owner"
       ? [
           {
+            title: "Security Center",
+            eyebrow: "Owner Tools",
+            description:
+              "Check Aikido scanning and AITHURA protected AI routing from one private control center.",
+            href: "/admin/security",
+            cta: "Open security center",
+            accent: "steel" as const,
+          },
+          {
             title: "Ad Analytics",
             eyebrow: "Owner Tools",
             description:
