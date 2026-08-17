@@ -53,7 +53,8 @@ export function getAikidoStatus(now = new Date()): SecurityServiceSnapshot {
   const config = scanConfiguration();
   const hasRepository = Boolean(config.repositoryId);
   const deploymentReady = Boolean(isCommitSha(config.deployedCommitId) && config.branchName);
-  const scanReady = Boolean(config.secret && config.repositoryId && deploymentReady);
+  const manualScanEnabled = process.env.AIKIDO_MANUAL_SCAN_ENABLED?.trim().toLowerCase() === "true";
+  const scanReady = Boolean(manualScanEnabled && config.secret && config.repositoryId && deploymentReady);
 
   return {
     id: "aikido",
@@ -62,20 +63,20 @@ export function getAikidoStatus(now = new Date()): SecurityServiceSnapshot {
     summary: scanReady
       ? "Aikido scanning is connected to this exact production commit. Run a scan here or open Aikido for scheduled results."
       : hasRepository
-        ? "The Aikido repository is linked, but the production scan token is not configured."
+        ? "The Aikido repository is connected. Scheduled scans and current findings are managed in Aikido; manual rescanning requires a paid Aikido plan."
         : "Add the server-side Aikido repository configuration to enable scanning.",
     checkedAt: now.toISOString(),
     dashboardUrl: repositoryDashboardUrl(config.repositoryId),
     metrics: [
       { label: "Repository", value: hasRepository ? "Connected" : "Not configured" },
-      { label: "Scheduled scanning", value: hasRepository ? "Managed by Aikido" : "Unavailable" },
+      { label: "Scheduled scanning", value: hasRepository ? "Active in Aikido" : "Unavailable" },
       { label: "Production commit", value: deploymentReady ? config.deployedCommitId!.slice(0, 7) : "Unavailable" },
     ],
     capabilities: {
       refresh: { available: true },
       scan: scanReady
         ? { available: true }
-        : { available: false, reason: "Aikido scanning needs its scoped CI token and the current Vercel deployment identity." },
+        : { available: false, reason: "Manual rescanning is unavailable on this Aikido Free workspace. Open Aikido for scheduled results." },
       healthCheck: { available: false, reason: "Run a repository scan or open Aikido." },
       prepareFix: { available: false, reason: "A completed scan with findings is required before opening AutoFix." },
     },

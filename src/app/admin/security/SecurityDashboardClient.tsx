@@ -114,7 +114,7 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
       <section aria-label="Security overview" className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Latest repository scan</p>
-          <p className="mt-2 text-xl font-black capitalize text-slate-950">{dashboard.latestScan.state.replace("_", " ")}</p>
+          <p className="mt-2 text-xl font-black capitalize text-slate-950">{dashboard.latestScan.state === "not_run" ? "Aikido managed" : dashboard.latestScan.state.replace("_", " ")}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">{dashboard.latestScan.issueCount === null ? "No recorded finding count" : `${dashboard.latestScan.issueCount} finding${dashboard.latestScan.issueCount === 1 ? "" : "s"}`}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -144,9 +144,7 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
               {service.dashboardUrl ? <a href={service.dashboardUrl} target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50">Open {service.name}</a> : null}
               {service.id === "aikido" ? (
                 <>
-                  <button type="button" disabled={!service.capabilities.scan.available || busy !== null || Boolean(dashboard.pendingScan)} title={service.capabilities.scan.reason} onClick={() => runAction("scan")} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-                    {busy === "scan" ? "Starting…" : "Run production repository scan"}
-                  </button>
+                  {service.capabilities.scan.available ? <button type="button" disabled={busy !== null || Boolean(dashboard.pendingScan)} onClick={() => runAction("scan")} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">{busy === "scan" ? "Starting…" : "Run production repository scan"}</button> : null}
                   {dashboard.pendingScan ? <button type="button" disabled={busy !== null} onClick={() => pollScan(dashboard.pendingScan!.scanId, dashboard.pendingScan!.correlationId)} className="rounded-full border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-black text-sky-900 disabled:opacity-50">Resume scan {dashboard.pendingScan.scanId}</button> : null}
                 </>
               ) : (
@@ -167,7 +165,7 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
         <ol className="mt-4 grid gap-2 text-sm font-semibold text-slate-800 md:grid-cols-2">
           {dashboard.repair.steps.map((step, index) => <li key={step} className="rounded-2xl border border-slate-200 bg-white/70 p-3"><span className="mr-2 font-black">{index + 1}.</span>{step}</li>)}
         </ol>
-        {dashboard.repair.actionUrl ? <a href={dashboard.repair.actionUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-rose-700 px-4 py-2 text-sm font-black text-white hover:bg-rose-800">{dashboard.repair.actionLabel}</a> : <button type="button" disabled className="mt-4 rounded-full bg-slate-300 px-4 py-2 text-sm font-black text-slate-600 cursor-not-allowed">{dashboard.repair.actionLabel}</button>}
+        {dashboard.repair.actionUrl ? <a href={dashboard.repair.actionUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">{dashboard.repair.actionLabel}</a> : <button type="button" disabled className="mt-4 rounded-full bg-slate-300 px-4 py-2 text-sm font-black text-slate-600 cursor-not-allowed">{dashboard.repair.actionLabel}</button>}
         <p className="mt-2 text-xs font-semibold text-slate-700">AutoFix opens in Aikido for review. This page never merges or deploys automatically.</p>
       </section>
     </div>
