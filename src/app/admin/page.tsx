@@ -57,6 +57,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
     ...(auth.role === "owner"
       ? [
           {
+            title: "Nominations",
+            eyebrow: "Facebook Leads",
+            description:
+              "See who responded to the current Facebook nomination ad and read every answer they submitted.",
+            href: "/admin/nominations",
+            cta: "Review nominations",
+            accent: "warn" as const,
+          },
+          {
             title: "Ad Analytics",
             eyebrow: "Owner Tools",
             description:

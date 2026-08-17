@@ -90,6 +90,7 @@ export function AdminNav({
     | "tasks"
     | "tax-export"
     | "ad-analytics"
+    | "nominations"
     | "open-play"
     | "waiver-export"
     | "ai-receptionist";
@@ -139,6 +140,13 @@ export function AdminNav({
           id: "ad-analytics" as const,
           label: "Ad Analytics",
           href: `/admin/ad-analytics${query}`,
+        }
+      : null,
+    role === "owner"
+      ? {
+          id: "nominations" as const,
+          label: "Nominations",
+          href: `/admin/nominations${query}`,
         }
       : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },

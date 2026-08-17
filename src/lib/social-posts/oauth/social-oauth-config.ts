@@ -9,6 +9,9 @@ export const SOCIAL_META_OAUTH_SCOPES = [
   "business_management",
   /** Read-only Marketing API / Insights access for owner ad analytics. */
   "ads_read",
+  /** Read Meta Instant Form responses for the owner-only nominations page. */
+  "leads_retrieval",
+  "pages_manage_ads",
 ] as const;
 
 export type SocialMetaOAuthScope = (typeof SOCIAL_META_OAUTH_SCOPES)[number];
