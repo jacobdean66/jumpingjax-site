@@ -70,9 +70,11 @@ export function AdminHeader({
 export function AdminNav({
   active,
   role = "owner",
+  compact = false,
 }: {
   token: string;
   role?: AdminRole;
+  compact?: boolean;
   active?:
     | "home"
     | "rentals"
@@ -168,8 +170,8 @@ export function AdminNav({
 
   return (
     <div className="mt-5 flex flex-col gap-3 print:hidden">
-      <nav className="grid w-full grid-cols-3 gap-2 text-xs font-bold sm:grid-cols-4 md:grid-cols-6">
-        <AdminBackButton />
+      <nav className={compact ? "flex w-full max-w-4xl flex-wrap justify-start gap-1.5 text-xs font-bold lg:justify-end" : "grid w-full grid-cols-3 gap-2 text-xs font-bold sm:grid-cols-4 md:grid-cols-6"}>
+        <AdminBackButton compact={compact} />
         {items.map((item) => {
           const isActive =
             item.id === "rentals" ? rentalActive : active === item.id;
@@ -178,8 +180,15 @@ export function AdminNav({
             <Link
               key={item.id}
               href={item.href}
-              className={
-                isActive
+              className={compact
+                ? isActive
+                  ? prominent
+                    ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-pink-600 px-3 py-1.5 text-center text-xs leading-tight text-white shadow-sm"
+                    : "inline-flex min-h-9 items-center justify-center rounded-lg bg-slate-950 px-3 py-1.5 text-center text-[11px] leading-tight text-white"
+                  : prominent
+                    ? "inline-flex min-h-9 items-center justify-center rounded-lg border-2 border-pink-500 bg-pink-50 px-3 py-1.5 text-center text-xs leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
+                : isActive
                   ? prominent
                     ? "inline-flex aspect-square items-center justify-center rounded-xl bg-pink-600 p-2 text-center text-sm leading-tight text-white shadow-sm"
                     : "inline-flex aspect-square items-center justify-center rounded-xl bg-slate-950 p-2 text-center leading-tight text-white"
@@ -193,10 +202,12 @@ export function AdminNav({
             </Link>
           );
         })}
-        <AdminLogoutButton />
+        <AdminLogoutButton compact={compact} />
         <Link
           href="/"
-          className="inline-flex aspect-square items-center justify-center rounded-xl bg-emerald-500 p-2 text-center leading-tight text-white hover:bg-emerald-600"
+          className={compact
+            ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-500 px-3 py-1.5 text-center text-[11px] leading-tight text-white hover:bg-emerald-600"
+            : "inline-flex aspect-square items-center justify-center rounded-xl bg-emerald-500 p-2 text-center leading-tight text-white hover:bg-emerald-600"}
         >
           View Website
         </Link>
