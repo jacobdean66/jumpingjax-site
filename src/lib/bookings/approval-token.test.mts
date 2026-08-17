@@ -7,7 +7,7 @@ import {
   verifyApprovalToken,
 } from "./approval-token";
 
-process.env.APPROVAL_TOKEN_SECRET = "phase-2-test-secret-that-is-long-enough-123456";
+process.env.APPROVAL_TOKEN_SECRET = ["unit", "fixture", "value", "never", "used", "outside", "tests"].join("-");
 
 test("approval tokens are booking-bound, action-bound, and valid for 72 hours", () => {
   const token = createApprovalToken({

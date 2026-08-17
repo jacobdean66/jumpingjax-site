@@ -253,19 +253,6 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: CAMPAIGN_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
         },
       }),
       metaAdsGraphGetAllPages<Record<string, unknown>>({
@@ -274,20 +261,6 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: ADSET_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "ADSET_PAUSED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
         },
       }),
       metaAdsGraphGetAllPages<Record<string, unknown>>({
@@ -296,20 +269,6 @@ export async function fetchAdHierarchyWithInsights(input: {
         fetchImpl,
         searchParams: {
           fields: AD_FIELDS,
-          effective_status: JSON.stringify([
-            "ACTIVE",
-            "PAUSED",
-            "DELETED",
-            "PENDING_REVIEW",
-            "DISAPPROVED",
-            "PREAPPROVED",
-            "PENDING_BILLING_INFO",
-            "CAMPAIGN_PAUSED",
-            "ARCHIVED",
-            "ADSET_PAUSED",
-            "IN_PROCESS",
-            "WITH_ISSUES",
-          ]),
         },
       }),
       fetchInsightsByObject({

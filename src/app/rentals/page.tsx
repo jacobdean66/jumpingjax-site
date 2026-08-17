@@ -41,7 +41,7 @@ export default async function RentalsPage() {
                 className="group flex min-h-0 touch-manipulation flex-col overflow-hidden rounded-2xl border-2 border-cyan-100 bg-white shadow-[0_12px_36px_rgba(236,72,153,0.14)] outline-none ring-pink-300/0 transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-[0_18px_48px_rgba(6,182,212,0.18)] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-pink-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fff8e8]"
               >
                 <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-slate-900 sm:aspect-[5/3]">
-                  {preview ? (
+                  {preview?.imageSrc ? (
                     <Image
                       src={preview.imageSrc}
                       alt={`${copy.title} — preview photo`}

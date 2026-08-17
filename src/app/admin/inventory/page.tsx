@@ -285,7 +285,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
           <div className="flex items-end justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                Current Inventory
+                Current Inventory · tap a name for details
               </p>
               <h2 className="mt-2 text-2xl font-black">{listTitle}</h2>
             </div>

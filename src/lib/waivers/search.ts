@@ -18,7 +18,9 @@ export type SearchableParticipant = {
 };
 
 export type StaffSearchResult = {
+  /** Native participant id, or empty for legacy-only rows. */
   participantId: string;
+  /** Native submission id, or empty for legacy-only rows. */
   submissionId: string;
   firstName: string;
   lastName: string;
@@ -30,6 +32,12 @@ export type StaffSearchResult = {
   expired: boolean;
   /** Last initial only for disambiguation. */
   signerLastInitial: string;
+  source: "native" | "legacy_smartwaiver";
+  sourceLabel?: string;
+  checkInEligible: boolean;
+  legacyParticipantId?: string;
+  /** Stable UI/API selection key. */
+  selectionKey: string;
 };
 
 export const MAX_WAIVER_SEARCH_QUERY_LENGTH = 80;
@@ -99,6 +107,9 @@ export function toStaffSearchResult(
     expiresOnYmd: participant.expiresOnYmd,
     expired: participant.expired,
     signerLastInitial: (participant.signerLastName.trim()[0] || "").toUpperCase(),
+    source: "native",
+    checkInEligible: !participant.expired,
+    selectionKey: participant.participantId,
   };
 }
 

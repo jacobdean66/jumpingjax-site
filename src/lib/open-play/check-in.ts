@@ -26,7 +26,8 @@ export type VisitAttendeeRequest = {
   participantId: string;
   adultMode?: AdultPlayMode | null;
   clientPriceCents?: number | null;
-  paymentMethod?: "cash" | "card" | null;
+  overridePriceCents?: number | null;
+  paymentMethod?: "cash" | "card" | "free_pass" | null;
 };
 
 export type PreparedAttendee = {
@@ -35,6 +36,7 @@ export type PreparedAttendee = {
   classification: AdmissionClassification;
   ageYearsOnVisit: number;
   unitPriceCents: number;
+  targetPriceCents: number;
   paymentMethod: "cash" | "card" | null;
 };
 
@@ -111,11 +113,25 @@ export function prepareVisitAttendees(options: {
 
     assertClientPriceMatches(unitPriceCents, request.clientPriceCents);
 
-    const paymentMethod = request.paymentMethod ?? null;
+    const overridePriceCents = request.overridePriceCents ?? unitPriceCents;
+    if (
+      !Number.isInteger(overridePriceCents) ||
+      overridePriceCents < 0 ||
+      overridePriceCents > 50_000
+    ) {
+      throw new CheckInValidationError("Admission price must be between $0 and $500");
+    }
+
+    const freePass = request.paymentMethod === "free_pass";
+    const paymentMethod: "cash" | "card" | null = freePass
+      ? "cash"
+      : request.paymentMethod === "cash" || request.paymentMethod === "card"
+        ? request.paymentMethod
+        : null;
     if (unitPriceCents > 0) {
-      if (paymentMethod !== "cash" && paymentMethod !== "card") {
+      if (!freePass && paymentMethod !== "cash" && paymentMethod !== "card") {
         throw new CheckInValidationError(
-          "Paid attendees require a cash or card payment method",
+          "Paid attendees require cash, card, or free pass",
         );
       }
     } else if (paymentMethod) {
@@ -128,6 +144,7 @@ export function prepareVisitAttendees(options: {
       classification,
       ageYearsOnVisit,
       unitPriceCents,
+      targetPriceCents: freePass ? 0 : overridePriceCents,
       paymentMethod,
     });
   }

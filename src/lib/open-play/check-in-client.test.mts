@@ -28,6 +28,9 @@ function childResult(
     expiresOnYmd: "2029-01-01",
     expired: false,
     signerLastInitial: "S",
+    source: "native",
+    checkInEligible: true,
+    selectionKey: "p-child",
     ...overrides,
   };
 }
@@ -46,6 +49,9 @@ function adultResult(
     expiresOnYmd: "2029-01-01",
     expired: false,
     signerLastInitial: "S",
+    source: "native",
+    checkInEligible: true,
+    selectionKey: "p-adult",
     ...overrides,
   };
 }
@@ -141,6 +147,30 @@ test("canSubmit rejects empty group and missing payment", () => {
   const draft = resultToDraft(childResult({ birthYear: 2020 }));
   const missing = canSubmitCheckInGroup([draft], "2026-08-06");
   assert.equal(missing.ok, false);
+});
+
+test("canSubmit keeps Native and Legacy Smartwaiver check-ins separate", () => {
+  const native = {
+    ...resultToDraft(childResult()),
+    paymentMethod: "cash" as const,
+  };
+  const legacy = {
+    ...resultToDraft(
+      childResult({
+        participantId: "",
+        submissionId: "",
+        source: "legacy_smartwaiver",
+        sourceLabel: "Legacy Smartwaiver",
+        legacyParticipantId: "legacy-child",
+        selectionKey: "legacy:legacy-child",
+      }),
+    ),
+    paymentMethod: "cash" as const,
+  };
+
+  const result = canSubmitCheckInGroup([native, legacy], "2026-08-06");
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.match(result.message, /separate groups/i);
 });
 
 test("buildVisitCreateBody omits clientPriceCents when child price uncertain but still sends payment", () => {

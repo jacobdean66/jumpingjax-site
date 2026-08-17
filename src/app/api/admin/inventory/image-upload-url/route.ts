@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeInventorySlug } from "@/lib/admin/inventory";
+import { isWebSafeInventoryImageUpload } from "@/lib/admin/inventory-image-constants";
 import { createInventoryImageSignedUpload } from "@/lib/admin/inventory-image-upload";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
@@ -30,6 +31,20 @@ export async function POST(req: NextRequest) {
   if (contentType && !contentType.startsWith("image/")) {
     return NextResponse.json(
       { error: "Only image uploads are allowed." },
+      { status: 400 },
+    );
+  }
+  if (
+    !isWebSafeInventoryImageUpload({
+      fileName,
+      contentType,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Use a JPG, PNG, WEBP, or GIF photo. iPhone HEIC photos will not show on the website — choose \"Most Compatible\" or export as JPG first.",
+      },
       { status: 400 },
     );
   }

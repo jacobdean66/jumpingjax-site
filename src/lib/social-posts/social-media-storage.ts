@@ -23,6 +23,40 @@ const CONTENT_TYPE_EXTENSION: Record<string, string> = {
   "video/quicktime": "mov",
 };
 
+const ALLOWED_REMOTE_MEDIA_HOST_SUFFIXES = [
+  ".replicate.delivery",
+  ".supabase.co",
+  ".vercel.app",
+  ".jumpingjaxllc.com",
+];
+
+export function validatedRemoteMediaUrl(value: string): URL {
+  const parsed = new URL(value);
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username ||
+    parsed.password ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    !ALLOWED_REMOTE_MEDIA_HOST_SUFFIXES.some(
+      (suffix) => hostname === suffix.slice(1) || hostname.endsWith(suffix),
+    )
+  ) {
+    throw new Error("Remote media URL is not from an approved HTTPS host.");
+  }
+  return parsed;
+}
+
+function validatedStorageSegment(value: string): string {
+  const cleaned = value.trim();
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(cleaned)) {
+    throw new Error("Invalid media storage identifier.");
+  }
+  return cleaned;
+}
+
 function extensionFromUrl(url: string): string | null {
   try {
     const pathname = new URL(url).pathname;
@@ -128,7 +162,11 @@ export async function persistSocialMediaFromRemoteUrl(input: {
     };
   }
 
-  const response = await fetch(sourceUrl, { cache: "no-store" });
+  const approvedSourceUrl = validatedRemoteMediaUrl(sourceUrl);
+  const response = await fetch(approvedSourceUrl, {
+    cache: "no-store",
+    redirect: "error",
+  });
   if (!response.ok) {
     throw new Error(`Failed to download generated media (${response.status}).`);
   }
@@ -146,7 +184,7 @@ export async function persistSocialMediaFromRemoteUrl(input: {
 
   await ensureSocialMediaBucket();
 
-  const storagePath = `${input.postId}/${input.kind}-${Date.now()}.${extension}`;
+  const storagePath = `${validatedStorageSegment(input.postId)}/${input.kind}-${Date.now()}.${extension}`;
   const supabase = createServiceRoleClient();
   const { error } = await supabase.storage
     .from(SOCIAL_MEDIA_BUCKET)

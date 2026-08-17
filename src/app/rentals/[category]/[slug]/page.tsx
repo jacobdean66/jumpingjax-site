@@ -69,16 +69,18 @@ export default async function RentalDetailPage({ params }: Props) {
         </nav>
 
         <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[0_16px_48px_rgba(0,0,0,0.35)] sm:aspect-[3/2]">
-          <Image
-            src={rental.imageSrc}
-            alt={rental.imageAlt}
-            fill
-            priority
-            fetchPriority="high"
-            quality={82}
-            className="object-cover object-center"
-            sizes="(max-width: 896px) 100vw, 896px"
-          />
+          {rental.imageSrc ? (
+            <Image
+              src={rental.imageSrc}
+              alt={rental.imageAlt}
+              fill
+              priority
+              fetchPriority="high"
+              quality={82}
+              className="object-cover object-center"
+              sizes="(max-width: 896px) 100vw, 896px"
+            />
+          ) : null}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#071326]/90 via-[#071326]/20 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
             <span className="inline-flex rounded-full border border-cyan-200/25 bg-cyan-300/15 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">

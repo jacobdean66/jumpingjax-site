@@ -31,11 +31,14 @@ test("meta-ads client never uses ads_management and stays read-only GET", () => 
   const http = read("src/lib/meta-ads/http-client.ts");
   const marketing = read("src/lib/meta-ads/marketing-api.ts");
   const config = read("src/lib/social-posts/oauth/social-oauth-config.ts");
+  const purpose = read("src/lib/social-posts/oauth/social-oauth-purpose.ts");
   assert.match(http, /method: "GET"/);
   assert.doesNotMatch(http, /method: "POST"/);
   assert.doesNotMatch(marketing, /ads_management/);
-  assert.match(config, /"ads_read"/);
-  assert.doesNotMatch(config, /ads_management/);
+  assert.match(purpose, /"ads_read"/);
+  assert.match(purpose, /"business_management"/);
+  assert.doesNotMatch(purpose, /ads_management/);
+  assert.match(config, /SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES/);
 });
 
 test("client dashboard component does not import token loader or vault", () => {

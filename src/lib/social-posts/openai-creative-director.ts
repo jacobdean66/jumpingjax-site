@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { resolveOpenAIClientOptions } from "@/lib/security/protected-openai-config";
 import type { SocialAgentInput } from "./social-agent";
 import {
   planWithOpenAICreativeDirector as planWithSocialStrategyAgent,
@@ -19,9 +20,8 @@ function getOpenAIModel(): string {
 }
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return null;
-  return new OpenAI({ apiKey });
+  const options = resolveOpenAIClientOptions();
+  return options ? new OpenAI(options) : null;
 }
 
 export function validateOpenAICreativeDirectorPlan(

@@ -58,12 +58,21 @@ export default async function AdminHomePage({ searchParams }: Props) {
       ? [
           {
             title: "Nominations",
-            eyebrow: "Facebook Leads",
+            eyebrow: "Free Party Giveaway",
             description:
-              "See who responded to the current Facebook nomination ad and read every answer they submitted.",
+              "See every nomination submitted from the Facebook ad, including who responded and their complete message.",
             href: "/admin/nominations",
             cta: "Review nominations",
             accent: "warn" as const,
+          },
+          {
+            title: "Security Center",
+            eyebrow: "Owner Tools",
+            description:
+              "Check Aikido scanning and AITHURA protected AI routing from one private control center.",
+            href: "/admin/security",
+            cta: "Open security center",
+            accent: "steel" as const,
           },
           {
             title: "Ad Analytics",

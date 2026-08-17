@@ -91,6 +91,7 @@ export function AdminNav({
     | "tax-export"
     | "ad-analytics"
     | "nominations"
+    | "security"
     | "open-play"
     | "waiver-export"
     | "ai-receptionist";
@@ -115,7 +116,7 @@ export function AdminNav({
     {
       id: "open-play" as const,
       label: "Waiver Dashboard",
-      href: `/admin/check-in${query}`,
+      href: `/admin/check-in${query}#check-in-desk`,
       prominent: true,
     },
     { id: "facility" as const, label: "Facility", href: `/admin/facility${query}` },
@@ -149,6 +150,13 @@ export function AdminNav({
           href: `/admin/nominations${query}`,
         }
       : null,
+    role === "owner"
+      ? {
+          id: "security" as const,
+          label: "Security",
+          href: `/admin/security${query}`,
+        }
+      : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
     role === "owner"
       ? {
@@ -176,7 +184,7 @@ export function AdminNav({
 
   return (
     <div className="mt-5 flex flex-col gap-3 print:hidden">
-      <nav className="grid w-full grid-cols-1 gap-2 text-sm font-bold md:flex md:flex-wrap">
+      <nav className="grid w-full grid-cols-3 gap-2 text-xs font-bold sm:grid-cols-4 md:grid-cols-6">
         <AdminBackButton />
         {items.map((item) => {
           const isActive =
@@ -189,11 +197,11 @@ export function AdminNav({
               className={
                 isActive
                   ? prominent
-                    ? "inline-flex min-h-10 items-center justify-center rounded-full bg-pink-600 px-4 py-2 text-center text-base leading-tight text-white shadow-sm"
-                    : "inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-3 py-2 text-center leading-tight text-white"
+                    ? "inline-flex aspect-square items-center justify-center rounded-xl bg-pink-600 p-2 text-center text-sm leading-tight text-white shadow-sm"
+                    : "inline-flex aspect-square items-center justify-center rounded-xl bg-slate-950 p-2 text-center leading-tight text-white"
                   : prominent
-                    ? "inline-flex min-h-10 items-center justify-center rounded-full border-2 border-pink-500 bg-pink-50 px-4 py-2 text-center text-base leading-tight text-pink-900 hover:bg-pink-100"
-                    : "inline-flex min-h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-center leading-tight text-slate-700 hover:bg-slate-50"
+                    ? "inline-flex aspect-square items-center justify-center rounded-xl border-2 border-pink-500 bg-pink-50 p-2 text-center text-sm leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex aspect-square items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-center leading-tight text-slate-700 hover:bg-slate-50"
               }
               aria-current={isActive ? "page" : undefined}
             >
@@ -204,7 +212,7 @@ export function AdminNav({
         <AdminLogoutButton />
         <Link
           href="/"
-          className="inline-flex min-h-10 items-center justify-center rounded-full bg-emerald-500 px-3 py-2 text-center leading-tight text-white hover:bg-emerald-600"
+          className="inline-flex aspect-square items-center justify-center rounded-xl bg-emerald-500 p-2 text-center leading-tight text-white hover:bg-emerald-600"
         >
           View Website
         </Link>

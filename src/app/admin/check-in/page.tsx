@@ -23,16 +23,10 @@ export default async function AdminCheckInPage() {
       <AdminHeader eyebrow="Open Play" title="Check-in" />
       <AdminNav token="" role={auth.role} active="open-play" />
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
-        Front-desk Open Play admissions for today&apos;s America/New_York business
-        day. Search completed waivers, build a group, then confirm cash or card.
+        Front-desk Open Play admissions for today. Search completed waivers,
+        edit each child&apos;s price if needed, then choose cash, card, or free pass.
       </p>
       <OpenPlayDeskNav active="check-in" showOwnerTools={isOwner} />
-      {isOwner ? (
-        <p className="mt-3 max-w-xl text-xs font-semibold text-slate-500">
-          Owner tools: open Daily report for net retained totals, or Corrections
-          for method changes, refunds, voids, and attendee removals.
-        </p>
-      ) : null}
       <CheckInClient visitDateYmd={visitDateYmd} />
     </AdminShell>
   );

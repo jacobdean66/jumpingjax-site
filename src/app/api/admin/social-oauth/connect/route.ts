@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import {
+  META_OAUTH_PURPOSE_COOKIE,
+  SOCIAL_OAUTH_INTENT_TTL_MS,
+} from "@/lib/social-posts/oauth/social-oauth-config";
 import { createMetaOAuthConnectIntent } from "@/lib/social-posts/oauth/social-oauth-service";
+
+function withPurposeCookie(response: NextResponse) {
+  response.cookies.set({
+    name: META_OAUTH_PURPOSE_COOKIE,
+    value: "publication",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+    path: "/",
+    maxAge: Math.floor(SOCIAL_OAUTH_INTENT_TTL_MS / 1000),
+  });
+  return response;
+}
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -21,6 +38,7 @@ export async function GET(req: NextRequest) {
   const connect = await createMetaOAuthConnectIntent({
     publicationTargetId: publicationTargetId.trim(),
     adminActorId: auth.identity.id,
+    purpose: "publication",
   });
 
   if (!connect.ok) {
@@ -31,7 +49,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
-  return NextResponse.redirect(connect.authorizeUrl, { status: 302 });
+  return withPurposeCookie(NextResponse.redirect(connect.authorizeUrl, { status: 302 }));
 }
 
 export async function POST(req: NextRequest) {
@@ -54,6 +72,7 @@ export async function POST(req: NextRequest) {
   const connect = await createMetaOAuthConnectIntent({
     publicationTargetId: publicationTargetId.trim(),
     adminActorId: auth.identity.id,
+    purpose: "publication",
   });
 
   if (!connect.ok) {
@@ -64,5 +83,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
-  return NextResponse.redirect(connect.authorizeUrl, { status: 302 });
+  return withPurposeCookie(NextResponse.redirect(connect.authorizeUrl, { status: 302 }));
 }
