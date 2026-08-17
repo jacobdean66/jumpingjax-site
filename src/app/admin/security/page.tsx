@@ -13,7 +13,7 @@ export default async function AdminSecurityPage() {
   return (
     <AdminShell>
       <AdminHeader eyebrow="Owner Tools" title="Security Center">
-        <AdminNav token="" role={auth.role} active="security" />
+        <AdminNav token="" role={auth.role} active="security" compact />
       </AdminHeader>
       <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
         One private control center for repository scanning and protected AI routing. Status refreshes are read-only. Live tests and branch scans run only when you press their button.
