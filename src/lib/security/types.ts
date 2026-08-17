@@ -30,10 +30,19 @@ export type SecurityDashboardSnapshot = {
   generatedAt: string;
   services: SecurityServiceSnapshot[];
   pendingScan: { scanId: number; correlationId: string } | null;
+  latestScan: {
+    state: "not_run" | "pending" | "passed" | "findings";
+    checkedAt: string | null;
+    issueCount: number | null;
+    message: string;
+    detailsUrl: string | null;
+  };
   repair: {
-    state: "advisory_only";
+    state: "scan_required" | "scan_pending" | "no_findings" | "findings_ready";
     summary: string;
     steps: string[];
+    actionLabel: string;
+    actionUrl: string | null;
   };
 };
 
@@ -48,6 +57,7 @@ export type AikidoScanStatus = {
   passed: boolean | null;
   issueCount: number | null;
   message: string;
+  detailsUrl: string | null;
 };
 
 export type AithuraHealthResult = {
