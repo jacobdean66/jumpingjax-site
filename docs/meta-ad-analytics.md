@@ -10,17 +10,17 @@ Read-only Meta Marketing API reporting for Jumping Jax paid ads.
 
 ## Permissions
 
-Required Meta permission (read-only):
+Required Meta permissions for analytics:
 
-- `ads_read`
+- `ads_read` (read-only ad reporting)
+- `business_management` (Business Manager ad-account discovery)
 
-Not required for this dashboard:
+Not required for analytics:
 
-- `ads_management` (do not request merely for reporting)
+- `ads_management`
+- Page/Instagram publishing scopes (`pages_manage_posts`, `instagram_content_publish`, etc.)
 
-Existing Meta OAuth connect now includes `ads_read` in `SOCIAL_META_OAUTH_SCOPES`.
-
-**Operational step:** existing connected tokens were issued without `ads_read`. An owner must reconnect Meta OAuth from **Social Posts → Publication execution** after deploying this change. The dashboard will show a reconnect prompt until that happens.
+Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. That flow requests `ads_read` and `business_management` only and stores an analytics-purpose session (`ad-analytics` target id). Older `ads_read`-only sessions require reconnect. Publication OAuth on Publication execution remains separate and still uses publishing scopes.
 
 Also confirm in Meta Developer / Business settings:
 
@@ -44,7 +44,7 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 
 - Server module: `src/lib/meta-ads`
 - Marketing API version: `v25.0` (separate from organic Graph OAuth `v21.0`)
-- Token loading: latest connected `social_oauth_sessions` row → existing encrypted vault decrypt via `loadMetaAccessTokenForPublicationTarget`
+- Token loading: latest connected analytics session (`publication_target_id = ad-analytics` with intent scopes including `ads_read`) → encrypted vault decrypt
 - Live reads only for v1 (no paid-ad persistence tables; does not touch `social_publication_metric_*`)
 - Account discovery: `GET /me/adaccounts` (dynamic; not hard-coded to the giveaway account)
 

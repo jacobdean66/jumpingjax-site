@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 
 import { SOCIAL_CREDENTIAL_DOMAIN_VERSION } from "./social-credential-domain";
 import {
+  encryptOAuthSecret,
+  serializeOAuthEnvelope,
+} from "../oauth/social-oauth-credential-envelope";
+import {
   EMPTY_SOCIAL_CREDENTIAL_PERSISTENCE_MODEL,
   SOCIAL_CREDENTIAL_REPOSITORY_APPEND_ONLY_BOUNDARY,
   SOCIAL_CREDENTIAL_REPOSITORY_VERSION,
@@ -271,6 +275,7 @@ await test("maps persistence records to domain references", () => {
   const metadata = mapVaultRecordRowToMetadata(validVaultRecordRow());
   assert.equal(metadata.metadataOnly, true);
   assert.equal(metadata.containsPlaintext, false);
+  assert.match(metadata.encryptedPayloadRef, /^oauth-envelope:ref:len=\d+:\*\*\*\*$/);
 
   const identity = mapVaultRecordRowToCredentialIdentity(validVaultRecordRow());
   assert.equal(identity.referencesOnly, true);
@@ -278,6 +283,8 @@ await test("maps persistence records to domain references", () => {
 
   const credentialReference = mapVaultRecordRowToCredentialReference(validVaultRecordRow());
   assert.equal(credentialReference.containsRefreshToken, false);
+  assert.match(credentialReference.redactedHint, /^oauth-envelope:ref:len=\d+:\*\*\*\*$/);
+  assert.notEqual(credentialReference.redactedHint, validVaultRecordRow().encrypted_payload_ref);
 
   const auditEvent = mapAuditEventRecordToDomain(validAuditEventRecord());
   assert.equal(auditEvent.containsTokens, false);
@@ -353,6 +360,24 @@ await test("adapter-backed repository validates credential metadata CRUD and app
   assert.equal(assertOk(repository.deleteVaultRecordMetadata({ vault_record_id: "vault-1" })).vault_record_id, "vault-1");
   assert.equal(assertOk(repository.deleteLifecycleState({ lifecycle_state_id: "life-1" })).lifecycle_state_id, "life-1");
   assert.equal(assertOk(repository.deleteKeyVersion({ key_version: "kv-1" })).key_version, "kv-1");
+});
+
+await test("repository accepts live OAuth encrypted envelope refs without treating them as domain secrets", () => {
+  const envelope = serializeOAuthEnvelope(
+    encryptOAuthSecret("EAAG-not-a-real-token", Buffer.alloc(32, 3)),
+  );
+  const repository = createSocialCredentialRepository(createTestCredentialPersistenceAdapter());
+  assertOk(
+    repository.createVaultRecordMetadata({
+      vaultRecord: {
+        ...validVaultRecordRow(),
+        encrypted_payload_ref: envelope,
+      },
+    }),
+  );
+  const listed = assertOk(repository.listVaultRecordMetadata());
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0]?.encrypted_payload_ref, envelope);
 });
 
 console.log("social-credential-repository tests passed");

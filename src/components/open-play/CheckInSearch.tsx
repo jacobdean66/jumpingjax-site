@@ -34,6 +34,7 @@ export function CheckInSearchForm({
         <input
           ref={inputRef}
           id="check-in-search"
+          autoFocus
           type="search"
           name="check-in-search"
           autoComplete="off"
@@ -41,7 +42,7 @@ export function CheckInSearchForm({
           spellCheck={false}
           enterKeyHint="search"
           value={query}
-          disabled={disabled || loading}
+          disabled={disabled}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Type a name"
           className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-sky-500 disabled:opacity-60"
@@ -131,50 +132,68 @@ export function CheckInSearchResults({
         {results.length} result{results.length === 1 ? "" : "s"}
       </div>
       {results.map((result) => {
-        const selected = selectedIds.has(result.participantId);
+        const selectionKey = result.selectionKey || result.participantId;
+        const selected = selectedIds.has(selectionKey);
         const expired = result.expired;
-        return (
-          <article
-            key={result.participantId}
-            role="listitem"
-            className={
-              expired
-                ? "rounded-2xl border border-rose-200 bg-rose-50 p-4"
-                : selected
-                  ? "rounded-2xl border-2 border-sky-500 bg-sky-50 p-4"
-                  : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-            }
-          >
+        const legacy = result.source === "legacy_smartwaiver";
+        const ineligible = legacy && result.checkInEligible === false;
+        const blocked = expired || ineligible;
+        const cardClass = blocked
+          ? "rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left"
+          : selected
+            ? "w-full rounded-2xl border-2 border-sky-500 bg-sky-50 p-4 text-left"
+            : "w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50/70 active:bg-sky-50";
+
+        const details = (
+          <>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-xl font-black leading-tight text-slate-950">
                   {result.fullName}
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-600">
-                  Born {result.birthYear}
+                  Born {result.birthYear || "—"}
                   {result.signerLastInitial
                     ? ` · Signer ${result.signerLastInitial}.`
                     : ""}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
                   Expires {result.expiresOnYmd}
+                  {result.role ? ` · ${result.role.replaceAll("_", " ")}` : ""}
                 </p>
+                {legacy ? (
+                  <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-800">
+                    {result.sourceLabel || "Legacy Smartwaiver"}
+                    {ineligible ? " · Name search only (missing DOB)" : ""}
+                  </p>
+                ) : null}
               </div>
               <span
                 className={
-                  expired
+                  blocked
                     ? "shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white"
                     : "shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800"
                 }
               >
-                {expired ? "Expired" : "Valid"}
+                {expired ? "Expired" : ineligible ? "No check-in" : "Valid"}
               </span>
             </div>
+          </>
+        );
 
-            {expired ? (
+        if (blocked) {
+          return (
+            <article
+              key={selectionKey}
+              role="listitem"
+              className={cardClass}
+            >
+              {details}
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-rose-800">
-                  A new waiver is required before check-in.
+                  {ineligible
+                    ? "This Legacy Smartwaiver record is searchable but cannot be checked in without a date of birth. Have the guest sign a Native Waiver."
+                    : "A new waiver is required before check-in."}
                 </p>
                 <Link
                   href="/waiver"
@@ -185,16 +204,37 @@ export function CheckInSearchResults({
                   Open waiver form
                 </Link>
               </div>
-            ) : (
-              <button
-                type="button"
-                disabled={selected}
-                onClick={() => onSelect(result)}
-                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-sky-500 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-sky-200"
+            </article>
+          );
+        }
+
+        return (
+          <article key={selectionKey} role="listitem">
+            <button
+              type="button"
+              disabled={selected}
+              onClick={() => onSelect(result)}
+              aria-pressed={selected}
+              aria-label={
+                selected
+                  ? `${result.fullName} already in today’s group`
+                  : `Select ${result.fullName} and show check-in details`
+              }
+              className={`${cardClass} disabled:cursor-default`}
+            >
+              {details}
+              <p
+                className={
+                  selected
+                    ? "mt-4 text-sm font-black text-sky-800"
+                    : "mt-4 text-sm font-black text-sky-700"
+                }
               >
-                {selected ? "Already in today’s group" : "Add to today’s group"}
-              </button>
-            )}
+                {selected
+                  ? "Already in today’s group — details above"
+                  : `Select ${result.firstName} for check-in`}
+              </p>
+            </button>
           </article>
         );
       })}

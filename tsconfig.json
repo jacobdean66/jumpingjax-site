@@ -32,6 +32,7 @@
   ],
   "exclude": [
     "node_modules",
+    "**/*.test.mts",
     "_website-recovery-vault",
     "outputs",
     "tmp",

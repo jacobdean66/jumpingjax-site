@@ -76,6 +76,13 @@ test("URL builders use GET report and POST corrections paths", () => {
     buildCorrectionsUrl("11111111-1111-4111-8111-111111111111"),
     "/api/admin/open-play/visits/11111111-1111-4111-8111-111111111111/corrections",
   );
+  assert.equal(
+    buildCorrectionsUrl(
+      "11111111-1111-4111-8111-111111111111",
+      "legacy_smartwaiver",
+    ),
+    "/api/admin/open-play/legacy-visits/11111111-1111-4111-8111-111111111111/corrections",
+  );
   assert.throws(() => buildCorrectionsUrl("bad"), /UUID/);
 });
 

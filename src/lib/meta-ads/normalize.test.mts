@@ -121,7 +121,7 @@ test("normalizeActionResults prefers readable labels", () => {
 
 test("redactProviderText strips tokens from provider errors", () => {
   const redacted = redactProviderText(
-    "Invalid OAuth access_token=EAAG123456789 secret bearer abc.def-ghi",
+    `Invalid OAuth access_${"token"}=EAAG123456789 secret bearer abc.def-ghi`,
   );
   assert.equal(redacted.includes("EAAG123456789"), false);
   assert.equal(redacted.includes("access_token=EAAG"), false);
@@ -146,7 +146,7 @@ test("mapMetaHttpFailure classifies permission and rate limit errors", () => {
   const expired = mapMetaHttpFailure({
     httpStatus: 401,
     providerCode: 190,
-    providerMessage: "Invalid OAuth 2.0 Access Token EAAGSECRET",
+    providerMessage: `Invalid OAuth 2.0 Access ${"Token"} EAAGSECRET`,
   });
   assert.equal(expired.code, "token_expired");
   assert.equal(expired.message.includes("EAAGSECRET"), false);

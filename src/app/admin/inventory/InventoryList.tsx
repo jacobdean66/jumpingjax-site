@@ -126,55 +126,66 @@ export function InventoryList({
                 ? `&visibility=${encodeURIComponent(visibilityFilter)}`
                 : ""
             }&item=${encodeURIComponent(row.id)}`;
+            const itemHref = `/admin/inventory?${itemQuery}`;
+            const selected = selectedItemId === row.id;
             return (
               <div
                 key={row.id}
-                className={`rounded-xl border p-4 transition ${
-                  selectedItemId === row.id
+                className={`relative rounded-xl border p-4 transition ${
+                  selected
                     ? "border-sky-400 bg-sky-50"
-                    : "border-slate-200 bg-white"
+                    : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/60"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
-                      {row.categoryLabel}
+                <Link
+                  href={itemHref}
+                  className="absolute inset-0 z-0 rounded-xl"
+                  aria-label={`${selected ? "Viewing" : "View"} ${row.title}`}
+                />
+                <div className="pointer-events-none relative z-10">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                        {row.categoryLabel}
+                      </p>
+                      <h3 className="mt-1 text-base font-black text-slate-950">
+                        {row.title}
+                      </h3>
+                    </div>
+                    <p className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                      {money(row.startingPrice)}
                     </p>
-                    <h3 className="mt-1 text-base font-black">{row.title}</h3>
                   </div>
-                  <p className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                    {money(row.startingPrice)}
-                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-wide">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                      {ROUTE_KIND_LABELS[row.routeKind]}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-1 ${
+                        row.isActive
+                          ? "bg-emerald-100 text-emerald-900"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {row.isActive ? "Active" : "Inactive"}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-1 ${
+                        row.publicVisible
+                          ? "bg-cyan-100 text-cyan-900"
+                          : "bg-amber-100 text-amber-950"
+                      }`}
+                    >
+                      {row.publicVisible ? "On website" : "Review"}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-wide">
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                    {ROUTE_KIND_LABELS[row.routeKind]}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-1 ${
-                      row.isActive
-                        ? "bg-emerald-100 text-emerald-900"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {row.isActive ? "Active" : "Inactive"}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-1 ${
-                      row.publicVisible
-                        ? "bg-cyan-100 text-cyan-900"
-                        : "bg-amber-100 text-amber-950"
-                    }`}
-                  >
-                    {row.publicVisible ? "On website" : "Review"}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="relative z-10 mt-3 flex flex-wrap gap-2">
                   <Link
-                    href={`/admin/inventory?${itemQuery}`}
+                    href={itemHref}
                     className="rounded-full bg-sky-500 px-3 py-1.5 text-[11px] font-black text-white hover:bg-sky-600"
                   >
-                    {selectedItemId === row.id ? "Editing" : "Edit"}
+                    {selected ? "Viewing" : "View info"}
                   </Link>
                   <form
                     action="/api/admin/inventory/visibility"

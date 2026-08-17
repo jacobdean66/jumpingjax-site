@@ -230,7 +230,12 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
     const controller = new AbortController();
 
     try {
-      const result = await postVisitCorrection(postedVisitId, payload, controller.signal);
+      const result = await postVisitCorrection(
+        postedVisitId,
+        payload,
+        visit.source,
+        controller.signal,
+      );
       commitGate(settleCorrectionMutation(gateRef.current, "success"));
       setMutation({
         status: "success",
@@ -270,7 +275,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
   });
 
   return (
-    <div className="mx-auto mt-4 max-w-xl space-y-4 pb-10">
+    <div id="corrections" className="mx-auto mt-4 max-w-xl scroll-mt-4 space-y-4 pb-10">
       <form
         className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-slate-100/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white sm:shadow-sm"
         onSubmit={(event) => {
@@ -282,7 +287,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
       >
         <fieldset disabled={browseLocked}>
           <label htmlFor="corrections-date" className="block text-sm font-bold text-slate-700">
-            Business day (America/New_York)
+            Report date
             <input
               id="corrections-date"
               type="date"
@@ -293,7 +298,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
             />
           </label>
           <p className="mt-2 text-xs font-semibold text-slate-500">
-            Loads visits and ledgers from the owner daily-report contract for this business day.
+            Loads visits and ledgers for the selected date.
           </p>
           <button
             type="submit"
@@ -381,6 +386,11 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
                     <span className="mt-1 break-all text-xs font-semibold opacity-80">
                       {item.visitId}
                     </span>
+                    <span className="mt-1 text-xs font-black uppercase tracking-wide opacity-80">
+                      {item.source === "legacy_smartwaiver"
+                        ? "Legacy Smartwaiver"
+                        : "Native waiver"}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -421,7 +431,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
                 setMutation({
                   status: "error",
                   message:
-                    "That visit UUID is not in the loaded business day. Load the correct day or confirm the id.",
+                    "That visit UUID is not in the selected date. Load the correct date or confirm the id.",
                   visitId: id,
                 });
               }

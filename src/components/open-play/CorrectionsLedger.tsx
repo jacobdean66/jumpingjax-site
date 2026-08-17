@@ -34,7 +34,8 @@ export function CorrectionsLedger({ visit }: Props) {
           {formatCents(visit.cashTotalCents)} · Card {formatCents(visit.cardTotalCents)}
         </p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
-          Visit {visit.visitId}
+          {visit.source === "legacy_smartwaiver" ? "Legacy Smartwaiver" : "Native waiver"}
+          {" · "}Visit {visit.visitId}
         </p>
       </div>
 

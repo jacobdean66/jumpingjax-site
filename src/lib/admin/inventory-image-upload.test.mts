@@ -5,7 +5,10 @@ import test from "node:test";
 import {
   buildInventoryImageStoragePath,
   isInlineImageDataUrl,
+  isInventoryStorageImageUrl,
+  isWebSafeInventoryImageUpload,
   safeInventoryImageFileName,
+  shouldPreserveInventoryImageOnSync,
   VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
 } from "./inventory-image-constants.ts";
 
@@ -84,6 +87,71 @@ test("inline base64 image data URLs are detected", () => {
       "https://example.supabase.co/storage/v1/object/public/rental-inventory-images/x.jpg",
     ),
     false,
+  );
+});
+
+test("inventory storage image URLs are detected for sync preservation", () => {
+  assert.equal(
+    isInventoryStorageImageUrl(
+      "https://agoqprldqphqrlotopau.supabase.co/storage/v1/object/public/rental-inventory-images/item/1.jpg",
+    ),
+    true,
+  );
+  assert.equal(
+    isInventoryStorageImageUrl("/inflatables/waterslides/legacy/mini-waterslide.jpg"),
+    false,
+  );
+});
+
+test("catalog sync preserves uploaded and admin-custom photos", () => {
+  assert.equal(
+    shouldPreserveInventoryImageOnSync({
+      existingImageSrc:
+        "https://agoqprldqphqrlotopau.supabase.co/storage/v1/object/public/rental-inventory-images/slide/1.jpg",
+      existingSource: "admin",
+      catalogImageSrc: "/inflatables/waterslides/legacy/mini-waterslide.jpg",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveInventoryImageOnSync({
+      existingImageSrc: "/custom-admin-photo.jpg",
+      existingSource: "admin",
+      catalogImageSrc: "/inflatables/waterslides/legacy/mini-waterslide.jpg",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveInventoryImageOnSync({
+      existingImageSrc: "/inflatables/waterslides/legacy/mini-waterslide.jpg",
+      existingSource: "code-sync",
+      catalogImageSrc: "/inflatables/waterslides/legacy/mini-waterslide.jpg",
+    }),
+    false,
+  );
+});
+
+test("web-safe inventory uploads reject HEIC and accept JPG/PNG", () => {
+  assert.equal(
+    isWebSafeInventoryImageUpload({
+      fileName: "IMG_1234.HEIC",
+      contentType: "image/heic",
+    }),
+    false,
+  );
+  assert.equal(
+    isWebSafeInventoryImageUpload({
+      fileName: "party.jpg",
+      contentType: "image/jpeg",
+    }),
+    true,
+  );
+  assert.equal(
+    isWebSafeInventoryImageUpload({
+      fileName: "party.PNG",
+      contentType: "image/png",
+    }),
+    true,
   );
 });
 

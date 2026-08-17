@@ -9,6 +9,8 @@ export function SiteChrome() {
 
   if (
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/check-in") ||
+    pathname.startsWith("/waiver") ||
     pathname.startsWith("/driver") ||
     pathname.startsWith("/logistics")
   ) {
@@ -69,14 +71,12 @@ export function SiteChrome() {
           >
             Contact
           </Link>
-          <a
-            href="https://waiver.smartwaiver.com/w/53e5041a939c7/web/"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/waiver"
             className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-lime-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-lime-200 md:px-5"
           >
             Waiver
-          </a>
+          </Link>
           <Link
             href="/rentals"
             className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-yellow-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-yellow-200 md:px-5"
@@ -119,14 +119,12 @@ export function SiteChrome() {
               >
                 Contact
               </Link>
-              <a
-                href="https://waiver.smartwaiver.com/w/53e5041a939c7/web/"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href="/waiver"
                 className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-lime-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-lime-200"
               >
                 Waiver
-              </a>
+              </Link>
               <Link
                 href="/rentals"
                 className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-yellow-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-yellow-200"
@@ -167,14 +165,12 @@ export function SiteChrome() {
             >
               Contact
             </Link>
-            <a
-              href="https://waiver.smartwaiver.com/w/53e5041a939c7/web/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/waiver"
               className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-lime-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-lime-200"
             >
               Waiver
-            </a>
+            </Link>
             <Link
               href="/rentals"
               className="jj-pop-button flex min-h-11 min-w-0 items-center justify-center rounded-full bg-yellow-300 px-3 py-2 text-center font-black leading-tight text-slate-950 transition hover:bg-yellow-200"

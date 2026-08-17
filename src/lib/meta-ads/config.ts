@@ -8,6 +8,11 @@ export const META_ADS_PAGE_LIMIT = 100;
 export const META_ADS_MAX_RANGE_DAYS = 366;
 
 export const META_ADS_REQUIRED_SCOPE = "ads_read" as const;
+export const META_ADS_BUSINESS_SCOPE = "business_management" as const;
+export const META_ADS_REQUIRED_SCOPES = [
+  META_ADS_REQUIRED_SCOPE,
+  META_ADS_BUSINESS_SCOPE,
+] as const;
 
 export const META_ADS_GRAPH_BASE = `https://graph.facebook.com/${META_MARKETING_API_VERSION}`;
 

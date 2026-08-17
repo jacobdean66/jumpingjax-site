@@ -77,6 +77,7 @@ export type CorrectionPayload =
 
 const REPORT_PATH = "/api/admin/open-play/daily-report";
 const CORRECTIONS_PATH = "/api/admin/open-play/visits";
+const LEGACY_CORRECTIONS_PATH = "/api/admin/open-play/legacy-visits";
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
 export function todayBusinessDayYmd(now: Date = new Date()): string {
@@ -98,10 +99,16 @@ export function buildDailyReportUrl(dateYmd: string): string {
   return `${REPORT_PATH}?${new URLSearchParams({ date }).toString()}`;
 }
 
-export function buildCorrectionsUrl(visitId: string): string {
+export function buildCorrectionsUrl(
+  visitId: string,
+  source: "native" | "legacy_smartwaiver" = "native",
+): string {
   const id = (visitId ?? "").trim();
   if (!isVisitUuid(id)) throw new Error("visit id must be a UUID");
-  return `${CORRECTIONS_PATH}/${id}/corrections`;
+  const base = source === "legacy_smartwaiver"
+    ? LEGACY_CORRECTIONS_PATH
+    : CORRECTIONS_PATH;
+  return `${base}/${id}/corrections`;
 }
 
 export function parsePaymentMethodChoice(
@@ -868,6 +875,13 @@ function isValidReportVisit(value: unknown): boolean {
   const visit = value as Record<string, unknown>;
   if (!isNonEmptyString(visit.visitId)) return false;
   if (
+    visit.source !== undefined &&
+    visit.source !== "native" &&
+    visit.source !== "legacy_smartwaiver"
+  ) {
+    return false;
+  }
+  if (
     visit.status !== "open" &&
     visit.status !== "finalized" &&
     visit.status !== "voided"
@@ -946,11 +960,14 @@ export async function fetchVisitsForBusinessDay(
 export async function postVisitCorrection(
   visitId: string,
   body: CorrectionPayload,
-  signal?: AbortSignal,
+  sourceOrSignal: "native" | "legacy_smartwaiver" | AbortSignal = "native",
+  explicitSignal?: AbortSignal,
 ): Promise<CorrectionSuccess> {
+  const source = typeof sourceOrSignal === "string" ? sourceOrSignal : "native";
+  const signal = typeof sourceOrSignal === "string" ? explicitSignal : sourceOrSignal;
   let response: Response;
   try {
-    response = await fetch(buildCorrectionsUrl(visitId), {
+    response = await fetch(buildCorrectionsUrl(visitId, source), {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
