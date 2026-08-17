@@ -55,7 +55,7 @@ export default function NominationForm() {
         <div className="text-4xl" aria-hidden="true">Hooray!</div>
         <h2 className="mt-3 text-2xl font-black text-emerald-950">Nomination received!</h2>
         <p className="mt-3 leading-7 text-emerald-900">
-          Thank you for helping us celebrate a local child. We sent a confirmation to your email.
+          Thank you for helping us celebrate a local child. Your nomination is saved for the Jumping Jax team.
         </p>
         <p className="mt-2 text-sm font-semibold text-emerald-800">
           Confirmation: {state.nominationId}

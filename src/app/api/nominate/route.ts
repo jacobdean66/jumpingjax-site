@@ -6,6 +6,10 @@ import {
   getResendFromAddress,
 } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/rate-limit";
+import {
+  createServiceRoleClient,
+  isSupabaseServiceConfigured,
+} from "@/lib/supabase/admin";
 
 const PARTY_CHOICES = new Set([
   "September birthday party",
@@ -84,11 +88,42 @@ export async function POST(request: NextRequest) {
 
   const nominationId = crypto.randomUUID();
   const resend = new Resend(apiKey);
+  const createdAt = new Date().toISOString();
   const submittedAt = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
     dateStyle: "full",
     timeStyle: "long",
   });
+
+  if (!isSupabaseServiceConfigured()) {
+    return NextResponse.json(
+      { error: "Nominations are temporarily unavailable. Please try again shortly." },
+      { status: 503 },
+    );
+  }
+
+  const { error: storageError } = await createServiceRoleClient()
+    .from("giveaway_nominations")
+    .insert({
+      id: nominationId,
+      nominator_name: nominatorName,
+      nominator_email: nominatorEmail,
+      child_name: childName,
+      birthday,
+      party_choice: partyChoice,
+      why_nominated: whyNominated,
+      source: "Nomination form",
+      status: "new",
+      created_at: createdAt,
+    });
+
+  if (storageError) {
+    console.error("Could not store giveaway nomination:", storageError.message);
+    return NextResponse.json(
+      { error: "We couldn't record your nomination. Please try again." },
+      { status: 503 },
+    );
+  }
 
   try {
     const { error: ownerError } = await resend.emails.send(
@@ -145,12 +180,13 @@ export async function POST(request: NextRequest) {
       { idempotencyKey: `nomination-confirmation-${nominationId}` },
     );
 
-    return NextResponse.json({ nominationId });
-  } catch {
-    return NextResponse.json(
-      { error: "We couldn't record your nomination. Please try again." },
-      { status: 503 },
+  } catch (error) {
+    console.error(
+      "Nomination was stored, but its notification email could not be sent:",
+      error instanceof Error ? error.message : "unknown email error",
     );
   }
+
+  return NextResponse.json({ nominationId });
 }
 
