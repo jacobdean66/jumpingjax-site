@@ -60,9 +60,7 @@ test("Aikido scan rejects a stale deployment without an upstream call", async ()
     AIKIDO_CI_SECRET: "secret",
     AIKIDO_REPOSITORY_ID: "repo",
     AIKIDO_BRANCH_NAME: "main",
-    AIKIDO_BASE_COMMIT_ID: "base",
-    AIKIDO_HEAD_COMMIT_ID: "old",
-    VERCEL_GIT_COMMIT_SHA: "current",
+    VERCEL_GIT_COMMIT_SHA: "not-a-commit",
     VERCEL_GIT_COMMIT_REF: "main",
   }, async () => {
     let calls = 0;
@@ -76,24 +74,31 @@ test("Aikido scan rejects a stale deployment without an upstream call", async ()
 });
 
 test("Aikido scan binds its request to the current deployment", async () => {
+  const head = "a".repeat(40);
+  const base = "b".repeat(40);
   await withEnv({
     AIKIDO_CI_SECRET: "secret",
     AIKIDO_REPOSITORY_ID: "repo",
     AIKIDO_BRANCH_NAME: "main",
-    AIKIDO_BASE_COMMIT_ID: "base",
-    AIKIDO_HEAD_COMMIT_ID: "current",
-    VERCEL_GIT_COMMIT_SHA: "current",
+    VERCEL_GIT_COMMIT_SHA: head,
     VERCEL_GIT_COMMIT_REF: "main",
   }, async () => {
+    let calls = 0;
     const result = await requestAikidoScan(async (_url, init) => {
+      calls += 1;
+      if (calls === 1) {
+        assert.equal(init?.method, "GET");
+        return new Response(JSON.stringify({ sha: head, parents: [{ sha: base }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
       assert.equal(init?.method, "POST");
       assert.equal(new Headers(init?.headers).get("X-AIK-API-SECRET"), "secret");
       const body = JSON.parse(String(init?.body));
-      assert.equal(body.head_commit_id, "current");
-      assert.equal(body.base_commit_id, "base");
+      assert.equal(body.head_commit_id, head);
+      assert.equal(body.base_commit_id, base);
       return new Response(JSON.stringify({ scan_id: 17 }), { status: 200, headers: { "Content-Type": "application/json" } });
     });
-    assert.deepEqual(result, { accepted: true, scanId: 17, message: "Aikido accepted the pinned branch scan." });
+    assert.equal(calls, 2);
+    assert.deepEqual(result, { accepted: true, scanId: 17, message: "Aikido accepted the production repository scan." });
   });
 });
 
@@ -106,5 +111,6 @@ test("Aikido polling distinguishes completed findings from a passing scan", asyn
     assert.equal(status.completed, true);
     assert.equal(status.passed, false);
     assert.equal(status.issueCount, 2);
+    assert.equal(status.detailsUrl, null);
   });
 });

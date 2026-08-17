@@ -37,7 +37,15 @@ export async function POST(request: Request) {
   const result = await pollAikidoScanStatus(scanId);
   if (result.completed) {
     try {
-      const firstCompletion = await completeAikidoScanJob({ scanId, correlationId, actorId: auth.identity.id, passed: result.passed === true, message: result.message });
+      const firstCompletion = await completeAikidoScanJob({
+        scanId,
+        correlationId,
+        actorId: auth.identity.id,
+        passed: result.passed === true,
+        message: result.message,
+        issueCount: result.issueCount,
+        detailsUrl: result.detailsUrl,
+      });
       if (!firstCompletion) return privateJson({ ok: false, error: "Scan result was already recorded." }, 409);
       await saveSecurityObservation({ provider: "aikido", state: result.passed ? "healthy" : "failing", checkedAt: new Date().toISOString(), message: result.message, actorId: auth.identity.id });
     } catch {
