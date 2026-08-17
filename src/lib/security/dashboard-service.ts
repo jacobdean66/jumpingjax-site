@@ -82,10 +82,10 @@ export async function loadSecurityDashboard(actorId: string, now = new Date()): 
           }
         : {
             state: "scan_required" as const,
-            summary: "Run a production repository scan first. Repair actions only unlock from a confirmed result.",
-            steps: ["Run the Aikido production scan.", "Review the recorded result.", "If findings exist, open AutoFix for a reviewed pull request."],
-            actionLabel: "Run scan first",
-            actionUrl: null,
+            summary: "Aikido manages scheduled scans on the current Free plan. Review its latest result; if findings appear, use Aikido AutoFix to prepare a reviewed pull request.",
+            steps: ["Review the latest scheduled result in Aikido.", "Open any confirmed finding and affected commit.", "Use AutoFix for a reviewed pull request when a finding exists."],
+            actionLabel: "Review Aikido results",
+            actionUrl: "https://app.aikido.dev/repositories/2828507",
           };
 
   return { generatedAt: now.toISOString(), services, pendingScan, latestScan: effectiveLatestScan, repair };

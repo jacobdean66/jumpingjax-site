@@ -14,6 +14,7 @@ const MANAGED_KEYS = [
   "AIKIDO_CI_SECRET",
   "AIKIDO_REPOSITORY_ID",
   "AIKIDO_BRANCH_NAME",
+  "AIKIDO_MANUAL_SCAN_ENABLED",
   "AIKIDO_BASE_COMMIT_ID",
   "AIKIDO_HEAD_COMMIT_ID",
   "VERCEL_GIT_COMMIT_SHA",
@@ -60,6 +61,7 @@ test("Aikido scan rejects a stale deployment without an upstream call", async ()
     AIKIDO_CI_SECRET: "secret",
     AIKIDO_REPOSITORY_ID: "repo",
     AIKIDO_BRANCH_NAME: "main",
+    AIKIDO_MANUAL_SCAN_ENABLED: "true",
     VERCEL_GIT_COMMIT_SHA: "not-a-commit",
     VERCEL_GIT_COMMIT_REF: "main",
   }, async () => {
@@ -80,6 +82,7 @@ test("Aikido scan binds its request to the current deployment", async () => {
     AIKIDO_CI_SECRET: "secret",
     AIKIDO_REPOSITORY_ID: "repo",
     AIKIDO_BRANCH_NAME: "main",
+    AIKIDO_MANUAL_SCAN_ENABLED: "true",
     VERCEL_GIT_COMMIT_SHA: head,
     VERCEL_GIT_COMMIT_REF: "main",
   }, async () => {
