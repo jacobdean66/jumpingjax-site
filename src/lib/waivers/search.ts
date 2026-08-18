@@ -28,11 +28,27 @@ export type StaffWaiverParticipant = {
   fullName: string;
   dobYmd: string;
   birthYear: number;
-  role: "child";
+  role: "child" | "adult_signer" | "adult_covered";
   expiresOnYmd: string;
   expired: boolean;
   signerLastInitial: string;
   checkInEligible: boolean;
+};
+
+export type StaffWaiverDetails = {
+  signerFullName: string;
+  signerPhone: string;
+  signerEmail: string;
+  signerDobYmd?: string;
+  signedAt: string;
+  expiresOnYmd: string;
+  status: string;
+  source: string;
+  waiverId?: string;
+  waiverTitle?: string;
+  tags?: string[];
+  priorCheckIns?: string[];
+  marketingConsent?: boolean;
 };
 
 export type StaffSearchResult = {
@@ -60,8 +76,10 @@ export type StaffSearchResult = {
   dobYmd?: string;
   /** Used to prefer the newest valid waiver when a child appears more than once. */
   waiverSignedAt?: string;
-  /** Children covered by the original waiver; adults/signers are intentionally omitted. */
+  /** Every participant recorded on the original waiver. */
   waiverParticipants?: StaffWaiverParticipant[];
+  /** Private contact and waiver metadata returned only by the authenticated staff endpoint. */
+  waiverDetails?: StaffWaiverDetails;
 };
 
 export const MAX_WAIVER_SEARCH_QUERY_LENGTH = 80;
