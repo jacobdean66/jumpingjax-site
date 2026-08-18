@@ -70,6 +70,22 @@ function checkInTime(value: string): string {
   }).format(new Date(value));
 }
 
+function signedAtLabel(value: string): string {
+  if (!value) return "Not recorded";
+  const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: value.length === 10 ? undefined : "short",
+  }).format(date);
+}
+
+function participantRole(role: "child" | "adult_signer" | "adult_covered"): string {
+  if (role === "adult_signer") return "Signer";
+  if (role === "adult_covered") return "Covered adult";
+  return "Child";
+}
+
 function birthdayPartyFromNotes(notes: string | null, fullName: string): string | null {
   if (!notes) return null;
   const prefix = `${fullName} attending `;
@@ -426,8 +442,93 @@ export function DailyReportActivity({ report }: Props) {
                       : "Native waiver"}
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver signer</dt>
+                  <dd className="mt-1 font-black text-slate-950">{selected.attendee.waiverDetails?.signerFullName || "Not recorded"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Phone number</dt>
+                  <dd className="mt-1 font-black text-slate-950">
+                    {selected.attendee.waiverDetails?.signerPhone
+                      ? <a className="underline decoration-2 underline-offset-2" href={`tel:${selected.attendee.waiverDetails.signerPhone}`}>{selected.attendee.waiverDetails.signerPhone}</a>
+                      : "Not recorded"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Email</dt>
+                  <dd className="mt-1 break-all font-black text-slate-950">
+                    {selected.attendee.waiverDetails?.signerEmail
+                      ? <a className="underline decoration-2 underline-offset-2" href={`mailto:${selected.attendee.waiverDetails.signerEmail}`}>{selected.attendee.waiverDetails.signerEmail}</a>
+                      : "Not recorded"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver signed</dt>
+                  <dd className="mt-1 font-black text-slate-950">{signedAtLabel(selected.attendee.waiverDetails?.signedAt ?? "")}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver expires</dt>
+                  <dd className="mt-1 font-black text-slate-950">{formatBirthday(selected.attendee.waiverDetails?.expiresOnYmd)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver status</dt>
+                  <dd className="mt-1 font-black capitalize text-slate-950">{selected.attendee.waiverDetails?.status || "Not recorded"}</dd>
+                </div>
+                {selected.attendee.waiverDetails?.signerDobYmd ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Signer birthday</dt>
+                    <dd className="mt-1 font-black text-slate-950">{formatBirthday(selected.attendee.waiverDetails.signerDobYmd)}</dd>
+                  </div>
+                ) : null}
+                {selected.attendee.waiverDetails?.waiverId ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver ID</dt>
+                    <dd className="mt-1 break-all font-black text-slate-950">{selected.attendee.waiverDetails.waiverId}</dd>
+                  </div>
+                ) : null}
+                {selected.attendee.waiverDetails?.waiverTitle ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Waiver title</dt>
+                    <dd className="mt-1 font-black text-slate-950">{selected.attendee.waiverDetails.waiverTitle}</dd>
+                  </div>
+                ) : null}
+                {selected.attendee.waiverDetails?.tags?.length ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Tags</dt>
+                    <dd className="mt-1 font-black text-slate-950">{selected.attendee.waiverDetails.tags.join(", ")}</dd>
+                  </div>
+                ) : null}
+                {selected.attendee.waiverDetails?.priorCheckIns?.length ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Imported check-ins</dt>
+                    <dd className="mt-1 font-black text-slate-950">{selected.attendee.waiverDetails.priorCheckIns.join(", ")}</dd>
+                  </div>
+                ) : null}
+                {typeof selected.attendee.waiverDetails?.marketingConsent === "boolean" ? (
+                  <div>
+                    <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Marketing consent</dt>
+                    <dd className="mt-1 font-black text-slate-950">{selected.attendee.waiverDetails.marketingConsent ? "Yes" : "No"}</dd>
+                  </div>
+                ) : null}
               </dl>
             )}
+
+            {!editing && selected.attendee.waiverParticipants?.length ? (
+              <section className="mt-4 rounded-2xl border border-white/80 bg-white/55 p-4" aria-label="Everyone on this waiver">
+                <h4 className="font-black text-slate-950">Everyone on this waiver</h4>
+                <ul className="mt-3 grid gap-2">
+                  {selected.attendee.waiverParticipants.map((participant) => (
+                    <li key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-white/80 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-black text-slate-950">{participant.fullName}</span>
+                        <span className="rounded-full bg-slate-200 px-2 py-1 text-[0.65rem] font-black uppercase text-slate-700">{participantRole(participant.role)}</span>
+                      </div>
+                      <p className="mt-1 text-xs font-bold text-slate-600">Birthday {formatBirthday(participant.dobYmd)}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             {saveError ? <p className="mt-4 text-sm font-bold text-rose-700" role="alert">{saveError}</p> : null}
             {savedMessage ? <p className="mt-4 text-sm font-bold text-emerald-700" role="status">{savedMessage}</p> : null}

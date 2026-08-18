@@ -64,6 +64,23 @@ function childAge(dobYmd: string, visitDateYmd: string): string {
   try { return String(ageInCompletedYearsOnDate(dobYmd, visitDateYmd)); } catch { return "—"; }
 }
 
+function displaySignedAt(value: string): string {
+  if (!value) return "Unavailable";
+  const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
+        timeStyle: value.length === 10 ? undefined : "short",
+      }).format(date);
+}
+
+function participantRole(role: StaffWaiverParticipant["role"]): string {
+  if (role === "adult_signer") return "Signer";
+  if (role === "adult_covered") return "Covered adult";
+  return "Child";
+}
+
 export function CheckInSearchResults({
   results, loading, error, attendees, visitDateYmd, birthdayParties,
   onLocationToggle, onPaymentMethodChange, onPriceChange,
@@ -86,28 +103,25 @@ export function CheckInSearchResults({
         const expanded = expandedKey === key;
         const legacy = result.source === "legacy_smartwaiver";
         const blocked = result.expired || (legacy && result.checkInEligible === false);
-        const children = result.waiverParticipants ?? [];
+        const participants = result.waiverParticipants ?? [];
+        const details = result.waiverDetails;
         return (
           <article key={key} role="listitem" className={blocked ? "rounded-2xl border border-rose-200 bg-rose-50 p-4" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-xl font-black leading-tight text-slate-950">
-                  {blocked ? result.fullName : (
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      onClick={() => setExpandedKey(expanded ? null : key)}
-                      className="text-left underline decoration-sky-400 decoration-2 underline-offset-4"
-                    >
-                      {result.fullName}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedKey(expanded ? null : key)}
+                    className="text-left underline decoration-sky-400 decoration-2 underline-offset-4"
+                  >
+                    {result.fullName}
+                  </button>
                 </h3>
-                {!blocked ? (
-                  <p className="mt-2 text-sm font-black text-sky-700">
-                    {expanded ? "Hide waiver information" : "View waiver information"}
-                  </p>
-                ) : null}
+                <p className="mt-2 text-sm font-black text-sky-700">
+                  {expanded ? "Hide waiver information" : "View waiver information"}
+                </p>
                 <p className="mt-1 text-sm text-slate-600">Expires {result.expiresOnYmd}</p>
                 {legacy ? <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-800">{result.sourceLabel || "Legacy Smartwaiver"}</p> : null}
               </div>
@@ -118,29 +132,45 @@ export function CheckInSearchResults({
                 <p className="text-sm font-semibold text-rose-800">A current waiver with a birthday is required before check-in.</p>
                 <Link href="/waiver" target="_blank" rel="noreferrer" className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-rose-300 bg-white px-5 text-sm font-black text-rose-900">Open waiver form</Link>
               </div>
-            ) : (
-              <>
-                {expanded ? (
-                  <section className="mt-4 border-t border-slate-200 pt-4" aria-label={`Children on ${result.fullName}'s waiver`}>
-                    <p className="text-sm font-bold text-slate-600">All children on the newest valid waiver</p>
+            ) : null}
+            {expanded ? (
+                  <section className="mt-4 border-t border-slate-200 pt-4" aria-label={`Details for ${result.fullName}'s waiver`}>
+                    <h4 className="text-lg font-black text-slate-950">Waiver details</h4>
+                    {details ? (
+                      <dl className="mt-3 grid gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm sm:grid-cols-2">
+                        <div><dt className="font-black text-slate-600">Signer</dt><dd className="mt-1 font-bold text-slate-950">{details.signerFullName || "Unavailable"}</dd></div>
+                        <div><dt className="font-black text-slate-600">Phone number</dt><dd className="mt-1 font-bold text-slate-950">{details.signerPhone ? <a className="underline decoration-2 underline-offset-2" href={`tel:${details.signerPhone}`}>{details.signerPhone}</a> : "Unavailable"}</dd></div>
+                        <div><dt className="font-black text-slate-600">Email</dt><dd className="mt-1 break-all font-bold text-slate-950">{details.signerEmail ? <a className="underline decoration-2 underline-offset-2" href={`mailto:${details.signerEmail}`}>{details.signerEmail}</a> : "Unavailable"}</dd></div>
+                        {details.signerDobYmd ? <div><dt className="font-black text-slate-600">Signer birthday</dt><dd className="mt-1 font-bold text-slate-950">{displayDob(details.signerDobYmd)}</dd></div> : null}
+                        <div><dt className="font-black text-slate-600">Signed</dt><dd className="mt-1 font-bold text-slate-950">{displaySignedAt(details.signedAt)}</dd></div>
+                        <div><dt className="font-black text-slate-600">Expires</dt><dd className="mt-1 font-bold text-slate-950">{result.expiresOnYmd}</dd></div>
+                        <div><dt className="font-black text-slate-600">Status</dt><dd className="mt-1 font-bold capitalize text-slate-950">{details.status}</dd></div>
+                        <div><dt className="font-black text-slate-600">Source</dt><dd className="mt-1 font-bold text-slate-950">{details.source}</dd></div>
+                        {details.waiverId ? <div><dt className="font-black text-slate-600">Waiver ID</dt><dd className="mt-1 break-all font-bold text-slate-950">{details.waiverId}</dd></div> : null}
+                        {details.waiverTitle ? <div><dt className="font-black text-slate-600">Waiver title</dt><dd className="mt-1 font-bold text-slate-950">{details.waiverTitle}</dd></div> : null}
+                        {details.tags?.length ? <div><dt className="font-black text-slate-600">Tags</dt><dd className="mt-1 font-bold text-slate-950">{details.tags.join(", ")}</dd></div> : null}
+                        {details.priorCheckIns?.length ? <div><dt className="font-black text-slate-600">Imported check-ins</dt><dd className="mt-1 font-bold text-slate-950">{details.priorCheckIns.join(", ")}</dd></div> : null}
+                        {typeof details.marketingConsent === "boolean" ? <div><dt className="font-black text-slate-600">Marketing consent</dt><dd className="mt-1 font-bold text-slate-950">{details.marketingConsent ? "Yes" : "No"}</dd></div> : null}
+                      </dl>
+                    ) : <p className="mt-2 text-sm font-semibold text-slate-600">Contact information is unavailable for this waiver.</p>}
+                    <h4 className="mt-5 text-lg font-black text-slate-950">Everyone on this waiver</h4>
                     <div className="mt-3 grid gap-3">
-                      {children.map((child) => {
-                        const identity = `${child.firstName.trim().toLowerCase()}|${child.lastName.trim().toLowerCase()}|${child.dobYmd || child.birthYear}`;
+                      {participants.map((participant) => {
+                        const identity = `${participant.firstName.trim().toLowerCase()}|${participant.lastName.trim().toLowerCase()}|${participant.dobYmd || participant.birthYear}`;
                         const attendee = attendeeByIdentity.get(identity);
+                        const isChild = participant.role === "child";
                         return (
-                          <div key={child.selectionKey} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-lg font-black text-slate-950">{child.fullName}</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-600">Birthday {displayDob(child.dobYmd)} · Age {childAge(child.dobYmd, visitDateYmd)}</p>
-                            <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(child)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : "Mark child on location"}</button>
+                          <div key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-black text-slate-950">{participant.fullName}</p><span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black uppercase text-slate-700">{participantRole(participant.role)}</span></div>
+                            <p className="mt-1 text-sm font-semibold text-slate-600">Birthday {displayDob(participant.dobYmd)} · Age {childAge(participant.dobYmd, visitDateYmd)}</p>
+                            {isChild && !blocked ? <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(participant)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : "Mark child on location"}</button> : null}
                             {attendee ? <ChildCheckInControls attendee={attendee} birthdayParties={birthdayParties} onPaymentMethodChange={onPaymentMethodChange} onPriceChange={onPriceChange} onPaymentConfirmedChange={onPaymentConfirmedChange} onBirthdayPartyChange={onBirthdayPartyChange} /> : null}
                           </div>
                         );
                       })}
                     </div>
                   </section>
-                ) : null}
-              </>
-            )}
+            ) : null}
           </article>
         );
       })}

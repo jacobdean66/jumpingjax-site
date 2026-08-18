@@ -13,6 +13,7 @@
  */
 
 import type { AdmissionClassification } from "./pricing";
+import type { StaffWaiverDetails, StaffWaiverParticipant } from "@/lib/waivers/search";
 import {
   sumMethodTotals,
   type PaymentEntry,
@@ -27,6 +28,8 @@ export type VisitAttendeeSnapshot = {
   lastName?: string;
   fullName?: string;
   birthDate?: string;
+  waiverDetails?: StaffWaiverDetails;
+  waiverParticipants?: StaffWaiverParticipant[];
   ageYearsOnVisit?: number;
   classification: AdmissionClassification;
   unitPriceCents: number;

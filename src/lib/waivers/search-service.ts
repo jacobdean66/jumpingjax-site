@@ -45,14 +45,20 @@ type NativeParticipantRow = {
   first_name: string;
   last_name: string;
   dob: string;
-  role: "child";
+  role: "child" | "adult_signer" | "adult_covered";
 };
 
 type NativeSubmissionRow = {
   id: string;
   signed_at: string;
   expires_on: string;
+  signer_first_name: string;
   signer_last_name: string;
+  signer_email: string;
+  signer_phone: string;
+  source: string;
+  status: string;
+  smartwaiver_external_id: string | null;
 };
 
 type LegacyParticipantRow = {
@@ -61,7 +67,7 @@ type LegacyParticipantRow = {
   first_name: string;
   last_name: string;
   dob: string | null;
-  role: "child";
+  role: "child" | "adult_signer" | "adult_covered";
 };
 
 type LegacyWaiverRow = {
@@ -69,7 +75,17 @@ type LegacyWaiverRow = {
   signed_at: string | null;
   signed_on_ymd: string | null;
   expires_on: string;
+  waiver_id: string;
+  waiver_title: string | null;
+  tags: string[];
+  check_ins: string[];
+  marketing_consent: boolean;
+  phone: string | null;
+  email: string | null;
+  signer_first_name: string | null;
   signer_last_name: string | null;
+  signer_dob: string | null;
+  activated: boolean;
 };
 
 function rankKey(result: StaffSearchResult, query: string): number {
@@ -141,12 +157,11 @@ export async function searchWaiversForStaff(options: {
             .from("waiver_participants")
             .select("id,submission_id,first_name,last_name,dob,role")
             .in("submission_id", nativeSubmissionIds)
-            .eq("role", "child")
         : Promise.resolve({ data: [], error: null }),
       nativeSubmissionIds.length
         ? supabase
             .from("waiver_submissions")
-            .select("id,signed_at,expires_on,signer_last_name")
+            .select("id,signed_at,expires_on,signer_first_name,signer_last_name,signer_email,signer_phone,source,status,smartwaiver_external_id")
             .in("id", nativeSubmissionIds)
         : Promise.resolve({ data: [], error: null }),
       legacyWaiverIds.length
@@ -154,12 +169,11 @@ export async function searchWaiversForStaff(options: {
             .from("smartwaiver_legacy_participants")
             .select("id,legacy_waiver_id,first_name,last_name,dob,role")
             .in("legacy_waiver_id", legacyWaiverIds)
-            .eq("role", "child")
         : Promise.resolve({ data: [], error: null }),
       legacyWaiverIds.length
         ? supabase
             .from("smartwaiver_legacy_waivers")
-            .select("id,signed_at,signed_on_ymd,expires_on,signer_last_name")
+            .select("id,waiver_id,signed_at,signed_on_ymd,expires_on,waiver_title,tags,check_ins,marketing_consent,phone,email,signer_first_name,signer_last_name,signer_dob,activated")
             .in("id", legacyWaiverIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -195,7 +209,7 @@ export async function searchWaiversForStaff(options: {
       expiresOnYmd: submission.expires_on,
       expired,
       signerLastInitial: (submission.signer_last_name.trim()[0] || "").toUpperCase(),
-      checkInEligible: !expired,
+      checkInEligible: row.role === "child" && !expired,
     };
     nativeParticipantsBySubmission.set(row.submission_id, [
       ...(nativeParticipantsBySubmission.get(row.submission_id) ?? []),
@@ -226,7 +240,7 @@ export async function searchWaiversForStaff(options: {
       expiresOnYmd: waiver.expires_on,
       expired,
       signerLastInitial: ((waiver.signer_last_name ?? "").trim()[0] || "").toUpperCase(),
-      checkInEligible: Boolean(row.dob) && !expired,
+      checkInEligible: row.role === "child" && Boolean(row.dob) && !expired,
     };
     legacyParticipantsByWaiver.set(row.legacy_waiver_id, [
       ...(legacyParticipantsByWaiver.get(row.legacy_waiver_id) ?? []),
@@ -260,6 +274,18 @@ export async function searchWaiversForStaff(options: {
       dobYmd: participant.dob,
       waiverSignedAt: submission?.signed_at ?? "",
       waiverParticipants: nativeParticipantsBySubmission.get(participant.submissionId) ?? [],
+      waiverDetails: submission
+        ? {
+            signerFullName: `${submission.signer_first_name} ${submission.signer_last_name}`.trim(),
+            signerPhone: submission.signer_phone,
+            signerEmail: submission.signer_email,
+            signedAt: submission.signed_at,
+            expiresOnYmd: submission.expires_on,
+            status: submission.status,
+            source: submission.source,
+            waiverId: submission.smartwaiver_external_id ?? undefined,
+          }
+        : undefined,
     };
   });
 
@@ -269,6 +295,7 @@ export async function searchWaiversForStaff(options: {
       evaluationAt,
     });
     const birthYear = row.dob ? Number(String(row.dob).slice(0, 4)) : 0;
+    const waiver = legacyWaivers.get(row.legacy_waiver_id);
     return {
       participantId: "",
       submissionId: "",
@@ -286,11 +313,25 @@ export async function searchWaiversForStaff(options: {
       legacyParticipantId: row.legacy_participant_id,
       selectionKey: `legacy:${row.legacy_participant_id}`,
       dobYmd: row.dob ?? "",
-      waiverSignedAt:
-        legacyWaivers.get(row.legacy_waiver_id)?.signed_at ??
-        legacyWaivers.get(row.legacy_waiver_id)?.signed_on_ymd ??
-        "",
+      waiverSignedAt: waiver?.signed_at ?? waiver?.signed_on_ymd ?? "",
       waiverParticipants: legacyParticipantsByWaiver.get(row.legacy_waiver_id) ?? [],
+      waiverDetails: waiver
+        ? {
+            signerFullName: `${waiver.signer_first_name ?? ""} ${waiver.signer_last_name ?? ""}`.trim(),
+            signerPhone: waiver.phone ?? "",
+            signerEmail: waiver.email ?? "",
+            signerDobYmd: waiver.signer_dob ?? undefined,
+            signedAt: waiver.signed_at ?? waiver.signed_on_ymd ?? "",
+            expiresOnYmd: waiver.expires_on,
+            status: waiver.activated ? "active" : "inactive",
+            source: "Legacy Smartwaiver",
+            waiverId: waiver.waiver_id,
+            waiverTitle: waiver.waiver_title ?? undefined,
+            tags: waiver.tags,
+            priorCheckIns: waiver.check_ins,
+            marketingConsent: waiver.marketing_consent,
+          }
+        : undefined,
     };
   });
 
