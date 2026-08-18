@@ -16,10 +16,12 @@ import {
   createOpenPlayVisitRequest,
   createLegacyCheckInRequest,
   formatCents,
+  isAdultRole,
   resultToDraft,
   searchWaivers,
   todayBusinessDayYmd,
   type BirthdayPartyOption,
+  type AdultPlayMode,
   type CheckInStep,
   type PaymentMethodChoice,
   type SelectedAttendeeDraft,
@@ -160,12 +162,32 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
         );
         return current;
       }
-      const defaultPrice = classifyChildAdmission(result.dobYmd, resolvedVisitDate).unitPriceCents;
+      const defaultPrice = isAdultRole(result.role)
+        ? null
+        : classifyChildAdmission(result.dobYmd, resolvedVisitDate).unitPriceCents;
       return [...current, { ...draft, priceOverrideCents: defaultPrice }];
     });
     if (attendees.length === 0 || attendees[0]?.source === result.source) {
       setSubmitError(null);
     }
+  }
+
+  function setAdultMode(selectionKey: string, mode: AdultPlayMode) {
+    setAttendees((current) =>
+      current.map((item) =>
+        item.selectionKey === selectionKey
+          ? {
+              ...item,
+              adultMode: mode,
+              priceOverrideCents: mode === "playing" ? 700 : null,
+              paymentMethod: null,
+              paymentConfirmed: false,
+              birthdayPartyId: null,
+              birthdayPartyLabel: null,
+            }
+          : item,
+      ),
+    );
   }
 
   function setPaymentMethod(
@@ -405,6 +427,7 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
           visitDateYmd={resolvedVisitDate}
           birthdayParties={birthdayParties}
           onLocationToggle={toggleLocation}
+          onAdultModeChange={setAdultMode}
           onPaymentMethodChange={setPaymentMethod}
           onPriceChange={setPrice}
           onPaymentConfirmedChange={setPaymentConfirmed}

@@ -449,6 +449,7 @@ export function canSubmitCheckInGroup(
     }
 
     if (
+      attendeeRequiresPaymentMethod(preview) &&
       attendee.paymentMethod !== "free_pass" &&
       attendee.paymentMethod !== "birthday_party" &&
       !attendee.paymentConfirmed

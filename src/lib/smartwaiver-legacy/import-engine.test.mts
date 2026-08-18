@@ -107,6 +107,36 @@ test("project keeps missing DOB null and does not invent marketing consent", () 
   assert.equal(isExplicitTrue("yes"), true);
 });
 
+test("project preserves a minor's signer as a check-in eligible adult", () => {
+  const csv = [
+    HEADER,
+    row({
+      WaiverID: "W4",
+      "Waiver Date": "2024-08-01 12:00:00",
+      "First Name": "Kid",
+      "Last Name": "Test",
+      "DOB Year": "2018",
+      "DOB Month": "1",
+      "DOB Day": "1",
+      "Parent of Minor Firstname": "Pat",
+      "Parent of Minor Lastname": "Test",
+      "Parent of Minor DOB Year": "1990",
+      "Parent of Minor DOB Month": "2",
+      "Parent of Minor DOB Day": "3",
+    }),
+  ].join("\n");
+  const parsed = parseCsv(csv);
+  const deduped = dedupeByWaiverId(
+    parsed.rows.map((r) => ({ row: r, sourceFile: "fixture.csv" })),
+  );
+  const projected = projectLegacyWaiver(deduped.records[0]!);
+  assert.ok(projected);
+  assert.deepEqual(
+    projected!.participants.map((participant) => [participant.participantSlot, participant.role]),
+    [["primary", "child"], ["signer", "adult_signer"]],
+  );
+});
+
 test("import engine dry-run and apply are idempotent via storage", async () => {
   const csv = [
     HEADER,

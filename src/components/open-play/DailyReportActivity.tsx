@@ -37,6 +37,7 @@ type PaymentOption = "cash" | "card" | "free_pass";
 type AdmissionOverride = {
   amountCents: number;
   paymentOption: PaymentOption;
+  classification: Attendee["classification"];
 };
 
 function formatBirthday(value: string | undefined): string {
@@ -124,6 +125,7 @@ export function DailyReportActivity({ report }: Props) {
   const [admissionOverrides, setAdmissionOverrides] = useState<Record<string, AdmissionOverride>>({});
   const [draftAmount, setDraftAmount] = useState("");
   const [draftPaymentOption, setDraftPaymentOption] = useState<PaymentOption>("cash");
+  const [draftAdultMode, setDraftAdultMode] = useState<"playing" | "watching" | null>(null);
 
   function admissionFor(item: SelectedCard): AdmissionOverride {
     const saved = admissionOverrides[item.attendee.id];
@@ -136,7 +138,11 @@ export function DailyReportActivity({ report }: Props) {
         paymentOption = entry.method;
       }
     }
-    return { amountCents, paymentOption: amountCents === 0 ? "free_pass" : paymentOption };
+    return {
+      amountCents,
+      paymentOption: amountCents === 0 ? "free_pass" : paymentOption,
+      classification: item.attendee.classification,
+    };
   }
 
   function profileFor(attendee: Attendee): ProfileOverride {
@@ -155,6 +161,13 @@ export function DailyReportActivity({ report }: Props) {
     setDraft(profileFor(item.attendee));
     setDraftAmount((admission.amountCents / 100).toFixed(2));
     setDraftPaymentOption(admission.paymentOption);
+    setDraftAdultMode(
+      admission.classification === "playing_adult"
+        ? "playing"
+        : admission.classification === "watching_adult"
+          ? "watching"
+          : null,
+    );
     setEditing(false);
     setSaveError(null);
     setSavedMessage(null);
@@ -174,9 +187,17 @@ export function DailyReportActivity({ report }: Props) {
     setSaveError(null);
     setSavedMessage(null);
     try {
-      const amountCents = draftPaymentOption === "free_pass"
-        ? 0
-        : Math.round(Number(draftAmount) * 100);
+      const adult =
+        selected.attendee.classification === "playing_adult" ||
+        selected.attendee.classification === "watching_adult";
+      const paymentOption: PaymentOption = adult && draftAdultMode === "watching"
+        ? "free_pass"
+        : draftPaymentOption;
+      const amountCents = adult
+        ? draftAdultMode === "playing" ? 700 : 0
+        : paymentOption === "free_pass"
+          ? 0
+          : Math.round(Number(draftAmount) * 100);
       if (!Number.isInteger(amountCents) || amountCents < 0 || amountCents > 50_000) {
         throw new Error("Enter a valid admission amount between $0 and $500.");
       }
@@ -208,7 +229,8 @@ export function DailyReportActivity({ report }: Props) {
           visitId: selected.visitId,
           source,
           amountCents,
-          paymentOption: draftPaymentOption,
+          paymentOption,
+          adultMode: adult ? draftAdultMode : null,
         }),
       });
       const admissionResult = (await admissionResponse.json().catch(() => null)) as
@@ -220,7 +242,13 @@ export function DailyReportActivity({ report }: Props) {
       setOverrides((current) => ({ ...current, [selected.attendee.id]: draft }));
       setAdmissionOverrides((current) => ({
         ...current,
-        [selected.attendee.id]: { amountCents, paymentOption: draftPaymentOption },
+        [selected.attendee.id]: {
+          amountCents,
+          paymentOption,
+          classification: adult
+            ? draftAdultMode === "playing" ? "playing_adult" : "watching_adult"
+            : selected.attendee.classification,
+        },
       }));
       setEditing(false);
       setSavedMessage("Check-in details saved.");
@@ -260,6 +288,9 @@ export function DailyReportActivity({ report }: Props) {
   const canEditProfile =
     (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
   const canEdit = selected?.attendee.status === "active";
+  const selectedIsAdult =
+    selectedAdmission?.classification === "playing_adult" ||
+    selectedAdmission?.classification === "watching_adult";
 
   return (
     <section
@@ -363,40 +394,68 @@ export function DailyReportActivity({ report }: Props) {
                     required
                   />
                 </label>
-                <label className="text-sm font-black text-slate-700">
-                  Payment option
-                  <select
-                    value={draftPaymentOption}
-                    onChange={(event) => {
-                      const option = event.target.value as PaymentOption;
-                      setDraftPaymentOption(option);
-                      if (option === "free_pass") setDraftAmount("0.00");
-                    }}
-                    className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="free_pass">Free pass</option>
-                  </select>
-                </label>
-                <label className="text-sm font-black text-slate-700">
-                  Admission amount
-                  <span className="mt-2 flex min-h-12 items-center rounded-xl border border-slate-300 bg-white/90 px-4 focus-within:border-emerald-500">
-                    <span className="font-black text-slate-600">$</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      max="500"
-                      step="0.01"
-                      value={draftAmount}
-                      disabled={draftPaymentOption === "free_pass"}
-                      onChange={(event) => setDraftAmount(event.target.value)}
-                      className="min-h-10 w-full bg-transparent px-2 text-base outline-none disabled:text-slate-500"
-                      required
-                    />
-                  </span>
-                </label>
+                {selectedIsAdult ? (
+                  <>
+                    <fieldset>
+                      <legend className="text-sm font-black text-slate-700">Adult attendance</legend>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {(["watching", "playing"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={draftAdultMode === mode}
+                            onClick={() => {
+                              setDraftAdultMode(mode);
+                              setDraftAmount(mode === "playing" ? "7.00" : "0.00");
+                              if (mode === "watching") setDraftPaymentOption("free_pass");
+                              else if (draftPaymentOption === "free_pass") setDraftPaymentOption("cash");
+                            }}
+                            className={draftAdultMode === mode ? "min-h-12 rounded-xl border-2 border-sky-600 bg-sky-50 px-3 text-sm font-black capitalize text-sky-950" : "min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-sm font-black capitalize text-slate-800"}
+                          >
+                            {mode === "watching" ? "Watching — free" : "Playing — $7"}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                    {draftAdultMode === "playing" ? (
+                      <label className="text-sm font-black text-slate-700">
+                        How did they pay?
+                        <select value={draftPaymentOption === "card" ? "card" : "cash"} onChange={(event) => setDraftPaymentOption(event.target.value as PaymentOption)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500">
+                          <option value="cash">Cash</option>
+                          <option value="card">Card</option>
+                        </select>
+                      </label>
+                    ) : (
+                      <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-900">Watching adults are free.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="text-sm font-black text-slate-700">
+                      Payment option
+                      <select
+                        value={draftPaymentOption}
+                        onChange={(event) => {
+                          const option = event.target.value as PaymentOption;
+                          setDraftPaymentOption(option);
+                          if (option === "free_pass") setDraftAmount("0.00");
+                        }}
+                        className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white/90 px-4 text-base outline-none focus:border-emerald-500"
+                      >
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="free_pass">Free pass</option>
+                      </select>
+                    </label>
+                    <label className="text-sm font-black text-slate-700">
+                      Admission amount
+                      <span className="mt-2 flex min-h-12 items-center rounded-xl border border-slate-300 bg-white/90 px-4 focus-within:border-emerald-500">
+                        <span className="font-black text-slate-600">$</span>
+                        <input type="number" inputMode="decimal" min="0" max="500" step="0.01" value={draftAmount} disabled={draftPaymentOption === "free_pass"} onChange={(event) => setDraftAmount(event.target.value)} className="min-h-10 w-full bg-transparent px-2 text-base outline-none disabled:text-slate-500" required />
+                      </span>
+                    </label>
+                  </>
+                )}
               </div>
             ) : (
               <dl className="mt-5 grid gap-3 rounded-2xl border border-white/80 bg-white/55 p-4">
@@ -419,13 +478,15 @@ export function DailyReportActivity({ report }: Props) {
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Admission</dt>
                   <dd className="mt-1 font-black text-slate-950">
-                    {classificationLabel(selected.attendee.classification)} · {formatCents(selectedAdmission?.amountCents ?? selected.attendee.unitPriceCents)}
+                    {classificationLabel(selectedAdmission?.classification ?? selected.attendee.classification)} · {formatCents(selectedAdmission?.amountCents ?? selected.attendee.unitPriceCents)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Payment option</dt>
                   <dd className="mt-1 font-black capitalize text-slate-950">
-                    {selectedBirthdayParty
+                    {selectedAdmission?.classification === "watching_adult"
+                      ? "No payment — watching adult"
+                      : selectedBirthdayParty
                       ? `Birthday party — ${selectedBirthdayParty}`
                       : (selectedAdmission?.paymentOption ?? "cash").replace("_", " ")}
                   </dd>
@@ -544,6 +605,10 @@ export function DailyReportActivity({ report }: Props) {
                       setDraft(profileFor(selected.attendee));
                       setDraftAmount((admission.amountCents / 100).toFixed(2));
                       setDraftPaymentOption(admission.paymentOption);
+                      setDraftAdultMode(
+                        admission.classification === "playing_adult" ? "playing" :
+                          admission.classification === "watching_adult" ? "watching" : null,
+                      );
                       setEditing(false);
                       setSaveError(null);
                     }}
@@ -559,7 +624,12 @@ export function DailyReportActivity({ report }: Props) {
                         (!draft.firstName.trim() ||
                           !draft.lastName.trim() ||
                           !draft.birthDate)) ||
-                      (draftPaymentOption !== "free_pass" && !draftAmount)
+                      (selectedIsAdult
+                        ? !draftAdultMode ||
+                          (draftAdultMode === "playing" &&
+                            draftPaymentOption !== "cash" &&
+                            draftPaymentOption !== "card")
+                        : draftPaymentOption !== "free_pass" && !draftAmount)
                     }
                     onClick={() => void saveProfile()}
                     className="min-h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-[0_5px_0_#047857] active:translate-y-1 active:shadow-none disabled:opacity-50"
@@ -584,6 +654,10 @@ export function DailyReportActivity({ report }: Props) {
                       setDraft(profileFor(selected.attendee));
                       setDraftAmount((admission.amountCents / 100).toFixed(2));
                       setDraftPaymentOption(admission.paymentOption);
+                      setDraftAdultMode(
+                        admission.classification === "playing_adult" ? "playing" :
+                          admission.classification === "watching_adult" ? "watching" : null,
+                      );
                       setEditing(true);
                       setSaveError(null);
                       setSavedMessage(null);

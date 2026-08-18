@@ -108,6 +108,16 @@ export function projectLegacyWaiver(
       dobYmd,
       role: primaryRole,
     },
+    ...(primaryRole === "child" && signerFirstName && signerLastName && signerDobYmd
+      ? [{
+          participantSlot: "signer" as const,
+          minorIndex: null,
+          firstName: signerFirstName,
+          lastName: signerLastName,
+          dobYmd: signerDobYmd,
+          role: "adult_signer" as const,
+        }]
+      : []),
     ...minors.participants,
   ];
 

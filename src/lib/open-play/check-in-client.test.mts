@@ -229,18 +229,37 @@ test("birthday party requires a scheduled party and creates a zero-dollar visit"
 });
 
 test("watching adult request clears payment method", () => {
+  const watching = {
+    ...resultToDraft(adultResult()),
+    adultMode: "watching" as const,
+    paymentMethod: null,
+  };
+  assert.equal(canSubmitCheckInGroup([watching], "2026-08-06").ok, true);
   const body = buildVisitCreateBody({
     visitDateYmd: "2026-08-06",
     attendees: [
       {
-        ...resultToDraft(adultResult()),
-        adultMode: "watching",
+        ...watching,
         paymentMethod: "cash",
       },
     ],
   });
   assert.equal(body.attendees[0]?.paymentMethod, null);
   assert.equal(body.attendees[0]?.clientPriceCents, 0);
+});
+
+test("playing adult requires cash or card confirmation at $7", () => {
+  const playing = {
+    ...resultToDraft(adultResult()),
+    adultMode: "playing" as const,
+    priceOverrideCents: 700,
+    paymentMethod: "card" as const,
+  };
+  assert.equal(canSubmitCheckInGroup([playing], "2026-08-06").ok, false);
+  assert.equal(
+    canSubmitCheckInGroup([{ ...playing, paymentConfirmed: true }], "2026-08-06").ok,
+    true,
+  );
 });
 
 test("mapStaffApiError covers auth, validation, and duplicate check-in", () => {
