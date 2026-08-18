@@ -1,5 +1,6 @@
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
+import { loadBirthdayPartiesForDay } from "@/lib/open-play/birthday-parties";
 import { OpenPlayDeskNav } from "@/components/open-play/OpenPlayDeskNav";
 import {
   AdminAuthError,
@@ -16,6 +17,7 @@ export default async function AdminCheckInPage() {
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   const visitDateYmd = businessDayYmdFromInstant(new Date());
+  const birthdayParties = await loadBirthdayPartiesForDay(visitDateYmd).catch(() => []);
   const isOwner = auth.role === "owner";
 
   return (
@@ -27,7 +29,7 @@ export default async function AdminCheckInPage() {
         edit each child&apos;s price if needed, then choose cash, card, or free pass.
       </p>
       <OpenPlayDeskNav active="check-in" showOwnerTools={isOwner} />
-      <CheckInClient visitDateYmd={visitDateYmd} />
+      <CheckInClient visitDateYmd={visitDateYmd} birthdayParties={birthdayParties} />
     </AdminShell>
   );
 }

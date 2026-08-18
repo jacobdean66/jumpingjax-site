@@ -12,11 +12,20 @@ import {
   type AdultPlayMode,
 } from "./pricing";
 import { businessDayYmdFromInstant } from "./business-day";
-import type { StaffSearchResult } from "@/lib/waivers/search";
+import type {
+  StaffSearchResult,
+  StaffWaiverParticipant,
+} from "@/lib/waivers/search";
 
 export type { StaffSearchResult, AdultPlayMode, AdmissionClassification };
 
-export type PaymentMethodChoice = "cash" | "card" | "free_pass";
+export type PaymentMethodChoice = "cash" | "card" | "free_pass" | "birthday_party";
+
+export type BirthdayPartyOption = {
+  id: string;
+  childName: string;
+  label: string;
+};
 
 export type CheckInStep = "search" | "success";
 
@@ -34,10 +43,15 @@ export type SelectedAttendeeDraft = {
   role: StaffSearchResult["role"];
   expiresOnYmd: string;
   signerLastInitial: string;
+  dobYmd: string;
+  identityKey: string;
   /** Required for adult_signer / adult_covered; ignored for children. */
   adultMode: AdultPlayMode | null;
   paymentMethod: PaymentMethodChoice | null;
   priceOverrideCents: number | null;
+  paymentConfirmed: boolean;
+  birthdayPartyId: string | null;
+  birthdayPartyLabel: string | null;
 };
 
 export type PricePreview = {
@@ -70,7 +84,7 @@ export type VisitCreateRequestBody = {
     participantId: string;
     adultMode: AdultPlayMode | null;
     clientPriceCents: number | null;
-    paymentMethod: PaymentMethodChoice | null;
+    paymentMethod: "cash" | "card" | "free_pass" | null;
     overridePriceCents: number | null;
   }>;
 };
@@ -82,7 +96,7 @@ export type LegacyCheckInRequestBody = {
     legacyParticipantId: string;
     adultMode: AdultPlayMode | null;
     clientPriceCents: number | null;
-    paymentMethod: PaymentMethodChoice | null;
+    paymentMethod: "cash" | "card" | "free_pass" | null;
     overridePriceCents: number | null;
   }>;
 };
@@ -102,7 +116,7 @@ export type VisitCreateSuccess = {
     visitId: string;
     attendeeId: string | null;
     entryType: string;
-    method: PaymentMethodChoice;
+    method: "cash" | "card";
     amountCents: number;
     relatedEntryId: string | null;
     reason: string | null;
@@ -160,7 +174,18 @@ export function isAdultRole(role: StaffSearchResult["role"]): boolean {
   return role === "adult_signer" || role === "adult_covered";
 }
 
-export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft {
+export function childIdentityKey(result: {
+  firstName: string;
+  lastName: string;
+  dobYmd?: string;
+  birthYear: number;
+}): string {
+  return `${result.firstName.trim().toLowerCase()}|${result.lastName.trim().toLowerCase()}|${result.dobYmd || result.birthYear}`;
+}
+
+export function resultToDraft(
+  result: StaffSearchResult | StaffWaiverParticipant,
+): SelectedAttendeeDraft {
   if (result.source === "legacy_smartwaiver" && !result.checkInEligible) {
     throw new Error("Legacy Smartwaiver record is not eligible for check-in");
   }
@@ -177,9 +202,14 @@ export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft 
     role: result.role,
     expiresOnYmd: result.expiresOnYmd,
     signerLastInitial: result.signerLastInitial,
+    dobYmd: result.dobYmd ?? "",
+    identityKey: childIdentityKey(result),
     adultMode: isAdultRole(result.role) ? null : null,
     paymentMethod: null,
     priceOverrideCents: null,
+    paymentConfirmed: false,
+    birthdayPartyId: null,
+    birthdayPartyLabel: null,
   };
 }
 
@@ -317,7 +347,10 @@ export function computeGroupTotalsPreview(
     const requiresPayment = attendeeRequiresPaymentMethod(preview);
     if (!requiresPayment) continue;
 
-    if (attendee.paymentMethod === "free_pass") continue;
+    if (
+      attendee.paymentMethod === "free_pass" ||
+      attendee.paymentMethod === "birthday_party"
+    ) continue;
     paidAttendanceCount += 1;
     const priceForTotals =
       attendee.priceOverrideCents ?? preview.unitPriceCents ??
@@ -381,7 +414,11 @@ export function canSubmitCheckInGroup(
         message: `Enter a valid price between $0 and $500 for ${attendee.fullName}.`,
       };
     }
-    if (attendee.priceOverrideCents === 0 && attendee.paymentMethod !== "free_pass") {
+    if (
+      attendee.priceOverrideCents === 0 &&
+      attendee.paymentMethod !== "free_pass" &&
+      attendee.paymentMethod !== "birthday_party"
+    ) {
       return {
         ok: false,
         message: `Choose Free pass for ${attendee.fullName} when the price is $0.00.`,
@@ -392,11 +429,33 @@ export function canSubmitCheckInGroup(
       attendeeRequiresPaymentMethod(preview) &&
       attendee.paymentMethod !== "cash" &&
       attendee.paymentMethod !== "card" &&
-      attendee.paymentMethod !== "free_pass"
+      attendee.paymentMethod !== "free_pass" &&
+      attendee.paymentMethod !== "birthday_party"
     ) {
       return {
         ok: false,
-        message: `Choose cash, card, or free pass for ${attendee.fullName}.`,
+        message: `Choose cash, card, free pass, or birthday party for ${attendee.fullName}.`,
+      };
+    }
+
+    if (
+      attendee.paymentMethod === "birthday_party" &&
+      !attendee.birthdayPartyId
+    ) {
+      return {
+        ok: false,
+        message: `Choose the birthday party ${attendee.fullName} is attending.`,
+      };
+    }
+
+    if (
+      attendee.paymentMethod !== "free_pass" &&
+      attendee.paymentMethod !== "birthday_party" &&
+      !attendee.paymentConfirmed
+    ) {
+      return {
+        ok: false,
+        message: `Confirm that ${attendee.fullName} is paid for.`,
       };
     }
 
@@ -447,9 +506,16 @@ export function buildVisitCreateBody(options: {
         adultMode: isAdult ? attendee.adultMode : null,
         clientPriceCents:
           preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
-        paymentMethod: requiresPayment ? attendee.paymentMethod : null,
+        paymentMethod: requiresPayment
+          ? attendee.paymentMethod === "birthday_party"
+            ? "free_pass"
+            : attendee.paymentMethod
+          : null,
         overridePriceCents:
-          attendee.paymentMethod === "free_pass" ? 0 : attendee.priceOverrideCents,
+          attendee.paymentMethod === "free_pass" ||
+          attendee.paymentMethod === "birthday_party"
+            ? 0
+            : attendee.priceOverrideCents,
       };
     }),
   };
@@ -479,9 +545,16 @@ export function buildLegacyCheckInBody(options: {
         adultMode: isAdult ? attendee.adultMode : null,
         clientPriceCents:
           preview.uncertain || unitPriceCents === null ? null : unitPriceCents,
-        paymentMethod: requiresPayment ? attendee.paymentMethod : null,
+        paymentMethod: requiresPayment
+          ? attendee.paymentMethod === "birthday_party"
+            ? "free_pass"
+            : attendee.paymentMethod
+          : null,
         overridePriceCents:
-          attendee.paymentMethod === "free_pass" ? 0 : attendee.priceOverrideCents,
+          attendee.paymentMethod === "free_pass" ||
+          attendee.paymentMethod === "birthday_party"
+            ? 0
+            : attendee.priceOverrideCents,
       };
     }),
   };
@@ -525,7 +598,7 @@ export function mapStaffApiError(options: {
   if (code === "search_validation") {
     return {
       code,
-      message: raw || "Enter a valid name to search (at least 2 characters).",
+      message: raw || "Enter a valid name to search.",
       correctable: true,
       requiresSignIn: false,
     };

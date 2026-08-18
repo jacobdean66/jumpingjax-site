@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isWaiverExpired } from "@/lib/waivers/expiration";
 import { createLegacySmartwaiverCheckIns } from "./legacy-check-in-service";
 import { createOpenPlayVisit } from "./visit-service";
+import { ageInCompletedYearsOnDate } from "./pricing";
 import {
   dobMatchesAge,
   type SelfCheckInInput,
@@ -13,9 +14,10 @@ type NativeRow = {
   first_name: string;
   last_name: string;
   dob: string;
+  role: "child" | "adult_signer" | "adult_covered";
   waiver_submissions:
-    | { status: "completed" | "voided"; expires_on: string }
-    | Array<{ status: "completed" | "voided"; expires_on: string }>
+    | { status: "completed" | "voided"; expires_on: string; signed_at: string }
+    | Array<{ status: "completed" | "voided"; expires_on: string; signed_at: string }>
     | null;
 };
 
@@ -24,9 +26,10 @@ type LegacyRow = {
   first_name: string;
   last_name: string;
   dob: string | null;
+  role: "child" | "adult_signer" | "adult_covered";
   smartwaiver_legacy_waivers:
-    | { activated: boolean; expires_on: string }
-    | Array<{ activated: boolean; expires_on: string }>
+    | { activated: boolean; expires_on: string; signed_at: string | null; signed_on_ymd: string | null }
+    | Array<{ activated: boolean; expires_on: string; signed_at: string | null; signed_on_ymd: string | null }>
     | null;
 };
 
@@ -34,10 +37,11 @@ function one<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-export type PublicWaiverMatch = SelfCheckInSelection & {
+export type PublicWaiverMatch = Omit<SelfCheckInSelection, "paymentMethod"> & {
   firstName: string;
   lastName: string;
   ageYears: number;
+  dobYmd: string;
 };
 
 async function loadPublicWaiverMatches(options: {
@@ -50,13 +54,13 @@ async function loadPublicWaiverMatches(options: {
   const [nativeResult, legacyResult] = await Promise.all([
     supabase
       .from("waiver_participants")
-      .select("id,first_name,last_name,dob,waiver_submissions!inner(status,expires_on)")
+      .select("id,first_name,last_name,dob,role,waiver_submissions!inner(status,expires_on,signed_at)")
       .eq("search_first_name", first)
       .eq("search_last_name", last)
       .limit(10),
     supabase
       .from("smartwaiver_legacy_participants")
-      .select("id,first_name,last_name,dob,smartwaiver_legacy_waivers!inner(activated,expires_on)")
+      .select("id,first_name,last_name,dob,role,smartwaiver_legacy_waivers!inner(activated,expires_on,signed_at,signed_on_ymd)")
       .eq("search_first_name", first)
       .eq("search_last_name", last)
       .limit(10),
@@ -66,7 +70,8 @@ async function loadPublicWaiverMatches(options: {
   const nativeMatches = ((nativeResult.data ?? []) as NativeRow[]).filter((row) => {
     const waiver = one(row.waiver_submissions);
     return Boolean(
-      waiver?.status === "completed" &&
+      row.role === "child" &&
+        waiver?.status === "completed" &&
         !isWaiverExpired({
           expiresOnYmd: waiver.expires_on,
           evaluationLocalYmd: options.businessDayYmd,
@@ -78,7 +83,8 @@ async function loadPublicWaiverMatches(options: {
     (row) => {
       const waiver = one(row.smartwaiver_legacy_waivers);
       return Boolean(
-        waiver?.activated &&
+        row.role === "child" &&
+          waiver?.activated &&
           !isWaiverExpired({
             expiresOnYmd: waiver.expires_on,
             evaluationLocalYmd: options.businessDayYmd,
@@ -92,13 +98,42 @@ async function loadPublicWaiverMatches(options: {
   const rows = nativeMatches.length
     ? nativeMatches.map((row) => ({ row, source: "native" as const }))
     : legacyMatches.map((row) => ({ row, source: "legacy" as const }));
-  return rows.map(({ row, source }) => ({
-    source,
-    participantId: row.id,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    ageYears: options.input.ageYears,
-  }));
+  const newestFirst = rows
+    .map(({ row, source }) => {
+      const waiver = source === "native"
+        ? one((row as NativeRow).waiver_submissions)
+        : one((row as LegacyRow).smartwaiver_legacy_waivers);
+      const signedAt = source === "native"
+        ? (waiver as { signed_at?: string } | null)?.signed_at ?? ""
+        : (waiver as { signed_at?: string | null; signed_on_ymd?: string | null } | null)?.signed_at ??
+          (waiver as { signed_on_ymd?: string | null } | null)?.signed_on_ymd ??
+          "";
+      return {
+        source,
+        participantId: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        ageYears: ageInCompletedYearsOnDate(row.dob ?? "", options.businessDayYmd),
+        dobYmd: row.dob ?? "",
+        signedAt,
+      };
+    })
+    .sort((a, b) => b.signedAt.localeCompare(a.signedAt));
+  const unique = new Map<string, PublicWaiverMatch>();
+  for (const match of newestFirst) {
+    const identity = `${match.firstName.trim().toLowerCase()}|${match.lastName.trim().toLowerCase()}|${match.dobYmd}`;
+    if (!unique.has(identity)) {
+      unique.set(identity, {
+        source: match.source,
+        participantId: match.participantId,
+        firstName: match.firstName,
+        lastName: match.lastName,
+        ageYears: match.ageYears,
+        dobYmd: match.dobYmd,
+      });
+    }
+  }
+  return [...unique.values()];
 }
 
 export async function findPublicWaiverMatches(options: {
@@ -128,10 +163,10 @@ export async function createPublicSelfCheckIn(options: {
       notes: "Customer QR self check-in - admission pending front desk review",
       attendees: [{
         participantId: selected.participantId,
-        adultMode: options.input.ageYears >= 18 ? "watching" : null,
+        adultMode: null,
         clientPriceCents: null,
-        overridePriceCents: 0,
-        paymentMethod: "free_pass",
+        overridePriceCents: null,
+        paymentMethod: options.selection.paymentMethod,
       }],
     });
     return { needsWaiver: false };
@@ -144,10 +179,10 @@ export async function createPublicSelfCheckIn(options: {
       attendees: [{
         legacyParticipantId: selected.participantId,
         participantId: "",
-        adultMode: options.input.ageYears >= 18 ? "watching" : null,
+        adultMode: null,
         clientPriceCents: null,
-        overridePriceCents: 0,
-        paymentMethod: "free_pass",
+        overridePriceCents: null,
+        paymentMethod: options.selection.paymentMethod,
       }],
     });
     return { needsWaiver: false };

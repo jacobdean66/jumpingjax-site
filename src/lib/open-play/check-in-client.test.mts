@@ -201,10 +201,31 @@ test("uncertain paid child still requires payment method before submit", () => {
   const missing = canSubmitCheckInGroup([draft], "2026-08-06");
   assert.equal(missing.ok, false);
   const ready = canSubmitCheckInGroup(
-    [{ ...draft, paymentMethod: "card" }],
+    [{ ...draft, paymentMethod: "card", paymentConfirmed: true }],
     "2026-08-06",
   );
   assert.equal(ready.ok, true);
+});
+
+test("birthday party requires a scheduled party and creates a zero-dollar visit", () => {
+  const draft = {
+    ...resultToDraft(childResult({ birthYear: 2020 })),
+    paymentMethod: "birthday_party" as const,
+    priceOverrideCents: 0,
+  };
+  assert.equal(canSubmitCheckInGroup([draft], "2026-08-06").ok, false);
+  const ready = {
+    ...draft,
+    birthdayPartyId: "party-1",
+    birthdayPartyLabel: "Ava's party",
+  };
+  assert.equal(canSubmitCheckInGroup([ready], "2026-08-06").ok, true);
+  const body = buildVisitCreateBody({
+    visitDateYmd: "2026-08-06",
+    attendees: [ready],
+  });
+  assert.equal(body.attendees[0]?.paymentMethod, "free_pass");
+  assert.equal(body.attendees[0]?.overridePriceCents, 0);
 });
 
 test("watching adult request clears payment method", () => {

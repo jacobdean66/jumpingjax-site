@@ -22,6 +22,7 @@ type SelectedCard = {
   visitId: string;
   checkedInAt: string;
   visitSource?: "native" | "legacy_smartwaiver";
+  visitNotes: string | null;
   payments: DailyReport["visits"][number]["payments"];
 };
 
@@ -69,6 +70,13 @@ function checkInTime(value: string): string {
   }).format(new Date(value));
 }
 
+function birthdayPartyFromNotes(notes: string | null, fullName: string): string | null {
+  if (!notes) return null;
+  const prefix = `${fullName} attending `;
+  const match = notes.split("; ").find((item) => item.startsWith(prefix));
+  return match ? match.slice(prefix.length).trim() || null : null;
+}
+
 export function DailyReportActivity({ report }: Props) {
   const router = useRouter();
   const visits = sortVisitsForDisplay(report);
@@ -82,6 +90,7 @@ export function DailyReportActivity({ report }: Props) {
             visitId: visit.visitId,
             checkedInAt: visit.createdAt,
             visitSource: visit.source,
+            visitNotes: visit.notes,
             payments: visit.payments,
           })),
   );
@@ -229,6 +238,9 @@ export function DailyReportActivity({ report }: Props) {
     ? `${selectedProfile.firstName} ${selectedProfile.lastName}`.trim()
     : "";
   const selectedAdmission = selected ? admissionFor(selected) : null;
+  const selectedBirthdayParty = selected
+    ? birthdayPartyFromNotes(selected.visitNotes, selectedName)
+    : null;
   const canEditProfile =
     (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
   const canEdit = selected?.attendee.status === "active";
@@ -397,7 +409,9 @@ export function DailyReportActivity({ report }: Props) {
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Payment option</dt>
                   <dd className="mt-1 font-black capitalize text-slate-950">
-                    {(selectedAdmission?.paymentOption ?? "cash").replace("_", " ")}
+                    {selectedBirthdayParty
+                      ? `Birthday party — ${selectedBirthdayParty}`
+                      : (selectedAdmission?.paymentOption ?? "cash").replace("_", " ")}
                   </dd>
                 </div>
                 <div>

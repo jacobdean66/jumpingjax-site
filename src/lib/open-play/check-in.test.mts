@@ -125,3 +125,27 @@ test("duplicate attendee is rejected", () => {
     CheckInValidationError,
   );
 });
+
+test("same child on two waiver records is counted only once", () => {
+  const first = participant({
+    id: "c-old",
+    submissionId: "old-waiver",
+    role: "child",
+    dob: "2020-01-01",
+    firstName: "Ava",
+    lastName: "Smith",
+  });
+  const newest = { ...first, id: "c-new", submissionId: "new-waiver" };
+  assert.throws(
+    () =>
+      prepareVisitAttendees({
+        visitDateYmd: "2026-08-03",
+        participantsById: new Map([[first.id, first], [newest.id, newest]]),
+        requests: [
+          { participantId: first.id, paymentMethod: "cash" },
+          { participantId: newest.id, paymentMethod: "card" },
+        ],
+      }),
+    /Duplicate child/,
+  );
+});

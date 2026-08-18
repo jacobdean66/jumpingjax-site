@@ -51,6 +51,13 @@ type RpcOutcome = {
   error_message?: string;
 };
 
+type ExistingAttendeeRow = {
+  waiver_participants:
+    | { first_name: string; last_name: string; dob: string }
+    | Array<{ first_name: string; last_name: string; dob: string }>
+    | null;
+};
+
 export async function createOpenPlayVisit(
   input: CreateVisitInput,
 ): Promise<CreateVisitResult> {
@@ -90,6 +97,31 @@ export async function createOpenPlayVisit(
       expiresOnYmd: submission.expires_on,
       submissionStatus: submission.status,
     });
+  }
+
+  const requestedIdentities = new Set(
+    [...participantsById.values()].map(
+      (participant) =>
+        `${participant.firstName.trim().toLowerCase()}|${participant.lastName.trim().toLowerCase()}|${participant.dob}`,
+    ),
+  );
+  const { data: existingRows, error: existingError } = await supabase
+    .from("open_play_visit_attendees")
+    .select("waiver_participants!inner(first_name,last_name,dob)")
+    .eq("business_day_ymd", input.visitDateYmd)
+    .eq("status", "active");
+  if (existingError) throw new Error("Unable to verify today's attendance");
+  for (const row of (existingRows ?? []) as ExistingAttendeeRow[]) {
+    const nested = Array.isArray(row.waiver_participants)
+      ? row.waiver_participants[0]
+      : row.waiver_participants;
+    if (!nested) continue;
+    const identity = `${nested.first_name.trim().toLowerCase()}|${nested.last_name.trim().toLowerCase()}|${nested.dob}`;
+    if (requestedIdentities.has(identity)) {
+      throw new CheckInValidationError(
+        "Participant is already checked in for this business day",
+      );
+    }
   }
 
   const prepared = prepareVisitAttendees({

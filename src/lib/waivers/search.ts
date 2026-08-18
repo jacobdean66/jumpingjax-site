@@ -17,6 +17,24 @@ export type SearchableParticipant = {
   signerLastName: string;
 };
 
+export type StaffWaiverParticipant = {
+  participantId: string;
+  submissionId: string;
+  legacyParticipantId?: string;
+  selectionKey: string;
+  source: "native" | "legacy_smartwaiver";
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  dobYmd: string;
+  birthYear: number;
+  role: "child";
+  expiresOnYmd: string;
+  expired: boolean;
+  signerLastInitial: string;
+  checkInEligible: boolean;
+};
+
 export type StaffSearchResult = {
   /** Native participant id, or empty for legacy-only rows. */
   participantId: string;
@@ -38,6 +56,12 @@ export type StaffSearchResult = {
   legacyParticipantId?: string;
   /** Stable UI/API selection key. */
   selectionKey: string;
+  /** Full DOB is returned only inside the authenticated staff endpoint. */
+  dobYmd?: string;
+  /** Used to prefer the newest valid waiver when a child appears more than once. */
+  waiverSignedAt?: string;
+  /** Children covered by the original waiver; adults/signers are intentionally omitted. */
+  waiverParticipants?: StaffWaiverParticipant[];
 };
 
 export const MAX_WAIVER_SEARCH_QUERY_LENGTH = 80;
@@ -57,9 +81,6 @@ export function normalizeSearchQuery(raw: string | null | undefined): string {
   const trimmed = (raw ?? "").trim().replace(/\s+/g, " ");
   if (!trimmed) {
     throw new WaiverSearchValidationError("Search query is required");
-  }
-  if (trimmed.length < 2) {
-    throw new WaiverSearchValidationError("Search query must be at least 2 characters");
   }
   if (trimmed.length > MAX_WAIVER_SEARCH_QUERY_LENGTH) {
     throw new WaiverSearchValidationError(
