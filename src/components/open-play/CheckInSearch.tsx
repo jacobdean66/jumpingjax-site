@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { AdultCheckInControls } from "@/components/open-play/AdultCheckInControls";
 import { ChildCheckInControls } from "@/components/open-play/ChildCheckInControls";
 import { ageInCompletedYearsOnDate } from "@/lib/open-play/pricing";
 import type {
   BirthdayPartyOption,
+  AdultPlayMode,
   PaymentMethodChoice,
   SelectedAttendeeDraft,
   StaffSearchResult,
@@ -47,6 +49,7 @@ type ResultsProps = {
   visitDateYmd: string;
   birthdayParties: BirthdayPartyOption[];
   onLocationToggle: (participant: StaffWaiverParticipant) => void;
+  onAdultModeChange: (selectionKey: string, mode: AdultPlayMode) => void;
   onPaymentMethodChange: (selectionKey: string, method: PaymentMethodChoice) => void;
   onPriceChange: (selectionKey: string, amountCents: number) => void;
   onPaymentConfirmedChange: (selectionKey: string, confirmed: boolean) => void;
@@ -83,7 +86,7 @@ function participantRole(role: StaffWaiverParticipant["role"]): string {
 
 export function CheckInSearchResults({
   results, loading, error, attendees, visitDateYmd, birthdayParties,
-  onLocationToggle, onPaymentMethodChange, onPriceChange,
+  onLocationToggle, onAdultModeChange, onPaymentMethodChange, onPriceChange,
   onPaymentConfirmedChange, onBirthdayPartyChange,
   emptyMessage = "No matching waivers found.", statusRef,
 }: ResultsProps) {
@@ -163,8 +166,9 @@ export function CheckInSearchResults({
                           <div key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-black text-slate-950">{participant.fullName}</p><span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black uppercase text-slate-700">{participantRole(participant.role)}</span></div>
                             <p className="mt-1 text-sm font-semibold text-slate-600">Birthday {displayDob(participant.dobYmd)} · Age {childAge(participant.dobYmd, visitDateYmd)}</p>
-                            {isChild && !blocked ? <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(participant)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : "Mark child on location"}</button> : null}
-                            {attendee ? <ChildCheckInControls attendee={attendee} birthdayParties={birthdayParties} onPaymentMethodChange={onPaymentMethodChange} onPriceChange={onPriceChange} onPaymentConfirmedChange={onPaymentConfirmedChange} onBirthdayPartyChange={onBirthdayPartyChange} /> : null}
+                            {!blocked ? <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(participant)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : isChild ? "Mark child on location" : "Mark adult on location"}</button> : null}
+                            {attendee && isChild ? <ChildCheckInControls attendee={attendee} birthdayParties={birthdayParties} onPaymentMethodChange={onPaymentMethodChange} onPriceChange={onPriceChange} onPaymentConfirmedChange={onPaymentConfirmedChange} onBirthdayPartyChange={onBirthdayPartyChange} /> : null}
+                            {attendee && !isChild ? <AdultCheckInControls attendee={attendee} onAdultModeChange={onAdultModeChange} onPaymentMethodChange={onPaymentMethodChange} onPaymentConfirmedChange={onPaymentConfirmedChange} /> : null}
                           </div>
                         );
                       })}

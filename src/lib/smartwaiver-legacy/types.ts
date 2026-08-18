@@ -38,7 +38,7 @@ export type DedupedWaiverRecord = Readonly<{
 export type ParticipantRole = "child" | "adult_signer" | "adult_covered";
 
 export type ProjectedLegacyParticipant = Readonly<{
-  participantSlot: "primary" | "additional_minor";
+  participantSlot: "primary" | "signer" | "additional_minor";
   minorIndex: number | null;
   firstName: string;
   lastName: string;

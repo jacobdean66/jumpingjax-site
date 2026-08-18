@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { rateLimit } from "@/lib/rate-limit";
-import { requireOwnerAuth, publicSafeError } from "@/lib/open-play/staff-auth";
+import { requireStaffAuth, publicSafeError } from "@/lib/open-play/staff-auth";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function PATCH(req: Request) {
   });
   if (limited) return limited;
 
-  const auth = await requireOwnerAuth();
+  const auth = await requireStaffAuth();
   if (!auth.ok) return auth.response;
 
   let body: Record<string, unknown>;
@@ -29,6 +29,11 @@ export async function PATCH(req: Request) {
   const attendeeId = typeof body.attendeeId === "string" ? body.attendeeId : "";
   const visitId = typeof body.visitId === "string" ? body.visitId : "";
   const paymentOption = typeof body.paymentOption === "string" ? body.paymentOption : "";
+  const adultMode = body.adultMode === "playing"
+    ? "playing"
+    : body.adultMode === "watching"
+      ? "watching"
+      : null;
   const amountCents = Number(body.amountCents);
   const source = body.source === "native" ? "native" : body.source === "legacy_smartwaiver" ? "legacy_smartwaiver" : null;
 
@@ -45,6 +50,18 @@ export async function PATCH(req: Request) {
   ) {
     return NextResponse.json(
       { ok: false, error: "Enter a valid amount and payment option." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    adultMode &&
+    ((adultMode === "watching" && (amountCents !== 0 || paymentOption !== "free_pass")) ||
+      (adultMode === "playing" &&
+        (amountCents !== 700 || (paymentOption !== "cash" && paymentOption !== "card"))))
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Watching adults are free; playing adults are $7 paid by cash or card." },
       { status: 400 },
     );
   }
@@ -72,6 +89,35 @@ export async function PATCH(req: Request) {
       { ok: false, error: "This child check-in is no longer active." },
       { status: 404 },
     );
+  }
+
+  if (adultMode) {
+    const rpcName = source === "native"
+      ? "update_open_play_adult_attendance_atomic"
+      : "update_legacy_open_play_adult_attendance_atomic";
+    const { data: rpcData, error: rpcError } = await supabase.rpc(rpcName, {
+      p_attendee_id: attendeeId,
+      p_visit_id: visitId,
+      p_mode: adultMode,
+      p_payment_method: adultMode === "playing" ? paymentOption : null,
+      p_staff_id: auth.auth.identity.id,
+    });
+    if (rpcError) return publicSafeError("database", 503, "Unable to update adult attendance");
+    const outcome = rpcData as { outcome?: string } | null;
+    if (outcome?.outcome !== "updated") {
+      return NextResponse.json(
+        { ok: false, error: outcome?.outcome === "not_adult" ? "Only adult check-ins can use watching or playing." : "Unable to update adult attendance." },
+        { status: outcome?.outcome === "not_found" ? 404 : 400 },
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      admission: {
+        amountCents,
+        paymentOption,
+        classification: adultMode === "playing" ? "playing_adult" : "watching_adult",
+      },
+    });
   }
 
   const { data: entries, error: entriesError } = await supabase
