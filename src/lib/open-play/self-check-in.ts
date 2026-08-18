@@ -3,12 +3,13 @@ import { ageInCompletedYearsOnDate, isYmd } from "./pricing";
 export type SelfCheckInInput = {
   firstName: string;
   lastName: string;
-  ageYears: number;
+  ageYears: number | null;
 };
 
 export type SelfCheckInSelection = {
   source: "native" | "legacy";
   participantId: string;
+  paymentMethod: "cash" | "card";
 };
 
 export class SelfCheckInValidationError extends Error {
@@ -31,9 +32,16 @@ export function parseSelfCheckInInput(value: unknown): SelfCheckInInput {
   const body = (value ?? {}) as Record<string, unknown>;
   const firstName = normalizeSelfCheckInName(body.firstName, "first name");
   const lastName = normalizeSelfCheckInName(body.lastName, "last name");
-  const ageYears =
-    typeof body.age === "number" ? body.age : Number(String(body.age ?? "").trim());
-  if (!Number.isInteger(ageYears) || ageYears < 0 || ageYears > 120) {
+  const rawAge = String(body.age ?? "").trim();
+  const ageYears = rawAge === ""
+    ? null
+    : typeof body.age === "number"
+      ? body.age
+      : Number(rawAge);
+  if (
+    ageYears !== null &&
+    (!Number.isInteger(ageYears) || ageYears < 0 || ageYears > 120)
+  ) {
     throw new SelfCheckInValidationError("Enter a valid age from 0 to 120.");
   }
   return { firstName, lastName, ageYears };
@@ -43,16 +51,26 @@ export function parseSelfCheckInSelection(value: unknown): SelfCheckInSelection 
   const body = (value ?? {}) as Record<string, unknown>;
   const source = body.source;
   const participantId = typeof body.participantId === "string" ? body.participantId.trim() : "";
-  if ((source !== "native" && source !== "legacy") || !participantId || participantId.length > 100) {
+  const paymentMethod = body.paymentMethod;
+  if (
+    (source !== "native" && source !== "legacy") ||
+    !participantId ||
+    participantId.length > 100 ||
+    (paymentMethod !== "cash" && paymentMethod !== "card")
+  ) {
     throw new SelfCheckInValidationError("Choose a waiver from the list.");
   }
-  return { source, participantId };
+  return { source, participantId, paymentMethod };
 }
 
-export function dobMatchesAge(dobYmd: string | null, visitDateYmd: string, age: number): boolean {
+export function dobMatchesAge(
+  dobYmd: string | null,
+  visitDateYmd: string,
+  age: number | null,
+): boolean {
   if (!dobYmd || !isYmd(dobYmd) || !isYmd(visitDateYmd)) return false;
   try {
-    return ageInCompletedYearsOnDate(dobYmd, visitDateYmd) === age;
+    return age === null || ageInCompletedYearsOnDate(dobYmd, visitDateYmd) === age;
   } catch {
     return false;
   }

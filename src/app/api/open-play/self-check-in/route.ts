@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return publicSafeError("invalid_json", 400, "Enter your name and age.");
+    return publicSafeError("invalid_json", 400, "Enter your first and last name.");
   }
 
   try {

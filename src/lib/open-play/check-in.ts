@@ -58,6 +58,7 @@ export function prepareVisitAttendees(options: {
   }
 
   const seen = new Set<string>();
+  const seenIdentities = new Set<string>();
   const prepared: PreparedAttendee[] = [];
 
   for (const request of options.requests) {
@@ -74,6 +75,11 @@ export function prepareVisitAttendees(options: {
     if (!participant) {
       throw new CheckInValidationError(`Participant not found: ${participantId}`);
     }
+    const identity = `${participant.firstName.trim().toLowerCase()}|${participant.lastName.trim().toLowerCase()}|${participant.dob}`;
+    if (seenIdentities.has(identity)) {
+      throw new CheckInValidationError("Duplicate child in the same visit");
+    }
+    seenIdentities.add(identity);
     if (participant.submissionStatus !== "completed") {
       throw new CheckInValidationError("Only completed waivers can be checked in");
     }

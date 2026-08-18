@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CheckInGroupPanel } from "@/components/open-play/CheckInGroupPanel";
 import {
   CheckInSearchForm,
   CheckInSearchResults,
@@ -20,7 +19,7 @@ import {
   resultToDraft,
   searchWaivers,
   todayBusinessDayYmd,
-  type AdultPlayMode,
+  type BirthdayPartyOption,
   type CheckInStep,
   type PaymentMethodChoice,
   type SelectedAttendeeDraft,
@@ -28,24 +27,23 @@ import {
   type StaffSearchResult,
   type VisitCreateSuccess,
 } from "@/lib/open-play/check-in-client";
-
-const SEARCH_DEBOUNCE_MS = 400;
+import { classifyChildAdmission } from "@/lib/open-play/pricing";
+import type { StaffWaiverParticipant } from "@/lib/waivers/search";
 
 type Props = {
   visitDateYmd?: string;
+  birthdayParties?: BirthdayPartyOption[];
 };
 
-export function CheckInClient({ visitDateYmd }: Props) {
+export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
   const router = useRouter();
   const resolvedVisitDate = visitDateYmd ?? todayBusinessDayYmd();
 
   const [step, setStep] = useState<CheckInStep>("search");
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [results, setResults] = useState<StaffSearchResult[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [explicitSearchToken, setExplicitSearchToken] = useState(0);
 
   const [attendees, setAttendees] = useState<SelectedAttendeeDraft[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -60,27 +58,12 @@ export function CheckInClient({ visitDateYmd }: Props) {
   const searchRequestIdRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
-  const selectedIds = useMemo(
-    () => new Set(attendees.map((item) => item.selectionKey)),
-    [attendees],
-  );
-
   const totals = useMemo(
     () => computeGroupTotalsPreview(attendees, resolvedVisitDate),
     [attendees, resolvedVisitDate],
   );
 
-  // Debounce typed search; do not hit the API on every keystroke.
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedQuery(query.trim());
-    }, SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(handle);
-  }, [query]);
-
-  const searchActive = step === "search" && debouncedQuery.length >= 2;
-  // Never leave results from an older, valid query visible after the search
-  // text is shortened below the API's two-character minimum.
+  const searchActive = step === "search" && query.trim().length >= 1;
   const displayResults = searchActive ? results : null;
   const displaySearchLoading = searchActive && searchLoading;
   const displaySearchError = searchActive ? searchError : null;
@@ -91,7 +74,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
       return;
     }
 
-    const q = debouncedQuery;
+    const q = query.trim();
     const requestId = ++searchRequestIdRef.current;
     const controller = new AbortController();
     searchAbortRef.current?.abort();
@@ -129,7 +112,7 @@ export function CheckInClient({ visitDateYmd }: Props) {
       cancelled = true;
       controller.abort();
     };
-  }, [searchActive, debouncedQuery, explicitSearchToken, router]);
+  }, [searchActive, query, router]);
 
   useEffect(() => {
     if (step === "success") {
@@ -147,21 +130,29 @@ export function CheckInClient({ visitDateYmd }: Props) {
     }
   }, [submitError]);
 
-  function handleExplicitSearch() {
-    const trimmed = query.trim();
-    setDebouncedQuery(trimmed);
-    setExplicitSearchToken((value) => value + 1);
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setSearchError(null);
+    if (value.trim()) {
+      setSearchLoading(true);
+      setResults(null);
+    } else {
+      searchAbortRef.current?.abort();
+      setSearchLoading(false);
+      setResults(null);
+    }
   }
 
-  function addAttendee(result: StaffSearchResult) {
+  function toggleLocation(result: StaffWaiverParticipant) {
     if (result.expired) return;
     if (result.source === "legacy_smartwaiver" && result.checkInEligible === false) {
       return;
     }
-    const key = result.selectionKey || result.participantId;
     setAttendees((current) => {
-      if (current.some((item) => item.selectionKey === key)) {
-        return current;
+      const draft = resultToDraft(result);
+      const existing = current.find((item) => item.identityKey === draft.identityKey);
+      if (existing) {
+        return current.filter((item) => item.identityKey !== draft.identityKey);
       }
       if (current.length > 0 && current[0]?.source !== result.source) {
         setSubmitError(
@@ -169,37 +160,12 @@ export function CheckInClient({ visitDateYmd }: Props) {
         );
         return current;
       }
-      return [...current, resultToDraft(result)];
+      const defaultPrice = classifyChildAdmission(result.dobYmd, resolvedVisitDate).unitPriceCents;
+      return [...current, { ...draft, priceOverrideCents: defaultPrice }];
     });
     if (attendees.length === 0 || attendees[0]?.source === result.source) {
       setSubmitError(null);
-      window.requestAnimationFrame(() => {
-        document.getElementById("check-in-group-heading")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
     }
-  }
-
-  function removeAttendee(selectionKey: string) {
-    setAttendees((current) =>
-      current.filter((item) => item.selectionKey !== selectionKey),
-    );
-  }
-
-  function setAdultMode(selectionKey: string, mode: AdultPlayMode) {
-    setAttendees((current) =>
-      current.map((item) => {
-        if (item.selectionKey !== selectionKey) return item;
-        return {
-          ...item,
-          adultMode: mode,
-          paymentMethod: mode === "watching" ? null : item.paymentMethod,
-          priceOverrideCents: mode === "watching" ? null : item.priceOverrideCents,
-        };
-      }),
-    );
   }
 
   function setPaymentMethod(
@@ -212,11 +178,15 @@ export function CheckInClient({ visitDateYmd }: Props) {
           ? {
               ...item,
               paymentMethod: method,
+              paymentConfirmed: false,
+              birthdayPartyId: null,
+              birthdayPartyLabel: null,
               priceOverrideCents:
-                method === "free_pass"
+                method === "free_pass" || method === "birthday_party"
                   ? 0
-                  : item.paymentMethod === "free_pass"
-                    ? null
+                  : item.paymentMethod === "free_pass" ||
+                      item.paymentMethod === "birthday_party"
+                    ? classifyChildAdmission(item.dobYmd, resolvedVisitDate).unitPriceCents
                     : item.priceOverrideCents,
             }
           : item,
@@ -224,11 +194,46 @@ export function CheckInClient({ visitDateYmd }: Props) {
     );
   }
 
-  function setPrice(selectionKey: string, amountCents: number | null) {
+  function setPrice(selectionKey: string, amountCents: number) {
     setAttendees((current) =>
       current.map((item) =>
         item.selectionKey === selectionKey
-          ? { ...item, priceOverrideCents: amountCents }
+          ? {
+              ...item,
+              priceOverrideCents: amountCents,
+              paymentConfirmed: false,
+              paymentMethod:
+                item.paymentMethod === "free_pass" || item.paymentMethod === "birthday_party"
+                  ? null
+                  : item.paymentMethod,
+              birthdayPartyId: null,
+              birthdayPartyLabel: null,
+            }
+          : item,
+      ),
+    );
+  }
+
+  function setPaymentConfirmed(selectionKey: string, confirmed: boolean) {
+    setAttendees((current) =>
+      current.map((item) =>
+        item.selectionKey === selectionKey ? { ...item, paymentConfirmed: confirmed } : item,
+      ),
+    );
+  }
+
+  function setBirthdayParty(
+    selectionKey: string,
+    party: BirthdayPartyOption | null,
+  ) {
+    setAttendees((current) =>
+      current.map((item) =>
+        item.selectionKey === selectionKey
+          ? {
+              ...item,
+              birthdayPartyId: party?.id ?? null,
+              birthdayPartyLabel: party?.label ?? null,
+            }
           : item,
       ),
     );
@@ -251,10 +256,18 @@ export function CheckInClient({ visitDateYmd }: Props) {
       const nativeBody = buildVisitCreateBody({
         visitDateYmd: resolvedVisitDate,
         attendees,
+        notes: attendees
+          .filter((item) => item.paymentMethod === "birthday_party")
+          .map((item) => `${item.fullName} attending ${item.birthdayPartyLabel}`)
+          .join("; ") || null,
       });
       const legacyBody = buildLegacyCheckInBody({
         visitDateYmd: resolvedVisitDate,
         attendees,
+        notes: attendees
+          .filter((item) => item.paymentMethod === "birthday_party")
+          .map((item) => `${item.fullName} attending ${item.birthdayPartyLabel}`)
+          .join("; ") || null,
       });
 
       let created: VisitCreateSuccess | null = null;
@@ -286,7 +299,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
       setAttendees([]);
       setResults(null);
       setQuery("");
-      setDebouncedQuery("");
       setStep("success");
       router.refresh();
     } catch (error) {
@@ -314,7 +326,6 @@ export function CheckInClient({ visitDateYmd }: Props) {
     setAttendees([]);
     setResults(null);
     setQuery("");
-    setDebouncedQuery("");
     setSearchError(null);
     setStep("search");
     window.requestAnimationFrame(() => {
@@ -342,20 +353,10 @@ export function CheckInClient({ visitDateYmd }: Props) {
 
       <CheckInSearchForm
         query={query}
-        onQueryChange={setQuery}
-        onSubmit={handleExplicitSearch}
+        onQueryChange={handleQueryChange}
         loading={displaySearchLoading}
         disabled={submitting}
         inputRef={searchInputRef}
-      />
-
-      <CheckInGroupPanel
-        attendees={attendees}
-        visitDateYmd={resolvedVisitDate}
-        onRemove={removeAttendee}
-        onAdultModeChange={setAdultMode}
-        onPaymentMethodChange={setPaymentMethod}
-        onPriceChange={setPrice}
       />
 
       {attendees.length > 0 ? (
@@ -400,8 +401,14 @@ export function CheckInClient({ visitDateYmd }: Props) {
           results={displayResults}
           loading={displaySearchLoading}
           error={displaySearchError}
-          selectedIds={selectedIds}
-          onSelect={addAttendee}
+          attendees={attendees}
+          visitDateYmd={resolvedVisitDate}
+          birthdayParties={birthdayParties}
+          onLocationToggle={toggleLocation}
+          onPaymentMethodChange={setPaymentMethod}
+          onPriceChange={setPrice}
+          onPaymentConfirmedChange={setPaymentConfirmed}
+          onBirthdayPartyChange={setBirthdayParty}
           statusRef={searchStatusRef}
         />
       </section>

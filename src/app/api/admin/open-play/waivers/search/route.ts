@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const limited = rateLimit(req, {
     scope: "admin-open-play-waiver-search",
-    limit: 120,
+    // The admin desk intentionally searches after every typed letter.
+    limit: 1200,
     windowMs: 60 * 60 * 1000,
   });
   if (limited) return limited;

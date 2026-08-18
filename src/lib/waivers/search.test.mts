@@ -81,9 +81,9 @@ test("expired results remain visible with expired flag and privacy-minimized fie
   assert.equal((results[0] as { dob?: string }).dob, undefined);
 });
 
-test("search query validation rejects short, empty, and wildcard queries", () => {
+test("search accepts one letter and rejects empty or wildcard queries", () => {
   assert.throws(() => normalizeSearchQuery(" "), WaiverSearchValidationError);
-  assert.throws(() => normalizeSearchQuery("a"), WaiverSearchValidationError);
+  assert.equal(normalizeSearchQuery("A"), "A");
   assert.throws(() => normalizeSearchQuery("%"), WaiverSearchValidationError);
   assert.throws(() => normalizeSearchQuery("sm_th"), WaiverSearchValidationError);
   assert.throws(() => normalizeSearchQuery("a,b"), WaiverSearchValidationError);
