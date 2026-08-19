@@ -44,7 +44,14 @@ const nextConfig: NextConfig = {
   images: {
     // Qualities used across rental cards / detail / homepage.
     qualities: [70, 72, 74, 75, 78, 82],
-    remotePatterns: supabaseStorageRemotePatterns(),
+    remotePatterns: [
+      ...supabaseStorageRemotePatterns(),
+      {
+        protocol: "https",
+        hostname: "api.qrserver.com",
+        pathname: "/v1/create-qr-code/**",
+      },
+    ],
   },
   turbopack: {
     root: process.cwd(),

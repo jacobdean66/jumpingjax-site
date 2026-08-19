@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useId,
@@ -73,6 +73,7 @@ function ErrorSummary({
 
 export function WaiverFormClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<WaiverFormStep>("signer");
   const [state, setState] = useState<WaiverFormState>(() =>
     createInitialWaiverFormState(),
@@ -238,7 +239,18 @@ export function WaiverFormClient() {
     }
 
     // Navigate with the server-issued completion token only (not PII).
-    router.replace(`/waiver/complete/${encodeURIComponent(result.publicToken)}`);
+    const completionParams = new URLSearchParams();
+    if (isFacilityPartyWaiver) {
+      completionParams.set("source", "facility-party");
+      completionParams.set("booking", searchParams.get("booking") ?? "");
+      if (facilityPartyDate) completionParams.set("date", facilityPartyDate);
+    }
+    const completionQuery = completionParams.toString();
+    router.replace(
+      `/waiver/complete/${encodeURIComponent(result.publicToken)}${
+        completionQuery ? `?${completionQuery}` : ""
+      }`,
+    );
   };
 
   const stepTitle =
@@ -253,6 +265,10 @@ export function WaiverFormClient() {
             : step === "submit"
               ? "Submitting…"
               : "Review and submit";
+  const facilityPartyDate = searchParams.get("date");
+  const isFacilityPartyWaiver =
+    searchParams.get("source") === "facility-party" &&
+    Boolean(searchParams.get("booking"));
 
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-8 text-slate-950 sm:px-6 sm:py-12">
@@ -280,6 +296,16 @@ export function WaiverFormClient() {
           need a new waiver. This form does not collect Open Play admission
           payment.
         </p>
+        {isFacilityPartyWaiver ? (
+          <div className="mt-4 rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold leading-relaxed text-orange-950">
+            <p>Birthday party waiver</p>
+            <p className="mt-1 font-semibold">
+              Complete this before the Jumping Jax facility party
+              {facilityPartyDate ? ` on ${facilityPartyDate}` : ""}. Staff will
+              use the signed waiver during check-in.
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-6">
           <WaiverStepProgress current={step === "submit" ? "review" : step} />

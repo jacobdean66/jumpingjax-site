@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
   defaultFromYmd,
@@ -86,6 +88,18 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         {(booking.status === "pending" || booking.status === "confirmed") && (
           <div className="flex flex-wrap gap-2 print:hidden">
             <FacilityEditButton booking={booking} />
+            <Link
+              href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
+              className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
+            >
+              Invitations
+            </Link>
+            <Link
+              href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
+              className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+            >
+              Guest list
+            </Link>
             {booking.status === "pending" && (
               <>
                 <BookingActionButton
@@ -141,6 +155,14 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             <Detail label="Age" value={booking.childAge ?? "Not set"} />
             <Detail label="Gender" value={booking.childGender ?? "Not set"} />
             <Detail label="Theme" value={booking.partyTheme ?? "Not set"} />
+            <Detail
+              label="Invitations"
+              value={booking.invitationDeliveryLabel}
+            />
+            <Detail
+              label="Invite design"
+              value={booking.invitationTemplateLabel}
+            />
             <Detail
               label="Balloon colors"
               value={booking.balloonColors ?? "Not set"}

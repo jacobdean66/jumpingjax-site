@@ -20,7 +20,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const FACILITY_EDIT_SELECT =
-  "id, status, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
+  "id, status, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
 
 type FacilityEditRow = FacilityBookingCalendarFields & {
   status: string;
@@ -163,6 +163,9 @@ export async function PATCH(
       child_age: parsed.value.childAge,
       child_gender: parsed.value.childGender,
       party_theme: parsed.value.partyTheme,
+      invitation_delivery_preference:
+        parsed.value.invitationDeliveryPreference,
+      invitation_template_id: parsed.value.invitationTemplateId,
       balloon_colors: parsed.value.balloonColors,
       table_cloth_colors: parsed.value.tableClothColors,
       drink_choice: parsed.value.drinkChoice,

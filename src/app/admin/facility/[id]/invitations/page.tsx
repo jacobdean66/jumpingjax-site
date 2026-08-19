@@ -1,0 +1,256 @@
+import Link from "next/link";
+
+import {
+  AdminAuthError,
+  AdminHeader,
+  AdminNav,
+  AdminShell,
+} from "@/app/admin/_components";
+import { PrintButton } from "@/app/admin/PrintButton";
+import { FacilityInvitationPreview } from "@/components/facility-parties/FacilityInvitationPreview";
+import { verifyAdminAccess } from "@/lib/admin/session";
+import {
+  buildFacilityWaiverInvitationUrl,
+  buildQrCodeImageUrl,
+  invitationTemplateLabel,
+  invitationDeliveryPreferenceLabel,
+  normalizeInvitationDeliveryPreference,
+  normalizeInvitationTemplateId,
+  resolveInvitationTheme,
+} from "@/lib/facility-parties/invitations";
+import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ layout?: string; token?: string }>;
+};
+
+type FacilityInvitationRow = {
+  id: string;
+  status: string | null;
+  customer_name: string | null;
+  email: string | null;
+  phone: string | null;
+  readable_date: string | null;
+  readable_time: string | null;
+  party_label: string | null;
+  parent_name: string | null;
+  child_name: string | null;
+  child_age: string | null;
+  party_theme: string | null;
+  invitation_delivery_preference: string | null;
+  invitation_template_id: string | null;
+};
+
+function clean(value: string | null | undefined): string {
+  return value?.trim() || "";
+}
+
+function mailtoLink(input: {
+  email: string | null;
+  childName: string;
+  date: string;
+  waiverUrl: string;
+}): string | null {
+  const email = clean(input.email);
+  if (!email) return null;
+  const subject = "Jumping Jax birthday party invitation link";
+  const body = [
+    `Here is the Jumping Jax waiver link for ${input.childName || "the birthday party"}.`,
+    "",
+    input.date ? `Party date: ${input.date}` : "",
+    `Waiver link: ${input.waiverUrl}`,
+    "",
+    "Guests can complete the waiver before the party.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(body)}`;
+}
+
+export default async function FacilityInvitationsPage({
+  params,
+  searchParams,
+}: Props) {
+  const resolvedParams = await params;
+  const resolvedSearch = await searchParams;
+  const auth = await verifyAdminAccess(resolvedSearch?.token ?? "");
+  if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("facility_bookings")
+    .select(
+      "id, status, customer_name, email, phone, readable_date, readable_time, party_label, parent_name, child_name, child_age, party_theme, invitation_delivery_preference, invitation_template_id",
+    )
+    .eq("id", resolvedParams.id)
+    .maybeSingle<FacilityInvitationRow>();
+
+  if (error) throw new Error(error.message);
+
+  if (!data) {
+    return (
+      <AdminShell>
+        <AdminHeader eyebrow="Facility Invitations" title="Party not found" />
+        <AdminNav token="" role={auth.role} active="facility" />
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
+          <p className="font-bold">This facility party could not be found.</p>
+        </div>
+      </AdminShell>
+    );
+  }
+
+  const waiverUrl = buildFacilityWaiverInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: data.id,
+    partyDate: data.readable_date,
+  });
+  const qrUrl = buildQrCodeImageUrl(waiverUrl, 240);
+  const preference = normalizeInvitationDeliveryPreference(
+    data.invitation_delivery_preference,
+  );
+  const templateId = normalizeInvitationTemplateId(data.invitation_template_id);
+  const layout = resolvedSearch?.layout === "single" ? "single" : "sheet";
+  const tokenQuery = resolvedSearch?.token
+    ? `&token=${encodeURIComponent(resolvedSearch.token)}`
+    : "";
+  const singleHref = `/admin/facility/${encodeURIComponent(
+    data.id,
+  )}/invitations?layout=single${tokenQuery}`;
+  const sheetHref = `/admin/facility/${encodeURIComponent(
+    data.id,
+  )}/invitations?layout=sheet${tokenQuery}`;
+  const emailHref = mailtoLink({
+    email: data.email,
+    childName: clean(data.child_name),
+    date: clean(data.readable_date),
+    waiverUrl,
+  });
+
+  return (
+    <AdminShell>
+      <AdminHeader
+        eyebrow="Facility Invitations"
+        title={`${clean(data.child_name) || "Birthday"} invitations`}
+      >
+        <div className="flex flex-wrap gap-2">
+          <PrintButton label="Print invitations" />
+          <Link
+            href={singleHref}
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            Single invite
+          </Link>
+          <Link
+            href={sheetHref}
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            4-up sheet
+          </Link>
+          {emailHref ? (
+            <Link
+              href={emailHref}
+              className="rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-white hover:bg-sky-600"
+            >
+              Email link
+            </Link>
+          ) : null}
+          <Link
+            href={`/admin/facility/${encodeURIComponent(data.id)}/guest-list`}
+            className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"
+          >
+            Guest list
+          </Link>
+          <Link
+            href={`/admin/facility#booking-${encodeURIComponent(data.id)}`}
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            Back to facility
+          </Link>
+        </div>
+      </AdminHeader>
+      <AdminNav token="" role={auth.role} active="facility" />
+
+      <style>{`
+        @media print {
+          @page {
+            size: letter landscape;
+            margin: 0.35in;
+          }
+        }
+      `}</style>
+
+      <section className="mt-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 print:hidden">
+        <div className="grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Customer
+            </span>
+            {clean(data.customer_name) || "Guest"}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Party
+            </span>
+            {clean(data.party_label) || "Facility party"}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Preference
+            </span>
+            {invitationDeliveryPreferenceLabel(preference)}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Design
+            </span>
+            {invitationTemplateLabel(templateId)}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Waiver link
+            </span>
+            <Link className="text-sky-700 underline" href={waiverUrl}>
+              Open waiver
+            </Link>
+          </p>
+        </div>
+        {preference === "office_pickup" ? (
+          <p className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-950">
+            Customer asked to pick these up at the office when they pay the deposit.
+          </p>
+        ) : null}
+      </section>
+
+      <section
+        className={
+          layout === "single"
+            ? "mx-auto mt-6 max-w-xl print:mt-0"
+            : "mt-6 grid gap-4 md:grid-cols-2 print:mt-0 print:grid-cols-2 print:gap-[0.18in]"
+        }
+      >
+        {(layout === "single" ? [1] : [1, 2, 3, 4]).map((copy) => (
+          <FacilityInvitationPreview
+            key={copy}
+            childName={clean(data.child_name) || "You're invited"}
+            partyTheme={
+              clean(data.party_theme) || resolveInvitationTheme(data.party_theme).label
+            }
+            readableDate={clean(data.readable_date)}
+            readableTime={clean(data.readable_time)}
+            waiverUrl={waiverUrl}
+            qrUrl={qrUrl}
+            templateId={templateId}
+            copy={layout === "single" ? undefined : copy}
+            mode={layout === "single" ? "single" : "sheet"}
+          />
+        ))}
+      </section>
+    </AdminShell>
+  );
+}
