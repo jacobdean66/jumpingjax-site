@@ -1,4 +1,12 @@
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
+import {
+  invitationDeliveryPreferenceLabel,
+  invitationTemplateLabel,
+  normalizeInvitationDeliveryPreference,
+  normalizeInvitationTemplateId,
+  type FacilityInvitationDeliveryPreference,
+  type FacilityInvitationTemplateId,
+} from "@/lib/facility-parties/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
 
@@ -8,7 +16,7 @@ const RENTAL_SELECT =
   "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 const FACILITY_SELECT =
-  "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total";
+  "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total";
 
 type RentalRow = {
   id: string | number;
@@ -72,6 +80,8 @@ type FacilityRow = {
   child_gender: string | null;
   child_age: string | null;
   party_theme: string | null;
+  invitation_delivery_preference: string | null;
+  invitation_template_id: string | null;
   balloon_colors: string | null;
   table_cloth_colors: string | null;
   drink_choice: string | null;
@@ -145,6 +155,10 @@ export type AdminFacilityBooking = {
   childGender: string | null;
   childAge: string | null;
   partyTheme: string | null;
+  invitationDeliveryPreference: FacilityInvitationDeliveryPreference;
+  invitationDeliveryLabel: string;
+  invitationTemplateId: FacilityInvitationTemplateId;
+  invitationTemplateLabel: string;
   balloonColors: string | null;
   tableClothColors: string | null;
   drinkChoice: string | null;
@@ -390,6 +404,11 @@ export async function loadAdminFacilityBookings(input: {
     const calendarStatus = workflow?.calendar_status ?? null;
     const status = clean(row.status) ?? "pending";
     const needsRepair = status === "confirmed" && calendarStatus === "failed";
+    const invitationDeliveryPreference =
+      normalizeInvitationDeliveryPreference(row.invitation_delivery_preference);
+    const invitationTemplateId = normalizeInvitationTemplateId(
+      row.invitation_template_id,
+    );
 
     return {
       id: row.id,
@@ -407,6 +426,12 @@ export async function loadAdminFacilityBookings(input: {
       childGender: clean(row.child_gender),
       childAge: clean(row.child_age),
       partyTheme: clean(row.party_theme),
+      invitationDeliveryPreference,
+      invitationDeliveryLabel: invitationDeliveryPreferenceLabel(
+        invitationDeliveryPreference,
+      ),
+      invitationTemplateId,
+      invitationTemplateLabel: invitationTemplateLabel(invitationTemplateId),
       balloonColors: clean(row.balloon_colors),
       tableClothColors: clean(row.table_cloth_colors),
       drinkChoice: clean(row.drink_choice),

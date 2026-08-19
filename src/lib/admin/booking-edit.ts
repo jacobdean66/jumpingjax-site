@@ -2,6 +2,12 @@ import {
   normalizeRentalStatus,
   rentalAppearsInActiveSchedule,
 } from "@/lib/bookings/rental-lifecycle";
+import {
+  normalizeInvitationDeliveryPreference,
+  normalizeInvitationTemplateId,
+  type FacilityInvitationDeliveryPreference,
+  type FacilityInvitationTemplateId,
+} from "@/lib/facility-parties/invitations";
 
 export const FACILITY_EDITABLE_STATUSES = ["pending", "confirmed"] as const;
 
@@ -102,6 +108,8 @@ export type FacilityEditInput = {
   childAge: string | null;
   childGender: string | null;
   partyTheme: string | null;
+  invitationDeliveryPreference: FacilityInvitationDeliveryPreference;
+  invitationTemplateId: FacilityInvitationTemplateId;
   balloonColors: string | null;
   tableClothColors: string | null;
   drinkChoice: string | null;
@@ -235,6 +243,13 @@ export function parseFacilityEditInput(
   const partyTheme = optionalTrimmed(raw.partyTheme, "Party theme", 120);
   if (!partyTheme.ok) return partyTheme;
 
+  const invitationDeliveryPreference = normalizeInvitationDeliveryPreference(
+    raw.invitationDeliveryPreference,
+  );
+  const invitationTemplateId = normalizeInvitationTemplateId(
+    raw.invitationTemplateId,
+  );
+
   const balloonColors = optionalTrimmed(
     raw.balloonColors,
     "Balloon colors",
@@ -273,6 +288,8 @@ export function parseFacilityEditInput(
       childAge: childAge.value,
       childGender: childGender.value,
       partyTheme: partyTheme.value,
+      invitationDeliveryPreference,
+      invitationTemplateId,
       balloonColors: balloonColors.value,
       tableClothColors: tableClothColors.value,
       drinkChoice: drinkChoice.value,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -12,7 +12,7 @@ import {
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ok"; data: CompletionSuccess }
+  | { status: "ok"; data: CompletionSuccess; partyMessage: string | null }
   | { status: "error"; data: CompletionFailure };
 
 function formatExpiresOn(ymd: string): string {
@@ -29,7 +29,12 @@ function formatExpiresOn(ymd: string): string {
 
 export function WaiverCompleteClient() {
   const params = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
   const token = typeof params.token === "string" ? params.token : "";
+  const partyBookingId = searchParams.get("booking") ?? "";
+  const partyDate = searchParams.get("date");
+  const isFacilityParty =
+    searchParams.get("source") === "facility-party" && Boolean(partyBookingId);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const requestIdRef = useRef(0);
 
@@ -44,13 +49,37 @@ export function WaiverCompleteClient() {
       });
       if (controller.signal.aborted || requestIdRef.current !== requestId) return;
       if (result.ok) {
-        setState({ status: "ok", data: result });
+        let partyMessage: string | null = null;
+        if (isFacilityParty) {
+          try {
+            const response = await fetch("/api/facility-party/check-in/complete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              cache: "no-store",
+              signal: controller.signal,
+              body: JSON.stringify({
+                bookingId: partyBookingId,
+                partyDate,
+                publicToken: token,
+              }),
+            });
+            const payload = (await response.json().catch(() => null)) as
+              | { ok?: boolean; message?: string }
+              | null;
+            if (response.ok && payload?.ok && payload.message) {
+              partyMessage = payload.message;
+            }
+          } catch {
+            partyMessage = null;
+          }
+        }
+        setState({ status: "ok", data: result, partyMessage });
       } else {
         setState({ status: "error", data: result });
       }
     })();
     return () => controller.abort();
-  }, [token]);
+  }, [isFacilityParty, partyBookingId, partyDate, token]);
 
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-10 text-slate-950 sm:px-6 sm:py-14">
@@ -83,6 +112,11 @@ export function WaiverCompleteClient() {
               Thanks — your waiver confirmation is on file. This page shows only
               a short confirmation summary.
             </p>
+            {state.partyMessage ? (
+              <p className="mt-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black leading-6 text-emerald-950">
+                {state.partyMessage}
+              </p>
+            ) : null}
             <dl className="mx-auto mt-6 max-w-sm space-y-3 rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-4 py-5 text-left text-sm">
               <div>
                 <dt className="font-black uppercase tracking-wide text-cyan-900">

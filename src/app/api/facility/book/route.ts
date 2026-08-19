@@ -19,6 +19,13 @@ import {
   formatFacilityPricingLines,
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
+import {
+  buildFacilityWaiverInvitationUrl,
+  invitationTemplateLabel,
+  invitationDeliveryPreferenceLabel,
+  normalizeInvitationDeliveryPreference,
+  normalizeInvitationTemplateId,
+} from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import {
@@ -77,6 +84,17 @@ function isValidEmail(value: unknown): value is string {
   return isNonEmptyString(value) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function buildAbsoluteAdminInvitationLink(
+  siteUrl: string,
+  bookingId: string,
+): string {
+  const url = new URL(
+    `/admin/facility/${encodeURIComponent(bookingId)}/invitations`,
+    `${siteUrl.replace(/\/+$/, "")}/`,
+  );
+  return url.toString();
+}
+
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, {
     scope: "facility-booking",
@@ -111,6 +129,8 @@ export async function POST(req: NextRequest) {
       table_cloth_colors,
       drink_choice,
       payment_method,
+      invitation_delivery_preference,
+      invitation_template_id,
       deposit_acknowledged,
       notes,
       addon_selections,
@@ -127,6 +147,15 @@ export async function POST(req: NextRequest) {
     const resolvedAddons = resolveFacilityAddons(addon_selections);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
+    const invitationPreference = normalizeInvitationDeliveryPreference(
+      invitation_delivery_preference,
+    );
+    const invitationTemplateId = normalizeInvitationTemplateId(
+      invitation_template_id,
+    );
+    const invitationPreferenceLabel =
+      invitationDeliveryPreferenceLabel(invitationPreference);
+    const invitationTemplateName = invitationTemplateLabel(invitationTemplateId);
     const bookingContactName = isNonEmptyString(parent_name)
       ? parent_name.trim()
       : isNonEmptyString(customer_name)
@@ -344,6 +373,8 @@ export async function POST(req: NextRequest) {
           table_cloth_colors: String(table_cloth_colors).trim(),
           drink_choice: String(drink_choice).trim(),
           payment_method: String(payment_method).trim(),
+          invitation_delivery_preference: invitationPreference,
+          invitation_template_id: invitationTemplateId,
           deposit_acknowledged: deposit_acknowledged === true,
           notes,
           readable_date: storedReadableDate,
@@ -388,6 +419,18 @@ export async function POST(req: NextRequest) {
         { status: 503 },
       );
     }
+    const { error: invitationUpdateError } = await supabase
+      .from("facility_bookings")
+      .update({
+        invitation_delivery_preference: invitationPreference,
+        invitation_template_id: invitationTemplateId,
+      })
+      .eq("id", bookingId);
+    if (invitationUpdateError) {
+      console.error("[facility] invitation choice update failed", {
+        code: invitationUpdateError.code,
+      });
+    }
     await initializeBookingWorkflow(supabase, "facility", bookingId);
 
     let emailsSent = false;
@@ -402,6 +445,15 @@ export async function POST(req: NextRequest) {
       const rejectLink = siteUrl
         ? facilityConfirmLink(siteUrl, bookingId, "reject")
         : "Unavailable - use the authenticated admin dashboard";
+      const waiverInvitationLink = buildFacilityWaiverInvitationUrl({
+        siteUrl,
+        bookingId,
+        partyDate: storedReadableDate,
+      });
+      const adminInvitationLink = buildAbsoluteAdminInvitationLink(
+        siteUrl,
+        bookingId,
+      );
 
       const adminEmailText = [
         "New facility booking request",
@@ -415,6 +467,8 @@ export async function POST(req: NextRequest) {
         `Child gender: ${String(child_gender).trim()}`,
         `Child age: ${String(child_age).trim()}`,
         `Party theme: ${String(party_theme).trim()}`,
+        `Invitations: ${invitationPreferenceLabel}`,
+        `Invitation design: ${invitationTemplateName}`,
         `Balloon colors: ${String(balloon_colors).trim()}`,
         `Table cloth colors: ${String(table_cloth_colors).trim()}`,
         `Drink choice: ${String(drink_choice).trim()}`,
@@ -434,6 +488,8 @@ export async function POST(req: NextRequest) {
         addonsEmailText,
         ...pricingLines,
         "",
+        `Invitation preview: ${adminInvitationLink}`,
+        `Guest waiver link: ${waiverInvitationLink}`,
         `Confirm link: ${confirmLink}`,
         `Reject link: ${rejectLink}`,
       ].join("\n");
@@ -482,9 +538,12 @@ export async function POST(req: NextRequest) {
           `Child name: ${String(child_name).trim()}`,
           `Child age: ${String(child_age).trim()}`,
           `Party theme: ${String(party_theme).trim()}`,
+          `Invitations: ${invitationPreferenceLabel}`,
+          `Invitation design: ${invitationTemplateName}`,
           `Drink choice: ${String(drink_choice).trim()}`,
           `Payment method: ${String(payment_method).trim()}`,
           `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
+          `Guest waiver link for the party: ${waiverInvitationLink}`,
           "",
           addonsEmailText,
           ...pricingLines,

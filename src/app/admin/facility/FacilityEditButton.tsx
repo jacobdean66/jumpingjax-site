@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
+import {
+  FACILITY_INVITATION_DELIVERY_PREFERENCES,
+  FACILITY_INVITATION_TEMPLATE_OPTIONS,
+  invitationDeliveryPreferenceLabel,
+} from "@/lib/facility-parties/invitations";
 import type { AdminFacilityBooking } from "@/lib/admin/operations";
 
 type Props = {
@@ -58,6 +63,10 @@ export function FacilityEditButton({ booking }: Props) {
       childAge: String(form.get("childAge") ?? ""),
       childGender: String(form.get("childGender") ?? ""),
       partyTheme: String(form.get("partyTheme") ?? ""),
+      invitationDeliveryPreference: String(
+        form.get("invitationDeliveryPreference") ?? "",
+      ),
+      invitationTemplateId: String(form.get("invitationTemplateId") ?? ""),
       balloonColors: String(form.get("balloonColors") ?? ""),
       tableClothColors: String(form.get("tableClothColors") ?? ""),
       drinkChoice: String(form.get("drinkChoice") ?? ""),
@@ -214,6 +223,32 @@ export function FacilityEditButton({ booking }: Props) {
                   defaultValue={booking.partyTheme ?? ""}
                   className={inputClass}
                 />
+              </Field>
+              <Field label="Invitations">
+                <select
+                  name="invitationDeliveryPreference"
+                  defaultValue={booking.invitationDeliveryPreference}
+                  className={inputClass}
+                >
+                  {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
+                    <option key={preference} value={preference}>
+                      {invitationDeliveryPreferenceLabel(preference)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Invitation design">
+                <select
+                  name="invitationTemplateId"
+                  defaultValue={booking.invitationTemplateId}
+                  className={inputClass}
+                >
+                  {FACILITY_INVITATION_TEMPLATE_OPTIONS.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Drink choice">
                 <input

@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -31,6 +32,16 @@ import {
   priceFacilityPartyWithConfig,
   type FacilityPricingConfig,
 } from "@/lib/facility-parties/pricing";
+import {
+  approvedInvitationArtworkUrl,
+  FACILITY_INVITATION_DELIVERY_PREFERENCES,
+  FACILITY_INVITATION_TEMPLATE_OPTIONS,
+  invitationDeliveryPreferenceLabel,
+  normalizeInvitationTemplateId,
+  resolveInvitationTheme,
+  type FacilityInvitationDeliveryPreference,
+  type FacilityInvitationTemplateId,
+} from "@/lib/facility-parties/invitations";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -145,6 +156,172 @@ function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
 }
 
+function MiniThemeCharacter({
+  partyTheme,
+  templateId,
+}: {
+  partyTheme: string;
+  templateId: FacilityInvitationTemplateId;
+}) {
+  const theme = resolveInvitationTheme(partyTheme);
+  const artworkUrl = approvedInvitationArtworkUrl({ partyTheme, templateId });
+
+  if (artworkUrl) {
+    return (
+      // Approved customer-supplied or licensed art only; falls back below when unset.
+      <img
+        src={artworkUrl}
+        alt=""
+        className="h-20 w-20 rounded-2xl object-contain"
+        loading="lazy"
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 bg-white"
+      style={{ borderColor: theme.border }}
+    >
+      <span
+        className="absolute -right-4 -top-4 h-12 w-12 rounded-full"
+        style={{ background: theme.accent, opacity: 0.2 }}
+      />
+      <span
+        className="absolute -bottom-5 -left-4 h-14 w-14 rounded-full"
+        style={{ background: theme.secondary, opacity: 0.16 }}
+      />
+      <span
+        className="absolute left-1/2 top-[22px] h-8 w-8 -translate-x-1/2 rounded-full border-2 border-slate-950"
+        style={{ background: theme.background }}
+      />
+      <span className="absolute left-[31px] top-[34px] h-1.5 w-1.5 rounded-full bg-slate-950" />
+      <span className="absolute right-[31px] top-[34px] h-1.5 w-1.5 rounded-full bg-slate-950" />
+      {theme.graphicVariant === "game" ? (
+        <span
+          className="absolute right-3 top-3 grid h-6 w-8 place-items-center rounded-md border-2 border-slate-950 text-xs font-black"
+          style={{ background: theme.secondary, color: theme.accent }}
+        >
+          +
+        </span>
+      ) : null}
+      {theme.graphicVariant === "dinosaur" ? (
+        <span
+          className="absolute left-[26px] top-2 h-0 w-0 border-x-[7px] border-b-[14px] border-x-transparent"
+          style={{ borderBottomColor: theme.secondary }}
+        />
+      ) : null}
+      {theme.graphicVariant === "princess" ? (
+        <span
+          className="absolute left-[24px] top-2 h-5 w-8 rounded-t-md border-2 border-slate-950"
+          style={{ background: theme.secondary }}
+        />
+      ) : null}
+      <span
+        className="absolute bottom-2 left-1/2 h-6 w-10 -translate-x-1/2 rounded-t-2xl border-2 border-slate-950"
+        style={{ background: theme.accent }}
+      />
+    </div>
+  );
+}
+
+function InvitationChoicePreview({
+  active,
+  childName,
+  date,
+  readableTime,
+  partyTheme,
+  templateId,
+}: {
+  active: boolean;
+  childName: string;
+  date: string;
+  readableTime: string;
+  partyTheme: string;
+  templateId: FacilityInvitationTemplateId;
+}) {
+  const theme = resolveInvitationTheme(partyTheme);
+  const template = FACILITY_INVITATION_TEMPLATE_OPTIONS.find(
+    (option) => option.id === templateId,
+  );
+  const displayName = childName.trim() || "Birthday";
+  const displayTheme = partyTheme.trim() || theme.label;
+  const inviteTitle =
+    templateId === "ticket"
+      ? "Party Pass"
+      : templateId === "poster"
+        ? "You are invited"
+        : `${displayName}'s Party`;
+
+  return (
+    <div
+      className={`h-full rounded-2xl border-2 bg-white p-3 text-slate-950 transition ${
+        active ? "shadow-[0_0_0_2px_rgba(34,211,238,0.35)]" : ""
+      }`}
+      style={{ borderColor: active ? theme.accent : theme.border }}
+    >
+      <div
+        className={`flex h-full min-h-[250px] flex-col justify-between overflow-hidden rounded-xl p-3 ${
+          templateId === "ticket" ? "border-2 border-dashed" : ""
+        }`}
+        style={{
+          background: theme.background,
+          borderColor: theme.border,
+        }}
+      >
+        <div
+          className={
+            templateId === "poster"
+              ? "grid gap-3"
+              : "grid grid-cols-[1fr_80px] gap-3"
+          }
+        >
+          <div>
+            <p
+              className="text-[10px] font-black uppercase tracking-[0.16em]"
+              style={{ color: theme.secondary }}
+            >
+              Jumping Jax Birthday
+            </p>
+            <h3
+              className={
+                templateId === "poster"
+                  ? "mt-2 text-3xl font-black leading-none"
+                  : "mt-2 text-2xl font-black leading-none"
+              }
+              style={{ color: theme.accent }}
+            >
+              {inviteTitle}
+            </h3>
+            <p className="mt-2 text-sm font-black leading-tight">
+              {displayName} is celebrating at Jumping Jax
+            </p>
+          </div>
+          <MiniThemeCharacter partyTheme={partyTheme} templateId={templateId} />
+        </div>
+        <div className="mt-4 grid gap-1 text-xs font-bold text-slate-800">
+          <p>{date || "Party date"}</p>
+          <p>{readableTime || "Party time"}</p>
+          <p>{displayTheme}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-[1fr_54px] items-end gap-3">
+          <p className="text-[11px] font-semibold leading-snug text-slate-700">
+            Scan before the day of the party to be checked in and ready when you
+            walk in.
+          </p>
+          <span className="grid h-[54px] w-[54px] place-items-center rounded-lg border border-slate-300 bg-white text-[10px] font-black text-slate-500">
+            QR
+          </span>
+        </div>
+        <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+          {template?.label ?? "Invitation"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 type FacilityPartyBookingFormProps = {
   pricingConfig: FacilityPricingConfig;
 };
@@ -175,6 +352,10 @@ export function FacilityPartyBookingForm({
   const [tableClothColors, setTableClothColors] = useState("");
   const [drinkChoice, setDrinkChoice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [invitationDeliveryPreference, setInvitationDeliveryPreference] =
+    useState<FacilityInvitationDeliveryPreference>("print");
+  const [invitationTemplateId, setInvitationTemplateId] =
+    useState<FacilityInvitationTemplateId>("spotlight");
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
   const [notes, setNotes] = useState("");
   const [balloonsSelected, setBalloonsSelected] = useState(false);
@@ -455,6 +636,10 @@ export function FacilityPartyBookingForm({
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
           payment_method: paymentMethod.trim(),
+          invitation_delivery_preference: invitationDeliveryPreference,
+          invitation_template_id: normalizeInvitationTemplateId(
+            invitationTemplateId,
+          ),
           deposit_acknowledged: depositAcknowledged,
           notes: request.notes,
           readable_date: request.date,
@@ -984,6 +1169,94 @@ export function FacilityPartyBookingForm({
                     placeholder="Princess, Sonic, sports, glow party..."
                   />
                 </label>
+                <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
+                  <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
+                    Birthday invitations
+                  </legend>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                    We make the invitations to match the party theme. Each one
+                    includes a waiver QR code so guests can sign before party day.
+                  </p>
+                  <div className="mt-4 grid gap-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
+                      Choose your invitation design
+                    </p>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      {FACILITY_INVITATION_TEMPLATE_OPTIONS.map((template) => {
+                        const active = invitationTemplateId === template.id;
+                        const readablePreviewTime = selectedDisposition
+                          ? formatReadableTimeRange(
+                              selectedDisposition.startMinutes,
+                              selectedDisposition.endMinutes,
+                            )
+                          : "";
+
+                        return (
+                          <label
+                            key={template.id}
+                            className="cursor-pointer rounded-2xl border border-white/10 bg-[#071326]/55 p-2"
+                          >
+                            <input
+                              type="radio"
+                              name="invitationTemplateId"
+                              value={template.id}
+                              checked={active}
+                              onChange={() =>
+                                setInvitationTemplateId(template.id)
+                              }
+                              className="sr-only"
+                            />
+                            <InvitationChoicePreview
+                              active={active}
+                              childName={childName}
+                              date={date}
+                              readableTime={readablePreviewTime}
+                              partyTheme={partyTheme}
+                              templateId={template.id}
+                            />
+                            <span className="mt-2 block px-1 pb-1 text-xs font-semibold leading-snug text-slate-300">
+                              <span className="block text-sm font-black text-white">
+                                {template.label}
+                              </span>
+                              {template.description}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
+                      <label
+                        key={preference}
+                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/45 px-3 py-3 text-sm text-slate-200"
+                      >
+                        <input
+                          type="radio"
+                          name="invitationDeliveryPreference"
+                          value={preference}
+                          checked={invitationDeliveryPreference === preference}
+                          onChange={() =>
+                            setInvitationDeliveryPreference(preference)
+                          }
+                          className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
+                        />
+                        <span>
+                          <span className="font-semibold text-white">
+                            {invitationDeliveryPreferenceLabel(preference)}
+                          </span>
+                          <span className="mt-0.5 block text-slate-400">
+                            {preference === "email"
+                              ? "Send me a link I can forward to guests."
+                              : preference === "office_pickup"
+                                ? "Have printed invitations ready when I pay my deposit."
+                                : "Give me a printable invitation link."}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
