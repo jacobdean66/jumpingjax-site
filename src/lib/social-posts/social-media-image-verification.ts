@@ -24,12 +24,12 @@ export {
   verifyImageDimensionsAgainstVariant,
 } from "./social-media-image-verification-core";
 
-type SharpFactory = (typeof import("sharp"))["sharp"];
+type SharpFactory = (typeof import("sharp"))["default"];
 
 async function loadSharp(): Promise<SharpFactory | null> {
   try {
     const sharpModule = await import("sharp");
-    return sharpModule.sharp;
+    return sharpModule.default;
   } catch {
     return null;
   }

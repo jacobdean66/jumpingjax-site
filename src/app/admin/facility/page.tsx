@@ -23,6 +23,8 @@ import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityEditButton } from "./FacilityEditButton";
 import { adminFacilityInvitationPath } from "@/lib/facility-parties/invitations/snapshot";
+import { FacilityCancelButton } from "./FacilityCancelButton";
+import { facilityBookingCanMutate } from "@/lib/facility-parties/schedule-mutation";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,17 @@ function roomLabel(room: string | null) {
 }
 
 function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
+  const canMutate = facilityBookingCanMutate({
+    status: booking.status,
+    startTimeIso: booking.startTime,
+  });
+  const canRetryCancelledCalendarRemoval =
+    (booking.status === "cancelled" || booking.status === "canceled") &&
+    Boolean(
+      booking.googleCalendarEventId ||
+        booking.googleCalendarSecondaryEventId ||
+        booking.calendarNeedsRepair,
+    );
   return (
     <article
       id={`booking-${booking.id}`}
@@ -86,9 +99,21 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             {booking.readableTime ?? "Time not set"}
           </p>
         </div>
-        {(booking.status === "pending" || booking.status === "confirmed") && (
+        {(canMutate || booking.status === "pending") && (
           <div className="flex flex-wrap gap-2 print:hidden">
-            <FacilityEditButton booking={booking} />
+            {canMutate ? (
+              <>
+                <FacilityEditButton booking={booking} />
+                <FacilityCancelButton
+                  bookingId={booking.id}
+                  customerName={booking.customerName}
+                  partyLabel={booking.partyLabel}
+                  readableDate={booking.readableDate}
+                  readableTime={booking.readableTime}
+                  currentStatus={booking.status}
+                />
+              </>
+            ) : null}
             <Link
               href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
               className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
@@ -125,7 +150,24 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             )}
           </div>
         )}
-        {booking.calendarNeedsRepair && (
+        {canRetryCancelledCalendarRemoval ? (
+          <div className="flex flex-col items-start gap-2 print:hidden">
+            <p className="max-w-sm text-xs font-semibold text-amber-800">
+              This party is already cancelled, but Calendar removal may still
+              need attention.
+            </p>
+            <FacilityCancelButton
+              bookingId={booking.id}
+              customerName={booking.customerName}
+              partyLabel={booking.partyLabel}
+              readableDate={booking.readableDate}
+              readableTime={booking.readableTime}
+              currentStatus={booking.status}
+              retryCalendarOnly
+            />
+          </div>
+        ) : null}
+        {booking.calendarNeedsRepair && booking.status === "confirmed" && (
           <div className="flex flex-col items-start gap-2 print:hidden">
             <p className="max-w-sm text-xs font-semibold text-amber-800">
               {booking.safeWorkflowErrorClass ===
@@ -301,7 +343,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
         <PrintButton label="Print party prep sheets" />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5 print:hidden">
         <StatTile
           label="Waiting approval"
           value={allFacility.summary.pending ?? 0}
@@ -316,6 +358,11 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
           label="Rejected parties"
           value={allFacility.summary.rejected ?? 0}
           href={`/admin/facility?${baseQuery}&status=rejected`}
+        />
+        <StatTile
+          label="Cancelled parties"
+          value={allFacility.summary.cancelled ?? 0}
+          href={`/admin/facility?${baseQuery}&status=cancelled`}
         />
         <StatTile
           label="Private parties"

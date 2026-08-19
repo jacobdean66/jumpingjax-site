@@ -9,6 +9,8 @@ import {
   invitationDeliveryPreferenceLabel,
 } from "@/lib/facility-parties/invitations";
 import type { AdminFacilityBooking } from "@/lib/admin/operations";
+import { wallClockFromFacilityTimes } from "@/lib/facility-parties/schedule-mutation";
+import { minutesToClockTime } from "@/lib/facility-parties/time";
 
 type Props = {
   booking: AdminFacilityBooking;
@@ -36,11 +38,12 @@ function Field({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500";
+  "w-full min-h-12 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500";
 
 export function FacilityEditButton({ booking }: Props) {
   const router = useRouter();
   const titleId = useId();
+  const clock = wallClockFromFacilityTimes(booking.startTime, booking.endTime);
   const [open, setOpen] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -72,6 +75,8 @@ export function FacilityEditButton({ booking }: Props) {
       drinkChoice: String(form.get("drinkChoice") ?? ""),
       notes: String(form.get("notes") ?? ""),
       paymentMethod: String(form.get("paymentMethod") ?? ""),
+      bookingDate: String(form.get("bookingDate") ?? ""),
+      bookingStartTime: String(form.get("bookingStartTime") ?? ""),
     };
 
     try {
@@ -117,14 +122,15 @@ export function FacilityEditButton({ booking }: Props) {
           setWarning(false);
         }}
         disabled={isWorking}
-        className="rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white hover:bg-sky-600 disabled:cursor-wait disabled:bg-sky-300"
+        className="min-h-11 rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white hover:bg-sky-600 disabled:cursor-wait disabled:bg-sky-300"
       >
         Edit
       </button>
       {message && !open ? (
         <span
+          role={warning ? "alert" : "status"}
           className={`max-w-56 text-xs font-bold ${
-            warning ? "text-amber-800" : "text-slate-600"
+            warning ? "text-rose-700" : "text-emerald-700"
           }`}
         >
           {message}
@@ -152,12 +158,38 @@ export function FacilityEditButton({ booking }: Props) {
                 Edit facility party #{booking.id}
               </h3>
               <p className="mt-1 text-sm font-semibold text-slate-600">
-                Pending and confirmed parties can be updated. Room and time stay
-                the same; calendar syncs after confirmed edits.
+                Pending and confirmed parties can be rescheduled. Room, party
+                type, and duration stay the same. The previous time is released
+                only after the new time is saved.
               </p>
             </div>
 
             <div className="grid gap-3 overflow-y-auto px-5 py-4 sm:grid-cols-2">
+              <Field label="Party date">
+                <input
+                  name="bookingDate"
+                  type="date"
+                  required
+                  defaultValue={clock?.date ?? booking.readableDate ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Start time">
+                <input
+                  name="bookingStartTime"
+                  type="time"
+                  required
+                  step={1800}
+                  defaultValue={
+                    clock ? minutesToClockTime(clock.startMinutes) : "12:00"
+                  }
+                  className={inputClass}
+                />
+              </Field>
+              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                Duration stays {clock ? `${clock.durationMinutes} minutes` : "the same"}.
+                Kind: {booking.partyKind ?? "Not set"}. Room: {booking.room ?? "Not set"}.
+              </div>
               <Field label="Customer name">
                 <input
                   name="customerName"
@@ -285,8 +317,9 @@ export function FacilityEditButton({ booking }: Props) {
 
             {message ? (
               <p
+                role="alert"
                 className={`px-5 text-sm font-bold ${
-                  warning ? "text-amber-800" : "text-rose-700"
+                  warning ? "text-rose-700" : "text-amber-800"
                 }`}
               >
                 {message}
@@ -300,7 +333,7 @@ export function FacilityEditButton({ booking }: Props) {
                 onClick={() => setOpen(false)}
                 className="min-h-12 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                Cancel
+                Close
               </button>
               <button
                 type="submit"
