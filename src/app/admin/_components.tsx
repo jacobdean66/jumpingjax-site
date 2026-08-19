@@ -170,7 +170,13 @@ export function AdminNav({
 
   return (
     <div className="mt-5 flex flex-col gap-3 print:hidden">
-      <nav className={compact ? "flex w-full max-w-4xl flex-wrap justify-start gap-1.5 text-xs font-bold lg:justify-end" : "grid w-full grid-cols-3 gap-2 text-xs font-bold sm:grid-cols-4 md:grid-cols-6"}>
+      <nav
+        className={
+          compact
+            ? "flex w-full max-w-4xl flex-wrap justify-start gap-1.5 text-xs font-bold lg:justify-end"
+            : "grid w-full grid-cols-3 gap-1.5 text-[11px] font-bold sm:grid-cols-4 md:grid-cols-6"
+        }
+      >
         <AdminBackButton compact={compact} />
         {items.map((item) => {
           const isActive =
@@ -183,18 +189,18 @@ export function AdminNav({
               className={compact
                 ? isActive
                   ? prominent
-                    ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-pink-600 px-3 py-1.5 text-center text-xs leading-tight text-white shadow-sm"
-                    : "inline-flex min-h-9 items-center justify-center rounded-lg bg-slate-950 px-3 py-1.5 text-center text-[11px] leading-tight text-white"
+                    ? "inline-flex min-h-8 items-center justify-center rounded-lg bg-pink-600 px-2.5 py-1.5 text-center text-[11px] leading-tight text-white shadow-sm"
+                  : "inline-flex min-h-9 items-center justify-center rounded-lg bg-slate-950 px-3 py-1.5 text-center text-[11px] leading-tight text-white"
                   : prominent
-                    ? "inline-flex min-h-9 items-center justify-center rounded-lg border-2 border-pink-500 bg-pink-50 px-3 py-1.5 text-center text-xs leading-tight text-pink-900 hover:bg-pink-100"
-                    : "inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
+                    ? "inline-flex min-h-8 items-center justify-center rounded-lg border-2 border-pink-500 bg-pink-50 px-2.5 py-1.5 text-center text-[11px] leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex min-h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
                 : isActive
                   ? prominent
-                    ? "inline-flex aspect-square items-center justify-center rounded-xl bg-pink-600 p-2 text-center text-sm leading-tight text-white shadow-sm"
-                    : "inline-flex aspect-square items-center justify-center rounded-xl bg-slate-950 p-2 text-center leading-tight text-white"
+                    ? "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl bg-pink-600 px-2 py-2 text-center text-[11px] leading-tight text-white shadow-sm"
+                    : "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl bg-slate-950 px-2 py-2 text-center text-[11px] leading-tight text-white"
                   : prominent
-                    ? "inline-flex aspect-square items-center justify-center rounded-xl border-2 border-pink-500 bg-pink-50 p-2 text-center text-sm leading-tight text-pink-900 hover:bg-pink-100"
-                    : "inline-flex aspect-square items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-center leading-tight text-slate-700 hover:bg-slate-50"
+                    ? "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl border-2 border-pink-500 bg-pink-50 px-2 py-2 text-center text-[11px] leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
               }
               aria-current={isActive ? "page" : undefined}
             >
