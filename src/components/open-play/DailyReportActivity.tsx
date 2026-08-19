@@ -3,6 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AdultCheckInControls } from "@/components/open-play/AdultCheckInControls";
+import {
+  buildLegacyCheckInBody,
+  buildVisitCreateBody,
+  canSubmitCheckInGroup,
+  createLegacyCheckInRequest,
+  createOpenPlayVisitRequest,
+  isAdultRole,
+  type AdultPlayMode,
+  type PaymentMethodChoice,
+  resultToDraft,
+  type SelectedAttendeeDraft,
+} from "@/lib/open-play/check-in-client";
 import {
   attendeeStatusLabel,
   classificationLabel,
@@ -10,6 +23,7 @@ import {
   sortVisitsForDisplay,
   type DailyReport,
 } from "@/lib/open-play/daily-report-client";
+import type { StaffWaiverParticipant } from "@/lib/waivers/search";
 
 type Props = {
   report: DailyReport;
@@ -126,6 +140,9 @@ export function DailyReportActivity({ report }: Props) {
   const [draftAmount, setDraftAmount] = useState("");
   const [draftPaymentOption, setDraftPaymentOption] = useState<PaymentOption>("cash");
   const [draftAdultMode, setDraftAdultMode] = useState<"playing" | "watching" | null>(null);
+  const [relatedAdultDraft, setRelatedAdultDraft] = useState<SelectedAttendeeDraft | null>(null);
+  const [addingRelatedAdult, setAddingRelatedAdult] = useState(false);
+  const [relatedAdultError, setRelatedAdultError] = useState<string | null>(null);
 
   function admissionFor(item: SelectedCard): AdmissionOverride {
     const saved = admissionOverrides[item.attendee.id];
@@ -155,6 +172,115 @@ export function DailyReportActivity({ report }: Props) {
     );
   }
 
+  function isAdultOnWaiver(role: StaffWaiverParticipant["role"]): boolean {
+    return isAdultRole(role);
+  }
+
+  function waiverParticipantRecordId(participant: StaffWaiverParticipant): string | null {
+    return participant.source === "legacy_smartwaiver"
+      ? participant.legacyParticipantId ?? null
+      : participant.participantId ?? null;
+  }
+
+  function isAlreadyOnLocation(participant: StaffWaiverParticipant): boolean {
+    const key = waiverParticipantRecordId(participant);
+    if (!key) return false;
+    return checkedIn.some(
+      (item) =>
+        (item.attendee.participantRecordId === key &&
+          (item.attendee.source ?? "native") === (participant.source ?? "native")),
+    );
+  }
+
+  function startRelatedAdult(participant: StaffWaiverParticipant) {
+    try {
+      const draft = resultToDraft(participant);
+      setRelatedAdultDraft(draft);
+      setRelatedAdultError(null);
+    } catch (error) {
+      setRelatedAdultError(error instanceof Error ? error.message : "Unable to add this participant right now.");
+    }
+  }
+
+  function setRelatedAdultMode(selectionKey: string, mode: AdultPlayMode) {
+    setRelatedAdultDraft((current) =>
+      current && current.selectionKey === selectionKey
+        ? {
+            ...current,
+            adultMode: mode,
+            priceOverrideCents: mode === "playing" ? 700 : null,
+            paymentMethod: null,
+            paymentConfirmed: false,
+            birthdayPartyId: null,
+            birthdayPartyLabel: null,
+          }
+        : current,
+    );
+  }
+
+  function setRelatedAdultPaymentMethod(
+    selectionKey: string,
+    method: PaymentMethodChoice,
+  ) {
+    setRelatedAdultDraft((current) =>
+      current && current.selectionKey === selectionKey
+        ? {
+            ...current,
+            paymentMethod: method,
+            paymentConfirmed: false,
+            birthdayPartyId: null,
+            birthdayPartyLabel: null,
+          }
+        : current,
+    );
+  }
+
+  function setRelatedAdultPaymentConfirmed(selectionKey: string, confirmed: boolean) {
+    setRelatedAdultDraft((current) =>
+      current && current.selectionKey === selectionKey
+        ? { ...current, paymentConfirmed: confirmed }
+        : current,
+    );
+  }
+
+  async function addRelatedAdult() {
+    if (!relatedAdultDraft) return;
+    const gate = canSubmitCheckInGroup([relatedAdultDraft], report.businessDayYmd);
+    if (!gate.ok) {
+      setRelatedAdultError(gate.message);
+      return;
+    }
+
+  const isLegacy = relatedAdultDraft.source === "legacy_smartwaiver";
+
+    setAddingRelatedAdult(true);
+    setRelatedAdultError(null);
+    setSavedMessage(null);
+
+    try {
+      if (isLegacy) {
+        const legacyBody = buildLegacyCheckInBody({
+          visitDateYmd: report.businessDayYmd,
+          attendees: [relatedAdultDraft],
+        });
+        await createLegacyCheckInRequest(legacyBody);
+      } else {
+        const visitBody = buildVisitCreateBody({
+          visitDateYmd: report.businessDayYmd,
+          attendees: [relatedAdultDraft],
+        });
+        await createOpenPlayVisitRequest(visitBody);
+      }
+      setSavedMessage(`${relatedAdultDraft.fullName} added as on location.`);
+      setRelatedAdultDraft(null);
+      router.refresh();
+    } catch (error) {
+      setRelatedAdultError(error instanceof Error ? error.message : "The participant could not be added.");
+    } finally {
+      setAddingRelatedAdult(false);
+    }
+  }
+
   function openCard(item: SelectedCard) {
     const admission = admissionFor(item);
     setSelected(item);
@@ -171,14 +297,18 @@ export function DailyReportActivity({ report }: Props) {
     setEditing(false);
     setSaveError(null);
     setSavedMessage(null);
+    setRelatedAdultDraft(null);
+    setRelatedAdultError(null);
   }
 
   function closeCard() {
-    if (saving) return;
+    if (saving || addingRelatedAdult) return;
     setSelected(null);
     setEditing(false);
     setSaveError(null);
     setSavedMessage(null);
+    setRelatedAdultDraft(null);
+    setRelatedAdultError(null);
   }
 
   async function saveProfile() {
@@ -291,6 +421,9 @@ export function DailyReportActivity({ report }: Props) {
   const selectedIsAdult =
     selectedAdmission?.classification === "playing_adult" ||
     selectedAdmission?.classification === "watching_adult";
+  const relatedAdultCanSubmit = relatedAdultDraft
+    ? canSubmitCheckInGroup([relatedAdultDraft], report.businessDayYmd)
+    : null;
 
   return (
     <section
@@ -578,15 +711,72 @@ export function DailyReportActivity({ report }: Props) {
               <section className="mt-4 rounded-2xl border border-white/80 bg-white/55 p-4" aria-label="Everyone on this waiver">
                 <h4 className="font-black text-slate-950">Everyone on this waiver</h4>
                 <ul className="mt-3 grid gap-2">
-                  {selected.attendee.waiverParticipants.map((participant) => (
-                    <li key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-white/80 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-black text-slate-950">{participant.fullName}</span>
-                        <span className="rounded-full bg-slate-200 px-2 py-1 text-[0.65rem] font-black uppercase text-slate-700">{participantRole(participant.role)}</span>
-                      </div>
-                      <p className="mt-1 text-xs font-bold text-slate-600">Birthday {formatBirthday(participant.dobYmd)}</p>
-                    </li>
-                  ))}
+                  {selected.attendee.waiverParticipants.map((participant) => {
+                    const isAdult = isAdultOnWaiver(participant.role);
+                    const alreadyChecked = isAlreadyOnLocation(participant);
+                    const isSelected = relatedAdultDraft?.selectionKey === participant.selectionKey;
+                    return (
+                      <li key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-white/80 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-black text-slate-950">{participant.fullName}</span>
+                          <span className="rounded-full bg-slate-200 px-2 py-1 text-[0.65rem] font-black uppercase text-slate-700">{participantRole(participant.role)}</span>
+                        </div>
+                        <p className="mt-1 text-xs font-bold text-slate-600">Birthday {formatBirthday(participant.dobYmd)}</p>
+                        {isAdult ? (
+                          alreadyChecked ? (
+                            <p className="mt-3 rounded-lg bg-emerald-100 p-3 text-sm font-black text-emerald-900">Already on location</p>
+                          ) : isSelected ? (
+                            <div className="mt-3">
+                              {relatedAdultDraft ? (
+                                <AdultCheckInControls
+                                  attendee={relatedAdultDraft}
+                                  onAdultModeChange={setRelatedAdultMode}
+                                  onPaymentMethodChange={setRelatedAdultPaymentMethod}
+                                  onPaymentConfirmedChange={setRelatedAdultPaymentConfirmed}
+                                />
+                              ) : null}
+                              {relatedAdultError ? (
+                                <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{relatedAdultError}</p>
+                              ) : null}
+                              <div className="mt-4 grid grid-cols-2 gap-3">
+                                <button
+                                  type="button"
+                                  disabled={addingRelatedAdult}
+                                  onClick={() => {
+                                    setRelatedAdultDraft(null);
+                                    setRelatedAdultError(null);
+                                  }}
+                                  className="min-h-11 rounded-xl border border-slate-300 bg-white/80 px-4 text-sm font-black text-slate-700 disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!relatedAdultCanSubmit?.ok || addingRelatedAdult}
+                                  onClick={() => {
+                                    void addRelatedAdult();
+                                  }}
+                                  className="min-h-11 rounded-xl bg-sky-600 px-4 text-sm font-black text-white shadow-[0_5px_0_#0369a1] active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+                                >
+                                  {addingRelatedAdult ? "Saving…" : "Check in adult"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : !participant.checkInEligible ? (
+                            <p className="mt-3 rounded-lg bg-rose-100 p-3 text-sm font-black text-rose-900">Not eligible for check-in</p>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => startRelatedAdult(participant)}
+                              className="mt-3 min-h-11 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"
+                            >
+                              {participantRole(participant.role) === "Signer" ? "Check in signer" : "Check in adult"}
+                            </button>
+                          )
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ) : null}

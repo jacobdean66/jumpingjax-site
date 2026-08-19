@@ -87,7 +87,7 @@ export async function getOpenPlayDailyReport(
       expiresOnYmd: submission.expires_on,
       expired: submission.status !== "completed" || submission.expires_on <= dateYmd,
       signerLastInitial: (submission.signer_last_name.trim()[0] || "").toUpperCase(),
-      checkInEligible: participant.role === "child" && submission.status === "completed" && submission.expires_on > dateYmd,
+      checkInEligible: submission.status === "completed" && submission.expires_on > dateYmd,
     };
     waiverParticipantsBySubmission.set(participant.submission_id, [
       ...(waiverParticipantsBySubmission.get(participant.submission_id) ?? []),
@@ -255,7 +255,7 @@ export async function getOpenPlayDailyReport(
       expiresOnYmd: waiver.expires_on,
       expired: !waiver.activated || waiver.expires_on <= dateYmd,
       signerLastInitial: ((waiver.signer_last_name ?? "").trim()[0] || "").toUpperCase(),
-      checkInEligible: participant.role === "child" && Boolean(participant.dob) && waiver.activated && waiver.expires_on > dateYmd,
+      checkInEligible: waiver.activated && waiver.expires_on > dateYmd,
     };
     participantsByLegacyWaiver.set(participant.legacy_waiver_id, [
       ...(participantsByLegacyWaiver.get(participant.legacy_waiver_id) ?? []),

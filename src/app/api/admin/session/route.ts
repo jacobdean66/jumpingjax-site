@@ -4,6 +4,7 @@ import {
   createAdminSessionValue,
   verifyAdminLogin,
 } from "@/lib/admin/delivery-auth";
+import type { AdminStaffLoginAttempt } from "@/lib/admin/staff-users";
 import { verifyAdminStaffLogin } from "@/lib/admin/staff-users";
 
 export async function POST(req: Request) {
@@ -21,14 +22,18 @@ export async function POST(req: Request) {
       : typeof body.token === "string"
         ? body.token
         : "";
-  const staffAttempt = username
-    ? await verifyAdminStaffLogin({ username, password })
-    : { configured: false, identity: null };
-  const auth =
-    staffAttempt.identity ??
-    (staffAttempt.configured
-      ? null
-      : verifyAdminLogin(username || null, password || null));
+  let staffAttempt: AdminStaffLoginAttempt = { configured: false, identity: null };
+
+  if (username) {
+    try {
+      staffAttempt = await verifyAdminStaffLogin({ username, password });
+    } catch (error) {
+      console.warn("admin staff login lookup failed, falling back to static login", error);
+    }
+  }
+
+  const legacyAuth = verifyAdminLogin(username || null, password || null);
+  const auth = staffAttempt.identity ?? legacyAuth;
 
   if (!auth || ("ok" in auth && !auth.ok)) {
     return NextResponse.json({ ok: false }, { status: 401 });

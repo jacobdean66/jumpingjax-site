@@ -148,12 +148,14 @@ export async function verifyAdminStaffLogin(input: {
   password: string;
 }): Promise<AdminStaffLoginAttempt> {
   const configured = await ensureDefaultAdminStaffUsers();
+  const normalizedUsername = input.username.trim();
+  const normalizedPassword = input.password.trim();
 
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("admin_staff_users")
     .select("id, username, display_name, role, password_hash, password_salt, is_active")
-    .ilike("username", input.username.trim())
+    .ilike("username", normalizedUsername)
     .eq("is_active", true)
     .maybeSingle<StaffUserRow>();
 
@@ -161,7 +163,10 @@ export async function verifyAdminStaffLogin(input: {
     throw new Error(error.message);
   }
 
-  if (!data || !passwordMatches(input.password, data.password_salt, data.password_hash)) {
+  if (
+    !data ||
+    !passwordMatches(normalizedPassword, data.password_salt, data.password_hash)
+  ) {
     return { configured, identity: null };
   }
 
