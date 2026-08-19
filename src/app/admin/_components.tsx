@@ -174,7 +174,7 @@ export function AdminNav({
         className={
           compact
             ? "flex w-full max-w-4xl flex-wrap justify-start gap-1.5 text-xs font-bold lg:justify-end"
-            : "grid w-full grid-cols-3 gap-1.5 text-[11px] font-bold sm:grid-cols-4 md:grid-cols-6"
+            : "flex w-full flex-wrap justify-start gap-1.5 text-[11px] font-bold"
         }
       >
         <AdminBackButton compact={compact} />
@@ -196,11 +196,11 @@ export function AdminNav({
                     : "inline-flex min-h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
                 : isActive
                   ? prominent
-                    ? "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl bg-pink-600 px-2 py-2 text-center text-[11px] leading-tight text-white shadow-sm"
-                    : "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl bg-slate-950 px-2 py-2 text-center text-[11px] leading-tight text-white"
+                    ? "inline-flex min-h-8 items-center justify-center rounded-xl bg-pink-600 px-2 py-2 text-center text-[11px] leading-tight text-white shadow-sm"
+                    : "inline-flex min-h-8 items-center justify-center rounded-xl bg-slate-950 px-2 py-2 text-center text-[11px] leading-tight text-white"
                   : prominent
-                    ? "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl border-2 border-pink-500 bg-pink-50 px-2 py-2 text-center text-[11px] leading-tight text-pink-900 hover:bg-pink-100"
-                    : "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
+                    ? "inline-flex min-h-8 items-center justify-center rounded-xl border-2 border-pink-500 bg-pink-50 px-2 py-2 text-center text-[11px] leading-tight text-pink-900 hover:bg-pink-100"
+                    : "inline-flex min-h-8 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
               }
               aria-current={isActive ? "page" : undefined}
             >
@@ -213,7 +213,7 @@ export function AdminNav({
           href="/"
           className={compact
             ? "inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-500 px-3 py-1.5 text-center text-[11px] leading-tight text-white hover:bg-emerald-600"
-            : "inline-flex min-h-8 min-w-24 items-center justify-center rounded-xl bg-emerald-500 px-2 py-2 text-center text-[11px] leading-tight text-white hover:bg-emerald-600"}
+            : "inline-flex min-h-8 items-center justify-center rounded-xl bg-emerald-500 px-2 py-2 text-center text-[11px] leading-tight text-white hover:bg-emerald-600"}
         >
           View Website
         </Link>
