@@ -25,6 +25,8 @@ import {
 } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
+import { facilityInvitationShareUrl } from "@/lib/facility-parties/invitations/snapshot";
+import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 
 const FACILITY_BOOKING_SELECT =
   "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
@@ -278,6 +280,10 @@ async function handleFacilityConfirm(
     const pricingLines = formatFacilityPricingLines(
       facilityPricingFromBooking(booking),
     );
+    const invitationUrl =
+      action === "confirm"
+        ? facilityInvitationShareUrl(resolveRentalEmailSiteUrl(req.url), id)
+        : "";
 
     const { error: emailError } = await sendDurableBookingEmail({
       supabase,
@@ -298,6 +304,7 @@ async function handleFacilityConfirm(
         booking.child_name ? `Child: ${booking.child_name}` : null,
         booking.child_age ? `Child age: ${booking.child_age}` : null,
         booking.party_theme ? `Party theme: ${booking.party_theme}` : null,
+        invitationUrl ? `Invitation: ${invitationUrl}` : null,
         booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
         booking.payment_method
           ? `Payment method: ${booking.payment_method}`

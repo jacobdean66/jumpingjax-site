@@ -26,15 +26,18 @@ import {
   summarizeGoogleCalendarError,
   syncGoogleCalendarDestinations,
 } from "@/lib/google/calendar";
+import { resolveInvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 const FACILITY_EDIT_SELECT =
-  "id, status, email, customer_name, readable_date, readable_time, party_label, party_kind, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
+  "id, status, email, customer_name, readable_date, readable_time, party_label, party_kind, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id, invitation";
 
 type FacilityEditRow = FacilityBookingCalendarFields & {
   status: string;
   party_kind: string | null;
+  party_theme?: string | null;
+  invitation?: unknown;
 };
 
 type RescheduleRpcResult = {
@@ -190,7 +193,17 @@ export async function PATCH(
     );
   }
 
-  const details = facilityEditDetailsWrite(parsed.value);
+  const details = {
+    ...facilityEditDetailsWrite(parsed.value),
+    invitation: resolveInvitationSnapshot({
+      partyTheme: parsed.value.partyTheme,
+      stored:
+        (existing.party_theme ?? "").trim() ===
+        (parsed.value.partyTheme ?? "").trim()
+          ? existing.invitation
+          : undefined,
+    }),
+  };
   let updated: FacilityEditRow | null = null;
   let releasedSlotVerified = false;
   let previousSlotOpen = false;
