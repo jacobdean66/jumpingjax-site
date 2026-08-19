@@ -34,3 +34,22 @@ export function formatMinutesLabel(totalMinutes: number): string {
   const ampm = h24 < 12 ? "AM" : "PM";
   return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
+
+export function minutesToClockTime(totalMinutes: number): string {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function clockTimeToMinutes(value: string): number | null {
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value.trim())) return null;
+  const [hour, minute] = value.trim().split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+export function formatFacilityReadableTime(
+  startMinutes: number,
+  endMinutes: number,
+): string {
+  return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
+}

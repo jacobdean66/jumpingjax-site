@@ -50,7 +50,10 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
-import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
+import {
+  mapFacilityAvailabilityRowToBlock,
+  type FacilityAvailabilityRow,
+} from "@/lib/facility-parties/availability-source";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -87,23 +90,6 @@ const PARTY_KIND_CHOICES: {
   },
 ];
 
-type FacilityBookingRangeResponse = {
-  id: string;
-  party_kind: string;
-  room: string | null;
-  start_time: string;
-  end_time: string;
-  status: string;
-};
-
-function isFacilityPartyKind(value: string): value is FacilityPartyKind {
-  return value === "public" || value === "private";
-}
-
-function isFacilityRoomId(value: string | null): value is FacilityRoomId {
-  return value === "room-10" || value === "room-20";
-}
-
 function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
   if (!isoDate) return false;
 
@@ -123,33 +109,6 @@ function dateToYmd(value: Date) {
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function bookingRangeToBlock(
-  booking: FacilityBookingRangeResponse,
-): FacilityPartyBookingBlock | null {
-  if (
-    (booking.status !== "pending" && booking.status !== "confirmed") ||
-    !isFacilityPartyKind(booking.party_kind)
-  ) {
-    return null;
-  }
-
-  const start = facilityDateAndMinutes(booking.start_time);
-  const end = facilityDateAndMinutes(booking.end_time);
-  if (!start || !end) {
-    return null;
-  }
-
-  return {
-    id: booking.id,
-    kind: booking.party_kind,
-    date: start.date,
-    roomId: isFacilityRoomId(booking.room) ? booking.room : null,
-    startMinutes: start.minutes,
-    endMinutes: end.minutes,
-    status: "confirmed",
-  };
 }
 
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
@@ -426,7 +385,7 @@ export function FacilityPartyBookingForm({
         const bookings = Array.isArray(data) ? data : [];
         const liveBlocks = bookings
           .map((booking) =>
-            bookingRangeToBlock(booking as FacilityBookingRangeResponse),
+            mapFacilityAvailabilityRowToBlock(booking as FacilityAvailabilityRow),
           )
           .filter(
             (block): block is FacilityPartyBookingBlock => Boolean(block),

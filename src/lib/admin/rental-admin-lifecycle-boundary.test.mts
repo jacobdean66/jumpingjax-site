@@ -74,16 +74,18 @@ test("admin rentals expose edit for pending and approved bookings", () => {
   );
 });
 
-test("admin facility exposes edit for pending and confirmed parties", () => {
+test("admin facility exposes edit and cancel for upcoming pending and confirmed parties", () => {
   const page = source("../../app/admin/facility/page.tsx");
   assert.match(page, /FacilityEditButton/);
-  assert.match(
-    page,
-    /booking\.status === "pending" \|\| booking\.status === "confirmed"/,
-  );
+  assert.match(page, /FacilityCancelButton/);
+  assert.match(page, /facilityBookingCanMutate/);
   assert.match(
     source("../../app/api/admin/facility/[id]/route.ts"),
     /facilityBookingIsEditable/,
+  );
+  assert.match(
+    source("../../app/api/admin/facility/[id]/cancel/route.ts"),
+    /verifyAdminAccess/,
   );
 });
 
