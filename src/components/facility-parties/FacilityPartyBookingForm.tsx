@@ -51,6 +51,12 @@ import type {
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
 import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
+import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
+import {
+  advanceInvitationSnapshot,
+  invitationSnapshotFromChoice,
+  remainingInvitationAlternates,
+} from "@/lib/facility-parties/invitations/snapshot";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -348,6 +354,11 @@ export function FacilityPartyBookingForm({
   const [childGender, setChildGender] = useState("");
   const [childAge, setChildAge] = useState("");
   const [partyTheme, setPartyTheme] = useState("");
+  const [invitationOverride, setInvitationOverride] = useState<{
+    sourceText: string;
+    optionIndex: number;
+    alternatesUsed: number;
+  } | null>(null);
   const [balloonColors, setBalloonColors] = useState("");
   const [tableClothColors, setTableClothColors] = useState("");
   const [drinkChoice, setDrinkChoice] = useState("");
@@ -406,6 +417,36 @@ export function FacilityPartyBookingForm({
       ) ?? null,
     [slotDispositions, selectedStart],
   );
+
+  const invitationSnapshot = useMemo(() => {
+    const trimmed = partyTheme.trim();
+    if (
+      invitationOverride &&
+      invitationOverride.sourceText === trimmed
+    ) {
+      return invitationSnapshotFromChoice(
+        partyTheme,
+        invitationOverride.optionIndex,
+        invitationOverride.alternatesUsed,
+      );
+    }
+    return invitationSnapshotFromChoice(partyTheme, 0, 0);
+  }, [partyTheme, invitationOverride]);
+
+  const invitationDateLabel = selectedDate
+    ? new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(selectedDate)
+    : "";
+  const invitationTimeLabel = selectedDisposition
+    ? formatReadableTimeRange(
+        selectedDisposition.startMinutes,
+        selectedDisposition.endMinutes,
+      )
+    : "";
 
   useEffect(() => {
     if (!date) {
@@ -632,6 +673,8 @@ export function FacilityPartyBookingForm({
           child_gender: childGender.trim(),
           child_age: childAge.trim(),
           party_theme: partyTheme.trim(),
+          invitation_option_index: invitationSnapshot.optionIndex,
+          invitation_alternates_used: invitationSnapshot.alternatesUsed,
           balloon_colors: balloonColors.trim(),
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
@@ -1169,6 +1212,49 @@ export function FacilityPartyBookingForm({
                     placeholder="Princess, Sonic, sports, glow party..."
                   />
                 </label>
+                <div className="rounded-2xl border border-white/10 bg-[#071326]/55 p-3">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-cyan-100">
+                    Invitation preview
+                  </p>
+                  <PartyInvitationCard
+                    snapshot={invitationSnapshot}
+                    childName={childName}
+                    childAge={childAge}
+                    dateLabel={invitationDateLabel}
+                    timeLabel={invitationTimeLabel}
+                    compact
+                  />
+                  <p className="mt-3 text-sm font-semibold text-slate-300">
+                    Type a different theme above anytime to rematch. You can
+                    also load a different invitation style up to three times.
+                  </p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                    {invitationSnapshot.alternatesLocked
+                      ? "No more invitation styles left"
+                      : `${remainingInvitationAlternates(invitationSnapshot)} of 3 other styles left`}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={invitationSnapshot.alternatesLocked}
+                    onClick={() => {
+                      const next = advanceInvitationSnapshot(invitationSnapshot);
+                      setInvitationOverride({
+                        sourceText: next.sourceText,
+                        optionIndex: next.optionIndex,
+                        alternatesUsed: next.alternatesUsed,
+                      });
+                    }}
+                    className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-200"
+                  >
+                    I don&apos;t like this — show another
+                  </button>
+                  {invitationSnapshot.alternatesLocked ? (
+                    <p className="mt-2 text-sm font-semibold text-slate-200">
+                      This is the last invitation style we can show. It will be
+                      saved with your booking.
+                    </p>
+                  ) : null}
+                </div>
                 <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
                   <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
                     Birthday invitations

@@ -142,6 +142,14 @@ body {
     color: #0f172a;
     text-decoration: none;
   }
+
+  .invitation-print-sheet {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: 10in;
+    gap: 0.35in;
+  }
 }
 
 @media screen {

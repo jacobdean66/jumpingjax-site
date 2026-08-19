@@ -22,6 +22,7 @@ import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityEditButton } from "./FacilityEditButton";
+import { adminFacilityInvitationPath } from "@/lib/facility-parties/invitations/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,12 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               Invitations
             </Link>
             <Link
+              href={adminFacilityInvitationPath(booking.id)}
+              className="rounded-full bg-pink-700 px-4 py-2 text-xs font-black text-white hover:bg-pink-800"
+            >
+              Theme card
+            </Link>
+            <Link
               href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
               className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
             >
@@ -162,6 +169,10 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             <Detail
               label="Invite design"
               value={booking.invitationTemplateLabel}
+            />
+            <Detail
+              label="Invitation style"
+              value={`${booking.invitation.themeLabel} (${booking.invitation.artworkSlot})`}
             />
             <Detail
               label="Balloon colors"
