@@ -71,6 +71,13 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
     status: booking.status,
     startTimeIso: booking.startTime,
   });
+  const canRetryCancelledCalendarRemoval =
+    (booking.status === "cancelled" || booking.status === "canceled") &&
+    Boolean(
+      booking.googleCalendarEventId ||
+        booking.googleCalendarSecondaryEventId ||
+        booking.calendarNeedsRepair,
+    );
   return (
     <article
       id={`booking-${booking.id}`}
@@ -136,7 +143,24 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             )}
           </div>
         )}
-        {booking.calendarNeedsRepair && (
+        {canRetryCancelledCalendarRemoval ? (
+          <div className="flex flex-col items-start gap-2 print:hidden">
+            <p className="max-w-sm text-xs font-semibold text-amber-800">
+              This party is already cancelled, but Calendar removal may still
+              need attention.
+            </p>
+            <FacilityCancelButton
+              bookingId={booking.id}
+              customerName={booking.customerName}
+              partyLabel={booking.partyLabel}
+              readableDate={booking.readableDate}
+              readableTime={booking.readableTime}
+              currentStatus={booking.status}
+              retryCalendarOnly
+            />
+          </div>
+        ) : null}
+        {booking.calendarNeedsRepair && booking.status === "confirmed" && (
           <div className="flex flex-col items-start gap-2 print:hidden">
             <p className="max-w-sm text-xs font-semibold text-amber-800">
               {booking.safeWorkflowErrorClass ===

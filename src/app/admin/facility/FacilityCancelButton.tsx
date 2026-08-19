@@ -10,6 +10,7 @@ type Props = {
   readableDate: string | null;
   readableTime: string | null;
   currentStatus: string;
+  retryCalendarOnly?: boolean;
 };
 
 type CancelResponse = {
@@ -25,6 +26,7 @@ export function FacilityCancelButton({
   readableDate,
   readableTime,
   currentStatus,
+  retryCalendarOnly = false,
 }: Props) {
   const router = useRouter();
   const titleId = useId();
@@ -81,7 +83,7 @@ export function FacilityCancelButton({
         disabled={isWorking}
         className="min-h-11 rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-wait disabled:bg-orange-300"
       >
-        Cancel
+        {retryCalendarOnly ? "Retry Calendar removal" : "Cancel"}
       </button>
       {message ? (
         <span
@@ -111,12 +113,14 @@ export function FacilityCancelButton({
             className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
           >
             <h2 id={titleId} className="text-2xl font-black text-slate-950">
-              Cancel this facility party?
+              {retryCalendarOnly
+                ? "Retry Calendar removal?"
+                : "Cancel this facility party?"}
             </h2>
             <p className="mt-2 text-sm font-semibold text-slate-600">
-              The booking history will be kept. This date and time will be
-              reopened for new facility party bookings unless another booking
-              already holds it.
+              {retryCalendarOnly
+                ? "The party is already cancelled. This retries removal of its stored Google Calendar event IDs."
+                : "The booking history will be kept. This date and time will be reopened for new facility party bookings unless another booking already holds it."}
             </p>
 
             <dl className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -147,8 +151,9 @@ export function FacilityCancelButton({
             </dl>
 
             <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-950">
-              This cannot be undone from this screen. The cancelled party remains
-              in history and no longer blocks availability.
+              {retryCalendarOnly
+                ? "Stored Calendar event IDs stay in place if removal fails again, so a later retry can target the same events safely."
+                : "This cannot be undone from this screen. The cancelled party remains in history and no longer blocks availability."}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -166,7 +171,13 @@ export function FacilityCancelButton({
                 disabled={isWorking}
                 className="min-h-12 rounded-xl bg-rose-600 px-4 py-3 font-black text-white hover:bg-rose-700 disabled:cursor-wait disabled:bg-rose-300"
               >
-                {isWorking ? "Cancelling..." : "Confirm cancellation"}
+                {isWorking
+                  ? retryCalendarOnly
+                    ? "Retrying..."
+                    : "Cancelling..."
+                  : retryCalendarOnly
+                    ? "Retry Calendar removal"
+                    : "Confirm cancellation"}
               </button>
             </div>
           </section>

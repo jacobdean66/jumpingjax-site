@@ -40,10 +40,24 @@ test("edit form is pre-populated and cancel confirmation names the party", () =>
   assert.match(cancel, /Date and time/);
   assert.match(cancel, /readableDate/);
   assert.match(cancel, /Confirm cancellation/);
-  assert.match(cancel, /isWorking \? "Cancelling\.\.\."/);
+  assert.match(cancel, /retryCalendarOnly/);
+  assert.match(cancel, /"Cancelling\.\.\."|"Retrying\.\.\."/);
+  assert.match(cancel, /Retry Calendar removal/);
+  assert.match(cancel, /already cancelled/);
   assert.match(cancel, /router\.refresh\(\)/);
   assert.match(cancel, /min-h-12/);
   assert.match(cancel, /max-h-\[calc\(100dvh/);
+});
+
+test("cancelled facility bookings can retry calendar removal from the dashboard", () => {
+  const page = source("../../app/admin/facility/page.tsx");
+  const operations = source("../admin/operations.ts");
+  const cancelRoute = source("../../app/api/admin/facility/[id]/cancel/route.ts");
+  assert.match(page, /canRetryCancelledCalendarRemoval/);
+  assert.match(page, /retryCalendarOnly/);
+  assert.match(operations, /google_calendar_secondary_event_id/);
+  assert.match(operations, /status === "cancelled"/);
+  assert.match(cancelRoute, /already cancelled and Calendar removal was retried successfully/);
 });
 
 test("edit and cancel mutate through atomic RPCs then verify the public availability source", () => {

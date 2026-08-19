@@ -197,6 +197,10 @@ export async function POST(
 
   const facilityCalendarId =
     process.env.GOOGLE_FACILITY_CALENDAR_ID?.trim() || "primary";
+  const hadStoredCalendarIds = Boolean(
+    existing.google_calendar_event_id ||
+      existing.google_calendar_secondary_event_id,
+  );
   let calendarSyncFailed = false;
   try {
     const deletion = await deleteGoogleCalendarDestinations({
@@ -255,7 +259,9 @@ export async function POST(
     message: calendarSyncFailed
       ? "Facility party cancelled and the time was released, but Calendar removal needs attention. History was kept."
       : rpcResult.outcome === "already_cancelled"
-        ? "Facility party was already cancelled. The date and time remains available unless another booking holds it."
+        ? hadStoredCalendarIds
+          ? "Facility party was already cancelled and Calendar removal was retried successfully."
+          : "Facility party was already cancelled. The date and time remains available unless another booking holds it."
         : "Facility party cancelled. The date and time is available again and the booking history was kept.",
     calendarSyncFailed,
     releasedSlotVerified: true,
