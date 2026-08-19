@@ -33,6 +33,7 @@ import {
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
+import { FACILITY_AVAILABILITY_BLOCKING_STATUSES } from "@/lib/facility-parties/availability-source";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   FACILITY_TIME_ZONE,
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id,party_kind,room,start_time,end_time")
-        .in("status", ["pending", "confirmed"])
+        .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso);
 
@@ -336,7 +337,7 @@ export async function POST(req: NextRequest) {
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id")
-        .in("status", ["pending", "confirmed"])
+        .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso)
         .limit(1);

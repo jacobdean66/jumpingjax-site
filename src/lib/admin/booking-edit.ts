@@ -115,6 +115,8 @@ export type FacilityEditInput = {
   drinkChoice: string | null;
   notes: string | null;
   paymentMethod: string;
+  bookingDate?: string;
+  bookingStartTime?: string;
 };
 
 export function parseRentalEditInput(
@@ -277,6 +279,38 @@ export function parseFacilityEditInput(
   );
   if (!paymentMethod.ok) return paymentMethod;
 
+  const hasBookingDate = Object.prototype.hasOwnProperty.call(
+    raw,
+    "bookingDate",
+  );
+  const hasBookingStartTime = Object.prototype.hasOwnProperty.call(
+    raw,
+    "bookingStartTime",
+  );
+  let bookingDate: string | undefined;
+  let bookingStartTime: string | undefined;
+  if (hasBookingDate || hasBookingStartTime) {
+    const parsedDate = requiredTrimmed(raw.bookingDate, "Party date", 10);
+    if (!parsedDate.ok) return parsedDate;
+    if (!isValidYmd(parsedDate.value)) {
+      return { ok: false, error: "Party date must be YYYY-MM-DD." };
+    }
+    const parsedTime = requiredTrimmed(
+      raw.bookingStartTime,
+      "Party start time",
+      20,
+    );
+    if (!parsedTime.ok) return parsedTime;
+    const clockMatch = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(
+      parsedTime.value,
+    );
+    if (!clockMatch) {
+      return { ok: false, error: "Party start time must be HH:MM." };
+    }
+    bookingDate = parsedDate.value;
+    bookingStartTime = `${clockMatch[1]}:${clockMatch[2]}`;
+  }
+
   return {
     ok: true,
     value: {
@@ -295,6 +329,28 @@ export function parseFacilityEditInput(
       drinkChoice: drinkChoice.value,
       notes: notes.value,
       paymentMethod: paymentMethod.value,
+      bookingDate,
+      bookingStartTime,
     },
+  };
+}
+
+export function facilityEditDetailsWrite(value: FacilityEditInput) {
+  return {
+    customer_name: value.customerName,
+    email: value.email,
+    phone: value.phone,
+    parent_name: value.parentName,
+    child_name: value.childName,
+    child_age: value.childAge,
+    child_gender: value.childGender,
+    party_theme: value.partyTheme,
+    invitation_delivery_preference: value.invitationDeliveryPreference,
+    invitation_template_id: value.invitationTemplateId,
+    balloon_colors: value.balloonColors,
+    table_cloth_colors: value.tableClothColors,
+    drink_choice: value.drinkChoice,
+    notes: value.notes,
+    payment_method: value.paymentMethod,
   };
 }

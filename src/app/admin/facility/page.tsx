@@ -22,6 +22,8 @@ import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityEditButton } from "./FacilityEditButton";
+import { FacilityCancelButton } from "./FacilityCancelButton";
+import { facilityBookingCanMutate } from "@/lib/facility-parties/schedule-mutation";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +67,10 @@ function roomLabel(room: string | null) {
 }
 
 function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
+  const canMutate = facilityBookingCanMutate({
+    status: booking.status,
+    startTimeIso: booking.startTime,
+  });
   return (
     <article
       id={`booking-${booking.id}`}
@@ -85,9 +91,21 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             {booking.readableTime ?? "Time not set"}
           </p>
         </div>
-        {(booking.status === "pending" || booking.status === "confirmed") && (
+        {(canMutate || booking.status === "pending") && (
           <div className="flex flex-wrap gap-2 print:hidden">
-            <FacilityEditButton booking={booking} />
+            {canMutate ? (
+              <>
+                <FacilityEditButton booking={booking} />
+                <FacilityCancelButton
+                  bookingId={booking.id}
+                  customerName={booking.customerName}
+                  partyLabel={booking.partyLabel}
+                  readableDate={booking.readableDate}
+                  readableTime={booking.readableTime}
+                  currentStatus={booking.status}
+                />
+              </>
+            ) : null}
             <Link
               href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
               className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
@@ -290,7 +308,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
         <PrintButton label="Print party prep sheets" />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5 print:hidden">
         <StatTile
           label="Waiting approval"
           value={allFacility.summary.pending ?? 0}
@@ -305,6 +323,11 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
           label="Rejected parties"
           value={allFacility.summary.rejected ?? 0}
           href={`/admin/facility?${baseQuery}&status=rejected`}
+        />
+        <StatTile
+          label="Cancelled parties"
+          value={allFacility.summary.cancelled ?? 0}
+          href={`/admin/facility?${baseQuery}&status=cancelled`}
         />
         <StatTile
           label="Private parties"
