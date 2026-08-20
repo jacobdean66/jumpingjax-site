@@ -145,9 +145,11 @@ test("async idempotency refuses process-local Maps when durable protection is di
       process.env.AGENT_ALLOW_PROCESS_LOCAL_PROTECTION,
   };
   try {
-    process.env.NODE_ENV = "production";
-    process.env.VERCEL_ENV = "production";
-    process.env.VERCEL = "1";
+    Object.assign(process.env, {
+      NODE_ENV: "production",
+      VERCEL_ENV: "production",
+      VERCEL: "1",
+    });
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.AGENT_ALLOW_PROCESS_LOCAL_PROTECTION;
