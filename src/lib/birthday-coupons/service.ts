@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getResendFromAddress } from "@/lib/email/resend";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { isScheduleDue, nextBirthdayCouponSchedule } from "./date";
+import { nextBirthdayCouponSchedule } from "./date";
 import { birthdayCouponSubject, birthdayCouponText } from "./email";
 
 const DEFAULT_BATCH_LIMIT = 25;
@@ -99,7 +99,6 @@ function toOutreachInsert(row: WaiverParticipantRow, asOfYmd: string) {
     return null;
   }
   const schedule = nextBirthdayCouponSchedule(row.dob, asOfYmd);
-  if (!isScheduleDue(schedule, asOfYmd)) return null;
 
   return {
     waiver_submission_id: row.submission_id,
@@ -124,7 +123,7 @@ function toOutreachInsert(row: WaiverParticipantRow, asOfYmd: string) {
   };
 }
 
-async function loadDueBirthdayCouponInserts(input: {
+async function loadBirthdayCouponInserts(input: {
   supabase: SupabaseClient;
   asOfYmd: string;
 }) {
@@ -159,14 +158,14 @@ export async function countDueBirthdayCouponCandidates(input: {
   supabase: SupabaseClient;
   asOfYmd: string;
 }): Promise<number> {
-  return (await loadDueBirthdayCouponInserts(input)).length;
+  return (await loadBirthdayCouponInserts(input)).length;
 }
 
 export async function materializeDueBirthdayCouponOutreach(input: {
   supabase: SupabaseClient;
   asOfYmd: string;
 }): Promise<number> {
-  const inserts = await loadDueBirthdayCouponInserts(input);
+  const inserts = await loadBirthdayCouponInserts(input);
 
   if (inserts.length === 0) return 0;
 
@@ -345,15 +344,32 @@ export async function runBirthdayCouponOutreach(input: {
 export async function loadBirthdayCouponAdminRows(input: {
   supabase?: SupabaseClient;
   limit?: number;
+  asOfYmd?: string;
+  hydrate?: boolean;
 } = {}) {
   const supabase = input.supabase ?? createServiceRoleClient();
   const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
-  const [upcoming, recent] = await Promise.all([
+  const asOfYmd = input.asOfYmd ?? businessDayYmdFromInstant(new Date());
+
+  if (input.hydrate !== false) {
+    await materializeDueBirthdayCouponOutreach({
+      supabase,
+      asOfYmd,
+    });
+  }
+
+  const [monthAway, upcoming, recent] = await Promise.all([
     supabase
       .from("birthday_coupon_outreach")
       .select("*")
-      .in("status", ["pending", "failed"])
-      .order("send_on", { ascending: true })
+      .eq("send_on", asOfYmd)
+      .order("birthday_date", { ascending: true })
+      .limit(limit),
+    supabase
+      .from("birthday_coupon_outreach")
+      .select("*")
+      .gte("birthday_date", asOfYmd)
+      .order("birthday_date", { ascending: true })
       .limit(limit),
     supabase
       .from("birthday_coupon_outreach")
@@ -362,10 +378,11 @@ export async function loadBirthdayCouponAdminRows(input: {
       .order("updated_at", { ascending: false })
       .limit(limit),
   ]);
-  if (upcoming.error || recent.error) {
+  if (monthAway.error || upcoming.error || recent.error) {
     throw new Error("birthday_coupon_admin_load_failed");
   }
   return {
+    monthAway: (monthAway.data ?? []) as BirthdayCouponOutreachRow[],
     upcoming: (upcoming.data ?? []) as BirthdayCouponOutreachRow[],
     recent: (recent.data ?? []) as BirthdayCouponOutreachRow[],
   };

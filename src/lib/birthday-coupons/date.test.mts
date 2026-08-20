@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   addCalendarMonthsClamped,
+  birthdayAgeForYear,
   birthdayDateForYear,
   nextBirthdayCouponSchedule,
 } from "./date";
@@ -48,6 +49,11 @@ test("clamps one-month date math at month ends", () => {
   assert.equal(addCalendarMonthsClamped("2026-03-31", -1), "2026-02-28");
   assert.equal(addCalendarMonthsClamped("2028-03-31", -1), "2028-02-29");
   assert.equal(addCalendarMonthsClamped("2027-01-31", -1), "2026-12-31");
+});
+
+test("calculates the age the child is turning on the birthday year", () => {
+  assert.equal(birthdayAgeForYear("2018-09-20", 2026), 8);
+  assert.equal(birthdayAgeForYear("2020-02-29", 2027), 7);
 });
 
 test("birthday coupon email includes required offer and practical redemption", () => {
