@@ -4,6 +4,8 @@ import {
   DRIVER_SESSION_COOKIE,
   verifyDriverLogin,
 } from "@/lib/admin/driver-auth";
+import { verifyAdminLogin } from "@/lib/admin/delivery-auth";
+import { verifyAdminStaffLogin } from "@/lib/admin/staff-users";
 
 export async function POST(req: Request) {
   let body: { username?: unknown; password?: unknown };
@@ -13,12 +15,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const auth = await verifyDriverLogin({
-    username: typeof body.username === "string" ? body.username : "",
-    password: typeof body.password === "string" ? body.password : "",
-  });
+  const username = typeof body.username === "string" ? body.username : "";
+  const password = typeof body.password === "string" ? body.password : "";
 
-  if (!auth.ok) {
+  const driverAuth = await verifyDriverLogin({ username, password });
+  const staffAttempt = driverAuth.ok
+    ? { configured: false, identity: null }
+    : await verifyAdminStaffLogin({ username, password });
+  const adminFallback =
+    driverAuth.ok || staffAttempt.configured
+      ? null
+      : verifyAdminLogin(username || null, password || null);
+  const ownerAuth =
+    staffAttempt.identity?.role === "owner"
+      ? { ok: true as const, role: staffAttempt.identity.role, identity: staffAttempt.identity }
+      : adminFallback?.ok && adminFallback.role === "owner"
+        ? adminFallback
+        : null;
+  const auth = driverAuth.ok ? driverAuth : ownerAuth;
+
+  if (!auth) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
