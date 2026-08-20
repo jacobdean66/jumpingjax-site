@@ -4,6 +4,7 @@ import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { AgentsDashboardClient } from "./AgentsDashboardClient";
 import { TriggerProofClient } from "./TriggerProofClient";
+import { NominationProofClient } from "./NominationProofClient";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AgentsPage() {
         Durable, event-driven operations. Models run only for future jobs that explicitly select a model worker; the health demonstration is deterministic.
       </p>
       <TriggerProofClient />
+      <NominationProofClient />
       {dashboard ? (
         <>
           {dashboard.demoMode ? (

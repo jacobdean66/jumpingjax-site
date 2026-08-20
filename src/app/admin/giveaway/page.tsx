@@ -2,6 +2,8 @@ import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_component
 import { GiveawayDrawClient, type GiveawayDrawNominee } from "./GiveawayDrawClient";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
+import { listFixtureNominations } from "@/lib/giveaway/nomination-store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,16 @@ const partyLabels: Record<string, string> = {
 };
 
 async function loadNominees(): Promise<GiveawayDrawNominee[]> {
+  if (isLocalAgentPreviewEnabled()) {
+    return listFixtureNominations().map((row) => ({
+      id: row.id,
+      childName: row.child_name,
+      birthday: `${String(row.child_birth_month).padStart(2, "0")}/${String(row.child_birth_day).padStart(2, "0")}`,
+      partyChoice: partyLabels[row.party_choice] ?? row.party_choice,
+      reason: row.nomination_reason,
+      nominatorName: row.nominator_name,
+    }));
+  }
   const { data, error } = await createServiceRoleClient()
     .from("giveaway_nominations")
     .select("id, child_name, child_birth_month, child_birth_day, party_choice, nomination_reason, nominator_name")

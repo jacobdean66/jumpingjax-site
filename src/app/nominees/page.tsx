@@ -7,6 +7,8 @@ import {
   createServiceRoleClient,
   isSupabaseServiceConfigured,
 } from "@/lib/supabase/admin";
+import { isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
+import { listFixtureNominations } from "@/lib/giveaway/nomination-store";
 
 export const metadata: Metadata = {
   title: "Free Party Giveaway Nominees",
@@ -28,6 +30,12 @@ const partyLabels: Record<Nominee["party_choice"], string> = {
 };
 
 async function getNominees(): Promise<{ nominees: Nominee[]; unavailable: boolean }> {
+  if (isLocalAgentPreviewEnabled()) {
+    return {
+      nominees: listFixtureNominations().map((row) => ({ id: row.id, child_name: row.child_name, party_choice: row.party_choice })),
+      unavailable: false,
+    };
+  }
   if (!isSupabaseServiceConfigured()) {
     return { nominees: [], unavailable: true };
   }

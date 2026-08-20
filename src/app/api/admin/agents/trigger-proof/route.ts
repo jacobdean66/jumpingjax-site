@@ -13,7 +13,8 @@ export async function GET() {
   if (!runId) return NextResponse.json({ ok: true, run: null }, { headers: { "Cache-Control": "no-store" } });
   try {
     return NextResponse.json({ ok: true, run: await retrieveArchitectureProof(runId) }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    console.error("Trigger.dev proof status failed", error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error");
     return NextResponse.json({ ok: false, error: "Trigger.dev run status is unavailable." }, { status: 503 });
   }
 }
@@ -30,9 +31,10 @@ export async function POST(request: Request) {
   try {
     const handle = await triggerArchitectureProof({ probeId: body.probeId, failureMode: body.failureMode!, idempotencyKey: body.idempotencyKey });
     const response = NextResponse.json({ ok: true, runId: handle.id });
-    response.cookies.set(TRIGGER_PROOF_COOKIE, handle.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin/agents", maxAge: 60 * 60 * 24 });
+    response.cookies.set(TRIGGER_PROOF_COOKIE, handle.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 });
     return response;
-  } catch {
+  } catch (error) {
+    console.error("Trigger.dev proof trigger failed", error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error");
     return NextResponse.json({ ok: false, error: "Trigger.dev proof could not be started." }, { status: 503 });
   }
 }
