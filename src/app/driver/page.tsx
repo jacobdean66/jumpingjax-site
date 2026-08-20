@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyAdminAccess } from "@/lib/admin/session";
+import { verifyDriverAccess } from "@/lib/admin/driver-auth";
 import { AdminBackButton } from "@/app/admin/AdminBackButton";
 import {
   loadAdminDeliveries,
@@ -33,6 +33,7 @@ import {
 } from "@/lib/admin/driver-app";
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
+import { DriverLoginGate } from "./DriverLoginGate";
 import { PrintButton } from "@/app/admin/PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -840,35 +841,13 @@ function StopCard({
 export default async function DriverPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
-  const auth = await verifyAdminAccess(token);
+  const auth = await verifyDriverAccess();
   const date = normalizeDeliveryDate(resolved?.date ?? todayYmd());
 
   if (!auth.ok) {
     return (
       <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950">
-        <section className="mx-auto max-w-md rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">
-            Driver App
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Invalid driver link</h1>
-          <p className="mt-3 text-sm font-semibold text-slate-600">
-            Sign in as staff first, then open Driver App from the admin dashboard.
-          </p>
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <Link
-              href="/admin"
-              className="rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white hover:bg-slate-800"
-            >
-              Staff Login
-            </Link>
-            <Link
-              href="/"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-800 hover:bg-slate-50"
-            >
-              Website Home
-            </Link>
-          </div>
-        </section>
+        <DriverLoginGate />
       </main>
     );
   }

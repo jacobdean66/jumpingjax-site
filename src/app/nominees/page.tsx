@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import {
+  excludeSyntheticNominations,
+  groupNominationsByChild,
+  projectPublicNomineeCards,
+  type NominationSubmission,
+} from "@/lib/giveaway/nomination-groups";
 import { formatPublicChildDisplayName } from "@/lib/giveaway/public-nominee-display";
 import {
   createServiceRoleClient,
@@ -16,43 +22,57 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-type Nominee = {
-  id: string;
-  child_name: string;
-  party_choice: "september_birthday" | "back_to_school";
+type PublicCard = {
+  groupKey: string;
+  childName: string;
+  partyChoice: "september_birthday" | "back_to_school" | string;
+  nominationCount: number;
 };
 
-const partyLabels: Record<Nominee["party_choice"], string> = {
+const partyLabels: Record<string, string> = {
   september_birthday: "September birthday party",
   back_to_school: "Back-to-school party",
 };
 
-async function getNominees(): Promise<{ nominees: Nominee[]; unavailable: boolean }> {
+async function getNomineeCards(): Promise<{ cards: PublicCard[]; unavailable: boolean }> {
   if (!isSupabaseServiceConfigured()) {
-    return { nominees: [], unavailable: true };
+    return { cards: [], unavailable: true };
   }
 
   try {
     const { data, error } = await createServiceRoleClient()
       .from("giveaway_nominations")
-      .select("id, child_name, party_choice")
+      .select("id, child_name, party_choice, child_birth_month, child_birth_day")
       .eq("permission_acknowledged", true)
       .order("created_at", { ascending: true });
 
     if (error) {
       console.error("[giveaway] nominee list failed", { code: error.code });
-      return { nominees: [], unavailable: true };
+      return { cards: [], unavailable: true };
     }
 
-    return { nominees: (data ?? []) as Nominee[], unavailable: false };
+    const submissions: NominationSubmission[] = excludeSyntheticNominations(
+      (data ?? []).map((row) => ({
+        id: String(row.id),
+        childName: String(row.child_name),
+        birthMonth: Number(row.child_birth_month),
+        birthDay: Number(row.child_birth_day),
+        partyChoice: String(row.party_choice),
+        reason: "",
+        nominatorName: "",
+      })),
+    );
+
+    const cards = projectPublicNomineeCards(groupNominationsByChild(submissions));
+    return { cards, unavailable: false };
   } catch (error) {
     console.error("[giveaway] nominee list unavailable", error);
-    return { nominees: [], unavailable: true };
+    return { cards: [], unavailable: true };
   }
 }
 
 export default async function NomineesPage() {
-  const { nominees, unavailable } = await getNominees();
+  const { cards, unavailable } = await getNomineeCards();
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_44%,#fce7f3_100%)] px-4 py-10 sm:px-6">
@@ -77,9 +97,9 @@ export default async function NomineesPage() {
           <p className="mx-auto mt-5 max-w-2xl text-lg font-semibold text-slate-700">
             Every name here was submitted by someone who wants to help make a child&apos;s celebration extra special.
           </p>
-          {!unavailable && nominees.length > 0 ? (
+          {!unavailable && cards.length > 0 ? (
             <p className="mt-4 text-sm font-black uppercase tracking-widest text-cyan-800">
-              {nominees.length} {nominees.length === 1 ? "nominee" : "nominees"} and counting
+              {cards.length} {cards.length === 1 ? "nominee" : "nominees"} and counting
             </p>
           ) : null}
         </div>
@@ -92,7 +112,7 @@ export default async function NomineesPage() {
                 Please check back in a little while. New nominations can still be submitted.
               </p>
             </div>
-          ) : nominees.length === 0 ? (
+          ) : cards.length === 0 ? (
             <div className="rounded-[2rem] border-4 border-cyan-200 bg-white p-8 text-center shadow-xl">
               <h2 className="text-2xl font-black text-slate-950">Be the first to nominate a child</h2>
               <p className="mx-auto mt-3 max-w-xl font-semibold text-slate-600">
@@ -101,11 +121,11 @@ export default async function NomineesPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {nominees.map((nominee, index) => {
-                const isBirthday = nominee.party_choice === "september_birthday";
+              {cards.map((card, index) => {
+                const isBirthday = card.partyChoice === "september_birthday";
                 return (
                   <article
-                    key={nominee.id}
+                    key={card.groupKey}
                     className={`rounded-[2rem] border-4 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl ${
                       isBirthday ? "border-pink-200" : "border-cyan-200"
                     }`}
@@ -119,7 +139,7 @@ export default async function NomineesPage() {
                       {index + 1}
                     </div>
                     <h2 className="mt-5 text-2xl font-black text-slate-950">
-                      {formatPublicChildDisplayName(nominee.child_name)}
+                      {formatPublicChildDisplayName(card.childName)}
                     </h2>
                     <p
                       className={`mt-3 inline-flex rounded-full px-3 py-2 text-sm font-black ${
@@ -128,8 +148,13 @@ export default async function NomineesPage() {
                           : "bg-cyan-100 text-cyan-950"
                       }`}
                     >
-                      {partyLabels[nominee.party_choice]}
+                      {partyLabels[card.partyChoice] ?? card.partyChoice}
                     </p>
+                    {card.nominationCount > 1 ? (
+                      <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-500">
+                        {card.nominationCount} nominations
+                      </p>
+                    ) : null}
                   </article>
                 );
               })}

@@ -15,6 +15,8 @@ export type PartyInvitationCardProps = {
   qrUrl?: string;
   waiverUrl?: string;
   pickupReady?: boolean;
+  previewScale?: boolean;
+  sheetReadable?: boolean;
 };
 
 export function PartyInvitationCard({
@@ -27,7 +29,10 @@ export function PartyInvitationCard({
   qrUrl,
   waiverUrl,
   pickupReady = false,
+  previewScale = false,
+  sheetReadable = false,
 }: PartyInvitationCardProps) {
+  compact = compact || previewScale || sheetReadable;
   const composed = composeLibraryInvitation({
     themeId: snapshot.themeId,
     optionIndex: snapshot.optionIndex,

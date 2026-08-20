@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildDriverEventsSignature } from "@/lib/admin/driver-app";
 import { loadDriverCloseoutReports } from "@/lib/admin/driver-closeout";
-import { verifyAdminAccess } from "@/lib/admin/session";
+import { verifyDriverAccess } from "@/lib/admin/driver-auth";
 import { loadAdminDeliveries, normalizeDeliveryDate } from "@/lib/admin/deliveries";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +79,7 @@ function sleep(ms: number, signal: AbortSignal) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const auth = await verifyAdminAccess(searchParams.get("token"));
+  const auth = await verifyDriverAccess();
   if (!auth.ok) {
     return NextResponse.json({ error: "Invalid driver login" }, { status: 401 });
   }
