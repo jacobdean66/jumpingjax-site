@@ -6,6 +6,7 @@ import {
   loadAdminRentalBookings,
   normalizeStatus,
   normalizeYmd,
+  todayYmd,
   type AdminRentalBooking,
 } from "@/lib/admin/operations";
 import {
@@ -32,6 +33,7 @@ type Props = {
     from?: string;
     to?: string;
     status?: string;
+    q?: string;
   }>;
 };
 
@@ -68,6 +70,51 @@ function cityFromAddress(value: string | null): string {
 
 function bookedInflatables(booking: AdminRentalBooking): string {
   return booking.items.map((item) => item.rental_name).join(", ") || "Rental";
+}
+
+function normalizeSearch(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function matchesRentalSearch(
+  booking: AdminRentalBooking,
+  search: string,
+): boolean {
+  if (!search) return true;
+  const searchableText = [
+    booking.id,
+    booking.customerName,
+    booking.customerEmail,
+    booking.customerPhone,
+    booking.eventDate,
+    booking.eventAddress,
+    cityFromAddress(booking.eventAddress),
+    bookedInflatables(booking),
+    booking.status,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return searchableText.includes(search);
+}
+
+function compareRentalPriority(
+  today: string,
+  left: AdminRentalBooking,
+  right: AdminRentalBooking,
+): number {
+  const leftUpcoming = left.eventDate >= today;
+  const rightUpcoming = right.eventDate >= today;
+  if (leftUpcoming !== rightUpcoming) return leftUpcoming ? -1 : 1;
+
+  const dateDirection = leftUpcoming ? 1 : -1;
+  const dateCompare = left.eventDate.localeCompare(right.eventDate);
+  if (dateCompare !== 0) return dateCompare * dateDirection;
+
+  return (left.eventStartTime ?? "99:99").localeCompare(
+    right.eventStartTime ?? "99:99",
+  );
 }
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
@@ -282,7 +329,8 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
   const to = normalizeYmd(resolved?.to) || defaultToYmd(from);
   const status = normalizeStatus(resolved?.status);
   const effectiveTo = resolved?.to ? to : defaultToYmd(from);
-  const [{ bookings }, { summary }] = await Promise.all([
+  const rentalSearch = normalizeSearch(resolved?.q);
+  const [{ bookings: loadedBookings }, { summary }] = await Promise.all([
     loadAdminRentalBookings({
       from,
       to: effectiveTo,
@@ -294,7 +342,13 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
       status: "all",
     }),
   ]);
-  const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
+  const bookings = loadedBookings
+    .filter((booking) => matchesRentalSearch(booking, rentalSearch))
+    .sort((left, right) => compareRentalPriority(todayYmd(), left, right));
+  const searchQuery = rentalSearch
+    ? `&q=${encodeURIComponent(rentalSearch)}`
+    : "";
+  const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}${searchQuery}`;
   const pendingApprovalEndpoints = bookings
     .filter((booking) => booking.status === "pending")
     .map((booking) => actionHref(booking.id, "confirm"));
@@ -350,6 +404,39 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
           href={`/admin/rentals?${baseQuery}&status=cancelled`}
         />
       </div>
+
+      <form
+        action="/admin/rentals"
+        className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center print:hidden"
+      >
+        <input type="hidden" name="token" value={token} />
+        <input type="hidden" name="from" value={from} />
+        <input type="hidden" name="to" value={effectiveTo} />
+        <input type="hidden" name="status" value={status} />
+        <input
+          type="search"
+          name="q"
+          defaultValue={rentalSearch}
+          placeholder="Search rentals"
+          className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-black text-white hover:bg-slate-800"
+          >
+            Search
+          </button>
+          {rentalSearch && (
+            <Link
+              href={`/admin/rentals?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}&status=${encodeURIComponent(status)}`}
+              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              Clear
+            </Link>
+          )}
+        </div>
+      </form>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 print:hidden">
         {bookings.length === 0 ? (
