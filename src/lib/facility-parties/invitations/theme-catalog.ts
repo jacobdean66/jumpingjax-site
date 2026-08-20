@@ -1,10 +1,12 @@
 /**
  * Birthday invitation themes are customer-entered text and should be
  * interpreted as common kids TV/game/movie/team/character themes using
- * fuzzy matching and safe approved artwork lookup.
+ * fuzzy matching. When Jumping Jax has owner/license permission, use real
+ * character artwork for recognized theme IDs.
  *
- * Expand this catalog over time. Do not add copyrighted character artwork
- * here — register approved files in `approved-artwork.ts` by theme ID.
+ * Register approved files in `approved-artwork.ts` by theme ID. Do not invent
+ * unlicensed characters for themes we do not have rights to. Inspired/generic
+ * motifs are only the fallback when no approved character asset exists yet.
  */
 
 export const INVITATION_STYLE_FAMILIES = [

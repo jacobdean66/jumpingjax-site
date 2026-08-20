@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { INVITATION_PREVIEW_EXAMPLES, snapshotForExample } from "./examples.ts";
+import { approvedArtworkSrc } from "./approved-artwork.ts";
+import { INVITATION_PREVIEW_EXAMPLES, snapshotForExample, sonicSampleSnapshot } from "./examples.ts";
 import {
   listInvitationOptions,
   matchInvitationTheme,
@@ -76,6 +77,23 @@ test("snapshots keep the original customer theme text", () => {
   assert.equal(snapshot.optionIndex, 0);
   assert.equal(snapshot.alternatesUsed, 0);
   assert.equal(snapshot.alternatesLocked, false);
+});
+
+test("approved Sonic artwork is used for recognized sonic theme", () => {
+  const match = matchInvitationTheme("sonic party");
+  assert.equal(match.themeId, "sonic");
+  assert.equal(match.artworkKind, "approved");
+  const snapshot = invitationSnapshotFromChoice("sonic party", 0, 0);
+  assert.equal(snapshot.themeId, "sonic");
+  assert.equal(snapshot.artworkKind, "approved");
+  assert.equal(
+    approvedArtworkSrc("sonic"),
+    "/invitations/approved/sonic/card.png",
+  );
+  const sample = sonicSampleSnapshot();
+  assert.equal(sample.themeId, "sonic");
+  assert.equal(sample.artworkKind, "approved");
+  assert.equal(sample.sourceText, "Sonic");
 });
 
 test("first match is option index 0", () => {

@@ -23,6 +23,7 @@ import {
   buildFacilityWaiverInvitationUrl,
   invitationTemplateLabel,
   invitationDeliveryPreferenceLabel,
+  normalizeInvitationCreationPreference,
   normalizeInvitationDeliveryPreference,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       drink_choice,
       payment_method,
       invitation_delivery_preference,
+      invitation_creation_preference,
       invitation_template_id,
       deposit_acknowledged,
       notes,
@@ -156,6 +158,9 @@ export async function POST(req: NextRequest) {
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
     const invitationPreference = normalizeInvitationDeliveryPreference(
       invitation_delivery_preference,
+    );
+    const invitationCreationPreference = normalizeInvitationCreationPreference(
+      invitation_creation_preference,
     );
     const invitationTemplateId = normalizeInvitationTemplateId(
       invitation_template_id,
@@ -376,11 +381,17 @@ export async function POST(req: NextRequest) {
           child_gender: String(child_gender).trim(),
           child_age: String(child_age).trim(),
           party_theme: String(party_theme ?? "").trim(),
-          invitation: invitationSnapshotFromChoice(
-            String(party_theme ?? ""),
-            invitation_option_index,
-            invitation_alternates_used,
-          ),
+          invitation: {
+            ...invitationSnapshotFromChoice(
+              String(party_theme ?? ""),
+              invitation_option_index,
+              invitation_alternates_used,
+            ),
+            ...(invitationCreationPreference
+              ? { creationPreference: invitationCreationPreference }
+              : {}),
+            deliveryPreference: invitationPreference,
+          },
           balloon_colors: String(balloon_colors).trim(),
           table_cloth_colors: String(table_cloth_colors).trim(),
           drink_choice: String(drink_choice).trim(),

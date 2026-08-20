@@ -19,7 +19,15 @@ test("normalizes invitation delivery preference safely", () => {
     "office_pickup",
   );
   assert.equal(normalizeInvitationDeliveryPreference("mail"), "print");
-  assert.equal(invitationDeliveryPreferenceLabel("office_pickup"), "Office pickup");
+  assert.equal(invitationDeliveryPreferenceLabel("office_pickup"), "Receive in person");
+  assert.equal(
+    invitationDeliveryPreferenceLabel("print"),
+    "Printable sheet (4 per page)",
+  );
+  assert.equal(
+    invitationDeliveryPreferenceLabel("email"),
+    "Email invitation (single)",
+  );
 });
 
 test("resolves birthday invitation theme presets from booking theme text", () => {

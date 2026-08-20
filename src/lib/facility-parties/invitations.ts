@@ -6,6 +6,12 @@ export const FACILITY_INVITATION_DELIVERY_PREFERENCES = [
   "office_pickup",
 ] as const;
 
+/** Optional customer choice: themed digital invites vs office generic. */
+export const FACILITY_INVITATION_CREATION_PREFERENCES = [
+  "create",
+  "office_generic",
+] as const;
+
 export const FACILITY_INVITATION_TEMPLATE_IDS = [
   "spotlight",
   "ticket",
@@ -14,6 +20,9 @@ export const FACILITY_INVITATION_TEMPLATE_IDS = [
 
 export type FacilityInvitationDeliveryPreference =
   (typeof FACILITY_INVITATION_DELIVERY_PREFERENCES)[number];
+
+export type FacilityInvitationCreationPreference =
+  (typeof FACILITY_INVITATION_CREATION_PREFERENCES)[number];
 
 export type FacilityInvitationTemplateId =
   (typeof FACILITY_INVITATION_TEMPLATE_IDS)[number];
@@ -173,6 +182,16 @@ export function normalizeInvitationDeliveryPreference(
     : "print";
 }
 
+export function normalizeInvitationCreationPreference(
+  value: unknown,
+): FacilityInvitationCreationPreference | null {
+  return FACILITY_INVITATION_CREATION_PREFERENCES.includes(
+    value as FacilityInvitationCreationPreference,
+  )
+    ? (value as FacilityInvitationCreationPreference)
+    : null;
+}
+
 export function normalizeInvitationTemplateId(
   value: unknown,
 ): FacilityInvitationTemplateId {
@@ -195,10 +214,41 @@ export function invitationTemplateLabel(
 export function invitationDeliveryPreferenceLabel(
   preference: FacilityInvitationDeliveryPreference,
 ): string {
-  if (preference === "email") return "Email invitations";
-  if (preference === "office_pickup") return "Office pickup";
-  return "Print at home";
+  if (preference === "email") return "Email invitation (single)";
+  if (preference === "office_pickup") return "Receive in person";
+  return "Printable sheet (4 per page)";
 }
+
+export function invitationCreationPreferenceLabel(
+  preference: FacilityInvitationCreationPreference,
+): string {
+  if (preference === "office_generic") {
+    return "I'd rather have generic invitations from the office";
+  }
+  return "Create invitations";
+}
+
+export const FACILITY_INVITATION_DELIVERY_OPTIONS: readonly {
+  id: FacilityInvitationDeliveryPreference;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "print",
+    label: "Printable sheet (4 per page)",
+    description: "Four square invitations on one printable page.",
+  },
+  {
+    id: "email",
+    label: "Email invitation (single)",
+    description: "One invitation to share or forward by email.",
+  },
+  {
+    id: "office_pickup",
+    label: "Receive in person",
+    description: "Pick up invitations from the office — no digital design needed.",
+  },
+];
 
 export function resolveInvitationTheme(
   partyTheme: string | null | undefined,

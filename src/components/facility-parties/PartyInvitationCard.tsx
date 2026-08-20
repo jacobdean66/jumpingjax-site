@@ -132,17 +132,79 @@ export function PartyInvitationCard({
   const approvedSrc = approvedArtworkSrc(snapshot.themeId);
   const displayName = childName.trim() || "Birthday Star";
   const ageBit = childAge.trim() ? ` is turning ${childAge.trim()}!` : " is having a party!";
+  const celebrationLine = snapshot.sourceText
+    ? `${snapshot.sourceText} celebration`
+    : "Birthday celebration";
+  const articleMeta = {
+    "data-theme-id": snapshot.themeId,
+    "data-artwork-slot": snapshot.artworkSlot,
+    "data-artwork-variant": String(snapshot.artworkVariant ?? 0),
+    "data-option-index": String(snapshot.optionIndex ?? 0),
+    "data-style-family": snapshot.styleFamily,
+    "data-artwork-kind": snapshot.artworkKind,
+  } as const;
+
+  const details = (
+    <>
+      <h2
+        className={`font-black leading-tight ${compact ? "text-sm sm:text-base" : "text-2xl sm:text-3xl"}`}
+      >
+        {displayName}
+        {ageBit}
+      </h2>
+      <p className={`font-semibold ${compact ? "mt-0.5 text-[11px]" : "mt-1.5 text-sm"}`}>
+        {celebrationLine}
+      </p>
+      <div className={`space-y-0.5 font-semibold ${compact ? "mt-1.5 text-[10px] leading-snug" : "mt-2.5 text-sm"}`}>
+        <p>{dateLabel || "Date coming soon"}</p>
+        <p>{timeLabel || "Time coming soon"}</p>
+        <p>
+          {FACILITY_INVITATION_VENUE.name}
+          <br />
+          {FACILITY_INVITATION_VENUE.address}
+        </p>
+      </div>
+      {snapshot.sourceText ? (
+        <p
+          className={`font-bold uppercase tracking-wide ${compact ? "mt-1.5 text-[9px]" : "mt-2.5 text-[11px]"}`}
+          style={{ color: palette.muted }}
+        >
+          Theme: {snapshot.sourceText}
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (approvedSrc) {
+    return (
+      <article
+        {...articleMeta}
+        className="relative aspect-square overflow-hidden rounded-[28px] border-4 text-left shadow-lg"
+        style={{
+          borderColor: palette.accent,
+          color: "#ffffff",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={approvedSrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
+          <div className={compact ? "px-2.5 pb-2.5 pt-10" : "px-5 pb-5 pt-16 sm:px-6 sm:pb-6"}>
+            {details}
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
-      data-theme-id={snapshot.themeId}
-      data-artwork-slot={snapshot.artworkSlot}
-      data-artwork-variant={String(snapshot.artworkVariant ?? 0)}
-      data-option-index={String(snapshot.optionIndex ?? 0)}
-      data-style-family={snapshot.styleFamily}
-      data-artwork-kind={snapshot.artworkKind}
-      className={`relative overflow-hidden rounded-[28px] border-4 text-left shadow-lg ${
-        compact ? "p-4" : "p-6 sm:p-8"
+      {...articleMeta}
+      className={`relative aspect-square overflow-hidden rounded-[28px] border-4 text-left shadow-lg ${
+        compact ? "p-3" : "p-5 sm:p-6"
       }`}
       style={{
         background: `linear-gradient(145deg, ${palette.background}, ${palette.backgroundAlt})`,
@@ -156,17 +218,15 @@ export function PartyInvitationCard({
       >
         You&apos;re invited
       </p>
-      <h2 className={`font-black leading-tight ${compact ? "mt-1 text-xl" : "mt-2 text-3xl sm:text-4xl"}`}>
+      <h2 className={`font-black leading-tight ${compact ? "mt-1 text-base" : "mt-2 text-2xl sm:text-3xl"}`}>
         {displayName}
         {ageBit}
       </h2>
-      <p className={`font-semibold ${compact ? "mt-1 text-sm" : "mt-3 text-base"}`}>
-        {snapshot.sourceText
-          ? `${theme.label} celebration`
-          : "Birthday celebration"}
+      <p className={`font-semibold ${compact ? "mt-1 text-xs" : "mt-2 text-sm"}`}>
+        {celebrationLine}
       </p>
-      <div className={`grid grid-cols-[1fr_auto] items-end gap-3 ${compact ? "mt-3" : "mt-6"}`}>
-        <div className="space-y-1 text-sm font-semibold">
+      <div className={`grid grid-cols-[1fr_auto] items-end gap-2 ${compact ? "mt-2" : "mt-4"}`}>
+        <div className={`space-y-0.5 font-semibold ${compact ? "text-[11px]" : "text-sm"}`}>
           <p>{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
           <p>
@@ -175,22 +235,13 @@ export function PartyInvitationCard({
             {FACILITY_INVITATION_VENUE.address}
           </p>
         </div>
-        <div className={compact ? "h-16 w-24" : "h-20 w-32"} style={{ color: palette.accent }}>
-          {approvedSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={approvedSrc}
-              alt=""
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <Motif slot={snapshot.artworkSlot} variant={variant} />
-          )}
+        <div className={compact ? "h-12 w-16" : "h-16 w-24"} style={{ color: palette.accent }}>
+          <Motif slot={snapshot.artworkSlot} variant={variant} />
         </div>
       </div>
       {snapshot.sourceText ? (
         <p
-          className="mt-3 text-[11px] font-bold uppercase tracking-wide"
+          className="mt-2 text-[11px] font-bold uppercase tracking-wide"
           style={{ color: palette.muted }}
         >
           Theme: {snapshot.sourceText}

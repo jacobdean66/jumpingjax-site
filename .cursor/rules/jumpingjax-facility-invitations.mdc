@@ -1,15 +1,15 @@
 ---
-description: Facility birthday invitation themes are typed by customers and matched fuzzily to safe artwork slots.
+description: Facility birthday invitation themes are typed by customers and matched fuzzily to real character artwork when Jumping Jax has permission.
 globs: src/lib/facility-parties/invitations/**,src/components/facility-parties/**,src/app/facility-parties/**,src/app/admin/facility/**
 alwaysApply: false
 ---
 
 # Facility party invitations
 
-Birthday invitation themes are customer-entered text and should be interpreted as common kids TV/game/movie/team/character themes using fuzzy matching and safe approved artwork lookup.
+Birthday invitation themes are customer-entered text and should be interpreted as common kids TV/game/movie/team/character themes using fuzzy matching. When Jumping Jax has owner/license permission, use real character artwork for recognized theme IDs. Inspired/generic motifs are only the fallback when no approved character asset exists yet.
 
 - Keep aliases and theme IDs in `src/lib/facility-parties/invitations/theme-catalog.ts` so they persist in the repo.
 - Do not require a strict dropdown for party theme.
-- Use approved artwork only when registered in `approved-artwork.ts`. Otherwise use inspired/generic motifs — never invent copyrighted character art.
+- Do not invent unlicensed characters for themes we do not have rights to. For catalogued themes where permission exists (including Sonic), use real character assets from `public/invitations/approved/{themeId}/` registered in `approved-artwork.ts`. Inspired/generic motifs are only the fallback when no approved asset is registered.
 - The matched theme must drive the booking-form preview, saved invitation snapshot, admin print view, guest share view, and 4-per-page sheet.
-- Customers may type a new theme to rematch (this resets the alternate counter) or load up to 3 other same-family inspired/generic invitation styles. Persist the chosen option index/variant; do not re-randomize later.
+- Customers may type a new theme to rematch (this resets the alternate counter) or load up to 3 other same-family invitation styles. Persist the chosen option index/variant; do not re-randomize later.

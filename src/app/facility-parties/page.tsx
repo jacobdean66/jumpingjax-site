@@ -1,5 +1,10 @@
+import { Suspense } from "react";
+
 import { FacilityPartyBookingForm } from "@/components/facility-parties/FacilityPartyBookingForm";
-import { loadSiteSettings } from "@/lib/admin/site-settings";
+import {
+  DEFAULT_SITE_SETTINGS,
+  loadSiteSettings,
+} from "@/lib/admin/site-settings";
 import {
   formatUsd,
   priceFacilityPartyWithConfig,
@@ -8,7 +13,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function FacilityPartiesPage() {
-  const settings = await loadSiteSettings();
+  let settings = DEFAULT_SITE_SETTINGS;
+  try {
+    settings = await loadSiteSettings();
+  } catch {
+    // Local/dev without Supabase still needs the booking form UI.
+    settings = DEFAULT_SITE_SETTINGS;
+  }
   const baselinePartyPrices = [
     {
       label: "10 kid public party",
@@ -104,7 +115,15 @@ export default async function FacilityPartiesPage() {
       </section>
 
       <section className="mx-auto mt-4 max-w-5xl">
-        <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} />
+        <Suspense
+          fallback={
+            <div className="rounded-3xl border-2 border-slate-200 bg-white px-5 py-10 text-center text-sm font-semibold text-slate-500">
+              Loading booking form…
+            </div>
+          }
+        >
+          <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} />
+        </Suspense>
       </section>
     </main>
   );
