@@ -22,14 +22,23 @@ export type InvitationPreviewExample = {
   expectedFamily: string;
 };
 
+/** Fully filled sample used by the public Sonic invitation example page. */
+export const SONIC_SAMPLE_INVITATION = {
+  childName: "Miles",
+  childAge: "6",
+  dateLabel: "Saturday, August 22, 2026",
+  timeLabel: "2:00 PM – 3:30 PM",
+  customerTheme: "Sonic",
+} as const;
+
 export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
   {
     id: "sonic",
-    customerTheme: "sonic party",
-    childName: "Miles",
-    childAge: "6",
-    dateLabel: "Saturday, August 22, 2026",
-    timeLabel: "2:00 PM – 3:30 PM",
+    customerTheme: SONIC_SAMPLE_INVITATION.customerTheme,
+    childName: SONIC_SAMPLE_INVITATION.childName,
+    childAge: SONIC_SAMPLE_INVITATION.childAge,
+    dateLabel: SONIC_SAMPLE_INVITATION.dateLabel,
+    timeLabel: SONIC_SAMPLE_INVITATION.timeLabel,
     expectedThemeId: "sonic",
     expectedFamily: "gamer",
   },
@@ -89,4 +98,8 @@ export function snapshotForExample(
   example: InvitationPreviewExample,
 ): InvitationSnapshot {
   return buildInvitationSnapshot(example.customerTheme);
+}
+
+export function sonicSampleSnapshot(): InvitationSnapshot {
+  return buildInvitationSnapshot(SONIC_SAMPLE_INVITATION.customerTheme);
 }

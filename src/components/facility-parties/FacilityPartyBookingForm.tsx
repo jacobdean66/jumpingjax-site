@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   FACILITY_PARTY_BUFFER_MINUTES,
@@ -33,18 +34,14 @@ import {
   type FacilityPricingConfig,
 } from "@/lib/facility-parties/pricing";
 import {
-  buildFacilityWaiverInvitationUrl,
-  buildQrCodeImageUrl,
-  approvedInvitationArtworkUrl,
-  FACILITY_INVITATION_DELIVERY_PREFERENCES,
-  FACILITY_INVITATION_TEMPLATE_OPTIONS,
-  invitationDeliveryPreferenceLabel,
+  FACILITY_INVITATION_CREATION_PREFERENCES,
+  FACILITY_INVITATION_DELIVERY_OPTIONS,
+  invitationCreationPreferenceLabel,
   normalizeInvitationTemplateId,
-  resolveInvitationTheme,
+  type FacilityInvitationCreationPreference,
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
-import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -53,7 +50,19 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
-import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
+import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
+import {
+  advanceInvitationSnapshot,
+  FACILITY_INVITATION_VENUE,
+  invitationSnapshotFromChoice,
+  remainingInvitationAlternates,
+  type InvitationSnapshot,
+} from "@/lib/facility-parties/invitations/snapshot";
+import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
+import {
+  mapFacilityAvailabilityRowToBlock,
+  type FacilityAvailabilityRow,
+} from "@/lib/facility-parties/availability-source";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -90,23 +99,6 @@ const PARTY_KIND_CHOICES: {
   },
 ];
 
-type FacilityBookingRangeResponse = {
-  id: string;
-  party_kind: string;
-  room: string | null;
-  start_time: string;
-  end_time: string;
-  status: string;
-};
-
-function isFacilityPartyKind(value: string): value is FacilityPartyKind {
-  return value === "public" || value === "private";
-}
-
-function isFacilityRoomId(value: string | null): value is FacilityRoomId {
-  return value === "room-10" || value === "room-20";
-}
-
 function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
   if (!isoDate) return false;
 
@@ -128,207 +120,111 @@ function dateToYmd(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function bookingRangeToBlock(
-  booking: FacilityBookingRangeResponse,
-): FacilityPartyBookingBlock | null {
-  if (
-    (booking.status !== "pending" && booking.status !== "confirmed") ||
-    !isFacilityPartyKind(booking.party_kind)
-  ) {
-    return null;
-  }
-
-  const start = facilityDateAndMinutes(booking.start_time);
-  const end = facilityDateAndMinutes(booking.end_time);
-  if (!start || !end) {
-    return null;
-  }
-
-  return {
-    id: booking.id,
-    kind: booking.party_kind,
-    date: start.date,
-    roomId: isFacilityRoomId(booking.room) ? booking.room : null,
-    startMinutes: start.minutes,
-    endMinutes: end.minutes,
-    status: "confirmed",
-  };
-}
-
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
 }
 
-function MiniThemeCharacter({
-  partyTheme,
-  templateId,
+function TinyInviteFace({
+  snapshot,
+  childName,
 }: {
-  partyTheme: string;
-  templateId: FacilityInvitationTemplateId;
+  snapshot: InvitationSnapshot;
+  childName: string;
 }) {
-  const theme = resolveInvitationTheme(partyTheme);
-  const artworkUrl = approvedInvitationArtworkUrl({ partyTheme, templateId });
+  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
+  const label = childName.trim() || "Party";
 
-  if (artworkUrl) {
+  if (approvedSrc) {
     return (
-      // Approved customer-supplied or licensed art only; falls back below when unset.
-      <img
-        src={artworkUrl}
-        alt=""
-        className="h-20 w-20 rounded-2xl object-contain"
-        loading="lazy"
-      />
+      <div className="relative aspect-square overflow-hidden rounded-lg border border-white/20 bg-slate-900">
+        <img
+          src={approvedSrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[8px] font-black leading-tight text-white">
+          {label}
+        </span>
+      </div>
     );
   }
 
   return (
-    <div
-      aria-hidden="true"
-      className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 bg-white"
-      style={{ borderColor: theme.border }}
-    >
-      <span
-        className="absolute -right-4 -top-4 h-12 w-12 rounded-full"
-        style={{ background: theme.accent, opacity: 0.2 }}
-      />
-      <span
-        className="absolute -bottom-5 -left-4 h-14 w-14 rounded-full"
-        style={{ background: theme.secondary, opacity: 0.16 }}
-      />
-      <span
-        className="absolute left-1/2 top-[22px] h-8 w-8 -translate-x-1/2 rounded-full border-2 border-slate-950"
-        style={{ background: theme.background }}
-      />
-      <span className="absolute left-[31px] top-[34px] h-1.5 w-1.5 rounded-full bg-slate-950" />
-      <span className="absolute right-[31px] top-[34px] h-1.5 w-1.5 rounded-full bg-slate-950" />
-      {theme.graphicVariant === "game" ? (
-        <span
-          className="absolute right-3 top-3 grid h-6 w-8 place-items-center rounded-md border-2 border-slate-950 text-xs font-black"
-          style={{ background: theme.secondary, color: theme.accent }}
-        >
-          +
-        </span>
-      ) : null}
-      {theme.graphicVariant === "dinosaur" ? (
-        <span
-          className="absolute left-[26px] top-2 h-0 w-0 border-x-[7px] border-b-[14px] border-x-transparent"
-          style={{ borderBottomColor: theme.secondary }}
-        />
-      ) : null}
-      {theme.graphicVariant === "princess" ? (
-        <span
-          className="absolute left-[24px] top-2 h-5 w-8 rounded-t-md border-2 border-slate-950"
-          style={{ background: theme.secondary }}
-        />
-      ) : null}
-      <span
-        className="absolute bottom-2 left-1/2 h-6 w-10 -translate-x-1/2 rounded-t-2xl border-2 border-slate-950"
-        style={{ background: theme.accent }}
-      />
+    <div className="grid aspect-square place-items-center rounded-lg border border-cyan-400/30 bg-[#0b1a33] px-1 text-center text-[8px] font-black leading-tight text-cyan-100">
+      {label}
     </div>
   );
 }
 
-function InvitationChoicePreview({
+function InvitationDeliverySquarePreview({
+  preference,
   active,
+  snapshot,
   childName,
-  date,
-  readableTime,
-  partyTheme,
-  templateId,
+  childAge,
+  dateLabel,
+  timeLabel,
 }: {
+  preference: FacilityInvitationDeliveryPreference;
   active: boolean;
+  snapshot: InvitationSnapshot;
   childName: string;
-  date: string;
-  readableTime: string;
-  partyTheme: string;
-  templateId: FacilityInvitationTemplateId;
+  childAge: string;
+  dateLabel: string;
+  timeLabel: string;
 }) {
-  const theme = resolveInvitationTheme(partyTheme);
-  const template = FACILITY_INVITATION_TEMPLATE_OPTIONS.find(
-    (option) => option.id === templateId,
-  );
-  const displayName = childName.trim() || "Birthday";
-  const displayTheme = partyTheme.trim() || theme.label;
-  const waiverUrl = buildFacilityWaiverInvitationUrl({
-    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
-    bookingId: "preview",
-    partyDate: date,
-  });
-  const qrUrl = buildQrCodeImageUrl(waiverUrl, 220);
-  const inviteTitle =
-    templateId === "ticket"
-      ? "Party Pass"
-      : templateId === "poster"
-        ? "You are invited"
-        : `${displayName}'s Party`;
+  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
 
   return (
     <div
-      className={`h-full rounded-2xl border-2 bg-white p-3 text-slate-950 transition ${
-        active ? "shadow-[0_0_0_2px_rgba(34,211,238,0.35)]" : ""
+      className={`aspect-square overflow-hidden rounded-2xl border-2 bg-[#071326] p-2 transition ${
+        active
+          ? "border-cyan-300 shadow-[0_0_0_2px_rgba(34,211,238,0.35)]"
+          : "border-white/15"
       }`}
-      style={{ borderColor: active ? theme.accent : theme.border }}
     >
-      <div
-        className={`flex h-full min-h-[250px] flex-col justify-between overflow-hidden rounded-xl p-3 ${
-          templateId === "ticket" ? "border-2 border-dashed" : ""
-        }`}
-        style={{
-          background: theme.background,
-          borderColor: theme.border,
-        }}
-      >
-        <div
-          className={
-            templateId === "poster"
-              ? "grid gap-3"
-              : "grid grid-cols-[1fr_80px] gap-3"
-          }
-        >
-          <div>
-            <p
-              className="text-[10px] font-black uppercase tracking-[0.16em]"
-              style={{ color: theme.secondary }}
-            >
-              Jumping Jax Birthday
-            </p>
-            <h3
-              className={
-                templateId === "poster"
-                  ? "mt-2 text-3xl font-black leading-none"
-                  : "mt-2 text-2xl font-black leading-none"
-              }
-              style={{ color: theme.accent }}
-            >
-              {inviteTitle}
-            </h3>
-            <p className="mt-2 text-sm font-black leading-tight">
-              {displayName} is celebrating at Jumping Jax
-            </p>
-          </div>
-          <MiniThemeCharacter partyTheme={partyTheme} templateId={templateId} />
+      {preference === "print" ? (
+        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
+          {Array.from({ length: 4 }, (_, index) => (
+            <TinyInviteFace
+              key={index}
+              snapshot={snapshot}
+              childName={childName}
+            />
+          ))}
         </div>
-        <div className="mt-4 grid gap-1 text-xs font-bold text-slate-800">
-          <p>{date || "Party date"}</p>
-          <p>{readableTime || "Party time"}</p>
-          <p>{displayTheme}</p>
-        </div>
-        <div className="mt-4 grid grid-cols-[1fr_54px] items-end gap-3">
-          <p className="text-[11px] font-semibold leading-snug text-slate-700">
-            Scan before the day of the party to be checked in and ready when you
-            walk in.
-          </p>
-          <img
-            src={qrUrl}
-            alt="Waiver QR code"
-            className="h-[54px] w-[54px] rounded-lg border border-slate-300 bg-white p-0.5"
+      ) : preference === "email" ? (
+        <div className="h-full overflow-hidden rounded-xl">
+          <PartyInvitationCard
+            snapshot={snapshot}
+            childName={childName}
+            childAge={childAge}
+            dateLabel={dateLabel}
+            timeLabel={timeLabel}
+            compact
           />
         </div>
-        <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
-          {template?.label ?? "Invitation"}
-        </p>
-      </div>
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-[#0b1a33] px-3 text-center">
+          {approvedSrc ? (
+            <img
+              src={approvedSrc}
+              alt=""
+              className="h-16 w-16 rounded-xl object-cover opacity-40"
+            />
+          ) : null}
+          <p className="text-xs font-black uppercase tracking-wide text-slate-200">
+            Office pickup
+          </p>
+          <p className="text-[11px] font-semibold leading-snug text-slate-400">
+            Get invitations from the Jumping Jax office — no digital design
+            needed.
+          </p>
+          <p className="text-[10px] font-bold text-slate-500">
+            {FACILITY_INVITATION_VENUE.name}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -341,6 +237,10 @@ export function FacilityPartyBookingForm({
   pricingConfig,
 }: FacilityPartyBookingFormProps) {
   const confirmationRef = useRef<HTMLDivElement | null>(null);
+  const searchParams = useSearchParams();
+  const urlTheme = searchParams.get("theme")?.trim() ?? "";
+  const urlChild = searchParams.get("child")?.trim() ?? "";
+  const urlAge = searchParams.get("age")?.trim() ?? "";
   const [blocks, setBlocks] = useState<FacilityPartyBookingBlock[]>([]);
   const [partyKind, setPartyKind] = useState<FacilityPartyKind | null>(null);
   const [roomId, setRoomId] = useState<FacilityRoomId>("room-10");
@@ -355,16 +255,29 @@ export function FacilityPartyBookingForm({
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [parentName, setParentName] = useState("");
-  const [childName, setChildName] = useState("");
+  const [childNameDraft, setChildNameDraft] = useState<string | null>(null);
   const [childGender, setChildGender] = useState("");
-  const [childAge, setChildAge] = useState("");
-  const [partyTheme, setPartyTheme] = useState("");
+  const [childAgeDraft, setChildAgeDraft] = useState<string | null>(null);
+  const [partyThemeDraft, setPartyThemeDraft] = useState<string | null>(null);
+  const childName = childNameDraft ?? urlChild;
+  const childAge = childAgeDraft ?? urlAge;
+  const partyTheme = partyThemeDraft ?? urlTheme;
+  const setChildName = (value: string) => setChildNameDraft(value);
+  const setChildAge = (value: string) => setChildAgeDraft(value);
+  const setPartyTheme = (value: string) => setPartyThemeDraft(value);
+  const [invitationOverride, setInvitationOverride] = useState<{
+    sourceText: string;
+    optionIndex: number;
+    alternatesUsed: number;
+  } | null>(null);
   const [balloonColors, setBalloonColors] = useState("");
   const [tableClothColors, setTableClothColors] = useState("");
   const [drinkChoice, setDrinkChoice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [invitationDeliveryPreferences, setInvitationDeliveryPreferences] =
-    useState<FacilityInvitationDeliveryPreference[]>(["print"]);
+  const [invitationDeliveryPreference, setInvitationDeliveryPreference] =
+    useState<FacilityInvitationDeliveryPreference>("print");
+  const [invitationCreationPreference, setInvitationCreationPreference] =
+    useState<FacilityInvitationCreationPreference | null>(null);
   const [invitationTemplateId, setInvitationTemplateId] =
     useState<FacilityInvitationTemplateId>("spotlight");
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
@@ -382,16 +295,6 @@ export function FacilityPartyBookingForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
-
-  function toggleInvitationDeliveryPreference(
-    preference: FacilityInvitationDeliveryPreference,
-  ) {
-    setInvitationDeliveryPreferences((current) =>
-      current.includes(preference)
-        ? current.filter((item) => item !== preference)
-        : [...current, preference],
-    );
-  }
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -428,6 +331,36 @@ export function FacilityPartyBookingForm({
     [slotDispositions, selectedStart],
   );
 
+  const invitationSnapshot = useMemo(() => {
+    const trimmed = partyTheme.trim();
+    if (
+      invitationOverride &&
+      invitationOverride.sourceText === trimmed
+    ) {
+      return invitationSnapshotFromChoice(
+        partyTheme,
+        invitationOverride.optionIndex,
+        invitationOverride.alternatesUsed,
+      );
+    }
+    return invitationSnapshotFromChoice(partyTheme, 0, 0);
+  }, [partyTheme, invitationOverride]);
+
+  const invitationDateLabel = selectedDate
+    ? new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(selectedDate)
+    : "";
+  const invitationTimeLabel = selectedDisposition
+    ? formatReadableTimeRange(
+        selectedDisposition.startMinutes,
+        selectedDisposition.endMinutes,
+      )
+    : "";
+
   useEffect(() => {
     if (!date) {
       return;
@@ -447,7 +380,7 @@ export function FacilityPartyBookingForm({
         const bookings = Array.isArray(data) ? data : [];
         const liveBlocks = bookings
           .map((booking) =>
-            bookingRangeToBlock(booking as FacilityBookingRangeResponse),
+            mapFacilityAvailabilityRowToBlock(booking as FacilityAvailabilityRow),
           )
           .filter(
             (block): block is FacilityPartyBookingBlock => Boolean(block),
@@ -653,11 +586,14 @@ export function FacilityPartyBookingForm({
           child_gender: childGender.trim(),
           child_age: childAge.trim(),
           party_theme: partyTheme.trim(),
+          invitation_option_index: invitationSnapshot.optionIndex,
+          invitation_alternates_used: invitationSnapshot.alternatesUsed,
           balloon_colors: balloonColors.trim(),
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
           payment_method: paymentMethod.trim(),
-          invitation_delivery_preference: invitationDeliveryPreferences,
+          invitation_delivery_preference: invitationDeliveryPreference,
+          invitation_creation_preference: invitationCreationPreference,
           invitation_template_id: normalizeInvitationTemplateId(
             invitationTemplateId,
           ),
@@ -1185,104 +1121,160 @@ export function FacilityPartyBookingForm({
                     type="text"
                     name="partyTheme"
                     value={partyTheme}
-                    onChange={(e) => setPartyTheme(e.target.value)}
+                    onChange={(e) => {
+                      setPartyTheme(e.target.value);
+                      setInvitationOverride(null);
+                    }}
                     className={inputClassName}
                     placeholder="Princess, Sonic, sports, glow party..."
                   />
                 </label>
-                <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
-                  <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
-                    Birthday invitations
-                  </legend>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-300">
-                    We make the invitations to match the party theme. Each one
-                    includes a waiver QR code so guests can sign before party day.
-                  </p>
-                  <div className="mt-4 grid gap-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
-                      Choose your invitation design
+                {partyTheme.trim() ? (
+                  <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
+                    <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
+                      Birthday invitations
+                    </legend>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                      Optional — create themed invitations now, or get generic
+                      ones from the office later.
                     </p>
-                    <div className="grid gap-3 lg:grid-cols-3">
-                      {FACILITY_INVITATION_TEMPLATE_OPTIONS.map((template) => {
-                        const active = invitationTemplateId === template.id;
-                        const readablePreviewTime = selectedDisposition
-                          ? formatReadableTimeRange(
-                              selectedDisposition.startMinutes,
-                              selectedDisposition.endMinutes,
-                            )
-                          : "";
-
-                        return (
-                          <label
-                            key={template.id}
-                            className="cursor-pointer rounded-2xl border border-white/10 bg-[#071326]/55 p-2"
-                          >
-                            <input
-                              type="radio"
-                              name="invitationTemplateId"
-                              value={template.id}
-                              checked={active}
-                              onChange={() =>
-                                setInvitationTemplateId(template.id)
-                              }
-                              className="sr-only"
-                            />
-                            <InvitationChoicePreview
-                              active={active}
-                              childName={childName}
-                              date={date}
-                              readableTime={readablePreviewTime}
-                              partyTheme={partyTheme}
-                              templateId={template.id}
-                            />
-                            <span className="mt-2 block px-1 pb-1 text-xs font-semibold leading-snug text-slate-300">
-                              <span className="block text-sm font-black text-white">
-                                {template.label}
-                              </span>
-                              {template.description}
-                            </span>
-                          </label>
-                        );
-                      })}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {FACILITY_INVITATION_CREATION_PREFERENCES.map(
+                        (preference) => {
+                          const active =
+                            invitationCreationPreference === preference;
+                          return (
+                            <button
+                              key={preference}
+                              type="button"
+                              onClick={() => {
+                                setInvitationCreationPreference(preference);
+                                if (preference === "office_generic") {
+                                  setInvitationDeliveryPreference(
+                                    "office_pickup",
+                                  );
+                                } else if (
+                                  invitationDeliveryPreference ===
+                                  "office_pickup"
+                                ) {
+                                  setInvitationDeliveryPreference("print");
+                                }
+                                // Keep a stable default template id for API compatibility.
+                                setInvitationTemplateId("spotlight");
+                              }}
+                              className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition ${
+                                active
+                                  ? "border-cyan-300 bg-cyan-400/15 text-white"
+                                  : "border-white/10 bg-[#071326]/55 text-slate-200 hover:border-cyan-400/40"
+                              }`}
+                            >
+                              {invitationCreationPreferenceLabel(preference)}
+                            </button>
+                          );
+                        },
+                      )}
                     </div>
-                  </div>
-                  <div className="mt-3 grid gap-2">
-                    <p className="text-xs font-semibold text-cyan-100/80">
-                      Select one or more options.
-                    </p>
-                    {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
-                      <label
-                        key={preference}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/45 px-3 py-3 text-sm text-slate-200"
-                      >
-                        <input
-                          type="checkbox"
-                          name="invitationDeliveryPreference"
-                          value={preference}
-                          checked={invitationDeliveryPreferences.includes(
-                            preference,
-                          )}
-                          onChange={() =>
-                            toggleInvitationDeliveryPreference(preference)
-                          }
-                          className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
-                        />
-                        <span>
-                          <span className="font-semibold text-white">
-                            {invitationDeliveryPreferenceLabel(preference)}
-                          </span>
-                          <span className="mt-0.5 block text-slate-400">
-                            {preference === "email"
-                              ? "Send me a link I can forward to guests."
-                              : preference === "office_pickup"
-                                ? "Have printed invitations ready when I pay my deposit."
-                                : "Give me a printable invitation link."}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
+                    {invitationCreationPreference === "office_generic" ? (
+                      <p className="mt-3 rounded-xl border border-white/10 bg-[#071326]/55 px-3 py-3 text-sm font-semibold text-slate-300">
+                        Got it — we&apos;ll have generic invitations ready at
+                        the office. No digital design needed.
+                      </p>
+                    ) : null}
+                    {invitationCreationPreference === "create" ? (
+                      <div className="mt-4 grid gap-4">
+                        <div className="mx-auto w-full max-w-sm">
+                          <PartyInvitationCard
+                            snapshot={invitationSnapshot}
+                            childName={childName}
+                            childAge={childAge}
+                            dateLabel={invitationDateLabel}
+                            timeLabel={invitationTimeLabel}
+                            compact
+                          />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-300">
+                          Type a different theme above anytime to rematch. You
+                          can also load a different invitation style up to three
+                          times.
+                        </p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          {invitationSnapshot.alternatesLocked
+                            ? "No more invitation styles left"
+                            : `${remainingInvitationAlternates(invitationSnapshot)} of 3 other styles left`}
+                        </p>
+                        <button
+                          type="button"
+                          disabled={invitationSnapshot.alternatesLocked}
+                          onClick={() => {
+                            const next =
+                              advanceInvitationSnapshot(invitationSnapshot);
+                            setInvitationOverride({
+                              sourceText: next.sourceText,
+                              optionIndex: next.optionIndex,
+                              alternatesUsed: next.alternatesUsed,
+                            });
+                          }}
+                          className="w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-200"
+                        >
+                          I don&apos;t like this — show another
+                        </button>
+                        {invitationSnapshot.alternatesLocked ? (
+                          <p className="text-sm font-semibold text-slate-200">
+                            This is the last invitation style we can show. It
+                            will be saved with your booking.
+                          </p>
+                        ) : null}
+                        <div className="grid gap-3">
+                          <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
+                            Choose how you want invitations
+                          </p>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            {FACILITY_INVITATION_DELIVERY_OPTIONS.map(
+                              (option) => {
+                                const active =
+                                  invitationDeliveryPreference === option.id;
+                                return (
+                                  <label
+                                    key={option.id}
+                                    className="cursor-pointer"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="invitationDeliveryPreference"
+                                      value={option.id}
+                                      checked={active}
+                                      onChange={() =>
+                                        setInvitationDeliveryPreference(
+                                          option.id,
+                                        )
+                                      }
+                                      className="sr-only"
+                                    />
+                                    <InvitationDeliverySquarePreview
+                                      preference={option.id}
+                                      active={active}
+                                      snapshot={invitationSnapshot}
+                                      childName={childName}
+                                      childAge={childAge}
+                                      dateLabel={invitationDateLabel}
+                                      timeLabel={invitationTimeLabel}
+                                    />
+                                    <span className="mt-2 block px-0.5 text-xs font-semibold leading-snug text-slate-300">
+                                      <span className="block text-sm font-black text-white">
+                                        {option.label}
+                                      </span>
+                                      {option.description}
+                                    </span>
+                                  </label>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </fieldset>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">

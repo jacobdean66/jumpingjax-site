@@ -21,7 +21,15 @@ test("normalizes invitation delivery preference safely", () => {
     "office_pickup",
   );
   assert.equal(normalizeInvitationDeliveryPreference("mail"), "print");
-  assert.equal(invitationDeliveryPreferenceLabel("office_pickup"), "Office pickup");
+  assert.equal(invitationDeliveryPreferenceLabel("office_pickup"), "Receive in person");
+  assert.equal(
+    invitationDeliveryPreferenceLabel("print"),
+    "Printable sheet (4 per page)",
+  );
+  assert.equal(
+    invitationDeliveryPreferenceLabel("email"),
+    "Email invitation (single)",
+  );
 });
 
 test("normalizes multiple invitation delivery preferences safely", () => {
@@ -41,7 +49,7 @@ test("normalizes multiple invitation delivery preferences safely", () => {
   assert.deepEqual(normalizeInvitationDeliveryPreferences([]), ["print"]);
   assert.equal(
     formatInvitationDeliveryPreferences(["print", "email"]),
-    "Print at home, Email invitations",
+    "Printable sheet (4 per page), Email invitation (single)",
   );
 });
 

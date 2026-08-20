@@ -1,11 +1,14 @@
 /**
- * Register approved/licensed invitation artwork by theme ID.
- * Paths are public URLs under /public. Leave empty until an approved
- * asset source exists — the UI will use a safe inspired or generic motif.
+ * Register approved invitation artwork by theme ID.
+ * Paths are public URLs under /public (e.g. /invitations/approved/{themeId}/card.png).
+ *
+ * Jumping Jax has owner/license permission to use real characters for
+ * catalogued themes (including Sonic). Do not invent unlicensed characters
+ * for themes we do not have rights to. Inspired/generic motifs are only the
+ * fallback when no approved asset is registered here.
  */
 export const APPROVED_INVITATION_ARTWORK: Record<string, string> = {
-  // Example when an approved file is added:
-  // sonic: "/invitations/approved/sonic/card.png",
+  sonic: "/invitations/approved/sonic/card.png",
 };
 
 export function approvedArtworkSrc(themeId: string): string | null {
