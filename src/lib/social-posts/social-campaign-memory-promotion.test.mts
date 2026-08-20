@@ -381,7 +381,7 @@ await test("supersedes existing active memory only after evidence attaches", asy
     memoryKey: candidate.memoryKey,
     version: 3,
   });
-  let createInput: CreateSocialCampaignMemoryVersionInput | null = null;
+  const createInputs: CreateSocialCampaignMemoryVersionInput[] = [];
   const updates: Array<{
     memoryId: string;
     status: "superseded" | "retracted";
@@ -391,7 +391,7 @@ await test("supersedes existing active memory only after evidence attaches", asy
   configureCampaignMemoryPromotionTestDependencies({
     listMemories: async () => [active],
     createMemoryVersion: async (input) => {
-      createInput = input;
+      createInputs.push(input);
       return memory({
         id: "new-memory",
         memoryKey: input.memoryKey,
@@ -413,7 +413,8 @@ await test("supersedes existing active memory only after evidence attaches", asy
   const result = await promoteCampaignMemoryCandidate(candidate);
   assert.equal(result.memory.id, "new-memory");
   assert.equal(result.evidence.length, candidate.supportCount);
-  assert(createInput);
+  assert.equal(createInputs.length, 1);
+  const createInput = createInputs[0]!;
   assert.equal(createInput.version, 4);
   assert.equal(createInput.supersedesMemoryId, "active-memory");
   assert.equal(updates.length, 1);
@@ -427,16 +428,16 @@ await test("retraction preserves history and marks memory retracted", async () =
     id: "memory-to-retract",
     outputSummary: { existing: true },
   });
-  let updateInput: {
+  const updateInputs: Array<{
     memoryId: string;
     status: "superseded" | "retracted";
     outputSummary: Record<string, unknown>;
-  } | null = null;
+  }> = [];
 
   configureCampaignMemoryPromotionTestDependencies({
     listMemories: async () => [existing],
     updateMemoryStatus: async (input) => {
-      updateInput = input;
+      updateInputs.push(input);
       return {
         ...existing,
         status: input.status,
@@ -450,7 +451,8 @@ await test("retraction preserves history and marks memory retracted", async () =
     "No longer valid",
   );
   assert.equal(retracted.status, "retracted");
-  assert(updateInput);
+  assert.equal(updateInputs.length, 1);
+  const updateInput = updateInputs[0]!;
   assert.equal(updateInput.status, "retracted");
   assert.equal(updateInput.outputSummary.existing, true);
   assert.deepEqual(

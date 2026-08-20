@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/rentals",
     "/facility-parties",
     "/contact",
+    "/ads",
     ...CATEGORY_IDS.map((category) => `/rentals/${category}`),
     ...RENTALS.map((rental) => rentalDetailPath(rental)),
   ];

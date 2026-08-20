@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "description": "Hard-stop policy for Codex Supervisor / Cursor Builder orchestration. Models cannot override these rules.",
+  "ownerOnlyActions": [
+    "commit",
+    "push",
+    "pull_request_create",
+    "pull_request_update",
+    "merge",
+    "deploy",
+    "migration",
+    "dependency_install",
+    "lockfile_modification",
+    "environment_variable_mutation",
+    "production_configuration_change",
+    "destructive_git",
+    "production_data_mutation",
+    "external_publication",
+    "paid_media_execution",
+    "provider_spending"
+  ],
+  "ownerOnlyDisposition": "NEEDS_JACOB_APPROVAL",
+  "hardBlockActions": [
+    "touch_unexpected_dirty_workspace",
+    "target_jumpingjax_repo_in_dry_run",
+    "approve_own_escalation",
+    "codex_authorize_owner_action",
+    "cursor_self_approve_review",
+    "live_api_without_credential",
+    "autonomous_production_mutation"
+  ],
+  "hardBlockDisposition": "BLOCKED",
+  "protectedRoots": [
+    "/workspace"
+  ],
+  "dryRun": {
+    "forbidJumpingJaxRepoAccess": true,
+    "forbidLiveCursorApi": true,
+    "forbidPaidProviderCalls": true,
+    "allowedAdapters": ["mock"],
+    "allowedFixtureRelativeToOrchestrator": [
+      "dry-run-workspace"
+    ]
+  },
+  "roles": {
+    "codexSupervisor": {
+      "mayImplementCode": false,
+      "mayAuthorizeOwnerActions": false,
+      "mayOverrideStateMachine": false
+    },
+    "cursorBuilder": {
+      "maySelfApproveReview": false,
+      "mayEscalateOwnerActionsWithoutGate": false
+    },
+    "cursorReviewer": {
+      "mayEditImplementation": false,
+      "readOnly": true
+    },
+    "jacobOwner": {
+      "onlyApproverForOwnerActions": true
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jumpingjax.local/schemas/builder-result.schema.json",
+  "title": "CursorBuilderResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taskId",
+    "status",
+    "summary",
+    "filesCreated",
+    "filesChanged",
+    "testsExecuted",
+    "testResults",
+    "validation",
+    "gitStatus",
+    "blockers",
+    "requiredApproval",
+    "remainingRisks",
+    "questions"
+  ],
+  "properties": {
+    "taskId": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": [
+        "IMPLEMENTED",
+        "PARTIALLY_IMPLEMENTED",
+        "BLOCKED",
+        "NEEDS_APPROVAL"
+      ]
+    },
+    "summary": { "type": "string" },
+    "filesCreated": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "filesChanged": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "testsExecuted": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "testResults": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "gitStatus": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "requiredApproval": {
+      "type": ["string", "null"]
+    },
+    "remainingRisks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sessionId": { "type": "string" },
+    "iteration": { "type": "integer", "minimum": 0 }
+  }
+}

@@ -16,6 +16,8 @@ export default function robots(): MetadataRoute.Robots {
           "/logistics",
           "/rentals/confirmation",
           "/facility-parties/confirmation",
+          "/nominate",
+          "/nominees",
         ],
       },
     ],

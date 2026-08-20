@@ -24,6 +24,9 @@ export type FacilityInvitationDeliveryPreference =
 export type FacilityInvitationCreationPreference =
   (typeof FACILITY_INVITATION_CREATION_PREFERENCES)[number];
 
+export type FacilityInvitationDeliveryPreferences =
+  readonly FacilityInvitationDeliveryPreference[];
+
 export type FacilityInvitationTemplateId =
   (typeof FACILITY_INVITATION_TEMPLATE_IDS)[number];
 
@@ -192,6 +195,26 @@ export function normalizeInvitationCreationPreference(
     : null;
 }
 
+export function normalizeInvitationDeliveryPreferences(
+  value: unknown,
+): FacilityInvitationDeliveryPreference[] {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+  const normalized = values
+    .map((item) =>
+      typeof item === "string" ? item.trim() : item,
+    )
+    .filter((item) => item !== "")
+    .map((item) => normalizeInvitationDeliveryPreference(item))
+    .filter(
+      (preference, index, list) => list.indexOf(preference) === index,
+    );
+  return normalized.length > 0 ? normalized : ["print"];
+}
+
 export function normalizeInvitationTemplateId(
   value: unknown,
 ): FacilityInvitationTemplateId {
@@ -249,6 +272,14 @@ export const FACILITY_INVITATION_DELIVERY_OPTIONS: readonly {
     description: "Pick up invitations from the office — no digital design needed.",
   },
 ];
+
+export function formatInvitationDeliveryPreferences(
+  preferences: readonly FacilityInvitationDeliveryPreference[],
+): string {
+  return preferences
+    .map((preference) => invitationDeliveryPreferenceLabel(preference))
+    .join(", ");
+}
 
 export function resolveInvitationTheme(
   partyTheme: string | null | undefined,

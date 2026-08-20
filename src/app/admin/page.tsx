@@ -57,13 +57,13 @@ export default async function AdminHomePage({ searchParams }: Props) {
     ...(auth.role === "owner"
       ? [
           {
-            title: "Security Center",
+            title: "Giveaway Draw",
             eyebrow: "Owner Tools",
             description:
-              "Check Aikido scanning and AITHURA protected AI routing from one private control center.",
-            href: "/admin/security",
-            cta: "Open security center",
-            accent: "steel" as const,
+              "Review private nomination stories, choose a shortlist, and randomly select a giveaway nominee.",
+            href: "/admin/giveaway",
+            cta: "Open giveaway draw",
+            accent: "warn" as const,
           },
           {
             title: "Ad Analytics",

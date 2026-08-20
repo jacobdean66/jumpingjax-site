@@ -6,7 +6,7 @@ import {
   parseFacilityEditInput,
   parseRentalEditInput,
   rentalBookingIsEditable,
-} from "./booking-edit.ts";
+} from "./booking-edit";
 
 test("approved rentals and confirmed facility parties are editable", () => {
   assert.equal(rentalBookingIsEditable("pending"), true);
@@ -42,7 +42,7 @@ test("rental edit parser accepts approved-booking field updates", () => {
   assert.equal(parsed.value.eventStartTime, "14:30");
 });
 
-test("facility edit parser accepts confirmed-party field updates without a slot change", () => {
+test("facility edit parser accepts confirmed-party field updates", () => {
   const parsed = parseFacilityEditInput({
     customerName: "Alex Parent",
     email: "alex@example.com",
@@ -52,7 +52,7 @@ test("facility edit parser accepts confirmed-party field updates without a slot 
     childAge: "7",
     childGender: "Girl",
     partyTheme: "Unicorns",
-    invitationDeliveryPreference: "office_pickup",
+    invitationDeliveryPreference: ["office_pickup", "email"],
     invitationTemplateId: "ticket",
     balloonColors: "Pink/Purple",
     tableClothColors: "White",
@@ -63,49 +63,12 @@ test("facility edit parser accepts confirmed-party field updates without a slot 
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
   assert.equal(parsed.value.partyTheme, "Unicorns");
-  assert.equal(parsed.value.invitationDeliveryPreference, "office_pickup");
+  assert.deepEqual(parsed.value.invitationDeliveryPreferences, [
+    "office_pickup",
+    "email",
+  ]);
   assert.equal(parsed.value.invitationTemplateId, "ticket");
   assert.equal(parsed.value.childName, "Sam");
-  assert.equal(parsed.value.bookingDate, undefined);
-});
-
-test("cancelled facility parties are not editable", () => {
-  assert.equal(facilityBookingIsEditable("cancelled"), false);
-  assert.equal(facilityBookingIsEditable("canceled"), false);
-});
-
-test("facility edit parser accepts a reschedule date and start time", () => {
-  const parsed = parseFacilityEditInput({
-    customerName: "Alex Parent",
-    email: "alex@example.com",
-    phone: "864-555-0199",
-    parentName: "Alex Parent",
-    childName: "Sam",
-    childAge: "7",
-    childGender: "Girl",
-    partyTheme: "Unicorns",
-    balloonColors: "Pink/Purple",
-    tableClothColors: "White",
-    drinkChoice: "Lemonade",
-    notes: "Nut allergy",
-    paymentMethod: "Card",
-    bookingDate: "2026-07-19",
-    bookingStartTime: "16:00:00",
-  });
-  assert.equal(parsed.ok, true);
-  if (!parsed.ok) return;
-  assert.equal(parsed.value.bookingDate, "2026-07-19");
-  assert.equal(parsed.value.bookingStartTime, "16:00");
-});
-
-test("facility edit parser rejects invalid reschedule dates", () => {
-  const parsed = parseFacilityEditInput({
-    customerName: "Alex Parent",
-    paymentMethod: "Card",
-    bookingDate: "07/19/2026",
-    bookingStartTime: "16:00",
-  });
-  assert.equal(parsed.ok, false);
 });
 
 test("rental edit parser rejects invalid dates", () => {

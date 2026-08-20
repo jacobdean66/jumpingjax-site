@@ -58,6 +58,9 @@ export async function POST(
   if (error) {
     console.error("[api/admin/rentals/restore] atomic restore failed", {
       code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
     });
     const migrationMissing =
       error.code === "PGRST202" ||

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { CATEGORY_COPY, getRentalBySlug } from "@/data/rentals";
+import { CATEGORY_COPY, getRentalBySlug, RENTALS } from "@/data/rentals";
 import { useBookingStore } from "@/store/bookingStore";
 import { RentalBookingPanel } from "./RentalBookingPanel";
 
@@ -62,6 +62,9 @@ export function BookingPageClient() {
             rental_item={rental.slug}
             rentalTitle={rental.title}
             startingPrice={rental.startingPrice}
+            catalogPrices={Object.fromEntries(
+              RENTALS.map((item) => [item.slug, item.startingPrice]),
+            )}
             initialUnavailableYmds={[]}
             availabilityLoadError={null}
           />

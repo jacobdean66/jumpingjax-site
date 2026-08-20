@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jumpingjax.local/schemas/task.schema.json",
+  "title": "ProjectTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "goal",
+    "allowedFiles",
+    "acceptanceCriteria",
+    "requiredTests",
+    "forbiddenActions",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable task identifier, e.g. DRYRUN-001"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "requiredTests": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "forbiddenActions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "in_progress",
+        "complete",
+        "blocked",
+        "needs_approval",
+        "cancelled"
+      ]
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "maxIterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sourceReferences": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

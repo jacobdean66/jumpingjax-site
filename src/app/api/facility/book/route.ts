@@ -21,10 +21,10 @@ import {
 } from "@/lib/facility-parties/pricing";
 import {
   buildFacilityWaiverInvitationUrl,
+  formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
-  invitationDeliveryPreferenceLabel,
   normalizeInvitationCreationPreference,
-  normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
@@ -156,9 +156,10 @@ export async function POST(req: NextRequest) {
     const resolvedAddons = resolveFacilityAddons(addon_selections);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
-    const invitationPreference = normalizeInvitationDeliveryPreference(
+    const invitationPreferences = normalizeInvitationDeliveryPreferences(
       invitation_delivery_preference,
     );
+    const invitationPreference = invitationPreferences[0] ?? "print";
     const invitationCreationPreference = normalizeInvitationCreationPreference(
       invitation_creation_preference,
     );
@@ -166,7 +167,7 @@ export async function POST(req: NextRequest) {
       invitation_template_id,
     );
     const invitationPreferenceLabel =
-      invitationDeliveryPreferenceLabel(invitationPreference);
+      formatInvitationDeliveryPreferences(invitationPreferences);
     const invitationTemplateName = invitationTemplateLabel(invitationTemplateId);
     const bookingContactName = isNonEmptyString(parent_name)
       ? parent_name.trim()
@@ -396,7 +397,7 @@ export async function POST(req: NextRequest) {
           table_cloth_colors: String(table_cloth_colors).trim(),
           drink_choice: String(drink_choice).trim(),
           payment_method: String(payment_method).trim(),
-          invitation_delivery_preference: invitationPreference,
+          invitation_delivery_preference: invitationPreferences.join(","),
           invitation_template_id: invitationTemplateId,
           deposit_acknowledged: deposit_acknowledged === true,
           notes,
@@ -445,7 +446,7 @@ export async function POST(req: NextRequest) {
     const { error: invitationUpdateError } = await supabase
       .from("facility_bookings")
       .update({
-        invitation_delivery_preference: invitationPreference,
+        invitation_delivery_preference: invitationPreferences.join(","),
         invitation_template_id: invitationTemplateId,
       })
       .eq("id", bookingId);

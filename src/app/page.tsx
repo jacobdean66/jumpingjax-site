@@ -101,6 +101,56 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* CURRENT ADS & GIVEAWAYS */}
+      <section className="relative overflow-hidden bg-purple-100 px-4 py-14 sm:px-6 sm:py-18">
+        <div className="absolute -left-16 -top-20 h-56 w-56 rounded-full bg-pink-300/60" />
+        <div className="absolute -bottom-24 -right-12 h-64 w-64 rounded-full bg-cyan-300/60" />
+        <div className="relative mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] border-4 border-white bg-white shadow-[0_18px_50px_rgba(126,34,206,0.22)] lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="p-6 sm:p-9 lg:p-10">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/ads"
+                className="inline-flex rounded-full bg-purple-600 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-purple-700"
+              >
+                Ads
+              </Link>
+              <span className="rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950">
+                Current giveaway
+              </span>
+            </div>
+            <h2 className="mt-5 text-balance text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Nominate a child to win a free party!
+            </h2>
+            <p className="mt-4 max-w-3xl text-pretty text-base font-semibold leading-7 text-slate-700 sm:text-lg">
+              Help us celebrate a special child with a September birthday or back-to-school party at Jumping Jax.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/nominate"
+                className="inline-flex min-h-13 items-center justify-center rounded-full bg-orange-500 px-7 py-3 text-center text-base font-black text-white shadow-[0_6px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
+              >
+                Nominate a child
+              </Link>
+              <Link
+                href="/nominees"
+                className="inline-flex min-h-13 items-center justify-center rounded-full border-2 border-pink-300 bg-pink-50 px-7 py-3 text-center text-base font-black text-pink-800 transition hover:-translate-y-0.5 hover:bg-pink-100"
+              >
+                View all nominees
+              </Link>
+            </div>
+          </div>
+          <Link
+            href="/ads"
+            className="flex min-h-36 items-center justify-center bg-[linear-gradient(135deg,#f9a8d4_0%,#facc15_48%,#67e8f9_100%)] px-8 py-10 text-center text-slate-950 transition hover:brightness-105 lg:min-h-full lg:w-72"
+          >
+            <span>
+              <span className="block text-xs font-black uppercase tracking-[0.18em]">See all</span>
+              <span className="mt-2 block text-3xl font-black leading-none">Ads &amp;<br />Giveaways</span>
+            </span>
+          </Link>
+        </div>
+      </section>
+
       {/* INDOOR FACILITY */}
       <section className="bg-cyan-100 px-4 py-20 sm:px-6">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">

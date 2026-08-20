@@ -5,9 +5,11 @@ import {
   approvedInvitationArtworkUrl,
   buildFacilityWaiverInvitationUrl,
   buildQrCodeImageUrl,
+  formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
   invitationDeliveryPreferenceLabel,
   normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "./invitations";
@@ -27,6 +29,27 @@ test("normalizes invitation delivery preference safely", () => {
   assert.equal(
     invitationDeliveryPreferenceLabel("email"),
     "Email invitation (single)",
+  );
+});
+
+test("normalizes multiple invitation delivery preferences safely", () => {
+  assert.deepEqual(normalizeInvitationDeliveryPreferences("print,email"), [
+    "print",
+    "email",
+  ]);
+  assert.deepEqual(
+    normalizeInvitationDeliveryPreferences([
+      "office_pickup",
+      "email",
+      "email",
+      "mail",
+    ]),
+    ["office_pickup", "email", "print"],
+  );
+  assert.deepEqual(normalizeInvitationDeliveryPreferences([]), ["print"]);
+  assert.equal(
+    formatInvitationDeliveryPreferences(["print", "email"]),
+    "Printable sheet (4 per page), Email invitation (single)",
   );
 });
 
