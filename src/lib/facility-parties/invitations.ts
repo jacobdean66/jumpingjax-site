@@ -15,6 +15,9 @@ export const FACILITY_INVITATION_TEMPLATE_IDS = [
 export type FacilityInvitationDeliveryPreference =
   (typeof FACILITY_INVITATION_DELIVERY_PREFERENCES)[number];
 
+export type FacilityInvitationDeliveryPreferences =
+  readonly FacilityInvitationDeliveryPreference[];
+
 export type FacilityInvitationTemplateId =
   (typeof FACILITY_INVITATION_TEMPLATE_IDS)[number];
 
@@ -173,6 +176,22 @@ export function normalizeInvitationDeliveryPreference(
     : "print";
 }
 
+export function normalizeInvitationDeliveryPreferences(
+  value: unknown,
+): FacilityInvitationDeliveryPreference[] {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+  const normalized = values
+    .map((item) => normalizeInvitationDeliveryPreference(item))
+    .filter(
+      (preference, index, list) => list.indexOf(preference) === index,
+    );
+  return normalized.length > 0 ? normalized : ["print"];
+}
+
 export function normalizeInvitationTemplateId(
   value: unknown,
 ): FacilityInvitationTemplateId {
@@ -198,6 +217,12 @@ export function invitationDeliveryPreferenceLabel(
   if (preference === "email") return "Email invitations";
   if (preference === "office_pickup") return "Office pickup";
   return "Print at home";
+}
+
+export function formatInvitationDeliveryPreferences(
+  preferences: readonly FacilityInvitationDeliveryPreference[],
+): string {
+  return preferences.map((preference) => invitationDeliveryPreferenceLabel(preference)).join(", ");
 }
 
 export function resolveInvitationTheme(

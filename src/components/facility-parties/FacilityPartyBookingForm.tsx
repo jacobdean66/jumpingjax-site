@@ -33,6 +33,8 @@ import {
   type FacilityPricingConfig,
 } from "@/lib/facility-parties/pricing";
 import {
+  buildFacilityWaiverInvitationUrl,
+  buildQrCodeImageUrl,
   approvedInvitationArtworkUrl,
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
   FACILITY_INVITATION_TEMPLATE_OPTIONS,
@@ -42,6 +44,7 @@ import {
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
+import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -247,6 +250,12 @@ function InvitationChoicePreview({
   );
   const displayName = childName.trim() || "Birthday";
   const displayTheme = partyTheme.trim() || theme.label;
+  const waiverUrl = buildFacilityWaiverInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: "preview",
+    partyDate: date,
+  });
+  const qrUrl = buildQrCodeImageUrl(waiverUrl, 220);
   const inviteTitle =
     templateId === "ticket"
       ? "Party Pass"
@@ -310,9 +319,11 @@ function InvitationChoicePreview({
             Scan before the day of the party to be checked in and ready when you
             walk in.
           </p>
-          <span className="grid h-[54px] w-[54px] place-items-center rounded-lg border border-slate-300 bg-white text-[10px] font-black text-slate-500">
-            QR
-          </span>
+          <img
+            src={qrUrl}
+            alt="Waiver QR code"
+            className="h-[54px] w-[54px] rounded-lg border border-slate-300 bg-white p-0.5"
+          />
         </div>
         <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
           {template?.label ?? "Invitation"}
@@ -352,8 +363,8 @@ export function FacilityPartyBookingForm({
   const [tableClothColors, setTableClothColors] = useState("");
   const [drinkChoice, setDrinkChoice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [invitationDeliveryPreference, setInvitationDeliveryPreference] =
-    useState<FacilityInvitationDeliveryPreference>("print");
+  const [invitationDeliveryPreferences, setInvitationDeliveryPreferences] =
+    useState<FacilityInvitationDeliveryPreference[]>(["print"]);
   const [invitationTemplateId, setInvitationTemplateId] =
     useState<FacilityInvitationTemplateId>("spotlight");
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
@@ -371,6 +382,16 @@ export function FacilityPartyBookingForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
+
+  function toggleInvitationDeliveryPreference(
+    preference: FacilityInvitationDeliveryPreference,
+  ) {
+    setInvitationDeliveryPreferences((current) =>
+      current.includes(preference)
+        ? current.filter((item) => item !== preference)
+        : [...current, preference],
+    );
+  }
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -636,7 +657,7 @@ export function FacilityPartyBookingForm({
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
           payment_method: paymentMethod.trim(),
-          invitation_delivery_preference: invitationDeliveryPreference,
+          invitation_delivery_preference: invitationDeliveryPreferences,
           invitation_template_id: normalizeInvitationTemplateId(
             invitationTemplateId,
           ),
@@ -1226,18 +1247,23 @@ export function FacilityPartyBookingForm({
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2">
+                    <p className="text-xs font-semibold text-cyan-100/80">
+                      Select one or more options.
+                    </p>
                     {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
                       <label
                         key={preference}
                         className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/45 px-3 py-3 text-sm text-slate-200"
                       >
                         <input
-                          type="radio"
+                          type="checkbox"
                           name="invitationDeliveryPreference"
                           value={preference}
-                          checked={invitationDeliveryPreference === preference}
+                          checked={invitationDeliveryPreferences.includes(
+                            preference,
+                          )}
                           onChange={() =>
-                            setInvitationDeliveryPreference(preference)
+                            toggleInvitationDeliveryPreference(preference)
                           }
                           className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
                         />

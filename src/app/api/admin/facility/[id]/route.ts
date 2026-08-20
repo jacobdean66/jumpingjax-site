@@ -164,7 +164,7 @@ export async function PATCH(
       child_gender: parsed.value.childGender,
       party_theme: parsed.value.partyTheme,
       invitation_delivery_preference:
-        parsed.value.invitationDeliveryPreference,
+        parsed.value.invitationDeliveryPreferences.join(","),
       invitation_template_id: parsed.value.invitationTemplateId,
       balloon_colors: parsed.value.balloonColors,
       table_cloth_colors: parsed.value.tableClothColors,

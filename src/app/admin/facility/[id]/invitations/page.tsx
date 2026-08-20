@@ -13,8 +13,8 @@ import {
   buildFacilityWaiverInvitationUrl,
   buildQrCodeImageUrl,
   invitationTemplateLabel,
-  invitationDeliveryPreferenceLabel,
-  normalizeInvitationDeliveryPreference,
+  formatInvitationDeliveryPreferences,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "@/lib/facility-parties/invitations";
@@ -111,7 +111,7 @@ export default async function FacilityInvitationsPage({
     partyDate: data.readable_date,
   });
   const qrUrl = buildQrCodeImageUrl(waiverUrl, 240);
-  const preference = normalizeInvitationDeliveryPreference(
+  const preferences = normalizeInvitationDeliveryPreferences(
     data.invitation_delivery_preference,
   );
   const templateId = normalizeInvitationTemplateId(data.invitation_template_id);
@@ -203,7 +203,7 @@ export default async function FacilityInvitationsPage({
             <span className="block text-xs font-black uppercase text-slate-500">
               Preference
             </span>
-            {invitationDeliveryPreferenceLabel(preference)}
+            {formatInvitationDeliveryPreferences(preferences)}
           </p>
           <p>
             <span className="block text-xs font-black uppercase text-slate-500">
@@ -220,7 +220,7 @@ export default async function FacilityInvitationsPage({
             </Link>
           </p>
         </div>
-        {preference === "office_pickup" ? (
+        {preferences.includes("office_pickup") ? (
           <p className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-950">
             Customer asked to pick these up at the office when they pay the deposit.
           </p>

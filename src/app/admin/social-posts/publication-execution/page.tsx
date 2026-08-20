@@ -187,7 +187,10 @@ import { replaySocialExecutionPlan } from "@/lib/social-posts/execution-plan/soc
 import { buildExecutionSessionDiagnostics } from "@/lib/social-posts/execution-session/social-execution-session-diagnostics";
 import { SOCIAL_EXECUTION_SESSION_VERSION } from "@/lib/social-posts/execution-session/social-execution-session-domain";
 import { replaySocialExecutionSession } from "@/lib/social-posts/execution-session/social-execution-session-replay";
-import { getPublicationTargetById } from "@/lib/social-posts/social-publication-target-store";
+import {
+  getPublicationTargetById,
+  listEnabledPublicationTargets,
+} from "@/lib/social-posts/social-publication-target-store";
 import {
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
@@ -2878,9 +2881,34 @@ export default async function AdminPublicationExecutionPage({
   });
   const oauthRuntimeConfig = resolveSocialOAuthRuntimeConfig();
   const oauthConnectConfigured = isSocialOAuthConnectConfigured(oauthRuntimeConfig);
-  const activePageAccessTokenCount = filters.publicationTargetId
-    ? await countActiveMetaPageAccessVaultRecords(filters.publicationTargetId)
+  const enabledTargetsResult = await listEnabledPublicationTargets();
+  const enabledPublicationTargets = enabledTargetsResult.ok
+    ? enabledTargetsResult.value.filter((target) => target.platform === "facebook")
+    : [];
+  const metaTargetId =
+    filters.publicationTargetId.trim() ||
+    enabledPublicationTargets[0]?.targetId ||
+    "";
+  const activePageAccessTokenCount = metaTargetId
+    ? await countActiveMetaPageAccessVaultRecords(metaTargetId)
     : 0;
+  const metaConnectionStatus =
+    oauthConnectionReplay.connectionStatuses.find(
+      (status) => status.publicationTargetId === metaTargetId,
+    ) ?? null;
+  const metaBindingStatus =
+    metaAssetReplay.bindingStatuses.find(
+      (status) => status.publicationTargetId === metaTargetId,
+    ) ?? null;
+  const metaTargetDiscoveredAssets = metaConnectionStatus?.sessionId
+    ? metaAssetReplay.discoveredAssets.filter(
+        (asset) => asset.oauth_session_id === metaConnectionStatus.sessionId,
+      )
+    : [];
+  const metaRefreshEligible = manualRefreshReplay.manualRefreshTargetStatuses.some(
+    (status) =>
+      status.publicationTargetId === metaTargetId && status.manualRefreshEligible,
+  );
   const metaPublishStatusParam = resolved.meta_publish ?? "";
   const verifiedPublishGates = await resolveVerifiedMetaOrganicPublishGates({
     publicationTargetId: filters.publicationTargetId,
@@ -2935,14 +2963,199 @@ export default async function AdminPublicationExecutionPage({
       <section className="sp-container">
         <SocialPostsPageHeader
           title="Publication Execution"
-          description="H32 read-only visibility for Execution requests, results, and computed replay. This page reads through the Execution bridge only and does not execute, publish, call external APIs, start workers, retry jobs, schedule automation, or mutate storage."
+          description="Connect Meta here first. Diagnostics stay collapsed below."
           query={query}
         />
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
-            Execution Filters
-          </p>
+        <section className="mt-6 rounded-2xl border border-emerald-300 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                Meta Connection
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">Connect · Discover · Bind</h2>
+              <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-600">
+                Owner actions only. Does not publish to Facebook.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+              {oauthConnectConfigured ? "OAuth ready" : "OAuth not configured"}
+            </span>
+          </div>
+
+          {(oauthStatus || metaAssetsStatus || oauthRefreshStatus) && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
+              {oauthStatus ? (
+                <p>
+                  Connect: {oauthStatus}
+                  {oauthStatusMessage ? ` — ${oauthStatusMessage}` : ""}
+                  {resolved.oauth_error ? ` (${resolved.oauth_error})` : ""}
+                </p>
+              ) : null}
+              {metaAssetsStatus ? (
+                <p className={oauthStatus ? "mt-1" : undefined}>
+                  Assets: {metaAssetsStatus}
+                  {metaAssetsStatusMessage ? ` — ${metaAssetsStatusMessage}` : ""}
+                </p>
+              ) : null}
+              {oauthRefreshStatus ? (
+                <p className={oauthStatus || metaAssetsStatus ? "mt-1" : undefined}>
+                  Refresh: {oauthRefreshStatus}
+                  {oauthRefreshStatusMessage ? ` — ${oauthRefreshStatusMessage}` : ""}
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          {!oauthConnectConfigured ? (
+            <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-950">
+              Meta OAuth env is incomplete. Connect stays disabled until production secrets are set.
+            </div>
+          ) : null}
+
+          {auth.role !== "owner" ? (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
+              Signed in as {auth.role}. Connect / Discover / Bind / Refresh require the owner account.
+            </div>
+          ) : null}
+
+          <form method="get" className="mt-4 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="token" value={token} />
+            {filters.socialPostId ? (
+              <input type="hidden" name="socialPostId" value={filters.socialPostId} />
+            ) : null}
+            <label className="min-w-[16rem] flex-1">
+              <span className="text-sm font-black text-slate-700">Facebook page target</span>
+              <select
+                name="publicationTargetId"
+                defaultValue={metaTargetId}
+                className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
+              >
+                {enabledPublicationTargets.length === 0 && !metaTargetId ? (
+                  <option value="">No enabled Facebook targets</option>
+                ) : null}
+                {metaTargetId &&
+                !enabledPublicationTargets.some((target) => target.targetId === metaTargetId) ? (
+                  <option value={metaTargetId}>
+                    Selected target ({metaTargetId.slice(0, 8)}…)
+                  </option>
+                ) : null}
+                {enabledPublicationTargets.map((target) => (
+                  <option key={target.targetId} value={target.targetId}>
+                    {target.displayName} ({target.targetId.slice(0, 8)}…)
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="min-h-11 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
+            >
+              Use target
+            </button>
+          </form>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field
+              label="Target"
+              value={metaTargetId ? metaTargetId.slice(0, 13) + "…" : "none"}
+            />
+            <Field
+              label="Session"
+              value={
+                metaConnectionStatus
+                  ? metaConnectionStatus.lifecycleState
+                  : metaTargetId
+                    ? "not connected"
+                    : "—"
+              }
+            />
+            <Field
+              label="Bound"
+              value={
+                metaBindingStatus ? String(metaBindingStatus.bound) : metaTargetId ? "false" : "—"
+              }
+            />
+            <Field label="Page tokens vaulted" value={activePageAccessTokenCount} />
+          </div>
+
+          {auth.role === "owner" && metaTargetId ? (
+            <div className="mt-5 flex flex-wrap gap-3">
+              <form action="/api/admin/social-oauth/connect" method="post">
+                <input type="hidden" name="token" value={token} />
+                <input type="hidden" name="publication_target_id" value={metaTargetId} />
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!oauthConnectConfigured}
+                >
+                  Connect Meta
+                </button>
+              </form>
+              <form action="/api/admin/social-oauth/discover" method="post">
+                <input type="hidden" name="token" value={token} />
+                <input type="hidden" name="publication_target_id" value={metaTargetId} />
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!oauthConnectConfigured || !metaConnectionStatus?.connected}
+                >
+                  Discover assets
+                </button>
+              </form>
+              <form action="/api/admin/social-oauth/refresh" method="post">
+                <input type="hidden" name="token" value={token} />
+                <input type="hidden" name="publication_target_id" value={metaTargetId} />
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-emerald-700 bg-white px-6 py-2.5 text-sm font-black text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!oauthConnectConfigured || !metaRefreshEligible}
+                >
+                  Refresh token
+                </button>
+              </form>
+            </div>
+          ) : auth.role === "owner" ? (
+            <p className="mt-4 text-sm font-semibold text-slate-600">
+              No Facebook publication target available. Create/enable one before connecting.
+            </p>
+          ) : null}
+
+          {auth.role === "owner" && metaTargetId && metaTargetDiscoveredAssets.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {metaTargetDiscoveredAssets.map((asset) => (
+                <form
+                  key={asset.discovered_asset_id}
+                  action="/api/admin/social-oauth/bind"
+                  method="post"
+                >
+                  <input type="hidden" name="token" value={token} />
+                  <input type="hidden" name="publication_target_id" value={metaTargetId} />
+                  <input
+                    type="hidden"
+                    name="discovered_asset_id"
+                    value={asset.discovered_asset_id}
+                  />
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-900 hover:bg-emerald-100"
+                  >
+                    Bind {asset.display_name_redacted || asset.asset_kind}
+                  </button>
+                </form>
+              ))}
+            </div>
+          ) : auth.role === "owner" && metaTargetId && metaConnectionStatus?.connected ? (
+            <p className="mt-4 text-sm font-semibold text-slate-600">
+              Connected. Run Discover, then Bind the Jumping Jax Facebook Page.
+            </p>
+          ) : null}
+        </section>
+
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <summary className="cursor-pointer text-sm font-black text-slate-800">
+            Advanced filters (IDs)
+          </summary>
           <form method="get" className="mt-3 grid gap-3 lg:grid-cols-3">
             <input type="hidden" name="token" value={token} />
             {[
@@ -2950,7 +3163,7 @@ export default async function AdminPublicationExecutionPage({
               ["executionIntentId", "Execution Request ID", filters.executionIntentId],
               ["executionResultId", "Execution Result ID", filters.executionResultId],
               ["socialPostId", "Social Post ID", filters.socialPostId],
-              ["publicationTargetId", "Publication Target ID", filters.publicationTargetId],
+              ["publicationTargetId", "Publication Target ID", filters.publicationTargetId || metaTargetId],
               ["publisherRequestId", "Publisher Request ID", filters.publisherRequestId],
               ["publisherResultId", "Publisher Result ID", filters.publisherResultId],
               ["publisherJobId", "Publisher Job ID", filters.publisherJobId],
@@ -2983,13 +3196,13 @@ export default async function AdminPublicationExecutionPage({
               </button>
             </div>
           </form>
-          <p className="mt-3 text-sm font-semibold text-slate-600">
-            GET-only filters narrow bridge reads. Replay is computed from the
-            returned records and remains non-authoritative.
-          </p>
-        </section>
+        </details>
 
-        <div className="mt-6 space-y-5">
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <summary className="cursor-pointer text-sm font-black text-slate-800">
+            Advanced diagnostics & execution replay (collapsed)
+          </summary>
+          <div className="mt-5 space-y-5">
           <StatusPanel loadState={loaded.loadState} />
 
           {loaded.loadState.kind === "storage_unavailable" ||
@@ -3618,11 +3831,7 @@ export default async function AdminPublicationExecutionPage({
                   <Field label="Callback Events" value={oauthConnectionReplay.summary.callbackEventCount} />
                   <Field
                     label="Vaulted Page Access Tokens"
-                    value={
-                      filters.publicationTargetId
-                        ? String(activePageAccessTokenCount)
-                        : "set target filter"
-                    }
+                    value={metaTargetId ? String(activePageAccessTokenCount) : "no target"}
                   />
                   <Field label="Meta Publish Readiness" value={metaPublishReadinessLabel} />
                   <Field
@@ -3667,7 +3876,7 @@ export default async function AdminPublicationExecutionPage({
                   </div>
                 ) : null}
 
-                {auth.role === "owner" && filters.publicationTargetId ? (
+                {auth.role === "owner" && metaTargetId ? (
                   <form
                     className="mt-4 flex flex-wrap items-end gap-3"
                     action="/api/admin/social-oauth/connect"
@@ -3677,7 +3886,7 @@ export default async function AdminPublicationExecutionPage({
                     <input
                       type="hidden"
                       name="publication_target_id"
-                      value={filters.publicationTargetId}
+                      value={metaTargetId}
                     />
                     <button
                       type="submit"
@@ -3687,12 +3896,14 @@ export default async function AdminPublicationExecutionPage({
                       Connect Meta Account
                     </button>
                     <p className="text-xs font-semibold text-slate-500">
-                      Owner-only. Target: {filters.publicationTargetId}
+                      Owner-only. Target: {metaTargetId}
                     </p>
                   </form>
                 ) : (
                   <p className="mt-4 text-sm font-semibold text-slate-600">
-                    Set a publication target filter to enable the owner connect control.
+                    {auth.role === "owner"
+                      ? "No Facebook publication target available for connect."
+                      : "Owner role required for Meta connect."}
                   </p>
                 )}
 
@@ -3838,7 +4049,7 @@ export default async function AdminPublicationExecutionPage({
                   <Field label="Binding Audit Events" value={metaAssetReplay.summary.bindingAuditEventCount} />
                 </div>
 
-                {auth.role === "owner" && filters.publicationTargetId ? (
+                {auth.role === "owner" && metaTargetId ? (
                   <form
                     className="mt-4 flex flex-wrap items-end gap-3"
                     action="/api/admin/social-oauth/discover"
@@ -3848,7 +4059,7 @@ export default async function AdminPublicationExecutionPage({
                     <input
                       type="hidden"
                       name="publication_target_id"
-                      value={filters.publicationTargetId}
+                      value={metaTargetId}
                     />
                     <button
                       type="submit"
@@ -3860,7 +4071,9 @@ export default async function AdminPublicationExecutionPage({
                   </form>
                 ) : (
                   <p className="mt-4 text-sm font-semibold text-slate-600">
-                    Set a publication target filter to discover assets for a connected OAuth session.
+                    {auth.role === "owner"
+                      ? "No Facebook publication target available for discover."
+                      : "Owner role required for Meta discover."}
                   </p>
                 )}
 
@@ -3900,7 +4113,7 @@ export default async function AdminPublicationExecutionPage({
                             <td className="px-3 py-2 font-mono text-xs">{item.externalAssetIdRedacted ?? "—"}</td>
                             <td className="px-3 py-2">
                               {auth.role === "owner" &&
-                              filters.publicationTargetId === item.publicationTargetId ? (
+                              metaTargetId === item.publicationTargetId ? (
                                 <div className="space-y-2">
                                   {metaAssetReplay.discoveredAssets
                                     .filter(
@@ -4158,7 +4371,7 @@ export default async function AdminPublicationExecutionPage({
                   />
                 </div>
 
-                {auth.role === "owner" && filters.publicationTargetId ? (
+                {auth.role === "owner" && metaTargetId ? (
                   <form
                     className="mt-4 flex flex-wrap items-end gap-3"
                     action="/api/admin/social-oauth/refresh"
@@ -4168,29 +4381,24 @@ export default async function AdminPublicationExecutionPage({
                     <input
                       type="hidden"
                       name="publication_target_id"
-                      value={filters.publicationTargetId}
+                      value={metaTargetId}
                     />
                     <button
                       type="submit"
                       className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 py-2 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={
-                        !oauthConnectConfigured ||
-                        !manualRefreshReplay.manualRefreshTargetStatuses.some(
-                          (status) =>
-                            status.publicationTargetId === filters.publicationTargetId &&
-                            status.manualRefreshEligible,
-                        )
-                      }
+                      disabled={!oauthConnectConfigured || !metaRefreshEligible}
                     >
                       Refresh Meta Token
                     </button>
                     <p className="text-xs font-semibold text-slate-500">
-                      Owner-only. Target: {filters.publicationTargetId}
+                      Owner-only. Target: {metaTargetId}
                     </p>
                   </form>
                 ) : (
                   <p className="mt-4 text-sm font-semibold text-slate-600">
-                    Set a publication target filter to enable owner manual refresh when eligible.
+                    {auth.role === "owner"
+                      ? "No Facebook publication target available for refresh."
+                      : "Owner role required for Meta refresh."}
                   </p>
                 )}
 
@@ -6373,7 +6581,8 @@ export default async function AdminPublicationExecutionPage({
               </section>
             </>
           )}
-        </div>
+          </div>
+        </details>
       </section>
     </main>
   );

@@ -3,7 +3,7 @@ import {
   rentalAppearsInActiveSchedule,
 } from "@/lib/bookings/rental-lifecycle";
 import {
-  normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
@@ -108,7 +108,7 @@ export type FacilityEditInput = {
   childAge: string | null;
   childGender: string | null;
   partyTheme: string | null;
-  invitationDeliveryPreference: FacilityInvitationDeliveryPreference;
+  invitationDeliveryPreferences: FacilityInvitationDeliveryPreference[];
   invitationTemplateId: FacilityInvitationTemplateId;
   balloonColors: string | null;
   tableClothColors: string | null;
@@ -243,9 +243,8 @@ export function parseFacilityEditInput(
   const partyTheme = optionalTrimmed(raw.partyTheme, "Party theme", 120);
   if (!partyTheme.ok) return partyTheme;
 
-  const invitationDeliveryPreference = normalizeInvitationDeliveryPreference(
-    raw.invitationDeliveryPreference,
-  );
+  const invitationDeliveryPreferences =
+    normalizeInvitationDeliveryPreferences(raw.invitationDeliveryPreference);
   const invitationTemplateId = normalizeInvitationTemplateId(
     raw.invitationTemplateId,
   );
@@ -288,7 +287,7 @@ export function parseFacilityEditInput(
       childAge: childAge.value,
       childGender: childGender.value,
       partyTheme: partyTheme.value,
-      invitationDeliveryPreference,
+      invitationDeliveryPreferences,
       invitationTemplateId,
       balloonColors: balloonColors.value,
       tableClothColors: tableClothColors.value,

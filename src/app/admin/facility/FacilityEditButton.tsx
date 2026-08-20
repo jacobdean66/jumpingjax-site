@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import {
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
   FACILITY_INVITATION_TEMPLATE_OPTIONS,
   invitationDeliveryPreferenceLabel,
+  normalizeInvitationDeliveryPreferences,
 } from "@/lib/facility-parties/invitations";
 import type { AdminFacilityBooking } from "@/lib/admin/operations";
 
@@ -45,6 +46,10 @@ export function FacilityEditButton({ booking }: Props) {
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState(false);
+  const selectedInvitationDeliveryPreferences = useMemo(
+    () => normalizeInvitationDeliveryPreferences(booking.invitationDeliveryPreference),
+    [booking.invitationDeliveryPreference],
+  );
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,9 +68,10 @@ export function FacilityEditButton({ booking }: Props) {
       childAge: String(form.get("childAge") ?? ""),
       childGender: String(form.get("childGender") ?? ""),
       partyTheme: String(form.get("partyTheme") ?? ""),
-      invitationDeliveryPreference: String(
-        form.get("invitationDeliveryPreference") ?? "",
-      ),
+      invitationDeliveryPreference: form
+        .getAll("invitationDeliveryPreference")
+        .map((value) => String(value))
+        .filter(Boolean),
       invitationTemplateId: String(form.get("invitationTemplateId") ?? ""),
       balloonColors: String(form.get("balloonColors") ?? ""),
       tableClothColors: String(form.get("tableClothColors") ?? ""),
@@ -225,17 +231,25 @@ export function FacilityEditButton({ booking }: Props) {
                 />
               </Field>
               <Field label="Invitations">
-                <select
-                  name="invitationDeliveryPreference"
-                  defaultValue={booking.invitationDeliveryPreference}
-                  className={inputClass}
-                >
+                <div className="grid gap-2">
                   {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
-                    <option key={preference} value={preference}>
-                      {invitationDeliveryPreferenceLabel(preference)}
-                    </option>
+                    <label
+                      key={preference}
+                      className="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+                    >
+                      <input
+                        type="checkbox"
+                        name="invitationDeliveryPreference"
+                        value={preference}
+                        defaultChecked={selectedInvitationDeliveryPreferences.includes(
+                          preference,
+                        )}
+                        className="mt-1 h-4 w-4 accent-sky-500"
+                      />
+                      <span>{invitationDeliveryPreferenceLabel(preference)}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </Field>
               <Field label="Invitation design">
                 <select

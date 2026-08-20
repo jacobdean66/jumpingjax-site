@@ -52,7 +52,7 @@ test("facility edit parser accepts confirmed-party field updates", () => {
     childAge: "7",
     childGender: "Girl",
     partyTheme: "Unicorns",
-    invitationDeliveryPreference: "office_pickup",
+    invitationDeliveryPreference: ["office_pickup", "email"],
     invitationTemplateId: "ticket",
     balloonColors: "Pink/Purple",
     tableClothColors: "White",
@@ -63,7 +63,10 @@ test("facility edit parser accepts confirmed-party field updates", () => {
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
   assert.equal(parsed.value.partyTheme, "Unicorns");
-  assert.equal(parsed.value.invitationDeliveryPreference, "office_pickup");
+  assert.deepEqual(parsed.value.invitationDeliveryPreferences, [
+    "office_pickup",
+    "email",
+  ]);
   assert.equal(parsed.value.invitationTemplateId, "ticket");
   assert.equal(parsed.value.childName, "Sam");
 });
