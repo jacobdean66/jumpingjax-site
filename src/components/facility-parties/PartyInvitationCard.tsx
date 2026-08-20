@@ -56,6 +56,8 @@ export function PartyInvitationCard({
     "data-style-family": snapshot.styleFamily,
     "data-artwork-kind": snapshot.artworkKind,
     "data-layout": layout,
+    "data-preview-scale": previewScale ? "true" : "false",
+    "data-sheet-readable": sheetReadable ? "true" : "false",
   } as const;
 
   const details = (

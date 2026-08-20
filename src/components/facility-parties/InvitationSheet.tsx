@@ -52,7 +52,7 @@ export function InvitationSheet({
         }
       >
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="min-h-0" data-invite-instance>
+          <div key={index} className="min-h-0" data-invite-instance="true">
             <PartyInvitationCard
               snapshot={snapshot}
               childName={childName}
