@@ -1,0 +1,22 @@
+{
+  "updated": "2026-08-20",
+  "runtime": "All invitation assets are served from /invitation-library on this site. No remote asset URLs are used at runtime.",
+  "sources": [
+    {
+      "id": "fluent-emoji",
+      "name": "Microsoft Fluent Emoji",
+      "url": "https://github.com/microsoft/fluentui-emoji",
+      "license": "MIT",
+      "licenseFile": "FLUENT-EMOJI-MIT.txt",
+      "notes": "3D PNG files only; no full repository clone."
+    },
+    {
+      "id": "kenney-pixel-platformer",
+      "name": "Kenney Pixel Platformer",
+      "url": "https://kenney.nl/assets/pixel-platformer",
+      "license": "CC0-1.0",
+      "licenseFile": "KENNEY-CC0.txt",
+      "notes": "Twelve scenery tiles copied from Tiles/tile_0000.png through tile_0011.png."
+    }
+  ]
+}

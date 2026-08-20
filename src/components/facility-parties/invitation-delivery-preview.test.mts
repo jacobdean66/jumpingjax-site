@@ -60,12 +60,10 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(emailHtml, /Tap to choose/);
 
   assert.match(pickupHtml, /data-preview-mode="office-pickup"/);
-  assert.match(pickupHtml, /data-pickup-treatment="stack-envelope"/);
-  assert.match(pickupHtml, /Printed by Jumping Jax/);
-  assert.match(pickupHtml, /Office pickup/);
-  assert.doesNotMatch(pickupHtml, /data-invite-count="1"/);
-  assert.doesNotMatch(pickupHtml, /data-theme-id=/);
-  assert.doesNotMatch(pickupHtml, /You're invited/);
+  assert.match(pickupHtml, /data-pickup-treatment="print-ready"/);
+  assert.match(pickupHtml, /Print-ready/);
+  assert.match(pickupHtml, /Receive in person/);
+  assert.match(pickupHtml, /data-invite-count="1"/);
 });
 
 test("selecting a preference surfaces selected state without changing snapshot fields", () => {
@@ -78,7 +76,7 @@ test("selecting a preference surfaces selected state without changing snapshot f
   );
   assert.match(html, /data-selected="true"/);
   assert.match(html, /data-delivery-preference="email"/);
-  assert.match(html, /data-theme-id="sonic"/);
+  assert.match(html, /data-theme-id="gamer-neon"/);
   assert.match(html, /turning 6/);
 });
 
@@ -88,6 +86,6 @@ test("printable sheet output stays 4-up with the same invitation renderer", () =
   );
   assert.match(sheetHtml, /data-print-layout="letter-4up"/);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
-  assert.equal(countMatches(sheetHtml, 'data-theme-id="sonic"'), 4);
+  assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
   assert.match(sheetHtml, /Milo/);
 });

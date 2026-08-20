@@ -27,7 +27,7 @@ test("preview data adapter applies live form fields and fallbacks", () => {
   assert.equal(live.childAge, "7");
   assert.equal(live.dateLabel, "Saturday, Sep 12");
   assert.equal(live.timeLabel, "2:00 PM - 3:30 PM");
-  assert.equal(live.snapshot.themeId, "sonic");
+  assert.equal(live.snapshot.themeId, "gamer-neon");
   assert.equal(live.venueName, "Jumping Jax");
 
   const fallback = toInvitationDeliveryPreviewData({

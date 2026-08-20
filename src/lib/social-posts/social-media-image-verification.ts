@@ -24,12 +24,28 @@ export {
   verifyImageDimensionsAgainstVariant,
 } from "./social-media-image-verification-core";
 
-type SharpFactory = (typeof import("sharp"))["default"];
+type SharpFactory = (input: Buffer) => {
+  metadata(): Promise<{ width?: number; height?: number }>;
+  resize(
+    width: number,
+    height: number,
+    options: { fit: "inside" },
+  ): {
+    greyscale(): {
+      raw(): {
+        toBuffer(options: { resolveWithObject: true }): Promise<{
+          data: Buffer;
+          info: { width: number; height: number };
+        }>;
+      };
+    };
+  };
+};
 
 async function loadSharp(): Promise<SharpFactory | null> {
   try {
     const sharpModule = await import("sharp");
-    return sharpModule.default;
+    return sharpModule.default as unknown as SharpFactory;
   } catch {
     return null;
   }

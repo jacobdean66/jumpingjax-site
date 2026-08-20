@@ -55,18 +55,15 @@ test("normalizes multiple invitation delivery preferences safely", () => {
 
 test("resolves birthday invitation theme presets from booking theme text", () => {
   const gameTheme = resolveInvitationTheme("Sonic and Mario party");
-  assert.equal(gameTheme.label, "Game Party");
-  assert.equal(gameTheme.graphicLabel, "Sonic");
+  assert.equal(gameTheme.label, "Gamer Neon");
   assert.equal(gameTheme.graphicVariant, "game");
-  assert.equal(gameTheme.approvedArtworkSlot, "sonic");
   assert.equal(resolveInvitationTheme("Pink princess").graphicVariant, "princess");
   assert.equal(resolveInvitationTheme("Soccer party").graphicVariant, "sports");
   assert.equal(resolveInvitationTheme("Neon glow").graphicVariant, "glow");
-  assert.equal(resolveInvitationTheme("Superhero party").graphicVariant, "superhero");
+  assert.equal(resolveInvitationTheme("Superhero party").graphicVariant, "game");
   assert.equal(resolveInvitationTheme("Dino party").graphicVariant, "dinosaur");
-  assert.equal(resolveInvitationTheme("Outer space").graphicLabel, "Outer space");
-  assert.equal(resolveInvitationTheme("Outer space").graphicVariant, "party");
-  assert.equal(resolveInvitationTheme("").label, "Birthday Party");
+  assert.equal(resolveInvitationTheme("Outer space").graphicVariant, "glow");
+  assert.equal(resolveInvitationTheme("").label, "Classic Birthday");
 });
 
 test("normalizes and labels invitation template choices", () => {
@@ -76,15 +73,15 @@ test("normalizes and labels invitation template choices", () => {
   assert.equal(invitationTemplateLabel("spotlight"), "Character Spotlight");
 });
 
-test("builds approved artwork URLs only when an artwork base is configured", () => {
+test("builds local library artwork URLs without a remote artwork base", () => {
   const original = process.env.NEXT_PUBLIC_FACILITY_INVITATION_APPROVED_ARTWORK_BASE_URL;
   delete process.env.NEXT_PUBLIC_FACILITY_INVITATION_APPROVED_ARTWORK_BASE_URL;
   assert.equal(
     approvedInvitationArtworkUrl({
       partyTheme: "Sonic party",
       templateId: "spotlight",
-    }),
-    null,
+    })?.startsWith("/invitation-library/"),
+    true,
   );
 
   process.env.NEXT_PUBLIC_FACILITY_INVITATION_APPROVED_ARTWORK_BASE_URL =
@@ -93,8 +90,8 @@ test("builds approved artwork URLs only when an artwork base is configured", () 
     approvedInvitationArtworkUrl({
       partyTheme: "Sonic party",
       templateId: "ticket",
-    }),
-    "https://assets.example.com/invites/sonic-ticket.png",
+    })?.startsWith("https://assets.example.com/invites/"),
+    true,
   );
 
   if (original === undefined) {

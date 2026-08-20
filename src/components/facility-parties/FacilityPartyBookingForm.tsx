@@ -223,6 +223,7 @@ export function FacilityPartyBookingForm({
     [slotDispositions, selectedStart],
   );
 
+  const invitationColorHint = `${balloonColors} ${tableClothColors}`.trim();
   const invitationSnapshot = useMemo(() => {
     const trimmed = partyTheme.trim();
     if (
@@ -233,10 +234,11 @@ export function FacilityPartyBookingForm({
         partyTheme,
         invitationOverride.optionIndex,
         invitationOverride.alternatesUsed,
+        invitationColorHint,
       );
     }
-    return invitationSnapshotFromChoice(partyTheme, 0, 0);
-  }, [partyTheme, invitationOverride]);
+    return invitationSnapshotFromChoice(partyTheme, 0, 0, invitationColorHint);
+  }, [partyTheme, invitationOverride, invitationColorHint]);
 
   const invitationDateLabel = selectedDate
     ? new Intl.DateTimeFormat(undefined, {

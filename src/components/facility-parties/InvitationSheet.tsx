@@ -7,6 +7,8 @@ export function InvitationSheet({
   childAge,
   dateLabel,
   timeLabel,
+  qrUrl,
+  waiverUrl,
   dense = false,
 }: {
   snapshot: InvitationSnapshot;
@@ -14,7 +16,8 @@ export function InvitationSheet({
   childAge: string;
   dateLabel: string;
   timeLabel: string;
-  /** Tighter letter framing for delivery-option thumbnails. */
+  qrUrl?: string;
+  waiverUrl?: string;
   dense?: boolean;
 }) {
   return (
@@ -49,7 +52,7 @@ export function InvitationSheet({
         }
       >
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="min-h-0" data-invite-instance>
+          <div key={index} className="min-h-0" data-invite-instance="true">
             <PartyInvitationCard
               snapshot={snapshot}
               childName={childName}
@@ -57,6 +60,8 @@ export function InvitationSheet({
               dateLabel={dateLabel}
               timeLabel={timeLabel}
               compact
+              qrUrl={qrUrl}
+              waiverUrl={waiverUrl}
               previewScale={dense}
               sheetReadable={dense}
             />

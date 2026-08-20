@@ -2,16 +2,11 @@ import { InvitationSheet } from "@/components/facility-parties/InvitationSheet";
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import type { FacilityInvitationDeliveryPreference } from "@/lib/facility-parties/invitations";
 import {
-  pickReadableTextColor,
-  readableMutedTextColor,
-} from "@/lib/facility-parties/invitations/contrast";
-import {
   invitationDeliveryPreviewMode,
   toInvitationDeliveryPreviewData,
   type InvitationDeliveryPreviewMode,
   type InvitationPreviewFormFields,
 } from "@/lib/facility-parties/invitations/preview-data";
-import { getInvitationTheme } from "@/lib/facility-parties/invitations/theme-catalog";
 
 export type InvitationDeliveryPreviewProps = InvitationPreviewFormFields & {
   preference: FacilityInvitationDeliveryPreference;
@@ -105,59 +100,33 @@ function OfficePickupPreview({
 }: {
   data: ReturnType<typeof toInvitationDeliveryPreviewData>;
 }) {
-  const theme = getInvitationTheme(data.snapshot.themeId);
-  const accent = theme.palette.accent;
-  const paper = "#fff8ef";
-  const paperAlt = "#f5ebe0";
-  const ink = pickReadableTextColor(paper, "#0f172a");
-  const muted = readableMutedTextColor(paper, "#475569", 3);
-
   return (
     <div
       className="invitation-delivery-preview-pickup relative mx-auto flex w-full flex-col justify-center gap-2 overflow-hidden rounded-md border border-slate-300 bg-gradient-to-b from-slate-100 to-slate-200/80 p-3 shadow-sm"
-      data-pickup-treatment="stack-envelope"
+      data-pickup-treatment="print-ready"
       aria-hidden
     >
-      <div className="relative mx-auto h-[8.25rem] w-full max-w-[11rem]">
-        <div
-          className="absolute left-4 top-2 h-[5.4rem] w-[7.2rem] rotate-[-7deg] rounded-md border border-slate-300 shadow"
-          style={{ background: paperAlt, borderColor: accent }}
+      <div
+        className="mx-auto max-w-[14rem] overflow-hidden rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200 sm:max-w-[16rem]"
+        data-invite-count="1"
+        data-invite-instance
+      >
+        <PartyInvitationCard
+          snapshot={data.snapshot}
+          childName={data.childName}
+          childAge={data.childAge}
+          dateLabel={data.dateLabel}
+          timeLabel={data.timeLabel}
+          compact
+          pickupReady
         />
-        <div
-          className="absolute left-6 top-3 h-[5.4rem] w-[7.2rem] rotate-[5deg] rounded-md border border-slate-300 shadow"
-          style={{ background: paper, borderColor: accent }}
-        />
-        <div
-          className="absolute left-5 top-4 flex h-[5.6rem] w-[7.4rem] flex-col justify-between rounded-md border-2 bg-white p-2 shadow-md"
-          style={{ borderColor: accent, color: ink }}
-        >
-          <div
-            className="rounded-sm px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-white"
-            style={{ background: accent }}
-          >
-            Printed by Jumping Jax
-          </div>
-          <p className="text-[12px] font-black leading-tight">Office pickup</p>
-          <p className="text-[8px] font-semibold leading-snug" style={{ color: muted }}>
-            Ready at the front desk - no customer printing.
-          </p>
-        </div>
-        <div className="absolute bottom-0 left-1/2 h-9 w-[9rem] -translate-x-1/2 rounded-sm border border-amber-300/90 bg-amber-50 shadow-sm">
-          <div
-            className="absolute inset-x-0 top-0 h-3 border-b border-amber-200/90"
-            style={{
-              clipPath: "polygon(0 100%, 50% 0, 100% 100%)",
-              background: "#fde68a",
-            }}
-          />
-        </div>
       </div>
       <div className="text-center">
         <p className="text-[11px] font-black uppercase tracking-wide text-slate-900">
           Receive in person
         </p>
         <p className="mt-0.5 text-[10px] font-semibold leading-snug text-slate-700">
-          Jumping Jax prints and prepares your invitations for office pickup.
+          Print-ready copy for Jumping Jax office pickup.
         </p>
         <p className="mt-1 text-[9px] font-bold text-slate-600">{data.venueName}</p>
       </div>

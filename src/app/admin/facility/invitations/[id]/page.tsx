@@ -73,6 +73,8 @@ export default async function AdminFacilityInvitationPage({
             childAge={view.childAge}
             dateLabel={view.dateLabel}
             timeLabel={view.timeLabel}
+            qrUrl={view.qrUrl}
+            waiverUrl={view.waiverUrl}
           />
         ) : (
           <div className="max-w-xl">
@@ -82,6 +84,8 @@ export default async function AdminFacilityInvitationPage({
               childAge={view.childAge}
               dateLabel={view.dateLabel}
               timeLabel={view.timeLabel}
+              qrUrl={view.qrUrl}
+              waiverUrl={view.waiverUrl}
             />
           </div>
         )}
