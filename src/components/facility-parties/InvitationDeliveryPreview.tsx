@@ -29,11 +29,11 @@ function PrintSheetPreview({
       className="invitation-delivery-preview-print relative mx-auto w-full overflow-hidden rounded-md border border-slate-300 bg-white p-2 shadow-sm"
       aria-hidden
     >
-      <div className="relative mx-auto aspect-[8.5/11] w-full max-h-[18rem] overflow-hidden rounded-sm bg-white sm:max-h-[20rem]">
+      <div className="relative mx-auto aspect-[8.5/11] w-full max-h-[20rem] overflow-hidden rounded-sm bg-white sm:max-h-[22rem]">
         <div className="pointer-events-none absolute inset-x-[6%] top-1/2 z-10 h-px -translate-y-1/2 border-t border-dashed border-slate-400/70" />
         <div className="pointer-events-none absolute inset-y-[6%] left-1/2 z-10 w-px -translate-x-1/2 border-l border-dashed border-slate-400/70" />
         <div
-          className="absolute left-1/2 top-[2%] origin-top -translate-x-1/2 scale-[0.42] sm:scale-[0.46]"
+          className="absolute left-1/2 top-[1%] origin-top -translate-x-1/2 scale-[0.28] sm:scale-[0.32]"
           style={{ width: "8.5in" }}
           data-invite-count="4"
         >
@@ -63,12 +63,12 @@ function EmailSinglePreview({
       className="invitation-delivery-preview-email mx-auto w-full overflow-hidden rounded-md border border-slate-300 bg-slate-100 p-2 shadow-sm"
       aria-hidden
     >
-      <div className="mb-1.5 flex items-center gap-1.5 rounded-t-sm bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200">
+      <div className="mb-1.5 flex items-center gap-1.5 rounded-sm bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-800 ring-1 ring-slate-200">
         <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" aria-hidden />
         Email invitation
       </div>
       <div
-        className="mx-auto max-w-[15rem] overflow-hidden rounded-xl sm:max-w-none"
+        className="mx-auto max-w-[14rem] overflow-hidden rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200 sm:max-w-[16rem]"
         data-invite-count="1"
         data-invite-instance
       >
@@ -82,13 +82,13 @@ function EmailSinglePreview({
         />
       </div>
       <div className="mt-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] leading-snug text-slate-900 ring-1 ring-slate-200">
-        <p className="font-black">
+        <p className="font-black text-slate-950">
           {data.childName}
           {data.childAge ? ` is turning ${data.childAge}` : ""}
         </p>
-        <p className="font-semibold text-slate-700">{data.dateLabel}</p>
-        <p className="font-semibold text-slate-700">{data.timeLabel}</p>
-        <p className="font-semibold text-slate-600">{data.venueName}</p>
+        <p className="font-semibold text-slate-800">{data.dateLabel}</p>
+        <p className="font-semibold text-slate-800">{data.timeLabel}</p>
+        <p className="font-semibold text-slate-700">{data.venueName}</p>
       </div>
     </div>
   );
