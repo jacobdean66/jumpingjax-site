@@ -8,7 +8,7 @@ import {
   validateDriverMutationContext,
 } from "@/lib/admin/driver-app";
 import { saveDriverCloseoutReport } from "@/lib/admin/driver-closeout";
-import { verifyAdminAccess } from "@/lib/admin/session";
+import { verifyDriverAccess } from "@/lib/admin/driver-auth";
 import { getResendFromAddress } from "@/lib/email/resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const nextWorkType = parseDriverWorkType(clean(form.get("nextWorkType")));
   const view = clean(form.get("view"));
 
-  const auth = await verifyAdminAccess(token);
+  const auth = await verifyDriverAccess();
   if (!auth.ok) {
     return redirectDriver(req, { error: "Invalid driver link" });
   }
