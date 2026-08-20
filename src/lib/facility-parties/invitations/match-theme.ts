@@ -1,4 +1,3 @@
-import { approvedArtworkSrc } from "./approved-artwork";
 import {
   FALLBACK_THEME_IDS,
   getInvitationTheme,
@@ -103,10 +102,9 @@ function fuzzyThreshold(length: number): number {
   return 3;
 }
 
-function artworkKindFor(theme: InvitationThemeDefinition): InvitationArtworkKind {
-  if (approvedArtworkSrc(theme.id)) return "approved";
-  if (theme.id.startsWith("generic-")) return "generic";
-  return "inspired";
+function artworkKindFor(_theme: InvitationThemeDefinition): InvitationArtworkKind {
+  void _theme;
+  return "approved";
 }
 
 function toMatch(
@@ -233,9 +231,9 @@ export function clampInvitationOptionIndex(value: unknown): number {
 }
 
 /**
- * Deterministic invitation options for one typed theme:
- * first match, then inspired variants and same-family generics.
- * Index 0 is the first match; indexes 1–3 are the 3 alternate loads.
+ * Deterministic invitation options for one typed theme.
+ * Index 0 is the first match; indexes 1–3 cycle layout, hero, and palette
+ * inside the same matched library theme.
  */
 export function listInvitationOptions(rawTheme: string): InvitationMatch[] {
   const primary = matchInvitationTheme(rawTheme);
@@ -266,23 +264,8 @@ export function listInvitationOptions(rawTheme: string): InvitationMatch[] {
 
   add(primaryTheme, primary.matchKind, 0, primary.matchedAlias);
   add(primaryTheme, primary.matchKind, 1, primary.matchedAlias);
-
-  const familyGeneric = getInvitationTheme(
-    FALLBACK_THEME_IDS[primary.styleFamily],
-  );
-  add(familyGeneric, "family", 0, primary.styleFamily);
-
-  for (const theme of INVITATION_THEMES) {
-    if (theme.family !== primary.styleFamily) continue;
-    add(theme, "family", 0, theme.family);
-  }
-
   add(primaryTheme, primary.matchKind, 2, primary.matchedAlias);
   add(primaryTheme, primary.matchKind, 3, primary.matchedAlias);
-
-  for (const family of FAMILY_PRIORITY) {
-    add(getInvitationTheme(FALLBACK_THEME_IDS[family]), "fallback", 0, family);
-  }
 
   return options.slice(0, INVITATION_OPTION_COUNT);
 }

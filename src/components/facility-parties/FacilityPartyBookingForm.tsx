@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -53,12 +52,10 @@ import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/ti
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
   advanceInvitationSnapshot,
-  FACILITY_INVITATION_VENUE,
   invitationSnapshotFromChoice,
   remainingInvitationAlternates,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
-import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import {
   mapFacilityAvailabilityRowToBlock,
   type FacilityAvailabilityRow,
@@ -127,31 +124,28 @@ function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
 function TinyInviteFace({
   snapshot,
   childName,
+  childAge,
+  dateLabel,
+  timeLabel,
 }: {
   snapshot: InvitationSnapshot;
   childName: string;
+  childAge: string;
+  dateLabel: string;
+  timeLabel: string;
 }) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-  const label = childName.trim() || "Party";
-
-  if (approvedSrc) {
-    return (
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-white/20 bg-slate-900">
-        <img
-          src={approvedSrc}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[8px] font-black leading-tight text-white">
-          {label}
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid aspect-square place-items-center rounded-lg border border-cyan-400/30 bg-[#0b1a33] px-1 text-center text-[8px] font-black leading-tight text-cyan-100">
-      {label}
+    <div className="relative aspect-square overflow-hidden rounded-lg">
+      <div className="origin-top-left scale-[0.48] [width:208%] [height:208%]">
+        <PartyInvitationCard
+          snapshot={snapshot}
+          childName={childName}
+          childAge={childAge}
+          dateLabel={dateLabel}
+          timeLabel={timeLabel}
+          compact
+        />
+      </div>
     </div>
   );
 }
@@ -173,8 +167,6 @@ function InvitationDeliverySquarePreview({
   dateLabel: string;
   timeLabel: string;
 }) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-
   return (
     <div
       className={`aspect-square overflow-hidden rounded-2xl border-2 bg-[#071326] p-2 transition ${
@@ -184,12 +176,15 @@ function InvitationDeliverySquarePreview({
       }`}
     >
       {preference === "print" ? (
-        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
+        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
           {Array.from({ length: 4 }, (_, index) => (
             <TinyInviteFace
               key={index}
               snapshot={snapshot}
               childName={childName}
+              childAge={childAge}
+              dateLabel={dateLabel}
+              timeLabel={timeLabel}
             />
           ))}
         </div>
@@ -205,24 +200,16 @@ function InvitationDeliverySquarePreview({
           />
         </div>
       ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-[#0b1a33] px-3 text-center">
-          {approvedSrc ? (
-            <img
-              src={approvedSrc}
-              alt=""
-              className="h-16 w-16 rounded-xl object-cover opacity-40"
-            />
-          ) : null}
-          <p className="text-xs font-black uppercase tracking-wide text-slate-200">
-            Office pickup
-          </p>
-          <p className="text-[11px] font-semibold leading-snug text-slate-400">
-            Get invitations from the Jumping Jax office — no digital design
-            needed.
-          </p>
-          <p className="text-[10px] font-bold text-slate-500">
-            {FACILITY_INVITATION_VENUE.name}
-          </p>
+        <div className="h-full overflow-hidden rounded-xl">
+          <PartyInvitationCard
+            snapshot={snapshot}
+            childName={childName}
+            childAge={childAge}
+            dateLabel={dateLabel}
+            timeLabel={timeLabel}
+            compact
+            pickupReady
+          />
         </div>
       )}
     </div>
@@ -331,6 +318,7 @@ export function FacilityPartyBookingForm({
     [slotDispositions, selectedStart],
   );
 
+  const invitationColorHint = `${balloonColors} ${tableClothColors}`.trim();
   const invitationSnapshot = useMemo(() => {
     const trimmed = partyTheme.trim();
     if (
@@ -341,10 +329,11 @@ export function FacilityPartyBookingForm({
         partyTheme,
         invitationOverride.optionIndex,
         invitationOverride.alternatesUsed,
+        invitationColorHint,
       );
     }
-    return invitationSnapshotFromChoice(partyTheme, 0, 0);
-  }, [partyTheme, invitationOverride]);
+    return invitationSnapshotFromChoice(partyTheme, 0, 0, invitationColorHint);
+  }, [partyTheme, invitationOverride, invitationColorHint]);
 
   const invitationDateLabel = selectedDate
     ? new Intl.DateTimeFormat(undefined, {

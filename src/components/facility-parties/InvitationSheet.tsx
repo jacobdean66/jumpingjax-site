@@ -7,12 +7,16 @@ export function InvitationSheet({
   childAge,
   dateLabel,
   timeLabel,
+  qrUrl,
+  waiverUrl,
 }: {
   snapshot: InvitationSnapshot;
   childName: string;
   childAge: string;
   dateLabel: string;
   timeLabel: string;
+  qrUrl?: string;
+  waiverUrl?: string;
 }) {
   return (
     <div className="invitation-print-sheet grid grid-cols-1 gap-4 md:grid-cols-2 print:h-[10in] print:grid-cols-2 print:grid-rows-2 print:gap-3">
@@ -25,6 +29,8 @@ export function InvitationSheet({
           dateLabel={dateLabel}
           timeLabel={timeLabel}
           compact
+          qrUrl={qrUrl}
+          waiverUrl={waiverUrl}
         />
       ))}
     </div>

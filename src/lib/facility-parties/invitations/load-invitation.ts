@@ -1,8 +1,13 @@
 import { isValidBookingId } from "@/lib/admin/booking-edit";
 import {
+  buildFacilityWaiverInvitationUrl,
+  buildQrCodeImageUrl,
+} from "@/lib/facility-parties/invitations";
+import {
   resolveInvitationSnapshot,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
+import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export type FacilityInvitationView = {
@@ -13,6 +18,8 @@ export type FacilityInvitationView = {
   timeLabel: string;
   partyLabel: string | null;
   snapshot: InvitationSnapshot;
+  waiverUrl: string;
+  qrUrl: string;
 };
 
 type InvitationRow = {
@@ -25,6 +32,8 @@ type InvitationRow = {
   party_label: string | null;
   party_theme: string | null;
   invitation: unknown;
+  balloon_colors: string | null;
+  table_cloth_colors: string | null;
 };
 
 export async function loadFacilityInvitationView(
@@ -36,13 +45,26 @@ export async function loadFacilityInvitationView(
   const { data, error } = await supabase
     .from("facility_bookings")
     .select(
-      "id, status, child_name, child_age, readable_date, readable_time, party_label, party_theme, invitation",
+      "id, status, child_name, child_age, readable_date, readable_time, party_label, party_theme, invitation, balloon_colors, table_cloth_colors",
     )
     .eq("id", bookingId)
     .maybeSingle<InvitationRow>();
 
   if (error || !data) return null;
   if (data.status === "rejected" || data.status === "cancelled") return null;
+
+  const snapshot = resolveInvitationSnapshot({
+    partyTheme: data.party_theme,
+    stored: data.invitation,
+    colorHint: [data.balloon_colors, data.table_cloth_colors]
+      .filter(Boolean)
+      .join(" "),
+  });
+  const waiverUrl = buildFacilityWaiverInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: data.id,
+    partyDate: data.readable_date,
+  });
 
   return {
     bookingId: data.id,
@@ -51,9 +73,8 @@ export async function loadFacilityInvitationView(
     dateLabel: data.readable_date?.trim() || "",
     timeLabel: data.readable_time?.trim() || "",
     partyLabel: data.party_label,
-    snapshot: resolveInvitationSnapshot({
-      partyTheme: data.party_theme,
-      stored: data.invitation,
-    }),
+    snapshot,
+    waiverUrl,
+    qrUrl: buildQrCodeImageUrl(waiverUrl, 220),
   };
 }

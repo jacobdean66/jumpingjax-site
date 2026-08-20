@@ -40,6 +40,8 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
           childAge={view.childAge}
           dateLabel={view.dateLabel}
           timeLabel={view.timeLabel}
+          qrUrl={view.qrUrl}
+          waiverUrl={view.waiverUrl}
         />
       </section>
     </main>

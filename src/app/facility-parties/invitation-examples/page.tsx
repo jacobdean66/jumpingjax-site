@@ -10,16 +10,15 @@ export default function PublicInvitationExamplesPage() {
       <section className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-black">Invitation theme examples</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
-          Customer-typed themes are matched to a stable artwork slot. Catalogued
-          themes with approved assets (including Sonic) use real character art;
-          other samples fall back to inspired or generic motifs.
+          Customer-typed themes match a curated local invitation library. Branded
+          requests use generic artwork and colors, never protected characters.
         </p>
         <p className="mt-3">
           <a
             href="/facility-parties/invitation-examples/sonic"
             className="text-sm font-black text-blue-700 underline"
           >
-            Open the filled Sonic invitation
+            Open a filled sample invitation
           </a>
         </p>
         <div className="mt-8 grid gap-6 lg:grid-cols-2">

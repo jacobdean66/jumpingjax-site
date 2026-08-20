@@ -1,14 +1,19 @@
+/**
+ * Curated local invitation library examples. Branded customer text maps
+ * to generic unbranded artwork.
+ */
+
 import {
   buildInvitationSnapshot,
   type InvitationSnapshot,
 } from "./snapshot";
 
 export type InvitationPreviewExampleId =
-  | "sonic"
-  | "minecraft"
-  | "paw-patrol"
-  | "barbie"
-  | "clemson"
+  | "dino"
+  | "princess"
+  | "gamer"
+  | "sports"
+  | "ocean"
   | "unknown";
 
 export type InvitationPreviewExample = {
@@ -22,7 +27,6 @@ export type InvitationPreviewExample = {
   expectedFamily: string;
 };
 
-/** Fully filled sample used by the public Sonic invitation example page. */
 export const SONIC_SAMPLE_INVITATION = {
   childName: "Miles",
   childAge: "6",
@@ -33,54 +37,54 @@ export const SONIC_SAMPLE_INVITATION = {
 
 export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
   {
-    id: "sonic",
+    id: "gamer",
     customerTheme: SONIC_SAMPLE_INVITATION.customerTheme,
     childName: SONIC_SAMPLE_INVITATION.childName,
     childAge: SONIC_SAMPLE_INVITATION.childAge,
     dateLabel: SONIC_SAMPLE_INVITATION.dateLabel,
     timeLabel: SONIC_SAMPLE_INVITATION.timeLabel,
-    expectedThemeId: "sonic",
+    expectedThemeId: "gamer-neon",
     expectedFamily: "gamer",
   },
   {
-    id: "minecraft",
-    customerTheme: "mine craft",
+    id: "dino",
+    customerTheme: "dinosaur party",
     childName: "Alex",
     childAge: "8",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
-    expectedThemeId: "minecraft",
-    expectedFamily: "gamer",
-  },
-  {
-    id: "paw-patrol",
-    customerTheme: "paw patrol theme",
-    childName: "Riley",
-    childAge: "4",
-    dateLabel: "Saturday, August 22, 2026",
-    timeLabel: "2:00 PM – 3:30 PM",
-    expectedThemeId: "paw-patrol",
+    expectedThemeId: "dinosaur",
     expectedFamily: "animal",
   },
   {
-    id: "barbie",
-    customerTheme: "Barbie",
+    id: "princess",
+    customerTheme: "Frozen princess",
     childName: "Emma",
     childAge: "7",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
-    expectedThemeId: "barbie",
-    expectedFamily: "colorful",
+    expectedThemeId: "princess-royal",
+    expectedFamily: "princess",
   },
   {
-    id: "clemson",
+    id: "sports",
     customerTheme: "Clemson football",
     childName: "Jackson",
     childAge: "9",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
-    expectedThemeId: "clemson",
+    expectedThemeId: "sports",
     expectedFamily: "sports",
+  },
+  {
+    id: "ocean",
+    customerTheme: "mermaid",
+    childName: "Riley",
+    childAge: "4",
+    dateLabel: "Saturday, August 22, 2026",
+    timeLabel: "2:00 PM – 3:30 PM",
+    expectedThemeId: "ocean-mermaid",
+    expectedFamily: "princess",
   },
   {
     id: "unknown",
@@ -89,7 +93,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     childAge: "5",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
-    expectedThemeId: "generic-birthday",
+    expectedThemeId: "classic-birthday",
     expectedFamily: "birthday",
   },
 ];
