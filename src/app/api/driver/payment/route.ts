@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDeliveryTruckId } from "@/lib/admin/driver-app";
-import { verifyAdminAccess } from "@/lib/admin/session";
+import { verifyDriverAccess } from "@/lib/admin/driver-auth";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 function clean(value: FormDataEntryValue | null): string {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const notes = clean(form.get("notes"));
   const view = clean(form.get("view"));
 
-  const auth = await verifyAdminAccess(token);
+  const auth = await verifyDriverAccess();
   if (!auth.ok) {
     return redirectDriver(req, { error: "Invalid driver link" });
   }
