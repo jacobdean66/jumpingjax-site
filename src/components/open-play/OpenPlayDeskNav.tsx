@@ -1,10 +1,14 @@
 import Link from "next/link";
 
-type DeskSurface = "check-in" | "daily-report" | "corrections";
+type DeskSurface =
+  | "check-in"
+  | "daily-report"
+  | "corrections"
+  | "birthday-coupons";
 
 type Props = {
   active: DeskSurface;
-  /** Owner-only destinations (daily report, corrections) are shown when true. */
+  /** Owner-only destinations are shown when true. */
   showOwnerTools?: boolean;
 };
 
@@ -42,6 +46,15 @@ export function OpenPlayDeskNav({ active, showOwnerTools = false }: Props) {
             aria-current={active === "corrections" ? "page" : undefined}
           >
             Corrections
+          </Link>
+          <Link
+            href="/admin/birthday-coupons"
+            className={
+              active === "birthday-coupons" ? activeClass : linkClass
+            }
+            aria-current={active === "birthday-coupons" ? "page" : undefined}
+          >
+            Birthday coupons
           </Link>
         </>
       ) : null}
