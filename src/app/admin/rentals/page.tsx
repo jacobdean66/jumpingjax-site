@@ -52,6 +52,24 @@ function formatTime(value: string | null): string {
   return `${hour}:${String(minuteRaw).padStart(2, "0")} ${suffix}`;
 }
 
+function cityFromAddress(value: string | null): string {
+  if (!value) return "Not set";
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) return parts[parts.length - 2] ?? "Not set";
+
+  const cityMatch = value.match(
+    /\b([A-Za-z][A-Za-z\s.'-]+)\s*,?\s+[A-Z]{2}\b/,
+  );
+  return cityMatch?.[1]?.trim() || "Not set";
+}
+
+function bookedInflatables(booking: AdminRentalBooking): string {
+  return booking.items.map((item) => item.rental_name).join(", ") || "Rental";
+}
+
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="compact-print-detail">
@@ -70,8 +88,7 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
 function RentalCard({ booking }: { booking: AdminRentalBooking }) {
   return (
     <article
-      id={`booking-${booking.id}`}
-      className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
+      className="compact-print-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
     >
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -221,6 +238,40 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
   );
 }
 
+function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
+  return (
+    <details
+      id={`booking-${booking.id}`}
+      className="group scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm open:col-span-full open:border-sky-300 open:bg-slate-50 open:p-3 open:shadow-md"
+    >
+      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-xl bg-white p-3 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-open:aspect-auto group-open:border group-open:border-slate-200 group-open:bg-white group-open:shadow-sm [&::-webkit-details-marker]:hidden">
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <StatusBadge status={booking.status} />
+            <span className="text-[10px] font-black uppercase text-slate-400">
+              Open
+            </span>
+          </div>
+          <h2 className="mt-3 line-clamp-3 text-sm font-black leading-tight text-slate-950">
+            {bookedInflatables(booking)}
+          </h2>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-black text-slate-700">
+            {booking.eventDate}
+          </p>
+          <p className="truncate text-xs font-bold text-slate-500">
+            {cityFromAddress(booking.eventAddress)}
+          </p>
+        </div>
+      </summary>
+      <div className="mt-3">
+        <RentalCard booking={booking} />
+      </div>
+    </details>
+  );
+}
+
 export default async function AdminRentalsPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
@@ -300,9 +351,9 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         />
       </div>
 
-      <div className="mt-8 grid gap-5">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 print:hidden">
         {bookings.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-lg font-bold">No rentals found.</p>
             <p className="mt-2 text-sm text-slate-600">
               Adjust the date range or status filter.
@@ -310,10 +361,20 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
           </div>
         ) : (
           bookings.map((booking) => (
-            <RentalCard key={booking.id} booking={booking} />
+            <RentalExpandableCard key={booking.id} booking={booking} />
           ))
         )}
       </div>
+
+      {bookings.length > 0 && (
+        <div className="mt-8 hidden gap-5 print:grid">
+          {bookings.map((booking) => (
+            <div key={booking.id}>
+              <RentalCard booking={booking} />
+            </div>
+          ))}
+        </div>
+      )}
     </AdminShell>
   );
 }
