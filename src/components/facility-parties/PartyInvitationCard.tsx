@@ -18,6 +18,11 @@ export type PartyInvitationCardProps = {
   compact?: boolean;
   /** Shrink typography for dense delivery-option thumbnails. */
   previewScale?: boolean;
+  /**
+   * Readable 4-up sheet thumbnails: keep real theme art/colors but use
+   * larger overlay type so the booking-form preview is understandable.
+   */
+  sheetReadable?: boolean;
 };
 
 function Motif({ slot, variant }: { slot: string; variant: number }) {
@@ -125,6 +130,7 @@ export function PartyInvitationCard({
   timeLabel,
   compact = false,
   previewScale = false,
+  sheetReadable = false,
 }: PartyInvitationCardProps) {
   const theme = getInvitationTheme(snapshot.themeId);
   const variant = snapshot.artworkVariant ?? 0;
@@ -144,21 +150,28 @@ export function PartyInvitationCard({
   const celebrationLine = snapshot.sourceText
     ? `${snapshot.sourceText} celebration`
     : "Birthday celebration";
-  const titleClass = previewScale
-    ? "text-[9px] leading-tight sm:text-[10px]"
-    : compact
-      ? "text-sm sm:text-base"
-      : "text-2xl sm:text-3xl";
-  const bodyClass = previewScale
-    ? "text-[7px] leading-snug sm:text-[8px]"
-    : compact
-      ? "text-[10px] leading-snug"
-      : "text-sm";
-  const metaClass = previewScale
-    ? "text-[6px] leading-snug sm:text-[7px]"
-    : compact
-      ? "text-[9px]"
-      : "text-[11px]";
+  const dense = previewScale && !sheetReadable;
+  const titleClass = sheetReadable
+    ? "text-[11px] leading-tight sm:text-xs"
+    : dense
+      ? "text-[9px] leading-tight sm:text-[10px]"
+      : compact
+        ? "text-sm sm:text-base"
+        : "text-2xl sm:text-3xl";
+  const bodyClass = sheetReadable
+    ? "text-[9px] leading-snug sm:text-[10px]"
+    : dense
+      ? "text-[7px] leading-snug sm:text-[8px]"
+      : compact
+        ? "text-[10px] leading-snug"
+        : "text-sm";
+  const metaClass = sheetReadable
+    ? "text-[8px] leading-snug sm:text-[9px]"
+    : dense
+      ? "text-[6px] leading-snug sm:text-[7px]"
+      : compact
+        ? "text-[9px]"
+        : "text-[11px]";
   const articleMeta = {
     "data-theme-id": snapshot.themeId,
     "data-artwork-slot": snapshot.artworkSlot,
@@ -167,6 +180,7 @@ export function PartyInvitationCard({
     "data-style-family": snapshot.styleFamily,
     "data-artwork-kind": snapshot.artworkKind,
     "data-preview-scale": previewScale ? "true" : "false",
+    "data-sheet-readable": sheetReadable ? "true" : "false",
   } as const;
 
   const details = (
@@ -175,23 +189,35 @@ export function PartyInvitationCard({
         {displayName}
         {ageBit}
       </h2>
-      <p className={`font-semibold ${previewScale ? "mt-0.5" : compact ? "mt-0.5" : "mt-1.5"} ${bodyClass}`}>
+      <p
+        className={`font-semibold ${
+          sheetReadable || dense ? "mt-0.5" : compact ? "mt-0.5" : "mt-1.5"
+        } ${bodyClass}`}
+      >
         {celebrationLine}
       </p>
       <div
-        className={`space-y-0.5 font-semibold ${previewScale ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"} ${bodyClass}`}
+        className={`space-y-0.5 font-semibold ${
+          sheetReadable ? "mt-1.5" : dense ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"
+        } ${bodyClass}`}
       >
         <p>{dateLabel || "Date coming soon"}</p>
         <p>{timeLabel || "Time coming soon"}</p>
         <p>
           {FACILITY_INVITATION_VENUE.name}
-          <br />
-          {FACILITY_INVITATION_VENUE.address}
+          {sheetReadable ? null : (
+            <>
+              <br />
+              {FACILITY_INVITATION_VENUE.address}
+            </>
+          )}
         </p>
       </div>
       {snapshot.sourceText ? (
         <p
-          className={`font-bold uppercase tracking-wide ${previewScale ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"} ${metaClass}`}
+          className={`font-bold uppercase tracking-wide ${
+            sheetReadable ? "mt-1.5" : dense ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"
+          } ${metaClass}`}
           style={{ color: approvedSrc ? "#dbeafe" : mutedColor }}
         >
           Theme: {snapshot.sourceText}
@@ -205,7 +231,7 @@ export function PartyInvitationCard({
       <article
         {...articleMeta}
         className={`relative aspect-square overflow-hidden border-4 text-left shadow-lg ${
-          previewScale ? "rounded-[12px]" : "rounded-[28px]"
+          sheetReadable || dense ? "rounded-[12px]" : "rounded-[28px]"
         }`}
         style={{
           borderColor: palette.accent,
@@ -218,14 +244,22 @@ export function PartyInvitationCard({
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent">
+        <div
+          className={
+            sheetReadable
+              ? "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black from-25% via-black/85 to-transparent"
+              : "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent"
+          }
+        >
           <div
             className={
-              previewScale
-                ? "px-1.5 pb-1.5 pt-8"
-                : compact
-                  ? "px-2.5 pb-2.5 pt-10"
-                  : "px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
+              sheetReadable
+                ? "px-2 pb-2 pt-10"
+                : dense
+                  ? "px-1.5 pb-1.5 pt-8"
+                  : compact
+                    ? "px-2.5 pb-2.5 pt-10"
+                    : "px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
             }
           >
             {details}
@@ -239,7 +273,13 @@ export function PartyInvitationCard({
     <article
       {...articleMeta}
       className={`relative aspect-square overflow-hidden border-4 text-left shadow-lg ${
-        previewScale ? "rounded-[12px] p-1.5" : compact ? "rounded-[28px] p-3" : "rounded-[28px] p-5 sm:p-6"
+        sheetReadable
+          ? "rounded-[12px] p-2"
+          : dense
+            ? "rounded-[12px] p-1.5"
+            : compact
+              ? "rounded-[28px] p-3"
+              : "rounded-[28px] p-5 sm:p-6"
       }`}
       style={{
         background: `linear-gradient(145deg, ${palette.background}, ${palette.backgroundAlt})`,
@@ -248,32 +288,50 @@ export function PartyInvitationCard({
       }}
     >
       <p
-        className={`font-black uppercase tracking-[0.2em] ${previewScale ? "text-[6px]" : "text-[10px]"}`}
+        className={`font-black uppercase tracking-[0.2em] ${
+          sheetReadable ? "text-[8px]" : dense ? "text-[6px]" : "text-[10px]"
+        }`}
         style={{ color: mutedColor }}
       >
         You&apos;re invited
       </p>
-      <h2 className={`font-black leading-tight ${previewScale ? "mt-0.5" : compact ? "mt-1" : "mt-2"} ${titleClass}`}>
+      <h2
+        className={`font-black leading-tight ${
+          sheetReadable || dense ? "mt-0.5" : compact ? "mt-1" : "mt-2"
+        } ${titleClass}`}
+      >
         {displayName}
         {ageBit}
       </h2>
-      <p className={`font-semibold ${previewScale ? "mt-0.5" : compact ? "mt-1" : "mt-2"} ${bodyClass}`}>
+      <p
+        className={`font-semibold ${
+          sheetReadable || dense ? "mt-0.5" : compact ? "mt-1" : "mt-2"
+        } ${bodyClass}`}
+      >
         {celebrationLine}
       </p>
       <div
-        className={`grid grid-cols-[1fr_auto] items-end gap-1 ${previewScale ? "mt-1" : compact ? "mt-2" : "mt-4"}`}
+        className={`grid grid-cols-[1fr_auto] items-end gap-1 ${
+          sheetReadable ? "mt-1.5" : dense ? "mt-1" : compact ? "mt-2" : "mt-4"
+        }`}
       >
         <div className={`space-y-0.5 font-semibold ${bodyClass}`}>
           <p>{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
           <p>
             {FACILITY_INVITATION_VENUE.name}
-            <br />
-            {FACILITY_INVITATION_VENUE.address}
+            {sheetReadable ? null : (
+              <>
+                <br />
+                {FACILITY_INVITATION_VENUE.address}
+              </>
+            )}
           </p>
         </div>
         <div
-          className={previewScale ? "h-7 w-9" : compact ? "h-12 w-16" : "h-16 w-24"}
+          className={
+            sheetReadable ? "h-9 w-11" : dense ? "h-7 w-9" : compact ? "h-12 w-16" : "h-16 w-24"
+          }
           style={{ color: palette.accent }}
         >
           <Motif slot={snapshot.artworkSlot} variant={variant} />
@@ -281,7 +339,9 @@ export function PartyInvitationCard({
       </div>
       {snapshot.sourceText ? (
         <p
-          className={`font-bold uppercase tracking-wide ${previewScale ? "mt-1" : "mt-2"} ${metaClass}`}
+          className={`font-bold uppercase tracking-wide ${
+            sheetReadable ? "mt-1.5" : dense ? "mt-1" : "mt-2"
+          } ${metaClass}`}
           style={{ color: mutedColor }}
         >
           Theme: {snapshot.sourceText}

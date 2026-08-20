@@ -26,29 +26,35 @@ function PrintSheetPreview({
 }) {
   return (
     <div
-      className="invitation-delivery-preview-print relative mx-auto w-full overflow-hidden rounded-md border border-slate-300 bg-white p-2 shadow-sm"
+      className="invitation-delivery-preview-print relative mx-auto w-full overflow-hidden rounded-md border border-slate-300 bg-slate-50 p-2.5 shadow-sm"
       aria-hidden
     >
-      <div className="relative mx-auto aspect-[8.5/11] w-full max-h-[20rem] overflow-hidden rounded-sm bg-white sm:max-h-[22rem]">
-        <div className="pointer-events-none absolute inset-x-[6%] top-1/2 z-10 h-px -translate-y-1/2 border-t border-dashed border-slate-400/70" />
-        <div className="pointer-events-none absolute inset-y-[6%] left-1/2 z-10 w-px -translate-x-1/2 border-l border-dashed border-slate-400/70" />
-        <div
-          className="absolute left-1/2 top-[1%] origin-top -translate-x-1/2 scale-[0.28] sm:scale-[0.32]"
-          style={{ width: "8.5in" }}
-          data-invite-count="4"
-        >
-          <InvitationSheet
-            snapshot={data.snapshot}
-            childName={data.childName}
-            childAge={data.childAge}
-            dateLabel={data.dateLabel}
-            timeLabel={data.timeLabel}
-          />
-        </div>
+      <div
+        className="mx-auto overflow-hidden rounded-sm bg-white shadow-inner ring-1 ring-slate-200"
+        data-invite-count="4"
+        data-print-preview="readable"
+      >
+        <InvitationSheet
+          snapshot={data.snapshot}
+          childName={data.childName}
+          childAge={data.childAge}
+          dateLabel={data.dateLabel}
+          timeLabel={data.timeLabel}
+          dense
+        />
       </div>
-      <p className="mt-1.5 text-center text-[9px] font-bold uppercase tracking-wide text-slate-500">
-        Letter · 4 per page
-      </p>
+      <div className="mt-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] leading-snug text-slate-900 ring-1 ring-slate-200">
+        <p className="font-black uppercase tracking-wide text-slate-700">
+          Letter · 4 per page
+        </p>
+        <p className="mt-0.5 font-black text-slate-950">
+          {data.childName}
+          {data.childAge ? ` is turning ${data.childAge}` : ""}
+        </p>
+        <p className="font-semibold text-slate-800">{data.dateLabel}</p>
+        <p className="font-semibold text-slate-800">{data.timeLabel}</p>
+        <p className="font-semibold text-slate-700">{data.venueName}</p>
+      </div>
     </div>
   );
 }
