@@ -382,32 +382,9 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         <PrintButton label="Print booking sheets" />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:hidden">
-        <StatTile
-          label="Waiting approval"
-          value={summary.pending ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=pending`}
-        />
-        <StatTile
-          label="Approved rentals"
-          value={summary.approved ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=approved`}
-        />
-        <StatTile
-          label="Rejected rentals"
-          value={summary.rejected ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=rejected`}
-        />
-        <StatTile
-          label="Cancelled rentals"
-          value={summary.cancelled ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=cancelled`}
-        />
-      </div>
-
       <form
         action="/admin/rentals"
-        className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center print:hidden"
+        className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center print:hidden"
       >
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="from" value={from} />
@@ -438,7 +415,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         </div>
       </form>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 print:hidden">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 print:hidden">
         {bookings.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-lg font-bold">No rentals found.</p>
@@ -462,6 +439,29 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
           ))}
         </div>
       )}
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+        <StatTile
+          label="Waiting approval"
+          value={summary.pending ?? 0}
+          href={`/admin/rentals?${baseQuery}&status=pending`}
+        />
+        <StatTile
+          label="Approved rentals"
+          value={summary.approved ?? 0}
+          href={`/admin/rentals?${baseQuery}&status=approved`}
+        />
+        <StatTile
+          label="Rejected rentals"
+          value={summary.rejected ?? 0}
+          href={`/admin/rentals?${baseQuery}&status=rejected`}
+        />
+        <StatTile
+          label="Cancelled rentals"
+          value={summary.cancelled ?? 0}
+          href={`/admin/rentals?${baseQuery}&status=cancelled`}
+        />
+      </div>
     </AdminShell>
   );
 }
