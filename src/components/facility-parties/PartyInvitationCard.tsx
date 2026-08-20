@@ -1,5 +1,9 @@
 import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import {
+  pickReadableTextColor,
+  readableMutedTextColor,
+} from "@/lib/facility-parties/invitations/contrast";
+import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
@@ -12,6 +16,8 @@ export type PartyInvitationCardProps = {
   dateLabel: string;
   timeLabel: string;
   compact?: boolean;
+  /** Shrink typography for dense delivery-option thumbnails. */
+  previewScale?: boolean;
 };
 
 function Motif({ slot, variant }: { slot: string; variant: number }) {
@@ -118,6 +124,7 @@ export function PartyInvitationCard({
   dateLabel,
   timeLabel,
   compact = false,
+  previewScale = false,
 }: PartyInvitationCardProps) {
   const theme = getInvitationTheme(snapshot.themeId);
   const variant = snapshot.artworkVariant ?? 0;
@@ -129,12 +136,29 @@ export function PartyInvitationCard({
           backgroundAlt: theme.palette.background,
         }
       : theme.palette;
+  const textColor = pickReadableTextColor(palette.background, palette.text);
+  const mutedColor = readableMutedTextColor(palette.background, palette.muted);
   const approvedSrc = approvedArtworkSrc(snapshot.themeId);
   const displayName = childName.trim() || "Birthday Star";
   const ageBit = childAge.trim() ? ` is turning ${childAge.trim()}!` : " is having a party!";
   const celebrationLine = snapshot.sourceText
     ? `${snapshot.sourceText} celebration`
     : "Birthday celebration";
+  const titleClass = previewScale
+    ? "text-[9px] leading-tight sm:text-[10px]"
+    : compact
+      ? "text-sm sm:text-base"
+      : "text-2xl sm:text-3xl";
+  const bodyClass = previewScale
+    ? "text-[7px] leading-snug sm:text-[8px]"
+    : compact
+      ? "text-[10px] leading-snug"
+      : "text-sm";
+  const metaClass = previewScale
+    ? "text-[6px] leading-snug sm:text-[7px]"
+    : compact
+      ? "text-[9px]"
+      : "text-[11px]";
   const articleMeta = {
     "data-theme-id": snapshot.themeId,
     "data-artwork-slot": snapshot.artworkSlot,
@@ -142,20 +166,21 @@ export function PartyInvitationCard({
     "data-option-index": String(snapshot.optionIndex ?? 0),
     "data-style-family": snapshot.styleFamily,
     "data-artwork-kind": snapshot.artworkKind,
+    "data-preview-scale": previewScale ? "true" : "false",
   } as const;
 
   const details = (
     <>
-      <h2
-        className={`font-black leading-tight ${compact ? "text-sm sm:text-base" : "text-2xl sm:text-3xl"}`}
-      >
+      <h2 className={`font-black leading-tight ${titleClass}`}>
         {displayName}
         {ageBit}
       </h2>
-      <p className={`font-semibold ${compact ? "mt-0.5 text-[11px]" : "mt-1.5 text-sm"}`}>
+      <p className={`font-semibold ${previewScale ? "mt-0.5" : compact ? "mt-0.5" : "mt-1.5"} ${bodyClass}`}>
         {celebrationLine}
       </p>
-      <div className={`space-y-0.5 font-semibold ${compact ? "mt-1.5 text-[10px] leading-snug" : "mt-2.5 text-sm"}`}>
+      <div
+        className={`space-y-0.5 font-semibold ${previewScale ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"} ${bodyClass}`}
+      >
         <p>{dateLabel || "Date coming soon"}</p>
         <p>{timeLabel || "Time coming soon"}</p>
         <p>
@@ -166,8 +191,8 @@ export function PartyInvitationCard({
       </div>
       {snapshot.sourceText ? (
         <p
-          className={`font-bold uppercase tracking-wide ${compact ? "mt-1.5 text-[9px]" : "mt-2.5 text-[11px]"}`}
-          style={{ color: palette.muted }}
+          className={`font-bold uppercase tracking-wide ${previewScale ? "mt-1" : compact ? "mt-1.5" : "mt-2.5"} ${metaClass}`}
+          style={{ color: approvedSrc ? "#dbeafe" : mutedColor }}
         >
           Theme: {snapshot.sourceText}
         </p>
@@ -179,7 +204,9 @@ export function PartyInvitationCard({
     return (
       <article
         {...articleMeta}
-        className="relative aspect-square overflow-hidden rounded-[28px] border-4 text-left shadow-lg"
+        className={`relative aspect-square overflow-hidden border-4 text-left shadow-lg ${
+          previewScale ? "rounded-[12px]" : "rounded-[28px]"
+        }`}
         style={{
           borderColor: palette.accent,
           color: "#ffffff",
@@ -191,8 +218,16 @@ export function PartyInvitationCard({
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
-          <div className={compact ? "px-2.5 pb-2.5 pt-10" : "px-5 pb-5 pt-16 sm:px-6 sm:pb-6"}>
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent">
+          <div
+            className={
+              previewScale
+                ? "px-1.5 pb-1.5 pt-8"
+                : compact
+                  ? "px-2.5 pb-2.5 pt-10"
+                  : "px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
+            }
+          >
             {details}
           </div>
         </div>
@@ -203,30 +238,32 @@ export function PartyInvitationCard({
   return (
     <article
       {...articleMeta}
-      className={`relative aspect-square overflow-hidden rounded-[28px] border-4 text-left shadow-lg ${
-        compact ? "p-3" : "p-5 sm:p-6"
+      className={`relative aspect-square overflow-hidden border-4 text-left shadow-lg ${
+        previewScale ? "rounded-[12px] p-1.5" : compact ? "rounded-[28px] p-3" : "rounded-[28px] p-5 sm:p-6"
       }`}
       style={{
         background: `linear-gradient(145deg, ${palette.background}, ${palette.backgroundAlt})`,
         borderColor: palette.accent,
-        color: palette.text,
+        color: textColor,
       }}
     >
       <p
-        className="text-[10px] font-black uppercase tracking-[0.2em]"
-        style={{ color: palette.muted }}
+        className={`font-black uppercase tracking-[0.2em] ${previewScale ? "text-[6px]" : "text-[10px]"}`}
+        style={{ color: mutedColor }}
       >
         You&apos;re invited
       </p>
-      <h2 className={`font-black leading-tight ${compact ? "mt-1 text-base" : "mt-2 text-2xl sm:text-3xl"}`}>
+      <h2 className={`font-black leading-tight ${previewScale ? "mt-0.5" : compact ? "mt-1" : "mt-2"} ${titleClass}`}>
         {displayName}
         {ageBit}
       </h2>
-      <p className={`font-semibold ${compact ? "mt-1 text-xs" : "mt-2 text-sm"}`}>
+      <p className={`font-semibold ${previewScale ? "mt-0.5" : compact ? "mt-1" : "mt-2"} ${bodyClass}`}>
         {celebrationLine}
       </p>
-      <div className={`grid grid-cols-[1fr_auto] items-end gap-2 ${compact ? "mt-2" : "mt-4"}`}>
-        <div className={`space-y-0.5 font-semibold ${compact ? "text-[11px]" : "text-sm"}`}>
+      <div
+        className={`grid grid-cols-[1fr_auto] items-end gap-1 ${previewScale ? "mt-1" : compact ? "mt-2" : "mt-4"}`}
+      >
+        <div className={`space-y-0.5 font-semibold ${bodyClass}`}>
           <p>{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
           <p>
@@ -235,14 +272,17 @@ export function PartyInvitationCard({
             {FACILITY_INVITATION_VENUE.address}
           </p>
         </div>
-        <div className={compact ? "h-12 w-16" : "h-16 w-24"} style={{ color: palette.accent }}>
+        <div
+          className={previewScale ? "h-7 w-9" : compact ? "h-12 w-16" : "h-16 w-24"}
+          style={{ color: palette.accent }}
+        >
           <Motif slot={snapshot.artworkSlot} variant={variant} />
         </div>
       </div>
       {snapshot.sourceText ? (
         <p
-          className="mt-2 text-[11px] font-bold uppercase tracking-wide"
-          style={{ color: palette.muted }}
+          className={`font-bold uppercase tracking-wide ${previewScale ? "mt-1" : "mt-2"} ${metaClass}`}
+          style={{ color: mutedColor }}
         >
           Theme: {snapshot.sourceText}
         </p>
