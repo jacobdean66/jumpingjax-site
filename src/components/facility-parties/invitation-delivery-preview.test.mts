@@ -46,7 +46,10 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(printHtml, /data-preview-mode="print-sheet"/);
   assert.match(printHtml, /data-invite-count="4"/);
   assert.equal(countMatches(printHtml, "data-invite-instance"), 4);
+  assert.match(printHtml, /data-print-preview="readable"/);
+  assert.match(printHtml, /data-sheet-readable="true"/);
   assert.match(printHtml, /Milo/);
+  assert.match(printHtml, /Letter/);
   assert.match(printHtml, /Selected/);
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
