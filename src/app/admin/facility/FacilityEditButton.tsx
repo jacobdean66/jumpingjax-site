@@ -1,16 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import {
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
   FACILITY_INVITATION_TEMPLATE_OPTIONS,
   invitationDeliveryPreferenceLabel,
+  normalizeInvitationDeliveryPreferences,
 } from "@/lib/facility-parties/invitations";
 import type { AdminFacilityBooking } from "@/lib/admin/operations";
-import { wallClockFromFacilityTimes } from "@/lib/facility-parties/schedule-mutation";
-import { minutesToClockTime } from "@/lib/facility-parties/time";
 
 type Props = {
   booking: AdminFacilityBooking;
@@ -38,16 +37,19 @@ function Field({
 }
 
 const inputClass =
-  "w-full min-h-12 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500";
+  "w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500";
 
 export function FacilityEditButton({ booking }: Props) {
   const router = useRouter();
   const titleId = useId();
-  const clock = wallClockFromFacilityTimes(booking.startTime, booking.endTime);
   const [open, setOpen] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState(false);
+  const selectedInvitationDeliveryPreferences = useMemo(
+    () => normalizeInvitationDeliveryPreferences(booking.invitationDeliveryPreference),
+    [booking.invitationDeliveryPreference],
+  );
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,17 +68,16 @@ export function FacilityEditButton({ booking }: Props) {
       childAge: String(form.get("childAge") ?? ""),
       childGender: String(form.get("childGender") ?? ""),
       partyTheme: String(form.get("partyTheme") ?? ""),
-      invitationDeliveryPreference: String(
-        form.get("invitationDeliveryPreference") ?? "",
-      ),
+      invitationDeliveryPreference: form
+        .getAll("invitationDeliveryPreference")
+        .map((value) => String(value))
+        .filter(Boolean),
       invitationTemplateId: String(form.get("invitationTemplateId") ?? ""),
       balloonColors: String(form.get("balloonColors") ?? ""),
       tableClothColors: String(form.get("tableClothColors") ?? ""),
       drinkChoice: String(form.get("drinkChoice") ?? ""),
       notes: String(form.get("notes") ?? ""),
       paymentMethod: String(form.get("paymentMethod") ?? ""),
-      bookingDate: String(form.get("bookingDate") ?? ""),
-      bookingStartTime: String(form.get("bookingStartTime") ?? ""),
     };
 
     try {
@@ -122,15 +123,14 @@ export function FacilityEditButton({ booking }: Props) {
           setWarning(false);
         }}
         disabled={isWorking}
-        className="min-h-11 rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white hover:bg-sky-600 disabled:cursor-wait disabled:bg-sky-300"
+        className="rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white hover:bg-sky-600 disabled:cursor-wait disabled:bg-sky-300"
       >
         Edit
       </button>
       {message && !open ? (
         <span
-          role={warning ? "alert" : "status"}
           className={`max-w-56 text-xs font-bold ${
-            warning ? "text-rose-700" : "text-emerald-700"
+            warning ? "text-amber-800" : "text-slate-600"
           }`}
         >
           {message}
@@ -158,38 +158,12 @@ export function FacilityEditButton({ booking }: Props) {
                 Edit facility party #{booking.id}
               </h3>
               <p className="mt-1 text-sm font-semibold text-slate-600">
-                Pending and confirmed parties can be rescheduled. Room, party
-                type, and duration stay the same. The previous time is released
-                only after the new time is saved.
+                Pending and confirmed parties can be updated. Room and time stay
+                the same; calendar syncs after confirmed edits.
               </p>
             </div>
 
             <div className="grid gap-3 overflow-y-auto px-5 py-4 sm:grid-cols-2">
-              <Field label="Party date">
-                <input
-                  name="bookingDate"
-                  type="date"
-                  required
-                  defaultValue={clock?.date ?? booking.readableDate ?? ""}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Start time">
-                <input
-                  name="bookingStartTime"
-                  type="time"
-                  required
-                  step={1800}
-                  defaultValue={
-                    clock ? minutesToClockTime(clock.startMinutes) : "12:00"
-                  }
-                  className={inputClass}
-                />
-              </Field>
-              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-                Duration stays {clock ? `${clock.durationMinutes} minutes` : "the same"}.
-                Kind: {booking.partyKind ?? "Not set"}. Room: {booking.room ?? "Not set"}.
-              </div>
               <Field label="Customer name">
                 <input
                   name="customerName"
@@ -257,17 +231,25 @@ export function FacilityEditButton({ booking }: Props) {
                 />
               </Field>
               <Field label="Invitations">
-                <select
-                  name="invitationDeliveryPreference"
-                  defaultValue={booking.invitationDeliveryPreference}
-                  className={inputClass}
-                >
+                <div className="grid gap-2">
                   {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
-                    <option key={preference} value={preference}>
-                      {invitationDeliveryPreferenceLabel(preference)}
-                    </option>
+                    <label
+                      key={preference}
+                      className="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+                    >
+                      <input
+                        type="checkbox"
+                        name="invitationDeliveryPreference"
+                        value={preference}
+                        defaultChecked={selectedInvitationDeliveryPreferences.includes(
+                          preference,
+                        )}
+                        className="mt-1 h-4 w-4 accent-sky-500"
+                      />
+                      <span>{invitationDeliveryPreferenceLabel(preference)}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </Field>
               <Field label="Invitation design">
                 <select
@@ -317,9 +299,8 @@ export function FacilityEditButton({ booking }: Props) {
 
             {message ? (
               <p
-                role="alert"
                 className={`px-5 text-sm font-bold ${
-                  warning ? "text-rose-700" : "text-amber-800"
+                  warning ? "text-amber-800" : "text-rose-700"
                 }`}
               >
                 {message}
@@ -333,7 +314,7 @@ export function FacilityEditButton({ booking }: Props) {
                 onClick={() => setOpen(false)}
                 className="min-h-12 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                Close
+                Cancel
               </button>
               <button
                 type="submit"

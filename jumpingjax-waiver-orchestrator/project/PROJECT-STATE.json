@@ -1,0 +1,52 @@
+{
+  "project": "jumping-jax-waiver",
+  "mode": "dry-run",
+  "status": "IDLE",
+  "activeTaskId": null,
+  "activeTaskTitle": null,
+  "builderSessionId": null,
+  "reviewerSessionId": null,
+  "supervisorSessionId": null,
+  "supervisorThreadId": null,
+  "taskIteration": 0,
+  "maxTaskIterations": 10,
+  "projectIteration": 0,
+  "maxProjectIterations": 100,
+  "lastBuilderStatus": null,
+  "lastReviewVerdict": null,
+  "blockedReason": null,
+  "requiresJacobApproval": false,
+  "completedTasks": [],
+  "pendingTasks": [
+    {
+      "id": "DRYRUN-001",
+      "title": "Prove orchestration only",
+      "goal": "Demonstrate Codex Supervisor → Cursor Builder → Cursor Reviewer loop without touching Jumping Jax application code",
+      "allowedFiles": [
+        "dry-run-workspace/**"
+      ],
+      "acceptanceCriteria": [
+        "Mock or dry-run loop reaches APPROVED then READY_FOR_JACOB_REVIEW",
+        "No Jumping Jax application repo mutation"
+      ],
+      "requiredTests": [
+        "Orchestrator dry-run / state-machine / safety tests"
+      ],
+      "forbiddenActions": [
+        "commit",
+        "push",
+        "pull_request_create",
+        "merge",
+        "deploy",
+        "migration",
+        "dependency_install",
+        "lockfile_modification",
+        "environment_variable_mutation",
+        "production_data_mutation"
+      ],
+      "status": "pending"
+    }
+  ],
+  "transitionHistory": [],
+  "updatedAt": null
+}

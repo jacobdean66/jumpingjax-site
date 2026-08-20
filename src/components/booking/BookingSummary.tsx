@@ -1,6 +1,5 @@
 "use client";
 
-import { getRentalBySlug } from "@/data/rentals";
 import type { DurationOption } from "@/lib/mockBooking";
 import {
   formatDisplayDate,
@@ -79,9 +78,8 @@ export function BookingSummary({
 
       <dl className="mt-4 space-y-3 text-sm">
         {cartItems.map((item) => {
-          const rental = getRentalBySlug(item.rental_item);
           const lineEstimate =
-            showPrices && rental
+            showPrices
               ? estimateRentalLineSubtotal(
                   item,
                   durationLabel,

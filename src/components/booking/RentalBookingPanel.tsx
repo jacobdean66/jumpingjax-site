@@ -35,6 +35,7 @@ export type RentalBookingPanelProps = {
   rental_item: string;
   rentalTitle: string;
   startingPrice: number;
+  catalogPrices: Record<string, number>;
   initialUnavailableYmds: string[];
   availabilityLoadError: "not_configured" | "read_failed" | null;
 };
@@ -167,6 +168,7 @@ function parseBookingId(data: unknown): string | null {
 type RentalAddToRequestButtonProps = {
   rental_item: string;
   rental_name: string;
+  starting_price: number;
   variant?: "hero" | "compact";
   keepShoppingHref?: string;
 };
@@ -186,6 +188,7 @@ const keepShoppingClassName = {
 export function RentalAddToRequestButton({
   rental_item,
   rental_name,
+  starting_price,
   variant = "hero",
   keepShoppingHref = "/rentals",
 }: RentalAddToRequestButtonProps) {
@@ -239,7 +242,9 @@ export function RentalAddToRequestButton({
   return (
     <button
       type="button"
-      onClick={() => addRentalToCart({ rental_item, rental_name })}
+      onClick={() =>
+        addRentalToCart({ rental_item, rental_name, starting_price })
+      }
       className={addClassName}
     >
       Add to cart
@@ -295,12 +300,14 @@ export function RentalCartStatus() {
 type RentalCardCartActionsProps = {
   rental_item: string;
   rental_name: string;
+  starting_price: number;
   keepShoppingHref?: string;
 };
 
 export function RentalCardCartActions({
   rental_item,
   rental_name,
+  starting_price,
   keepShoppingHref = "/rentals",
 }: RentalCardCartActionsProps) {
   const inCart = useBookingStore((s) =>
@@ -312,6 +319,7 @@ export function RentalCardCartActions({
       <RentalAddToRequestButton
         rental_item={rental_item}
         rental_name={rental_name}
+        starting_price={starting_price}
         variant="compact"
         keepShoppingHref={keepShoppingHref}
       />
@@ -323,6 +331,8 @@ export function RentalCardCartActions({
 export function RentalBookingPanel({
   rental_item: slug,
   rentalTitle,
+  startingPrice,
+  catalogPrices,
   initialUnavailableYmds,
   availabilityLoadError,
 }: RentalBookingPanelProps) {
@@ -375,18 +385,38 @@ export function RentalBookingPanel({
     clearSubmitSuccess();
   }, [rentalCartItems]);
 
+  const priceCartItem = useMemo(
+    () =>
+      (item: RentalCartItem): RentalCartItem => {
+        const catalogPrice = catalogPrices[item.rental_item];
+        return Number.isFinite(catalogPrice)
+          ? { ...item, starting_price: catalogPrice }
+          : item;
+      },
+    [catalogPrices],
+  );
+
+  const currentRentalItem = useMemo(
+    (): RentalCartItem => ({
+      rental_item: slug,
+      rental_name: rentalTitle,
+      starting_price: startingPrice,
+    }),
+    [slug, rentalTitle, startingPrice],
+  );
+
   const selectedRentalItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length === 0) {
-      return [{ rental_item: slug, rental_name: rentalTitle }];
+      return [currentRentalItem];
     }
     if (rentalCartItems.some((item) => item.rental_item === slug)) {
-      return rentalCartItems;
+      return rentalCartItems.map(priceCartItem);
     }
     return [
-      { rental_item: slug, rental_name: rentalTitle },
-      ...rentalCartItems,
+      currentRentalItem,
+      ...rentalCartItems.map(priceCartItem),
     ];
-  }, [rentalCartItems, slug, rentalTitle]);
+  }, [rentalCartItems, slug, currentRentalItem, priceCartItem]);
 
   const isFoamOnlyCart = selectedRentalItems.every((item) =>
     isFoamPartyRentalItem(item.rental_item),
@@ -412,10 +442,10 @@ export function RentalBookingPanel({
 
   const displayCartItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length > 0) {
-      return rentalCartItems;
+      return rentalCartItems.map(priceCartItem);
     }
-    return [{ rental_item: slug, rental_name: rentalTitle }];
-  }, [rentalCartItems, slug, rentalTitle]);
+    return [currentRentalItem];
+  }, [rentalCartItems, currentRentalItem, priceCartItem]);
 
   const currentPageIncludedAtSubmit =
     rentalCartItems.length > 0 &&
@@ -600,6 +630,8 @@ export function RentalBookingPanel({
     ? "Complete a valid rental date first."
       : selectedRentalItems.length === 0
         ? "Add at least one rental to your request."
+        : subtotal == null || totalAmount == null
+          ? "A rental price is unavailable. Refresh the page before submitting your request."
       : !customerOk
         ? "Add your contact details, verify the event address, choose setup details, choose payment method, choose a delivery window, and add the party start time to continue."
         : undefined;

@@ -1,0 +1,8 @@
+{
+  "vercelLimitBytes": 4718592,
+  "beforeSaveWith8mbImageBytes": 8393795,
+  "afterSaveMetadataOnlyBytes": 5041,
+  "postsEntireInventory": false,
+  "includesBase64InSave": false,
+  "imageUploadBypassesVercelFunction": true
+}

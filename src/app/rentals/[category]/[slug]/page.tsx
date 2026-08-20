@@ -15,7 +15,7 @@ import {
   isCategoryId,
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
-import { getWebsiteRentalInCategory } from "@/lib/rentals/public-catalog";
+import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
 
@@ -30,7 +30,10 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category, slug } = await params;
-  const rental = await getWebsiteRentalInCategory(category, slug);
+  const websiteRentals = await loadWebsiteRentals();
+  const rental = websiteRentals.find(
+    (item) => item.categoryId === category && item.slug === slug,
+  );
   if (!rental) return { title: "Rental | Jumping Jax" };
   return {
     title: `${rental.title} | Jumping Jax`,
@@ -42,7 +45,10 @@ export default async function RentalDetailPage({ params }: Props) {
   const { category, slug } = await params;
   if (!isCategoryId(category)) notFound();
 
-  const rental = await getWebsiteRentalInCategory(category, slug);
+  const websiteRentals = await loadWebsiteRentals();
+  const rental = websiteRentals.find(
+    (item) => item.categoryId === category && item.slug === slug,
+  );
   if (!rental) notFound();
 
   const initialUnavailableYmds: string[] = [];
@@ -146,6 +152,7 @@ export default async function RentalDetailPage({ params }: Props) {
             <RentalAddToRequestButton
               rental_item={rental.slug}
               rental_name={rental.title}
+              starting_price={rental.startingPrice}
               keepShoppingHref={`/rentals/${rental.categoryId}`}
             />
             <Link
@@ -162,6 +169,9 @@ export default async function RentalDetailPage({ params }: Props) {
             rental_item={rental.slug}
             rentalTitle={rental.title}
             startingPrice={rental.startingPrice}
+            catalogPrices={Object.fromEntries(
+              websiteRentals.map((item) => [item.slug, item.startingPrice]),
+            )}
             initialUnavailableYmds={initialUnavailableYmds}
             availabilityLoadError={availabilityLoadError}
           />

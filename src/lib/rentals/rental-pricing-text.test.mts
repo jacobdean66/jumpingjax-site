@@ -76,6 +76,36 @@ test("a realistic multi-item cart sums one-day prices and preserves delivery fee
   );
 });
 
+test("a missing catalog price cannot silently become a zero-dollar line", () => {
+  const inventoryOnlyItem = {
+    rental_item: "inventory-only-water-slide",
+    rental_name: "Inventory-only Water Slide",
+  };
+
+  assert.equal(
+    estimateRentalLineSubtotal(inventoryOnlyItem, "One Day", 1),
+    null,
+  );
+  assert.equal(
+    estimateCartRentalSubtotal([inventoryOnlyItem], "One Day", 1),
+    null,
+  );
+  assert.equal(
+    estimateCartGrandTotal([inventoryOnlyItem], "One Day", 1),
+    null,
+  );
+
+  const pricedInventoryItem = { ...inventoryOnlyItem, starting_price: 291 };
+  assert.equal(
+    estimateCartRentalSubtotal([pricedInventoryItem], "One Day", 1),
+    291,
+  );
+  assert.equal(
+    estimateCartGrandTotal([pricedInventoryItem], "One Day", 1),
+    291 + RENTAL_DELIVERY_BASE_FEE,
+  );
+});
+
 test("one-day bookings block exactly the selected event date", () => {
   const blocked = new Set(["2026-08-15"]);
   assert.equal(rangeHasBlocked("2026-08-15", 1, blocked), true);

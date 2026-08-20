@@ -5,9 +5,11 @@ import {
   approvedInvitationArtworkUrl,
   buildFacilityWaiverInvitationUrl,
   buildQrCodeImageUrl,
+  formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
   invitationDeliveryPreferenceLabel,
   normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "./invitations";
@@ -20,6 +22,27 @@ test("normalizes invitation delivery preference safely", () => {
   );
   assert.equal(normalizeInvitationDeliveryPreference("mail"), "print");
   assert.equal(invitationDeliveryPreferenceLabel("office_pickup"), "Office pickup");
+});
+
+test("normalizes multiple invitation delivery preferences safely", () => {
+  assert.deepEqual(normalizeInvitationDeliveryPreferences("print,email"), [
+    "print",
+    "email",
+  ]);
+  assert.deepEqual(
+    normalizeInvitationDeliveryPreferences([
+      "office_pickup",
+      "email",
+      "email",
+      "mail",
+    ]),
+    ["office_pickup", "email", "print"],
+  );
+  assert.deepEqual(normalizeInvitationDeliveryPreferences([]), ["print"]);
+  assert.equal(
+    formatInvitationDeliveryPreferences(["print", "email"]),
+    "Print at home, Email invitations",
+  );
 });
 
 test("resolves birthday invitation theme presets from booking theme text", () => {

@@ -21,9 +21,9 @@ import {
 } from "@/lib/facility-parties/pricing";
 import {
   buildFacilityWaiverInvitationUrl,
+  formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
-  invitationDeliveryPreferenceLabel,
-  normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
@@ -33,7 +33,6 @@ import {
   resolveRentalEmailSiteUrl,
 } from "@/lib/rentals/rental-site-url";
 import { rateLimit } from "@/lib/rate-limit";
-import { FACILITY_AVAILABILITY_BLOCKING_STATUSES } from "@/lib/facility-parties/availability-source";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   FACILITY_TIME_ZONE,
@@ -46,10 +45,6 @@ import {
 } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
-import {
-  invitationSnapshotFromChoice,
-  facilityInvitationShareUrl,
-} from "@/lib/facility-parties/invitations/snapshot";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
   "Facility party requests are available from today through December 31, 2027.";
@@ -130,8 +125,6 @@ export async function POST(req: NextRequest) {
       child_gender,
       child_age,
       party_theme,
-      invitation_option_index,
-      invitation_alternates_used,
       balloon_colors,
       table_cloth_colors,
       drink_choice,
@@ -154,14 +147,14 @@ export async function POST(req: NextRequest) {
     const resolvedAddons = resolveFacilityAddons(addon_selections);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
-    const invitationPreference = normalizeInvitationDeliveryPreference(
+    const invitationPreferences = normalizeInvitationDeliveryPreferences(
       invitation_delivery_preference,
     );
     const invitationTemplateId = normalizeInvitationTemplateId(
       invitation_template_id,
     );
     const invitationPreferenceLabel =
-      invitationDeliveryPreferenceLabel(invitationPreference);
+      formatInvitationDeliveryPreferences(invitationPreferences);
     const invitationTemplateName = invitationTemplateLabel(invitationTemplateId);
     const bookingContactName = isNonEmptyString(parent_name)
       ? parent_name.trim()
@@ -285,7 +278,7 @@ export async function POST(req: NextRequest) {
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id,party_kind,room,start_time,end_time")
-        .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
+        .in("status", ["pending", "confirmed"])
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso);
 
@@ -343,7 +336,7 @@ export async function POST(req: NextRequest) {
       const { data: conflicts, error: conflictError } = await supabase
         .from("facility_bookings")
         .select("id")
-        .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
+        .in("status", ["pending", "confirmed"])
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso)
         .limit(1);
@@ -375,17 +368,12 @@ export async function POST(req: NextRequest) {
           child_name: String(child_name).trim(),
           child_gender: String(child_gender).trim(),
           child_age: String(child_age).trim(),
-          party_theme: String(party_theme ?? "").trim(),
-          invitation: invitationSnapshotFromChoice(
-            String(party_theme ?? ""),
-            invitation_option_index,
-            invitation_alternates_used,
-          ),
+          party_theme: String(party_theme).trim(),
           balloon_colors: String(balloon_colors).trim(),
           table_cloth_colors: String(table_cloth_colors).trim(),
           drink_choice: String(drink_choice).trim(),
           payment_method: String(payment_method).trim(),
-          invitation_delivery_preference: invitationPreference,
+          invitation_delivery_preference: invitationPreferences.join(","),
           invitation_template_id: invitationTemplateId,
           deposit_acknowledged: deposit_acknowledged === true,
           notes,
@@ -434,7 +422,7 @@ export async function POST(req: NextRequest) {
     const { error: invitationUpdateError } = await supabase
       .from("facility_bookings")
       .update({
-        invitation_delivery_preference: invitationPreference,
+        invitation_delivery_preference: invitationPreferences.join(","),
         invitation_template_id: invitationTemplateId,
       })
       .eq("id", bookingId);
@@ -530,10 +518,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const invitationUrl = siteUrl
-        ? facilityInvitationShareUrl(siteUrl, bookingId)
-        : "";
-
       const { error: customerEmailError } = await sendDurableBookingEmail({
         supabase,
         messageKey: `facility-${bookingId}-customer-receipt-v1`,
@@ -556,7 +540,6 @@ export async function POST(req: NextRequest) {
           `Party theme: ${String(party_theme).trim()}`,
           `Invitations: ${invitationPreferenceLabel}`,
           `Invitation design: ${invitationTemplateName}`,
-          invitationUrl ? `Invitation: ${invitationUrl}` : null,
           `Drink choice: ${String(drink_choice).trim()}`,
           `Payment method: ${String(payment_method).trim()}`,
           `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
@@ -566,9 +549,7 @@ export async function POST(req: NextRequest) {
           ...pricingLines,
           "",
           "A second email will be sent once your booking is confirmed.",
-        ]
-          .filter((line): line is string => line !== null)
-          .join("\n"),
+        ].join("\n"),
       });
 
       if (customerEmailError) {

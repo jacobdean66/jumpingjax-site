@@ -7,8 +7,6 @@ import {
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
-import { resolveInvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
-import type { InvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
 
@@ -18,7 +16,7 @@ const RENTAL_SELECT =
   "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 const FACILITY_SELECT =
-  "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, google_calendar_secondary_event_id, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total, invitation";
+  "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total";
 
 type RentalRow = {
   id: string | number;
@@ -77,7 +75,6 @@ type FacilityRow = {
   party_label: string | null;
   addon_selections: unknown;
   google_calendar_event_id: string | null;
-  google_calendar_secondary_event_id: string | null;
   parent_name: string | null;
   child_name: string | null;
   child_gender: string | null;
@@ -95,7 +92,6 @@ type FacilityRow = {
   subtotal: number | string | null;
   tax: number | string | null;
   total: number | string | null;
-  invitation: unknown;
 };
 
 export type AdminRentalBooking = {
@@ -174,13 +170,11 @@ export type AdminFacilityBooking = {
   partyLabel: string | null;
   addonText: string;
   googleCalendarEventId: string | null;
-  googleCalendarSecondaryEventId: string | null;
   facilityPackagePrice: number | null;
   addonSubtotal: number | null;
   subtotal: number | null;
   tax: number | null;
   total: number | null;
-  invitation: InvitationSnapshot;
   calendarStatus: string | null;
   calendarNeedsRepair: boolean;
   safeWorkflowErrorClass: string | null;
@@ -409,11 +403,7 @@ export async function loadAdminFacilityBookings(input: {
     const workflow = workflowByBookingId.get(row.id);
     const calendarStatus = workflow?.calendar_status ?? null;
     const status = clean(row.status) ?? "pending";
-    const needsRepair =
-      calendarStatus === "failed" &&
-      (status === "confirmed" ||
-        status === "cancelled" ||
-        status === "canceled");
+    const needsRepair = status === "confirmed" && calendarStatus === "failed";
     const invitationDeliveryPreference =
       normalizeInvitationDeliveryPreference(row.invitation_delivery_preference);
     const invitationTemplateId = normalizeInvitationTemplateId(
@@ -453,18 +443,11 @@ export async function loadAdminFacilityBookings(input: {
       partyLabel: clean(row.party_label),
       addonText: formatStoredFacilityAddons(row.addon_selections),
       googleCalendarEventId: clean(row.google_calendar_event_id),
-      googleCalendarSecondaryEventId: clean(
-        row.google_calendar_secondary_event_id,
-      ),
       facilityPackagePrice: moneyNumber(row.facility_package_price),
       addonSubtotal: moneyNumber(row.addon_subtotal),
       subtotal: moneyNumber(row.subtotal),
       tax: moneyNumber(row.tax),
       total: moneyNumber(row.total),
-      invitation: resolveInvitationSnapshot({
-        partyTheme: clean(row.party_theme),
-        stored: row.invitation,
-      }),
       calendarStatus,
       calendarNeedsRepair: needsRepair,
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jumpingjax.local/schemas/supervisor-decision.schema.json",
+  "title": "CodexSupervisorDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "activeTaskId",
+    "action",
+    "rationaleSummary"
+  ],
+  "properties": {
+    "activeTaskId": {
+      "type": ["string", "null"]
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "ASSIGN_TASK",
+        "REQUEST_REVIEW",
+        "REQUEST_CORRECTION",
+        "MARK_TASK_COMPLETE",
+        "STOP_NEEDS_JACOB_APPROVAL",
+        "STOP_BLOCKED",
+        "STOP_READY_FOR_JACOB_REVIEW"
+      ]
+    },
+    "rationaleSummary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nextCursorPromptPayload": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "reviewerPromptPayload": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "stopReason": {
+      "type": ["string", "null"]
+    },
+    "sessionId": {
+      "type": ["string", "null"]
+    },
+    "threadId": {
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "STOP_NEEDS_JACOB_APPROVAL",
+              "STOP_BLOCKED",
+              "STOP_READY_FOR_JACOB_REVIEW"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": ["stopReason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": { "const": "ASSIGN_TASK" }
+        }
+      },
+      "then": {
+        "required": ["nextCursorPromptPayload"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": { "const": "REQUEST_CORRECTION" }
+        }
+      },
+      "then": {
+        "required": ["nextCursorPromptPayload"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": { "const": "REQUEST_REVIEW" }
+        }
+      },
+      "then": {
+        "required": ["reviewerPromptPayload"]
+      }
+    }
+  ]
+}

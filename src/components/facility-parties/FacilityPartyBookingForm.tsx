@@ -33,6 +33,8 @@ import {
   type FacilityPricingConfig,
 } from "@/lib/facility-parties/pricing";
 import {
+  buildFacilityWaiverInvitationUrl,
+  buildQrCodeImageUrl,
   approvedInvitationArtworkUrl,
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
   FACILITY_INVITATION_TEMPLATE_OPTIONS,
@@ -42,6 +44,7 @@ import {
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
+import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import type {
   FacilityPartyBookingBlock,
   FacilityPartyBookingRequest,
@@ -50,16 +53,7 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
-import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
-import {
-  advanceInvitationSnapshot,
-  invitationSnapshotFromChoice,
-  remainingInvitationAlternates,
-} from "@/lib/facility-parties/invitations/snapshot";
-import {
-  mapFacilityAvailabilityRowToBlock,
-  type FacilityAvailabilityRow,
-} from "@/lib/facility-parties/availability-source";
+import { facilityDateAndMinutes } from "@/lib/facility-parties/zoned-time";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -96,6 +90,23 @@ const PARTY_KIND_CHOICES: {
   },
 ];
 
+type FacilityBookingRangeResponse = {
+  id: string;
+  party_kind: string;
+  room: string | null;
+  start_time: string;
+  end_time: string;
+  status: string;
+};
+
+function isFacilityPartyKind(value: string): value is FacilityPartyKind {
+  return value === "public" || value === "private";
+}
+
+function isFacilityRoomId(value: string | null): value is FacilityRoomId {
+  return value === "room-10" || value === "room-20";
+}
+
 function dateAllowedForKind(kind: FacilityPartyKind, isoDate: string): boolean {
   if (!isoDate) return false;
 
@@ -115,6 +126,33 @@ function dateToYmd(value: Date) {
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function bookingRangeToBlock(
+  booking: FacilityBookingRangeResponse,
+): FacilityPartyBookingBlock | null {
+  if (
+    (booking.status !== "pending" && booking.status !== "confirmed") ||
+    !isFacilityPartyKind(booking.party_kind)
+  ) {
+    return null;
+  }
+
+  const start = facilityDateAndMinutes(booking.start_time);
+  const end = facilityDateAndMinutes(booking.end_time);
+  if (!start || !end) {
+    return null;
+  }
+
+  return {
+    id: booking.id,
+    kind: booking.party_kind,
+    date: start.date,
+    roomId: isFacilityRoomId(booking.room) ? booking.room : null,
+    startMinutes: start.minutes,
+    endMinutes: end.minutes,
+    status: "confirmed",
+  };
 }
 
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
@@ -212,6 +250,12 @@ function InvitationChoicePreview({
   );
   const displayName = childName.trim() || "Birthday";
   const displayTheme = partyTheme.trim() || theme.label;
+  const waiverUrl = buildFacilityWaiverInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: "preview",
+    partyDate: date,
+  });
+  const qrUrl = buildQrCodeImageUrl(waiverUrl, 220);
   const inviteTitle =
     templateId === "ticket"
       ? "Party Pass"
@@ -275,9 +319,11 @@ function InvitationChoicePreview({
             Scan before the day of the party to be checked in and ready when you
             walk in.
           </p>
-          <span className="grid h-[54px] w-[54px] place-items-center rounded-lg border border-slate-300 bg-white text-[10px] font-black text-slate-500">
-            QR
-          </span>
+          <img
+            src={qrUrl}
+            alt="Waiver QR code"
+            className="h-[54px] w-[54px] rounded-lg border border-slate-300 bg-white p-0.5"
+          />
         </div>
         <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
           {template?.label ?? "Invitation"}
@@ -313,17 +359,12 @@ export function FacilityPartyBookingForm({
   const [childGender, setChildGender] = useState("");
   const [childAge, setChildAge] = useState("");
   const [partyTheme, setPartyTheme] = useState("");
-  const [invitationOverride, setInvitationOverride] = useState<{
-    sourceText: string;
-    optionIndex: number;
-    alternatesUsed: number;
-  } | null>(null);
   const [balloonColors, setBalloonColors] = useState("");
   const [tableClothColors, setTableClothColors] = useState("");
   const [drinkChoice, setDrinkChoice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [invitationDeliveryPreference, setInvitationDeliveryPreference] =
-    useState<FacilityInvitationDeliveryPreference>("print");
+  const [invitationDeliveryPreferences, setInvitationDeliveryPreferences] =
+    useState<FacilityInvitationDeliveryPreference[]>(["print"]);
   const [invitationTemplateId, setInvitationTemplateId] =
     useState<FacilityInvitationTemplateId>("spotlight");
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
@@ -341,6 +382,16 @@ export function FacilityPartyBookingForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
+
+  function toggleInvitationDeliveryPreference(
+    preference: FacilityInvitationDeliveryPreference,
+  ) {
+    setInvitationDeliveryPreferences((current) =>
+      current.includes(preference)
+        ? current.filter((item) => item !== preference)
+        : [...current, preference],
+    );
+  }
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -377,36 +428,6 @@ export function FacilityPartyBookingForm({
     [slotDispositions, selectedStart],
   );
 
-  const invitationSnapshot = useMemo(() => {
-    const trimmed = partyTheme.trim();
-    if (
-      invitationOverride &&
-      invitationOverride.sourceText === trimmed
-    ) {
-      return invitationSnapshotFromChoice(
-        partyTheme,
-        invitationOverride.optionIndex,
-        invitationOverride.alternatesUsed,
-      );
-    }
-    return invitationSnapshotFromChoice(partyTheme, 0, 0);
-  }, [partyTheme, invitationOverride]);
-
-  const invitationDateLabel = selectedDate
-    ? new Intl.DateTimeFormat(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }).format(selectedDate)
-    : "";
-  const invitationTimeLabel = selectedDisposition
-    ? formatReadableTimeRange(
-        selectedDisposition.startMinutes,
-        selectedDisposition.endMinutes,
-      )
-    : "";
-
   useEffect(() => {
     if (!date) {
       return;
@@ -426,7 +447,7 @@ export function FacilityPartyBookingForm({
         const bookings = Array.isArray(data) ? data : [];
         const liveBlocks = bookings
           .map((booking) =>
-            mapFacilityAvailabilityRowToBlock(booking as FacilityAvailabilityRow),
+            bookingRangeToBlock(booking as FacilityBookingRangeResponse),
           )
           .filter(
             (block): block is FacilityPartyBookingBlock => Boolean(block),
@@ -632,13 +653,11 @@ export function FacilityPartyBookingForm({
           child_gender: childGender.trim(),
           child_age: childAge.trim(),
           party_theme: partyTheme.trim(),
-          invitation_option_index: invitationSnapshot.optionIndex,
-          invitation_alternates_used: invitationSnapshot.alternatesUsed,
           balloon_colors: balloonColors.trim(),
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
           payment_method: paymentMethod.trim(),
-          invitation_delivery_preference: invitationDeliveryPreference,
+          invitation_delivery_preference: invitationDeliveryPreferences,
           invitation_template_id: normalizeInvitationTemplateId(
             invitationTemplateId,
           ),
@@ -1171,49 +1190,6 @@ export function FacilityPartyBookingForm({
                     placeholder="Princess, Sonic, sports, glow party..."
                   />
                 </label>
-                <div className="rounded-2xl border border-white/10 bg-[#071326]/55 p-3">
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-cyan-100">
-                    Invitation preview
-                  </p>
-                  <PartyInvitationCard
-                    snapshot={invitationSnapshot}
-                    childName={childName}
-                    childAge={childAge}
-                    dateLabel={invitationDateLabel}
-                    timeLabel={invitationTimeLabel}
-                    compact
-                  />
-                  <p className="mt-3 text-sm font-semibold text-slate-300">
-                    Type a different theme above anytime to rematch. You can
-                    also load a different invitation style up to three times.
-                  </p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                    {invitationSnapshot.alternatesLocked
-                      ? "No more invitation styles left"
-                      : `${remainingInvitationAlternates(invitationSnapshot)} of 3 other styles left`}
-                  </p>
-                  <button
-                    type="button"
-                    disabled={invitationSnapshot.alternatesLocked}
-                    onClick={() => {
-                      const next = advanceInvitationSnapshot(invitationSnapshot);
-                      setInvitationOverride({
-                        sourceText: next.sourceText,
-                        optionIndex: next.optionIndex,
-                        alternatesUsed: next.alternatesUsed,
-                      });
-                    }}
-                    className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-200"
-                  >
-                    I don&apos;t like this — show another
-                  </button>
-                  {invitationSnapshot.alternatesLocked ? (
-                    <p className="mt-2 text-sm font-semibold text-slate-200">
-                      This is the last invitation style we can show. It will be
-                      saved with your booking.
-                    </p>
-                  ) : null}
-                </div>
                 <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
                   <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
                     Birthday invitations
@@ -1271,18 +1247,23 @@ export function FacilityPartyBookingForm({
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2">
+                    <p className="text-xs font-semibold text-cyan-100/80">
+                      Select one or more options.
+                    </p>
                     {FACILITY_INVITATION_DELIVERY_PREFERENCES.map((preference) => (
                       <label
                         key={preference}
                         className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/45 px-3 py-3 text-sm text-slate-200"
                       >
                         <input
-                          type="radio"
+                          type="checkbox"
                           name="invitationDeliveryPreference"
                           value={preference}
-                          checked={invitationDeliveryPreference === preference}
+                          checked={invitationDeliveryPreferences.includes(
+                            preference,
+                          )}
                           onChange={() =>
-                            setInvitationDeliveryPreference(preference)
+                            toggleInvitationDeliveryPreference(preference)
                           }
                           className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
                         />

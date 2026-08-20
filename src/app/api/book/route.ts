@@ -254,6 +254,14 @@ export async function POST(req: Request) {
     foamDurationLabel,
   );
 
+  if (subtotal == null || total == null) {
+    console.error("[api/book] catalog price missing after rental validation");
+    return NextResponse.json(
+      { error: "A rental price is unavailable. Please refresh and try again." },
+      { status: 503 },
+    );
+  }
+
   const result = await insertPendingBooking({
     idempotencyKey,
     rental_items: normalizedRentalItems,

@@ -81,6 +81,7 @@ export function RentalCard({
         <RentalCardCartActions
           rental_item={rental.slug}
           rental_name={rental.title}
+          starting_price={rental.startingPrice}
           keepShoppingHref={keepShoppingHref}
         />
       )}
