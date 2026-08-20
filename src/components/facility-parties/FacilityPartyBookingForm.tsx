@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -50,15 +49,13 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
+import { InvitationDeliveryPreview } from "@/components/facility-parties/InvitationDeliveryPreview";
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
   advanceInvitationSnapshot,
-  FACILITY_INVITATION_VENUE,
   invitationSnapshotFromChoice,
   remainingInvitationAlternates,
-  type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
-import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import {
   mapFacilityAvailabilityRowToBlock,
   type FacilityAvailabilityRow,
@@ -122,111 +119,6 @@ function dateToYmd(value: Date) {
 
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
-}
-
-function TinyInviteFace({
-  snapshot,
-  childName,
-}: {
-  snapshot: InvitationSnapshot;
-  childName: string;
-}) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-  const label = childName.trim() || "Party";
-
-  if (approvedSrc) {
-    return (
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-white/20 bg-slate-900">
-        <img
-          src={approvedSrc}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[8px] font-black leading-tight text-white">
-          {label}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid aspect-square place-items-center rounded-lg border border-cyan-400/30 bg-[#0b1a33] px-1 text-center text-[8px] font-black leading-tight text-cyan-100">
-      {label}
-    </div>
-  );
-}
-
-function InvitationDeliverySquarePreview({
-  preference,
-  active,
-  snapshot,
-  childName,
-  childAge,
-  dateLabel,
-  timeLabel,
-}: {
-  preference: FacilityInvitationDeliveryPreference;
-  active: boolean;
-  snapshot: InvitationSnapshot;
-  childName: string;
-  childAge: string;
-  dateLabel: string;
-  timeLabel: string;
-}) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-
-  return (
-    <div
-      className={`aspect-square overflow-hidden rounded-2xl border-2 bg-[#071326] p-2 transition ${
-        active
-          ? "border-cyan-300 shadow-[0_0_0_2px_rgba(34,211,238,0.35)]"
-          : "border-white/15"
-      }`}
-    >
-      {preference === "print" ? (
-        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
-          {Array.from({ length: 4 }, (_, index) => (
-            <TinyInviteFace
-              key={index}
-              snapshot={snapshot}
-              childName={childName}
-            />
-          ))}
-        </div>
-      ) : preference === "email" ? (
-        <div className="h-full overflow-hidden rounded-xl">
-          <PartyInvitationCard
-            snapshot={snapshot}
-            childName={childName}
-            childAge={childAge}
-            dateLabel={dateLabel}
-            timeLabel={timeLabel}
-            compact
-          />
-        </div>
-      ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-[#0b1a33] px-3 text-center">
-          {approvedSrc ? (
-            <img
-              src={approvedSrc}
-              alt=""
-              className="h-16 w-16 rounded-xl object-cover opacity-40"
-            />
-          ) : null}
-          <p className="text-xs font-black uppercase tracking-wide text-slate-200">
-            Office pickup
-          </p>
-          <p className="text-[11px] font-semibold leading-snug text-slate-400">
-            Get invitations from the Jumping Jax office — no digital design
-            needed.
-          </p>
-          <p className="text-[10px] font-bold text-slate-500">
-            {FACILITY_INVITATION_VENUE.name}
-          </p>
-        </div>
-      )}
-    </div>
-  );
 }
 
 type FacilityPartyBookingFormProps = {
@@ -1228,7 +1120,11 @@ export function FacilityPartyBookingForm({
                           <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
                             Choose how you want invitations
                           </p>
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div
+                            role="radiogroup"
+                            aria-label="Invitation delivery method"
+                            className="grid grid-cols-1 gap-3 md:grid-cols-3"
+                          >
                             {FACILITY_INVITATION_DELIVERY_OPTIONS.map(
                               (option) => {
                                 const active =
@@ -1236,7 +1132,7 @@ export function FacilityPartyBookingForm({
                                 return (
                                   <label
                                     key={option.id}
-                                    className="cursor-pointer"
+                                    className="group relative block min-h-[44px] cursor-pointer rounded-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-300"
                                   >
                                     <input
                                       type="radio"
@@ -1249,8 +1145,9 @@ export function FacilityPartyBookingForm({
                                         )
                                       }
                                       className="sr-only"
+                                      aria-label={`${option.label}. ${option.description}`}
                                     />
-                                    <InvitationDeliverySquarePreview
+                                    <InvitationDeliveryPreview
                                       preference={option.id}
                                       active={active}
                                       snapshot={invitationSnapshot}
