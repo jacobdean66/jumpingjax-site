@@ -157,3 +157,57 @@ body {
     display: none !important;
   }
 }
+
+@media print {
+  .driver-trip-print-sheets {
+    display: block !important;
+  }
+
+  .driver-trip-print-sheet {
+    color: #0f172a;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Page breaks only between visible (non-skipped) trip sheets — avoids a
+     trailing blank page when printing a single selected trip. */
+  .driver-trip-print-sheet:not(.driver-print-sheet-skip)
+    ~ .driver-trip-print-sheet:not(.driver-print-sheet-skip) {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .driver-trip-print-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 0.5rem;
+  }
+
+  .driver-trip-print-kicker {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .driver-trip-print-sheet h1 {
+    font-size: 20px;
+    margin: 0.25rem 0;
+  }
+
+  .driver-trip-print-sheet h2 {
+    font-size: 13px;
+    margin: 0.75rem 0 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .driver-trip-print-line {
+    min-height: 2rem;
+    border-bottom: 1px solid #94a3b8;
+    margin: 0.55rem 0;
+  }
+}

@@ -33,6 +33,8 @@ import {
 } from "@/lib/admin/driver-app";
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
+import { DriverMobileApp } from "./DriverMobileApp";
+import { DriverTripPrintSheets } from "./DriverTripPrintSheets";
 import { PrintButton } from "@/app/admin/PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +45,7 @@ type Props = {
     date?: string;
     truck?: string;
     view?: string;
+    task?: string;
     message?: string;
     error?: string;
   }>;
@@ -950,12 +953,42 @@ export default async function DriverPage({ searchParams }: Props) {
   const pageTitle = buildDriverPageTitle({ date });
   const routePlannerHref = `/admin/deliveries?token=${encodeURIComponent(token)}&date=${date}`;
   const scheduleHref = `/admin/schedule?token=${encodeURIComponent(token)}`;
+  const todayHref = `/driver?token=${encodeURIComponent(token)}&date=${todayYmd()}${
+    activeView && activeView !== "unassigned"
+      ? `&truck=${encodeURIComponent(activeView)}`
+      : ""
+  }`;
+  const mobileTruck =
+    activeView && activeView !== "unassigned" ? activeView : "";
+  const mobileTruckOptions = DRIVER_TRUCKS.map((truck) => ({
+    id: truck.id,
+    label: truck.label,
+    count: truckCounts[truck.id],
+    href: `/driver?token=${encodeURIComponent(token)}&date=${date}&truck=${encodeURIComponent(truck.id)}`,
+  }));
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-950">
+    <>
       <DriverAutoRefresh />
+      <div className="driver-screen-only md:hidden">
+        <DriverMobileApp
+          token={token}
+          date={date}
+          truck={mobileTruck}
+          view={activeView === "unassigned" ? "unassigned" : ""}
+          tasks={mobileTruck ? visibleTasks : []}
+          bookings={deliveries.bookings}
+          message={resolved?.message}
+          error={resolved?.error}
+          truckLabel={mobileTruck ? truckLabel(mobileTruck) : "Select trailer"}
+          todayHref={todayHref}
+          truckOptions={mobileTruckOptions}
+          initialTaskId={resolved?.task ?? null}
+        />
+      </div>
+      <main className="driver-screen-only hidden min-h-screen bg-slate-100 px-4 py-5 text-slate-950 md:block">
       <section className="mx-auto max-w-4xl">
-        <nav className="driver-screen-only mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <nav className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <AdminBackButton />
           <Link
             href={`/admin?token=${encodeURIComponent(token)}`}
@@ -982,7 +1015,7 @@ export default async function DriverPage({ searchParams }: Props) {
           assignments={buildDriverPrintAssignments(printSheets)}
         />
 
-        <header className="driver-screen-only rounded-2xl bg-slate-950 p-5 text-white shadow-sm">
+        <header className="rounded-2xl bg-slate-950 p-5 text-white shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">
             Jumping Jax Driver
           </p>
@@ -993,7 +1026,7 @@ export default async function DriverPage({ searchParams }: Props) {
           </p>
         </header>
 
-        <div className="driver-screen-only mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             ["Total", summary.totalWork],
             ["Unassigned", summary.unassigned],
@@ -1013,7 +1046,7 @@ export default async function DriverPage({ searchParams }: Props) {
         </div>
 
         {summary.unassigned > 0 ? (
-          <div className="driver-screen-only mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
             <p className="text-sm font-black text-amber-950">
               {summary.unassigned} unassigned work item
               {summary.unassigned === 1 ? "" : "s"} for this date
@@ -1044,7 +1077,7 @@ export default async function DriverPage({ searchParams }: Props) {
         ) : null}
 
         {hardWarnings.length > 0 || softWarnings.length > 0 ? (
-          <div className="driver-screen-only mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
               Readiness
             </p>
@@ -1075,17 +1108,17 @@ export default async function DriverPage({ searchParams }: Props) {
         ) : null}
 
         {resolved?.message ? (
-          <div className="driver-screen-only mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-950">
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-950">
             {resolved.message}
           </div>
         ) : null}
         {resolved?.error ? (
-          <div className="driver-screen-only mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-black text-rose-950">
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-black text-rose-950">
             {resolved.error}
           </div>
         ) : null}
 
-        <div className="driver-screen-only mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <Link
             href={`/driver?token=${encodeURIComponent(token)}&date=${addDays(date, -1)}${activeView ? `&truck=${encodeURIComponent(activeView)}` : ""}`}
             className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-black"
@@ -1106,7 +1139,7 @@ export default async function DriverPage({ searchParams }: Props) {
           </Link>
         </div>
 
-        <form className="driver-screen-only mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <form className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <input type="hidden" name="token" value={token} />
           {activeView ? (
             <input
@@ -1129,7 +1162,7 @@ export default async function DriverPage({ searchParams }: Props) {
           </button>
         </form>
 
-        <nav className="driver-screen-only mt-4 grid gap-2 sm:grid-cols-3">
+        <nav className="mt-4 grid gap-2 sm:grid-cols-3">
           {DRIVER_TRUCKS.map((truck) => (
             <Link
               key={truck.id}
@@ -1157,7 +1190,7 @@ export default async function DriverPage({ searchParams }: Props) {
           ) : null}
         </nav>
 
-        <div className="driver-screen-only mt-4 grid gap-5">
+        <div className="mt-4 grid gap-5">
           {!activeView ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <h2 className="text-xl font-black">Choose a truck to sign in.</h2>
@@ -1268,6 +1301,11 @@ export default async function DriverPage({ searchParams }: Props) {
 
         <DriverPrintSheets sheets={printSheets} />
       </section>
-    </main>
+      </main>
+      <DriverTripPrintSheets
+        tasks={visibleTasks}
+        bookings={deliveries.bookings}
+      />
+    </>
   );
 }
