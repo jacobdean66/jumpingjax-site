@@ -29,4 +29,12 @@
 - Replace incrementally after proof: custom claim leases, recovery/backoff, wake endpoint, and generic execution status. Do not broad-rewrite before parity is proven.
 - Keep in Supabase/app: agent registry, owner auth, enable/pause/emergency policy, business records, approval authorization/audit, concise `/admin/agents`, and worker adapter boundary. Store only Trigger run correlation needed by Jumping Jax.
 - Decision candidate: ADOPT Trigger.dev Cloud as the generic orchestration engine, contingent on a successful DEV proof (safe deterministic task, retry, idempotency, wait/resume, admin status).
-- Blocker: Trigger.dev requires an account/project plus DEV authentication/`TRIGGER_SECRET_KEY`; none is configured. No SDK, service, or paid plan was enabled before this owner gate.
+- Initial owner gate resolved: Free Trigger.dev organization/project and CLI authentication are configured; no paid plan was enabled.
+
+## Trigger.dev Step 1 checkpoint (2026-08-20)
+
+- Cloud setup: Jumping Jax organization, Free plan, and Development project `proj_dfkcwxstdpilzwxvxltg` created; CLI authorized. No paid plan or production deployment.
+- Implemented: pinned Trigger.dev 4.5.12 SDK/build/CLI, deterministic `jumping-jax-agent-manager-proof` task, concurrency 1, bounded 3-attempt retry, fail-once mode, 1-hour idempotency, owner-only trigger/status API, durable run pointer cookie, and `/admin/agents` proof panel.
+- Focused validation: 7 tests pass; changed-file TypeScript and ESLint pass; source proves zero model integrations in the task.
+- Live proof blocker: Trigger.dev CLI 4.5.12 on Windows cannot bundle the local worker in this sandbox. It repeatedly fails with `Cannot read directory "../../..": Access is denied` and then cannot resolve its own absolute worker/config/task paths. Read permission for `C:\Users\carol` did not resolve it.
+- Acceptance checkpoint: live durable run, live idempotency, live retry, and live admin status remain unproven; do not mark Step 1 passed.

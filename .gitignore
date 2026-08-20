@@ -42,3 +42,5 @@ next-env.d.ts
 
 # local orchestrator runtime state
 jumpingjax-waiver-orchestrator/project/*.local.json
+
+.trigger
