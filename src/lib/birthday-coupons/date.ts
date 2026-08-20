@@ -36,6 +36,11 @@ export function birthdayDateForYear(dobYmd: string, year: number): string {
   return formatYmd(year, month, Math.min(day, daysInMonth(year, month)));
 }
 
+export function birthdayAgeForYear(dobYmd: string, year: number): number {
+  const { year: birthYear } = parseYmd(dobYmd);
+  return year - birthYear;
+}
+
 export function addCalendarMonthsClamped(ymd: string, deltaMonths: number): string {
   const { year, month, day } = parseYmd(ymd);
   const zeroBased = month - 1 + deltaMonths;
