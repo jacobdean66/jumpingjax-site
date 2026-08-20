@@ -16,7 +16,7 @@ export type AgentJob = {
 };
 
 export type AgentDashboard = {
-  generatedAt: string; emergencyStop: boolean; maxConcurrency: number; agents: AgentRecord[];
+  generatedAt: string; demoMode?: boolean; emergencyStop: boolean; maxConcurrency: number; agents: AgentRecord[];
   jobs: AgentJob[]; events: Array<{ id: number; event_type: string; summary: string; created_at: string; job_id: string | null }>;
   approvals: Array<{ id: string; job_id: string; action_type: string; status: string; created_at: string }>;
 };
