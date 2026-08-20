@@ -21,3 +21,12 @@
 - `tsc --noEmit`: pass.
 - Focused ESLint: pass.
 - Next.js production build: pass; `/admin/agents` and all Agent Manager routes included.
+
+## Trigger.dev steering evaluation (2026-08-20)
+
+- Fit: strong for generic execution. Official managed Cloud supplies durable TypeScript tasks, bounded retries, queues/concurrency, idempotency, waits/approval streams, schedules, cancellation, run history/logs, realtime status, and environment isolation.
+- Cost/ops: managed Free is the correct proof target; self-hosting would add Postgres/Redis/container operations and is not justified for Jumping Jax.
+- Replace incrementally after proof: custom claim leases, recovery/backoff, wake endpoint, and generic execution status. Do not broad-rewrite before parity is proven.
+- Keep in Supabase/app: agent registry, owner auth, enable/pause/emergency policy, business records, approval authorization/audit, concise `/admin/agents`, and worker adapter boundary. Store only Trigger run correlation needed by Jumping Jax.
+- Decision candidate: ADOPT Trigger.dev Cloud as the generic orchestration engine, contingent on a successful DEV proof (safe deterministic task, retry, idempotency, wait/resume, admin status).
+- Blocker: Trigger.dev requires an account/project plus DEV authentication/`TRIGGER_SECRET_KEY`; none is configured. No SDK, service, or paid plan was enabled before this owner gate.
