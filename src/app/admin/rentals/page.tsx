@@ -289,35 +289,41 @@ function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
   return (
     <details
       id={`booking-${booking.id}`}
-      className="group scroll-mt-24 rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md open:col-span-full open:border-sky-300 open:bg-slate-50 open:shadow-md"
+      className="group scroll-mt-24 relative overflow-hidden rounded-lg border-2 border-amber-400/70 bg-slate-900 text-white shadow-lg shadow-black/40 transition hover:border-yellow-300 hover:shadow-yellow-300/30 open:col-span-full open:border-amber-300/90 open:bg-slate-950 open:shadow-xl"
     >
-      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-white p-2 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-open:aspect-auto group-open:border group-open:border-slate-200 group-open:bg-white group-open:shadow-sm [&::-webkit-details-marker]:hidden">
-        <div>
+      <summary className="relative flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-2 transition hover:from-slate-800 hover:to-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 group-open:aspect-auto group-open:border group-open:border-amber-200/80 group-open:bg-slate-950 group-open:shadow-sm [&::-webkit-details-marker]:hidden">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1 right-1 top-2 h-1 bg-amber-300/40" />
+          <div className="absolute left-2 right-2 top-1/2 h-1 bg-amber-300/25" />
+        </div>
+        <div className="relative">
           <div className="flex items-center justify-between gap-1">
             <StatusBadge status={booking.status} />
-            <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500 group-open:border-sky-300 group-open:bg-sky-50 group-open:text-sky-700">
+            <span className="rounded-full border border-amber-300/90 bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-100 group-open:border-yellow-300 group-open:bg-black/50 group-open:text-yellow-100">
               <span className="group-open:hidden">Open</span>
               <span className="hidden group-open:inline">Close</span>
             </span>
           </div>
-          <h2 className="mt-2 line-clamp-3 text-xs font-black leading-tight text-slate-950">
+          <h2 className="mt-2 inline-block rounded-md border border-amber-200/70 bg-black/35 px-1.5 py-1 text-sm font-black leading-tight tracking-wide text-amber-100 shadow-inner shadow-amber-200/20">
             {bookedInflatables(booking)}
           </h2>
         </div>
         <div className="space-y-0.5">
-          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+          <p className="text-[10px] font-black uppercase tracking-wide text-yellow-200/90">
             Date
           </p>
-          <p className="text-[11px] font-black text-slate-700">
+          <p className="text-[11px] font-black text-white">
             {booking.eventDate}
           </p>
-          <p className="truncate text-[11px] font-semibold text-slate-500">
+          <p className="truncate text-[11px] font-semibold text-slate-100">
             {cityFromAddress(booking.eventAddress)}
           </p>
-          <p className="text-[10px] font-semibold text-sky-600">Tap to expand</p>
+          <p className="text-[10px] font-semibold tracking-wide text-yellow-100">
+            Tap to expand • Keep your cargo upright
+          </p>
         </div>
       </summary>
-      <div className="mt-2 rounded-b-lg border-t border-slate-200 bg-slate-50 p-3">
+      <div className="mt-2 rounded-b-lg border-t border-amber-300/40 bg-slate-950 p-3">
         <RentalCard booking={booking} />
       </div>
     </details>
