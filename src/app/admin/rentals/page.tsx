@@ -289,30 +289,34 @@ function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
   return (
     <details
       id={`booking-${booking.id}`}
-      className="group scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm open:col-span-full open:border-sky-300 open:bg-slate-50 open:p-3 open:shadow-md"
+      className="group scroll-mt-24 rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md open:col-span-full open:border-sky-300 open:bg-slate-50 open:shadow-md"
     >
-      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-xl bg-white p-3 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-open:aspect-auto group-open:border group-open:border-slate-200 group-open:bg-white group-open:shadow-sm [&::-webkit-details-marker]:hidden">
+      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-white p-2 transition hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-open:aspect-auto group-open:border group-open:border-slate-200 group-open:bg-white group-open:shadow-sm [&::-webkit-details-marker]:hidden">
         <div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-1">
             <StatusBadge status={booking.status} />
-            <span className="text-[10px] font-black uppercase text-slate-400">
+            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">
               Open
             </span>
           </div>
-          <h2 className="mt-3 line-clamp-3 text-sm font-black leading-tight text-slate-950">
+          <h2 className="mt-2 line-clamp-3 text-xs font-black leading-tight text-slate-950">
             {bookedInflatables(booking)}
           </h2>
         </div>
-        <div className="space-y-1">
-          <p className="text-xs font-black text-slate-700">
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+            Date
+          </p>
+          <p className="text-[11px] font-black text-slate-700">
             {booking.eventDate}
           </p>
-          <p className="truncate text-xs font-bold text-slate-500">
+          <p className="truncate text-[11px] font-semibold text-slate-500">
             {cityFromAddress(booking.eventAddress)}
           </p>
+          <p className="text-[10px] font-semibold text-sky-600">Tap to expand</p>
         </div>
       </summary>
-      <div className="mt-3">
+      <div className="mt-2 rounded-b-lg border-t border-slate-200 bg-slate-50 p-3">
         <RentalCard booking={booking} />
       </div>
     </details>
@@ -373,6 +377,12 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         >
           Open Route Planner
         </Link>
+        <Link
+          href="/admin/routes-history"
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+        >
+          Routes History
+        </Link>
         {pendingApprovalEndpoints.length > 0 ? (
           <BulkBookingActionButton
             endpoints={pendingApprovalEndpoints}
@@ -415,7 +425,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         </div>
       </form>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 print:hidden">
+      <div className="mt-4 grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-2 print:hidden">
         {bookings.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-lg font-bold">No rentals found.</p>
