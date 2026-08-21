@@ -56,16 +56,44 @@ function formatTime(value: string | null): string {
 
 function cityFromAddress(value: string | null): string {
   if (!value) return "Not set";
-  const parts = value
+
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  const parts = cleaned
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  if (parts.length >= 2) return parts[parts.length - 2] ?? "Not set";
 
-  const cityMatch = value.match(
-    /\b([A-Za-z][A-Za-z\s.'-]+)\s*,?\s+[A-Z]{2}\b/,
+  if (parts.length >= 2) {
+    const filteredParts = [...parts];
+    while (filteredParts.length) {
+      const last = filteredParts.at(-1);
+      if (!last) break;
+      if (
+        /^\d{5}(?:-\d{4})?$/.test(last) ||
+        /^[A-Z]{2}$/i.test(last) ||
+        /^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/i.test(last) ||
+        /^[A-Za-z\s.'-]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?$/i.test(
+          `${filteredParts.at(-2) ?? ""}, ${last}`,
+        )
+      ) {
+        filteredParts.pop();
+        continue;
+      }
+      break;
+    }
+
+    if (filteredParts.length >= 2) {
+      return filteredParts[filteredParts.length - 2];
+    }
+    if (filteredParts.length === 1) {
+      return filteredParts[0];
+    }
+  }
+
+  const fallbackMatch = cleaned.match(
+    /\b([A-Za-z][A-Za-z\s.'-]+)\s*,?\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?\b/,
   );
-  return cityMatch?.[1]?.trim() || "Not set";
+  return fallbackMatch?.[1]?.trim() || "Not set";
 }
 
 function bookedInflatables(booking: AdminRentalBooking): string {
@@ -286,15 +314,42 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
 }
 
 function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
+  const exitMarker = booking.id.slice(-4).toUpperCase();
   return (
     <details
       id={`booking-${booking.id}`}
-      className="group scroll-mt-24 relative overflow-hidden rounded-lg border-2 border-amber-400/70 bg-slate-900 text-white shadow-lg shadow-black/40 transition hover:border-yellow-300 hover:shadow-yellow-300/30 open:col-span-full open:border-amber-300/90 open:bg-slate-950 open:shadow-xl"
+      className="group scroll-mt-24 relative overflow-hidden rounded-lg border-2 border-amber-400/90 bg-slate-950 text-white shadow-xl shadow-black/40 transition hover:border-yellow-300 hover:shadow-yellow-300/40 open:col-span-full open:border-amber-300/90 open:bg-slate-950 open:shadow-2xl"
     >
-      <summary className="relative flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-2 transition hover:from-slate-800 hover:to-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 group-open:aspect-auto group-open:border group-open:border-amber-200/80 group-open:bg-slate-950 group-open:shadow-sm [&::-webkit-details-marker]:hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1 right-1 top-2 h-1 bg-amber-300/40" />
-          <div className="absolute left-2 right-2 top-1/2 h-1 bg-amber-300/25" />
+      <summary className="relative flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-slate-900 p-2 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 group-open:aspect-auto group-open:border group-open:border-amber-200/80 group-open:bg-slate-950 group-open:shadow-sm [&::-webkit-details-marker]:hidden">
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg"
+          style={{
+            backgroundImage: [
+              "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08), transparent 45%)",
+              "radial-gradient(circle at 80% 70%, rgba(255,255,255,0.06), transparent 52%)",
+              "linear-gradient(to right, transparent 0%, transparent 8%, rgba(8,145,178,0.35) 8%, transparent 8%, transparent 90%, rgba(8,145,178,0.35) 90%, transparent 90%)",
+              "linear-gradient(to right, transparent 0%, transparent 9.5%, #6b7280 9.5%, #6b7280 14.5%, transparent 14.5%, transparent 86.5%, #6b7280 86.5%, #6b7280 91.5%, transparent 91.5%)",
+              "linear-gradient(to right, transparent 0%, transparent 10.5%, rgba(17,24,39,0.9) 10.5%, rgba(17,24,39,0.9) 89.5%, transparent 89.5%, transparent 100%)",
+            ].join(","),
+            backgroundColor: "#1f2937",
+          }}
+        >
+          <div className="absolute inset-y-1 left-[7.5%] w-[3.5%] bg-emerald-800/90" />
+          <div className="absolute inset-y-1 left-[11%] w-[4.5%] bg-slate-400/90 shadow-inner shadow-black/40" />
+          <div className="absolute inset-y-1 right-[7.5%] w-[3.5%] bg-emerald-800/90" />
+          <div className="absolute inset-y-1 right-[11%] w-[4.5%] bg-slate-400/90 shadow-inner shadow-black/40" />
+          <div className="absolute left-[11.5%] right-[11.5%] inset-y-2 rounded-sm border border-white/10 bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_8px,rgba(255,255,255,.95)_8px,rgba(255,255,255,.95)_10px)] bg-[length:100%_16px] opacity-65" />
+          <div className="absolute left-[39.5%] top-2 bottom-2 w-[1.5px] bg-[repeating-linear-gradient(to_bottom,rgba(255,255,255,.95) 0,rgba(255,255,255,.95) 10px,transparent 10px,transparent 18px)]" />
+          <div className="absolute left-[65.5%] top-2 bottom-2 w-[1.5px] bg-[repeating-linear-gradient(to_bottom,rgba(255,255,255,.95) 0,rgba(255,255,255,.95) 10px,transparent 10px,transparent 18px)]" />
+          <div className="absolute left-[50%] top-2 bottom-2 w-[1.8px] bg-yellow-200/80" />
+          <div className="absolute left-[2%] top-[24%] h-0 w-0 border-t-2 border-t-transparent border-r-2 border-r-white border-b-2 border-b-transparent" />
+          <div className="absolute right-[2%] top-[24%] h-0 w-0 border-t-2 border-t-transparent border-l-2 border-l-white border-b-2 border-b-transparent" />
+          <div className="absolute left-[0.5%] top-[25%] w-10 rotate-[0deg] rounded-sm border-2 border-white bg-white/95 px-1.5 py-1 text-[8px] font-black leading-tight text-slate-950 shadow">
+            120mph
+          </div>
+          <div className="absolute right-[0.5%] top-[25%] w-10 rounded-sm border-2 border-white bg-white/95 px-1.5 py-1 text-[8px] font-black leading-tight text-slate-950 shadow">
+            120mph
+          </div>
         </div>
         <div className="relative">
           <div className="flex items-center justify-between gap-1">
@@ -304,7 +359,10 @@ function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
               <span className="hidden group-open:inline">Close</span>
             </span>
           </div>
-          <h2 className="mt-2 inline-block rounded-md border border-amber-200/70 bg-black/35 px-1.5 py-1 text-sm font-black leading-tight tracking-wide text-amber-100 shadow-inner shadow-amber-200/20">
+          <div className="mt-1 inline-flex items-center justify-center self-start rounded-md border-2 border-yellow-100/80 bg-black/50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-yellow-100 shadow">
+            <span>Exit {exitMarker}</span>
+          </div>
+          <h2 className="mt-2 inline-block rounded-md border-4 border-amber-300 bg-black/35 px-2 py-1.5 text-sm font-black leading-tight tracking-wide text-amber-100 shadow-inner shadow-amber-200/30">
             {bookedInflatables(booking)}
           </h2>
         </div>
