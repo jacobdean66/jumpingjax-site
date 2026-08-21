@@ -295,8 +295,9 @@ function RentalExpandableCard({ booking }: { booking: AdminRentalBooking }) {
         <div>
           <div className="flex items-center justify-between gap-1">
             <StatusBadge status={booking.status} />
-            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-              Open
+            <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500 group-open:border-sky-300 group-open:bg-sky-50 group-open:text-sky-700">
+              <span className="group-open:hidden">Open</span>
+              <span className="hidden group-open:inline">Close</span>
             </span>
           </div>
           <h2 className="mt-2 line-clamp-3 text-xs font-black leading-tight text-slate-950">
