@@ -1,6 +1,6 @@
 import type { MetaAdsResolvedDateRange } from "./dates";
 import { toMetaDatePresetParam } from "./dates";
-import { metaAdsGraphGetAllPages } from "./http-client";
+import { metaAdsGraphGetAllPages, metaAdsGraphPost } from "./http-client";
 import {
   emptyInsights,
   extractDestinationUrl,
@@ -526,6 +526,42 @@ export async function fetchAdHierarchyWithInsights(input: {
 export function buildSafeAdsManagerUrl(accountId: string): string {
   const act = accountId.replace(/^act_/, "");
   return `https://www.facebook.com/adsmanager/manage/campaigns?act=${encodeURIComponent(act)}`;
+}
+
+export async function pauseMetaAd(input: {
+  accessToken: string;
+  adId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<
+  Readonly<
+    | { ok: true; adId: string }
+    | { ok: false; error: MetaAdsSanitizedError }
+  >
+> {
+  const adId = input.adId.trim();
+  if (!/^\d{6,}$/.test(adId)) {
+    return {
+      ok: false,
+      error: {
+        code: "provider_error",
+        message: "Invalid Meta ad id.",
+        freshness: "unavailable",
+      },
+    };
+  }
+
+  const result = await metaAdsGraphPost<{ success?: boolean }>({
+    path: adId,
+    accessToken: input.accessToken,
+    fetchImpl: input.fetchImpl,
+    bodyParams: {
+      status: "PAUSED",
+    },
+  });
+
+  if (!result.ok) return result;
+
+  return { ok: true, adId };
 }
 
 export async function probeAccountAllowed(input: {

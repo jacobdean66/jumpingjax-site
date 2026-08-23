@@ -20,8 +20,8 @@ export type MetaAdsTokenResolution = Readonly<
 
 /**
  * Resolve a Meta user access token from the latest connected analytics OAuth session.
- * Requires an intent that requested ads_read + business_management.
- * Ignores awaiting_callback rows and older ads_read-only sessions.
+ * Requires an intent that requested ads_read + ads_management + business_management.
+ * Ignores awaiting_callback rows and older read-only analytics sessions.
  */
 export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolution> {
   const config = resolveSocialOAuthRuntimeConfig();
@@ -132,7 +132,7 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
     error: sanitizedError(
       "permission_missing",
       sawIncompleteScopeSession
-        ? "Connected Meta session is missing business_management (and/or ads_read). Reconnect Meta for Analytics."
+        ? "Connected Meta session is missing ads_read, ads_management, or business_management. Reconnect Meta for Analytics."
         : "Connected Meta session is missing required analytics permissions. Reconnect Meta for Analytics.",
       "permission_blocked",
     ),

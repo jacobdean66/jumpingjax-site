@@ -23,21 +23,23 @@ test("ad analytics API is owner-gated and no-store", () => {
   const route = read("src/app/api/admin/ad-analytics/route.ts");
   assert.match(route, /verifyAdminOwnerAccess/);
   assert.match(route, /private, no-store/);
-  assert.doesNotMatch(route, /accessToken|Authorization/);
+  assert.match(route, /resolveMetaAdsAccessToken/);
+  assert.doesNotMatch(route, /Authorization/);
   assert.doesNotMatch(route, /rawProvider|encrypted_payload/);
 });
 
-test("meta-ads client never uses ads_management and stays read-only GET", () => {
+test("meta-ads client keeps tokens server-side and limits writes to ad pause", () => {
   const http = read("src/lib/meta-ads/http-client.ts");
   const marketing = read("src/lib/meta-ads/marketing-api.ts");
   const config = read("src/lib/social-posts/oauth/social-oauth-config.ts");
   const purpose = read("src/lib/social-posts/oauth/social-oauth-purpose.ts");
   assert.match(http, /method: "GET"/);
-  assert.doesNotMatch(http, /method: "POST"/);
-  assert.doesNotMatch(marketing, /ads_management/);
+  assert.match(http, /method: "POST"/);
+  assert.match(marketing, /status:\s*"PAUSED"/);
+  assert.doesNotMatch(marketing, /status:\s*"ACTIVE"/);
   assert.match(purpose, /"ads_read"/);
+  assert.match(purpose, /"ads_management"/);
   assert.match(purpose, /"business_management"/);
-  assert.doesNotMatch(purpose, /ads_management/);
   assert.match(config, /SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES/);
 });
 
