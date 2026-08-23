@@ -63,6 +63,7 @@ function baseConnection(publicationTargetId: string | null) {
     configured: isSocialOAuthConnectConfigured(resolveSocialOAuthRuntimeConfig()),
     hasConnectedSession: Boolean(publicationTargetId),
     hasAdsRead: null as boolean | null,
+    hasAdsManagement: null as boolean | null,
     hasBusinessManagement: null as boolean | null,
     hasRequiredScopes: null as boolean | null,
     publicationTargetId,
@@ -173,6 +174,7 @@ export async function loadMetaAdsDashboard(
         ...baseConnection(null),
         hasConnectedSession: false,
         hasAdsRead: false,
+        hasAdsManagement: false,
         hasBusinessManagement: false,
         hasRequiredScopes: false,
       },
@@ -193,6 +195,7 @@ export async function loadMetaAdsDashboard(
       connection: {
         ...baseConnection(tokenResult.publicationTargetId),
         hasAdsRead: false,
+        hasAdsManagement: false,
         hasBusinessManagement: false,
         hasRequiredScopes: false,
       },
@@ -208,6 +211,7 @@ export async function loadMetaAdsDashboard(
       connection: {
         ...baseConnection(tokenResult.publicationTargetId),
         hasAdsRead: permission.hasAdsRead,
+        hasAdsManagement: permission.hasAdsManagement,
         hasBusinessManagement: permission.hasBusinessManagement,
         hasRequiredScopes: false,
       },
@@ -232,6 +236,7 @@ export async function loadMetaAdsDashboard(
       connection: {
         ...baseConnection(tokenResult.publicationTargetId),
         hasAdsRead: permission.hasAdsRead,
+        hasAdsManagement: permission.hasAdsManagement,
         hasBusinessManagement: permission.hasBusinessManagement,
         hasRequiredScopes: false,
       },
@@ -249,6 +254,7 @@ export async function loadMetaAdsDashboard(
         connection: {
           ...baseConnection(tokenResult.publicationTargetId),
           hasAdsRead: true,
+          hasAdsManagement: true,
           hasBusinessManagement: true,
           hasRequiredScopes: true,
         },
@@ -282,6 +288,7 @@ export async function loadMetaAdsDashboard(
           connection: {
             ...baseConnection(tokenResult.publicationTargetId),
             hasAdsRead: true,
+            hasAdsManagement: true,
             hasBusinessManagement: true,
             hasRequiredScopes: true,
           },
@@ -311,6 +318,7 @@ export async function loadMetaAdsDashboard(
         connection: {
           ...baseConnection(tokenResult.publicationTargetId),
           hasAdsRead: true,
+          hasAdsManagement: true,
           hasBusinessManagement: true,
           hasRequiredScopes: true,
         },
@@ -356,6 +364,7 @@ export async function loadMetaAdsDashboard(
     connection: {
       ...baseConnection(tokenResult.publicationTargetId),
       hasAdsRead: true,
+      hasAdsManagement: true,
       hasBusinessManagement: true,
       hasRequiredScopes: true,
     },

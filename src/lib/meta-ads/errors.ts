@@ -1,4 +1,4 @@
-import { META_ADS_REQUIRED_SCOPE } from "./config";
+import { META_ADS_REQUIRED_SCOPES } from "./config";
 
 export type MetaAdsFreshness =
   | "fresh"
@@ -54,7 +54,7 @@ export function mapMetaHttpFailure(input: {
     return {
       code: "token_expired",
       message:
-        "The Meta connection expired or was revoked. Reconnect Meta OAuth with ads_read to continue.",
+        "The Meta connection expired or was revoked. Reconnect Meta OAuth to continue.",
       freshness: "token_expired",
     };
   }
@@ -68,7 +68,7 @@ export function mapMetaHttpFailure(input: {
     ) {
       return {
         code: "permission_missing",
-        message: `Meta blocked this read. Grant the ${META_ADS_REQUIRED_SCOPE} permission by reconnecting Meta OAuth, then retry.`,
+        message: `Meta blocked this request. Grant ${META_ADS_REQUIRED_SCOPES.join(", ")} by reconnecting Meta OAuth, then retry.`,
         freshness: "permission_blocked",
       };
     }

@@ -140,6 +140,93 @@ export async function metaAdsGraphGet<T>(input: {
   }
 }
 
+export async function metaAdsGraphPost<T>(input: {
+  path: string;
+  accessToken: string;
+  bodyParams?: Record<string, string | undefined | null>;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<MetaAdsHttpResult<T>> {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const url = new URL(
+    input.path.startsWith("http")
+      ? input.path
+      : `${META_ADS_GRAPH_BASE}/${input.path.replace(/^\//, "")}`,
+  );
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(input.bodyParams ?? {})) {
+    if (value !== undefined && value !== null && value !== "") {
+      body.set(key, value);
+    }
+  }
+
+  try {
+    const response = await fetchImpl(url.toString(), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+      cache: "no-store",
+      signal: withTimeoutSignal(input.timeoutMs ?? META_ADS_HTTP_TIMEOUT_MS),
+    });
+
+    let payload: GraphErrorPayload & T;
+    try {
+      payload = (await response.json()) as GraphErrorPayload & T;
+    } catch {
+      return {
+        ok: false,
+        error: sanitizedError(
+          "provider_error",
+          "Meta returned a non-JSON response.",
+          "unavailable",
+        ),
+      };
+    }
+
+    if (!response.ok || payload.error) {
+      return {
+        ok: false,
+        error: mapMetaHttpFailure({
+          httpStatus: response.status,
+          providerCode: payload.error?.code ?? null,
+          providerMessage: payload.error?.message ?? null,
+          providerType: payload.error?.type ?? null,
+        }),
+      };
+    }
+
+    return { ok: true, data: payload as T };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Meta network error.";
+    if (
+      (error instanceof Error && error.name === "AbortError") ||
+      /aborted|timeout/i.test(message)
+    ) {
+      return {
+        ok: false,
+        error: sanitizedError(
+          "timeout",
+          "Meta did not respond in time.",
+          "unavailable",
+        ),
+      };
+    }
+    return {
+      ok: false,
+      error: sanitizedError(
+        "network_error",
+        redactProviderText(message),
+        "unavailable",
+      ),
+    };
+  }
+}
+
 export async function metaAdsGraphGetAllPages<T>(input: {
   path: string;
   accessToken: string;

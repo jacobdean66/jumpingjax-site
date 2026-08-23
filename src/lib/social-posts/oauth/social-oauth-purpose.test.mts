@@ -25,14 +25,10 @@ function read(rel: string): string {
   return readFileSync(join(repoRoot, rel), "utf8");
 }
 
-test("analytics scopes request ads_read and business_management, exclude publishing", () => {
+test("analytics scopes request ad analytics and pause controls, exclude publishing", () => {
   assert.deepEqual(
     [...SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES],
-    ["ads_read", "business_management"],
-  );
-  assert.equal(
-    SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES.includes("ads_management" as never),
-    false,
+    ["ads_read", "ads_management", "business_management"],
   );
   for (const scope of [
     "pages_manage_posts",
@@ -48,6 +44,14 @@ test("analytics scopes request ads_read and business_management, exclude publish
   assert.equal(intentRequestsAnalyticsScopes(["ads_read"]), false);
   assert.equal(
     intentRequestsAnalyticsScopes(["ads_read", "business_management"]),
+    false,
+  );
+  assert.equal(
+    intentRequestsAnalyticsScopes([
+      "ads_read",
+      "ads_management",
+      "business_management",
+    ]),
     true,
   );
   assert.equal(intentRequestsAdsRead(["ads_read"]), true);
@@ -68,7 +72,7 @@ test("purpose helpers separate analytics and publication return paths", () => {
   assert.equal(
     resolveOAuthPurposeFromIntent({
       publicationTargetId: META_AD_ANALYTICS_OAUTH_TARGET_ID,
-      scopes: ["ads_read", "business_management"],
+      scopes: ["ads_read", "ads_management", "business_management"],
     }),
     "ad_analytics",
   );
@@ -98,7 +102,7 @@ test("analytics connect route is owner-gated and purpose-bound", () => {
   assert.match(route, /verifyAdminOwnerAccess/);
   assert.match(route, /purpose:\s*"ad_analytics"/);
   assert.match(route, /META_OAUTH_PURPOSE_COOKIE/);
-  assert.doesNotMatch(route, /pages_manage_posts|instagram_content_publish|ads_management/);
+  assert.doesNotMatch(route, /pages_manage_posts|instagram_content_publish/);
 });
 
 test("callback route clears purpose cookie and never forwards code/state", () => {
@@ -123,5 +127,5 @@ test("token resolver requires full analytics scope contract", () => {
   const resolver = read("src/lib/meta-ads/token-resolver.ts");
   assert.match(resolver, /intentRequestsAnalyticsScopes/);
   assert.match(resolver, /business_management/);
-  assert.doesNotMatch(resolver, /ads_management/);
+  assert.match(resolver, /ads_management/);
 });
