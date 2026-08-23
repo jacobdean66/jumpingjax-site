@@ -55,6 +55,95 @@ export async function loadDashboard(): Promise<AgentDashboard> {
   return { generatedAt: new Date().toISOString(), emergencyStop: Boolean(settings.data.emergency_stop), maxConcurrency: settings.data.max_concurrency, agents: agents.data as AgentDashboard["agents"], jobs: jobs.data as AgentDashboard["jobs"], events: events.data as AgentDashboard["events"], approvals: approvals.data as AgentDashboard["approvals"] };
 }
 
+export async function assertAgentDispatchAllowed(agentKey: string) {
+  const db = createServiceRoleClient();
+  const [agent, settings] = await Promise.all([
+    db.from("agents").select("id,enabled,paused").eq("key", agentKey).single(),
+    db.from("agent_manager_settings").select("emergency_stop").eq("singleton", true).single(),
+  ]);
+  if (agent.error || settings.error) throw new Error("Agent dispatch state is unavailable");
+  if (settings.data.emergency_stop) throw new Error("Agent Manager emergency stop is active");
+  if (!agent.data.enabled || agent.data.paused) throw new Error("Agent is paused or disabled");
+}
+
+export async function attachTriggerRun(job: AgentJob, runId: string) {
+  const db = createServiceRoleClient();
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db.from("agent_jobs").update({
+    status: "running",
+    payload: { ...job.payload, triggerRunId: runId },
+    started_at: now,
+    updated_at: now,
+  }).eq("id", job.id)
+    .eq("job_type", "nomination.email.ingest")
+    .in("status", ["queued", "claimed", "running"])
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error("Unable to attach Trigger.dev run");
+  if (!updated) return;
+  await db.from("agents").update({
+    status: "working",
+    current_job_id: job.id,
+    last_activity_at: now,
+    updated_at: now,
+  }).eq("id", job.agent_id);
+}
+
+export async function recordNominationJobResult(input: {
+  jobId: string;
+  sourceEventId: string;
+  attempt: number;
+  ok: boolean;
+  created?: boolean;
+}) {
+  const db = createServiceRoleClient();
+  const { data: job, error: loadError } = await db.from("agent_jobs")
+    .select("id,agent_id,job_type,payload,status")
+    .eq("id", input.jobId)
+    .single();
+  if (loadError || job?.job_type !== "nomination.email.ingest" || job.payload?.sourceEventId !== input.sourceEventId) {
+    throw new Error("Nomination Agent job correlation failed");
+  }
+
+  const now = new Date().toISOString();
+  const finalFailure = !input.ok && input.attempt >= 3;
+  const status = input.ok ? "succeeded" : finalFailure ? "failed" : "running";
+  const summary = input.ok
+    ? input.created === false
+      ? "Source event was already stored; no duplicate nomination was created."
+      : "Nomination stored through the existing giveaway path; AI calls 0."
+    : finalFailure
+      ? "Nomination processing failed after bounded retries."
+      : "Nomination processing failed; Trigger.dev retry remains bounded.";
+
+  const { error: updateError } = await db.from("agent_jobs").update({
+    status,
+    attempt_count: input.attempt,
+    result_summary: input.ok ? summary : null,
+    error_summary: input.ok ? null : summary,
+    completed_at: input.ok || finalFailure ? now : null,
+    updated_at: now,
+  }).eq("id", input.jobId);
+  if (updateError) throw new Error("Unable to record Nomination Agent result");
+
+  await Promise.all([
+    db.from("agents").update({
+      status: input.ok ? "idle" : finalFailure ? "error" : "working",
+      current_job_id: input.ok || finalFailure ? null : input.jobId,
+      last_activity_at: now,
+      ...(input.ok ? { last_success_at: now } : {}),
+      updated_at: now,
+    }).eq("id", job.agent_id),
+    db.from("agent_events").insert({
+      agent_id: job.agent_id,
+      job_id: input.jobId,
+      event_type: input.ok ? "job.succeeded" : finalFailure ? "job.failed" : "job.retrying",
+      summary,
+      metadata: { attempt: input.attempt, aiInvocations: 0 },
+    }),
+  ]);
+}
+
 export async function setAgentPaused(agentId: string, paused: boolean, actorId: string) {
   const db=createServiceRoleClient(); const now=new Date().toISOString();
   const { data,error }=await db.from("agents").update({ paused,status:paused?"paused":"idle",updated_at:now }).eq("id",agentId).select("*").single();

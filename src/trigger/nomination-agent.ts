@@ -4,8 +4,11 @@ import { parseNominationEmail, type NominationEmailEvent } from "@/lib/giveaway/
 
 export type NominationAgentPayload = {
   event: NominationEmailEvent;
-  callbackUrl: string;
-};
+  agentJobId?: string;
+} & (
+  | { mode: "fixture"; callbackUrl: string }
+  | { mode: "production"; callbackUrl?: never }
+);
 
 export type NominationAgentOutput = {
   ok: true;
@@ -33,22 +36,46 @@ export const nominationAgentTask = task({
     randomize: false,
   },
   run: async (payload: NominationAgentPayload, { ctx }) => {
-    const callback = new URL(payload.callbackUrl);
-    if (callback.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(callback.hostname)) {
-      throw new Error("Fixture callback must remain on the local development server");
+    let callback: URL;
+    let authorization: string | null = null;
+
+    if (payload.mode === "fixture") {
+      callback = new URL(payload.callbackUrl);
+      if (callback.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(callback.hostname)) {
+        throw new Error("Fixture callback must remain on the local development server");
+      }
+    } else {
+      const appUrl = process.env.AGENT_MANAGER_APP_URL?.trim();
+      const callbackSecret = process.env.AGENT_MANAGER_CALLBACK_SECRET?.trim();
+      if (!appUrl || !callbackSecret || !payload.agentJobId) {
+        throw new Error("Production nomination callback is not configured");
+      }
+      callback = new URL("/api/agents/nomination/callback", appUrl);
+      if (callback.protocol !== "https:") {
+        throw new Error("Production nomination callback must use HTTPS");
+      }
+      authorization = `Bearer ${callbackSecret}`;
     }
 
     const nomination = parseNominationEmail(payload.event);
-    logger.info("Processing deterministic nomination fixture", {
+    logger.info("Processing deterministic nomination event", {
       sourceEventId: payload.event.sourceEventId,
+      mode: payload.mode,
       attempt: ctx.attempt.number,
       aiInvocations: 0,
     });
 
     const response = await fetch(callback, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: payload.event }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+      body: JSON.stringify({
+        event: payload.event,
+        agentJobId: payload.agentJobId,
+        attempt: ctx.attempt.number,
+      }),
     });
     const result = await response.json() as { ok?: boolean; nominationId?: string; created?: boolean; error?: string };
     if (!response.ok || !result.ok || !result.nominationId) {

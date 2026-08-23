@@ -1,4 +1,5 @@
 import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
+import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { loadDashboard } from "@/lib/agent-manager/service";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
@@ -13,6 +14,7 @@ export default async function AgentsPage() {
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   let dashboard = null;
+  const nominationReadiness = getNominationAgentReadiness();
   try {
     dashboard = await loadDashboard();
   } catch {
@@ -27,6 +29,35 @@ export default async function AgentsPage() {
       <p className="mt-4 max-w-3xl text-sm font-semibold text-slate-600">
         Durable, event-driven operations. Models run only for future jobs that explicitly select a model worker; the health demonstration is deterministic.
       </p>
+      <section className="mt-7 rounded-3xl border border-sky-200 bg-sky-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-sky-700">Permanent workflow</p>
+            <h2 className="mt-1 text-2xl font-black">Nomination Agent</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-700">
+              Signed Resend inbound event → durable Trigger.dev task → existing giveaway nomination storage
+            </p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${nominationReadiness.status === "READY" ? "bg-emerald-700 text-white" : nominationReadiness.status === "CONFIGURATION ERROR" ? "bg-red-700 text-white" : "bg-slate-800 text-white"}`}>
+            {nominationReadiness.status}
+          </span>
+        </div>
+        <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-4">
+          <div><dt className="font-black text-slate-500">Handler</dt><dd className="font-semibold">Deterministic TypeScript</dd></div>
+          <div><dt className="font-black text-slate-500">AI calls</dt><dd className="font-semibold">0 for structured nominations</dd></div>
+          <div><dt className="font-black text-slate-500">Retries</dt><dd className="font-semibold">Maximum 3</dd></div>
+          <div><dt className="font-black text-slate-500">Deduplication</dt><dd className="font-semibold">Provider event + database key</dd></div>
+        </dl>
+        {!nominationReadiness.enabled ? (
+          <p className="mt-4 rounded-xl bg-white p-3 text-sm font-bold text-slate-700">
+            Production inbound processing is safely disabled until the owner-approved migration, credentials, webhook, and deployment are complete.
+          </p>
+        ) : !nominationReadiness.configured ? (
+          <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-900">
+            Missing configuration: {nominationReadiness.missing.join(", ")}.
+          </p>
+        ) : null}
+      </section>
       <TriggerProofClient />
       <NominationProofClient />
       {dashboard ? (

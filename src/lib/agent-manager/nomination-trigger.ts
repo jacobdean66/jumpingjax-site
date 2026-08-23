@@ -17,6 +17,17 @@ export async function triggerNominationFixture(payload: NominationAgentPayload) 
   );
 }
 
+export async function triggerNominationInbound(payload: Extract<NominationAgentPayload, { mode: "production" }>) {
+  return tasks.trigger<typeof nominationAgentTask>(
+    "jumping-jax-nomination-agent",
+    payload,
+    {
+      idempotencyKey: `jj-nomination-${payload.event.sourceEventId}`,
+      tags: ["jumping-jax", "nomination-agent", "resend-inbound"],
+    },
+  );
+}
+
 export async function retrieveNominationFixture(runId: string) {
   const run = await runs.retrieve<typeof nominationAgentTask>(runId);
   return {

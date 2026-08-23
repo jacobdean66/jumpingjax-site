@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   try {
     const callbackUrl = new URL("/api/admin/agents/nomination-proof/callback", request.url).toString();
-    const handle = await triggerNominationFixture({ event, callbackUrl });
+    const handle = await triggerNominationFixture({ event, mode: "fixture", callbackUrl });
     const response = NextResponse.json({ ok: true, runId: handle.id });
     response.cookies.set(NOMINATION_PROOF_COOKIE, handle.id, { httpOnly: true, sameSite: "lax", secure: false, path: "/", maxAge: 60 * 60 * 24 });
     return response;
