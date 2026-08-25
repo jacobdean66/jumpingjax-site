@@ -6,9 +6,18 @@ import { AdminTokenGate } from "./AdminTokenGate";
 
 export function AdminShell({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+  className = "",
+  style,
+}: Readonly<{
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}>) {
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
+    <main
+      style={style}
+      className={`min-h-screen bg-slate-100 text-slate-950 ${className}`.trim()}
+    >
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {children}
       </section>
