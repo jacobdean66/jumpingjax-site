@@ -72,6 +72,12 @@ export function SiteChrome() {
             Ads
           </Link>
           <Link
+            href="/campaigns/air-hockey-tournament"
+            className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-emerald-100 px-3 py-2 text-center leading-tight text-emerald-950 shadow-[0_4px_0_rgba(4,120,87,0.15)] transition hover:-translate-y-0.5 hover:bg-emerald-200 md:px-4"
+          >
+            Air Hockey
+          </Link>
+          <Link
             href="/#contact"
             className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-orange-100 px-3 py-2 text-center leading-tight text-orange-950 shadow-[0_4px_0_rgba(194,65,12,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-200 md:px-4"
           >
@@ -106,7 +112,7 @@ export function SiteChrome() {
                 Facility Parties
               </Link>
             </div>
-            <div className="grid grid-rows-6 gap-2">
+            <div className="grid grid-rows-7 gap-2">
               <Link
                 href="/"
                 className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-cyan-100 px-3 py-2 text-center leading-tight text-cyan-950 shadow-[0_4px_0_rgba(14,116,144,0.15)] transition hover:-translate-y-0.5 hover:bg-cyan-200"
@@ -124,6 +130,12 @@ export function SiteChrome() {
                 className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-purple-100 px-3 py-2 text-center leading-tight text-purple-950 shadow-[0_4px_0_rgba(126,34,206,0.15)] transition hover:-translate-y-0.5 hover:bg-purple-200"
               >
                 Ads
+              </Link>
+              <Link
+                href="/campaigns/air-hockey-tournament"
+                className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-emerald-100 px-3 py-2 text-center leading-tight text-emerald-950 shadow-[0_4px_0_rgba(4,120,87,0.15)] transition hover:-translate-y-0.5 hover:bg-emerald-200"
+              >
+                Air Hockey
               </Link>
               <Link
                 href="/#contact"
@@ -176,6 +188,12 @@ export function SiteChrome() {
               className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-purple-100 px-3 py-2 text-center leading-tight text-purple-950 shadow-[0_4px_0_rgba(126,34,206,0.15)] transition hover:-translate-y-0.5 hover:bg-purple-200"
             >
               Ads
+            </Link>
+            <Link
+              href="/campaigns/air-hockey-tournament"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-emerald-100 px-3 py-2 text-center leading-tight text-emerald-950 shadow-[0_4px_0_rgba(4,120,87,0.15)] transition hover:-translate-y-0.5 hover:bg-emerald-200"
+            >
+              Air Hockey
             </Link>
             <Link
               href="/#contact"
