@@ -21,7 +21,9 @@ import {
 import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
+import { FacilityCancellationButton } from "./FacilityCancellationButton";
 import { FacilityEditButton } from "./FacilityEditButton";
+import { FacilityRestoreButton } from "./FacilityRestoreButton";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +56,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function actionHref(id: string, action: "confirm" | "reject") {
+function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
   return `/api/facility/confirm?id=${encodeURIComponent(id)}&action=${action}`;
 }
 
@@ -64,10 +66,24 @@ function roomLabel(room: string | null) {
   return room ?? "Not set";
 }
 
+function kidCountForBooking(booking: AdminFacilityBooking): number | null {
+  if (booking.room === "room-10") return 10;
+  if (booking.room === "room-20") return 20;
+  if (booking.partyKind === "private") return 20;
+  return null;
+}
+
+function partyTimeLabel(booking: AdminFacilityBooking): string {
+  return [booking.readableDate, booking.readableTime]
+    .filter((value): value is string => Boolean(value))
+    .join(" - ") || "Time not set";
+}
+
 function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
+  const partyTime = partyTimeLabel(booking);
+  const kidCount = kidCountForBooking(booking);
   return (
     <article
-      id={`booking-${booking.id}`}
       className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
     >
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -81,43 +97,74 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <h2 className="mt-3 text-2xl font-black">{booking.customerName}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-600">
             {booking.partyLabel ?? "Facility party"} -{" "}
-            {booking.readableDate ?? "Date not set"} -{" "}
-            {booking.readableTime ?? "Time not set"}
+            {partyTime}
           </p>
         </div>
-        {(booking.status === "pending" || booking.status === "confirmed") && (
-          <div className="flex flex-wrap gap-2 print:hidden">
-            <FacilityEditButton booking={booking} />
-            <Link
-              href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
-              className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
-            >
-              Invitations
-            </Link>
-            <Link
-              href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
-              className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
-            >
-              Guest list
-            </Link>
-            {booking.status === "pending" && (
-              <>
-                <BookingActionButton
-                  action="confirm"
-                  endpoint={actionHref(booking.id, "confirm")}
-                  label="Confirm"
-                  tone="confirm"
-                />
-                <BookingActionButton
-                  action="reject"
-                  endpoint={actionHref(booking.id, "reject")}
-                  label="Reject"
-                  tone="reject"
-                />
-              </>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {(booking.status === "pending" || booking.status === "confirmed") && (
+            <>
+              <FacilityEditButton booking={booking} />
+              <Link
+                href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
+                className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
+              >
+                Invitations
+              </Link>
+              <Link
+                href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
+                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+              >
+                Guest list
+              </Link>
+              {booking.status === "pending" && (
+                <>
+                  <BookingActionButton
+                    action="confirm"
+                    endpoint={actionHref(booking.id, "confirm")}
+                    label="Confirm"
+                    tone="confirm"
+                  />
+                  <BookingActionButton
+                    action="reject"
+                    endpoint={actionHref(booking.id, "reject")}
+                    label="Reject"
+                    tone="reject"
+                  />
+                </>
+              )}
+              <FacilityCancellationButton
+                endpoint={actionHref(booking.id, "cancel")}
+                customerName={booking.customerName}
+                partyTime={partyTime}
+                childName={booking.childName}
+                kidCount={kidCount}
+                currentStatus={booking.status}
+              />
+            </>
+          )}
+          {(booking.status === "cancelled" || booking.status === "canceled") && (
+            <FacilityRestoreButton
+              bookingId={booking.id}
+              customerName={booking.customerName}
+              partyTime={partyTime}
+              childName={booking.childName}
+              kidCount={kidCount}
+            />
+          )}
+          {(booking.status === "cancelled" || booking.status === "canceled") &&
+            (booking.googleCalendarEventId ||
+              booking.googleCalendarSecondaryEventId) && (
+              <FacilityCancellationButton
+                endpoint={actionHref(booking.id, "cancel")}
+                customerName={booking.customerName}
+                partyTime={partyTime}
+                childName={booking.childName}
+                kidCount={kidCount}
+                currentStatus={booking.status}
+                retryCalendarOnly
+              />
             )}
-          </div>
-        )}
+        </div>
         {booking.calendarNeedsRepair && (
           <div className="flex flex-col items-start gap-2 print:hidden">
             <p className="max-w-sm text-xs font-semibold text-amber-800">
@@ -231,6 +278,45 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   );
 }
 
+function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) {
+  const kidCount = kidCountForBooking(booking);
+  return (
+    <details
+      id={`booking-${booking.id}`}
+      className="group min-w-0 overflow-hidden rounded-lg border-2 border-pink-300/90 bg-slate-950/90 text-white shadow-xl shadow-black/40 transition hover:border-pink-200 hover:shadow-pink-200/30 open:col-span-full open:border-pink-200 open:bg-slate-950 open:shadow-2xl"
+    >
+      <summary className="flex aspect-square h-full cursor-pointer list-none flex-col justify-between rounded-lg bg-slate-900 p-3 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 group-open:aspect-auto group-open:border group-open:border-pink-200/80 group-open:bg-slate-950 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-center justify-between gap-1">
+          <StatusBadge status={booking.status} />
+          <span className="rounded-full border border-pink-200/90 bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-pink-100 group-open:bg-black/50">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Collapse</span>
+          </span>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-pink-100/90">
+            Party time
+          </p>
+          <p className="mt-1 text-sm font-black leading-tight text-white">
+            {booking.readableTime ?? "Time not set"}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="truncate text-sm font-black text-pink-50">
+            {booking.childName ?? "Child not set"}
+          </p>
+          <p className="text-[11px] font-semibold text-slate-100">
+            {kidCount === null ? "Kids not set" : `${kidCount} kids`}
+          </p>
+        </div>
+      </summary>
+      <div className="mt-2 rounded-b-lg border-t border-pink-300/40 bg-slate-950 p-3">
+        <FacilityCard booking={booking} />
+      </div>
+    </details>
+  );
+}
+
 export default async function AdminFacilityPage({ searchParams }: Props) {
   const resolved = await searchParams;
   const token = resolved?.token ?? "";
@@ -265,66 +351,92 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   const pendingApprovalEndpoints = displayedBookings
     .filter((booking) => booking.status === "pending")
     .map((booking) => actionHref(booking.id, "confirm"));
+  const pageBackgroundStyle = {
+    backgroundColor: "#334155",
+    backgroundImage:
+      "linear-gradient(rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0.16)), url('/marketing/jumping-jax-facility-empty-v2.png')",
+    backgroundPosition: "center top",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "cover",
+    backgroundAttachment: "fixed",
+  };
 
   return (
-    <AdminShell>
-      <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
-        <FilterForm
-          key={`${from}-${effectiveTo}-${status}-${kind}`}
-          token={token}
-          from={from}
-          to={effectiveTo}
-          status={status}
-        />
-      </AdminHeader>
-      <AdminNav token={token} role={auth.role} active="facility" />
-
-      <div className="mt-5 flex flex-wrap gap-2 print:hidden">
-        {pendingApprovalEndpoints.length > 0 ? (
-          <BulkBookingActionButton
-            endpoints={pendingApprovalEndpoints}
-            label={`Approve all pending (${pendingApprovalEndpoints.length})`}
-            doneLabel="Confirmed"
+    <AdminShell className="relative overflow-x-hidden" style={pageBackgroundStyle}>
+      <div className="relative z-10">
+        <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
+          <FilterForm
+            key={`${from}-${effectiveTo}-${status}-${kind}`}
+            token={token}
+            from={from}
+            to={effectiveTo}
+            status={status}
           />
-        ) : null}
-        <PrintButton label="Print party prep sheets" />
-      </div>
+        </AdminHeader>
+        <AdminNav token={token} role={auth.role} active="facility" />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
-        <StatTile
-          label="Waiting approval"
-          value={allFacility.summary.pending ?? 0}
-          href={`/admin/facility?${baseQuery}&status=pending`}
-        />
-        <StatTile
-          label="Confirmed parties"
-          value={allFacility.summary.confirmed ?? 0}
-          href={`/admin/facility?${baseQuery}&status=confirmed`}
-        />
-        <StatTile
-          label="Rejected parties"
-          value={allFacility.summary.rejected ?? 0}
-          href={`/admin/facility?${baseQuery}&status=rejected`}
-        />
-        <StatTile
-          label="Private parties"
-          value={privateCount}
-          href={`/admin/facility?${baseQuery}&status=all&kind=private`}
-        />
-      </div>
+        <div className="mt-5 flex flex-wrap gap-2 print:hidden">
+          {pendingApprovalEndpoints.length > 0 ? (
+            <BulkBookingActionButton
+              endpoints={pendingApprovalEndpoints}
+              label={`Approve all pending (${pendingApprovalEndpoints.length})`}
+              doneLabel="Confirmed"
+            />
+          ) : null}
+          <PrintButton label="Print party prep sheets" />
+        </div>
 
-      <div className="mt-8 grid gap-5">
-        {displayedBookings.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-lg font-bold">No facility parties found.</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Adjust the date range or status filter.
-            </p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+          <StatTile
+            label="Waiting approval"
+            value={allFacility.summary.pending ?? 0}
+            href={`/admin/facility?${baseQuery}&status=pending`}
+          />
+          <StatTile
+            label="Confirmed parties"
+            value={allFacility.summary.confirmed ?? 0}
+            href={`/admin/facility?${baseQuery}&status=confirmed`}
+          />
+          <StatTile
+            label="Rejected parties"
+            value={allFacility.summary.rejected ?? 0}
+            href={`/admin/facility?${baseQuery}&status=rejected`}
+          />
+          <StatTile
+            label="Cancelled parties"
+            value={allFacility.summary.cancelled ?? 0}
+            href={`/admin/facility?${baseQuery}&status=cancelled`}
+          />
+          <StatTile
+            label="Private parties"
+            value={privateCount}
+            href={`/admin/facility?${baseQuery}&status=all&kind=private`}
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 print:hidden sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+          {displayedBookings.length === 0 ? (
+            <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <p className="text-lg font-bold">No facility parties found.</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Adjust the date range or status filter.
+              </p>
+            </div>
+          ) : (
+            displayedBookings.map((booking) => (
+              <FacilityExpandableCard key={booking.id} booking={booking} />
+            ))
+          )}
+        </div>
+
+        {displayedBookings.length > 0 && (
+          <div className="mt-8 hidden gap-5 print:grid">
+            {displayedBookings.map((booking) => (
+              <div key={booking.id}>
+                <FacilityCard booking={booking} />
+              </div>
+            ))}
           </div>
-        ) : (
-          displayedBookings.map((booking) => (
-            <FacilityCard key={booking.id} booking={booking} />
-          ))
         )}
       </div>
     </AdminShell>

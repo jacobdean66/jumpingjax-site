@@ -45,25 +45,38 @@ async function handleFacilityConfirm(
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  if (action !== "confirm" && action !== "reject") {
+  if (action !== "confirm" && action !== "reject" && action !== "cancel") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  const status = action === "reject" ? "rejected" : "confirmed";
+  const status =
+    action === "reject"
+      ? "rejected"
+      : action === "cancel"
+        ? "cancelled"
+        : "confirmed";
   const successMessage =
     action === "reject"
       ? "Booking rejected. You can close this tab."
+      : action === "cancel"
+        ? "Booking cancelled. You can close this tab."
       : "Booking confirmed. You can close this tab.";
 
   const supabase = createServiceRoleClient();
 
-  const { data: updatedBooking, error } = await supabase
+  let updateQuery = supabase
     .from("facility_bookings")
     .update({ status })
     .eq("id", id)
-    .eq("status", "pending")
-    .select(FACILITY_BOOKING_SELECT)
-    .maybeSingle<FacilityBookingCalendarFields>();
+    .select(FACILITY_BOOKING_SELECT);
+
+  updateQuery =
+    action === "cancel"
+      ? updateQuery.in("status", ["pending", "confirmed"])
+      : updateQuery.eq("status", "pending");
+
+  const { data: updatedBooking, error } =
+    await updateQuery.maybeSingle<FacilityBookingCalendarFields>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -84,10 +97,79 @@ async function handleFacilityConfirm(
     }
   }
 
+  if (!booking && action === "cancel" && allowRepair) {
+    const { data: existingBooking } = await supabase
+      .from("facility_bookings")
+      .select(FACILITY_BOOKING_SELECT)
+      .eq("id", id)
+      .in("status", ["cancelled", "canceled"])
+      .maybeSingle<FacilityBookingCalendarFields>();
+    if (existingBooking) {
+      booking = existingBooking;
+      calendarRepairOnly = true;
+    }
+  }
+
   if (!booking) {
     return NextResponse.json(
       { error: "Booking not found or already processed" },
       { status: 409 },
+    );
+  }
+
+  if (action === "cancel") {
+    let calendarSyncFailed = false;
+    try {
+      const deletion = await deleteGoogleCalendarDestinations({
+        primaryEventId: booking.google_calendar_event_id,
+        secondaryEventId: booking.google_calendar_secondary_event_id,
+        primaryCalendarId: facilityCalendarId,
+      });
+      if (deletion.primaryStatus === "failed" || deletion.secondaryStatus === "failed") {
+        console.error("[api/facility/confirm] calendar delete partial failure", deletion);
+        calendarSyncFailed = true;
+      }
+    } catch (calendarError) {
+      calendarSyncFailed = true;
+      console.error(
+        "[api/facility/confirm] calendar delete error",
+        summarizeGoogleCalendarError(calendarError),
+      );
+    }
+
+    await recordWorkflowOutcome({
+      supabase,
+      kind: "facility",
+      bookingId: id,
+      step: "calendar",
+      outcome: calendarSyncFailed ? "failed" : "sent",
+      safeErrorClass: calendarSyncFailed
+        ? "calendar_projection_failed"
+        : undefined,
+    });
+    if (calendarSyncFailed) {
+      await sendBookingOperationalAlert({
+        kind: "facility",
+        bookingId: id,
+        step: "calendar",
+        safeErrorClass: "calendar_projection_failed",
+      });
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        message: calendarSyncFailed
+          ? "The facility party is cancelled and the time slot is released, but at least one Google Calendar event could not be removed. Retry cancellation from the Cancelled view."
+          : calendarRepairOnly
+            ? "The facility party was already cancelled and Calendar removal was retried successfully."
+            : "The facility party has been cancelled. The time slot is released and the booking history was retained.",
+        calendarSyncFailed,
+      },
+      {
+        status: calendarSyncFailed ? 207 : 200,
+        headers: { "Cache-Control": "private, no-store" },
+      },
     );
   }
 
@@ -374,7 +456,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const resolved = await resolveDecisionRequest(req, "facility");
+  const resolved = await resolveDecisionRequest(req, "facility", {
+    allowCancel: true,
+  });
   if (!resolved.ok) return resolved.response;
   return handleFacilityConfirm(
     req,
