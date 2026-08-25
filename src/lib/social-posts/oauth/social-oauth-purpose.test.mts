@@ -113,13 +113,13 @@ test("callback route clears purpose cookie and never forwards code/state", () =>
   assert.doesNotMatch(route, /searchParams\.set\("state"/);
 });
 
-test("ad analytics page exposes connect/reconnect and accurate scope copy", () => {
+test("ad analytics page exposes permanent reconnect without raw scope copy", () => {
   const page = read("src/app/admin/ad-analytics/page.tsx");
   assert.match(page, /Connect Meta for Analytics/);
   assert.match(page, /Reconnect Meta for Analytics/);
-  assert.match(page, /business_management/);
   assert.match(page, /\/api\/admin\/ad-analytics\/oauth\/connect/);
   assert.doesNotMatch(page, /ads_read<\/code> only/);
+  assert.doesNotMatch(page, /business_management/);
   assert.doesNotMatch(page, /Publication execution → Meta OAuth/);
 });
 

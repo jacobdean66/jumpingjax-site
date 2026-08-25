@@ -73,20 +73,30 @@ export default async function AdminAdAnalyticsPage({
       </AdminHeader>
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
-        Meta paid-ad performance for every authorized Jumping Jax ad account.
-        Dates use Indiana local calendar days. Totals refresh on each load;
-        owner-triggered Stop buttons pause individual Meta ads.
+        Manage Meta ads for Jumping Jax. Use Stop beside an ad to pause it.
       </p>
 
       <div
         className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${freshnessTone(dashboard.freshness)}`}
         role="status"
       >
-        <p>
-          Data status: <span className="font-black uppercase">{dashboard.freshness.replaceAll("_", " ")}</span>
-          {" · "}
-          Last refreshed {new Date(dashboard.generatedAt).toLocaleString()}
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Data status: <span className="font-black uppercase">{dashboard.freshness.replaceAll("_", " ")}</span>
+            {" · "}
+            Last refreshed {new Date(dashboard.generatedAt).toLocaleString()}
+          </p>
+          <form action="/api/admin/ad-analytics/oauth/connect" method="post">
+            <button
+              type="submit"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700 sm:w-auto"
+            >
+              {dashboard.connection.hasConnectedSession
+                ? "Reconnect Meta for Analytics"
+                : "Connect Meta for Analytics"}
+            </button>
+          </form>
+        </div>
         {dashboard.message ? <p className="mt-1">{dashboard.message}</p> : null}
         {dashboard.errors.length > 0 ? (
           <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -104,23 +114,9 @@ export default async function AdminAdAnalyticsPage({
           dashboard.connection.hasAdsManagement === false ||
           dashboard.connection.hasBusinessManagement === false ||
           !dashboard.connection.hasConnectedSession) && (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <form action="/api/admin/ad-analytics/oauth/connect" method="post">
-              <button
-                type="submit"
-                className="inline-flex min-h-10 items-center justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
-              >
-                {dashboard.connection.hasConnectedSession
-                  ? "Reconnect Meta for Analytics"
-                  : "Connect Meta for Analytics"}
-              </button>
-            </form>
-            <p className="text-sm font-semibold">
-              Requests <code>ads_read</code>, <code>ads_management</code>, and{" "}
-              <code>business_management</code> so owners can view analytics and
-              stop individual ads. Does not request publishing permissions.
-            </p>
-          </div>
+          <p className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm font-semibold">
+            Reconnect Meta to allow analytics and Stop buttons.
+          </p>
         )}
         {params.oauth ? (
           <p className="mt-2">
@@ -134,7 +130,8 @@ export default async function AdminAdAnalyticsPage({
         ) : null}
       </div>
 
-      <form className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 lg:grid-cols-6 lg:items-end">
+      <form className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6 lg:items-end">
         <label className="text-sm font-bold text-slate-700 lg:col-span-2">
           Ad account
           <select
@@ -219,25 +216,31 @@ export default async function AdminAdAnalyticsPage({
             ))}
           </select>
         </label>
-        <label className="text-sm font-bold text-slate-700 lg:col-span-2">
-          Campaign ID filter
-          <input
-            name="campaign_id"
-            defaultValue={params.campaign_id ?? ""}
-            placeholder="Optional campaign id"
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
-        <div className="flex flex-wrap gap-2 lg:col-span-4">
+        </div>
+        <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer text-sm font-black text-slate-800">
+            Advanced filter
+          </summary>
+          <label className="mt-3 block text-sm font-bold text-slate-700">
+            Campaign ID
+            <input
+              name="campaign_id"
+              defaultValue={params.campaign_id ?? ""}
+              placeholder="Optional campaign id"
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+            />
+          </label>
+        </details>
+        <div className="grid gap-2 sm:flex sm:flex-wrap">
           <button
             type="submit"
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
           >
             Apply filters
           </button>
           <Link
             href="/admin/ad-analytics"
-            className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
           >
             Reset / refresh
           </Link>

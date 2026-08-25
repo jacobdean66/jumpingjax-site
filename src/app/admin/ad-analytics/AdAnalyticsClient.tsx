@@ -164,6 +164,68 @@ function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
   );
 }
 
+type ManageableAd = Readonly<{
+  ad: MetaAdRow;
+  adsetName: string;
+  campaignName: string;
+}>;
+
+function flattenAds(campaigns: readonly MetaCampaignRow[]): ManageableAd[] {
+  const ads: ManageableAd[] = [];
+  for (const campaign of campaigns) {
+    for (const adset of campaign.adsets) {
+      for (const ad of adset.ads) {
+        ads.push({
+          ad,
+          adsetName: adset.name,
+          campaignName: campaign.name,
+        });
+      }
+    }
+  }
+  return ads;
+}
+
+function AdManagementList({
+  ads,
+  currency,
+}: {
+  ads: readonly ManageableAd[];
+  currency: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-2xl font-black text-slate-950">Ads to Manage</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-600">
+            Each ad has its own Stop button.
+          </p>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700">
+          {ads.length} ads
+        </span>
+      </div>
+      {ads.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+          No ads matched these filters.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {ads.map(({ ad, campaignName, adsetName }) => (
+            <div key={ad.id} className="space-y-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                {campaignName} / {adsetName}
+              </div>
+              <AdDetail ad={ad} currency={currency} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -182,7 +244,7 @@ function AdSetBlock({
   adset: MetaAdSetRow;
   currency: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <button
@@ -335,9 +397,12 @@ export function AdAnalyticsClient({
   const currency =
     initial.accounts.find((account) => account.id === initial.selectedAccountId)
       ?.currency ?? "USD";
+  const manageableAds = useMemo(() => flattenAds(initial.campaigns), [initial.campaigns]);
 
   return (
     <div className="mt-6 space-y-6">
+      <AdManagementList ads={manageableAds} currency={currency} />
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           label="Spend"
