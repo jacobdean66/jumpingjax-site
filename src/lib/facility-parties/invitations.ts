@@ -1,4 +1,10 @@
 import { buildFacilityPartyCheckInUrl } from "./check-in";
+import {
+  matchInvitationTheme,
+  type FacilityInvitationGraphicVariant,
+} from "./invitation-theme-catalog";
+
+export type { FacilityInvitationGraphicVariant } from "./invitation-theme-catalog";
 
 export const FACILITY_INVITATION_DELIVERY_PREFERENCES = [
   "print",
@@ -22,6 +28,7 @@ export type FacilityInvitationTemplateId =
   (typeof FACILITY_INVITATION_TEMPLATE_IDS)[number];
 
 export type FacilityInvitationTheme = Readonly<{
+  id: string;
   label: string;
   accent: string;
   secondary: string;
@@ -31,15 +38,6 @@ export type FacilityInvitationTheme = Readonly<{
   graphicVariant: FacilityInvitationGraphicVariant;
   approvedArtworkSlot: string | null;
 }>;
-
-export type FacilityInvitationGraphicVariant =
-  | "party"
-  | "princess"
-  | "sports"
-  | "glow"
-  | "superhero"
-  | "game"
-  | "dinosaur";
 
 export type FacilityInvitationTemplateOption = Readonly<{
   id: FacilityInvitationTemplateId;
@@ -65,106 +63,6 @@ export const FACILITY_INVITATION_TEMPLATE_OPTIONS: readonly FacilityInvitationTe
       description: "Large, simple, and easy to read when shared by text or email.",
     },
   ];
-
-const DEFAULT_THEME: FacilityInvitationTheme = {
-  label: "Birthday Party",
-  accent: "#f97316",
-  secondary: "#0891b2",
-  background: "#fff7ed",
-  border: "#fed7aa",
-  graphicLabel: "Party",
-  graphicVariant: "party",
-  approvedArtworkSlot: null,
-};
-
-const THEME_PRESETS: readonly (FacilityInvitationTheme & {
-  keywords: readonly string[];
-})[] = [
-  {
-    label: "Princess Party",
-    keywords: ["princess", "barbie", "fairy", "unicorn", "pink", "purple"],
-    accent: "#db2777",
-    secondary: "#7c3aed",
-    background: "#fdf2f8",
-    border: "#fbcfe8",
-    graphicLabel: "Princess",
-    graphicVariant: "princess",
-    approvedArtworkSlot: "princess",
-  },
-  {
-    label: "Sports Party",
-    keywords: ["sports", "football", "basketball", "baseball", "soccer"],
-    accent: "#16a34a",
-    secondary: "#2563eb",
-    background: "#f0fdf4",
-    border: "#bbf7d0",
-    graphicLabel: "Game Day",
-    graphicVariant: "sports",
-    approvedArtworkSlot: "sports",
-  },
-  {
-    label: "Glow Party",
-    keywords: ["glow", "neon", "dance"],
-    accent: "#a21caf",
-    secondary: "#06b6d4",
-    background: "#fdf4ff",
-    border: "#f5d0fe",
-    graphicLabel: "Glow",
-    graphicVariant: "glow",
-    approvedArtworkSlot: "glow",
-  },
-  {
-    label: "Superhero Party",
-    keywords: ["hero", "superhero", "spider", "batman", "marvel"],
-    accent: "#dc2626",
-    secondary: "#2563eb",
-    background: "#eff6ff",
-    border: "#bfdbfe",
-    graphicLabel: "Hero",
-    graphicVariant: "superhero",
-    approvedArtworkSlot: "superhero",
-  },
-  {
-    label: "Game Party",
-    keywords: ["sonic", "mario", "minecraft", "game", "gaming", "pokemon"],
-    accent: "#2563eb",
-    secondary: "#facc15",
-    background: "#eff6ff",
-    border: "#bfdbfe",
-    graphicLabel: "Game On",
-    graphicVariant: "game",
-    approvedArtworkSlot: "game",
-  },
-  {
-    label: "Dinosaur Party",
-    keywords: ["dinosaur", "dino", "jurassic"],
-    accent: "#65a30d",
-    secondary: "#ea580c",
-    background: "#f7fee7",
-    border: "#d9f99d",
-    graphicLabel: "Dino",
-    graphicVariant: "dinosaur",
-    approvedArtworkSlot: "dinosaur",
-  },
-];
-
-const APPROVED_CHARACTER_ARTWORK_SLOTS: readonly {
-  keywords: readonly string[];
-  slot: string;
-  label: string;
-}[] = [
-  { keywords: ["sonic"], slot: "sonic", label: "Sonic" },
-  { keywords: ["mario"], slot: "mario", label: "Mario" },
-  { keywords: ["minecraft"], slot: "minecraft", label: "Minecraft" },
-  { keywords: ["pokemon", "pikachu"], slot: "pokemon", label: "Pokemon" },
-  { keywords: ["barbie"], slot: "barbie", label: "Barbie" },
-  { keywords: ["spider", "spiderman"], slot: "spider-hero", label: "Hero" },
-  { keywords: ["batman"], slot: "bat-hero", label: "Hero" },
-];
-
-function clean(value: string | null | undefined): string {
-  return value?.trim().replace(/\s+/g, " ") ?? "";
-}
 
 export function normalizeInvitationDeliveryPreference(
   value: unknown,
@@ -228,31 +126,10 @@ export function formatInvitationDeliveryPreferences(
 export function resolveInvitationTheme(
   partyTheme: string | null | undefined,
 ): FacilityInvitationTheme {
-  const normalized = clean(partyTheme).toLowerCase();
-  const characterArtwork = APPROVED_CHARACTER_ARTWORK_SLOTS.find((item) =>
-    item.keywords.some((keyword) => normalized.includes(keyword)),
-  );
-  const preset = THEME_PRESETS.find((item) =>
-    item.keywords.some((keyword) => normalized.includes(keyword)),
-  );
-  if (preset) {
-    const { keywords, ...theme } = preset;
-    void keywords;
-    return {
-      ...theme,
-      graphicLabel: characterArtwork?.label ?? theme.graphicLabel,
-      approvedArtworkSlot:
-        characterArtwork?.slot ?? theme.approvedArtworkSlot,
-    };
-  }
-
-  return {
-    ...DEFAULT_THEME,
-    label: clean(partyTheme) || DEFAULT_THEME.label,
-    graphicLabel: clean(partyTheme).slice(0, 18) || DEFAULT_THEME.graphicLabel,
-    approvedArtworkSlot:
-      characterArtwork?.slot ?? DEFAULT_THEME.approvedArtworkSlot,
-  };
+  const { aliases, category, ...theme } = matchInvitationTheme(partyTheme);
+  void aliases;
+  void category;
+  return theme;
 }
 
 export function approvedInvitationArtworkUrl(input: {
@@ -275,6 +152,22 @@ export function buildFacilityWaiverInvitationUrl(input: {
   partyDate: string | null | undefined;
 }): string {
   return buildFacilityPartyCheckInUrl(input);
+}
+
+export function buildPublicFacilityInvitationUrl(input: {
+  siteUrl?: string | null;
+  bookingId: string;
+  token: string;
+  layout?: "single" | "sheet";
+}): string {
+  const base = input.siteUrl?.trim() || "https://jumpingjaxllc.com";
+  const url = new URL(
+    `/facility-party-invitations/${encodeURIComponent(input.bookingId)}`,
+    `${base.replace(/\/+$/, "")}/`,
+  );
+  url.searchParams.set("token", input.token);
+  if (input.layout === "single") url.searchParams.set("layout", "single");
+  return url.toString();
 }
 
 export function buildQrCodeImageUrl(data: string, size = 220): string {

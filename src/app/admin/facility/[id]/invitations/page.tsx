@@ -10,6 +10,7 @@ import { PrintButton } from "@/app/admin/PrintButton";
 import { FacilityInvitationPreview } from "@/components/facility-parties/FacilityInvitationPreview";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
+  buildPublicFacilityInvitationUrl,
   buildFacilityWaiverInvitationUrl,
   buildQrCodeImageUrl,
   invitationTemplateLabel,
@@ -18,6 +19,7 @@ import {
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "@/lib/facility-parties/invitations";
+import { createFacilityInvitationShareToken } from "@/lib/facility-parties/invitation-share-token";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -53,18 +55,20 @@ function mailtoLink(input: {
   email: string | null;
   childName: string;
   date: string;
-  waiverUrl: string;
+  singleUrl: string;
+  printableUrl: string;
 }): string | null {
   const email = clean(input.email);
   if (!email) return null;
-  const subject = "Jumping Jax birthday party invitation link";
+  const subject = "Your Jumping Jax birthday party invitations";
   const body = [
-    `Here is the Jumping Jax waiver link for ${input.childName || "the birthday party"}.`,
+    `Here are the Jumping Jax invitations for ${input.childName || "the birthday party"}.`,
     "",
     input.date ? `Party date: ${input.date}` : "",
-    `Waiver link: ${input.waiverUrl}`,
+    `Printable 4-per-page sheet: ${input.printableUrl}`,
+    `Single invitation: ${input.singleUrl}`,
     "",
-    "Guests can complete the waiver before the party.",
+    "The printable sheet has a Print button. Each invitation includes the waiver QR code for guest check-in.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -116,6 +120,7 @@ export default async function FacilityInvitationsPage({
   );
   const templateId = normalizeInvitationTemplateId(data.invitation_template_id);
   const layout = resolvedSearch?.layout === "single" ? "single" : "sheet";
+  const shareToken = createFacilityInvitationShareToken(data.id);
   const tokenQuery = resolvedSearch?.token
     ? `&token=${encodeURIComponent(resolvedSearch.token)}`
     : "";
@@ -125,11 +130,24 @@ export default async function FacilityInvitationsPage({
   const sheetHref = `/admin/facility/${encodeURIComponent(
     data.id,
   )}/invitations?layout=sheet${tokenQuery}`;
+  const publicSingleHref = buildPublicFacilityInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: data.id,
+    token: shareToken,
+    layout: "single",
+  });
+  const publicSheetHref = buildPublicFacilityInvitationUrl({
+    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    bookingId: data.id,
+    token: shareToken,
+    layout: "sheet",
+  });
   const emailHref = mailtoLink({
     email: data.email,
     childName: clean(data.child_name),
     date: clean(data.readable_date),
-    waiverUrl,
+    singleUrl: publicSingleHref,
+    printableUrl: publicSheetHref,
   });
 
   return (
@@ -157,7 +175,7 @@ export default async function FacilityInvitationsPage({
               href={emailHref}
               className="rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-white hover:bg-sky-600"
             >
-              Email link
+              Email invitations
             </Link>
           ) : null}
           <Link
@@ -217,6 +235,18 @@ export default async function FacilityInvitationsPage({
             </span>
             <Link className="text-sky-700 underline" href={waiverUrl}>
               Open waiver
+            </Link>
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Customer links
+            </span>
+            <Link className="text-sky-700 underline" href={publicSheetHref}>
+              Printable sheet
+            </Link>
+            <span className="px-2 text-slate-400">/</span>
+            <Link className="text-sky-700 underline" href={publicSingleHref}>
+              Single invite
             </Link>
           </p>
         </div>

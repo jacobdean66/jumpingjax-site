@@ -20,12 +20,14 @@ import {
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
 import {
+  buildPublicFacilityInvitationUrl,
   buildFacilityWaiverInvitationUrl,
   formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
   normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
+import { createFacilityInvitationShareToken } from "@/lib/facility-parties/invitation-share-token";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import {
@@ -450,6 +452,19 @@ export async function POST(req: NextRequest) {
         bookingId,
         partyDate: storedReadableDate,
       });
+      const invitationShareToken = createFacilityInvitationShareToken(bookingId);
+      const printableInvitationLink = buildPublicFacilityInvitationUrl({
+        siteUrl,
+        bookingId,
+        token: invitationShareToken,
+        layout: "sheet",
+      });
+      const singleInvitationLink = buildPublicFacilityInvitationUrl({
+        siteUrl,
+        bookingId,
+        token: invitationShareToken,
+        layout: "single",
+      });
       const adminInvitationLink = buildAbsoluteAdminInvitationLink(
         siteUrl,
         bookingId,
@@ -489,6 +504,8 @@ export async function POST(req: NextRequest) {
         ...pricingLines,
         "",
         `Invitation preview: ${adminInvitationLink}`,
+        `Customer printable invitations: ${printableInvitationLink}`,
+        `Customer single invitation: ${singleInvitationLink}`,
         `Guest waiver link: ${waiverInvitationLink}`,
         `Confirm link: ${confirmLink}`,
         `Reject link: ${rejectLink}`,
@@ -544,6 +561,12 @@ export async function POST(req: NextRequest) {
           `Payment method: ${String(payment_method).trim()}`,
           `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
           `Guest waiver link for the party: ${waiverInvitationLink}`,
+          invitationPreferences.includes("print") || invitationPreferences.includes("email")
+            ? `Printable invitation sheet: ${printableInvitationLink}`
+            : "",
+          invitationPreferences.includes("email")
+            ? `Single invitation link to send to guests: ${singleInvitationLink}`
+            : "",
           "",
           addonsEmailText,
           ...pricingLines,
@@ -557,6 +580,40 @@ export async function POST(req: NextRequest) {
         console.error("CUSTOMER BOOKING REQUEST EMAIL ERROR", customerEmailError);
       } else {
         emailsSent = true;
+      }
+
+      if (
+        invitationPreferences.includes("print") ||
+        invitationPreferences.includes("email")
+      ) {
+        const { error: invitationEmailError } = await sendDurableBookingEmail({
+          supabase,
+          messageKey: `facility-${bookingId}-customer-invitations-v1`,
+          kind: "facility",
+          bookingId,
+          purpose: "facility_invitation_links",
+          to: email,
+          subject: "Your Jumping Jax birthday invitations",
+          text: [
+            `Hi ${bookingContactName},`,
+            "",
+            `Here are the invitations for ${String(child_name).trim()}'s party.`,
+            "",
+            `Printable 4-per-page sheet: ${printableInvitationLink}`,
+            `Single invitation: ${singleInvitationLink}`,
+            "",
+            "Use the printable sheet when you want four invitations on one page. The page has a Print button that opens your printer.",
+            "Use the single invitation link when you want to text or email one guest directly.",
+            "Each invitation includes the waiver QR code so guests can sign before party day and be checked in when they arrive.",
+          ].join("\n"),
+        });
+
+        if (invitationEmailError) {
+          customerReceiptFailed = true;
+          console.error("CUSTOMER INVITATION EMAIL ERROR", invitationEmailError);
+        } else {
+          emailsSent = true;
+        }
       }
     } catch (emailError) {
       customerReceiptFailed = true;

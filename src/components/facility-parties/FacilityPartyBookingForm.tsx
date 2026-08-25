@@ -209,6 +209,54 @@ function MiniThemeCharacter({
           +
         </span>
       ) : null}
+      {theme.graphicVariant === "blocks" ? (
+        <>
+          <span
+            className="absolute right-3 top-3 h-6 w-6 border-2 border-slate-950"
+            style={{ background: theme.secondary }}
+          />
+          <span
+            className="absolute right-7 top-7 h-6 w-6 border-2 border-slate-950"
+            style={{ background: theme.accent }}
+          />
+        </>
+      ) : null}
+      {theme.graphicVariant === "cartoon" || theme.graphicVariant === "animal" ? (
+        <>
+          <span
+            className="absolute left-[19px] top-[20px] h-5 w-5 rounded-full border-2 border-slate-950"
+            style={{ background: theme.secondary }}
+          />
+          <span
+            className="absolute right-[19px] top-[20px] h-5 w-5 rounded-full border-2 border-slate-950"
+            style={{ background: theme.secondary }}
+          />
+        </>
+      ) : null}
+      {theme.graphicVariant === "fashion" ? (
+        <span
+          className="absolute right-3 top-3 h-7 w-7 rotate-12 rounded-full border-2 border-slate-950"
+          style={{ background: theme.secondary }}
+        />
+      ) : null}
+      {theme.graphicVariant === "racing" ? (
+        <span
+          className="absolute right-2 top-5 h-5 w-9 rounded-md border-2 border-slate-950"
+          style={{ background: theme.secondary }}
+        />
+      ) : null}
+      {theme.graphicVariant === "space" ? (
+        <span
+          className="absolute right-4 top-2 h-8 w-5 rotate-45 rounded-full border-2 border-slate-950"
+          style={{ background: theme.secondary }}
+        />
+      ) : null}
+      {theme.graphicVariant === "water" ? (
+        <span
+          className="absolute right-2 top-6 h-5 w-10 rounded-full border-2 border-slate-950"
+          style={{ background: theme.secondary }}
+        />
+      ) : null}
       {theme.graphicVariant === "dinosaur" ? (
         <span
           className="absolute left-[26px] top-2 h-0 w-0 border-x-[7px] border-b-[14px] border-x-transparent"
@@ -1273,10 +1321,10 @@ export function FacilityPartyBookingForm({
                           </span>
                           <span className="mt-0.5 block text-slate-400">
                             {preference === "email"
-                              ? "Send me a link I can forward to guests."
+                              ? "Email me a single invitation link I can forward to guests."
                               : preference === "office_pickup"
                                 ? "Have printed invitations ready when I pay my deposit."
-                                : "Give me a printable invitation link."}
+                                : "Email me a printable 4-per-page sheet with a Print button."}
                           </span>
                         </span>
                       </label>

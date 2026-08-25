@@ -117,6 +117,41 @@ function ThemeCharacterGraphic({
             </span>
           ) : null}
 
+          {theme.graphicVariant === "blocks" ? (
+            <>
+              <span
+                className="absolute right-[8px] top-[8px] h-7 w-7 border-2 border-slate-900"
+                style={{ background: theme.secondary }}
+              />
+              <span
+                className="absolute right-[28px] top-[28px] h-7 w-7 border-2 border-slate-900"
+                style={{ background: theme.accent }}
+              />
+            </>
+          ) : null}
+
+          {theme.graphicVariant === "cartoon" ? (
+            <>
+              <span
+                className="absolute left-[12px] top-[17px] h-7 w-7 rounded-full border-2 border-slate-900"
+                style={{ background: theme.secondary }}
+              />
+              <span
+                className="absolute right-[12px] top-[17px] h-7 w-7 rounded-full border-2 border-slate-900"
+                style={{ background: theme.secondary }}
+              />
+            </>
+          ) : null}
+
+          {theme.graphicVariant === "fashion" ? (
+            <span
+              className="absolute right-[9px] top-[7px] h-9 w-9 rotate-12 rounded-full border-2 border-slate-900"
+              style={{ background: theme.secondary }}
+            >
+              <span className="absolute left-[9px] top-[5px] h-5 w-3 rounded-full bg-white/70" />
+            </span>
+          ) : null}
+
           {theme.graphicVariant === "sports" ? (
             <span
               className="absolute right-[8px] top-[8px] h-8 w-8 rounded-full border-2 border-slate-900"
@@ -132,6 +167,53 @@ function ThemeCharacterGraphic({
               className="absolute right-[10px] top-[6px] h-8 w-8 rotate-45 rounded-sm"
               style={{ background: theme.secondary }}
             />
+          ) : null}
+
+          {theme.graphicVariant === "racing" ? (
+            <span
+              className="absolute right-[4px] top-[16px] h-7 w-12 rounded-md border-2 border-slate-900"
+              style={{ background: theme.secondary }}
+            >
+              <span className="absolute bottom-[-7px] left-1 h-4 w-4 rounded-full border-2 border-slate-900 bg-slate-950" />
+              <span className="absolute bottom-[-7px] right-1 h-4 w-4 rounded-full border-2 border-slate-900 bg-slate-950" />
+            </span>
+          ) : null}
+
+          {theme.graphicVariant === "space" ? (
+            <span
+              className="absolute right-[10px] top-[6px] h-10 w-7 rotate-45 rounded-full border-2 border-slate-900"
+              style={{ background: theme.secondary }}
+            >
+              <span
+                className="absolute -bottom-2 left-1/2 h-4 w-5 -translate-x-1/2 rounded-b-full"
+                style={{ background: theme.accent }}
+              />
+            </span>
+          ) : null}
+
+          {theme.graphicVariant === "water" ? (
+            <span
+              className="absolute right-[5px] top-[22px] h-8 w-12 rounded-full border-2 border-slate-900"
+              style={{ background: theme.secondary }}
+            >
+              <span
+                className="absolute -left-3 top-4 h-5 w-8 rounded-full"
+                style={{ background: theme.accent }}
+              />
+            </span>
+          ) : null}
+
+          {theme.graphicVariant === "animal" ? (
+            <>
+              <span
+                className="absolute left-[21px] top-[12px] h-6 w-6 rounded-full border-2 border-slate-900"
+                style={{ background: theme.secondary }}
+              />
+              <span
+                className="absolute right-[21px] top-[12px] h-6 w-6 rounded-full border-2 border-slate-900"
+                style={{ background: theme.secondary }}
+              />
+            </>
           ) : null}
 
           {theme.graphicVariant === "dinosaur" ? (
