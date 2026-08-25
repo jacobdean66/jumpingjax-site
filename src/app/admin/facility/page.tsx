@@ -362,8 +362,12 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   };
 
   return (
-    <AdminShell className="relative overflow-x-hidden" style={pageBackgroundStyle}>
-      <div className="relative z-10">
+    <AdminShell>
+      <div
+        className="relative overflow-x-hidden rounded-2xl p-4 sm:p-6"
+        style={pageBackgroundStyle}
+      >
+        <div className="relative z-10">
         <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
           <FilterForm
             key={`${from}-${effectiveTo}-${status}-${kind}`}
@@ -438,6 +442,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             ))}
           </div>
         )}
+        </div>
       </div>
     </AdminShell>
   );
