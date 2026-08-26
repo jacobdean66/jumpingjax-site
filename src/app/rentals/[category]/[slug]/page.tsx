@@ -16,6 +16,10 @@ import {
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
 import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
+import {
+  generateMetadata as buildPageMetadata,
+  getCanonicalUrl,
+} from "@/lib/metadata";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
 
@@ -35,10 +39,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     (item) => item.categoryId === category && item.slug === slug,
   );
   if (!rental) return { title: "Rental | Jumping Jax" };
-  return {
-    title: `${rental.title} | Jumping Jax`,
-    description: rental.shortDescription,
-  };
+  return buildPageMetadata({
+    title: `${rental.title} Rental in Greenwood, SC`,
+    description: `Rent the ${rental.title} from Jumping Jax for birthdays and events in Greenwood, SC. View details, pricing, and request your date online.`,
+    canonicalUrl: getCanonicalUrl(`/rentals/${category}/${slug}`),
+    ogImage: rental.imageSrc,
+    keywords: [
+      `${rental.title} rental Greenwood SC`,
+      `${CATEGORY_COPY[rental.categoryId].title.toLowerCase()} Greenwood SC`,
+      "inflatable rentals Greenwood SC",
+    ],
+  });
 }
 
 export default async function RentalDetailPage({ params }: Props) {

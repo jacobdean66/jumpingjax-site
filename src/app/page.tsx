@@ -7,7 +7,15 @@ import {
   homeFeaturedRentals,
   rentalDetailPath,
 } from "@/data/rentals";
-import { loadSiteSettings } from "@/lib/admin/site-settings";
+import {
+  DEFAULT_SITE_SETTINGS,
+  loadSiteSettings,
+} from "@/lib/admin/site-settings";
+import {
+  createJsonLdScript,
+  generateHomeMetadata,
+  generateOrganizationSchema,
+} from "@/lib/metadata";
 
 const FEATURED_IMAGE_SIZES =
   "(max-width: 768px) 94vw, (max-width: 1200px) 33vw, 400px";
@@ -24,9 +32,15 @@ const SERVICE_AREAS = [
 ];
 
 export const dynamic = "force-dynamic";
+export const metadata = generateHomeMetadata();
 
 export default async function Home() {
-  const settings = await loadSiteSettings();
+  let settings = DEFAULT_SITE_SETTINGS;
+  try {
+    settings = await loadSiteSettings();
+  } catch {
+    settings = DEFAULT_SITE_SETTINGS;
+  }
   const featured = homeFeaturedRentals();
   const phoneHref = `tel:${settings.websiteText.contactPhone.replace(/\D/g, "")}`;
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -35,6 +49,10 @@ export default async function Home() {
 
   return (
     <main className="overflow-x-hidden bg-[#fff8e8] text-slate-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema())}
+      />
       {/* HERO — Next/Image for bandwidth-aware delivery + stable layout box */}
       <section className="relative flex min-h-[100svh] items-center justify-center px-4 py-20 sm:py-24">
         <div className="absolute inset-0">
@@ -53,6 +71,9 @@ export default async function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-sky-950/45 via-cyan-800/10 to-[#fff8e8]" />
 
         <div className="relative z-10 mx-auto max-w-5xl px-2 text-center text-white">
+          <p className="mx-auto mb-4 w-fit rounded-full border border-white/60 bg-sky-950/75 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] shadow-sm sm:text-sm">
+            Greenwood, SC Inflatable &amp; Party Rentals
+          </p>
           <div className="relative mx-auto mb-6 h-36 w-[min(92vw,34rem)] drop-shadow-[0_18px_28px_rgba(8,18,45,0.58)] sm:h-48 sm:w-[min(78vw,46rem)]">
             <Image
               src="/logo.png"
@@ -88,14 +109,14 @@ export default async function Home() {
               href="/rentals"
               className="inline-flex min-h-14 w-full max-w-[280px] items-center justify-center rounded-full bg-yellow-300 px-8 text-lg font-bold text-slate-950 shadow-lg shadow-sky-950/25 transition duration-200 hover:bg-yellow-200 hover:shadow-xl active:scale-[0.98] sm:min-h-[3.5rem]"
             >
-              Inflatable Rentals
+              Browse Inflatable Rentals
             </Link>
 
             <Link
               href="/facility-parties"
               className="inline-flex min-h-14 w-full max-w-[280px] items-center justify-center rounded-full border border-white/70 bg-white/90 px-8 text-lg font-bold text-pink-700 backdrop-blur transition duration-200 hover:bg-white active:scale-[0.98] sm:min-h-[3.5rem]"
             >
-              Facility Party
+              Book a Birthday Party
             </Link>
           </div>
         </div>
@@ -197,11 +218,11 @@ export default async function Home() {
               Popular right now
             </span>
             <h2 className="mt-5 text-balance text-3xl font-black tracking-tight sm:text-5xl">
-              Featured inflatables
+              Popular inflatable rentals in Greenwood, SC
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
-              A few guest favorites to get you started—open any card for full specs
-              and booking.
+              Compare bounce houses, water slides, combos, and other party rentals,
+              then open any card for details and online booking.
             </p>
           </div>
 
@@ -279,7 +300,7 @@ export default async function Home() {
       <section className="bg-lime-100 px-4 py-24 sm:px-6">
         <div className="mx-auto max-w-5xl text-center">
           <h2 className="mb-14 text-balance text-3xl font-black sm:text-5xl">
-            Why Families Choose Jumping Jax
+            Why Greenwood Families Choose Jumping Jax
           </h2>
 
           <div className="grid gap-10 md:grid-cols-3 md:gap-8">
@@ -321,8 +342,13 @@ export default async function Home() {
       <section className="bg-cyan-100 px-4 py-24 sm:px-6">
         <div className="mx-auto max-w-5xl text-center">
           <h2 className="mb-10 text-balance text-3xl font-black sm:text-5xl">
-            Proudly Serving
+            Inflatable Rental Delivery Around Greenwood, SC
           </h2>
+
+          <p className="mx-auto mb-10 max-w-3xl text-pretty text-base leading-7 text-slate-700 sm:text-lg">
+            Jumping Jax provides bounce house rentals, water slide rentals, foam
+            parties, and party equipment across Greenwood and nearby communities.
+          </p>
 
           <div className="flex flex-wrap justify-center gap-3 text-lg sm:gap-4">
             {SERVICE_AREAS.map((area, index) => {

@@ -9,8 +9,10 @@ import {
   formatUsd,
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
+import { generateFacilityPartiesMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
+export const metadata = generateFacilityPartiesMetadata();
 
 export default async function FacilityPartiesPage() {
   let settings = DEFAULT_SITE_SETTINGS;
@@ -76,6 +78,10 @@ export default async function FacilityPartiesPage() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
           {settings.websiteText.facilityPartiesDescription}
+        </p>
+        <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm font-semibold leading-6 text-slate-700 sm:text-base">
+          Reserve an indoor kids&apos; birthday party venue in Greenwood with
+          inflatable play and a dedicated party room.
         </p>
       </section>
 

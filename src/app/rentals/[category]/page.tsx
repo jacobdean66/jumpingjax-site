@@ -8,6 +8,10 @@ import {
 } from "@/data/rentals";
 import { RentalCard } from "@/components/rentals/RentalCard";
 import { loadWebsiteRentalsInCategory } from "@/lib/rentals/public-catalog";
+import {
+  generateMetadata as buildPageMetadata,
+  getCanonicalUrl,
+} from "@/lib/metadata";
 
 type Props = { params: Promise<{ category: string }> };
 
@@ -21,10 +25,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
   if (!isCategoryId(category)) return { title: "Rentals | Jumping Jax" };
   const copy = CATEGORY_COPY[category];
-  return {
-    title: `${copy.title} | Jumping Jax Rentals`,
-    description: copy.blurb,
-  };
+  return buildPageMetadata({
+    title: `${copy.title} Rentals in Greenwood, SC`,
+    description: `Browse ${copy.title.toLowerCase()} from Jumping Jax for birthdays and events in Greenwood, SC and nearby communities. View details and request your date online.`,
+    canonicalUrl: getCanonicalUrl(`/rentals/${category}`),
+    keywords: [
+      `${copy.title.toLowerCase()} rentals Greenwood SC`,
+      `${copy.title.toLowerCase()} near me`,
+      "party rentals Greenwood SC",
+    ],
+  });
 }
 
 export default async function RentalCategoryPage({ params }: Props) {
@@ -62,6 +72,10 @@ export default async function RentalCategoryPage({ params }: Props) {
           </h1>
           <p className="mt-4 text-pretty text-base leading-7 text-slate-600 sm:text-lg">
             {copy.blurb}
+          </p>
+          <p className="mt-3 text-pretty text-sm font-semibold leading-6 text-slate-700 sm:text-base">
+            Available for birthdays and events in Greenwood, SC and the surrounding
+            Jumping Jax service area.
           </p>
           <p className="mt-4 text-sm font-medium text-slate-500">
             {rentals.length} {rentals.length === 1 ? "unit" : "units"} available ·

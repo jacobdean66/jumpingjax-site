@@ -1,10 +1,20 @@
 import Link from "next/link";
-import { loadSiteSettings } from "@/lib/admin/site-settings";
+import {
+  DEFAULT_SITE_SETTINGS,
+  loadSiteSettings,
+} from "@/lib/admin/site-settings";
+import { generateContactMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
+export const metadata = generateContactMetadata();
 
 export default async function ContactPage() {
-  const settings = await loadSiteSettings();
+  let settings = DEFAULT_SITE_SETTINGS;
+  try {
+    settings = await loadSiteSettings();
+  } catch {
+    settings = DEFAULT_SITE_SETTINGS;
+  }
   const phoneHref = `tel:${settings.websiteText.contactPhone.replace(/\D/g, "")}`;
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     settings.websiteText.contactAddress,

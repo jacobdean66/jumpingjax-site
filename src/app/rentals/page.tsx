@@ -5,15 +5,25 @@ import {
   CATEGORY_COPY,
   categoryPreviewRental,
 } from "@/data/rentals";
-import { loadSiteSettings } from "@/lib/admin/site-settings";
+import {
+  DEFAULT_SITE_SETTINGS,
+  loadSiteSettings,
+} from "@/lib/admin/site-settings";
+import { generateRentalsMetadata } from "@/lib/metadata";
 
 const CATEGORY_CARD_IMAGE_SIZES =
   "(max-width: 640px) 94vw, (max-width: 1024px) 46vw, 360px";
 
 export const dynamic = "force-dynamic";
+export const metadata = generateRentalsMetadata();
 
 export default async function RentalsPage() {
-  const settings = await loadSiteSettings();
+  let settings = DEFAULT_SITE_SETTINGS;
+  try {
+    settings = await loadSiteSettings();
+  } catch {
+    settings = DEFAULT_SITE_SETTINGS;
+  }
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-pink-50 px-4 pb-24 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">
@@ -27,6 +37,10 @@ export default async function RentalsPage() {
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
             {settings.websiteText.rentalsDescription}
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm font-semibold leading-6 text-slate-700 sm:text-base">
+            Choose bounce houses, water slides, obstacle courses, foam parties,
+            and party equipment for delivery in Greenwood, SC and nearby communities.
           </p>
         </header>
 

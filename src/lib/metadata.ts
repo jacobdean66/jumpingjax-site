@@ -39,7 +39,7 @@ export interface PageMetadataOptions extends MetadataOptions {
 // Constants
 // ============================================================================
 
-const DEFAULT_OG_IMAGE = seoDefaults.ogImage || "/og-image.jpg";
+const DEFAULT_OG_IMAGE = seoDefaults.ogImage || "/logo.png";
 
 // ============================================================================
 // Utility Functions
@@ -117,8 +117,8 @@ export const generateMetadata = (
       title,
       description,
       images: [ogImageUrl],
-      creator: seoDefaults.twitterHandle,
-      site: seoDefaults.twitterHandle,
+      creator: seoDefaults.twitterHandle || undefined,
+      site: seoDefaults.twitterHandle || undefined,
     },
     alternates: {
       canonical: canonicalUrl || getCanonicalUrl(),
@@ -211,7 +211,8 @@ export const generateContactMetadata = (): Metadata => {
 export const generateOrganizationSchema = () => {
   return {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": ["LocalBusiness", "EntertainmentBusiness"],
+    "@id": `${getSeoBaseUrl()}/#business`,
     name: business.name,
     description: business.description,
     image: absoluteSeoUrl(business.logo || "/logo.png"),
@@ -219,16 +220,20 @@ export const generateOrganizationSchema = () => {
     email: contact.email,
     address: {
       "@type": "PostalAddress",
+      streetAddress: "559 Beaudrot Rd",
       addressLocality: location.city,
-      addressRegion: location.state,
-      addressCountry: location.country,
+      addressRegion: "SC",
+      postalCode: "29649",
+      addressCountry: "US",
     },
-    areaServed: location.serviceAreas,
+    areaServed: location.serviceAreas.map((name) => ({
+      "@type": "City",
+      name: `${name}, SC`,
+    })),
     url: getSeoBaseUrl(),
     sameAs: [
-      "https://facebook.com/jumpingjax",
-      "https://instagram.com/jumpingjax",
-      "https://youtube.com/jumpingjax",
+      "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+      "https://www.instagram.com/jumping.jax.llc/",
     ],
   };
 };

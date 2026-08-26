@@ -768,7 +768,7 @@ export const RENTALS: Rental[] = manifestToRentals();
 /** Full-bleed homepage hero (Next/Image); distinct from first “Popular” tile to avoid duplicate visuals. */
 export const HOMEPAGE_HERO_ASSET = {
   src: "/hero.jpg",
-  alt: "A large Jumping Jax tropical waterslide set up outdoors",
+  alt: "Jumping Jax tropical inflatable water slide rental in Greenwood, SC",
 } as const;
 
 /** Rentals hub: high-intent categories first for conversion browsing. */
