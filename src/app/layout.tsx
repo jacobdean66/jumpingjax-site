@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import { PwaRegistration } from "@/components/PwaRegistration";
 import { SiteChrome } from "./SiteChrome";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
@@ -89,17 +88,22 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
-        <Script
+      <head>
+        <script
+          async
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
+        <script
+          id="google-analytics"
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${GA_MEASUREMENT_ID}');`}
-        </Script>
+gtag('config', '${GA_MEASUREMENT_ID}');`,
+          }}
+        />
+      </head>
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
         <PwaRegistration />
         <SiteChrome />
         <div>{children}</div>
