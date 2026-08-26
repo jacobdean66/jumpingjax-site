@@ -530,7 +530,7 @@ export function FacilityPartyBookingForm({
         ref={confirmationRef}
         tabIndex={-1}
         role="status"
-        className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-white p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
+        className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-[#071326] p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
           Booking request received
@@ -563,7 +563,7 @@ export function FacilityPartyBookingForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_18px_48px_rgba(15,23,42,0.12)] sm:mt-14 sm:p-8"
+      className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-white/10 bg-[#071326] p-5 text-left shadow-[0_18px_48px_rgba(15,23,42,0.22)] sm:mt-14 sm:p-8"
     >
       <header className="space-y-3">
         <h2 className="text-lg font-black uppercase tracking-wide text-cyan-200 sm:text-xl">
@@ -576,7 +576,7 @@ export function FacilityPartyBookingForm({
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm leading-relaxed text-slate-200">
           <p className="font-semibold text-cyan-100">Scheduling notes</p>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
-            <li>Saturday daytime uses fixed shared party slots in each room.</li>
+            <li>Public play uses fixed shared party slots in each room.</li>
             <li>
               Whole-facility visits are spaced automatically (one group at a
               time).
@@ -631,7 +631,11 @@ export function FacilityPartyBookingForm({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             2 · Room
           </p>
-          {partyKind === "public" ? (
+          {!partyKind ? (
+            <p className="rounded-2xl border border-white/10 bg-[#071326]/40 px-4 py-3 text-sm text-slate-400">
+              Choose a party type first.
+            </p>
+          ) : partyKind === "public" ? (
             <>
               <p className="text-sm text-slate-400">
                 Choose the room that fits your headcount.
@@ -682,13 +686,17 @@ export function FacilityPartyBookingForm({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             3 · Length
           </p>
-          {partyKind === "public" ? (
+          {!partyKind ? (
+            <p className="rounded-2xl border border-white/10 bg-[#071326]/40 px-4 py-3 text-sm text-slate-400">
+              Choose a party type first.
+            </p>
+          ) : partyKind === "public" ? (
             <div className="rounded-2xl border border-white/10 bg-[#071326]/50 px-4 py-4">
               <p className="text-sm font-semibold text-white">
                 About 1.5 hours per daytime slot
               </p>
               <p className="mt-2 text-sm text-slate-400">
-                Saturday windows are preset. The{" "}
+                Public play windows are preset. The{" "}
                 {FACILITY_PARTY_BUFFER_MINUTES}-minute setup buffer between
                 parties is already built in.
               </p>
@@ -790,7 +798,7 @@ export function FacilityPartyBookingForm({
               modifiersClassNames={{
                 disabled: "opacity-30 cursor-not-allowed",
               }}
-              className="mx-auto max-w-full"
+              className="mx-auto max-w-full text-slate-950"
             />
           </div>
           <p className="text-xs font-semibold text-slate-600">
@@ -799,8 +807,8 @@ export function FacilityPartyBookingForm({
           </p>
           <p className="text-xs text-slate-500">
             {partyKind === "public"
-              ? "Saturday daytime shared slots only."
-              : "Private slots are available after public closing, Sunday from 10:30 AM, and all day Monday–Tuesday."}
+              ? "Public play shared slots only."
+              : "Private slots are available after public closing, Sunday from 10:30 AM, all day Monday–Tuesday, and Saturday evenings."}
           </p>
         </section>
 
@@ -812,7 +820,7 @@ export function FacilityPartyBookingForm({
             </p>
             {partyKind === "public" && dateOk && (
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Saturday daytime shared party slots
+                Public play party slots
               </span>
             )}
             {partyKind === "private" && dateOk && (
@@ -829,7 +837,7 @@ export function FacilityPartyBookingForm({
             <p className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
               {partyKind === "public"
                 ? "Choose a date to see available time slots."
-                : "Choose a Friday, Saturday, or Sunday for evening or Sunday visits."}
+                : "Private parties are available all week. Try another date to see open times."}
             </p>
           )}
           {date && dateOk && availabilityLoadError && (
