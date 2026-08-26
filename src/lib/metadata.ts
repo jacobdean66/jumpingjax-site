@@ -269,6 +269,73 @@ export const generateBusinessHoursSchema = () => {
   };
 };
 
+export const generateServiceSchema = (
+  name: string,
+  description: string,
+  path: string,
+  serviceType: string,
+) => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": `${absoluteSeoUrl(path)}#service`,
+    name,
+    description,
+    serviceType,
+    provider: {
+      "@id": `${getSeoBaseUrl()}/#business`,
+      name: business.name,
+    },
+    areaServed: location.serviceAreas.map((name) => ({
+      "@type": "City",
+      name: `${name}, SC`,
+    })),
+    url: absoluteSeoUrl(path),
+  };
+};
+
+export const generateBreadcrumbSchema = (
+  items: { name: string; path: string }[],
+) => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: absoluteSeoUrl(item.path),
+    })),
+  };
+};
+
+export const generateItemListSchema = (
+  name: string,
+  description: string,
+  path: string,
+  items: { name: string; path: string; image?: string }[],
+) => {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${absoluteSeoUrl(path)}#itemlist`,
+    name,
+    description,
+    url: absoluteSeoUrl(path),
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: absoluteSeoUrl(item.path),
+      item: {
+        "@type": item.image ? "Product" : "Thing",
+        name: item.name,
+        url: absoluteSeoUrl(item.path),
+        image: item.image ? getOgImageUrl(item.image) : undefined,
+      },
+    })),
+  };
+};
+
 /**
  * Generate JSON-LD schema for a rental product
  */
@@ -276,13 +343,18 @@ export const generateProductSchema = (
   productName: string,
   description: string,
   price?: number,
-  image?: string
+  image?: string,
+  path?: string,
+  category?: string,
 ) => {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": path ? `${absoluteSeoUrl(path)}#product` : undefined,
     name: productName,
     description,
+    category,
+    url: path ? absoluteSeoUrl(path) : undefined,
     image: image ? getOgImageUrl(image) : undefined,
     offers: price
       ? {
@@ -290,6 +362,11 @@ export const generateProductSchema = (
           priceCurrency: "USD",
           price: price.toString(),
           availability: "https://schema.org/InStock",
+          url: path ? absoluteSeoUrl(path) : undefined,
+          seller: {
+            "@id": `${getSeoBaseUrl()}/#business`,
+            name: business.name,
+          },
         }
       : undefined,
     brand: {
@@ -302,7 +379,7 @@ export const generateProductSchema = (
 /**
  * Inject JSON-LD script into page head
  */
-export const createJsonLdScript = (data: Record<string, unknown>) => {
+export const createJsonLdScript = (data: unknown) => {
   return {
     __html: JSON.stringify(data),
   };

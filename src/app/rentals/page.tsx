@@ -9,7 +9,12 @@ import {
   DEFAULT_SITE_SETTINGS,
   loadSiteSettings,
 } from "@/lib/admin/site-settings";
-import { generateRentalsMetadata } from "@/lib/metadata";
+import {
+  createJsonLdScript,
+  generateItemListSchema,
+  generateRentalsMetadata,
+  generateServiceSchema,
+} from "@/lib/metadata";
 
 const CATEGORY_CARD_IMAGE_SIZES =
   "(max-width: 640px) 94vw, (max-width: 1024px) 46vw, 360px";
@@ -27,6 +32,27 @@ export default async function RentalsPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-pink-50 px-4 pb-24 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={createJsonLdScript([
+          generateServiceSchema(
+            "Inflatable and Party Rentals in Greenwood, SC",
+            "Bounce house, water slide, obstacle course, foam party, and party equipment rentals from Jumping Jax.",
+            "/rentals",
+            "Inflatable rental service",
+          ),
+          generateItemListSchema(
+            "Jumping Jax rental categories",
+            "Rental categories available from Jumping Jax in Greenwood, SC.",
+            "/rentals",
+            CATEGORY_BROWSE_ORDER.map((id) => ({
+              name: CATEGORY_COPY[id].title,
+              path: `/rentals/${id}`,
+              image: categoryPreviewRental(id)?.imageSrc,
+            })),
+          ),
+        ])}
+      />
       <section className="mx-auto max-w-6xl">
         <header className="mx-auto max-w-3xl rounded-3xl border-2 border-yellow-200 bg-yellow-100 px-5 py-10 text-center shadow-[0_18px_48px_rgba(236,72,153,0.16)] sm:px-8">
           <span className="inline-flex rounded-full border border-pink-200 bg-pink-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-pink-800">

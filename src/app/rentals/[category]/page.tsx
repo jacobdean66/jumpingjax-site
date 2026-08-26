@@ -9,6 +9,9 @@ import {
 import { RentalCard } from "@/components/rentals/RentalCard";
 import { loadWebsiteRentalsInCategory } from "@/lib/rentals/public-catalog";
 import {
+  createJsonLdScript,
+  generateBreadcrumbSchema,
+  generateItemListSchema,
   generateMetadata as buildPageMetadata,
   getCanonicalUrl,
 } from "@/lib/metadata";
@@ -43,9 +46,30 @@ export default async function RentalCategoryPage({ params }: Props) {
 
   const copy = CATEGORY_COPY[category];
   const rentals = await loadWebsiteRentalsInCategory(category);
+  const categoryPath = `/rentals/${category}`;
 
   return (
     <main className="min-h-screen scroll-smooth overflow-x-hidden bg-cyan-50 px-4 pb-24 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={createJsonLdScript([
+          generateBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Rentals", path: "/rentals" },
+            { name: copy.title, path: categoryPath },
+          ]),
+          generateItemListSchema(
+            `${copy.title} rentals in Greenwood, SC`,
+            copy.blurb,
+            categoryPath,
+            rentals.map((rental) => ({
+              name: rental.title,
+              path: `/rentals/${rental.categoryId}/${rental.slug}`,
+              image: rental.imageSrc,
+            })),
+          ),
+        ])}
+      />
       <section className="mx-auto max-w-6xl">
         <nav
           className="text-sm font-semibold text-slate-500"
