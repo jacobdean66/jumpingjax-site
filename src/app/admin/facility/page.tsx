@@ -18,6 +18,7 @@ import {
   StatTile,
   StatusBadge,
 } from "../_components";
+import { facilityBookingCanMutate } from "@/lib/facility-parties/schedule-mutation";
 import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
@@ -79,9 +80,20 @@ function partyTimeLabel(booking: AdminFacilityBooking): string {
     .join(" - ") || "Time not set";
 }
 
+function canRetryCancelledCalendarRemoval(booking: AdminFacilityBooking): boolean {
+  return (
+    (booking.status === "cancelled" || booking.status === "canceled") &&
+    Boolean(booking.googleCalendarEventId || booking.googleCalendarSecondaryEventId)
+  );
+}
+
 function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const partyTime = partyTimeLabel(booking);
   const kidCount = kidCountForBooking(booking);
+  const canMutate = facilityBookingCanMutate({
+    status: booking.status,
+    startTimeIso: booking.startTime,
+  });
   return (
     <article
       className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
@@ -101,7 +113,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
-          {(booking.status === "pending" || booking.status === "confirmed") && (
+          {canMutate && (
             <>
               <FacilityEditButton booking={booking} />
               <Link
@@ -151,9 +163,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               kidCount={kidCount}
             />
           )}
-          {(booking.status === "cancelled" || booking.status === "canceled") &&
-            (booking.googleCalendarEventId ||
-              booking.googleCalendarSecondaryEventId) && (
+          {canRetryCancelledCalendarRemoval(booking) && (
               <FacilityCancellationButton
                 endpoint={actionHref(booking.id, "cancel")}
                 customerName={booking.customerName}
