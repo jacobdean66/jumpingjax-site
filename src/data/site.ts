@@ -123,13 +123,18 @@ export const businessHours: BusinessHours[] = [
 export const socialLinks: SocialLink[] = [
   {
     name: "Facebook",
-    url: "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+    url: "https://facebook.com/jumpingjax",
     icon: "facebook",
   },
   {
     name: "Instagram",
-    url: "https://www.instagram.com/jumping.jax.llc/",
+    url: "https://instagram.com/jumpingjax",
     icon: "instagram",
+  },
+  {
+    name: "YouTube",
+    url: "https://youtube.com/jumpingjax",
+    icon: "youtube",
   },
 ];
 
