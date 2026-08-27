@@ -7,7 +7,9 @@ import {
   AdminShell,
 } from "@/app/admin/_components";
 import { PrintButton } from "@/app/admin/PrintButton";
-import { FacilityInvitationPreview } from "@/components/facility-parties/FacilityInvitationPreview";
+import { InvitationSheet } from "@/components/facility-parties/InvitationSheet";
+import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
+import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
   buildFacilityWaiverInvitationUrl,
@@ -16,8 +18,9 @@ import {
   formatInvitationDeliveryPreferences,
   normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
-  resolveInvitationTheme,
 } from "@/lib/facility-parties/invitations";
+import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
+import { resolveInvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -43,6 +46,9 @@ type FacilityInvitationRow = {
   party_theme: string | null;
   invitation_delivery_preference: string | null;
   invitation_template_id: string | null;
+  invitation: unknown;
+  balloon_colors: string | null;
+  table_cloth_colors: string | null;
 };
 
 function clean(value: string | null | undefined): string {
@@ -86,7 +92,7 @@ export default async function FacilityInvitationsPage({
   const { data, error } = await supabase
     .from("facility_bookings")
     .select(
-      "id, status, customer_name, email, phone, readable_date, readable_time, party_label, parent_name, child_name, child_age, party_theme, invitation_delivery_preference, invitation_template_id",
+      "id, status, customer_name, email, phone, readable_date, readable_time, party_label, parent_name, child_name, child_age, party_theme, invitation_delivery_preference, invitation_template_id, invitation, balloon_colors, table_cloth_colors",
     )
     .eq("id", resolvedParams.id)
     .maybeSingle<FacilityInvitationRow>();
@@ -131,6 +137,19 @@ export default async function FacilityInvitationsPage({
     date: clean(data.readable_date),
     waiverUrl,
   });
+  const storedSnapshot = resolveInvitationSnapshot({
+    partyTheme: data.party_theme,
+    stored: data.invitation,
+    colorHint: `${clean(data.balloon_colors)} ${clean(data.table_cloth_colors)}`,
+  });
+  const agentResult = runInvitationAgent({
+    action: layout === "single" ? "view-single" : "view-sheet",
+    sourceText: storedSnapshot.sourceText,
+    colorHint: storedSnapshot.colorHint,
+    optionIndex: storedSnapshot.optionIndex,
+    alternatesUsed: storedSnapshot.alternatesUsed,
+    bookingId: data.id,
+  });
 
   return (
     <AdminShell>
@@ -139,26 +158,45 @@ export default async function FacilityInvitationsPage({
         title={`${clean(data.child_name) || "Birthday"} invitations`}
       >
         <div className="flex flex-wrap gap-2">
-          <PrintButton label="Print invitations" />
-          <Link
+          <PrintButton
+            label="Print invitations"
+            invitation={{
+              sourceText: clean(data.party_theme),
+              bookingId: data.id,
+            }}
+          />
+          <InvitationAgentLink
             href={singleHref}
+            invitationAction="view-single"
+            invitationTheme={agentResult.snapshot.sourceText}
+            bookingId={data.id}
+            optionIndex={agentResult.snapshot.optionIndex}
+            alternatesUsed={agentResult.snapshot.alternatesUsed}
             className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
           >
             Single invite
-          </Link>
-          <Link
+          </InvitationAgentLink>
+          <InvitationAgentLink
             href={sheetHref}
+            invitationAction="view-sheet"
+            invitationTheme={agentResult.snapshot.sourceText}
+            bookingId={data.id}
+            optionIndex={agentResult.snapshot.optionIndex}
+            alternatesUsed={agentResult.snapshot.alternatesUsed}
             className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
           >
             4-up sheet
-          </Link>
+          </InvitationAgentLink>
           {emailHref ? (
-            <Link
+            <InvitationAgentLink
               href={emailHref}
+              invitationAction="email"
+              invitationTheme={agentResult.snapshot.sourceText}
+              bookingId={data.id}
               className="rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-white hover:bg-sky-600"
             >
               Email link
-            </Link>
+            </InvitationAgentLink>
           ) : null}
           <Link
             href={`/admin/facility/${encodeURIComponent(data.id)}/guest-list`}
@@ -179,8 +217,8 @@ export default async function FacilityInvitationsPage({
       <style>{`
         @media print {
           @page {
-            size: letter landscape;
-            margin: 0.35in;
+            size: letter portrait;
+            margin: 0;
           }
         }
       `}</style>
@@ -227,29 +265,28 @@ export default async function FacilityInvitationsPage({
         ) : null}
       </section>
 
-      <section
-        className={
-          layout === "single"
-            ? "mx-auto mt-6 max-w-xl print:mt-0"
-            : "mt-6 grid gap-4 md:grid-cols-2 print:mt-0 print:grid-cols-2 print:gap-[0.18in]"
-        }
-      >
-        {(layout === "single" ? [1] : [1, 2, 3, 4]).map((copy) => (
-          <FacilityInvitationPreview
-            key={copy}
-            childName={clean(data.child_name) || "You're invited"}
-            partyTheme={
-              clean(data.party_theme) || resolveInvitationTheme(data.party_theme).label
-            }
-            readableDate={clean(data.readable_date)}
-            readableTime={clean(data.readable_time)}
+      <section className={layout === "single" ? "mx-auto mt-6 max-w-xl print:mt-0" : "mt-6 print:mt-0"}>
+        {layout === "single" ? (
+          <PartyInvitationCard
+            snapshot={agentResult.snapshot}
+            childName={clean(data.child_name) || "Birthday Star"}
+            childAge={clean(data.child_age)}
+            dateLabel={clean(data.readable_date)}
+            timeLabel={clean(data.readable_time)}
             waiverUrl={waiverUrl}
             qrUrl={qrUrl}
-            templateId={templateId}
-            copy={layout === "single" ? undefined : copy}
-            mode={layout === "single" ? "single" : "sheet"}
           />
-        ))}
+        ) : (
+          <InvitationSheet
+            snapshot={agentResult.snapshot}
+            childName={clean(data.child_name) || "Birthday Star"}
+            childAge={clean(data.child_age)}
+            dateLabel={clean(data.readable_date)}
+            timeLabel={clean(data.readable_time)}
+            waiverUrl={waiverUrl}
+            qrUrl={qrUrl}
+          />
+        )}
       </section>
     </AdminShell>
   );

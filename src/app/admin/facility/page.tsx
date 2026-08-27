@@ -20,6 +20,7 @@ import {
 } from "../_components";
 import { facilityBookingCanMutate } from "@/lib/facility-parties/schedule-mutation";
 import { PrintButton } from "../PrintButton";
+import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityCancellationButton } from "./FacilityCancellationButton";
@@ -117,12 +118,15 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           {canMutate && (
             <>
               <FacilityEditButton booking={booking} />
-              <Link
+              <InvitationAgentLink
                 href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`}
+                invitationAction="open"
+                invitationTheme={booking.partyTheme ?? ""}
+                bookingId={booking.id}
                 className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600"
               >
                 Invitations
-              </Link>
+              </InvitationAgentLink>
               <Link
                 href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
                 className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"

@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
+import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
 import { PrintButton } from "@/app/admin/PrintButton";
 import { facilityInvitationSheetPath } from "@/lib/facility-parties/invitations/snapshot";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
+import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,14 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
   const { id } = await params;
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  const agentResult = runInvitationAgent({
+    action: "view-single",
+    sourceText: view.snapshot.sourceText,
+    colorHint: view.snapshot.colorHint,
+    optionIndex: view.snapshot.optionIndex,
+    alternatesUsed: view.snapshot.alternatesUsed,
+    bookingId: view.bookingId,
+  });
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950">
@@ -25,17 +34,30 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
             Jumping Jax invitation
           </p>
           <div className="flex gap-2">
-            <Link
+            <InvitationAgentLink
               href={facilityInvitationSheetPath(view.bookingId)}
+              invitationAction="view-sheet"
+              invitationTheme={agentResult.snapshot.sourceText}
+              bookingId={view.bookingId}
+              optionIndex={agentResult.snapshot.optionIndex}
+              alternatesUsed={agentResult.snapshot.alternatesUsed}
               className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black"
             >
               4-per-page sheet
-            </Link>
-            <PrintButton label="Print invitation" />
+            </InvitationAgentLink>
+            <PrintButton
+              label="Print invitation"
+              invitation={{
+                sourceText: agentResult.snapshot.sourceText,
+                optionIndex: agentResult.snapshot.optionIndex,
+                alternatesUsed: agentResult.snapshot.alternatesUsed,
+                bookingId: view.bookingId,
+              }}
+            />
           </div>
         </div>
         <PartyInvitationCard
-          snapshot={view.snapshot}
+          snapshot={agentResult.snapshot}
           childName={view.childName}
           childAge={view.childAge}
           dateLabel={view.dateLabel}

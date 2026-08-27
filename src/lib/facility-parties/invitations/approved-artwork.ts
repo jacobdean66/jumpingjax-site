@@ -1,6 +1,14 @@
 import { getInvitationLibraryTheme } from "./library/themes";
 
-/** Local library hero for a matched theme. No remote runtime dependency. */
+/** Artwork that Jumping Jax has explicitly approved for invitation use. */
+export const APPROVED_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
+  sonic: "/invitations/approved/sonic/card.png",
+};
+
 export function approvedArtworkSrc(themeId: string): string | null {
-  return getInvitationLibraryTheme(themeId).heroes[0]?.src ?? null;
+  return (
+    APPROVED_INVITATION_ARTWORK[themeId] ??
+    getInvitationLibraryTheme(themeId).heroes[0]?.src ??
+    null
+  );
 }

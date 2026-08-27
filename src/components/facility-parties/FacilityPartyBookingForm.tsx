@@ -61,6 +61,8 @@ import {
   type FacilityAvailabilityRow,
 } from "@/lib/facility-parties/availability-source";
 import { trackLead } from "@/lib/analytics/client";
+import { invokeInvitationAgent } from "@/lib/facility-parties/invitations/agent-client";
+import type { InvitationAgentAction } from "@/lib/facility-parties/invitations/agent";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -173,6 +175,9 @@ export function FacilityPartyBookingForm({
     useState<FacilityInvitationCreationPreference | null>(null);
   const [invitationTemplateId, setInvitationTemplateId] =
     useState<FacilityInvitationTemplateId>("spotlight");
+  const [invitationAgentState, setInvitationAgentState] = useState<
+    "idle" | "working" | "ready" | "error"
+  >("idle");
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
   const [notes, setNotes] = useState("");
   const [balloonsSelected, setBalloonsSelected] = useState(false);
@@ -255,6 +260,33 @@ export function FacilityPartyBookingForm({
         selectedDisposition.endMinutes,
       )
     : "";
+
+  const askInvitationAgent = async (
+    action: InvitationAgentAction,
+    selection = "",
+  ) => {
+    setInvitationAgentState("working");
+    try {
+      const result = await invokeInvitationAgent({
+        action,
+        sourceText: partyTheme,
+        colorHint: invitationColorHint,
+        optionIndex: invitationSnapshot.optionIndex,
+        alternatesUsed: invitationSnapshot.alternatesUsed,
+        selection,
+      });
+      setInvitationOverride({
+        sourceText: result.snapshot.sourceText,
+        optionIndex: result.snapshot.optionIndex,
+        alternatesUsed: result.snapshot.alternatesUsed,
+      });
+      setInvitationAgentState("ready");
+      return result.snapshot;
+    } catch {
+      setInvitationAgentState("error");
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (!date) {
@@ -1055,7 +1087,7 @@ export function FacilityPartyBookingForm({
                             <button
                               key={preference}
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
                                 setInvitationCreationPreference(preference);
                                 if (preference === "office_generic") {
                                   setInvitationDeliveryPreference(
@@ -1069,6 +1101,10 @@ export function FacilityPartyBookingForm({
                                 }
                                 // Keep a stable default template id for API compatibility.
                                 setInvitationTemplateId("spotlight");
+                                await askInvitationAgent(
+                                  "create",
+                                  preference,
+                                );
                               }}
                               className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition ${
                                 active
@@ -1090,6 +1126,20 @@ export function FacilityPartyBookingForm({
                     ) : null}
                     {invitationCreationPreference === "create" ? (
                       <div className="mt-4 grid gap-4">
+                        <p
+                          className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                            invitationAgentState === "error"
+                              ? "bg-rose-950/60 text-rose-100"
+                              : "bg-emerald-950/45 text-emerald-100"
+                          }`}
+                          aria-live="polite"
+                        >
+                          {invitationAgentState === "working"
+                            ? "Invitation Designer is composing from its three attached libraries…"
+                            : invitationAgentState === "error"
+                              ? "Invitation Designer could not be reached. Please try that invitation button again."
+                              : "Invitation Designer connected · approved artwork, Fluent Emoji, and Kenney CC0 libraries"}
+                        </p>
                         <div className="mx-auto w-full max-w-sm">
                           <PartyInvitationCard
                             snapshot={invitationSnapshot}
@@ -1113,8 +1163,9 @@ export function FacilityPartyBookingForm({
                         <button
                           type="button"
                           disabled={invitationSnapshot.alternatesLocked}
-                          onClick={() => {
-                            const next =
+                          onClick={async () => {
+                            const designed = await askInvitationAgent("alternate");
+                            const next = designed ??
                               advanceInvitationSnapshot(invitationSnapshot);
                             setInvitationOverride({
                               sourceText: next.sourceText,
@@ -1155,11 +1206,15 @@ export function FacilityPartyBookingForm({
                                       name="invitationDeliveryPreference"
                                       value={option.id}
                                       checked={active}
-                                      onChange={() =>
+                                      onChange={() => {
                                         setInvitationDeliveryPreference(
                                           option.id,
-                                        )
-                                      }
+                                        );
+                                        void askInvitationAgent(
+                                          "choose-delivery",
+                                          option.id,
+                                        );
+                                      }}
                                       className="sr-only"
                                       aria-label={`${option.label}. ${option.description}`}
                                     />

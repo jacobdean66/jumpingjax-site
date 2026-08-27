@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
 
 import {
   AdminAuthError,
@@ -74,12 +75,15 @@ export default async function FacilityPartyGuestListPage({
         title={`${clean(data.child_name) || clean(data.customer_name) || "Party"} check-in`}
       >
         <div className="flex flex-wrap gap-2">
-          <Link
+          <InvitationAgentLink
             href={`/admin/facility/${encodeURIComponent(data.id)}/invitations`}
+            invitationAction="open"
+            invitationTheme={clean(data.party_theme)}
+            bookingId={data.id}
             className="rounded-full bg-orange-500 px-4 py-2 text-sm font-black text-white hover:bg-orange-600"
           >
             Invitations
-          </Link>
+          </InvitationAgentLink>
           <Link
             href={`/admin/facility#booking-${encodeURIComponent(data.id)}`}
             className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
