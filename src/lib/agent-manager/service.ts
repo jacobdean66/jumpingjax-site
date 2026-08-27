@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { DeterministicWorker, selectWorker } from "./worker";
+import { configuredDeterministicWorkers, selectWorker } from "./worker";
 import type { AgentDashboard, AgentJob } from "./types";
 
 const SAFE_JOB_TYPES = new Set(["system.health_check"]);
@@ -28,7 +28,7 @@ export async function runOne(workerId: string): Promise<AgentJob | null> {
   if (error) throw new Error(`Unable to claim job: ${error.message}`);
   const job = data as AgentJob | null;
   if (!job) return null;
-  const worker = selectWorker(job, [new DeterministicWorker()]);
+  const worker = selectWorker(job, configuredDeterministicWorkers());
   const result = worker ? await worker.execute(job, AbortSignal.timeout(job.timeout_seconds * 1000)) : { ok: false as const, summary: "No configured worker supports this job type", transient: false };
   const finished = new Date().toISOString();
   const retry = !result.ok && result.transient && job.attempt_count < job.max_attempts;
