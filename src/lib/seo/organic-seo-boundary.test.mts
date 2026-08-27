@@ -30,7 +30,7 @@ test("obsolete water-slide URLs permanently consolidate into the canonical categ
   assert.match(nextConfig, /pages\/water-slide-rentals-in-greenwood-sc/);
   assert.match(nextConfig, /category\/waterslides/);
   assert.match(nextConfig, /destination: "\/rentals\/water-slides"/);
-  assert.match(nextConfig, /permanent: true/);
+  assert.equal(nextConfig.match(/statusCode: 301/g)?.length, 2);
 });
 
 test("primary local keyword clusters have one visible category target", () => {

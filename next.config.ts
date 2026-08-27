@@ -42,12 +42,12 @@ const nextConfig: NextConfig = {
       {
         source: "/pages/water-slide-rentals-in-greenwood-sc",
         destination: "/rentals/water-slides",
-        permanent: true,
+        statusCode: 301,
       },
       {
         source: "/category/waterslides",
         destination: "/rentals/water-slides",
-        permanent: true,
+        statusCode: 301,
       },
     ];
   },
