@@ -70,4 +70,6 @@
 - Integrated current production `origin/main` at `5d78f52` into `feat/permanent-agent-manager` after verifying the feature branch was 26 commits behind and 8 commits ahead.
 - Resolved the only two conflicts by retaining production nominee grouping/synthetic-test exclusion and routing development-only Agent Manager fixtures through the same grouped admin and privacy-safe public projections.
 - Combined-tree validation: 22/22 focused Agent Manager and giveaway grouping tests pass; full TypeScript and focused ESLint pass.
-- Next dependency: push the merge checkpoint, confirm GitHub checks/normal integration path, then inspect live Supabase migration state before any database change.
+- Local merge checkpoint: `4773983` with a clean tree before this state update. Remote `feat/permanent-agent-manager` remains at `7462871`.
+- Owner-only gate: command-line Git cannot persist the browser-authenticated credential in Windows Credential Manager; secure DPAPI and memory-only stores are unavailable in this sandbox; the connected GitHub app returns `403 Resource not accessible by integration` for Contents writes. No plaintext token store was used.
+- Exact resume action: from an authenticated terminal, run `git -C "C:\Users\User\Documents\Codex\2026-08-27\jumpingjax-permanent-agent\work\jumpingjax-site-agent-manager-exact" push origin feat/permanent-agent-manager`, then resume this loop. The next dependency is GitHub checks/normal integration followed by live Supabase migration inspection before any database change.
