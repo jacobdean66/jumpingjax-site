@@ -6,6 +6,7 @@ import {
   getResendFromAddress,
 } from "@/lib/email/resend";
 import { formatPublicChildDisplayName } from "@/lib/giveaway/public-nominee-display";
+import { saveGiveawayNomination } from "@/lib/giveaway/nomination-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -89,7 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServiceRoleClient();
     const row = {
       idempotency_key: idempotencyKey,
       nominator_name: nominatorName,
@@ -99,36 +99,16 @@ export async function POST(request: NextRequest) {
       child_birth_day: birthDay,
       party_choice: partyChoice,
       nomination_reason: reason,
-      permission_acknowledged: true,
+      permission_acknowledged: true as const,
     };
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("giveaway_nominations")
-      .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true })
-      .select("id")
-      .maybeSingle();
-
-    if (insertError) {
-      console.error("[giveaway] nomination save failed", { code: insertError.code });
+    let nominationId: string;
+    try {
+      nominationId = (await saveGiveawayNomination(row)).id;
+    } catch (saveError) {
+      console.error("[giveaway] nomination save failed", saveError instanceof Error ? saveError.message : "Unknown error");
       return NextResponse.json(
         { error: "We could not save the nomination. Please try again." },
-        { status: 503 },
-      );
-    }
-
-    let nominationId = inserted?.id as string | undefined;
-    if (!nominationId) {
-      const { data: existing } = await supabase
-        .from("giveaway_nominations")
-        .select("id")
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-      nominationId = existing?.id as string | undefined;
-    }
-
-    if (!nominationId) {
-      return NextResponse.json(
-        { error: "We could not confirm the nomination. Please try again." },
         { status: 503 },
       );
     }
@@ -202,7 +182,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await supabase
+    await createServiceRoleClient()
       .from("giveaway_nominations")
       .update({
         confirmation_email_sent: confirmationEmailSent,

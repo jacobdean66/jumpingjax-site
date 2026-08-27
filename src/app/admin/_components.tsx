@@ -95,6 +95,7 @@ export function AdminNav({
     | "campaigns"
     | "ad-analytics"
     | "security"
+    | "agents"
     | "open-play"
     | "waiver-export";
 }) {
@@ -150,6 +151,9 @@ export function AdminNav({
           label: "Security",
           href: `/admin/security${query}`,
         }
+      : null,
+    role === "owner"
+      ? { id: "agents" as const, label: "Agents", href: `/admin/agents${query}` }
       : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
     role === "owner"

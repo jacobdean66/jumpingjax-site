@@ -74,6 +74,14 @@ export default async function AdminHomePage({ searchParams }: Props) {
             cta: "Open ad analytics",
             accent: "info" as const,
           },
+          {
+            title: "Agent Manager",
+            eyebrow: "Owner Tools",
+            description: "Monitor durable agents, queued jobs, approvals, failures, and the global emergency stop.",
+            href: "/admin/agents",
+            cta: "Open Agent Manager",
+            accent: "steel" as const,
+          },
         ]
       : []),
     {

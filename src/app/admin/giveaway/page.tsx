@@ -7,6 +7,8 @@ import {
   type NominationSubmission,
 } from "@/lib/giveaway/nomination-groups";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
+import { listFixtureNominations } from "@/lib/giveaway/nomination-store";
 
 export const dynamic = "force-dynamic";
 
@@ -19,29 +21,45 @@ async function loadGroups(): Promise<{
   groups: GiveawayDrawGroup[];
   submissionCount: number;
 }> {
-  const { data, error } = await createServiceRoleClient()
-    .from("giveaway_nominations")
-    .select(
-      "id, child_name, child_birth_month, child_birth_day, party_choice, nomination_reason, nominator_name, nominator_email, created_at",
-    )
-    .eq("permission_acknowledged", true)
-    .order("created_at", { ascending: true });
+  let submissions: NominationSubmission[];
 
-  if (error) throw error;
+  if (isLocalAgentPreviewEnabled()) {
+    submissions = listFixtureNominations().map((row) => ({
+      id: row.id,
+      childName: row.child_name,
+      birthMonth: row.child_birth_month,
+      birthDay: row.child_birth_day,
+      partyChoice: partyLabels[row.party_choice] ?? row.party_choice,
+      reason: row.nomination_reason,
+      nominatorName: row.nominator_name,
+      nominatorEmail: row.nominator_email,
+      createdAt: row.created_at,
+    }));
+  } else {
+    const { data, error } = await createServiceRoleClient()
+      .from("giveaway_nominations")
+      .select(
+        "id, child_name, child_birth_month, child_birth_day, party_choice, nomination_reason, nominator_name, nominator_email, created_at",
+      )
+      .eq("permission_acknowledged", true)
+      .order("created_at", { ascending: true });
 
-  const submissions: NominationSubmission[] = excludeSyntheticNominations(
-    (data ?? []).map((row) => ({
-      id: String(row.id),
-      childName: String(row.child_name),
-      birthMonth: Number(row.child_birth_month),
-      birthDay: Number(row.child_birth_day),
-      partyChoice: partyLabels[String(row.party_choice)] ?? String(row.party_choice),
-      reason: String(row.nomination_reason),
-      nominatorName: String(row.nominator_name),
-      nominatorEmail: String(row.nominator_email),
-      createdAt: String(row.created_at),
-    })),
-  );
+    if (error) throw error;
+
+    submissions = excludeSyntheticNominations(
+      (data ?? []).map((row) => ({
+        id: String(row.id),
+        childName: String(row.child_name),
+        birthMonth: Number(row.child_birth_month),
+        birthDay: Number(row.child_birth_day),
+        partyChoice: partyLabels[String(row.party_choice)] ?? String(row.party_choice),
+        reason: String(row.nomination_reason),
+        nominatorName: String(row.nominator_name),
+        nominatorEmail: String(row.nominator_email),
+        createdAt: String(row.created_at),
+      })),
+    );
+  }
 
   const groups = groupNominationsByChild(submissions).map((group) => ({
     groupKey: group.groupKey,
