@@ -312,15 +312,39 @@ export function FilterForm({
   from,
   to,
   status,
+  singleDay,
 }: {
   token: string;
   from: string;
   to: string;
   status: string;
+  singleDay?: string;
 }) {
+  const supportsSingleDay = singleDay !== undefined;
+
   return (
-    <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+    <form
+      className={`grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 sm:items-end ${
+        supportsSingleDay
+          ? "lg:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+          : "lg:grid-cols-[1fr_1fr_1fr_auto]"
+      }`}
+    >
       <input type="hidden" name="token" value={token} />
+      {supportsSingleDay ? (
+        <label className="text-sm font-bold text-slate-700">
+          Single day
+          <input
+            type="date"
+            name="day"
+            defaultValue={singleDay}
+            className="mt-1 block w-full rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
+          />
+          <span className="mt-1 block text-[11px] font-semibold text-slate-500">
+            Overrides the range when selected
+          </span>
+        </label>
+      ) : null}
       <label className="text-sm font-bold text-slate-700">
         From
         <input

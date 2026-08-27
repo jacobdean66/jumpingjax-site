@@ -26,6 +26,24 @@ test("facility dashboard shows Edit and Cancel only through the shared upcoming 
   assert.match(page, /status=cancelled/);
 });
 
+test("facility dashboard supports a single-day search and per-party pending decisions", () => {
+  const page = source("../../app/admin/facility/page.tsx");
+  const components = source("../../app/admin/_components.tsx");
+
+  assert.match(page, /resolved\?\.day/);
+  assert.match(page, /singleDay\s*\?\s*singleDay/);
+  assert.match(page, /singleDay=\{singleDay\}/);
+  assert.match(components, /name="day"/);
+  assert.match(components, /Overrides the range when selected/);
+  assert.match(page, /Pending approval/);
+  assert.match(page, /label="Approve party"/);
+  assert.match(page, /label="Reject party"/);
+
+  const pendingDecision = page.indexOf('booking.status === "pending"');
+  const mutationGuard = page.indexOf("{canMutate &&");
+  assert.ok(pendingDecision > mutationGuard, "pending decision panel should be independent of the mutation guard");
+});
+
 test("edit form is pre-populated and cancel confirmation names the party", () => {
   const edit = source("../../app/admin/facility/FacilityEditButton.tsx");
   const cancel = source("../../app/admin/facility/FacilityCancellationButton.tsx");

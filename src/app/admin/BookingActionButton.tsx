@@ -8,6 +8,7 @@ type BookingActionButtonProps = {
   endpoint: string;
   label: string;
   tone: "confirm" | "reject";
+  workingLabel?: string;
 };
 
 export function BookingActionButton({
@@ -15,6 +16,7 @@ export function BookingActionButton({
   endpoint,
   label,
   tone,
+  workingLabel,
 }: BookingActionButtonProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -75,7 +77,7 @@ export function BookingActionButton({
         disabled={isWorking}
         className={classes}
       >
-        {isWorking ? `${label}ing...` : label}
+        {isWorking ? (workingLabel ?? `${label}ing...`) : label}
       </button>
       {message && (
         <span className="max-w-40 text-xs font-bold text-slate-600">

@@ -33,6 +33,7 @@ type Props = {
     token?: string;
     from?: string;
     to?: string;
+    day?: string;
     status?: string;
     kind?: string;
   }>;
@@ -128,22 +129,6 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               >
                 Guest list
               </Link>
-              {booking.status === "pending" && (
-                <>
-                  <BookingActionButton
-                    action="confirm"
-                    endpoint={actionHref(booking.id, "confirm")}
-                    label="Confirm"
-                    tone="confirm"
-                  />
-                  <BookingActionButton
-                    action="reject"
-                    endpoint={actionHref(booking.id, "reject")}
-                    label="Reject"
-                    tone="reject"
-                  />
-                </>
-              )}
               <FacilityCancellationButton
                 endpoint={actionHref(booking.id, "cancel")}
                 customerName={booking.customerName}
@@ -199,6 +184,35 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </div>
         )}
       </div>
+
+      {booking.status === "pending" ? (
+        <section className="mt-4 flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <div>
+            <p className="text-sm font-black uppercase tracking-wide text-amber-950">
+              Pending approval
+            </p>
+            <p className="mt-1 text-sm font-semibold text-amber-900">
+              Review the complete party request below, then approve or reject this party.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <BookingActionButton
+              action="confirm"
+              endpoint={actionHref(booking.id, "confirm")}
+              label="Approve party"
+              workingLabel="Approving..."
+              tone="confirm"
+            />
+            <BookingActionButton
+              action="reject"
+              endpoint={actionHref(booking.id, "reject")}
+              label="Reject party"
+              workingLabel="Rejecting..."
+              tone="reject"
+            />
+          </div>
+        </section>
+      ) : null}
 
       <div className="compact-print-columns mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -333,9 +347,18 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   const auth = await verifyAdminAccess(token);
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
-  const from = resolved?.from ? normalizeYmd(resolved.from) : defaultFromYmd();
+  const singleDay = resolved?.day ? normalizeYmd(resolved.day) : "";
+  const from = singleDay
+    ? singleDay
+    : resolved?.from
+      ? normalizeYmd(resolved.from)
+      : defaultFromYmd();
   const to = normalizeYmd(resolved?.to);
-  const effectiveTo = resolved?.to ? to : defaultToYmd(from);
+  const effectiveTo = singleDay
+    ? singleDay
+    : resolved?.to
+      ? to
+      : defaultToYmd(from);
   const status = normalizeStatus(resolved?.status);
   const kind = resolved?.kind === "private" ? "private" : "all";
   const [{ bookings }, allFacility] = await Promise.all([
@@ -354,7 +377,9 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
     kind === "private"
       ? bookings.filter((booking) => booking.partyKind === "private")
       : bookings;
-  const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
+  const baseQuery = singleDay
+    ? `token=${encodeURIComponent(token)}&day=${encodeURIComponent(singleDay)}`
+    : `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
   const privateCount = allFacility.bookings.filter(
     (booking) => booking.partyKind === "private",
   ).length;
@@ -380,11 +405,12 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
         <div className="relative z-10">
         <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
           <FilterForm
-            key={`${from}-${effectiveTo}-${status}-${kind}`}
+            key={`${from}-${effectiveTo}-${singleDay}-${status}-${kind}`}
             token={token}
             from={from}
             to={effectiveTo}
             status={status}
+            singleDay={singleDay}
           />
         </AdminHeader>
         <AdminNav token={token} role={auth.role} active="facility" />
