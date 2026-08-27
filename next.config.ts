@@ -37,6 +37,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/pages/water-slide-rentals-in-greenwood-sc",
+        destination: "/rentals/water-slides",
+        permanent: true,
+      },
+      {
+        source: "/category/waterslides",
+        destination: "/rentals/water-slides",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

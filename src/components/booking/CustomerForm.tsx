@@ -114,8 +114,8 @@ export function CustomerForm({ value, onChange }: Props) {
         Your details
       </h3>
       <p className="mt-2 text-xs text-slate-400">
-        We&apos;ll only use this to follow up on your request (not sent anywhere
-        in this demo).
+        Jumping Jax uses these details to review your rental request, confirm
+        availability, and contact you about delivery and setup.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

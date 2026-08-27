@@ -30,6 +30,7 @@ import { BookingSummary } from "./BookingSummary";
 import { CustomerForm, type CustomerFields } from "./CustomerForm";
 import { DurationSelector } from "./DurationSelector";
 import { StickyReserveBar } from "./StickyReserveBar";
+import { trackLead } from "@/lib/analytics/client";
 
 export type RentalBookingPanelProps = {
   rental_item: string;
@@ -761,6 +762,12 @@ export function RentalBookingPanel({
           : undefined;
 
       if (res.ok && id) {
+        trackLead("rental_request", {
+          transaction_id: id,
+          rental_slug: slug,
+          rental_count: selectedRentalItems.length,
+          value: totalAmount ?? 0,
+        });
         setSubmitEmailsSent(emailsSent);
         writePersistedSubmitSuccess(id, slug);
         setSuccessId(id);

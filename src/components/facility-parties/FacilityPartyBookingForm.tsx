@@ -60,6 +60,7 @@ import {
   mapFacilityAvailabilityRowToBlock,
   type FacilityAvailabilityRow,
 } from "@/lib/facility-parties/availability-source";
+import { trackLead } from "@/lib/analytics/client";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -508,6 +509,11 @@ export function FacilityPartyBookingForm({
         throw new Error("Failed to book");
       }
 
+      trackLead("facility_party_request", {
+        party_kind: request.kind,
+        room_id: request.roomId,
+        value: pricingPreview?.total ?? 0,
+      });
       setBookingSubmitted(true);
     } catch {
       setFormError("Something went wrong. Please try again.");

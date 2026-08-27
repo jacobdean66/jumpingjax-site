@@ -179,11 +179,10 @@ export const generateFacilityPartiesMetadata = (): Metadata => {
     canonicalUrl: getCanonicalUrl("/facility-parties"),
     ogType: "website",
     keywords: [
-      "birthday parties",
-      "corporate events",
-      "facility rental",
-      "party venue",
-      "Greenwood SC",
+      "kids birthday party places Greenwood SC",
+      "indoor birthday party places near me",
+      "birthday party venue Greenwood SC",
+      "indoor playground Greenwood SC",
     ],
   });
 };

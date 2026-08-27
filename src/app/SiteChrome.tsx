@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { trackLead } from "@/lib/analytics/client";
 
 export function SiteChrome() {
   const pathname = usePathname();
@@ -22,7 +23,13 @@ export function SiteChrome() {
       <div className="h-2 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
       <div className="bg-slate-950 px-4 py-2 text-center text-sm font-bold text-white sm:text-base">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-1 sm:flex-row sm:gap-6">
-          <a href="tel:8649331420" className="hover:text-yellow-300">
+          <a
+            href="tel:8649331420"
+            className="hover:text-yellow-300"
+            onClick={() =>
+              trackLead("phone_click", { link_location: "site_header" })
+            }
+          >
             864-933-1420
           </a>
           <a
