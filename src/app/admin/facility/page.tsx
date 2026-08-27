@@ -309,7 +309,7 @@ function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) 
       id={`booking-${booking.id}`}
       className="group min-w-0 overflow-hidden rounded-lg border-2 border-pink-300/90 bg-slate-950/90 text-white shadow-xl shadow-black/40 transition hover:border-pink-200 hover:shadow-pink-200/30 open:col-span-full open:border-pink-200 open:bg-slate-950 open:shadow-2xl"
     >
-      <summary className="flex aspect-square h-full cursor-pointer list-none flex-col justify-between rounded-lg bg-slate-900 p-3 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 group-open:aspect-auto group-open:border group-open:border-pink-200/80 group-open:bg-slate-950 [&::-webkit-details-marker]:hidden">
+      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-slate-900 p-3 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 group-open:aspect-auto group-open:border group-open:border-pink-200/80 group-open:bg-slate-950 [&::-webkit-details-marker]:hidden">
         <div className="flex items-center justify-between gap-1">
           <StatusBadge status={booking.status} />
           <span className="rounded-full border border-pink-200/90 bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-pink-100 group-open:bg-black/50">
