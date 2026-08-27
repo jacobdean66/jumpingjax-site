@@ -1,5 +1,6 @@
 import type { AgentJob } from "./types";
 import { BookingTriageWorker } from "./booking-triage";
+import { WaiverTriageWorker } from "./waiver-triage";
 
 export type WorkerResult = { ok: true; summary: string } | { ok: false; summary: string; transient: boolean };
 
@@ -23,5 +24,5 @@ export function selectWorker(job: AgentJob, workers: AgentWorker[]): AgentWorker
 }
 
 export function configuredDeterministicWorkers(): AgentWorker[] {
-  return [new DeterministicWorker(), new BookingTriageWorker()];
+  return [new DeterministicWorker(), new BookingTriageWorker(), new WaiverTriageWorker()];
 }
