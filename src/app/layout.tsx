@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegistration } from "@/components/PwaRegistration";
 import { SiteChrome } from "./SiteChrome";
+import {
+  createJsonLdScript,
+  generateOrganizationSchema,
+} from "@/lib/metadata";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -89,6 +93,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema())}
+        />
         <script
           async
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
