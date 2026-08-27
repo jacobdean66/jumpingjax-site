@@ -18,7 +18,11 @@ export function BookingTriageClient() {
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch("/api/admin/agents/booking-triage", { method: "POST" });
+      const response = await fetch("/api/admin/agents/booking-triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
       const body = await response.json() as { ok: boolean; result?: Result; error?: string };
       if (!response.ok || !body.result) throw new Error(body.error ?? "Read-only triage failed safely.");
       const result = body.result;
