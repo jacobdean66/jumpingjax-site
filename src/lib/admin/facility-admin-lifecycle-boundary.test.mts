@@ -38,6 +38,8 @@ test("facility dashboard supports a single-day search and per-party pending deci
   assert.match(page, /Pending approval/);
   assert.match(page, /label="Approve party"/);
   assert.match(page, /label="Reject party"/);
+  assert.match(page, /group-open:aspect-auto/);
+  assert.doesNotMatch(page, /aspect-square h-full/);
 
   const pendingDecision = page.indexOf('booking.status === "pending"');
   const mutationGuard = page.indexOf("{canMutate &&");
