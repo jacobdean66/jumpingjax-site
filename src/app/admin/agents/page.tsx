@@ -8,6 +8,7 @@ import { AgentsDashboardClient } from "./AgentsDashboardClient";
 import { TriggerProofClient } from "./TriggerProofClient";
 import { NominationProofClient } from "./NominationProofClient";
 import { BookingTriageClient } from "./BookingTriageClient";
+import { WaiverTriageClient } from "./WaiverTriageClient";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,44 @@ export default async function AgentsPage() {
           </div>
         </div>
         <BookingTriageClient />
+      </section>
+      <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-teal-700">Next safe specialist</p>
+            <h2 className="mt-1 text-2xl font-black">Waiver Agent</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-700">
+              Read-only integrity triage over completed waiver signature and document metadata. No signer or participant details are read.
+            </p>
+          </div>
+          <span className="rounded-full bg-teal-800 px-3 py-1 text-xs font-black text-white">READ-ONLY READY</span>
+        </div>
+        <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-4">
+          <div><dt className="font-black text-slate-500">Activation</dt><dd className="font-semibold">OWNER-INITIATED ONLY</dd></div>
+          <div><dt className="font-black text-slate-500">First job</dt><dd className="font-semibold">waiver.submission.triage</dd></div>
+          <div><dt className="font-black text-slate-500">Handler</dt><dd className="font-semibold">Deterministic TypeScript</dd></div>
+          <div><dt className="font-black text-slate-500">AI / wake mode</dt><dd className="font-semibold">0 calls · Event-driven only</dd></div>
+        </dl>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl bg-white p-4">
+            <h3 className="text-sm font-black">Prepared first checkpoint</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-slate-700">
+              <li>Review only submission IDs, state, and signature/document relationship metadata</li>
+              <li>Flag missing or incomplete signature/document evidence with hashed references</li>
+              <li>Atomically deduplicate every owner-facing triage job</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-sm font-black text-amber-950">Blocked until a later owner-approved checkpoint</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-amber-950">
+              <li>Void, alter, delete, or regenerate a waiver or document</li>
+              <li>Read signer, participant, signature-image, or contact content</li>
+              <li>Send customer or staff messages</li>
+              <li>Enable credentials, paid services, or production schema changes</li>
+            </ul>
+          </div>
+        </div>
+        <WaiverTriageClient />
       </section>
       <TriggerProofClient />
       <NominationProofClient />
