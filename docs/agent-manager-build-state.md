@@ -56,3 +56,11 @@
 - Safety: no mailbox connection, Resend webhook creation, DNS/MX change, database migration, Trigger production deployment, Vercel deployment, paid plan, or production data mutation was performed.
 - DEV proof gate: complete. CLI authorization was reused to obtain the environment-scoped Development key in-process without printing or persisting it in the repository. Because Windows sandboxing blocks esbuild while it traverses the user-profile root, the proof worker used a disposable shallow checkout plus a substituted drive; no source change was required. The verified local result is available at `http://localhost:3018/admin/agents` while the proof processes remain running.
 - Remaining production owner gates: approve/apply `20260820120000_create_agent_manager.sql`; configure app/Trigger environment secrets and HTTPS callback URL; create a Resend inbound address and signed `email.received` webhook in a non-production environment; validate a controlled test email; then separately approve production deployment and `NOMINATION_AGENT_INBOUND_ENABLED=1`.
+
+## Next specialist framework checkpoint (2026-08-27)
+
+- Recommendation: Booking Agent is next because the app already records durable booking integration workflow outcomes and operational failures. Its first checkpoint is limited to deterministic, read-only triage; it does not need AI or a new external provider.
+- Prepared: typed `booking.workflow.triage` readiness contract and owner-visible `/admin/agents` plan showing the existing data boundary, redacted output target, event-driven wake mode, dedupe identity, and zero normal AI calls.
+- Fail-closed scope: the Booking Agent is explicitly `NOT ACTIVATED`. Confirmation, rejection, edits, cancellation, customer/owner messages, calendar/payment/booking writes, production enablement, credentials, migrations, and paid services remain blocked for later owner-approved checkpoints.
+- Nomination evidence remains the live Step 2 proof: source event `jj-fixture-1787449053248` deduplicated to run `run_06g2oh0liv197hdge0hn798g01`, stored `Avery J.`, used zero AI calls, survived reload, and appeared in both existing nominee views.
+- Validation: 17/17 focused Agent Manager tests pass; TypeScript and focused ESLint pass. No live Booking Agent run was dispatched because this checkpoint intentionally prepares visibility and boundaries only.

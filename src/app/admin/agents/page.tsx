@@ -1,5 +1,6 @@
 import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
+import { getNextSpecialistReadiness } from "@/lib/agent-manager/specialist-readiness";
 import { loadDashboard } from "@/lib/agent-manager/service";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
@@ -15,6 +16,7 @@ export default async function AgentsPage() {
 
   let dashboard = null;
   const nominationReadiness = getNominationAgentReadiness();
+  const nextSpecialist = getNextSpecialistReadiness();
   try {
     dashboard = await loadDashboard();
   } catch {
@@ -57,6 +59,40 @@ export default async function AgentsPage() {
             Missing configuration: {nominationReadiness.missing.join(", ")}.
           </p>
         ) : null}
+      </section>
+      <section className="mt-7 rounded-3xl border border-violet-200 bg-violet-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-violet-700">Next safe specialist</p>
+            <h2 className="mt-1 text-2xl font-black">{nextSpecialist.displayName}</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-700">
+              First checkpoint: read-only operational triage over existing durable booking workflow state.
+            </p>
+          </div>
+          <span className="rounded-full bg-violet-800 px-3 py-1 text-xs font-black text-white">
+            {nextSpecialist.status}
+          </span>
+        </div>
+        <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-4">
+          <div><dt className="font-black text-slate-500">Activation</dt><dd className="font-semibold">{nextSpecialist.activation}</dd></div>
+          <div><dt className="font-black text-slate-500">First job</dt><dd className="font-semibold">{nextSpecialist.firstJobType}</dd></div>
+          <div><dt className="font-black text-slate-500">Handler</dt><dd className="font-semibold">{nextSpecialist.handler}</dd></div>
+          <div><dt className="font-black text-slate-500">AI / wake mode</dt><dd className="font-semibold">{nextSpecialist.aiCalls} calls · {nextSpecialist.wakeMode}</dd></div>
+        </dl>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl bg-white p-4">
+            <h3 className="text-sm font-black">Prepared first checkpoint</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-slate-700">
+              {nextSpecialist.firstCheckpoint.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-sm font-black text-amber-950">Blocked until a later owner-approved checkpoint</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-amber-950">
+              {nextSpecialist.blockedActions.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        </div>
       </section>
       <TriggerProofClient />
       <NominationProofClient />
