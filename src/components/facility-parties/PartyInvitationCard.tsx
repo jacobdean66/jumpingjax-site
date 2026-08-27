@@ -48,8 +48,8 @@ export function PartyInvitationCard({
     ? `${snapshot.sourceText} celebration`
     : `${composed.themeLabel} celebration`;
   const textSize = compact
-    ? "text-[clamp(11px,1.05vw,14px)]"
-    : "text-sm sm:text-base";
+    ? "text-[clamp(13px,1.25vw,17px)]"
+    : "text-base sm:text-lg";
 
   return (
     <article
@@ -78,6 +78,16 @@ export function PartyInvitationCard({
           backgroundSize: "42px 42px, 64px 64px",
         }}
       />
+      <div
+        data-invitation-brand="jumping-jax"
+        className="absolute left-[4%] top-[4%] z-20 w-[30%] rounded-xl bg-white/90 px-[2.5%] py-[1.5%] shadow-lg backdrop-blur-sm"
+      >
+        <img
+          src="/logo.png"
+          alt="Jumping Jax Inflatable Rentals & Parties"
+          className="h-auto w-full object-contain"
+        />
+      </div>
       <DecorativeArt
         hero={composed.hero}
         decorations={composed.decorations}
@@ -85,9 +95,9 @@ export function PartyInvitationCard({
         layout={layout}
       />
 
-      <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-[6%] pb-[5%] pt-[18%] text-white">
+      <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/85 to-transparent px-[6%] pb-[5%] pt-[20%] text-white">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[clamp(8px,0.8vw,11px)] font-black uppercase tracking-[0.2em] text-white/80">
+          <p className="text-[clamp(10px,0.95vw,13px)] font-black uppercase tracking-[0.18em] text-white/90">
             You&apos;re invited
           </p>
           {pickupReady ? (
@@ -99,17 +109,17 @@ export function PartyInvitationCard({
         <h2
           className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${
             compact
-              ? "text-[clamp(17px,2vw,25px)]"
-              : "text-3xl sm:text-4xl"
+              ? "text-[clamp(22px,2.45vw,32px)]"
+              : "text-4xl sm:text-5xl"
           }`}
         >
           {headline}
         </h2>
-        <p className={`mt-1 font-bold text-white/90 ${textSize}`}>
+        <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
           {celebrationLine}
         </p>
         <div className="mt-[3%] grid grid-cols-[1fr_auto] items-end gap-3">
-          <div className={`font-semibold leading-snug text-white/95 ${textSize}`}>
+          <div className={`font-semibold leading-[1.25] text-white ${textSize}`}>
             <p className="font-black">{dateLabel || "Date coming soon"}</p>
             <p>{timeLabel || "Time coming soon"}</p>
             <p className="mt-1 text-white/80">

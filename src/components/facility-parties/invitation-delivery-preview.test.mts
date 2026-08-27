@@ -48,12 +48,15 @@ test("all three delivery option previews render distinct modes", () => {
   assert.equal(countMatches(printHtml, "data-invite-instance"), 4);
   assert.match(printHtml, /data-print-preview="readable"/);
   assert.match(printHtml, /data-sheet-readable="true"/);
+  assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 4);
+  assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
   assert.match(printHtml, /Milo/);
   assert.match(printHtml, /Letter/);
   assert.match(printHtml, /Selected/);
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
   assert.match(emailHtml, /data-invite-count="1"/);
+  assert.equal(countMatches(emailHtml, 'data-invitation-brand="jumping-jax"'), 1);
   assert.equal(countMatches(emailHtml, "data-invite-instance"), 1);
   assert.match(emailHtml, /Milo/);
   assert.match(emailHtml, /Friday, Oct 3/);
@@ -64,6 +67,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(pickupHtml, /Print-ready/);
   assert.match(pickupHtml, /Receive in person/);
   assert.match(pickupHtml, /data-invite-count="1"/);
+  assert.equal(countMatches(pickupHtml, 'data-invitation-brand="jumping-jax"'), 1);
 });
 
 test("selecting a preference surfaces selected state without changing snapshot fields", () => {
@@ -87,5 +91,7 @@ test("printable sheet output stays 4-up with the same invitation renderer", () =
   assert.match(sheetHtml, /data-print-layout="letter-4up"/);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
   assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 4);
+  assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 4);
   assert.match(sheetHtml, /Milo/);
 });
