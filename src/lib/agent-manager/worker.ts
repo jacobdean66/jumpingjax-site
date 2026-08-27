@@ -1,4 +1,5 @@
 import type { AgentJob } from "./types";
+import { BookingTriageWorker } from "./booking-triage";
 
 export type WorkerResult = { ok: true; summary: string } | { ok: false; summary: string; transient: boolean };
 
@@ -19,4 +20,8 @@ export class DeterministicWorker implements AgentWorker {
 
 export function selectWorker(job: AgentJob, workers: AgentWorker[]): AgentWorker | null {
   return workers.find((worker) => worker.supports(job.job_type)) ?? null;
+}
+
+export function configuredDeterministicWorkers(): AgentWorker[] {
+  return [new DeterministicWorker(), new BookingTriageWorker()];
 }

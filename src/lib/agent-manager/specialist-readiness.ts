@@ -1,8 +1,8 @@
 export type SpecialistReadiness = {
   agentKey: "booking";
   displayName: "Booking Agent";
-  status: "FRAMEWORK READY";
-  activation: "NOT ACTIVATED";
+  status: "READ-ONLY READY";
+  activation: "OWNER-INITIATED ONLY";
   firstJobType: "booking.workflow.triage";
   handler: "Deterministic TypeScript";
   aiCalls: 0;
@@ -15,8 +15,8 @@ export type SpecialistReadiness = {
 const BOOKING_AGENT_READINESS: SpecialistReadiness = {
   agentKey: "booking",
   displayName: "Booking Agent",
-  status: "FRAMEWORK READY",
-  activation: "NOT ACTIVATED",
+  status: "READ-ONLY READY",
+  activation: "OWNER-INITIATED ONLY",
   firstJobType: "booking.workflow.triage",
   handler: "Deterministic TypeScript",
   aiCalls: 0,

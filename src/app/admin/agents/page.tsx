@@ -7,6 +7,7 @@ import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_component
 import { AgentsDashboardClient } from "./AgentsDashboardClient";
 import { TriggerProofClient } from "./TriggerProofClient";
 import { NominationProofClient } from "./NominationProofClient";
+import { BookingTriageClient } from "./BookingTriageClient";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,7 @@ export default async function AgentsPage() {
             </ul>
           </div>
         </div>
+        <BookingTriageClient />
       </section>
       <TriggerProofClient />
       <NominationProofClient />

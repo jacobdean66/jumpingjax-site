@@ -8,8 +8,8 @@ test("Booking Agent is prepared as deterministic read-only triage", () => {
   const readiness = getNextSpecialistReadiness();
 
   assert.equal(readiness.agentKey, "booking");
-  assert.equal(readiness.status, "FRAMEWORK READY");
-  assert.equal(readiness.activation, "NOT ACTIVATED");
+  assert.equal(readiness.status, "READ-ONLY READY");
+  assert.equal(readiness.activation, "OWNER-INITIATED ONLY");
   assert.equal(readiness.firstJobType, "booking.workflow.triage");
   assert.equal(readiness.handler, "Deterministic TypeScript");
   assert.equal(readiness.aiCalls, 0);
