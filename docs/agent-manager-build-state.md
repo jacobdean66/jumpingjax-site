@@ -100,3 +100,12 @@
 - Owner-initiated scan is capped at 10 triage jobs, honors pause/emergency-stop controls, identifies failed or operator-required pending steps, deduplicates atomically by booking kind/ID/step/outcome/workflow update, and emits a hashed booking reference in summaries instead of the source booking ID.
 - No booking, calendar, payment, message, or customer record mutation is present. Normal AI calls are 0. Production activation awaits focused validation, review, PR checks, merge approval, and a safe authenticated smoke test.
 - PR #92 merged as `654dadd`; Vercel production deployment `3ivSpem5YbS3FQi18DDu6ADVavQW` reached Ready. The first authenticated smoke click failed closed before any job or source-data access because the client omitted the JSON content type required by `validateOwnerPost`; a focused client-header regression fix is the next checkpoint.
+- PR #93 merged the guarded-request fix to `main` as `817d8f8`; the merge commit's Vercel status check completed successfully and the live owner-authenticated dashboard served the corrected client.
+- Production read-only smoke proof reviewed 10 workflows, identified 10 failed operational steps, created 10 bounded `booking.workflow.triage` jobs, and invoked AI 0 times. After reload, all 10 jobs persisted as attempt 1/3 successes with hashed rental/facility references only, and Booking Agent showed a production last-success timestamp.
+- Immediate replay reviewed the same 10 workflows, created 0 new jobs, and reported 10 atomic deduplications with AI calls 0. No booking, calendar, payment, message, or customer record was mutated.
+
+## Waiver Agent read-only triage checkpoint (2026-08-27)
+
+- Began the next dependency-ordered specialist as owner-initiated deterministic TypeScript. The bounded scan reads only completed waiver IDs, status/created timestamps, and signature/document relationship metadata; signer, participant, contact, signature-image, and storage-path content are excluded.
+- Prepared `waiver.submission.triage` jobs for missing signature/document evidence or incomplete generated-document metadata, capped at 10 jobs per scan, with hashed references, atomic idempotency, pause/emergency-stop enforcement, bounded retries, and AI calls 0.
+- All waiver, document, participant, notification, credential, paid-service, and schema mutations remain blocked. Validation passes: 28/28 focused Agent Manager tests, full TypeScript, and focused ESLint. Production activation awaits publication, review, merge, deployment, and a safe owner-authenticated smoke proof.
