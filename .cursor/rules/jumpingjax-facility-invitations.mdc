@@ -6,10 +6,10 @@ alwaysApply: false
 
 # Facility party invitations
 
-Birthday invitation themes are customer-entered text and should be interpreted as common kids TV/game/movie/team/character themes using fuzzy matching. When Jumping Jax has owner/license permission, use real character artwork for recognized theme IDs. Inspired/generic motifs are only the fallback when no approved character asset exists yet.
+Birthday invitation themes are customer-entered text and should be interpreted using fuzzy matching against the curated local invitation library in `public/invitation-library/`. Compose invitations from those local assets. Do not generate a full invitation picture from scratch and do not call paid image APIs.
 
-- Keep aliases and theme IDs in `src/lib/facility-parties/invitations/theme-catalog.ts` so they persist in the repo.
+- Keep aliases and theme IDs in `src/lib/facility-parties/invitations/theme-catalog.ts` and library manifests so they persist in the repo.
 - Do not require a strict dropdown for party theme.
-- Do not invent unlicensed characters for themes we do not have rights to. For catalogued themes where permission exists (including Sonic), use real character assets from `public/invitations/approved/{themeId}/` registered in `approved-artwork.ts`. Inspired/generic motifs are only the fallback when no approved asset is registered.
+- Do not reproduce Disney, Marvel, Bluey, Paw Patrol, Pokémon, Mario, Sonic, or other protected characters, costumes, logos, names, or distinctive artwork. Map branded requests to generic library themes only.
 - The matched theme must drive the booking-form preview, saved invitation snapshot, admin print view, guest share view, and 4-per-page sheet.
-- Customers may type a new theme to rematch (this resets the alternate counter) or load up to 3 other same-family invitation styles. Persist the chosen option index/variant; do not re-randomize later.
+- Customers may type a new theme to rematch (this resets the alternate counter) or load up to 3 other layouts/heroes/palettes from the **same** matched theme. Persist the chosen option index/variant; do not re-randomize later.

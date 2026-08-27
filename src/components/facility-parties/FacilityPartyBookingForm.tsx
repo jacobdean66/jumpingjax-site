@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -50,15 +49,13 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
+import { InvitationDeliveryPreview } from "@/components/facility-parties/InvitationDeliveryPreview";
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
   advanceInvitationSnapshot,
-  FACILITY_INVITATION_VENUE,
   invitationSnapshotFromChoice,
   remainingInvitationAlternates,
-  type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
-import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import {
   mapFacilityAvailabilityRowToBlock,
   type FacilityAvailabilityRow,
@@ -122,111 +119,6 @@ function dateToYmd(value: Date) {
 
 function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
   return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
-}
-
-function TinyInviteFace({
-  snapshot,
-  childName,
-}: {
-  snapshot: InvitationSnapshot;
-  childName: string;
-}) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-  const label = childName.trim() || "Party";
-
-  if (approvedSrc) {
-    return (
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-white/20 bg-slate-900">
-        <img
-          src={approvedSrc}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-[8px] font-black leading-tight text-white">
-          {label}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid aspect-square place-items-center rounded-lg border border-cyan-400/30 bg-[#0b1a33] px-1 text-center text-[8px] font-black leading-tight text-cyan-100">
-      {label}
-    </div>
-  );
-}
-
-function InvitationDeliverySquarePreview({
-  preference,
-  active,
-  snapshot,
-  childName,
-  childAge,
-  dateLabel,
-  timeLabel,
-}: {
-  preference: FacilityInvitationDeliveryPreference;
-  active: boolean;
-  snapshot: InvitationSnapshot;
-  childName: string;
-  childAge: string;
-  dateLabel: string;
-  timeLabel: string;
-}) {
-  const approvedSrc = approvedArtworkSrc(snapshot.themeId);
-
-  return (
-    <div
-      className={`aspect-square overflow-hidden rounded-2xl border-2 bg-[#071326] p-2 transition ${
-        active
-          ? "border-cyan-300 shadow-[0_0_0_2px_rgba(34,211,238,0.35)]"
-          : "border-white/15"
-      }`}
-    >
-      {preference === "print" ? (
-        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
-          {Array.from({ length: 4 }, (_, index) => (
-            <TinyInviteFace
-              key={index}
-              snapshot={snapshot}
-              childName={childName}
-            />
-          ))}
-        </div>
-      ) : preference === "email" ? (
-        <div className="h-full overflow-hidden rounded-xl">
-          <PartyInvitationCard
-            snapshot={snapshot}
-            childName={childName}
-            childAge={childAge}
-            dateLabel={dateLabel}
-            timeLabel={timeLabel}
-            compact
-          />
-        </div>
-      ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-[#0b1a33] px-3 text-center">
-          {approvedSrc ? (
-            <img
-              src={approvedSrc}
-              alt=""
-              className="h-16 w-16 rounded-xl object-cover opacity-40"
-            />
-          ) : null}
-          <p className="text-xs font-black uppercase tracking-wide text-slate-200">
-            Office pickup
-          </p>
-          <p className="text-[11px] font-semibold leading-snug text-slate-400">
-            Get invitations from the Jumping Jax office — no digital design
-            needed.
-          </p>
-          <p className="text-[10px] font-bold text-slate-500">
-            {FACILITY_INVITATION_VENUE.name}
-          </p>
-        </div>
-      )}
-    </div>
-  );
 }
 
 type FacilityPartyBookingFormProps = {
@@ -331,6 +223,7 @@ export function FacilityPartyBookingForm({
     [slotDispositions, selectedStart],
   );
 
+  const invitationColorHint = `${balloonColors} ${tableClothColors}`.trim();
   const invitationSnapshot = useMemo(() => {
     const trimmed = partyTheme.trim();
     if (
@@ -341,10 +234,11 @@ export function FacilityPartyBookingForm({
         partyTheme,
         invitationOverride.optionIndex,
         invitationOverride.alternatesUsed,
+        invitationColorHint,
       );
     }
-    return invitationSnapshotFromChoice(partyTheme, 0, 0);
-  }, [partyTheme, invitationOverride]);
+    return invitationSnapshotFromChoice(partyTheme, 0, 0, invitationColorHint);
+  }, [partyTheme, invitationOverride, invitationColorHint]);
 
   const invitationDateLabel = selectedDate
     ? new Intl.DateTimeFormat(undefined, {
@@ -636,7 +530,7 @@ export function FacilityPartyBookingForm({
         ref={confirmationRef}
         tabIndex={-1}
         role="status"
-        className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-white p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
+        className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-emerald-300/35 bg-[#071326] p-5 text-left outline-none ring-emerald-200/0 focus:ring-2 sm:mt-14 sm:p-8"
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
           Booking request received
@@ -669,7 +563,7 @@ export function FacilityPartyBookingForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="facility-party-readable mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_18px_48px_rgba(15,23,42,0.12)] sm:mt-14 sm:p-8"
+      className="mx-auto mt-12 w-full max-w-2xl rounded-3xl border border-white/10 bg-[#071326] p-5 text-left shadow-[0_18px_48px_rgba(15,23,42,0.22)] sm:mt-14 sm:p-8"
     >
       <header className="space-y-3">
         <h2 className="text-lg font-black uppercase tracking-wide text-cyan-200 sm:text-xl">
@@ -682,7 +576,7 @@ export function FacilityPartyBookingForm({
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm leading-relaxed text-slate-200">
           <p className="font-semibold text-cyan-100">Scheduling notes</p>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-slate-300">
-            <li>Saturday daytime uses fixed shared party slots in each room.</li>
+            <li>Public play uses fixed shared party slots in each room.</li>
             <li>
               Whole-facility visits are spaced automatically (one group at a
               time).
@@ -737,7 +631,11 @@ export function FacilityPartyBookingForm({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             2 · Room
           </p>
-          {partyKind === "public" ? (
+          {!partyKind ? (
+            <p className="rounded-2xl border border-white/10 bg-[#071326]/40 px-4 py-3 text-sm text-slate-400">
+              Choose a party type first.
+            </p>
+          ) : partyKind === "public" ? (
             <>
               <p className="text-sm text-slate-400">
                 Choose the room that fits your headcount.
@@ -788,13 +686,17 @@ export function FacilityPartyBookingForm({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             3 · Length
           </p>
-          {partyKind === "public" ? (
+          {!partyKind ? (
+            <p className="rounded-2xl border border-white/10 bg-[#071326]/40 px-4 py-3 text-sm text-slate-400">
+              Choose a party type first.
+            </p>
+          ) : partyKind === "public" ? (
             <div className="rounded-2xl border border-white/10 bg-[#071326]/50 px-4 py-4">
               <p className="text-sm font-semibold text-white">
                 About 1.5 hours per daytime slot
               </p>
               <p className="mt-2 text-sm text-slate-400">
-                Saturday windows are preset. The{" "}
+                Public play windows are preset. The{" "}
                 {FACILITY_PARTY_BUFFER_MINUTES}-minute setup buffer between
                 parties is already built in.
               </p>
@@ -896,7 +798,7 @@ export function FacilityPartyBookingForm({
               modifiersClassNames={{
                 disabled: "opacity-30 cursor-not-allowed",
               }}
-              className="mx-auto max-w-full"
+              className="mx-auto max-w-full text-slate-950"
             />
           </div>
           <p className="text-xs font-semibold text-slate-600">
@@ -905,8 +807,8 @@ export function FacilityPartyBookingForm({
           </p>
           <p className="text-xs text-slate-500">
             {partyKind === "public"
-              ? "Saturday daytime shared slots only."
-              : "Private slots are available after public closing, Sunday from 10:30 AM, and all day Monday–Tuesday."}
+              ? "Public play shared slots only."
+              : "Private slots are available after public closing, Sunday from 10:30 AM, all day Monday–Tuesday, and Saturday evenings."}
           </p>
         </section>
 
@@ -918,7 +820,7 @@ export function FacilityPartyBookingForm({
             </p>
             {partyKind === "public" && dateOk && (
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Saturday daytime shared party slots
+                Public play party slots
               </span>
             )}
             {partyKind === "private" && dateOk && (
@@ -935,7 +837,7 @@ export function FacilityPartyBookingForm({
             <p className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
               {partyKind === "public"
                 ? "Choose a date to see available time slots."
-                : "Choose a Friday, Saturday, or Sunday for evening or Sunday visits."}
+                : "Private parties are available all week. Try another date to see open times."}
             </p>
           )}
           {date && dateOk && availabilityLoadError && (
@@ -1228,7 +1130,11 @@ export function FacilityPartyBookingForm({
                           <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
                             Choose how you want invitations
                           </p>
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div
+                            role="radiogroup"
+                            aria-label="Invitation delivery method"
+                            className="grid grid-cols-1 gap-3 md:grid-cols-3"
+                          >
                             {FACILITY_INVITATION_DELIVERY_OPTIONS.map(
                               (option) => {
                                 const active =
@@ -1236,7 +1142,7 @@ export function FacilityPartyBookingForm({
                                 return (
                                   <label
                                     key={option.id}
-                                    className="cursor-pointer"
+                                    className="group relative block min-h-[44px] cursor-pointer rounded-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-300"
                                   >
                                     <input
                                       type="radio"
@@ -1249,8 +1155,9 @@ export function FacilityPartyBookingForm({
                                         )
                                       }
                                       className="sr-only"
+                                      aria-label={`${option.label}. ${option.description}`}
                                     />
-                                    <InvitationDeliverySquarePreview
+                                    <InvitationDeliveryPreview
                                       preference={option.id}
                                       active={active}
                                       snapshot={invitationSnapshot}

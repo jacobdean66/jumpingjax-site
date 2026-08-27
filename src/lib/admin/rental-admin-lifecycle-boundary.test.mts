@@ -77,7 +77,7 @@ test("admin rentals expose edit for pending and approved bookings", () => {
 test("admin facility exposes edit and cancel for upcoming pending and confirmed parties", () => {
   const page = source("../../app/admin/facility/page.tsx");
   assert.match(page, /FacilityEditButton/);
-  assert.match(page, /FacilityCancelButton/);
+  assert.match(page, /FacilityCancellationButton/);
   assert.match(page, /facilityBookingCanMutate/);
   assert.match(
     source("../../app/api/admin/facility/[id]/route.ts"),

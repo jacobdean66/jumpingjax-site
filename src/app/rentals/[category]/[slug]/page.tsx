@@ -16,6 +16,13 @@ import {
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
 import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
+import {
+  createJsonLdScript,
+  generateBreadcrumbSchema,
+  generateMetadata as buildPageMetadata,
+  generateProductSchema,
+  getCanonicalUrl,
+} from "@/lib/metadata";
 
 type Props = { params: Promise<{ category: string; slug: string }> };
 
@@ -35,10 +42,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     (item) => item.categoryId === category && item.slug === slug,
   );
   if (!rental) return { title: "Rental | Jumping Jax" };
-  return {
-    title: `${rental.title} | Jumping Jax`,
-    description: rental.shortDescription,
-  };
+  return buildPageMetadata({
+    title: `${rental.title} Rental in Greenwood, SC`,
+    description: `Rent the ${rental.title} from Jumping Jax for birthdays and events in Greenwood, SC. View details, pricing, and request your date online.`,
+    canonicalUrl: getCanonicalUrl(`/rentals/${category}/${slug}`),
+    ogImage: rental.imageSrc,
+    keywords: [
+      `${rental.title} rental Greenwood SC`,
+      `${CATEGORY_COPY[rental.categoryId].title.toLowerCase()} Greenwood SC`,
+      "inflatable rentals Greenwood SC",
+    ],
+  });
 }
 
 export default async function RentalDetailPage({ params }: Props) {
@@ -55,9 +69,29 @@ export default async function RentalDetailPage({ params }: Props) {
   const availabilityLoadError = null;
 
   const cat = CATEGORY_COPY[rental.categoryId];
+  const detailPath = `/rentals/${rental.categoryId}/${rental.slug}`;
 
   return (
     <main className="min-h-screen scroll-smooth bg-[#071326] px-4 pb-8 pt-8 text-white sm:px-6 sm:pt-10 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={createJsonLdScript([
+          generateBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Rentals", path: "/rentals" },
+            { name: cat.title, path: `/rentals/${rental.categoryId}` },
+            { name: rental.title, path: detailPath },
+          ]),
+          generateProductSchema(
+            rental.title,
+            rental.description,
+            rental.startingPrice,
+            rental.imageSrc,
+            detailPath,
+            cat.title,
+          ),
+        ])}
+      />
       <article className="mx-auto max-w-4xl pb-28 sm:pb-32">
         <nav className="text-sm font-semibold text-slate-400">
           <Link href="/rentals" className="text-cyan-200 hover:text-cyan-100">

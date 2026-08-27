@@ -22,23 +22,23 @@ test("facility dashboard shows Edit and Cancel only through the shared upcoming 
   const page = source("../../app/admin/facility/page.tsx");
   assert.match(page, /facilityBookingCanMutate/);
   assert.match(page, /FacilityEditButton/);
-  assert.match(page, /FacilityCancelButton/);
+  assert.match(page, /FacilityCancellationButton/);
   assert.match(page, /status=cancelled/);
 });
 
 test("edit form is pre-populated and cancel confirmation names the party", () => {
   const edit = source("../../app/admin/facility/FacilityEditButton.tsx");
-  const cancel = source("../../app/admin/facility/FacilityCancelButton.tsx");
-  assert.match(edit, /defaultValue=\{clock\?\.date/);
-  assert.match(edit, /name="bookingDate"/);
-  assert.match(edit, /name="bookingStartTime"/);
+  const cancel = source("../../app/admin/facility/FacilityCancellationButton.tsx");
+  assert.match(edit, /defaultValue=\{booking\.customerName\}/);
+  assert.match(edit, /defaultValue=\{booking\.parentName/);
+  assert.match(edit, /defaultValue=\{booking\.childName/);
   assert.match(edit, /defaultValue=\{booking\.customerName\}/);
   assert.match(edit, /isWorking \? "Saving\.\.\."/);
   assert.match(edit, /max-h-\[calc\(100dvh/);
   assert.match(edit, /router\.refresh\(\)/);
   assert.match(cancel, /Cancel this facility party\?/);
-  assert.match(cancel, /Date and time/);
-  assert.match(cancel, /readableDate/);
+  assert.match(cancel, /Party time/);
+  assert.match(cancel, /partyTime/);
   assert.match(cancel, /Confirm cancellation/);
   assert.match(cancel, /retryCalendarOnly/);
   assert.match(cancel, /"Cancelling\.\.\."|"Retrying\.\.\."/);
@@ -53,21 +53,21 @@ test("cancelled facility bookings can retry calendar removal from the dashboard"
   const page = source("../../app/admin/facility/page.tsx");
   const operations = source("../admin/operations.ts");
   const cancelRoute = source("../../app/api/admin/facility/[id]/cancel/route.ts");
-  assert.match(page, /canRetryCancelledCalendarRemoval/);
   assert.match(page, /retryCalendarOnly/);
+  assert.match(page, /booking\.googleCalendarEventId/);
+  assert.match(page, /booking\.googleCalendarSecondaryEventId/);
   assert.match(operations, /google_calendar_secondary_event_id/);
-  assert.match(operations, /status === "cancelled"/);
+  assert.match(operations, /status: clean\(row\.status\) \?\? "pending"/);
   assert.match(cancelRoute, /already cancelled and Calendar removal was retried successfully/);
 });
 
-test("edit and cancel mutate through atomic RPCs then verify the public availability source", () => {
+test("edit updates details and cancel releases slots through the public availability source", () => {
   const edit = source("../../app/api/admin/facility/[id]/route.ts");
   const cancel = source("../../app/api/admin/facility/[id]/cancel/route.ts");
   const unavailable = source("../../app/api/facility/unavailable/route.ts");
-  assert.match(edit, /reschedule_facility_booking_atomic/);
-  assert.match(edit, /loadPublicFacilityAvailabilityRows/);
-  assert.match(edit, /verifyFacilityReschedule/);
-  assert.match(edit, /planFacilityReschedule/);
+  assert.match(edit, /\.from\("facility_bookings"\)/);
+  assert.match(edit, /\.update\(\{/);
+  assert.match(edit, /\.in\("status", \["pending", "confirmed"\]\)/);
   assert.match(cancel, /cancel_facility_booking_atomic/);
   assert.match(cancel, /loadPublicFacilityAvailabilityRows/);
   assert.match(cancel, /verifyFacilityCancellation/);

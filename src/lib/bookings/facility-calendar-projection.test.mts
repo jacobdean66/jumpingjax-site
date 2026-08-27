@@ -103,3 +103,27 @@ test("secondary-only failure keeps calendar workflow failed until backup succeed
   );
   assert.match(text, /bothDestinationsPresent/);
 });
+
+test("facility cancellation releases slots and exposes cancelled-view repair", () => {
+  const route = source("../../app/api/facility/confirm/route.ts");
+  const page = source("../../app/admin/facility/page.tsx");
+  assert.match(route, /action !== "confirm" && action !== "reject" && action !== "cancel"/);
+  assert.match(route, /updateQuery\.in\("status", \["pending", "confirmed"\]\)/);
+  assert.match(route, /deleteGoogleCalendarDestinations/);
+  assert.match(route, /allowCancel: true/);
+  assert.match(route, /time slot is released/);
+  assert.match(page, /status=cancelled/);
+  assert.match(page, /FacilityCancellationButton/);
+});
+
+test("facility restore checks original slot before returning to pending", () => {
+  const route = source("../../app/api/admin/facility/[id]/restore/route.ts");
+  const migration = source(
+    "../../../supabase/migrations/20260825120000_restore_cancelled_facility_booking_atomic.sql",
+  );
+  assert.match(route, /restore_cancelled_facility_booking_atomic/);
+  assert.match(route, /Facility party restored to pending approval/);
+  assert.match(migration, /f\.status in \('pending', 'confirmed'\)/);
+  assert.match(migration, /'outcome', 'booking_conflict'/);
+  assert.match(migration, /set status = 'pending'/);
+});

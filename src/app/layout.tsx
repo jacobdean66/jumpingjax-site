@@ -2,8 +2,15 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegistration } from "@/components/PwaRegistration";
 import { SiteChrome } from "./SiteChrome";
+import {
+  createJsonLdScript,
+  generateOrganizationSchema,
+} from "@/lib/metadata";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-CRBCN1VRJB";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +37,13 @@ export const metadata: Metadata = {
   },
   description:
     "Jumping Jax offers inflatable rentals, water slides, bounce houses, foam parties, open play, and birthday party rooms in Greenwood, SC.",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
   alternates: {
     canonical: "/",
   },
@@ -55,6 +69,13 @@ export const metadata: Metadata = {
       },
     ],
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Jumping Jax | Inflatable Rentals in Greenwood, SC",
+    description:
+      "Bounce houses, water slides, foam parties, indoor play, and kids' birthday parties in Greenwood, SC.",
+    images: ["/logo.png"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -71,6 +92,25 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema())}
+        />
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        />
+        <script
+          id="google-analytics"
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_MEASUREMENT_ID}');`,
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col overflow-x-hidden bg-[#fff8e8] text-slate-950">
         <PwaRegistration />
         <SiteChrome />

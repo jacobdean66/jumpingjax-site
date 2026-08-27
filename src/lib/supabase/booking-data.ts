@@ -153,7 +153,9 @@ export async function insertPendingBooking(
       rental_item: item.rental_item,
       rental_name: item.rental_name ?? item.rental_item,
     }));
-    const { data, error } = await supabase.rpc("create_rental_booking_atomic", {
+    // Use the versioned RPC so an old SQL snippet cannot silently replace the
+    // production booking implementation again.
+    const { data, error } = await supabase.rpc("create_rental_booking_atomic_v2", {
       p_booking: bookingData,
       p_items: rentalItemRows,
       p_idempotency_key: input.idempotencyKey.trim(),

@@ -73,9 +73,9 @@ export default async function AdminAdAnalyticsPage({
       </AdminHeader>
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
-        Read-only Meta paid-ad performance for every authorized Jumping Jax ad
-        account. Dates use Indiana local calendar days. Totals refresh on each
-        load; nothing is written back to Meta.
+        Meta paid-ad performance for every authorized Jumping Jax ad account.
+        Dates use Indiana local calendar days. Totals refresh on each load;
+        owner-triggered Stop buttons pause individual Meta ads.
       </p>
 
       <div
@@ -101,6 +101,7 @@ export default async function AdminAdAnalyticsPage({
           dashboard.freshness === "misconfigured" ||
           dashboard.connection.hasRequiredScopes === false ||
           dashboard.connection.hasAdsRead === false ||
+          dashboard.connection.hasAdsManagement === false ||
           dashboard.connection.hasBusinessManagement === false ||
           !dashboard.connection.hasConnectedSession) && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -115,9 +116,9 @@ export default async function AdminAdAnalyticsPage({
               </button>
             </form>
             <p className="text-sm font-semibold">
-              Requests read-only <code>ads_read</code> plus{" "}
-              <code>business_management</code> for ad-account discovery. Does
-              not request publishing permissions or <code>ads_management</code>.
+              Requests <code>ads_read</code>, <code>ads_management</code>, and{" "}
+              <code>business_management</code> so owners can view analytics and
+              stop individual ads. Does not request publishing permissions.
             </p>
           </div>
         )}

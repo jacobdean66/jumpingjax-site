@@ -15,9 +15,10 @@ export const SOCIAL_META_PUBLICATION_OAUTH_SCOPES = [
   "business_management",
 ] as const;
 
-/** Read-only Marketing API reporting + Business Manager account discovery. */
+/** Marketing API reporting + owner-triggered ad pause control. */
 export const SOCIAL_META_AD_ANALYTICS_OAUTH_SCOPES = [
   "ads_read",
+  "ads_management",
   "business_management",
 ] as const;
 
@@ -110,7 +111,9 @@ export function intentRequestsAnalyticsScopes(
   scopes: readonly string[],
 ): boolean {
   return (
-    intentRequestsAdsRead(scopes) && intentRequestsBusinessManagement(scopes)
+    intentRequestsAdsRead(scopes) &&
+    scopes.includes("ads_management") &&
+    intentRequestsBusinessManagement(scopes)
   );
 }
 

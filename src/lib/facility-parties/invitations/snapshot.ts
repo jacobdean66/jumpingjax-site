@@ -1,4 +1,3 @@
-import { approvedArtworkSrc } from "./approved-artwork";
 import {
   clampInvitationOptionIndex,
   listInvitationOptions,
@@ -16,6 +15,7 @@ export type InvitationSnapshot = InvitationMatch & {
   optionIndex: number;
   alternatesUsed: number;
   alternatesLocked: boolean;
+  colorHint: string;
 };
 
 export const FACILITY_INVITATION_VENUE = {
@@ -33,6 +33,7 @@ export function invitationSnapshotFromChoice(
   sourceText: string,
   optionIndex: unknown = 0,
   alternatesUsed: unknown = 0,
+  colorHint = "",
 ): InvitationSnapshot {
   const trimmed = sourceText.trim();
   const index = clampInvitationOptionIndex(optionIndex);
@@ -46,11 +47,15 @@ export function invitationSnapshotFromChoice(
     optionIndex: index,
     alternatesUsed: used,
     alternatesLocked: used >= MAX_INVITATION_ALTERNATE_LOADS,
+    colorHint: colorHint.trim(),
   };
 }
 
-export function buildInvitationSnapshot(sourceText: string): InvitationSnapshot {
-  return invitationSnapshotFromChoice(sourceText, 0, 0);
+export function buildInvitationSnapshot(
+  sourceText: string,
+  colorHint = "",
+): InvitationSnapshot {
+  return invitationSnapshotFromChoice(sourceText, 0, 0, colorHint);
 }
 
 export function advanceInvitationSnapshot(
@@ -70,6 +75,7 @@ export function advanceInvitationSnapshot(
     snapshot.sourceText,
     snapshot.optionIndex + 1,
     snapshot.alternatesUsed + 1,
+    snapshot.colorHint,
   );
 }
 
@@ -95,8 +101,10 @@ export function isInvitationSnapshot(value: unknown): value is InvitationSnapsho
 export function resolveInvitationSnapshot(input: {
   partyTheme: string | null | undefined;
   stored?: unknown;
+  colorHint?: string | null;
 }): InvitationSnapshot {
   const source = (input.partyTheme ?? "").trim();
+  const colorHint = (input.colorHint ?? "").trim();
   if (isInvitationSnapshot(input.stored) && input.stored.sourceText === source) {
     const theme = getInvitationTheme(input.stored.themeId);
     const optionIndex = clampInvitationOptionIndex(
@@ -107,25 +115,23 @@ export function resolveInvitationSnapshot(input: {
     );
     return {
       ...input.stored,
+      themeId: theme.id,
       themeLabel: theme.label,
       styleFamily: theme.family,
       artworkSlot: theme.artworkSlot,
-      artworkKind: approvedArtworkSrc(theme.id)
-        ? "approved"
-        : theme.id.startsWith("generic-")
-          ? "generic"
-          : "inspired",
+      artworkKind: "approved",
       artworkVariant: clampInvitationOptionIndex(
-        input.stored.artworkVariant ?? 0,
+        input.stored.artworkVariant ?? optionIndex,
       ),
       optionIndex,
       alternatesUsed,
       alternatesLocked:
         input.stored.alternatesLocked === true ||
         alternatesUsed >= MAX_INVITATION_ALTERNATE_LOADS,
+      colorHint: colorHint || input.stored.colorHint || "",
     };
   }
-  return buildInvitationSnapshot(source);
+  return buildInvitationSnapshot(source, colorHint);
 }
 
 export function invitationThemeForSnapshot(

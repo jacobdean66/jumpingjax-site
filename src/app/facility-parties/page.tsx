@@ -9,8 +9,15 @@ import {
   formatUsd,
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
+import {
+  createJsonLdScript,
+  generateBreadcrumbSchema,
+  generateFacilityPartiesMetadata,
+  generateServiceSchema,
+} from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
+export const metadata = generateFacilityPartiesMetadata();
 
 export default async function FacilityPartiesPage() {
   let settings = DEFAULT_SITE_SETTINGS;
@@ -67,6 +74,21 @@ export default async function FacilityPartiesPage() {
 
   return (
     <main className="min-h-screen bg-lime-100 px-4 pb-16 pt-8 text-slate-950 sm:px-6 sm:pt-10 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={createJsonLdScript([
+          generateBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Facility Parties", path: "/facility-parties" },
+          ]),
+          generateServiceSchema(
+            "Kids' Birthday Party Venue in Greenwood, SC",
+            "Indoor birthday party rooms and private facility party options at Jumping Jax in Greenwood, SC.",
+            "/facility-parties",
+            "Birthday party venue",
+          ),
+        ])}
+      />
       <section className="mx-auto max-w-4xl rounded-3xl border-2 border-pink-200 bg-white px-5 py-10 text-center shadow-[0_18px_48px_rgba(236,72,153,0.14)] sm:px-8">
         <span className="inline-flex rounded-full border border-pink-200 bg-pink-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-pink-800">
           Facility Parties
@@ -76,6 +98,10 @@ export default async function FacilityPartiesPage() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
           {settings.websiteText.facilityPartiesDescription}
+        </p>
+        <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm font-semibold leading-6 text-slate-700 sm:text-base">
+          Reserve an indoor kids&apos; birthday party venue in Greenwood with
+          inflatable play and a dedicated party room.
         </p>
       </section>
 

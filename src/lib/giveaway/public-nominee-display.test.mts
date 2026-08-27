@@ -28,9 +28,10 @@ test("public nominees page never selects private nomination fields", () => {
     "utf8",
   );
   assert.match(page, /robots:\s*\{\s*index:\s*false/);
-  assert.match(page, /select\("id, child_name, party_choice"\)/);
+  assert.match(page, /select\("id, child_name, party_choice, child_birth_month, child_birth_day"\)/);
   assert.match(page, /formatPublicChildDisplayName/);
-  assert.doesNotMatch(page, /nomination_reason|nominator_email|nominator_name|child_birth/);
+  assert.match(page, /projectPublicNomineeCards|groupNominationsByChild/);
+  assert.doesNotMatch(page, /nomination_reason|nominator_email|nominator_name/);
 });
 
 test("admin giveaway draw stays owner-authenticated and client-side only", () => {

@@ -65,9 +65,9 @@ export interface FooterSection {
 
 export const business: BusinessInfo = {
   name: "Jumping Jax",
-  tagline: "South Carolina Inflatable Rentals",
+  tagline: "Greenwood, SC Inflatable Rentals & Parties",
   description:
-    "Premium inflatable rental services for parties, events, and celebrations across South Carolina",
+    "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
   logo: "/logo.png",
 };
 
@@ -201,9 +201,9 @@ export const footerSections: FooterSection[] = [
 // ============================================================================
 
 export const seoDefaults: SEODefaults = {
-  title: "Jumping Jax - South Carolina Inflatable Rentals",
+  title: "Inflatable Rentals in Greenwood, SC | Jumping Jax",
   description:
-    "Premier inflatable rental services for parties, events, and celebrations in South Carolina. Water slides, games, and more for unforgettable events.",
+    "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
   keywords: [
     "inflatable rentals",
     "party rentals",
@@ -212,8 +212,7 @@ export const seoDefaults: SEODefaults = {
     "South Carolina",
     "Greenwood",
   ],
-  ogImage: "/og-image.jpg",
-  twitterHandle: "@jumpingjax",
+  ogImage: "/logo.png",
 };
 
 // ============================================================================
@@ -222,24 +221,24 @@ export const seoDefaults: SEODefaults = {
 
 export const pageSEO = {
   home: {
-    title: "Jumping Jax - Inflatable Rentals & Party Planning",
+    title: "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
     description:
-      "Rent inflatables, water slides, games, and more for your next party or event in South Carolina.",
+      "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
   },
   rentals: {
-    title: "Inflatable & Party Rentals - Jumping Jax",
+    title: "Inflatable & Party Rentals in Greenwood, SC",
     description:
-      "Browse bounce houses, combos, slides, water slides, obstacle courses, inflatable games, and yard games available for delivery across our service area.",
+      "Browse bounce house rentals, water slides, combos, obstacle courses, inflatable games, and party equipment for Greenwood, SC and nearby communities.",
   },
   facilityParties: {
-    title: "Facility Parties - Jumping Jax",
+    title: "Kids' Birthday Party Venue in Greenwood, SC",
     description:
-      "Host your party at our facility with our all-inclusive party packages in Greenwood, South Carolina.",
+      "Plan an indoor kids' birthday party at Jumping Jax in Greenwood, SC, with party rooms, inflatable fun, and a simple online reservation request.",
   },
   contact: {
-    title: "Contact Jumping Jax",
+    title: "Contact Jumping Jax in Greenwood, SC",
     description:
-      "Get in touch with Jumping Jax for all your inflatable rental and event planning needs.",
+      "Contact Jumping Jax about inflatable rentals, water slides, bounce houses, foam parties, and birthday parties in Greenwood, SC.",
   },
 };
 

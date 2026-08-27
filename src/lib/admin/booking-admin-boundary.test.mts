@@ -21,7 +21,7 @@ test("facility admin query filters by canonical start_time", () => {
 test("rental pending insert delegates parent and child writes to one atomic RPC", () => {
   const source = read("../supabase/booking-data.ts");
 
-  assert.match(source, /\.rpc\("create_rental_booking_atomic"/);
+  assert.match(source, /\.rpc\("create_rental_booking_atomic_v2"/);
   assert.doesNotMatch(source, /\.from\("bookings"\)\s*\.insert/);
 });
 
@@ -32,15 +32,22 @@ test("admin action buttons can call confirmation routes with POST", () => {
 
 test("rental submenu exposes inventory tools under Rentals without duplicating top-level entries", () => {
   const navigation = `${read("../../app/admin/_components.tsx")}\n${read("../../app/admin/page.tsx")}`;
+  const bookingItems =
+    navigation.match(/const rentalSubnav = \[[\s\S]*?\n  \]/)?.[0] ?? "";
+  const rentalSubmenu =
+    navigation.match(/aria-label="Rentals submenu"[\s\S]*?rentalSubnav\.map/)?.[0] ??
+    "";
+
   assert.match(navigation, /label: "Rentals"/);
-  assert.match(navigation, /\/admin\/inventory/);
   assert.match(navigation, /Rentals submenu/);
+  assert.match(bookingItems, /\/admin\/inventory/);
+  assert.match(rentalSubmenu, /rentalSubnav\.map/);
   for (const route of [
     "/admin/tasks",
     "/admin/staff",
     "/admin/employee-schedule",
   ]) {
-    assert.doesNotMatch(navigation, new RegExp(route.replaceAll("/", "\\/")));
+    assert.doesNotMatch(bookingItems, new RegExp(route.replaceAll("/", "\\/")));
   }
 });
 

@@ -92,6 +92,7 @@ export function AdminNav({
     | "tasks"
     | "tax-export"
     | "giveaway"
+    | "campaigns"
     | "ad-analytics"
     | "security"
     | "agents"
@@ -133,6 +134,9 @@ export function AdminNav({
       : null,
     role === "owner"
       ? { id: "giveaway" as const, label: "Giveaway Draw", href: `/admin/giveaway${query}` }
+      : null,
+    role === "owner"
+      ? { id: "campaigns" as const, label: "Campaign Hub", href: `/admin/campaigns${query}` }
       : null,
     role === "owner"
       ? {

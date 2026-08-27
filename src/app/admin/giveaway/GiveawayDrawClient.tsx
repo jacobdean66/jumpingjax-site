@@ -4,38 +4,67 @@ import { useMemo, useState } from "react";
 
 import { pickSecureRandomIndex } from "@/lib/giveaway/public-nominee-display";
 
-export type GiveawayDrawNominee = {
+export type GiveawayDrawSubmission = {
   id: string;
+  reason: string;
+  nominatorName: string;
+  nominatorEmail: string;
+  createdAt: string;
+};
+
+export type GiveawayDrawGroup = {
+  groupKey: string;
   childName: string;
   birthday: string;
   partyChoice: string;
-  reason: string;
-  nominatorName: string;
+  nominationCount: number;
+  submissions: GiveawayDrawSubmission[];
 };
 
-export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee[] }) {
-  const [eligibleIds, setEligibleIds] = useState(() => new Set(nominees.map((nominee) => nominee.id)));
-  const [winnerId, setWinnerId] = useState<string | null>(null);
+function formatSubmittedAt(value: string) {
+  if (!value) return "Unknown time";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
-  const eligibleNominees = useMemo(
-    () => nominees.filter((nominee) => eligibleIds.has(nominee.id)),
-    [eligibleIds, nominees],
+export function GiveawayDrawClient({
+  groups,
+  submissionCount,
+  uniqueChildCount,
+}: {
+  groups: GiveawayDrawGroup[];
+  submissionCount: number;
+  uniqueChildCount: number;
+}) {
+  const [eligibleKeys, setEligibleKeys] = useState(
+    () => new Set(groups.map((group) => group.groupKey)),
   );
-  const winner = nominees.find((nominee) => nominee.id === winnerId) ?? null;
+  const [winnerKey, setWinnerKey] = useState<string | null>(null);
 
-  function toggleNominee(id: string) {
-    setWinnerId(null);
-    setEligibleIds((current) => {
+  const eligibleGroups = useMemo(
+    () => groups.filter((group) => eligibleKeys.has(group.groupKey)),
+    [eligibleKeys, groups],
+  );
+  const winner = groups.find((group) => group.groupKey === winnerKey) ?? null;
+
+  function toggleGroup(groupKey: string) {
+    setWinnerKey(null);
+    setEligibleKeys((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
       return next;
     });
   }
 
   function drawWinner() {
-    if (eligibleNominees.length === 0) return;
-    setWinnerId(eligibleNominees[pickSecureRandomIndex(eligibleNominees.length)].id);
+    if (eligibleGroups.length === 0) return;
+    setWinnerKey(eligibleGroups[pickSecureRandomIndex(eligibleGroups.length)].groupKey);
   }
 
   return (
@@ -44,18 +73,18 @@ export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div>
             <p className="text-sm font-black text-slate-950">
-              {eligibleNominees.length} of {nominees.length} nominees in this draw
+              {eligibleGroups.length} of {uniqueChildCount} unique children in this draw
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-500">
-              Uncheck anyone you do not want included in the random shortlist.
+              {submissionCount} total submissions · each child gets one chance, even with multiple nominations
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
-                setWinnerId(null);
-                setEligibleIds(new Set(nominees.map((nominee) => nominee.id)));
+                setWinnerKey(null);
+                setEligibleKeys(new Set(groups.map((group) => group.groupKey)));
               }}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
             >
@@ -64,8 +93,8 @@ export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee
             <button
               type="button"
               onClick={() => {
-                setWinnerId(null);
-                setEligibleIds(new Set());
+                setWinnerKey(null);
+                setEligibleKeys(new Set());
               }}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
             >
@@ -74,11 +103,11 @@ export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee
           </div>
         </div>
 
-        {nominees.map((nominee) => {
-          const included = eligibleIds.has(nominee.id);
+        {groups.map((group) => {
+          const included = eligibleKeys.has(group.groupKey);
           return (
             <label
-              key={nominee.id}
+              key={group.groupKey}
               className={`block cursor-pointer rounded-2xl border-2 bg-white p-5 shadow-sm transition ${
                 included
                   ? "border-sky-400 ring-2 ring-sky-100"
@@ -89,22 +118,41 @@ export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee
                 <input
                   type="checkbox"
                   checked={included}
-                  onChange={() => toggleNominee(nominee.id)}
+                  onChange={() => toggleGroup(group.groupKey)}
                   className="mt-1 h-5 w-5 shrink-0 accent-sky-600"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-xl font-black text-slate-950">{nominee.childName}</h2>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                      {nominee.partyChoice}
-                    </span>
+                    <h2 className="text-xl font-black text-slate-950">{group.childName}</h2>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                        {group.partyChoice}
+                      </span>
+                      <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-800">
+                        {group.nominationCount}{" "}
+                        {group.nominationCount === 1 ? "nomination" : "nominations"}
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Birthday {nominee.birthday} · Nominated by {nominee.nominatorName}
+                    Birthday {group.birthday}
                   </p>
-                  <p className="mt-4 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700">
-                    {nominee.reason}
-                  </p>
+                  <div className="mt-4 space-y-4">
+                    {group.submissions.map((submission) => (
+                      <div
+                        key={submission.id}
+                        className="rounded-xl border border-slate-100 bg-slate-50 p-4"
+                      >
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                          Nominated by {submission.nominatorName} · {submission.nominatorEmail} ·{" "}
+                          {formatSubmittedAt(submission.createdAt)}
+                        </p>
+                        <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700">
+                          {submission.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </label>
@@ -117,27 +165,39 @@ export function GiveawayDrawClient({ nominees }: { nominees: GiveawayDrawNominee
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">Winner picker</p>
           <h2 className="mt-3 text-2xl font-black">Random draw</h2>
           <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-300">
-            Every checked nominee has exactly the same chance. Shortlist based on the stories first if you want the draw weighted by your judgment.
+            Every checked child has exactly the same chance. Duplicate nominations do not create extra odds.
           </p>
           <button
             type="button"
             onClick={drawWinner}
-            disabled={eligibleNominees.length === 0}
+            disabled={eligibleGroups.length === 0}
             className="mt-5 w-full rounded-full bg-yellow-300 px-5 py-4 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_6px_0_#ca8a04] transition hover:-translate-y-0.5 hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
-            {winner ? "Pick another nominee" : "Pick random nominee"}
+            {winner ? "Pick another child" : "Pick random child"}
           </button>
-          {eligibleNominees.length === 0 ? (
-            <p className="mt-3 text-center text-xs font-bold text-rose-300">Select at least one nominee first.</p>
+          {eligibleGroups.length === 0 ? (
+            <p className="mt-3 text-center text-xs font-bold text-rose-300">Select at least one child first.</p>
           ) : null}
         </div>
 
         {winner ? (
           <div className="mt-4 rounded-3xl border-4 border-yellow-300 bg-white p-6 shadow-xl" aria-live="assertive">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-orange-600">Selected nominee</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-orange-600">Selected child</p>
             <h2 className="mt-3 text-3xl font-black text-slate-950">{winner.childName}</h2>
             <p className="mt-2 text-sm font-bold text-slate-500">{winner.partyChoice}</p>
-            <p className="mt-4 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700">{winner.reason}</p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {winner.nominationCount} nomination {winner.nominationCount === 1 ? "story" : "stories"}
+            </p>
+            <div className="mt-4 space-y-3">
+              {winner.submissions.map((submission) => (
+                <p
+                  key={submission.id}
+                  className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700"
+                >
+                  {submission.reason}
+                </p>
+              ))}
+            </div>
           </div>
         ) : null}
 

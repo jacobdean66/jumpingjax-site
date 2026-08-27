@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type {
   MetaAdRow,
   MetaAdSetRow,
@@ -42,6 +43,43 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
+  const router = useRouter();
+  const [status, setStatus] = useState(ad.effectiveStatus);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canStop = !["PAUSED", "DELETED", "ARCHIVED", "COMPLETED"].includes(status);
+
+  useEffect(() => {
+    setStatus(ad.effectiveStatus);
+  }, [ad.effectiveStatus]);
+
+  async function stopAd() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/ad-analytics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({ action: "pause_ad", adId: ad.id }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || "Meta did not stop this ad.");
+      }
+      setStatus("PAUSED");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Meta did not stop this ad.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -49,8 +87,23 @@ function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
           <p className="text-sm font-black text-slate-950">{ad.name}</p>
           <p className="mt-1 font-mono text-[11px] text-slate-500">{ad.id}</p>
         </div>
-        <StatusPill status={ad.effectiveStatus} />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <StatusPill status={status} />
+          <button
+            type="button"
+            onClick={stopAd}
+            disabled={!canStop || pending}
+            className="inline-flex min-h-8 items-center justify-center rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-white"
+          >
+            {pending ? "Stopping..." : canStop ? "Stop" : "Stopped"}
+          </button>
+        </div>
       </div>
+      {error ? (
+        <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">
+          {error}
+        </p>
+      ) : null}
       <div className="mt-3 grid gap-2 sm:grid-cols-4">
         <Metric label="Spend" value={money(ad.insights.spend, currency)} />
         <Metric label="LP views" value={formatMetricCount(ad.insights.landingPageViews)} />

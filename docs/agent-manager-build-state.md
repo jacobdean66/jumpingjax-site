@@ -64,3 +64,10 @@
 - Fail-closed scope: the Booking Agent is explicitly `NOT ACTIVATED`. Confirmation, rejection, edits, cancellation, customer/owner messages, calendar/payment/booking writes, production enablement, credentials, migrations, and paid services remain blocked for later owner-approved checkpoints.
 - Nomination evidence remains the live Step 2 proof: source event `jj-fixture-1787449053248` deduplicated to run `run_06g2oh0liv197hdge0hn798g01`, stored `Avery J.`, used zero AI calls, survived reload, and appeared in both existing nominee views.
 - Validation: 17/17 focused Agent Manager tests pass; TypeScript and focused ESLint pass. No live Booking Agent run was dispatched because this checkpoint intentionally prepares visibility and boundaries only.
+
+## Production integration checkpoint (2026-08-27)
+
+- Integrated current production `origin/main` at `5d78f52` into `feat/permanent-agent-manager` after verifying the feature branch was 26 commits behind and 8 commits ahead.
+- Resolved the only two conflicts by retaining production nominee grouping/synthetic-test exclusion and routing development-only Agent Manager fixtures through the same grouped admin and privacy-safe public projections.
+- Combined-tree validation: 22/22 focused Agent Manager and giveaway grouping tests pass; full TypeScript and focused ESLint pass.
+- Next dependency: push the merge checkpoint, confirm GitHub checks/normal integration path, then inspect live Supabase migration state before any database change.
