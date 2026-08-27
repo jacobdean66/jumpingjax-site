@@ -86,7 +86,9 @@ function pal(
   };
 }
 
-const LAYOUTS = ["spotlight", "ticket", "poster"] as const;
+const SPOTLIGHT_FIRST = ["spotlight", "ticket", "poster"] as const;
+const TICKET_FIRST = ["ticket", "poster", "spotlight"] as const;
+const POSTER_FIRST = ["poster", "spotlight", "ticket"] as const;
 
 export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
   {
@@ -114,7 +116,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/classic-birthday", "tile-heart.png", "Party tile"),
     ],
     palettes: [PAL.birthdayA, PAL.birthdayB, PAL.birthdayC],
-    layouts: LAYOUTS,
+    layouts: SPOTLIGHT_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -134,7 +136,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/dinosaur", "tile-grass.png", "Grass tile"),
     ],
     palettes: [PAL.dinoA, PAL.dinoB],
-    layouts: LAYOUTS,
+    layouts: POSTER_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -167,7 +169,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/princess-royal", "tile-gem.png", "Jewel tile"),
     ],
     palettes: [PAL.princessA, PAL.princessB, PAL.princessC],
-    layouts: LAYOUTS,
+    layouts: TICKET_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -197,7 +199,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/unicorn-rainbow", "tile-star.png", "Star tile"),
     ],
     palettes: [PAL.unicornA, PAL.unicornB],
-    layouts: LAYOUTS,
+    layouts: TICKET_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -217,7 +219,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/space", "tile-block.png", "Space block"),
     ],
     palettes: [PAL.spaceA, PAL.spaceB],
-    layouts: LAYOUTS,
+    layouts: POSTER_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -251,7 +253,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/sports", "tile-flag.png", "Field tile"),
     ],
     palettes: [PAL.sportsA, PAL.sportsB, PAL.sportsC],
-    layouts: LAYOUTS,
+    layouts: POSTER_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -271,7 +273,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/construction", "tile-brick.png", "Brick tile"),
     ],
     palettes: [PAL.buildA, PAL.buildB],
-    layouts: LAYOUTS,
+    layouts: TICKET_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -290,7 +292,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/racing-cars", "tile-track.png", "Track tile"),
     ],
     palettes: [PAL.raceA, PAL.raceB],
-    layouts: LAYOUTS,
+    layouts: POSTER_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -311,7 +313,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/ocean-mermaid", "tile-water.png", "Water tile"),
     ],
     palettes: [PAL.oceanA, PAL.oceanB],
-    layouts: LAYOUTS,
+    layouts: TICKET_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -359,7 +361,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/safari-animals", "tile-bush.png", "Bush tile"),
     ],
     palettes: [PAL.safariA, PAL.safariB, PAL.safariC],
-    layouts: LAYOUTS,
+    layouts: SPOTLIGHT_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -380,7 +382,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/pirate", "tile-wood.png", "Wood tile"),
     ],
     palettes: [PAL.pirateA, PAL.pirateB],
-    layouts: LAYOUTS,
+    layouts: TICKET_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
   {
@@ -426,7 +428,7 @@ export const INVITATION_LIBRARY_THEMES: readonly InvitationLibraryTheme[] = [
       kenney("themes/gamer-neon", "tile-pixel.png", "Pixel tile"),
     ],
     palettes: [PAL.gamerA, PAL.gamerB, PAL.gamerC],
-    layouts: LAYOUTS,
+    layouts: SPOTLIGHT_FIRST,
     licenseIds: ["fluent-emoji", "kenney"],
   },
 ];

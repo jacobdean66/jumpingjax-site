@@ -61,12 +61,18 @@ test("unknown themes fall back to classic birthday", () => {
 });
 
 test("example previews pick the expected artwork slot", () => {
+  const layouts = new Set<string>();
   for (const example of INVITATION_PREVIEW_EXAMPLES) {
     const snapshot = snapshotForExample(example);
     assert.equal(snapshot.themeId, example.expectedThemeId, example.id);
     assert.equal(snapshot.styleFamily, example.expectedFamily, example.id);
     assert.equal(snapshot.artworkSlot, example.expectedThemeId, example.id);
+    layouts.add(composeLibraryInvitation({
+      themeId: snapshot.themeId,
+      optionIndex: snapshot.optionIndex,
+    }).layout);
   }
+  assert.deepEqual([...layouts].sort(), ["poster", "spotlight", "ticket"]);
 });
 
 test("snapshots keep the original customer theme text", () => {
