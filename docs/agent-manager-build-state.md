@@ -6,7 +6,7 @@
 - Existing related work: durable social-agent idempotency/rate limits and social owner approvals are domain-specific; security center has audit/job patterns. New generic manager extends conventions without coupling or replacing them.
 - Design: Postgres is authoritative. Atomic enqueue/dedupe and `FOR UPDATE SKIP LOCKED` claim RPCs; bounded attempts/backoff, leases, cancellation, per-agent pause, global emergency stop, approvals, redacted audit events. Wake route is deterministic and cron-compatible but no cron/deploy is added.
 - Demo: `system.health_check` for supervisor; durable enqueue -> claim -> deterministic result -> replay same key returns same job.
-- Production: no migration/deploy performed.
+- Production: PR #90 is merged at `3a049b5`; Vercel production is Ready at `https://jumpingjaxllc.com`; Agent Manager migration `20260820120000` is applied and recorded on linked project `jumpingjax-bookings`.
 
 ## Progress
 
@@ -70,6 +70,26 @@
 - Integrated current production `origin/main` at `5d78f52` into `feat/permanent-agent-manager` after verifying the feature branch was 26 commits behind and 8 commits ahead.
 - Resolved the only two conflicts by retaining production nominee grouping/synthetic-test exclusion and routing development-only Agent Manager fixtures through the same grouped admin and privacy-safe public projections.
 - Combined-tree validation: 22/22 focused Agent Manager and giveaway grouping tests pass; full TypeScript and focused ESLint pass.
-- Local merge checkpoint: `4773983` with a clean tree before this state update. Remote `feat/permanent-agent-manager` remains at `7462871`.
-- Owner-only gate: command-line Git cannot persist the browser-authenticated credential in Windows Credential Manager; secure DPAPI and memory-only stores are unavailable in this sandbox; the connected GitHub app returns `403 Resource not accessible by integration` for Contents writes. No plaintext token store was used.
-- Exact resume action: from an authenticated terminal, run `git -C "C:\Users\User\Documents\Codex\2026-08-27\jumpingjax-permanent-agent\work\jumpingjax-site-agent-manager-exact" push origin feat/permanent-agent-manager`, then resume this loop. The next dependency is GitHub checks/normal integration followed by live Supabase migration inspection before any database change.
+- Integration: owner-authenticated feature push completed at `39f0673`; PR #90 passed 2/2 checks with a Ready Vercel preview and merged to `main` as `3a049b5d46977073e4500a561291b600d1ce0bac`.
+- Production deployment: Vercel deployment `2SVfoocrw9RpRKSSUjAirdiYBfFB` reached Ready. `https://jumpingjaxllc.com` served the public homepage successfully, and unauthenticated `https://jumpingjaxllc.com/admin/agents` correctly showed staff login.
+- Production migration: secure Supabase CLI profile `codex-agent-manager` was owner-approved and created without exposing its token. Preflight showed no Agent Manager tables/history row. The additive SQL was applied to linked production project `jumpingjax-bookings`; verification found 8 seeded agents, RLS enabled on all 5 manager tables, 3 RPCs, and migration history `20260820120000 create_agent_manager`.
+- Existing migration divergence was not modified: remote-only `20260819170000`, `20260819174500`, and `20260820152856`, plus unrelated local-only versions, remain for a separate audit. No bulk push or broad history repair was performed.
+- Environment audit: existing production Supabase URL/service-role and `CRON_SECRET` are present. Agent Manager/Trigger/callback/inbound variables are absent and inbound remains fail-closed. Next dependency is owner-approved login to existing Trigger.dev project `proj_dfkcwxstdpilzwxvxltg`, followed by a production task deploy and environment/callback setup. No paid service was enabled.
+
+## Trigger.dev production proof checkpoint (2026-08-27)
+
+- Existing Trigger.dev project `proj_dfkcwxstdpilzwxvxltg` (`Jumping Jax Agent Manager`) was reused on the Free plan. Production deployment `80qljy07`, version `20260827.2`, registered `jumping-jax-agent-manager-proof` and `jumping-jax-nomination-agent`; each task has concurrency 1 and at most 3 bounded attempts.
+- Trigger production has secret `AGENT_MANAGER_CALLBACK_SECRET` and `AGENT_MANAGER_APP_URL=https://jumpingjaxllc.com`. Vercel production has the matching callback secret, the rotated Trigger production key, and `NOMINATION_AGENT_INBOUND_ENABLED=0`. No inbound recipient or Resend webhook secret was configured, so mailbox ingestion remains fail-closed.
+- A Trigger production key that appeared during browser automation was immediately rotated before use. Only the rotated key was saved to Vercel; the previous key is scheduled by Trigger.dev to expire automatically after its 24-hour rotation window. No secret was committed or recorded here.
+- Vercel redeploy `CjV3SCkZDDxCDQNFXt1ZXuD1EJti` of current production commit `e8a57fb` reached Ready with the latest project settings. `https://jumpingjaxllc.com` remained healthy, and unauthenticated `/admin/agents` continued to fail closed to Staff Login.
+- Deterministic production architecture proof `run_06g4930rnefq7js55e2cc57fe1` completed on attempt 1 with handler `deterministic-typescript` and `aiInvocations: 0`; a second trigger with the same idempotency key returned the same run ID.
+- Safe production Nomination proof `run_06g493jkkqfo61ei5j6hcasfe1` completed on attempt 1 and stored `Avery J.` from source event `prod-safe-20260827-1451` with `aiInvocations: 0`. A duplicate trigger returned the same run ID. Supabase job `cad8205b-c9c2-4d68-bbae-34f2082e2e07` is `succeeded`, retains the source event and two audit events, and the agent returned to `idle` with no current job.
+- The privacy-safe `Avery J.` card was verified on live `/nominees`. The exact synthetic giveaway row was then deleted and verified absent; the redacted durable job/audit proof remains. Authenticated `/admin/giveaway` and `/admin/agents` contents still require an owner staff login for direct production verification.
+- Next genuine gate: owner staff login to `https://jumpingjaxllc.com/admin/agents` for authenticated dashboard/control verification. After that, create and verify the existing Resend signed inbound route before separately enabling `NOMINATION_AGENT_INBOUND_ENABLED=1`. Gmail was not connected because the implemented architecture intentionally reuses Resend email ingestion.
+
+## Authenticated dashboard verification checkpoint (2026-08-27)
+
+- Owner authentication succeeded on live `/admin/agents`. The dashboard directly showed Agent Manager `ONLINE`, zero queued jobs, zero recent failures, zero approvals waiting, concurrency 1, the successful Nomination job, its redacted audit trail, Nomination Agent `idle`, and its production last-success timestamp.
+- Booking Agent pause/resume was exercised and both audit events appeared; the final state is `idle`. Emergency stop/release was exercised and both audit events appeared; the final manager state is `ONLINE` with emergency stop off.
+- A production `system.health_check` completed as durable job `462036ec…`, attempt 1/3, deterministic result, and zero AI calls. Replaying the same daily key exposed a route bug: database deduplication succeeded, but the API attempted to run the already-succeeded job again.
+- Fixed the manual safe-job route to execute only newly queued jobs and return an existing terminal job as a deduplicated success. Regression coverage added; 18/18 focused Agent Manager tests, TypeScript, and focused ESLint pass. This fix still requires production integration before the replay UI can be re-verified live.
