@@ -2,6 +2,7 @@ import {
   isInvitationAgentAction,
   runInvitationAgent,
 } from "@/lib/facility-parties/invitations/agent";
+import { recordInvitationAgentRun } from "@/lib/agent-manager/invitation-run";
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
     selection: typeof body.selection === "string" ? body.selection.slice(0, 80) : "",
     bookingId: typeof body.bookingId === "string" ? body.bookingId.slice(0, 100) : "",
   });
+
+  await recordInvitationAgentRun(result).catch(() => undefined);
 
   return Response.json(result, {
     headers: { "cache-control": "no-store" },
