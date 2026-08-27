@@ -74,7 +74,7 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
       ok: false,
       error: sanitizedError(
         "oauth_session_missing",
-        "No connected Meta analytics session found. Use Connect Meta for Analytics on this page.",
+        "Reconnect Meta for Analytics to load ads and use Stop buttons.",
         "unavailable",
       ),
     };
@@ -132,8 +132,8 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
     error: sanitizedError(
       "permission_missing",
       sawIncompleteScopeSession
-        ? "Connected Meta session is missing ads_read, ads_management, or business_management. Reconnect Meta for Analytics."
-        : "Connected Meta session is missing required analytics permissions. Reconnect Meta for Analytics.",
+        ? "Reconnect Meta for Analytics to finish giving this page access to ads and Stop buttons."
+        : "Reconnect Meta for Analytics to load ads and use Stop buttons.",
       "permission_blocked",
     ),
   };

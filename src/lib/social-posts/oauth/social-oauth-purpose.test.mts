@@ -115,7 +115,6 @@ test("callback route clears purpose cookie and never forwards code/state", () =>
 
 test("ad analytics page exposes permanent reconnect without raw scope copy", () => {
   const page = read("src/app/admin/ad-analytics/page.tsx");
-  assert.match(page, /Connect Meta for Analytics/);
   assert.match(page, /Reconnect Meta for Analytics/);
   assert.match(page, /\/api\/admin\/ad-analytics\/oauth\/connect/);
   assert.doesNotMatch(page, /ads_read<\/code> only/);

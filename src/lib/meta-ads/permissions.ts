@@ -85,7 +85,7 @@ export async function checkMetaAdsReadPermission(input: {
 export function missingAdsReadError() {
   return sanitizedError(
     "permission_missing",
-    `This Meta connection is missing required analytics permissions (${META_ADS_REQUIRED_SCOPES.join(", ")}). Reconnect Meta for Analytics.`,
+    "Reconnect Meta for Analytics to load ads and use Stop buttons.",
     "permission_blocked",
   );
 }

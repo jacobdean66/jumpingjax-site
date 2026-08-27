@@ -91,9 +91,7 @@ export default async function AdminAdAnalyticsPage({
               type="submit"
               className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700 sm:w-auto"
             >
-              {dashboard.connection.hasConnectedSession
-                ? "Reconnect Meta for Analytics"
-                : "Connect Meta for Analytics"}
+              Reconnect Meta for Analytics
             </button>
           </form>
         </div>
@@ -115,7 +113,7 @@ export default async function AdminAdAnalyticsPage({
           dashboard.connection.hasBusinessManagement === false ||
           !dashboard.connection.hasConnectedSession) && (
           <p className="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm font-semibold">
-            Reconnect Meta to allow analytics and Stop buttons.
+            Reconnect Meta to load ads and show Stop buttons.
           </p>
         )}
         {params.oauth ? (

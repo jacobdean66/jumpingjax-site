@@ -189,9 +189,11 @@ function flattenAds(campaigns: readonly MetaCampaignRow[]): ManageableAd[] {
 function AdManagementList({
   ads,
   currency,
+  needsMetaReconnect,
 }: {
   ads: readonly ManageableAd[];
   currency: string;
+  needsMetaReconnect: boolean;
 }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -208,7 +210,9 @@ function AdManagementList({
       </div>
       {ads.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
-          No ads matched these filters.
+          {needsMetaReconnect
+            ? "Reconnect Meta first. Your ads and Stop buttons will appear here after the connection is fixed."
+            : "No ads matched these filters."}
         </p>
       ) : (
         <div className="mt-4 space-y-3">
@@ -398,10 +402,24 @@ export function AdAnalyticsClient({
     initial.accounts.find((account) => account.id === initial.selectedAccountId)
       ?.currency ?? "USD";
   const manageableAds = useMemo(() => flattenAds(initial.campaigns), [initial.campaigns]);
+  const needsMetaReconnect =
+    initial.freshness === "permission_blocked" ||
+    initial.freshness === "token_expired" ||
+    initial.freshness === "unavailable" ||
+    initial.freshness === "misconfigured" ||
+    initial.connection.hasRequiredScopes === false ||
+    initial.connection.hasAdsRead === false ||
+    initial.connection.hasAdsManagement === false ||
+    initial.connection.hasBusinessManagement === false ||
+    !initial.connection.hasConnectedSession;
 
   return (
     <div className="mt-6 space-y-6">
-      <AdManagementList ads={manageableAds} currency={currency} />
+      <AdManagementList
+        ads={manageableAds}
+        currency={currency}
+        needsMetaReconnect={needsMetaReconnect}
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
