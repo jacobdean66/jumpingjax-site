@@ -12,9 +12,7 @@ import {
   loadSiteSettings,
 } from "@/lib/admin/site-settings";
 import {
-  createJsonLdScript,
   generateHomeMetadata,
-  generateOrganizationSchema,
 } from "@/lib/metadata";
 
 const FEATURED_IMAGE_SIZES =
@@ -49,10 +47,6 @@ export default async function Home() {
 
   return (
     <main className="overflow-x-hidden bg-[#fff8e8] text-slate-950">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema())}
-      />
       {/* HERO — Next/Image for bandwidth-aware delivery + stable layout box */}
       <section className="relative flex min-h-[100svh] items-center justify-center px-4 py-20 sm:py-24">
         <div className="absolute inset-0">
