@@ -25,6 +25,10 @@ const facilityBookingForm = readFileSync(
   ),
   "utf8",
 );
+const bookingPage = readFileSync(
+  new URL("../../app/booking/page.tsx", import.meta.url),
+  "utf8",
+);
 
 test("obsolete water-slide URLs permanently consolidate into the canonical category", () => {
   assert.match(nextConfig, /pages\/water-slide-rentals-in-greenwood-sc/);
@@ -53,4 +57,10 @@ test("production checkout copy describes the actual follow-up workflow", () => {
 test("successful rental and facility requests emit lead events", () => {
   assert.match(rentalBookingPanel, /trackLead\("rental_request"/);
   assert.match(facilityBookingForm, /trackLead\("facility_party_request"/);
+});
+
+test("the booking conversion page has a self-referencing canonical and local title", () => {
+  assert.match(bookingPage, /canonical: "\/booking"/);
+  assert.match(bookingPage, /Book an Inflatable Rental in Greenwood, SC/);
+  assert.doesNotMatch(bookingPage, /title: "Book a rental \| Jumping Jax"/);
 });
