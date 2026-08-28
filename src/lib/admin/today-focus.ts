@@ -37,18 +37,18 @@ const MORNING_BRIEF_BY_DATE: Record<string, TodayFocusItem[]> = {
   ],
   "2026-08-28": [
     {
-      id: "morning-brief-facility-2c775988-3d7b-4465-b19c-2d3eb621966c",
+      id: "morning-brief-vercel-preview-failures",
       kind: "brief",
-      label: "Confirm Stephanie Long's party request",
-      detail: "$256.80 public-play party · Sep 19, 4:00–5:30 PM · High urgency",
-      href: "/admin/facility#booking-2c775988-3d7b-4465-b19c-2d3eb621966c",
+      label: "Investigate repeated website preview failures",
+      detail: "Seven Vercel preview deployments failed within minutes · High urgency",
+      href: "https://mail.google.com/mail/#all/1a044edcd381b3ce",
     },
     {
-      id: "morning-brief-giveaway-colton",
+      id: "morning-brief-giveaway-easton",
       kind: "brief",
-      label: "Review clustered giveaway nominations",
-      detail: "Five nominations for Colton arrived within five minutes · Check duplicates and eligibility",
-      href: "/admin/giveaway",
+      label: "Review two nominations for Easton M.",
+      detail: "Compare the submissions, check eligibility, and consolidate duplicates · Medium urgency",
+      href: "https://mail.google.com/mail/#all/1a0476e40d090ce8",
     },
   ],
 };

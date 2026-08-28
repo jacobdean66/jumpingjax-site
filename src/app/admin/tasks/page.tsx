@@ -1,5 +1,6 @@
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadAdminTaskAutomation } from "@/lib/admin/task-automation";
+import { morningBriefFocusItems } from "@/lib/admin/today-focus";
 import {
   AdminAuthError,
   AdminHeader,
@@ -37,6 +38,7 @@ export default async function AdminTasksPage({ searchParams }: Props) {
     from: resolved?.from,
     to: resolved?.to,
   });
+  const morningBrief = from === to ? morningBriefFocusItems(from) : [];
 
   return (
     <AdminShell>
@@ -59,6 +61,30 @@ export default async function AdminTasksPage({ searchParams }: Props) {
       </form>
 
       <div className="mt-6 grid gap-5">
+        <section className="rounded-2xl border border-sky-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <h2 className="text-xl font-black">Morning Brief</h2>
+            <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
+              {morningBrief.length}
+            </span>
+          </div>
+          {morningBrief.length === 0 ? (
+            <p className="mt-4 text-sm font-semibold text-slate-500">
+              No urgent items found.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-3">
+              {morningBrief.map((item) => (
+                <a key={item.id} href={item.href} className="block rounded-xl border border-sky-200 bg-sky-50 p-4 transition hover:border-sky-400">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Morning Brief</p>
+                  <h3 className="mt-1 text-lg font-black">{item.label}</h3>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">{item.detail}</p>
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+
         {CATEGORY_ORDER.map((category) => {
           const categoryTasks = tasks.filter((task) => task.category === category);
           return (
