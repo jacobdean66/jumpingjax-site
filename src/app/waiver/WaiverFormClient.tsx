@@ -244,6 +244,7 @@ export function WaiverFormClient() {
       completionParams.set("source", "facility-party");
       completionParams.set("booking", searchParams.get("booking") ?? "");
       if (facilityPartyDate) completionParams.set("date", facilityPartyDate);
+      if (searchParams.get("arrival") === "1") completionParams.set("arrival", "1");
     }
     const completionQuery = completionParams.toString();
     router.replace(

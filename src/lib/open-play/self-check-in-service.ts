@@ -2,6 +2,8 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isWaiverExpired } from "@/lib/waivers/expiration";
 import { createLegacySmartwaiverCheckIns } from "./legacy-check-in-service";
 import { createOpenPlayVisit } from "./visit-service";
+import { loadBirthdayPartiesForDay } from "./birthday-parties";
+import { findAndAddFacilityPartyGuest, setFacilityPartyGuestPresent } from "@/lib/facility-parties/check-in-service";
 import { ageInCompletedYearsOnDate } from "./pricing";
 import {
   dobMatchesAge,
@@ -37,7 +39,7 @@ function one<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-export type PublicWaiverMatch = Omit<SelfCheckInSelection, "paymentMethod"> & {
+export type PublicWaiverMatch = Omit<SelfCheckInSelection, "paymentMethod" | "birthdayPartyId"> & {
   firstName: string;
   lastName: string;
   ageYears: number;
@@ -156,33 +158,71 @@ export async function createPublicSelfCheckIn(options: {
   );
   if (!selected) return { needsWaiver: true };
 
+  const birthdayParty = options.selection.paymentMethod === "birthday_party"
+    ? (await loadBirthdayPartiesForDay(options.businessDayYmd)).find(
+        (party) => party.id === options.selection.birthdayPartyId,
+      ) ?? null
+    : null;
+  if (options.selection.paymentMethod === "birthday_party" && !birthdayParty) {
+    throw new Error("Birthday party is not available today");
+  }
+  const attendanceMethod: "cash" | "card" | "free_pass" = birthdayParty
+    ? "free_pass"
+    : options.selection.paymentMethod === "birthday_party"
+      ? "free_pass"
+      : options.selection.paymentMethod;
+  const attendanceNotes = birthdayParty
+    ? `Customer QR self check-in - ${selected.firstName} ${selected.lastName} attending ${birthdayParty.label}`
+    : "Customer QR self check-in - admission pending front desk review";
+
   if (selected.source === "native") {
     await createOpenPlayVisit({
       visitDateYmd: options.businessDayYmd,
       staffId: "customer-self-check-in",
-      notes: "Customer QR self check-in - admission pending front desk review",
+      notes: attendanceNotes,
       attendees: [{
         participantId: selected.participantId,
         adultMode: null,
         clientPriceCents: null,
-        overridePriceCents: null,
-        paymentMethod: options.selection.paymentMethod,
+        overridePriceCents: birthdayParty ? 0 : null,
+        paymentMethod: attendanceMethod,
       }],
     });
+    if (birthdayParty) {
+      try {
+        const partyGuest = await findAndAddFacilityPartyGuest({
+          bookingId: birthdayParty.id,
+          firstName: selected.firstName,
+          lastName: selected.lastName,
+          dob: selected.dobYmd,
+          partyDate: options.businessDayYmd,
+        });
+        if (partyGuest.ok && partyGuest.found) {
+          await setFacilityPartyGuestPresent({
+            bookingId: birthdayParty.id,
+            guestId: partyGuest.guest.id,
+            present: true,
+            staffLabel: "Customer kiosk",
+          });
+        }
+      } catch {
+        // The Open Play attendance record is authoritative; party guest sync is best effort.
+      }
+    }
     return { needsWaiver: false };
   }
   if (selected.source === "legacy") {
     await createLegacySmartwaiverCheckIns({
       visitDateYmd: options.businessDayYmd,
       staffId: "customer-self-check-in",
-      notes: "Customer QR self check-in - admission pending front desk review",
+      notes: attendanceNotes,
       attendees: [{
         legacyParticipantId: selected.participantId,
         participantId: "",
         adultMode: null,
         clientPriceCents: null,
-        overridePriceCents: null,
-        paymentMethod: options.selection.paymentMethod,
+        overridePriceCents: birthdayParty ? 0 : null,
+        paymentMethod: attendanceMethod,
       }],
     });
     return { needsWaiver: false };

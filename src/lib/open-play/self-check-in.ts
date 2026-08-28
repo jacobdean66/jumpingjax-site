@@ -9,7 +9,8 @@ export type SelfCheckInInput = {
 export type SelfCheckInSelection = {
   source: "native" | "legacy";
   participantId: string;
-  paymentMethod: "cash" | "card";
+  paymentMethod: "cash" | "card" | "birthday_party";
+  birthdayPartyId: string | null;
 };
 
 export class SelfCheckInValidationError extends Error {
@@ -52,15 +53,25 @@ export function parseSelfCheckInSelection(value: unknown): SelfCheckInSelection 
   const source = body.source;
   const participantId = typeof body.participantId === "string" ? body.participantId.trim() : "";
   const paymentMethod = body.paymentMethod;
+  const birthdayPartyId = typeof body.birthdayPartyId === "string"
+    ? body.birthdayPartyId.trim()
+    : "";
   if (
     (source !== "native" && source !== "legacy") ||
     !participantId ||
     participantId.length > 100 ||
-    (paymentMethod !== "cash" && paymentMethod !== "card")
+    (paymentMethod !== "cash" && paymentMethod !== "card" && paymentMethod !== "birthday_party") ||
+    (paymentMethod === "birthday_party" && !birthdayPartyId) ||
+    birthdayPartyId.length > 100
   ) {
     throw new SelfCheckInValidationError("Choose a waiver from the list.");
   }
-  return { source, participantId, paymentMethod };
+  return {
+    source,
+    participantId,
+    paymentMethod,
+    birthdayPartyId: paymentMethod === "birthday_party" ? birthdayPartyId : null,
+  };
 }
 
 export function dobMatchesAge(

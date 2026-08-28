@@ -8,7 +8,7 @@ import {
   SelfCheckInValidationError,
 } from "./self-check-in";
 
-test("public self check-in requires an explicit cash or card choice", () => {
+test("public self check-in requires an explicit attendance choice", () => {
   assert.throws(
     () => parseSelfCheckInSelection({ source: "native", participantId: "child-1" }),
     SelfCheckInValidationError,
@@ -19,7 +19,21 @@ test("public self check-in requires an explicit cash or card choice", () => {
       participantId: "child-1",
       paymentMethod: "card",
     }),
-    { source: "native", participantId: "child-1", paymentMethod: "card" },
+    { source: "native", participantId: "child-1", paymentMethod: "card", birthdayPartyId: null },
+  );
+  assert.deepEqual(
+    parseSelfCheckInSelection({
+      source: "native",
+      participantId: "child-1",
+      paymentMethod: "birthday_party",
+      birthdayPartyId: "party-1",
+    }),
+    {
+      source: "native",
+      participantId: "child-1",
+      paymentMethod: "birthday_party",
+      birthdayPartyId: "party-1",
+    },
   );
 });
 

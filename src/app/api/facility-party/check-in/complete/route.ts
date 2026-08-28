@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       bookingId,
       publicToken: token,
       partyDate: normalizePartyDate(body.partyDate),
+      markPresent: body.atFacility === true,
     });
     if (!result.ok) {
       return publicSafeError(result.code, result.code === "not_found" ? 404 : 400, result.message);

@@ -200,6 +200,7 @@ export async function addFacilityPartySubmissionGuests(input: {
   bookingId: string;
   publicToken: string;
   partyDate?: unknown;
+  markPresent?: boolean;
 }) {
   const bookingId = cleanPartyCheckInText(input.bookingId, 64);
   const booking = await loadFacilityBooking(bookingId);
@@ -223,7 +224,17 @@ export async function addFacilityPartySubmissionGuests(input: {
 
   const guests: FacilityPartyGuest[] = [];
   for (const participant of (data ?? []) as WaiverParticipantLookup[]) {
-    guests.push(await upsertPartyGuest({ bookingId, participant }));
+    let guest = await upsertPartyGuest({ bookingId, participant });
+    if (input.markPresent && !guest.checkedInAt) {
+      const present = await setFacilityPartyGuestPresent({
+        bookingId,
+        guestId: guest.id,
+        present: true,
+        staffLabel: "Customer kiosk",
+      });
+      if (present.ok) guest = present.guest;
+    }
+    guests.push(guest);
   }
 
   const partyDate = normalizePartyDate(input.partyDate) ?? booking.readable_date;

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
+import { loadBirthdayPartiesForDay } from "@/lib/open-play/birthday-parties";
 import { SelfCheckInClient } from "./SelfCheckInClient";
 
 export const metadata: Metadata = {
@@ -8,7 +10,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function SelfCheckInPage() {
-  return <SelfCheckInClient />;
+export const dynamic = "force-dynamic";
+
+export default async function SelfCheckInPage() {
+  const businessDayYmd = businessDayYmdFromInstant(new Date());
+  const birthdayParties = await loadBirthdayPartiesForDay(businessDayYmd).catch(() => []);
+  return (
+    <SelfCheckInClient
+      birthdayParties={birthdayParties}
+      businessDayYmd={businessDayYmd}
+    />
+  );
 }
 
