@@ -100,11 +100,11 @@ body {
   .invitation-print-sheet {
     display: block !important;
     box-sizing: border-box;
-    width: 8.5in !important;
-    height: 11in !important;
+    width: 11in !important;
+    height: 8.5in !important;
     max-width: none !important;
     margin: 0 !important;
-    padding: 0.35in !important;
+    padding: 0.25in 0 !important;
     overflow: hidden !important;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -112,11 +112,10 @@ body {
 
   .invitation-print-grid {
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
-    align-content: center;
+    grid-template-columns: 5.5in 5.5in;
+    grid-template-rows: 4in 4in;
     height: 100%;
-    gap: 0.18in;
+    gap: 0;
   }
 }
 

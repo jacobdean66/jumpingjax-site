@@ -40,7 +40,7 @@ function PrintSheetPreview({
       </div>
       <div className="mt-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] leading-snug text-slate-900 ring-1 ring-slate-200">
         <p className="font-black uppercase tracking-wide text-slate-700">
-          Letter · 4 per page
+          Letter landscape · four 5.5 × 4 in.
         </p>
         <p className="mt-0.5 font-black text-slate-950">
           {data.childName}

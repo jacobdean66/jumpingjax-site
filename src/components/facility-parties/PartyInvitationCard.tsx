@@ -4,6 +4,10 @@ import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
+import {
+  resolveInvitationSourceTreatment,
+  type InvitationSourceTreatment,
+} from "@/lib/facility-parties/invitations/source-treatment";
 
 export type PartyInvitationCardProps = {
   snapshot: InvitationSnapshot;
@@ -39,7 +43,20 @@ export function PartyInvitationCard({
     artworkVariant: snapshot.artworkVariant,
     colorHint: [snapshot.colorHint, snapshot.sourceText].filter(Boolean).join(" "),
   });
-  const { palette, layout } = composed;
+  const treatment = resolveInvitationSourceTreatment(snapshot.sourceText);
+  const layout = composed.layout;
+  const palette = treatment
+    ? {
+        ...composed.palette,
+        background: treatment.background,
+        backgroundAlt: treatment.backgroundAlt,
+        accent: treatment.accent,
+        accent2: treatment.accent2,
+        text: treatment.text,
+        muted: treatment.muted,
+        border: treatment.border,
+      }
+    : composed.palette;
   const displayName = childName.trim() || "Birthday Star";
   const headline = childAge.trim()
     ? `${displayName} is turning ${childAge.trim()}!`
@@ -62,7 +79,9 @@ export function PartyInvitationCard({
       data-layout={layout}
       data-preview-scale={previewScale ? "true" : "false"}
       data-sheet-readable={sheetReadable ? "true" : "false"}
-      className={`relative isolate aspect-square overflow-hidden border text-left shadow-xl ${
+      data-invitation-size="5.5x4-landscape"
+      data-source-theme-treatment={treatment?.id}
+      className={`relative isolate aspect-[11/8] overflow-hidden border text-left shadow-xl ${
         layout === "ticket" ? "rounded-[22px]" : "rounded-[30px]"
       }`}
       style={{
@@ -79,12 +98,16 @@ export function PartyInvitationCard({
         }}
       />
       <BrandMark layout={layout} />
-      <DecorativeArt
-        hero={composed.hero}
-        decorations={composed.decorations}
-        compact={compact}
-        layout={layout}
-      />
+      {treatment ? (
+        <SourceThemeMotif treatment={treatment} />
+      ) : (
+        <DecorativeArt
+          hero={composed.hero}
+          decorations={composed.decorations}
+          compact={compact}
+          layout={layout}
+        />
+      )}
       <InvitationCopy
         layout={layout}
         headline={headline}
@@ -99,6 +122,79 @@ export function PartyInvitationCard({
         accent={palette.accent}
       />
     </article>
+  );
+}
+
+function SourceThemeMotif({
+  treatment,
+}: {
+  treatment: InvitationSourceTreatment;
+}) {
+  const common = "absolute z-[1] select-none overflow-hidden";
+
+  if (treatment.id === "speedster-blue") {
+    return (
+      <div data-theme-motif="speedster-blue" className={`${common} inset-0`} aria-hidden>
+        <div className="absolute -right-[4%] top-[5%] aspect-square h-[58%] rounded-full border-[10px] border-blue-300/40 bg-blue-600 shadow-[0_0_35px_rgba(39,200,255,0.75)]" />
+        <div className="absolute right-[9%] top-[13%] aspect-square h-[35%] rotate-[-14deg] rounded-[48%_52%_44%_56%] bg-gradient-to-br from-blue-300 via-blue-600 to-blue-950 shadow-2xl" />
+        <div className="absolute right-[31%] top-[12%] h-[5%] w-[32%] -rotate-12 rounded-full bg-white/85 shadow-[0_0_14px_white]" />
+        <div className="absolute right-[25%] top-[24%] h-[4%] w-[43%] -rotate-12 rounded-full bg-cyan-300/90" />
+        <div className="absolute right-[34%] top-[36%] h-[3%] w-[32%] -rotate-12 rounded-full bg-white/70" />
+        {["right-[6%] top-[8%] h-[18%]", "right-[36%] top-[7%] h-[13%]", "right-[22%] top-[42%] h-[15%]"].map((position) => (
+          <div key={position} className={`absolute aspect-square rounded-full border-[5px] border-yellow-300 shadow-[0_0_12px_rgba(255,210,31,0.8)] ${position}`} />
+        ))}
+      </div>
+    );
+  }
+
+  if (treatment.id === "block-world") {
+    return (
+      <div data-theme-motif="block-world" className={`${common} inset-0 opacity-80`} aria-hidden>
+        <div className="absolute inset-x-0 top-0 h-[48%] bg-[linear-gradient(90deg,rgba(255,255,255,.08)_50%,transparent_50%),linear-gradient(rgba(255,255,255,.08)_50%,transparent_50%)] bg-[size:42px_42px]" />
+        <div className="absolute right-[8%] top-[9%] grid grid-cols-3 gap-1 rotate-3">
+          {Array.from({ length: 9 }, (_, index) => (
+            <span key={index} className={`h-9 w-9 border border-black/20 ${index % 3 === 0 ? "bg-lime-300" : index % 2 === 0 ? "bg-emerald-600" : "bg-amber-700"}`} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (treatment.id === "web-hero") {
+    return (
+      <div
+        data-theme-motif="web-hero"
+        className={`${common} inset-0 opacity-80`}
+        aria-hidden
+        style={{
+          backgroundImage:
+            "repeating-radial-gradient(circle at 82% 18%, transparent 0 22px, rgba(255,255,255,.55) 23px 25px), repeating-conic-gradient(from 0deg at 82% 18%, rgba(255,255,255,.7) 0 1deg, transparent 1deg 22.5deg)",
+        }}
+      />
+    );
+  }
+
+  const motif = {
+    "mushroom-kingdom": ["★", "●", "■"],
+    "night-hero": ["◆", "◢", "▰"],
+    "electric-creatures": ["⚡", "●", "✦"],
+    "pink-fashion": ["✦", "♥", "✧"],
+    "rescue-pups": ["●", "♥", "●"],
+    "blue-pup": ["●", "✦", "●"],
+  }[treatment.id] ?? ["✦", "●", "✧"];
+
+  return (
+    <div data-theme-motif={treatment.id} className={`${common} inset-0`} aria-hidden>
+      <span className="absolute right-[10%] top-[7%] text-[clamp(72px,12vw,150px)] font-black leading-none text-white/20">
+        {motif[0]}
+      </span>
+      <span className="absolute right-[31%] top-[12%] text-[clamp(36px,7vw,90px)] font-black leading-none" style={{ color: treatment.accent }}>
+        {motif[1]}
+      </span>
+      <span className="absolute right-[6%] top-[38%] text-[clamp(28px,5vw,68px)] font-black leading-none" style={{ color: treatment.accent2 }}>
+        {motif[2]}
+      </span>
+    </div>
   );
 }
 

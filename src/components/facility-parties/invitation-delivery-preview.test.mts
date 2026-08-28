@@ -50,9 +50,12 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(printHtml, /data-sheet-readable="true"/);
   assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 4);
   assert.equal(countMatches(printHtml, 'data-logo-treatment="transparent"'), 4);
+  assert.equal(countMatches(printHtml, 'data-invitation-size="5.5x4-landscape"'), 4);
+  assert.equal(countMatches(printHtml, 'data-source-theme-treatment="speedster-blue"'), 4);
   assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
   assert.match(printHtml, /Milo/);
   assert.match(printHtml, /Letter/);
+  assert.match(printHtml, /5.5/);
   assert.match(printHtml, /Selected/);
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
@@ -84,6 +87,7 @@ test("selecting a preference surfaces selected state without changing snapshot f
   assert.match(html, /data-selected="true"/);
   assert.match(html, /data-delivery-preference="email"/);
   assert.match(html, /data-theme-id="gamer-neon"/);
+  assert.match(html, /data-source-theme-treatment="speedster-blue"/);
   assert.match(html, /turning 6/);
 });
 
@@ -96,6 +100,7 @@ test("printable sheet output stays 4-up with the same invitation renderer", () =
     }),
   );
   assert.match(sheetHtml, /data-print-layout="letter-4up"/);
+  assert.match(sheetHtml, /data-invitation-format="5.5x4-landscape"/);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
   assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
   assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 4);
