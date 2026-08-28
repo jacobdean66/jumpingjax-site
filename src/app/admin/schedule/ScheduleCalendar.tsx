@@ -110,7 +110,7 @@ function PrintAgenda({
           days.map((day) => {
             const events = eventsByDate[day.ymd] ?? [];
             return (
-              <section key={day.ymd} className="break-inside-avoid">
+              <section key={day.ymd} className="schedule-print-day">
                 <h2 className="border-b border-slate-900 pb-1 text-base font-black">
                   {day.dayName}, {day.label}
                 </h2>
@@ -121,7 +121,7 @@ function PrintAgenda({
                     {events.map((event) => (
                       <li
                         key={event.id}
-                        className="break-inside-avoid border border-slate-900 p-2 text-sm"
+                        className="schedule-print-event break-inside-avoid border border-slate-900 p-2 text-sm"
                       >
                         <span className="font-black">{typeLabel(event.type)}</span>
                         {" - "}

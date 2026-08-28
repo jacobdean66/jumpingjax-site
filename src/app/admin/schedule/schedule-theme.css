@@ -529,8 +529,20 @@
 /* --- Print protection: paper-appropriate, no dark ink wash --- */
 
 @media print {
+  html,
+  body {
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .admin-schedule-theme {
+    display: block !important;
+    width: auto !important;
     min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
     color-scheme: light !important;
@@ -544,8 +556,21 @@
 
   .admin-schedule-theme main,
   .admin-schedule-theme main.min-h-screen {
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
+  }
+
+  .admin-schedule-theme main > section,
+  .admin-schedule-theme .schedule-main-panel {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
   }
 
   .admin-schedule-theme .print\:hidden {
@@ -555,6 +580,9 @@
   .admin-schedule-theme .hidden.print\:block,
   .admin-schedule-theme .schedule-print-output {
     display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
   }
@@ -565,6 +593,33 @@
     color: #0f172a !important;
     border-color: #0f172a !important;
     color-scheme: light !important;
+  }
+
+  /* Grid fragmentation is unreliable in Chromium print layout. Use normal
+     document flow so long days continue cleanly onto the next page. */
+  .admin-schedule-theme .schedule-print-output :is(.grid, ul) {
+    display: block !important;
+  }
+
+  .admin-schedule-theme .schedule-print-day {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    margin-top: 0.18in !important;
+  }
+
+  .admin-schedule-theme .schedule-print-day:first-child {
+    margin-top: 0 !important;
+  }
+
+  .admin-schedule-theme .schedule-print-day h2 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  .admin-schedule-theme .schedule-print-event {
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+    margin-top: 0.08in !important;
   }
 }
 
