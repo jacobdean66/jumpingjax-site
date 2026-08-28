@@ -11,6 +11,7 @@ import {
 
 type PrintableBookingRow = {
   id: string;
+  status: string;
   customer_name: string | null;
   email: string | null;
   phone: string | null;
@@ -26,6 +27,14 @@ type PrintableBookingRow = {
   subtotal: number | string | null;
   tax: number | string | null;
   addon_selections: unknown;
+  child_age: string | null;
+  child_gender: string | null;
+  party_theme: string | null;
+  balloon_colors: string | null;
+  table_cloth_colors: string | null;
+  drink_choice: string | null;
+  payment_method: string | null;
+  notes: string | null;
 };
 
 function clean(value: string | null): string | null {
@@ -157,7 +166,7 @@ export async function loadCurrentPrintableAgreement(bookingId: string) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("facility_bookings")
-    .select("id,customer_name,email,phone,parent_name,child_name,party_label,readable_date,readable_time,room,party_kind,facility_package_price,addon_subtotal,subtotal,tax,addon_selections")
+    .select("id,status,customer_name,email,phone,parent_name,child_name,party_label,readable_date,readable_time,room,party_kind,facility_package_price,addon_subtotal,subtotal,tax,addon_selections,child_age,child_gender,party_theme,balloon_colors,table_cloth_colors,drink_choice,payment_method,notes")
     .eq("id", bookingId)
     .maybeSingle<PrintableBookingRow>();
   if (error) throw new Error("printable_agreement_lookup_failed");
@@ -192,9 +201,22 @@ export async function loadCurrentPrintableAgreement(bookingId: string) {
   });
   const paidTotal = Math.round(payments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100;
   return {
-    ...snapshot,
-    payments,
-    paidTotal,
-    balanceDue: Math.max(Math.round((snapshot.total - paidTotal) * 100) / 100, 0),
+    snapshot: {
+      ...snapshot,
+      payments,
+      paidTotal,
+      balanceDue: Math.max(Math.round((snapshot.total - paidTotal) * 100) / 100, 0),
+    },
+    details: {
+      status: data.status,
+      childAge: clean(data.child_age),
+      childGender: clean(data.child_gender),
+      partyTheme: clean(data.party_theme),
+      balloonColors: clean(data.balloon_colors),
+      tableClothColors: clean(data.table_cloth_colors),
+      drinkChoice: clean(data.drink_choice),
+      expectedPaymentMethod: clean(data.payment_method),
+      notes: clean(data.notes),
+    },
   };
 }
