@@ -1,5 +1,7 @@
 import type { CalendarDay, CalendarEvent } from "./schedule";
 
+export const SCHEDULE_PRINT_PAGE_SIZE = "6in 4in";
+
 /**
  * Resolve which calendar days should appear in a print/email payload.
  * When selectedDates is empty, all visible days with (or without) events are used
@@ -35,10 +37,3 @@ export function sortEventsForPrint(
   );
 }
 
-export function printOrientationForView(
-  view: "day" | "week" | "month",
-): "landscape" | "portrait" {
-  // Day, week, and month all prefer landscape so single-day prints keep columns.
-  void view;
-  return "landscape";
-}

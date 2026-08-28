@@ -7,7 +7,7 @@ import {
   formatProductLabel,
 } from "./schedule-products";
 import {
-  printOrientationForView,
+  SCHEDULE_PRINT_PAGE_SIZE,
   resolvePrintDays,
   sortEventsForPrint,
 } from "./schedule-print";
@@ -378,10 +378,8 @@ await test("Inventory future counts use the correct date boundary", () => {
   assert.equal("2026-07-16" >= boundary.futureOnOrAfter, true);
 });
 
-await test("Single-day printing supports landscape", () => {
-  assert.equal(printOrientationForView("day"), "landscape");
-  assert.equal(printOrientationForView("week"), "landscape");
-  assert.equal(printOrientationForView("month"), "landscape");
+await test("Schedule printing uses exact 4x6 landscape paper", () => {
+  assert.equal(SCHEDULE_PRINT_PAGE_SIZE, "6in 4in");
 });
 
 await test("Google Calendar sync idempotency key stays stable for secondary destination", () => {

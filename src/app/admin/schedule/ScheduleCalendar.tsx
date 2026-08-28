@@ -20,7 +20,7 @@ import {
 } from "@/lib/admin/schedule-display";
 import { formatProductLabel } from "@/lib/admin/schedule-products";
 import {
-  printOrientationForView,
+  SCHEDULE_PRINT_PAGE_SIZE,
   resolvePrintDays,
 } from "@/lib/admin/schedule-print";
 
@@ -91,15 +91,17 @@ function PrintAgenda({
   className?: string;
 }) {
   return (
-    <section className={className}>
-      <h1 className="text-2xl font-black">Jumping Jax Schedule</h1>
-      <div className="mt-2 grid gap-1 text-sm">
-        <p>Date range: {heading}</p>
-        <p>
-          Booking types:{" "}
-          {noTypesSelected ? "No booking types selected" : selectedLabels.join(", ")}
-        </p>
-        <p>Total visible bookings: {visibleCount}</p>
+    <section className={`schedule-print-agenda ${className}`}>
+      <div className="schedule-print-summary">
+        <h1 className="text-2xl font-black">Jumping Jax Schedule</h1>
+        <div className="mt-2 grid gap-1 text-sm">
+          <p>Date range: {heading}</p>
+          <p>
+            Booking types:{" "}
+            {noTypesSelected ? "No booking types selected" : selectedLabels.join(", ")}
+          </p>
+          <p>Total visible bookings: {visibleCount}</p>
+        </div>
       </div>
       <div className="mt-5 grid gap-4">
         {noTypesSelected ? (
@@ -315,8 +317,6 @@ export function ScheduleCalendar({
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [todayYmd] = useState(() => toYmd(new Date()));
   const emailSendingLockRef = useRef(false);
-  const printOrientation = printOrientationForView(view);
-
   useEffect(() => {
     window.sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
@@ -403,8 +403,8 @@ export function ScheduleCalendar({
       <style jsx global>{`
         @media print {
           @page {
-            size: ${printOrientation};
-            margin: 0.35in;
+            size: ${SCHEDULE_PRINT_PAGE_SIZE};
+            margin: 0.18in;
           }
           html,
           body {

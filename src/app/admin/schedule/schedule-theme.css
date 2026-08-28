@@ -595,6 +595,17 @@
     color-scheme: light !important;
   }
 
+  .admin-schedule-theme .schedule-print-agenda {
+    width: 100% !important;
+    font-size: 9pt !important;
+    line-height: 1.25 !important;
+  }
+
+  .admin-schedule-theme .schedule-print-summary {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
   /* Grid fragmentation is unreliable in Chromium print layout. Use normal
      document flow so long days continue cleanly onto the next page. */
   .admin-schedule-theme .schedule-print-output :is(.grid, ul) {
@@ -608,6 +619,12 @@
   }
 
   .admin-schedule-theme .schedule-print-day:first-child {
+    margin-top: 0 !important;
+  }
+
+  .admin-schedule-theme .schedule-print-day + .schedule-print-day {
+    break-before: page;
+    page-break-before: always;
     margin-top: 0 !important;
   }
 
