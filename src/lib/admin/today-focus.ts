@@ -35,6 +35,22 @@ const MORNING_BRIEF_BY_DATE: Record<string, TodayFocusItem[]> = {
       href: "/admin/giveaway",
     },
   ],
+  "2026-08-28": [
+    {
+      id: "morning-brief-facility-2c775988-3d7b-4465-b19c-2d3eb621966c",
+      kind: "brief",
+      label: "Confirm Stephanie Long's party request",
+      detail: "$256.80 public-play party · Sep 19, 4:00–5:30 PM · High urgency",
+      href: "/admin/facility#booking-2c775988-3d7b-4465-b19c-2d3eb621966c",
+    },
+    {
+      id: "morning-brief-giveaway-colton",
+      kind: "brief",
+      label: "Review clustered giveaway nominations",
+      detail: "Five nominations for Colton arrived within five minutes · Check duplicates and eligibility",
+      href: "/admin/giveaway",
+    },
+  ],
 };
 
 export function morningBriefFocusItems(date: string): TodayFocusItem[] {
