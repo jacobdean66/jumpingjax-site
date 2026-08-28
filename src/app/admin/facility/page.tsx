@@ -329,34 +329,39 @@ function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) 
   return (
     <details
       id={`booking-${booking.id}`}
-      className="group min-w-0 overflow-hidden rounded-lg border-2 border-pink-300/90 bg-slate-950/90 text-white shadow-xl shadow-black/40 transition hover:border-pink-200 hover:shadow-pink-200/30 open:col-span-full open:border-pink-200 open:bg-slate-950 open:shadow-2xl"
+      className="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-lg open:col-span-full open:translate-y-0 open:border-pink-300 open:shadow-xl"
     >
-      <summary className="flex aspect-square cursor-pointer list-none flex-col justify-between rounded-lg bg-slate-900 p-3 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 group-open:aspect-auto group-open:border group-open:border-pink-200/80 group-open:bg-slate-950 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-center justify-between gap-1">
+      <summary className="flex min-h-52 cursor-pointer list-none flex-col rounded-2xl p-5 transition hover:bg-pink-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-inset group-open:min-h-0 group-open:rounded-b-none group-open:border-b group-open:border-slate-200 group-open:bg-slate-50 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start justify-between gap-3">
           <StatusBadge status={booking.status} />
-          <span className="rounded-full border border-pink-200/90 bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-pink-100 group-open:bg-black/50">
-            <span className="group-open:hidden">Open</span>
-            <span className="hidden group-open:inline">Collapse</span>
+          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 group-open:bg-white">
+            <span className="group-open:hidden">View details</span>
+            <span className="hidden group-open:inline">Hide details</span>
           </span>
         </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-wide text-pink-100/90">
-            Party time
+        <div className="mt-5">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">
+            {booking.readableDate ?? "Date not set"}
           </p>
-          <p className="mt-1 text-sm font-black leading-tight text-white">
+          <p className="mt-1 text-xl font-black leading-tight text-slate-950">
             {booking.readableTime ?? "Time not set"}
           </p>
         </div>
-        <div className="space-y-1">
-          <p className="truncate text-sm font-black text-pink-50">
+        <div className="mt-auto pt-6">
+          <p className="text-lg font-black leading-tight text-slate-950">
             {booking.childName ?? "Child not set"}
           </p>
-          <p className="text-[11px] font-semibold text-slate-100">
-            {kidCount === null ? "Kids not set" : `${kidCount} kids`}
+          <p className="mt-1 truncate text-sm font-semibold text-slate-600">
+            {booking.customerName}
           </p>
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-3 text-xs font-bold text-slate-500">
+            <span>{booking.partyLabel ?? "Facility party"}</span>
+            <span>{roomLabel(booking.room)}</span>
+            <span>{kidCount === null ? "Kids not set" : `${kidCount} kids`}</span>
+          </div>
         </div>
       </summary>
-      <div className="mt-2 rounded-b-lg border-t border-pink-300/40 bg-slate-950 p-3">
+      <div className="bg-slate-100 p-3 sm:p-5">
         <FacilityCard booking={booking} />
       </div>
     </details>
@@ -411,7 +416,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   const pageBackgroundStyle = {
     backgroundColor: "#334155",
     backgroundImage:
-      "linear-gradient(rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0.16)), url('/marketing/jumping-jax-facility-empty-v2.png')",
+      "linear-gradient(rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.78)), url('/marketing/jumping-jax-facility-empty-v2.png')",
     backgroundPosition: "center top",
     backgroundRepeat: "no-repeat",
     backgroundSize: "cover",
@@ -421,75 +426,94 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   return (
     <AdminShell>
       <div
-        className="relative overflow-x-hidden rounded-2xl p-4 sm:p-6"
+        className="relative overflow-x-hidden rounded-3xl p-3 sm:p-5"
         style={pageBackgroundStyle}
       >
         <div className="relative z-10">
-        <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
-          <FilterForm
-            key={`${from}-${effectiveTo}-${singleDay}-${status}-${kind}`}
-            token={token}
-            from={from}
-            to={effectiveTo}
-            status={status}
-            singleDay={singleDay}
-          />
-        </AdminHeader>
-        <AdminNav token={token} role={auth.role} active="facility" />
+          <section className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-6 print:border-0 print:p-0 print:shadow-none">
+            <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
+              <FilterForm
+                key={`${from}-${effectiveTo}-${singleDay}-${status}-${kind}`}
+                token={token}
+                from={from}
+                to={effectiveTo}
+                status={status}
+                singleDay={singleDay}
+              />
+            </AdminHeader>
+            <AdminNav token={token} role={auth.role} active="facility" />
 
-        <div className="mt-5 flex flex-wrap gap-2 print:hidden">
-          {pendingApprovalEndpoints.length > 0 ? (
-            <BulkBookingActionButton
-              endpoints={pendingApprovalEndpoints}
-              label={`Approve all pending (${pendingApprovalEndpoints.length})`}
-              doneLabel="Confirmed"
-            />
-          ) : null}
-          <PrintButton label="Print party prep sheets" />
-        </div>
+            <div className="mt-5 flex flex-wrap gap-2 print:hidden">
+              {pendingApprovalEndpoints.length > 0 ? (
+                <BulkBookingActionButton
+                  endpoints={pendingApprovalEndpoints}
+                  label={`Approve all pending (${pendingApprovalEndpoints.length})`}
+                  doneLabel="Confirmed"
+                />
+              ) : null}
+              <PrintButton label="Print party prep sheets" />
+            </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
-          <StatTile
-            label="Waiting approval"
-            value={allFacility.summary.pending ?? 0}
-            href={`/admin/facility?${baseQuery}&status=pending`}
-          />
-          <StatTile
-            label="Confirmed parties"
-            value={allFacility.summary.confirmed ?? 0}
-            href={`/admin/facility?${baseQuery}&status=confirmed`}
-          />
-          <StatTile
-            label="Rejected parties"
-            value={allFacility.summary.rejected ?? 0}
-            href={`/admin/facility?${baseQuery}&status=rejected`}
-          />
-          <StatTile
-            label="Cancelled parties"
-            value={allFacility.summary.cancelled ?? 0}
-            href={`/admin/facility?${baseQuery}&status=cancelled`}
-          />
-          <StatTile
-            label="Private parties"
-            value={privateCount}
-            href={`/admin/facility?${baseQuery}&status=all&kind=private`}
-          />
-        </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 print:hidden">
+              <StatTile
+                label="Waiting approval"
+                value={allFacility.summary.pending ?? 0}
+                href={`/admin/facility?${baseQuery}&status=pending`}
+              />
+              <StatTile
+                label="Confirmed parties"
+                value={allFacility.summary.confirmed ?? 0}
+                href={`/admin/facility?${baseQuery}&status=confirmed`}
+              />
+              <StatTile
+                label="Rejected parties"
+                value={allFacility.summary.rejected ?? 0}
+                href={`/admin/facility?${baseQuery}&status=rejected`}
+              />
+              <StatTile
+                label="Cancelled parties"
+                value={allFacility.summary.cancelled ?? 0}
+                href={`/admin/facility?${baseQuery}&status=cancelled`}
+              />
+              <StatTile
+                label="Private parties"
+                value={privateCount}
+                href={`/admin/facility?${baseQuery}&status=all&kind=private`}
+              />
+            </div>
+          </section>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 print:hidden sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-          {displayedBookings.length === 0 ? (
-            <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <p className="text-lg font-bold">No facility parties found.</p>
-              <p className="mt-2 text-sm text-slate-600">
-                Adjust the date range or status filter.
+          <section className="mt-5 rounded-2xl border border-white/60 bg-slate-100/95 p-3 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-5 print:hidden">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-2 px-1">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">
+                  Party schedule
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  {displayedBookings.length}{" "}
+                  {displayedBookings.length === 1 ? "party" : "parties"}
+                </h2>
+              </div>
+              <p className="text-sm font-semibold text-slate-500">
+                Select a party to view its full details and actions.
               </p>
             </div>
-          ) : (
-            displayedBookings.map((booking) => (
-              <FacilityExpandableCard key={booking.id} booking={booking} />
-            ))
-          )}
-        </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {displayedBookings.length === 0 ? (
+                <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                  <p className="text-lg font-bold">No facility parties found.</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Adjust the date range or status filter.
+                  </p>
+                </div>
+              ) : (
+                displayedBookings.map((booking) => (
+                  <FacilityExpandableCard key={booking.id} booking={booking} />
+                ))
+              )}
+            </div>
+          </section>
 
         {displayedBookings.length > 0 && (
           <div className="mt-8 hidden gap-5 print:grid">
