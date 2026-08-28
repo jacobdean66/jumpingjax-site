@@ -162,6 +162,9 @@ export function FacilityAgreementPanel({
         <button type="button" disabled={working} onClick={saveAndEmail} className="rounded-full bg-cyan-600 px-5 py-2.5 text-sm font-black text-white hover:bg-cyan-700 disabled:opacity-60">
           {working ? "Saving and emailing…" : includePayment ? "Save payment & email agreement" : "Email updated agreement"}
         </button>
+        <a href={`/admin/facility/${encodeURIComponent(booking.id)}/agreement/print`} target="_blank" rel="noreferrer" className="rounded-full border-2 border-slate-950 bg-white px-5 py-2 text-sm font-black text-slate-950 hover:bg-slate-100">
+          Print agreement / receipt
+        </a>
         <span className="text-xs font-semibold text-slate-600">Sent to {booking.email ?? "email not set"}</span>
       </div>
       {message ? <p className="mt-3 text-sm font-bold text-slate-800" role="status">{message}</p> : null}

@@ -24,12 +24,16 @@ export function FacilityAgreementDocument({
   status,
   signerLegalName,
   signedAt,
+  paperCopy = false,
+  copyLabel,
 }: {
   snapshot: FacilityAgreementSnapshot;
-  version: number;
+  version: number | null;
   status: AgreementStatus;
   signerLegalName: string | null;
   signedAt: string | null;
+  paperCopy?: boolean;
+  copyLabel?: string;
 }) {
   return (
     <article className="mx-auto w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl print:max-w-none print:rounded-none print:border-0 print:shadow-none">
@@ -41,7 +45,8 @@ export function FacilityAgreementDocument({
             </p>
             <h1 className="mt-2 text-3xl font-black">Birthday Party Agreement</h1>
             <p className="mt-2 text-sm font-semibold text-slate-300">
-              Agreement and POS payment receipt · Version {version}
+              Agreement and payment receipt · {version ? `Version ${version}` : "Current booking copy"}
+              {copyLabel ? ` · ${copyLabel}` : ""}
             </p>
           </div>
           <div className="text-sm font-semibold text-slate-200 sm:text-right">
@@ -138,8 +143,15 @@ export function FacilityAgreementDocument({
         </section>
 
         <section className="rounded-2xl border-2 border-slate-300 p-5">
-          <h2 className="text-lg font-black">Electronic signature</h2>
-          {status === "signed" ? (
+          <h2 className="text-lg font-black">{paperCopy ? "Customer signature" : "Electronic signature"}</h2>
+          {paperCopy ? (
+            <div className="mt-5 grid gap-x-6 gap-y-8 sm:grid-cols-2">
+              <div><p className="border-b border-slate-500 pb-6" /><p className="mt-2 text-xs font-black uppercase text-slate-500">Printed legal name</p></div>
+              <div><p className="border-b border-slate-500 pb-6" /><p className="mt-2 text-xs font-black uppercase text-slate-500">Customer signature</p></div>
+              <div><p className="border-b border-slate-500 pb-6" /><p className="mt-2 text-xs font-black uppercase text-slate-500">Date</p></div>
+              <div><p className="border-b border-slate-500 pb-6" /><p className="mt-2 text-xs font-black uppercase text-slate-500">Jumping Jax staff initials</p></div>
+            </div>
+          ) : status === "signed" ? (
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div><p className="text-xs font-black uppercase text-slate-500">Signed by</p><p className="mt-1 border-b border-slate-400 pb-2 text-xl font-semibold italic">{signerLegalName}</p></div>
               <div><p className="text-xs font-black uppercase text-slate-500">Signed electronically</p><p className="mt-1 font-bold">{dateTime(signedAt)}</p></div>

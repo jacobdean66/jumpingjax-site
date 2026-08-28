@@ -79,3 +79,14 @@ test("agreement migration is service-role only and versions signatures", async (
   assert.match(sql, /status = 'superseded'/i);
   assert.doesNotMatch(sql, /card_number|card_last_four|cvv/i);
 });
+
+test("facility cards expose a printable two-copy physical agreement and receipt", async () => {
+  const [panel, printPage] = await Promise.all([
+    readFile(new URL("../../app/admin/facility/FacilityAgreementPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../app/admin/facility/[id]/agreement/print/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(panel, /Print agreement \/ receipt/);
+  assert.match(printPage, /CUSTOMER COPY/);
+  assert.match(printPage, /JUMPING JAX FACILITY COPY/);
+  assert.match(printPage, /print:break-before-page/);
+});
