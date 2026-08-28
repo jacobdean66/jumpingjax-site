@@ -9,7 +9,7 @@ export default async function AirHockeyTournamentPage() {
   const isOpen = event?.status === "published";
   const dateLabel = formatEventDate(event?.eventDate ?? null);
   const timeLabel = formatEventTime(event?.startTime ?? null, event?.endTime ?? null);
-  const spotsLabel = event?.signupCapacity != null ? `${Math.max(0, event.signupCapacity - event.signupCount)} spots left` : "Limited spots";
+  const spotsLabel = event?.signupCapacity != null ? `${Math.max(0, event.signupCapacity - event.signupCount)} spots left` : "No player limit";
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="border-b border-white/10 bg-slate-900 px-4 py-4"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4"><Link href="/" className="text-2xl font-black">Jumping Jax</Link><Link href="/" className="rounded-full border border-white/20 px-4 py-2 text-sm font-black text-white">Main site</Link></div></section>
