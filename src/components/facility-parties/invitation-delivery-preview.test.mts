@@ -49,6 +49,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(printHtml, /data-print-preview="readable"/);
   assert.match(printHtml, /data-sheet-readable="true"/);
   assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 4);
+  assert.equal(countMatches(printHtml, 'data-logo-treatment="transparent"'), 4);
   assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
   assert.match(printHtml, /Milo/);
   assert.match(printHtml, /Letter/);
@@ -57,6 +58,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(emailHtml, /data-preview-mode="email-single"/);
   assert.match(emailHtml, /data-invite-count="1"/);
   assert.equal(countMatches(emailHtml, 'data-invitation-brand="jumping-jax"'), 1);
+  assert.equal(countMatches(emailHtml, 'data-logo-treatment="transparent"'), 1);
   assert.equal(countMatches(emailHtml, "data-invite-instance"), 1);
   assert.match(emailHtml, /Milo/);
   assert.match(emailHtml, /Friday, Oct 3/);
@@ -68,6 +70,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(pickupHtml, /Receive in person/);
   assert.match(pickupHtml, /data-invite-count="1"/);
   assert.equal(countMatches(pickupHtml, 'data-invitation-brand="jumping-jax"'), 1);
+  assert.equal(countMatches(pickupHtml, 'data-logo-treatment="transparent"'), 1);
 });
 
 test("selecting a preference surfaces selected state without changing snapshot fields", () => {
@@ -86,12 +89,19 @@ test("selecting a preference surfaces selected state without changing snapshot f
 
 test("printable sheet output stays 4-up with the same invitation renderer", () => {
   const sheetHtml = renderToStaticMarkup(
-    createElement(InvitationSheet, formFields),
+    createElement(InvitationSheet, {
+      ...formFields,
+      qrUrl: "/test-party-qr.png",
+      waiverUrl: "https://example.com/waiver",
+    }),
   );
   assert.match(sheetHtml, /data-print-layout="letter-4up"/);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
   assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
   assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 4);
+  assert.equal(countMatches(sheetHtml, 'data-logo-treatment="transparent"'), 4);
   assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 4);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-qr="true"'), 4);
+  assert.equal(countMatches(sheetHtml, 'data-qr-size="large"'), 4);
   assert.match(sheetHtml, /Milo/);
 });

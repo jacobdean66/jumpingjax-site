@@ -113,12 +113,13 @@ function BrandMark({ layout }: { layout: string }) {
   return (
     <div
       data-invitation-brand="jumping-jax"
-      className={`absolute z-20 rounded-xl bg-white/95 px-[2.5%] py-[1.5%] shadow-lg backdrop-blur-sm ${position}`}
+      data-logo-treatment="transparent"
+      className={`absolute z-20 ${position}`}
     >
       <img
         src="/logo.png"
         alt="Jumping Jax Inflatable Rentals & Parties"
-        className="h-auto w-full object-contain"
+        className="h-auto w-full object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)]"
       />
     </div>
   );
@@ -316,9 +317,11 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark" }: {
         <img
           src={qrUrl}
           alt="Party waiver QR code"
+          data-invitation-qr="true"
+          data-qr-size="large"
           className={compact
-            ? "h-[clamp(36px,4vw,52px)] w-[clamp(36px,4vw,52px)] rounded bg-white p-0.5"
-            : "h-16 w-16 rounded-md bg-white p-1"}
+            ? "h-[clamp(56px,7vw,76px)] w-[clamp(56px,7vw,76px)] rounded-md bg-white p-1"
+            : "h-24 w-24 rounded-lg bg-white p-1.5"}
         />
       ) : null}
     </div>
