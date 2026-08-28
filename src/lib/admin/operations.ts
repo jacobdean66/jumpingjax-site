@@ -1,5 +1,10 @@
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
+  type AdminAgreementSummary,
+  type AgreementPayment,
+} from "@/lib/facility-parties/agreement";
+import { loadAgreementHistoryForBookings } from "@/lib/facility-parties/agreement-store";
+import {
   invitationDeliveryPreferenceLabel,
   invitationTemplateLabel,
   normalizeInvitationDeliveryPreference,
@@ -180,6 +185,8 @@ export type AdminFacilityBooking = {
   calendarStatus: string | null;
   calendarNeedsRepair: boolean;
   safeWorkflowErrorClass: string | null;
+  agreementHistory: AdminAgreementSummary[];
+  paymentHistory: AgreementPayment[];
 };
 
 function sanitizeWorkflowErrorClass(value: string | null | undefined): string | null {
@@ -375,6 +382,8 @@ export async function loadAdminFacilityBookings(input: {
 
   const rows = (data ?? []) as FacilityRow[];
   const bookingIds = rows.map((row) => row.id);
+  const { agreementMap, paymentMap } =
+    await loadAgreementHistoryForBookings(bookingIds);
   const workflowByBookingId = new Map<
     string,
     { calendar_status: string | null; last_error_class: string | null }
@@ -456,6 +465,8 @@ export async function loadAdminFacilityBookings(input: {
       calendarStatus,
       calendarNeedsRepair: needsRepair,
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,
+      agreementHistory: agreementMap.get(row.id) ?? [],
+      paymentHistory: paymentMap.get(row.id) ?? [],
     };
   });
 

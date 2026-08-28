@@ -26,6 +26,7 @@ import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityCancellationButton } from "./FacilityCancellationButton";
 import { FacilityEditButton } from "./FacilityEditButton";
 import { FacilityRestoreButton } from "./FacilityRestoreButton";
+import { FacilityAgreementPanel } from "./FacilityAgreementPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -302,6 +303,23 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <Detail label="Total" value={formatMoney(booking.total)} />
         </section>
       </div>
+      {booking.status === "confirmed" ? (
+        <FacilityAgreementPanel
+          booking={{
+            id: booking.id,
+            email: booking.email,
+            room: booking.room,
+            partyKind: booking.partyKind,
+            facilityPackagePrice: booking.facilityPackagePrice,
+            addonSubtotal: booking.addonSubtotal,
+            subtotal: booking.subtotal,
+            tax: booking.tax,
+            total: booking.total,
+            agreementHistory: booking.agreementHistory,
+            paymentHistory: booking.paymentHistory,
+          }}
+        />
+      ) : null}
     </article>
   );
 }
