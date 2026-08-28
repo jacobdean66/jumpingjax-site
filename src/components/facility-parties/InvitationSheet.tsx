@@ -23,15 +23,15 @@ export function InvitationSheet({
   return (
     <>
       {!dense ? (
-        <style>{`@media print { @page { size: legal landscape; margin: 0; } }`}</style>
+        <style>{`@media print { @page { size: letter landscape; margin: 0; } }`}</style>
       ) : null}
       <div
         className={
           dense
             ? "invitation-print-sheet relative mx-auto w-full overflow-hidden rounded-sm border border-slate-200 bg-white p-2 shadow-sm"
-            : "invitation-print-sheet relative mx-auto w-full max-w-[14in] overflow-hidden rounded-sm border border-slate-200 bg-white p-[0.2in] shadow-sm print:fixed print:inset-0 print:z-50 print:m-0 print:max-w-none print:rounded-none print:border-0 print:shadow-none"
+            : "invitation-print-sheet relative mx-auto w-full max-w-[11in] overflow-hidden rounded-sm border border-slate-200 bg-white p-[0.2in] shadow-sm print:fixed print:inset-0 print:z-50 print:m-0 print:max-w-none print:rounded-none print:border-0 print:shadow-none"
         }
-        data-print-layout="legal-4up"
+        data-print-layout="letter-landscape-4up"
         data-invitation-format="6x4-landscape"
         data-print-dense={dense ? "true" : "false"}
       >

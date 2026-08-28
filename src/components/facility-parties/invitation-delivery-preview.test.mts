@@ -99,7 +99,7 @@ test("printable sheet output stays 4-up with the same invitation renderer", () =
       waiverUrl: "https://example.com/waiver",
     }),
   );
-  assert.match(sheetHtml, /data-print-layout="legal-4up"/);
+  assert.match(sheetHtml, /data-print-layout="letter-landscape-4up"/);
   assert.match(sheetHtml, /data-invitation-format="6x4-landscape"/);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
   assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
