@@ -104,7 +104,7 @@ body {
     height: 8.5in !important;
     max-width: none !important;
     margin: 0 !important;
-    padding: 0.25in 0 !important;
+    padding: 0.75in 0.25in !important;
     overflow: hidden !important;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -112,8 +112,8 @@ body {
 
   .invitation-print-grid {
     display: grid !important;
-    grid-template-columns: 5.5in 5.5in;
-    grid-template-rows: 4in 4in;
+    grid-template-columns: 5.25in 5.25in;
+    grid-template-rows: 3.5in 3.5in;
     height: 100%;
     gap: 0;
   }

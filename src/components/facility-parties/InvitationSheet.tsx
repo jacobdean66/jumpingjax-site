@@ -32,7 +32,7 @@ export function InvitationSheet({
             : "invitation-print-sheet relative mx-auto w-full max-w-[11in] overflow-hidden rounded-sm border border-slate-200 bg-white p-[0.2in] shadow-sm print:fixed print:inset-0 print:z-50 print:m-0 print:max-w-none print:rounded-none print:border-0 print:shadow-none"
         }
         data-print-layout="letter-4up"
-        data-invitation-format="5.5x4-landscape"
+        data-invitation-format="6x4-landscape"
         data-print-dense={dense ? "true" : "false"}
       >
         <div

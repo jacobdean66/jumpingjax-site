@@ -79,9 +79,9 @@ export function PartyInvitationCard({
       data-layout={layout}
       data-preview-scale={previewScale ? "true" : "false"}
       data-sheet-readable={sheetReadable ? "true" : "false"}
-      data-invitation-size="5.5x4-landscape"
+      data-invitation-size="6x4-landscape"
       data-source-theme-treatment={treatment?.id}
-      className={`relative isolate aspect-[11/8] overflow-hidden border text-left shadow-xl ${
+      className={`relative isolate aspect-[3/2] overflow-hidden border text-left shadow-xl ${
         layout === "ticket" ? "rounded-[22px]" : "rounded-[30px]"
       }`}
       style={{
