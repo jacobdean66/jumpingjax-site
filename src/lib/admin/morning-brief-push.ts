@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { listPushSubscriptions, removePushSubscription } from "@/lib/admin/morning-brief-push-store";
 
 export async function sendMorningBriefPush() {
   const publicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim();
@@ -7,16 +7,14 @@ export async function sendMorningBriefPush() {
   const subject = process.env.WEB_PUSH_VAPID_SUBJECT?.trim() || "mailto:admin@jumpingjaxllc.com";
   if (!publicKey || !privateKey) throw new Error("Web Push VAPID keys are not configured.");
   webpush.setVapidDetails(subject, publicKey, privateKey);
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.from("admin_push_subscriptions").select("endpoint,p256dh,auth").eq("active", true);
-  if (error) throw error;
+  const subscriptions = await listPushSubscriptions();
   let sent = 0;
   let removed = 0;
-  for (const subscription of data ?? []) {
+  for (const subscription of subscriptions) {
     try {
       await webpush.sendNotification({
         endpoint: subscription.endpoint,
-        keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+        keys: subscription.keys,
       }, JSON.stringify({
         title: "Jumping Jax Morning Brief",
         body: "Today's focus is ready. Tap to review the items that need attention.",
@@ -26,7 +24,7 @@ export async function sendMorningBriefPush() {
     } catch (error) {
       const statusCode = typeof error === "object" && error && "statusCode" in error ? Number(error.statusCode) : 0;
       if (statusCode === 404 || statusCode === 410) {
-        await supabase.from("admin_push_subscriptions").update({ active: false, updated_at: new Date().toISOString() }).eq("endpoint", subscription.endpoint);
+        await removePushSubscription(subscription.endpoint);
         removed += 1;
       }
     }

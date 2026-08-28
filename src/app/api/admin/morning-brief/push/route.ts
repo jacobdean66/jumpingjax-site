@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAdminAccess } from "@/lib/admin/session";
-import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { savePushSubscription } from "@/lib/admin/morning-brief-push-store";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +18,10 @@ export async function POST(request: Request) {
   if (!body.endpoint || !body.keys?.p256dh || !body.keys.auth) {
     return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
   }
-  const supabase = createServiceRoleClient();
-  const { error } = await supabase.from("admin_push_subscriptions").upsert({
+  await savePushSubscription({
     endpoint: body.endpoint,
-    p256dh: body.keys.p256dh,
-    auth: body.keys.auth,
-    user_agent: request.headers.get("user-agent"),
-    active: true,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "endpoint" });
-  if (error) return NextResponse.json({ error: "Subscription could not be saved" }, { status: 500 });
+    keys: { p256dh: body.keys.p256dh, auth: body.keys.auth },
+    userAgent: request.headers.get("user-agent"),
+  });
   return NextResponse.json({ ok: true });
 }
