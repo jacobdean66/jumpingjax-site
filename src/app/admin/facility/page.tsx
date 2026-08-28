@@ -303,7 +303,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <Detail label="Total" value={formatMoney(booking.total)} />
         </section>
       </div>
-      {booking.status === "confirmed" ? (
+      {!['cancelled', 'canceled', 'rejected'].includes(booking.status) ? (
         <FacilityAgreementPanel
           booking={{
             id: booking.id,

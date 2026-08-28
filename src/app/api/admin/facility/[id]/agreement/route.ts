@@ -87,8 +87,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   if (error || !data) {
     return NextResponse.json({ ok: false, message: "Could not load this facility party." }, { status: error ? 503 : 404 });
   }
-  if (data.status !== "confirmed") {
-    return NextResponse.json({ ok: false, message: "Agreements are available after the party is confirmed." }, { status: 409 });
+  if (["cancelled", "canceled", "rejected"].includes(data.status.toLowerCase())) {
+    return NextResponse.json({ ok: false, message: "Agreements are unavailable for cancelled or rejected parties." }, { status: 409 });
   }
   const email = clean(data.email);
   if (!email) {
@@ -181,6 +181,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       ? "Payment saved, but the agreement email failed. Create an updated version without another payment to retry."
       : "Payment saved and the signing link was emailed to the customer.",
     agreementId,
+    signingPath: `/facility-party-agreement/${token}`,
     emailSent: !emailError,
   });
 }

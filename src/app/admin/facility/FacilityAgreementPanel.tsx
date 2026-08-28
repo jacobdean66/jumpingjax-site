@@ -184,6 +184,11 @@ export function FacilityAgreementPanel({
         <div className="mt-5">
           <p className="text-xs font-black uppercase tracking-wide text-slate-600">Agreement history for this party</p>
           <div className="mt-2 flex flex-wrap gap-2">
+            {latest?.customerSigningPath && latest.status !== "superseded" ? (
+              <a href={latest.customerSigningPath} target="_blank" rel="noreferrer" className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white hover:bg-slate-800">
+                {latest.status === "signed" ? "Open signed customer copy" : "Open customer signing page"}
+              </a>
+            ) : null}
             {booking.agreementHistory.map((agreement) => (
               <a key={agreement.id} href={`/admin/facility/${encodeURIComponent(booking.id)}/agreement/${encodeURIComponent(agreement.id)}`} target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-800 hover:bg-slate-100">
                 Print v{agreement.version} · {agreement.status}

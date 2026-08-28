@@ -66,6 +66,7 @@ export type AdminAgreementSummary = {
   sentAt: string | null;
   signedAt: string | null;
   signerLegalName: string | null;
+  customerSigningPath: string | null;
   snapshot: FacilityAgreementSnapshot;
 };
 

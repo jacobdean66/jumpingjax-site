@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
+  agreementToken,
   hashAgreementToken,
   type AdminAgreementSummary,
   type AgreementPayment,
@@ -61,6 +62,12 @@ export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
   }
 
   for (const row of (agreements ?? []) as AgreementRow[]) {
+    let customerSigningPath: string | null = null;
+    try {
+      customerSigningPath = `/facility-party-agreement/${agreementToken(row.id)}`;
+    } catch {
+      // Keep printable admin history available if signing is not configured.
+    }
     const item: AdminAgreementSummary = {
       id: row.id,
       version: Number(row.version),
@@ -71,6 +78,7 @@ export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
       sentAt: row.sent_at,
       signedAt: row.signed_at,
       signerLegalName: row.signer_legal_name,
+      customerSigningPath,
     };
     agreementMap.set(row.booking_id, [...(agreementMap.get(row.booking_id) ?? []), item]);
   }
