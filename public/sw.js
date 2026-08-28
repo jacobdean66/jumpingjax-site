@@ -45,3 +45,22 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+self.addEventListener("push", (event) => {
+  const data = event.data?.json() || {};
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Jumping Jax Morning Brief", {
+      body: data.body || "Your morning brief is ready.",
+      icon: "/logo.png",
+      badge: "/logo.png",
+      tag: "jumping-jax-morning-brief",
+      renotify: true,
+      data: { url: data.url || "/admin" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow(event.notification.data?.url || "/admin"));
+});

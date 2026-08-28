@@ -2,6 +2,7 @@ import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadTodayFocusItems } from "@/lib/admin/today-focus";
 import { AdminTokenGate } from "./AdminTokenGate";
+import { MorningBriefPushControl } from "./MorningBriefPushControl";
 import "./admin-home-theme.css";
 
 export const dynamic = "force-dynamic";
@@ -258,6 +259,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
                 ))
               )}
             </div>
+            <MorningBriefPushControl />
           </aside>
         </div>
 
