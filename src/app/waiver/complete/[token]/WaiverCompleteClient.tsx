@@ -46,6 +46,7 @@ export function WaiverCompleteClient({
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [joiningPartyId, setJoiningPartyId] = useState<string | null>(null);
   const [joinedPartyMessage, setJoinedPartyMessage] = useState<string | null>(null);
+  const [isOpenPlayGuest, setIsOpenPlayGuest] = useState(false);
   const [joinPartyError, setJoinPartyError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
@@ -159,7 +160,10 @@ export function WaiverCompleteClient({
                 {state.partyMessage}
               </p>
             ) : null}
-            {!isFacilityParty && birthdayParties.length > 0 && !joinedPartyMessage ? (
+            {!isFacilityParty &&
+            birthdayParties.length > 0 &&
+            !joinedPartyMessage &&
+            !isOpenPlayGuest ? (
               <section className="mt-6 rounded-3xl border-2 border-orange-200 bg-orange-50 p-4 text-left">
                 <h2 className="text-lg font-black text-orange-950">
                   Are you here for a birthday party today?
@@ -179,6 +183,14 @@ export function WaiverCompleteClient({
                       {joiningPartyId === party.id ? "Checking you in…" : party.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    disabled={Boolean(joiningPartyId)}
+                    onClick={() => setIsOpenPlayGuest(true)}
+                    className="min-h-12 rounded-2xl border-2 border-cyan-300 bg-cyan-50 px-4 text-left font-black text-cyan-950 transition hover:border-cyan-600 hover:bg-cyan-100 disabled:opacity-60"
+                  >
+                    No — we’re here for Open Play
+                  </button>
                 </div>
                 {joinPartyError ? (
                   <p role="alert" className="mt-3 text-sm font-bold text-red-800">{joinPartyError}</p>
@@ -188,6 +200,11 @@ export function WaiverCompleteClient({
             {joinedPartyMessage ? (
               <p className="mt-6 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black leading-6 text-emerald-950">
                 {joinedPartyMessage}
+              </p>
+            ) : null}
+            {isOpenPlayGuest ? (
+              <p className="mt-6 rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black leading-6 text-cyan-950">
+                You’re all set for Open Play. Please see the front desk to purchase admission.
               </p>
             ) : null}
             <dl className="mx-auto mt-6 max-w-sm space-y-3 rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-4 py-5 text-left text-sm">
