@@ -1,4 +1,5 @@
 import type { AgentJob } from "./types";
+import { BookingFollowUpWorker } from "./booking-follow-up";
 import { BookingTriageWorker } from "./booking-triage";
 import { WaiverTriageWorker } from "./waiver-triage";
 
@@ -24,5 +25,5 @@ export function selectWorker(job: AgentJob, workers: AgentWorker[]): AgentWorker
 }
 
 export function configuredDeterministicWorkers(): AgentWorker[] {
-  return [new DeterministicWorker(), new BookingTriageWorker(), new WaiverTriageWorker()];
+  return [new DeterministicWorker(), new BookingTriageWorker(), new BookingFollowUpWorker(), new WaiverTriageWorker()];
 }
