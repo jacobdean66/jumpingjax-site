@@ -2,7 +2,6 @@ import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadTodayFocusItems } from "@/lib/admin/today-focus";
 import { AdminTokenGate } from "./AdminTokenGate";
-import { MorningBriefPushControl } from "./MorningBriefPushControl";
 import "./admin-home-theme.css";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +81,14 @@ export default async function AdminHomePage({ searchParams }: Props) {
             href: "/admin/agents",
             cta: "Open Agent Manager",
             accent: "steel" as const,
+          },
+          {
+            title: "Answering Machine",
+            eyebrow: "Owner Tools",
+            description: "Read WhatsApp call transcripts, correct the captured facility time or rental details, and approve each intake.",
+            href: "/admin/answering-machine",
+            cta: "Open answering machine",
+            accent: "warn" as const,
           },
         ]
       : []),
@@ -259,7 +266,6 @@ export default async function AdminHomePage({ searchParams }: Props) {
                 ))
               )}
             </div>
-            <MorningBriefPushControl />
           </aside>
         </div>
 

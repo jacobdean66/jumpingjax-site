@@ -9,7 +9,7 @@ export function AdminShell({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 print:m-0 print:max-w-none print:p-0">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {children}
       </section>
     </main>
@@ -96,6 +96,7 @@ export function AdminNav({
     | "ad-analytics"
     | "security"
     | "agents"
+    | "answering-machine"
     | "open-play"
     | "waiver-export";
 }) {
@@ -154,6 +155,9 @@ export function AdminNav({
       : null,
     role === "owner"
       ? { id: "agents" as const, label: "Agents", href: `/admin/agents${query}` }
+      : null,
+    role === "owner"
+      ? { id: "answering-machine" as const, label: "Answering Machine", href: `/admin/answering-machine${query}` }
       : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
     role === "owner"
