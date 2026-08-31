@@ -577,60 +577,6 @@ export default function SocialPostsAdminClient({
                     <StatusBadge status={post.status} />
                   </div>
 
-                  {post.caption ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                      {post.caption}
-                    </p>
-                  ) : (
-                    <p className="text-sm font-semibold text-slate-500">
-                      No caption yet.
-                    </p>
-                  )}
-
-                  {post.prompt ? (
-                    <div className="rounded-xl bg-slate-100 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Prompt
-                      </p>
-                      <p className="mt-1 text-sm text-slate-700">{post.prompt}</p>
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                      <p className="font-black text-slate-500">Platforms</p>
-                      <p className="mt-1 font-semibold capitalize text-slate-800">
-                        {post.platforms.join(", ")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-black text-slate-500">Scheduled for</p>
-                      <p className="mt-1 font-semibold text-slate-800">
-                        {formatDateTime(post.scheduled_for)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {post.source_image_url ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                        Source image URL for video
-                      </p>
-                      <a
-                        href={post.source_image_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 block break-all text-sm font-semibold text-violet-700 hover:text-violet-900"
-                      >
-                        {post.source_image_url}
-                      </a>
-                    </div>
-                  ) : post.media_type === "video" ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-950">
-                      Video generation works best with a source image URL.
-                    </div>
-                  ) : null}
-
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
