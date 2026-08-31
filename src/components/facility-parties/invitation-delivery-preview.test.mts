@@ -48,11 +48,12 @@ test("all three delivery option previews render distinct modes", () => {
   assert.equal(countMatches(printHtml, "data-invite-instance"), 4);
   assert.match(printHtml, /data-print-preview="readable"/);
   assert.match(printHtml, /data-sheet-readable="true"/);
-  assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 4);
-  assert.equal(countMatches(printHtml, 'data-logo-treatment="transparent"'), 4);
-  assert.equal(countMatches(printHtml, 'data-invitation-size="6x4-landscape"'), 4);
+  assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 0);
+  assert.equal(countMatches(printHtml, 'data-logo-treatment="transparent"'), 0);
+  assert.equal(countMatches(printHtml, 'data-invitation-size="5.5x4.25-landscape"'), 4);
   assert.equal(countMatches(printHtml, 'data-source-theme-treatment="speedster-blue"'), 4);
-  assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
+  assert.equal(countMatches(printHtml, 'data-approved-theme-artwork="true"'), 4);
+  assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 0);
   assert.match(printHtml, /Milo/);
   assert.match(printHtml, /Letter/);
   assert.match(printHtml, /5.5/);
@@ -60,8 +61,8 @@ test("all three delivery option previews render distinct modes", () => {
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
   assert.match(emailHtml, /data-invite-count="1"/);
-  assert.equal(countMatches(emailHtml, 'data-invitation-brand="jumping-jax"'), 1);
-  assert.equal(countMatches(emailHtml, 'data-logo-treatment="transparent"'), 1);
+  assert.equal(countMatches(emailHtml, 'data-invitation-brand="jumping-jax"'), 0);
+  assert.equal(countMatches(emailHtml, 'data-logo-treatment="transparent"'), 0);
   assert.equal(countMatches(emailHtml, "data-invite-instance"), 1);
   assert.match(emailHtml, /Milo/);
   assert.match(emailHtml, /Friday, Oct 3/);
@@ -72,8 +73,8 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(pickupHtml, /Print-ready/);
   assert.match(pickupHtml, /Receive in person/);
   assert.match(pickupHtml, /data-invite-count="1"/);
-  assert.equal(countMatches(pickupHtml, 'data-invitation-brand="jumping-jax"'), 1);
-  assert.equal(countMatches(pickupHtml, 'data-logo-treatment="transparent"'), 1);
+  assert.equal(countMatches(pickupHtml, 'data-invitation-brand="jumping-jax"'), 0);
+  assert.equal(countMatches(pickupHtml, 'data-logo-treatment="transparent"'), 0);
 });
 
 test("selecting a preference surfaces selected state without changing snapshot fields", () => {
@@ -91,22 +92,27 @@ test("selecting a preference surfaces selected state without changing snapshot f
   assert.match(html, /turning 6/);
 });
 
-test("printable sheet output stays 4-up with the same invitation renderer", () => {
+test("printable sheets render four equal landscape invitations per letter page", () => {
   const sheetHtml = renderToStaticMarkup(
     createElement(InvitationSheet, {
       ...formFields,
       qrUrl: "/test-party-qr.png",
       waiverUrl: "https://example.com/waiver",
+      invitationQuantity: 12,
     }),
   );
-  assert.match(sheetHtml, /data-print-layout="legal-landscape-4up"/);
-  assert.match(sheetHtml, /data-invitation-format="6x4-landscape"/);
-  assert.equal(countMatches(sheetHtml, "data-invite-instance"), 4);
-  assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 4);
-  assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 4);
-  assert.equal(countMatches(sheetHtml, 'data-logo-treatment="transparent"'), 4);
-  assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 4);
-  assert.equal(countMatches(sheetHtml, 'data-invitation-qr="true"'), 4);
-  assert.equal(countMatches(sheetHtml, 'data-qr-size="large"'), 4);
+  assert.match(sheetHtml, /data-print-layout="letter-landscape-4up"/);
+  assert.match(sheetHtml, /data-invitation-format="5.5x4.25-landscape"/);
+  assert.match(sheetHtml, /data-invite-count="12"/);
+  assert.equal(countMatches(sheetHtml, "data-print-page="), 3);
+  assert.equal(countMatches(sheetHtml, "data-invite-instance"), 12);
+  assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 0);
+  assert.equal(countMatches(sheetHtml, 'data-logo-treatment="transparent"'), 0);
+  assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 0);
+  assert.equal(countMatches(sheetHtml, 'data-approved-theme-artwork="true"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-size="5.5x4.25-landscape"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-qr="true"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-qr-size="large"'), 12);
   assert.match(sheetHtml, /Milo/);
 });

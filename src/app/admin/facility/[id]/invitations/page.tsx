@@ -17,6 +17,7 @@ import {
   invitationTemplateLabel,
   formatInvitationDeliveryPreferences,
   normalizeInvitationDeliveryPreferences,
+  normalizeInvitationQuantity,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
@@ -46,6 +47,7 @@ type FacilityInvitationRow = {
   party_theme: string | null;
   invitation_delivery_preference: string | null;
   invitation_template_id: string | null;
+  invitation_quantity: number | null;
   invitation: unknown;
   balloon_colors: string | null;
   table_cloth_colors: string | null;
@@ -92,7 +94,7 @@ export default async function FacilityInvitationsPage({
   const { data, error } = await supabase
     .from("facility_bookings")
     .select(
-      "id, status, customer_name, email, phone, readable_date, readable_time, party_label, parent_name, child_name, child_age, party_theme, invitation_delivery_preference, invitation_template_id, invitation, balloon_colors, table_cloth_colors",
+      "id, status, customer_name, email, phone, readable_date, readable_time, party_label, parent_name, child_name, child_age, party_theme, invitation_delivery_preference, invitation_template_id, invitation_quantity, invitation, balloon_colors, table_cloth_colors",
     )
     .eq("id", resolvedParams.id)
     .maybeSingle<FacilityInvitationRow>();
@@ -121,6 +123,7 @@ export default async function FacilityInvitationsPage({
     data.invitation_delivery_preference,
   );
   const templateId = normalizeInvitationTemplateId(data.invitation_template_id);
+  const invitationQuantity = normalizeInvitationQuantity(data.invitation_quantity);
   const layout = resolvedSearch?.layout === "single" ? "single" : "sheet";
   const tokenQuery = resolvedSearch?.token
     ? `&token=${encodeURIComponent(resolvedSearch.token)}`
@@ -217,14 +220,14 @@ export default async function FacilityInvitationsPage({
       <style>{`
         @media print {
           @page {
-            size: letter portrait;
+            size: letter landscape;
             margin: 0;
           }
         }
       `}</style>
 
       <section className="mt-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 print:hidden">
-        <div className="grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-2 lg:grid-cols-6">
           <p>
             <span className="block text-xs font-black uppercase text-slate-500">
               Customer
@@ -248,6 +251,18 @@ export default async function FacilityInvitationsPage({
               Design
             </span>
             {invitationTemplateLabel(templateId)}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Theme
+            </span>
+            {clean(data.party_theme) || "Classic birthday"}
+          </p>
+          <p>
+            <span className="block text-xs font-black uppercase text-slate-500">
+              Quantity
+            </span>
+            {invitationQuantity} invitations · {invitationQuantity / 4} {invitationQuantity === 4 ? "sheet" : "sheets"}
           </p>
           <p>
             <span className="block text-xs font-black uppercase text-slate-500">
@@ -285,6 +300,7 @@ export default async function FacilityInvitationsPage({
             timeLabel={clean(data.readable_time)}
             waiverUrl={waiverUrl}
             qrUrl={qrUrl}
+            invitationQuantity={invitationQuantity}
           />
         )}
       </section>

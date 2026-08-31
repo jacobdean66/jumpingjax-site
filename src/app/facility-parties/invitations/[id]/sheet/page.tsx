@@ -48,6 +48,7 @@ export default async function FacilityInvitationSheetPage({ params }: Props) {
         timeLabel={view.timeLabel}
         qrUrl={view.qrUrl}
         waiverUrl={view.waiverUrl}
+        invitationQuantity={view.invitationQuantity}
       />
     </main>
   );

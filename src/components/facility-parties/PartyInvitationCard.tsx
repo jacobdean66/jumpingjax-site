@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
+import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -21,6 +22,7 @@ export type PartyInvitationCardProps = {
   pickupReady?: boolean;
   previewScale?: boolean;
   sheetReadable?: boolean;
+  sheetMode?: boolean;
 };
 
 export function PartyInvitationCard({
@@ -35,6 +37,7 @@ export function PartyInvitationCard({
   pickupReady = false,
   previewScale = false,
   sheetReadable = false,
+  sheetMode = false,
 }: PartyInvitationCardProps) {
   compact = compact || previewScale || sheetReadable;
   const composed = composeLibraryInvitation({
@@ -65,8 +68,10 @@ export function PartyInvitationCard({
     ? `${snapshot.sourceText} celebration`
     : `${composed.themeLabel} celebration`;
   const textSize = compact
-    ? "text-[clamp(13px,1.25vw,17px)]"
+    ? "text-[clamp(9px,3.2cqw,17px)]"
     : "text-base sm:text-lg";
+  const artworkSrc = approvedArtworkSrc(snapshot.themeId, snapshot.sourceText);
+  const approvedFullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
 
   return (
     <article
@@ -79,12 +84,18 @@ export function PartyInvitationCard({
       data-layout={layout}
       data-preview-scale={previewScale ? "true" : "false"}
       data-sheet-readable={sheetReadable ? "true" : "false"}
-      data-invitation-size="6x4-landscape"
+      data-invitation-size={sheetMode ? "5.5x4.25-landscape" : "6x4-landscape"}
       data-source-theme-treatment={treatment?.id}
-      className={`relative isolate aspect-[3/2] overflow-hidden border text-left shadow-xl ${
-        layout === "ticket" ? "rounded-[22px]" : "rounded-[30px]"
+      data-theme-artwork-source={approvedFullBleed ? "approved" : "library"}
+      className={`relative isolate overflow-hidden text-left ${
+        sheetMode
+          ? "h-full w-full border-0 shadow-none"
+          : `aspect-[3/2] border shadow-xl ${
+              layout === "ticket" ? "rounded-[22px]" : "rounded-[30px]"
+            }`
       }`}
       style={{
+        containerType: "inline-size",
         background: `linear-gradient(145deg, ${palette.background}, ${palette.backgroundAlt})`,
         borderColor: palette.border,
         color: palette.text,
@@ -97,17 +108,26 @@ export function PartyInvitationCard({
           backgroundSize: "42px 42px, 64px 64px",
         }}
       />
-      <BrandMark layout={layout} />
-      {treatment ? (
+      {approvedFullBleed ? (
+        <img
+          src={artworkSrc!}
+          alt={`${snapshot.sourceText || composed.themeLabel} party artwork`}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+          data-approved-theme-artwork="true"
+        />
+      ) : null}
+      {!approvedFullBleed ? <BrandMark layout={layout} /> : null}
+      {treatment && !approvedFullBleed ? (
         <SourceThemeMotif treatment={treatment} />
-      ) : (
+      ) : null}
+      {!approvedFullBleed ? (
         <DecorativeArt
-          hero={composed.hero}
+          hero={artworkSrc ? { ...composed.hero, src: artworkSrc } : composed.hero}
           decorations={composed.decorations}
           compact={compact}
           layout={layout}
         />
-      )}
+      ) : null}
       <InvitationCopy
         layout={layout}
         headline={headline}
@@ -247,7 +267,7 @@ function InvitationCopy({
   accent: string;
 }) {
   const headingSize = compact
-    ? "text-[clamp(21px,2.35vw,31px)]"
+    ? "text-[clamp(14px,5.9cqw,31px)]"
     : "text-4xl sm:text-5xl";
   const details = (
     <div className={`font-semibold leading-[1.25] ${textSize}`}>
@@ -416,7 +436,7 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark" }: {
           data-invitation-qr="true"
           data-qr-size="large"
           className={compact
-            ? "h-[clamp(56px,7vw,76px)] w-[clamp(56px,7vw,76px)] rounded-md bg-white p-1"
+            ? "h-[clamp(38px,17cqw,76px)] w-[clamp(38px,17cqw,76px)] rounded-md bg-white p-1"
             : "h-24 w-24 rounded-lg bg-white p-1.5"}
         />
       ) : null}

@@ -10,6 +10,7 @@ import {
   invitationDeliveryPreferenceLabel,
   normalizeInvitationDeliveryPreference,
   normalizeInvitationDeliveryPreferences,
+  normalizeInvitationQuantity,
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "./invitations";
@@ -30,6 +31,14 @@ test("normalizes invitation delivery preference safely", () => {
     invitationDeliveryPreferenceLabel("email"),
     "Email invitation (single)",
   );
+});
+
+test("allows complete four-up invitation quantities from 4 through 28", () => {
+  assert.equal(normalizeInvitationQuantity(4), 4);
+  assert.equal(normalizeInvitationQuantity("16"), 16);
+  assert.equal(normalizeInvitationQuantity(28), 28);
+  assert.equal(normalizeInvitationQuantity(6), 4);
+  assert.equal(normalizeInvitationQuantity(32), 4);
 });
 
 test("normalizes multiple invitation delivery preferences safely", () => {
