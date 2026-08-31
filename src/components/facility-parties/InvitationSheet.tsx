@@ -52,6 +52,11 @@ export function InvitationSheet({
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
+          .invitation-print-page,
+          .invitation-print-page * {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
           .invitation-print-page { break-after: page; page-break-after: always; }
           .invitation-print-page:last-child { break-after: auto; page-break-after: auto; }
         }`}</style>

@@ -135,5 +135,6 @@ test("admin print container removes dashboard padding around letter sheets", () 
   assert.match(html, /print:m-0 print:max-w-none print:p-0/);
   assert.match(html, /width: 11in !important/);
   assert.match(html, /height: 8.5in !important/);
+  assert.match(html, /print-color-adjust: exact !important/);
   assert.equal(countMatches(html, "data-print-page="), 1);
 });
