@@ -36,6 +36,22 @@ export function InvitationSheet({
       {!dense ? (
         <style>{`@media print {
           @page { size: letter landscape; margin: 0; }
+          html, body { margin: 0 !important; padding: 0 !important; }
+          .invitation-print-document {
+            display: block !important;
+            width: 11in !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .invitation-print-page {
+            box-sizing: border-box !important;
+            width: 11in !important;
+            height: 8.5in !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
           .invitation-print-page { break-after: page; page-break-after: always; }
           .invitation-print-page:last-child { break-after: auto; page-break-after: auto; }
         }`}</style>

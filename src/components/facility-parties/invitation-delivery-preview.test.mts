@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { InvitationDeliveryPreview } from "./InvitationDeliveryPreview.tsx";
 import { InvitationSheet } from "./InvitationSheet.tsx";
+import { AdminShell } from "../../app/admin/_components.tsx";
 import { buildInvitationSnapshot } from "../../lib/facility-parties/invitations/snapshot.ts";
 
 const snapshot = buildInvitationSnapshot("Sonic");
@@ -117,4 +118,22 @@ test("printable sheets render four equal landscape invitations per letter page",
   assert.equal(countMatches(sheetHtml, 'data-child-name-age="true"'), 12);
   assert.equal(countMatches(sheetHtml, "Milo"), 12);
   assert.equal(countMatches(sheetHtml, "is turning 6!"), 12);
+});
+
+test("admin print container removes dashboard padding around letter sheets", () => {
+  const html = renderToStaticMarkup(
+    createElement(
+      AdminShell,
+      null,
+      createElement(InvitationSheet, {
+        ...formFields,
+        invitationQuantity: 4,
+      }),
+    ),
+  );
+
+  assert.match(html, /print:m-0 print:max-w-none print:p-0/);
+  assert.match(html, /width: 11in !important/);
+  assert.match(html, /height: 8.5in !important/);
+  assert.equal(countMatches(html, "data-print-page="), 1);
 });
