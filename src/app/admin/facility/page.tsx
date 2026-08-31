@@ -129,6 +129,14 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
                 Invitations
               </InvitationAgentLink>
               <Link
+                href={`/api/facility/invitations/${encodeURIComponent(booking.id)}/editable`}
+                download
+                title="Editable PowerPoint (.pptx)"
+                className="rounded-full bg-sky-600 px-4 py-2 text-xs font-black text-white hover:bg-sky-700"
+              >
+                Download invitations
+              </Link>
+              <Link
                 href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
                 className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
               >

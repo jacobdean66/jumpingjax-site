@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
+import { loadBirthdayPartiesForDay } from "@/lib/open-play/birthday-parties";
 import { WaiverCompleteClient } from "./WaiverCompleteClient";
 
 export const metadata: Metadata = {
@@ -16,5 +18,13 @@ export default async function WaiverCompletePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  return <WaiverCompleteClient key={token} />;
+  const businessDayYmd = businessDayYmdFromInstant(new Date());
+  const birthdayParties = await loadBirthdayPartiesForDay(businessDayYmd).catch(() => []);
+  return (
+    <WaiverCompleteClient
+      key={token}
+      birthdayParties={birthdayParties}
+      businessDayYmd={businessDayYmd}
+    />
+  );
 }

@@ -2,6 +2,7 @@ import { isValidBookingId } from "@/lib/admin/booking-edit";
 import {
   buildFacilityWaiverInvitationUrl,
   buildQrCodeImageUrl,
+  normalizeInvitationQuantity,
 } from "@/lib/facility-parties/invitations";
 import {
   resolveInvitationSnapshot,
@@ -20,6 +21,7 @@ export type FacilityInvitationView = {
   snapshot: InvitationSnapshot;
   waiverUrl: string;
   qrUrl: string;
+  invitationQuantity: number;
 };
 
 type InvitationRow = {
@@ -32,6 +34,7 @@ type InvitationRow = {
   party_label: string | null;
   party_theme: string | null;
   invitation: unknown;
+  invitation_quantity: number | null;
   balloon_colors: string | null;
   table_cloth_colors: string | null;
 };
@@ -45,7 +48,7 @@ export async function loadFacilityInvitationView(
   const { data, error } = await supabase
     .from("facility_bookings")
     .select(
-      "id, status, child_name, child_age, readable_date, readable_time, party_label, party_theme, invitation, balloon_colors, table_cloth_colors",
+      "id, status, child_name, child_age, readable_date, readable_time, party_label, party_theme, invitation, invitation_quantity, balloon_colors, table_cloth_colors",
     )
     .eq("id", bookingId)
     .maybeSingle<InvitationRow>();
@@ -76,5 +79,6 @@ export async function loadFacilityInvitationView(
     snapshot,
     waiverUrl,
     qrUrl: buildQrCodeImageUrl(waiverUrl, 220),
+    invitationQuantity: normalizeInvitationQuantity(data.invitation_quantity),
   };
 }

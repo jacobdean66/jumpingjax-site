@@ -25,6 +25,7 @@ import {
   invitationTemplateLabel,
   normalizeInvitationCreationPreference,
   normalizeInvitationDeliveryPreferences,
+  normalizeInvitationQuantity,
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
       invitation_delivery_preference,
       invitation_creation_preference,
       invitation_template_id,
+      invitation_quantity,
       deposit_acknowledged,
       notes,
       addon_selections,
@@ -166,6 +168,7 @@ export async function POST(req: NextRequest) {
     const invitationTemplateId = normalizeInvitationTemplateId(
       invitation_template_id,
     );
+    const invitationQuantity = normalizeInvitationQuantity(invitation_quantity);
     const invitationPreferenceLabel =
       formatInvitationDeliveryPreferences(invitationPreferences);
     const invitationTemplateName = invitationTemplateLabel(invitationTemplateId);
@@ -399,6 +402,7 @@ export async function POST(req: NextRequest) {
           payment_method: String(payment_method).trim(),
           invitation_delivery_preference: invitationPreferences.join(","),
           invitation_template_id: invitationTemplateId,
+          invitation_quantity: invitationQuantity,
           deposit_acknowledged: deposit_acknowledged === true,
           notes,
           readable_date: storedReadableDate,
@@ -448,6 +452,7 @@ export async function POST(req: NextRequest) {
       .update({
         invitation_delivery_preference: invitationPreferences.join(","),
         invitation_template_id: invitationTemplateId,
+        invitation_quantity: invitationQuantity,
       })
       .eq("id", bookingId);
     if (invitationUpdateError) {
@@ -493,6 +498,7 @@ export async function POST(req: NextRequest) {
         `Party theme: ${String(party_theme).trim()}`,
         `Invitations: ${invitationPreferenceLabel}`,
         `Invitation design: ${invitationTemplateName}`,
+        `Invitation quantity: ${invitationQuantity}`,
         `Balloon colors: ${String(balloon_colors).trim()}`,
         `Table cloth colors: ${String(table_cloth_colors).trim()}`,
         `Drink choice: ${String(drink_choice).trim()}`,
@@ -568,6 +574,7 @@ export async function POST(req: NextRequest) {
           `Party theme: ${String(party_theme).trim()}`,
           `Invitations: ${invitationPreferenceLabel}`,
           `Invitation design: ${invitationTemplateName}`,
+          `Invitation quantity: ${invitationQuantity}`,
           invitationUrl ? `Invitation: ${invitationUrl}` : null,
           `Drink choice: ${String(drink_choice).trim()}`,
           `Payment method: ${String(payment_method).trim()}`,

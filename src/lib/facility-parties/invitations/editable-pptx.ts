@@ -1,0 +1,280 @@
+import path from "node:path";
+
+import PptxGenJS from "pptxgenjs";
+
+import { approvedArtworkSrc } from "./approved-artwork";
+import { composeLibraryInvitation } from "./library/compose";
+import { normalizeInvitationQuantity } from "../invitations";
+import {
+  FACILITY_INVITATION_VENUE,
+  type InvitationSnapshot,
+} from "./snapshot";
+
+export type EditableInvitationPptxInput = {
+  snapshot: InvitationSnapshot;
+  childName: string;
+  childAge: string;
+  dateLabel: string;
+  timeLabel: string;
+  qrUrl?: string;
+  invitationQuantity: number;
+};
+
+const PAGE_WIDTH = 11;
+const PAGE_HEIGHT = 8.5;
+const INVITE_WIDTH = PAGE_WIDTH / 2;
+const INVITE_HEIGHT = PAGE_HEIGHT / 2;
+
+function publicAssetPath(src: string): string {
+  return path.join(process.cwd(), "public", src.replace(/^\/+/, ""));
+}
+
+function pptxColor(value: string, fallback: string): string {
+  const normalized = value.replace(/^#/, "").toUpperCase();
+  return /^[0-9A-F]{6}$/.test(normalized) ? normalized : fallback;
+}
+
+async function imageDataUri(url: string | undefined): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    const mime = response.headers.get("content-type")?.split(";")[0] || "image/png";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+function addInvitation(
+  pptx: PptxGenJS,
+  slide: PptxGenJS.Slide,
+  input: EditableInvitationPptxInput,
+  x: number,
+  y: number,
+  qrData: string | null,
+) {
+  const composed = composeLibraryInvitation({
+    themeId: input.snapshot.themeId,
+    optionIndex: input.snapshot.optionIndex,
+    artworkVariant: input.snapshot.artworkVariant,
+    colorHint: input.snapshot.colorHint,
+  });
+  const artworkSrc = approvedArtworkSrc(
+    input.snapshot.themeId,
+    input.snapshot.sourceText,
+  );
+  const artworkPath = artworkSrc ? publicAssetPath(artworkSrc) : null;
+  const fullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
+  const background = pptxColor(composed.palette.background, "071326");
+  const accent = pptxColor(composed.palette.accent, "22D3EE");
+
+  slide.addShape(pptx.ShapeType.rect, {
+    x,
+    y,
+    w: INVITE_WIDTH,
+    h: INVITE_HEIGHT,
+    line: { color: background, transparency: 100 },
+    fill: { color: background },
+  });
+
+  if (artworkPath) {
+    if (fullBleed) {
+      slide.addImage({
+        path: artworkPath,
+        x,
+        y,
+        w: INVITE_WIDTH,
+        h: INVITE_HEIGHT,
+        sizing: { type: "cover", w: INVITE_WIDTH, h: INVITE_HEIGHT },
+      });
+    } else {
+      slide.addImage({
+        path: artworkPath,
+        x: x + 2.95,
+        y: y + 0.18,
+        w: 2.15,
+        h: 2.05,
+        sizing: { type: "contain", w: 2.15, h: 2.05 },
+      });
+    }
+  }
+
+  slide.addShape(pptx.ShapeType.rect, {
+    x,
+    y: y + 2.05,
+    w: INVITE_WIDTH,
+    h: 2.2,
+    line: { color: "000000", transparency: 100 },
+    fill: { color: "000000", transparency: 18 },
+  });
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: x + 0.22,
+    y: y + 0.2,
+    w: 3.72,
+    h: 0.96,
+    rectRadius: 0.06,
+    line: { color: accent, transparency: 15, width: 1.2 },
+    fill: { color: "000000", transparency: 12 },
+  });
+  slide.addText(input.childName.trim() || "Birthday Star", {
+    x: x + 0.36,
+    y: y + 0.3,
+    w: 3.4,
+    h: 0.36,
+    margin: 0,
+    color: "FFFFFF",
+    fontFace: "Aptos Display",
+    fontSize: 23,
+    bold: true,
+    fit: "shrink",
+    breakLine: false,
+  });
+  slide.addText(
+    input.childAge.trim()
+      ? `IS TURNING ${input.childAge.trim()}!`
+      : "BIRTHDAY CELEBRATION",
+    {
+      x: x + 0.36,
+      y: y + 0.69,
+      w: 3.4,
+      h: 0.24,
+      margin: 0,
+      color: "FFFFFF",
+      fontFace: "Aptos",
+      fontSize: 13,
+      bold: true,
+      charSpacing: 1.5,
+      fit: "shrink",
+    },
+  );
+
+  slide.addText(`${input.snapshot.sourceText || composed.themeLabel} celebration`, {
+    x: x + 0.3,
+    y: y + 2.2,
+    w: 3.75,
+    h: 0.28,
+    margin: 0,
+    color: "FFFFFF",
+    fontFace: "Aptos",
+    fontSize: 13,
+    bold: true,
+    fit: "shrink",
+  });
+  slide.addText(input.dateLabel || "Date coming soon", {
+    x: x + 0.3,
+    y: y + 2.57,
+    w: 3.7,
+    h: 0.3,
+    margin: 0,
+    color: "FFFFFF",
+    fontFace: "Aptos",
+    fontSize: 15,
+    bold: true,
+    fit: "shrink",
+  });
+  slide.addText(input.timeLabel || "Time coming soon", {
+    x: x + 0.3,
+    y: y + 2.9,
+    w: 3.7,
+    h: 0.28,
+    margin: 0,
+    color: "FFFFFF",
+    fontFace: "Aptos",
+    fontSize: 14,
+    bold: true,
+    fit: "shrink",
+  });
+  slide.addText(`${FACILITY_INVITATION_VENUE.name}\n${FACILITY_INVITATION_VENUE.address}`, {
+    x: x + 0.3,
+    y: y + 3.25,
+    w: 3.62,
+    h: 0.7,
+    margin: 0,
+    color: "FFFFFF",
+    fontFace: "Aptos",
+    fontSize: 12.5,
+    bold: true,
+    breakLine: false,
+    fit: "shrink",
+  });
+
+  if (qrData) {
+    slide.addText("RSVP & waiver", {
+      x: x + 4.04,
+      y: y + 2.98,
+      w: 1.13,
+      h: 0.2,
+      margin: 0,
+      align: "center",
+      color: "FFFFFF",
+      fontFace: "Aptos",
+      fontSize: 8,
+      bold: true,
+    });
+    slide.addImage({
+      data: qrData,
+      x: x + 4.17,
+      y: y + 3.22,
+      w: 0.88,
+      h: 0.88,
+    });
+  }
+}
+
+export async function buildEditableInvitationPptx(
+  input: EditableInvitationPptxInput,
+): Promise<Uint8Array> {
+  const quantity = normalizeInvitationQuantity(input.invitationQuantity);
+  const qrData = await imageDataUri(input.qrUrl);
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name: "LETTER_LANDSCAPE", width: PAGE_WIDTH, height: PAGE_HEIGHT });
+  pptx.layout = "LETTER_LANDSCAPE";
+  pptx.author = "Jumping Jax";
+  pptx.company = "Jumping Jax";
+  pptx.subject = "Editable four-up birthday invitations";
+  pptx.title = `${input.childName || "Birthday"} invitations`;
+  pptx.theme = {
+    headFontFace: "Aptos Display",
+    bodyFontFace: "Aptos",
+  };
+
+  for (let pageIndex = 0; pageIndex < quantity / 4; pageIndex += 1) {
+    const slide = pptx.addSlide();
+    slide.background = { color: "FFFFFF" };
+    addInvitation(pptx, slide, input, 0, 0, qrData);
+    addInvitation(pptx, slide, input, INVITE_WIDTH, 0, qrData);
+    addInvitation(pptx, slide, input, 0, INVITE_HEIGHT, qrData);
+    addInvitation(pptx, slide, input, INVITE_WIDTH, INVITE_HEIGHT, qrData);
+    slide.addShape(pptx.ShapeType.line, {
+      x: INVITE_WIDTH,
+      y: 0,
+      w: 0,
+      h: PAGE_HEIGHT,
+      line: { color: "4B5563", width: 1, dashType: "dash" },
+    });
+    slide.addShape(pptx.ShapeType.line, {
+      x: 0,
+      y: INVITE_HEIGHT,
+      w: PAGE_WIDTH,
+      h: 0,
+      line: { color: "4B5563", width: 1, dashType: "dash" },
+    });
+    slide.addNotes(
+      "[Sources]\n- Theme artwork: Jumping Jax approved local invitation asset.\n- Booking details: Jumping Jax facility booking record.",
+    );
+  }
+
+  const output = await pptx.write({ outputType: "uint8array", compression: true });
+  return output as Uint8Array;
+}
+
+export function editableInvitationFileName(childName: string): string {
+  const safe = childName
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return `${safe || "birthday"}-editable-invitations.pptx`;
+}

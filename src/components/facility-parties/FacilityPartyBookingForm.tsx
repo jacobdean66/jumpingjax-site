@@ -35,6 +35,7 @@ import {
 import {
   FACILITY_INVITATION_CREATION_PREFERENCES,
   FACILITY_INVITATION_DELIVERY_OPTIONS,
+  FACILITY_INVITATION_QUANTITIES,
   invitationCreationPreferenceLabel,
   normalizeInvitationTemplateId,
   type FacilityInvitationCreationPreference,
@@ -175,6 +176,7 @@ export function FacilityPartyBookingForm({
     useState<FacilityInvitationCreationPreference | null>(null);
   const [invitationTemplateId, setInvitationTemplateId] =
     useState<FacilityInvitationTemplateId>("spotlight");
+  const [invitationQuantity, setInvitationQuantity] = useState(4);
   const [invitationAgentState, setInvitationAgentState] = useState<
     "idle" | "working" | "ready" | "error"
   >("idle");
@@ -524,6 +526,7 @@ export function FacilityPartyBookingForm({
           invitation_template_id: normalizeInvitationTemplateId(
             invitationTemplateId,
           ),
+          invitation_quantity: invitationQuantity,
           deposit_acknowledged: depositAcknowledged,
           notes: request.notes,
           readable_date: request.date,
@@ -1238,6 +1241,30 @@ export function FacilityPartyBookingForm({
                               },
                             )}
                           </div>
+                          {invitationDeliveryPreference !== "email" ? (
+                            <label className="block rounded-xl border border-white/10 bg-[#071326]/55 p-3">
+                              <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">
+                                Number of invitations
+                              </span>
+                              <select
+                                name="invitationQuantity"
+                                value={invitationQuantity}
+                                onChange={(event) =>
+                                  setInvitationQuantity(Number(event.target.value))
+                                }
+                                className={inputClassName}
+                              >
+                                {FACILITY_INVITATION_QUANTITIES.map((quantity) => (
+                                  <option key={quantity} value={quantity}>
+                                    {quantity} invitations ({quantity / 4} {quantity === 4 ? "sheet" : "sheets"})
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="mt-2 block text-xs font-semibold text-slate-300">
+                                Printed four per letter-size page. Choose 4 through 28 in groups of four.
+                              </span>
+                            </label>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}

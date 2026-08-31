@@ -9,6 +9,7 @@ import {
   type CompletionFailure,
   type CompletionSuccess,
 } from "@/lib/waivers/public-client";
+import type { BirthdayPartyOption } from "@/lib/open-play/check-in-client";
 
 type LoadState =
   | { status: "loading" }
@@ -27,7 +28,13 @@ function formatExpiresOn(ymd: string): string {
   }).format(date);
 }
 
-export function WaiverCompleteClient() {
+export function WaiverCompleteClient({
+  birthdayParties,
+  businessDayYmd,
+}: {
+  birthdayParties: BirthdayPartyOption[];
+  businessDayYmd: string;
+}) {
   const params = useParams<{ token: string }>();
   const searchParams = useSearchParams();
   const token = typeof params.token === "string" ? params.token : "";
@@ -35,7 +42,12 @@ export function WaiverCompleteClient() {
   const partyDate = searchParams.get("date");
   const isFacilityParty =
     searchParams.get("source") === "facility-party" && Boolean(partyBookingId);
+  const atFacility = isFacilityParty && searchParams.get("arrival") === "1";
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [joiningPartyId, setJoiningPartyId] = useState<string | null>(null);
+  const [joinedPartyMessage, setJoinedPartyMessage] = useState<string | null>(null);
+  const [isOpenPlayGuest, setIsOpenPlayGuest] = useState(false);
+  const [joinPartyError, setJoinPartyError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -61,6 +73,7 @@ export function WaiverCompleteClient() {
                 bookingId: partyBookingId,
                 partyDate,
                 publicToken: token,
+                atFacility,
               }),
             });
             const payload = (await response.json().catch(() => null)) as
@@ -79,7 +92,37 @@ export function WaiverCompleteClient() {
       }
     })();
     return () => controller.abort();
-  }, [isFacilityParty, partyBookingId, partyDate, token]);
+  }, [atFacility, isFacilityParty, partyBookingId, partyDate, token]);
+
+  async function joinBirthdayParty(party: BirthdayPartyOption) {
+    if (joiningPartyId) return;
+    setJoiningPartyId(party.id);
+    setJoinPartyError(null);
+    try {
+      const response = await fetch("/api/facility-party/check-in/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          bookingId: party.id,
+          partyDate: businessDayYmd,
+          publicToken: token,
+          atFacility: true,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; message?: string; error?: string }
+        | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "We could not check you into that party.");
+      }
+      setJoinedPartyMessage(payload.message || `You are checked in for ${party.label}.`);
+    } catch (error) {
+      setJoinPartyError(error instanceof Error ? error.message : "We could not check you into that party.");
+    } finally {
+      setJoiningPartyId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-10 text-slate-950 sm:px-6 sm:py-14">
@@ -115,6 +158,53 @@ export function WaiverCompleteClient() {
             {state.partyMessage ? (
               <p className="mt-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black leading-6 text-emerald-950">
                 {state.partyMessage}
+              </p>
+            ) : null}
+            {!isFacilityParty &&
+            birthdayParties.length > 0 &&
+            !joinedPartyMessage &&
+            !isOpenPlayGuest ? (
+              <section className="mt-6 rounded-3xl border-2 border-orange-200 bg-orange-50 p-4 text-left">
+                <h2 className="text-lg font-black text-orange-950">
+                  Are you here for a birthday party today?
+                </h2>
+                <p className="mt-1 text-sm font-semibold leading-6 text-orange-900">
+                  Choose the party and we will check everyone on this waiver in automatically.
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {birthdayParties.map((party) => (
+                    <button
+                      key={party.id}
+                      type="button"
+                      disabled={Boolean(joiningPartyId)}
+                      onClick={() => void joinBirthdayParty(party)}
+                      className="min-h-12 rounded-2xl border-2 border-orange-300 bg-white px-4 text-left font-black text-orange-950 transition hover:border-orange-600 disabled:opacity-60"
+                    >
+                      {joiningPartyId === party.id ? "Checking you in…" : party.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={Boolean(joiningPartyId)}
+                    onClick={() => setIsOpenPlayGuest(true)}
+                    className="min-h-12 rounded-2xl border-2 border-cyan-300 bg-cyan-50 px-4 text-left font-black text-cyan-950 transition hover:border-cyan-600 hover:bg-cyan-100 disabled:opacity-60"
+                  >
+                    No — we’re here for Open Play
+                  </button>
+                </div>
+                {joinPartyError ? (
+                  <p role="alert" className="mt-3 text-sm font-bold text-red-800">{joinPartyError}</p>
+                ) : null}
+              </section>
+            ) : null}
+            {joinedPartyMessage ? (
+              <p className="mt-6 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black leading-6 text-emerald-950">
+                {joinedPartyMessage}
+              </p>
+            ) : null}
+            {isOpenPlayGuest ? (
+              <p className="mt-6 rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black leading-6 text-cyan-950">
+                You’re all set for Open Play. Please see the front desk to purchase admission.
               </p>
             ) : null}
             <dl className="mx-auto mt-6 max-w-sm space-y-3 rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-4 py-5 text-left text-sm">

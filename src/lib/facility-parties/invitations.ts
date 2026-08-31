@@ -20,6 +20,11 @@ export const FACILITY_INVITATION_TEMPLATE_IDS = [
   "poster",
 ] as const;
 
+export const FACILITY_INVITATION_QUANTITIES = [4, 8, 12, 16, 20, 24, 28] as const;
+
+export type FacilityInvitationQuantity =
+  (typeof FACILITY_INVITATION_QUANTITIES)[number];
+
 export type FacilityInvitationDeliveryPreference =
   (typeof FACILITY_INVITATION_DELIVERY_PREFERENCES)[number];
 
@@ -127,6 +132,17 @@ export function normalizeInvitationTemplateId(
     : "spotlight";
 }
 
+export function normalizeInvitationQuantity(
+  value: unknown,
+): FacilityInvitationQuantity {
+  const quantity = typeof value === "number" ? value : Number(value);
+  return FACILITY_INVITATION_QUANTITIES.includes(
+    quantity as FacilityInvitationQuantity,
+  )
+    ? (quantity as FacilityInvitationQuantity)
+    : 4;
+}
+
 export function invitationTemplateLabel(
   id: FacilityInvitationTemplateId,
 ): string {
@@ -161,7 +177,7 @@ export const FACILITY_INVITATION_DELIVERY_OPTIONS: readonly {
   {
     id: "print",
     label: "Printable sheet (4 per page)",
-    description: "Four square invitations on one printable page.",
+    description: "Four equal landscape invitations on each letter-size page.",
   },
   {
     id: "email",
@@ -171,7 +187,7 @@ export const FACILITY_INVITATION_DELIVERY_OPTIONS: readonly {
   {
     id: "office_pickup",
     label: "Receive in person",
-    description: "Pick up invitations from the office — no digital design needed.",
+    description: "Pick up your selected quantity of printed invitations at the office.",
   },
 ];
 

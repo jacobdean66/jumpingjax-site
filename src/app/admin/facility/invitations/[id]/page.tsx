@@ -103,6 +103,7 @@ export default async function AdminFacilityInvitationPage({
             timeLabel={view.timeLabel}
             qrUrl={view.qrUrl}
             waiverUrl={view.waiverUrl}
+            invitationQuantity={view.invitationQuantity}
           />
         ) : (
           <div className="max-w-xl">

@@ -10,9 +10,11 @@ import {
   invitationDeliveryPreferenceLabel,
   normalizeInvitationDeliveryPreference,
   normalizeInvitationDeliveryPreferences,
+  normalizeInvitationQuantity,
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "./invitations";
+import { approvedArtworkSrc } from "./invitations/approved-artwork";
 
 test("normalizes invitation delivery preference safely", () => {
   assert.equal(normalizeInvitationDeliveryPreference("email"), "email");
@@ -30,6 +32,14 @@ test("normalizes invitation delivery preference safely", () => {
     invitationDeliveryPreferenceLabel("email"),
     "Email invitation (single)",
   );
+});
+
+test("allows complete four-up invitation quantities from 4 through 28", () => {
+  assert.equal(normalizeInvitationQuantity(4), 4);
+  assert.equal(normalizeInvitationQuantity("16"), 16);
+  assert.equal(normalizeInvitationQuantity(28), 28);
+  assert.equal(normalizeInvitationQuantity(6), 4);
+  assert.equal(normalizeInvitationQuantity(32), 4);
 });
 
 test("normalizes multiple invitation delivery preferences safely", () => {
@@ -99,6 +109,17 @@ test("builds local library artwork URLs without a remote artwork base", () => {
   } else {
     process.env.NEXT_PUBLIC_FACILITY_INVITATION_APPROVED_ARTWORK_BASE_URL = original;
   }
+});
+
+test("uses approved full-bleed character artwork for known party themes", () => {
+  assert.equal(
+    approvedArtworkSrc("gamer-neon", "Minecraft"),
+    "/invitations/approved/block-world/card.png",
+  );
+  assert.equal(
+    approvedArtworkSrc("gamer-neon", "Sonic"),
+    "/invitations/approved/sonic/card.png",
+  );
 });
 
 test("builds facility-party waiver URL without private child details", () => {
