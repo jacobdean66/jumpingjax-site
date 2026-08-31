@@ -112,9 +112,10 @@ body {
 
   .invitation-print-grid {
     display: grid !important;
-    grid-template-columns: 6in 6in;
-    grid-template-rows: 4in 4in;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     height: 100%;
+    width: 100%;
     gap: 0;
   }
 }

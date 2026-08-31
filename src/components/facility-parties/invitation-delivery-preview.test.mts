@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -49,15 +50,16 @@ test("all three delivery option previews render distinct modes", () => {
   assert.equal(countMatches(printHtml, "data-invite-instance"), 4);
   assert.match(printHtml, /data-print-preview="readable"/);
   assert.match(printHtml, /data-sheet-readable="true"/);
-  assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 0);
-  assert.equal(countMatches(printHtml, 'data-logo-treatment="transparent"'), 0);
-  assert.equal(countMatches(printHtml, 'data-invitation-size="6x4-landscape"'), 4);
+  assert.equal(countMatches(printHtml, 'data-invitation-brand="jumping-jax"'), 4);
+  assert.equal(countMatches(printHtml, 'data-logo-treatment="light-print"'), 4);
+  assert.equal(countMatches(printHtml, 'data-invitation-size="ink-saver-sheet-cell"'), 4);
   assert.equal(countMatches(printHtml, 'data-source-theme-treatment="speedster-blue"'), 4);
-  assert.equal(countMatches(printHtml, 'data-approved-theme-artwork="true"'), 4);
-  assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 0);
+  assert.equal(countMatches(printHtml, 'data-agent-print-treatment="ink-saver-preview-v1"'), 5);
+  assert.equal(countMatches(printHtml, 'data-approved-theme-artwork="true"'), 0);
+  assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
   assert.match(printHtml, /Milo/);
-  assert.match(printHtml, /Legal/);
-  assert.match(printHtml, /6 × 4/);
+  assert.match(printHtml, /Letter/);
+  assert.match(printHtml, /light-ink/);
   assert.match(printHtml, /Selected/);
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
@@ -93,7 +95,7 @@ test("selecting a preference surfaces selected state without changing snapshot f
   assert.match(html, /turning 6/);
 });
 
-test("printable sheets render four exact 6x4 invitations per legal landscape page", () => {
+test("printable sheets default to a light-ink full Letter page", () => {
   const sheetHtml = renderToStaticMarkup(
     createElement(InvitationSheet, {
       ...formFields,
@@ -102,18 +104,19 @@ test("printable sheets render four exact 6x4 invitations per legal landscape pag
       invitationQuantity: 12,
     }),
   );
-  assert.match(sheetHtml, /data-print-layout="legal-landscape-4up"/);
-  assert.match(sheetHtml, /data-invitation-format="6x4-landscape"/);
-  assert.match(sheetHtml, /size: 14in 8\.5in/);
+  assert.match(sheetHtml, /data-print-layout="letter-landscape-full-sheet"/);
+  assert.match(sheetHtml, /data-invitation-format="5.5x4.25-landscape"/);
+  assert.match(sheetHtml, /size: 11in 8\.5in/);
   assert.match(sheetHtml, /data-invite-count="12"/);
   assert.equal(countMatches(sheetHtml, "data-print-page="), 3);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 12);
   assert.equal(countMatches(sheetHtml, 'data-theme-id="gamer-neon"'), 12);
-  assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 0);
-  assert.equal(countMatches(sheetHtml, 'data-logo-treatment="transparent"'), 0);
-  assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 0);
-  assert.equal(countMatches(sheetHtml, 'data-approved-theme-artwork="true"'), 12);
-  assert.equal(countMatches(sheetHtml, 'data-invitation-size="6x4-landscape"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-brand="jumping-jax"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-logo-treatment="light-print"'), 12);
+  assert.equal(countMatches(sheetHtml, 'src="\/logo.png"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-approved-theme-artwork="true"'), 0);
+  assert.equal(countMatches(sheetHtml, 'data-theme-artwork-source="agent-light-treatment"'), 12);
+  assert.equal(countMatches(sheetHtml, 'data-invitation-size="ink-saver-sheet-cell"'), 12);
   assert.equal(countMatches(sheetHtml, 'data-invitation-qr="true"'), 12);
   assert.equal(countMatches(sheetHtml, 'data-qr-size="large"'), 12);
   assert.equal(countMatches(sheetHtml, 'data-child-name-age="true"'), 12);
@@ -121,7 +124,23 @@ test("printable sheets render four exact 6x4 invitations per legal landscape pag
   assert.equal(countMatches(sheetHtml, "is turning 6!"), 12);
 });
 
-test("admin print container removes dashboard padding around legal sheets", () => {
+test("exact 4x6 mode stays available on Legal landscape paper", () => {
+  const html = renderToStaticMarkup(
+    createElement(InvitationSheet, {
+      ...formFields,
+      invitationQuantity: 4,
+      paperSize: "legal",
+    }),
+  );
+
+  assert.match(html, /data-print-layout="legal-landscape-exact-4x6"/);
+  assert.match(html, /data-invitation-format="6x4-landscape"/);
+  assert.match(html, /size: 14in 8\.5in/);
+  assert.match(html, /width: 12in !important/);
+  assert.match(html, /height: 8in !important/);
+});
+
+test("admin print container removes dashboard padding around Letter sheets", () => {
   const html = renderToStaticMarkup(
     createElement(
       AdminShell,
@@ -133,11 +152,18 @@ test("admin print container removes dashboard padding around legal sheets", () =
     ),
   );
 
-  assert.match(html, /width: 14in !important/);
+  assert.match(html, /width: 11in !important/);
   assert.match(html, /align-items: center !important/);
   assert.match(html, /justify-content: center !important/);
-  assert.match(html, /width: 12in !important/);
-  assert.match(html, /height: 8in !important/);
+  assert.match(html, /height: 8.5in !important/);
   assert.match(html, /print-color-adjust: exact !important/);
   assert.equal(countMatches(html, "data-print-page="), 1);
+});
+
+test("global print grid follows the selected paper canvas instead of forcing Legal dimensions", async () => {
+  const css = await readFile(new URL("../../app/globals.css", import.meta.url), "utf8");
+  const gridRule = css.match(/\.invitation-print-grid\s*\{[^}]+\}/s)?.[0] ?? "";
+
+  assert.match(gridRule, /repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(gridRule, /6in|4in/);
 });

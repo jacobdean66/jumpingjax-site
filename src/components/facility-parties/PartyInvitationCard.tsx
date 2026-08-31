@@ -73,6 +73,26 @@ export function PartyInvitationCard({
   const artworkSrc = approvedArtworkSrc(snapshot.themeId, snapshot.sourceText);
   const approvedFullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
 
+  if (sheetMode) {
+    return (
+      <InkSaverSheetInvitation
+        snapshot={snapshot}
+        themeId={composed.themeId}
+        layout={layout}
+        displayName={displayName}
+        childAge={childAge}
+        celebrationLine={celebrationLine}
+        dateLabel={dateLabel}
+        timeLabel={timeLabel}
+        qrUrl={qrUrl}
+        waiverUrl={waiverUrl}
+        artworkSrc={artworkSrc ?? composed.hero.src}
+        accent={palette.accent}
+        treatmentId={treatment?.id}
+      />
+    );
+  }
+
   return (
     <article
       data-theme-id={composed.themeId}
@@ -155,6 +175,96 @@ export function PartyInvitationCard({
         accent={palette.accent}
         sheetMode={sheetMode}
       />
+    </article>
+  );
+}
+
+function InkSaverSheetInvitation({
+  snapshot,
+  themeId,
+  layout,
+  displayName,
+  childAge,
+  celebrationLine,
+  dateLabel,
+  timeLabel,
+  qrUrl,
+  waiverUrl,
+  artworkSrc,
+  accent,
+  treatmentId,
+}: {
+  snapshot: InvitationSnapshot;
+  themeId: string;
+  layout: string;
+  displayName: string;
+  childAge: string;
+  celebrationLine: string;
+  dateLabel: string;
+  timeLabel: string;
+  qrUrl?: string;
+  waiverUrl?: string;
+  artworkSrc: string;
+  accent: string;
+  treatmentId?: string;
+}) {
+  return (
+    <article
+      data-theme-id={themeId}
+      data-artwork-slot={snapshot.artworkSlot}
+      data-artwork-variant={String(snapshot.artworkVariant ?? 0)}
+      data-option-index={String(snapshot.optionIndex ?? 0)}
+      data-style-family={snapshot.styleFamily}
+      data-artwork-kind={snapshot.artworkKind}
+      data-layout={layout}
+      data-preview-scale="false"
+      data-sheet-readable="true"
+      data-invitation-size="ink-saver-sheet-cell"
+      data-source-theme-treatment={treatmentId}
+      data-theme-artwork-source="agent-light-treatment"
+      data-agent-print-treatment="ink-saver-preview-v1"
+      className="relative h-full w-full overflow-hidden border border-slate-400 bg-[#fffef8] text-left text-slate-950"
+      style={{ containerType: "inline-size" }}
+    >
+      <div className="absolute inset-x-0 top-0 h-[2.5%]" style={{ backgroundColor: accent }} />
+      <div className="absolute -right-[7%] -top-[11%] h-[42%] w-[34%] rounded-full bg-sky-100/70" />
+      <div className="absolute right-[3.5%] top-[20%] h-[42%] w-[34%] overflow-hidden rounded-[2cqw] border border-slate-200 bg-white">
+        <img
+          src={artworkSrc}
+          alt=""
+          className="h-full w-full object-cover opacity-30"
+          style={{ filter: "brightness(1.5) saturate(0.6)" }}
+        />
+        <div className="absolute inset-0 bg-white/20" />
+      </div>
+
+      <div className="absolute left-[4.5%] top-[5%] z-10 w-[18%]" data-invitation-brand="jumping-jax" data-logo-treatment="light-print">
+        <img src="/logo.png" alt="Jumping Jax" className="h-auto w-full object-contain" />
+      </div>
+
+      <div className="absolute left-[4.5%] top-[24%] z-10 max-w-[58%]" data-child-name-age="true">
+        <p className="text-[clamp(10px,2.1cqw,13px)] font-black uppercase tracking-[0.16em] text-slate-600">
+          You&apos;re invited
+        </p>
+        <p className="mt-[1.5%] truncate text-[clamp(18px,5.2cqw,29px)] font-black leading-none text-slate-950">
+          {displayName}
+        </p>
+        <p className="mt-[1%] text-[clamp(11px,3cqw,17px)] font-black uppercase tracking-wide" style={{ color: accent }}>
+          {childAge.trim() ? `is turning ${childAge.trim()}!` : "Birthday celebration"}
+        </p>
+        <p className="mt-[4%] text-[clamp(10px,2.8cqw,16px)] font-bold text-slate-700">
+          {celebrationLine}
+        </p>
+      </div>
+
+      <div className="absolute inset-x-[4.5%] bottom-[5%] z-10 flex items-end justify-between gap-[3%] border-t border-slate-300 pt-[3%]">
+        <div className="max-w-[68%] text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800">
+          <p className="font-black text-slate-950">{dateLabel || "Date coming soon"}</p>
+          <p>{timeLabel || "Time coming soon"}</p>
+          <p className="mt-[1%]">{FACILITY_INVITATION_VENUE.name} · {FACILITY_INVITATION_VENUE.address}</p>
+        </div>
+        <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" />
+      </div>
     </article>
   );
 }

@@ -6,7 +6,13 @@ import {
   sonicSampleSnapshot,
 } from "@/lib/facility-parties/invitations/examples";
 
-export default function SonicInvitationSheetExamplePage() {
+export default async function SonicInvitationSheetExamplePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ paper?: string }>;
+}) {
+  const resolvedSearch = await searchParams;
+  const paperSize = resolvedSearch?.paper === "legal" ? "legal" : "letter";
   const snapshot = sonicSampleSnapshot();
 
   return (
@@ -15,12 +21,20 @@ export default function SonicInvitationSheetExamplePage() {
         <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-700">
           Jumping Jax invitation sheet
         </p>
-        <Link
-          href="/facility-parties/invitation-examples/sonic"
-          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black"
-        >
-          Single invitation
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="?paper=letter" className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
+            Letter test
+          </Link>
+          <Link href="?paper=legal" className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">
+            Legal test
+          </Link>
+          <Link
+            href="/facility-parties/invitation-examples/sonic"
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black"
+          >
+            Single invitation
+          </Link>
+        </div>
       </div>
       <InvitationSheet
         snapshot={snapshot}
@@ -28,6 +42,7 @@ export default function SonicInvitationSheetExamplePage() {
         childAge={SONIC_SAMPLE_INVITATION.childAge}
         dateLabel={SONIC_SAMPLE_INVITATION.dateLabel}
         timeLabel={SONIC_SAMPLE_INVITATION.timeLabel}
+        paperSize={paperSize}
       />
     </main>
   );
