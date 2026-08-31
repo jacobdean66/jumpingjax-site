@@ -100,6 +100,25 @@ function constantTimeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/** Sign an authenticated-admin server payload without exposing the session key. */
+export function signAdminScopedPayload(scope: string, payload: string): string | null {
+  const secret = sessionSecret();
+  if (!secret) return null;
+  return createHmac("sha256", secret)
+    .update(`${scope}\n${payload}`)
+    .digest("base64url");
+}
+
+export function verifyAdminScopedPayload(
+  scope: string,
+  payload: string,
+  supplied: string | null | undefined,
+): boolean {
+  if (!supplied) return false;
+  const expected = signAdminScopedPayload(scope, payload);
+  return expected ? constantTimeEqual(supplied, expected) : false;
+}
+
 export function verifyAdminDeliveryToken(
   token: string | null | undefined,
 ): AdminDeliveryAuthResult {
