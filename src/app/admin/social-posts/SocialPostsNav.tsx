@@ -65,8 +65,8 @@ function isActive(pathname: string, item: NavItem): boolean {
 export default function SocialPostsNav({ query = "" }: { query?: string }) {
   const pathname = usePathname() || "/admin/social-posts";
 
-  return (
-    <nav className="sp-nav" aria-label="AI Marketing navigation">
+  const navigation = (
+    <>
       {GROUPS.map((group) => (
         <div key={group.label} className="sp-nav-group">
           <p className="sp-nav-label">{group.label}</p>
@@ -98,6 +98,20 @@ export default function SocialPostsNav({ query = "" }: { query?: string }) {
           </Link>
         </div>
       </div>
-    </nav>
+    </>
+  );
+
+  return (
+    <>
+      <details className="sp-nav-mobile">
+        <summary>AI Marketing tools</summary>
+        <nav className="sp-nav" aria-label="AI Marketing navigation">
+          {navigation}
+        </nav>
+      </details>
+      <nav className="sp-nav sp-nav-desktop" aria-label="AI Marketing navigation">
+        {navigation}
+      </nav>
+    </>
   );
 }
