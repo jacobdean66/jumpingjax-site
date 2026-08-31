@@ -161,6 +161,13 @@ export default async function FacilityInvitationsPage({
         title={`${clean(data.child_name) || "Birthday"} invitations`}
       >
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/api/facility/invitations/${encodeURIComponent(data.id)}/editable`}
+            download
+            className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
+          >
+            Download editable invitations
+          </Link>
           <PrintButton
             label="Print invitations"
             invitation={{

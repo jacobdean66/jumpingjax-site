@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { InvitationSheet } from "@/components/facility-parties/InvitationSheet";
 import { PrintButton } from "@/app/admin/PrintButton";
@@ -26,19 +27,28 @@ export default async function FacilityInvitationSheetPage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-white px-4 py-6 text-slate-950">
-      <div className="mb-4 flex items-center justify-between print:hidden">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-700">
           Printable invitation sheet
         </p>
-        <PrintButton
-          label="Print 4-per-page"
-          invitation={{
-            sourceText: agentResult.snapshot.sourceText,
-            optionIndex: agentResult.snapshot.optionIndex,
-            alternatesUsed: agentResult.snapshot.alternatesUsed,
-            bookingId: view.bookingId,
-          }}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/api/facility/invitations/${encodeURIComponent(view.bookingId)}/editable`}
+            download
+            className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
+          >
+            Download invitations now
+          </Link>
+          <PrintButton
+            label="Print 4-per-page"
+            invitation={{
+              sourceText: agentResult.snapshot.sourceText,
+              optionIndex: agentResult.snapshot.optionIndex,
+              alternatesUsed: agentResult.snapshot.alternatesUsed,
+              bookingId: view.bookingId,
+            }}
+          />
+        </div>
       </div>
       <InvitationSheet
         snapshot={agentResult.snapshot}

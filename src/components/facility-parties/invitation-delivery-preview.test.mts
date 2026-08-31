@@ -114,5 +114,7 @@ test("printable sheets render four equal landscape invitations per letter page",
   assert.equal(countMatches(sheetHtml, 'data-invitation-size="5.5x4.25-landscape"'), 12);
   assert.equal(countMatches(sheetHtml, 'data-invitation-qr="true"'), 12);
   assert.equal(countMatches(sheetHtml, 'data-qr-size="large"'), 12);
-  assert.match(sheetHtml, /Milo/);
+  assert.equal(countMatches(sheetHtml, 'data-child-name-age="true"'), 12);
+  assert.equal(countMatches(sheetHtml, "Milo"), 12);
+  assert.equal(countMatches(sheetHtml, "is turning 6!"), 12);
 });

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
@@ -33,7 +34,14 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
           <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-700">
             Jumping Jax invitation
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/api/facility/invitations/${encodeURIComponent(view.bookingId)}/editable`}
+              download
+              className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
+            >
+              Download invitations now
+            </Link>
             <InvitationAgentLink
               href={facilityInvitationSheetPath(view.bookingId)}
               invitationAction="view-sheet"
@@ -56,6 +64,10 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
             />
           </div>
         </div>
+        <p className="mb-4 text-sm font-semibold text-slate-600 print:hidden">
+          The download is an editable PowerPoint file. Open it in PowerPoint,
+          Google Slides, or LibreOffice before printing.
+        </p>
         <PartyInvitationCard
           snapshot={agentResult.snapshot}
           childName={view.childName}

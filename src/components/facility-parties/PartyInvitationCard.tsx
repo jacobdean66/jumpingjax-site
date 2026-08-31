@@ -116,7 +116,20 @@ export function PartyInvitationCard({
           data-approved-theme-artwork="true"
         />
       ) : null}
-      {!approvedFullBleed ? <BrandMark layout={layout} /> : null}
+      {!approvedFullBleed ? <BrandMark layout={layout} sheetMode={sheetMode} /> : null}
+      {sheetMode ? (
+        <div
+          className="absolute left-[4%] top-[4%] z-20 max-w-[68%] rounded-[1.5cqw] bg-black/80 px-[3%] py-[2%] text-white shadow-lg"
+          data-child-name-age="true"
+        >
+          <p className="truncate text-[clamp(15px,5.8cqw,30px)] font-black leading-none">
+            {displayName}
+          </p>
+          <p className="mt-[1%] text-[clamp(10px,3.3cqw,17px)] font-black uppercase tracking-wide text-white/95">
+            {childAge.trim() ? `is turning ${childAge.trim()}!` : "Birthday celebration"}
+          </p>
+        </div>
+      ) : null}
       {treatment && !approvedFullBleed ? (
         <SourceThemeMotif treatment={treatment} />
       ) : null}
@@ -140,6 +153,7 @@ export function PartyInvitationCard({
         qrUrl={qrUrl}
         waiverUrl={waiverUrl}
         accent={palette.accent}
+        sheetMode={sheetMode}
       />
     </article>
   );
@@ -218,7 +232,22 @@ function SourceThemeMotif({
   );
 }
 
-function BrandMark({ layout }: { layout: string }) {
+function BrandMark({ layout, sheetMode }: { layout: string; sheetMode: boolean }) {
+  if (sheetMode) {
+    return (
+      <div
+        data-invitation-brand="jumping-jax"
+        data-logo-treatment="transparent"
+        className="absolute right-[4%] top-[4%] z-20 w-[22%]"
+      >
+        <img
+          src="/logo.png"
+          alt="Jumping Jax Inflatable Rentals & Parties"
+          className="h-auto w-full object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)]"
+        />
+      </div>
+    );
+  }
   const position =
     layout === "poster"
       ? "left-1/2 top-[4%] w-[32%] -translate-x-1/2"
@@ -253,6 +282,7 @@ function InvitationCopy({
   qrUrl,
   waiverUrl,
   accent,
+  sheetMode,
 }: {
   layout: string;
   headline: string;
@@ -265,6 +295,7 @@ function InvitationCopy({
   qrUrl?: string;
   waiverUrl?: string;
   accent: string;
+  sheetMode: boolean;
 }) {
   const headingSize = compact
     ? "text-[clamp(14px,5.9cqw,31px)]"
@@ -296,9 +327,11 @@ function InvitationCopy({
           </p>
           {readyBadge}
         </div>
-        <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-          {headline}
-        </h2>
+        {!sheetMode ? (
+          <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+            {headline}
+          </h2>
+        ) : null}
         <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
           {celebrationLine}
         </p>
@@ -325,9 +358,11 @@ function InvitationCopy({
           </p>
           {readyBadge}
         </div>
-        <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-          {headline}
-        </h2>
+        {!sheetMode ? (
+          <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+            {headline}
+          </h2>
+        ) : null}
         <p className={`mt-1 font-bold text-slate-700 ${textSize}`}>
           {celebrationLine}
         </p>
@@ -350,9 +385,11 @@ function InvitationCopy({
         </p>
         {readyBadge}
       </div>
-      <h2 className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-        {headline}
-      </h2>
+      {!sheetMode ? (
+        <h2 className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+          {headline}
+        </h2>
+      ) : null}
       <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
         {celebrationLine}
       </p>
