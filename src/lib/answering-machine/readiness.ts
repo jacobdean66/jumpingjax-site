@@ -1,15 +1,21 @@
 const REQUIRED = [
   "WHATSAPP_VERIFY_TOKEN",
-  "WHATSAPP_APP_SECRET",
   "WHATSAPP_PHONE_NUMBER_ID",
   "WHATSAPP_WABA_ID",
   "ANSWERING_MACHINE_CALLBACK_SECRET",
   "ANSWERING_MACHINE_MEDIA_BRIDGE_URL",
 ] as const;
 
+export function getWhatsAppAppSecret(env: NodeJS.ProcessEnv = process.env) {
+  return env.WHATSAPP_APP_SECRET?.trim() || env.META_APP_SECRET?.trim() || "";
+}
+
 export function getAnsweringMachineReadiness(env: NodeJS.ProcessEnv = process.env) {
   const enabled = env.WHATSAPP_CALLING_ENABLED === "1";
-  const missing = REQUIRED.filter((key) => !env[key]?.trim());
+  const missing = [
+    ...REQUIRED.filter((key) => !env[key]?.trim()),
+    ...(getWhatsAppAppSecret(env) ? [] : ["WHATSAPP_APP_SECRET or META_APP_SECRET"]),
+  ];
   return {
     provider: "WhatsApp Business Calling API" as const,
     enabled,
@@ -23,3 +29,4 @@ export function getAnsweringMachineReadiness(env: NodeJS.ProcessEnv = process.en
     },
   };
 }
+
