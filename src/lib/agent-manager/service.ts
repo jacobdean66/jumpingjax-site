@@ -152,4 +152,52 @@ export async function setAgentPaused(agentId: string, paused: boolean, actorId: 
 
 export async function setEmergencyStop(stopped:boolean,actorId:string){const db=createServiceRoleClient();const {error}=await db.from("agent_manager_settings").update({emergency_stop:stopped,updated_by:actorId,updated_at:new Date().toISOString()}).eq("singleton",true);if(error)throw new Error(error.message);await db.from("agent_events").insert({event_type:stopped?"manager.stopped":"manager.resumed",actor_id:actorId,summary:stopped?"Emergency stop enabled":"Emergency stop released"});}
 
-export async function decideApproval(approvalId:string,decision:"approved"|"rejected",actorId:string){const db=createServiceRoleClient();const now=new Date().toISOString();const {data,error}=await db.from("agent_approvals").update({status:decision,decided_by:actorId,decided_at:now}).eq("id",approvalId).eq("status","pending").select("*").single();if(error)throw new Error(error.message);await db.from("agent_jobs").update({approval_status:decision,status:decision==="approved"?"queued":"cancelled",completed_at:decision==="rejected"?now:null,updated_at:now}).eq("id",data.job_id).eq("status","approval_required");await db.from("agent_events").insert({job_id:data.job_id,event_type:`approval.${decision}`,actor_id:actorId,summary:`Owner ${decision} requested action`});return data;}
+export async function decideApproval(
+  approvalId: string,
+  decision: "approved" | "rejected",
+  actorId: string,
+) {
+  const db = createServiceRoleClient();
+  const { data: current, error: currentError } = await db
+    .from("agent_approvals")
+    .select("id,action_type")
+    .eq("id", approvalId)
+    .single();
+  if (currentError) throw new Error(currentError.message);
+  if (current.action_type === "booking.composite.intent.stage") {
+    const { data, error } = await db.rpc("decide_composite_booking_intent", {
+      p_approval_id: approvalId,
+      p_decision: decision,
+      p_actor_id: actorId,
+    });
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("agent_approvals")
+    .update({ status: decision, decided_by: actorId, decided_at: now })
+    .eq("id", approvalId)
+    .eq("status", "pending")
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  await db
+    .from("agent_jobs")
+    .update({
+      approval_status: decision,
+      status: decision === "approved" ? "queued" : "cancelled",
+      completed_at: decision === "rejected" ? now : null,
+      updated_at: now,
+    })
+    .eq("id", data.job_id)
+    .eq("status", "approval_required");
+  await db.from("agent_events").insert({
+    job_id: data.job_id,
+    event_type: `approval.${decision}`,
+    actor_id: actorId,
+    summary: `Owner ${decision} requested action`,
+  });
+  return data;
+}
