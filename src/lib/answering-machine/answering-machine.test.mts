@@ -83,6 +83,17 @@ test("WhatsApp Calling readiness stays false until every credential and bridge g
   });
   assert.equal(ready.live, true);
   assert.deepEqual(ready.captureRules.rental, ["rental selection (including foam parties)", "event date"]);
+
+  const readyWithExistingMetaSecret = getAnsweringMachineReadiness({
+    WHATSAPP_CALLING_ENABLED: "1",
+    WHATSAPP_VERIFY_TOKEN: "set",
+    META_APP_SECRET: "existing-secret",
+    WHATSAPP_PHONE_NUMBER_ID: "set",
+    WHATSAPP_WABA_ID: "set",
+    ANSWERING_MACHINE_CALLBACK_SECRET: "set",
+    ANSWERING_MACHINE_MEDIA_BRIDGE_URL: "https://voice.example.test/whatsapp",
+  });
+  assert.equal(readyWithExistingMetaSecret.live, true);
 });
 
 test("Answering Machine storage is private, audited, approval-gated, and isolated from live booking writes", async () => {
@@ -108,6 +119,7 @@ test("Answering Machine admin and callback routes enforce their separate trust b
   assert.match(adminRoute, /verifyAdminOwnerAccess/);
   assert.match(adminRoute, /validateOwnerPost/);
   assert.match(webhook, /verifyMetaWebhookSignature/);
+  assert.match(webhook, /getWhatsAppAppSecret/);
   assert.match(webhook, /WHATSAPP_CALLING_ENABLED/);
   assert.match(webhook, /ANSWERING_MACHINE_MEDIA_BRIDGE_URL/);
   assert.match(callback, /hasAnsweringMachineCallbackAuthorization/);
@@ -115,3 +127,4 @@ test("Answering Machine admin and callback routes enforce their separate trust b
   assert.match(page, /Approve information/);
   assert.match(page, /Rental \/ foam party/);
 });
+
