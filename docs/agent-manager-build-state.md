@@ -132,3 +132,31 @@
 - Added an explicit voice-transport boundary. TextNow/iPhone is always reported unsupported because it has no supported inbound webhook or live-audio stream; browser simulation is proof-only; programmable voice cannot become call-ready until webhook, audio, structured turns, credentials, and telephony-cost approval are all present.
 - Validation passes: 46/46 focused Agent Manager tests, full TypeScript, focused ESLint, and a Next.js 16 production build. The build used the existing physical-dependency proof directory because Turbopack correctly rejects this checkout's out-of-root `node_modules` symlink; the copied source compiled and included `/admin/agents` plus `/api/admin/agents/composite-booking-proof`.
 - Production remains unchanged at this checkpoint. No booking or calendar was created, no customer was contacted, no payment occurred, no AI was called, no credentials or paid service were enabled, and TextNow/iPhone remains unconnected.
+
+## Composite Booking production dry-run proof (2026-08-31)
+
+- Publication: PR #95 merged to `main` as `3b292302d9a8feeb5d4f85c73b0871a4f27d2d61`. Vercel production deployment `FseoUEmCHXZgDqQMC79B9Qs4uH7N` reached `Ready`, was marked current, and served `https://jumpingjaxllc.com/admin/agents`.
+- Authenticated verification: the owner-signed dashboard exposed the `Run safe booking proof` control and retained the existing manager health and specialist status panels.
+- Live proof result: all 7 deterministic scenarios ran: rental, facility party, foam party, all-three combined, conflict, correction, and cancellation. The result was `5 ready for owner review`, `2 safely blocked`, `AI calls 0`, and `production writes 0`.
+- Safety boundary: the deployed Booking Agent is a production-visible, owner-only simulation and approval planner. It does not yet create pending booking records, write calendar events, confirm bookings, contact customers, charge payments, or answer telephone calls.
+- Voice boundary: TextNow and the Wi-Fi iPhone remain unsupported as an automated transport. The iPhone may be used only as a test or backup handset. A supported programmable voice transport still requires a separate cost, credential, privacy, and production approval.
+- Next dependency-ordered Booking milestone: persist a coordinated pending booking intent behind an owner approval gate, then add an idempotent calendar projection adapter in dry-run/staging mode with rollback evidence before any separately approved live calendar write.
+
+## Composite Booking pending-intent and calendar-staging checkpoint (2026-08-31)
+
+- Added an additive, service-role-only migration for redacted `composite_booking_intents` and `composite_booking_calendar_projections`. It does not alter the existing rental, facility, foam, customer, payment, message, or Google Calendar tables and paths.
+- A ready composite request now produces a fingerprinted pending intent containing service kinds, coordinated redacted projections, and the existing deterministic quote. The raw conversation reference and location reference are not persisted; replay is atomic and a correction receives a new transaction identity.
+- Owner approval is mandatory before projection staging. Approval performs a second overlap check against every active staged/projected resource, writes the whole projection set atomically, and records zero external calendar writes. Rejection writes no projections.
+- Staging rollback is non-destructive: staged records become `rolled_back` and audit history remains. If any external event reference exists, the staging rollback fails closed so a later external-calendar rollback must be handled explicitly.
+- The existing approval control is routed through the specialized atomic decision RPC only for `booking.composite.intent.stage`; every pre-existing approval action retains its original behavior.
+- Validation: 54/54 focused Agent Manager tests pass, full TypeScript passes, and focused ESLint passes. No migration was applied, no production row was created, no booking or calendar was written, and no customer was contacted.
+- Next gate: connect the staged planner to existing live rental/facility availability reads and an owner-only request endpoint. Applying the migration remains a separately verified production-schema step; external calendar writes remain disabled after that step.
+
+## Composite Booking live-availability staging checkpoint (2026-08-31)
+
+- Added bounded, metadata-only reads over active rental rows, linked rental-item references, and active facility start/end timestamps. Customer name, contact, address, notes, payment, and message content are not selected.
+- Availability translation matches existing safety rules: active rental inventory blocks every covered date, foam inventory also blocks the foam crew resource, and facility bookings receive the production 30-minute buffer. Read failure blocks staging instead of assuming availability.
+- Added a bounded owner-only `/api/admin/agents/composite-booking-stage` route. It validates one-to-three unique services, reads current availability, performs deterministic pricing and conflict checks, then persists only the redacted pending intent and approval request.
+- The endpoint explicitly reports booking writes 0, external calendar writes 0, customer messages 0, payment writes 0, and AI calls 0. It does not import or invoke the existing booking creation, Google Calendar, email, payment, or model paths.
+- Validation: 60/60 focused Agent Manager tests pass; full TypeScript and focused ESLint pass. A physical-dependency Next.js 16 Turbopack production build passed and included `/admin/agents` plus `/api/admin/agents/composite-booking-stage`.
+- Production remains unchanged. The migration and endpoint have not been published or activated. The next production sequence is PR/checks, migration preflight and application, deployment, authenticated fixture staging, owner approval to stage calendar rows, replay/conflict proof, non-destructive rollback proof, and verification that no external calendar or booking write occurred.
