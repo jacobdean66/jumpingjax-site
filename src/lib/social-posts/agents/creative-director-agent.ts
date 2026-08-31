@@ -40,6 +40,12 @@ const CREATIVE_KEYS = [
 
 export type CreativeDirectorAgentInput = {
   strategist: CampaignStrategistOutput;
+  themeContext?: {
+    sourceText: string;
+    themeLabel: string;
+    styleFamily: string;
+    palette: Readonly<Record<string, string>>;
+  } | null;
   revisionInstructions?: string[] | null;
   complianceFindings?: string[] | null;
   priorCreative?: CreativeDirectorOutput | null;
@@ -68,6 +74,8 @@ Hard rules:
 - Do not invent prices, promotions, discounts, dates, inventory, availability, or customer stories.
 - generationPrompt must describe promotional ${input.strategist.mediaType} with no baked-in on-screen text.
 - Preserve verified asset identity from strategist.selectedAssetContext when present.
+- When themeContext is supplied, make the theme unmistakable without claiming official endorsement or licensing.
+- Write a polished human title and caption; never echo raw instructions such as "Promote...", "Objective:", "aligned with:", or "owner confirms facts".
 - Voice: upbeat, clean, local, family-friendly, safe.
 - revisionOfPrior must be ${revising ? "true" : "false"}.
 - Put missing owner facts in ownerInputRequired instead of guessing.`;
@@ -78,6 +86,7 @@ Hard rules:
     priorCreativeDirectorOutput: input.priorCreative ?? null,
     revisionInstructions: input.revisionInstructions ?? [],
     complianceFindingsSafeToExpose: input.complianceFindings ?? [],
+    themeContext: input.themeContext ?? null,
     schemaKeys: CREATIVE_KEYS,
   });
 
@@ -204,10 +213,19 @@ export function buildDeterministicCreativeDirectorOutput(
     : "";
 
   const mediaType = s.mediaType;
+  const themeLabel = input.themeContext?.themeLabel ?? null;
+  const gamerTheme = input.themeContext?.styleFamily === "gamer";
+  const facilityParty = s.businessFocus === "facility-parties";
   const title = bound(
     prior && revising
       ? `${prior.title.replace(/\s*\(revised\)\s*$/i, "")} (revised)`
-      : `Jumping Jax: ${s.goal}`.slice(0, AGENT_INPUT_LIMITS.title),
+      : gamerTheme
+        ? "Level Up the Birthday Fun at Jumping Jax"
+        : themeLabel
+          ? `${themeLabel} Party Magic at Jumping Jax`
+          : facilityParty
+            ? "Big Birthday Energy—Indoors at Jumping Jax"
+            : "Bring the Party to Life with Jumping Jax",
     AGENT_INPUT_LIMITS.title,
   );
   const caption = bound(
@@ -216,10 +234,9 @@ export function buildDeterministicCreativeDirectorOutput(
           0,
           AGENT_INPUT_LIMITS.caption,
         )
-      : `${s.angleMessage} ${s.ctaIntent} Family-friendly fun with Jumping Jax in the Greenwood SC area.`.slice(
-          0,
-          AGENT_INPUT_LIMITS.caption,
-        ),
+      : facilityParty
+        ? `${gamerTheme ? "Ready to level up the birthday fun?" : `Bring the ${themeLabel ?? "birthday"} energy!`} Celebrate indoors at Jumping Jax with active play, colorful party energy, and plenty of room for big smiles. Message us to plan a facility party for your crew in Greenwood, SC.`
+        : `${s.angleMessage} ${s.ctaIntent} Family-friendly fun with Jumping Jax in the Greenwood, SC area.`.slice(0, AGENT_INPUT_LIMITS.caption),
     AGENT_INPUT_LIMITS.caption,
   );
   const generationPrompt = bound(
@@ -228,11 +245,11 @@ export function buildDeterministicCreativeDirectorOutput(
           0,
           AGENT_INPUT_LIMITS.prompt,
         )
-      : `Create a short family-friendly promotional ${mediaType} for Jumping Jax. Objective: ${s.campaignObjective}. Angle: ${s.angleMessage}. ${
+      : `Create a polished family-friendly promotional ${mediaType} for Jumping Jax. ${themeLabel ? `Use a ${themeLabel} party direction with ${input.themeContext?.palette.background ?? "the approved"} blue, ${input.themeContext?.palette.accent ?? "gold"}, and energetic graphic accents.` : ""} Show a believable indoor facility-party moment in Greenwood, SC. ${
           s.selectedAssetContext
-            ? `Preserve exact product identity from: ${s.selectedAssetContext}.`
+            ? `Preserve the selected reference exactly: ${s.selectedAssetContext}.`
             : "Use approved Jumping Jax catalog product imagery only."
-        } Bright daytime lighting, supervised kids ages 3-7, no text on screen. Tone: ${s.tone}.`.slice(
+        } Use candid celebration energy, a clean uncluttered composition, natural expressions, and responsible adult supervision. No text on screen. Do not claim official theme endorsement or licensing. Tone: ${s.tone}.`.slice(
           0,
           AGENT_INPUT_LIMITS.prompt,
         ),

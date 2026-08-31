@@ -8,6 +8,7 @@ import type {
 } from "./orchestration-types";
 import type { SocialAgentInput } from "../social-agent";
 import type { SocialThemeLibraryContext } from "../social-theme-library";
+import type { CreativeQualityGateResult } from "./creative-quality-gate";
 
 export const SOCIAL_DRAFT_CHECKPOINT_VERSION = 1 as const;
 
@@ -29,6 +30,7 @@ export type SocialDraftCheckpoint = Readonly<{
   themeContext: SocialThemeLibraryContext | null;
   strategist: CampaignStrategistOutput | null;
   creative: CreativeDirectorOutput | null;
+  creativeQuality: CreativeQualityGateResult | null;
   reviewer: IndependentReviewerOutput | null;
   compliance: ComplianceGateResult | null;
   finalCompliance: ComplianceGateResult | null;

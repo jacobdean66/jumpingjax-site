@@ -123,6 +123,10 @@ export function resolveApprovedAssetContext(
       error: "Approved asset URL could not be sanitized for provider use.",
     };
   }
+  const invitationArtwork =
+    match.category === "Facility invitation themes" ||
+    new URL(sanitizedUrl).pathname.startsWith("/invitations/") ||
+    new URL(sanitizedUrl).pathname.startsWith("/invitation-library/");
 
   return {
     ok: true,
@@ -135,7 +139,9 @@ export function resolveApprovedAssetContext(
         `label=${match.label}`,
         match.category ? `category=${match.category}` : null,
         match.focus ? `focus=${match.focus}` : null,
-        "preserve exact inflatable product identity, colors, and geometry from this approved source image",
+        invitationArtwork
+          ? "approved party-theme artwork; preserve its exact composition, colors, branding, and proportions; do not describe it as an inflatable product"
+          : "preserve exact inflatable product identity, colors, and geometry from this approved source image",
       ]
         .filter(Boolean)
         .join("; "),

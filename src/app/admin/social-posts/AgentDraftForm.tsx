@@ -502,6 +502,28 @@ export default function AgentDraftForm({
             </div>
           ) : null}
 
+          {checkpoint.creativeQuality && !checkpoint.creativeQuality.allowed ? (
+            <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm font-bold text-rose-950">
+              Creative quality gate stopped this run: {checkpoint.creativeQuality.findings.join("; ")}
+            </div>
+          ) : null}
+
+          {checkpoint.diagnostics.length > 0 ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700">
+              <p className="font-black uppercase tracking-[0.12em]">Agent diagnostics</p>
+              <ul className="mt-2 space-y-1">
+                {checkpoint.diagnostics.map((item) => (
+                  <li key={item.requestId}>
+                    <strong>{item.agentId}:</strong> {item.source}
+                    {item.model ? ` · ${item.model}` : ""}
+                    {item.failureKind ? ` · ${item.failureKind}` : ""}
+                    {item.fallbackReason ? ` — ${item.fallbackReason}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {checkpoint.reviewer ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
               <p className="font-black">

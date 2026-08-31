@@ -50,6 +50,7 @@ import {
   applyVisualRealismConstraints,
   evaluateVisualRealismGate,
 } from "@/lib/social-posts/agents/visual-realism-gate";
+import { evaluateCreativeQualityGate } from "@/lib/social-posts/agents/creative-quality-gate";
 import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-post-admin-schema-guard";
 import {
@@ -288,6 +289,7 @@ export async function POST(req: Request) {
         themeContext,
         strategist: managed.value.output,
         creative: null,
+        creativeQuality: null,
         reviewer: null,
         compliance: null,
         finalCompliance: null,
@@ -336,7 +338,10 @@ export async function POST(req: Request) {
         actorId: auth.identity.id,
         execute: (recordModelCall) =>
           runCreativeDirectorAgent(
-            { strategist: checkpoint.strategist! },
+            {
+              strategist: checkpoint.strategist!,
+              themeContext: checkpoint.themeContext,
+            },
             { onModelCall: recordModelCall },
           ),
         summarize: (result) =>
@@ -359,26 +364,42 @@ export async function POST(req: Request) {
           themeLabel: checkpoint.themeContext?.themeLabel,
         }),
       };
+      const creativeQuality = evaluateCreativeQualityGate({
+        creative,
+        themeLabel: checkpoint.themeContext?.themeLabel,
+        themeSource: checkpoint.themeContext?.sourceText,
+      });
       const nextCheckpoint = withCheckpoint(checkpoint, {
         selectedSourceImageUrl: sourceUrl,
         creative,
+        creativeQuality,
         modelCallsUsed: checkpoint.modelCallsUsed + managed.modelCalls,
         stages: [
           ...checkpoint.stages,
           stageRecord(
             "creative_director",
-            "completed",
-            "Creative package ready for owner review. Reviewer has not run.",
+            creativeQuality.allowed ? "completed" : "failed",
+            creativeQuality.allowed
+              ? "Creative package ready for owner review. Reviewer has not run."
+              : `Creative quality gate stopped the workflow: ${creativeQuality.findings.join(" ")}`,
           ),
         ],
         diagnostics: [...checkpoint.diagnostics, managed.value.diagnostics],
-        nextStage: "independent_reviewer",
+        nextStage: creativeQuality.allowed ? "independent_reviewer" : "blocked",
       });
       return NextResponse.json({
         ok: true,
         checkpoint: nextCheckpoint,
         checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
         preview: creative,
+        creativeQuality,
+        blocked: !creativeQuality.allowed,
+        publication: {
+          published: false,
+          note: creativeQuality.allowed
+            ? "No post has been saved yet."
+            : "Stopped before the Reviewer and before persistence.",
+        },
       });
     }
 
@@ -505,6 +526,7 @@ export async function POST(req: Request) {
           runCreativeDirectorAgent(
             {
               strategist: checkpoint.strategist!,
+              themeContext: checkpoint.themeContext,
               priorCreative: checkpoint.creative!,
               revisionInstructions: instructions,
               complianceFindings: [
@@ -527,26 +549,36 @@ export async function POST(req: Request) {
           themeLabel: checkpoint.themeContext?.themeLabel,
         }),
       };
+      const creativeQuality = evaluateCreativeQualityGate({
+        creative: revised,
+        themeLabel: checkpoint.themeContext?.themeLabel,
+        themeSource: checkpoint.themeContext?.sourceText,
+      });
       const nextCheckpoint = withCheckpoint(checkpoint, {
         creative: revised,
+        creativeQuality,
         revisionUsed: true,
         modelCallsUsed: checkpoint.modelCallsUsed + managed.modelCalls,
         stages: [
           ...checkpoint.stages,
           stageRecord(
             "creative_director_revision",
-            "completed",
-            "Revised creative ready for owner review. Final compliance has not run.",
+            creativeQuality.allowed ? "completed" : "failed",
+            creativeQuality.allowed
+              ? "Revised creative ready for owner review. Final compliance has not run."
+              : `Revised creative failed quality gate: ${creativeQuality.findings.join(" ")}`,
           ),
         ],
         diagnostics: [...checkpoint.diagnostics, managed.value.diagnostics],
-        nextStage: "final_compliance",
+        nextStage: creativeQuality.allowed ? "final_compliance" : "blocked",
       });
       return NextResponse.json({
         ok: true,
         checkpoint: nextCheckpoint,
         checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
         preview: revised,
+        creativeQuality,
+        blocked: !creativeQuality.allowed,
       });
     }
 
