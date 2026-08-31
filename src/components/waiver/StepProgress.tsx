@@ -2,20 +2,15 @@
 
 import type { WaiverFormStep } from "@/lib/waivers/public-form";
 import { WAIVER_FORM_STEPS } from "@/lib/waivers/public-form";
-
-const LABELS: Record<(typeof WAIVER_FORM_STEPS)[number], string> = {
-  signer: "Signer",
-  participants: "Participants",
-  legal: "Legal",
-  signature: "Sign",
-  review: "Review",
-};
+import { waiverCopy, type WaiverLanguage } from "@/lib/waivers/localization";
 
 type StepProgressProps = {
   current: WaiverFormStep;
+  language?: WaiverLanguage;
 };
 
-export function WaiverStepProgress({ current }: StepProgressProps) {
+export function WaiverStepProgress({ current, language = "en" }: StepProgressProps) {
+  const labels = waiverCopy(language).steps;
   const currentIdx = WAIVER_FORM_STEPS.indexOf(
     current === "submit" ? "review" : current,
   );
@@ -47,7 +42,7 @@ export function WaiverStepProgress({ current }: StepProgressProps) {
                     : "max-w-full truncate text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500"
                 }
               >
-                {LABELS[step]}
+                {labels[step]}
               </span>
             </li>
           );

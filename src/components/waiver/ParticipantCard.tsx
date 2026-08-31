@@ -2,6 +2,7 @@
 
 import type { CoveredParticipantDraft, SignerFormState } from "@/lib/waivers/public-form";
 import { adultOptionsForGuardian } from "@/lib/waivers/public-form";
+import { localizeWaiverError, waiverCopy, type WaiverLanguage } from "@/lib/waivers/localization";
 
 type ParticipantCardProps = {
   index: number;
@@ -11,6 +12,7 @@ type ParticipantCardProps = {
   errors: Record<string, string>;
   onChange: (next: CoveredParticipantDraft) => void;
   onRemove: () => void;
+  language?: WaiverLanguage;
 };
 
 const fieldClass =
@@ -24,7 +26,9 @@ export function ParticipantCard({
   errors,
   onChange,
   onRemove,
+  language = "en",
 }: ParticipantCardProps) {
+  const t = waiverCopy(language);
   const prefix = `participants.${index}`;
   const guardians = adultOptionsForGuardian(signer, allParticipants).filter(
     (option) => option.tempId !== participant.tempId,
@@ -35,10 +39,10 @@ export function ParticipantCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-slate-950">
-            Participant {index + 1}
+            {t.participant} {index + 1}
           </h3>
           <p className="mt-1 text-sm text-slate-600">
-            Add every person covered by this waiver.
+            {t.participantHelp}
           </p>
         </div>
         <button
@@ -46,14 +50,14 @@ export function ParticipantCard({
           onClick={onRemove}
           className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-pink-200 bg-white px-4 text-sm font-bold text-pink-800 transition hover:bg-pink-50"
         >
-          Remove
+          {t.remove}
         </button>
       </div>
 
       <div className="mt-4 grid gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm font-bold text-slate-800">
-            First name
+            {t.first}
             <input
               className={fieldClass}
               autoComplete="given-name"
@@ -65,12 +69,12 @@ export function ParticipantCard({
             />
             {errors[`${prefix}.firstName`] ? (
               <span className="mt-1 block text-sm font-semibold text-red-700">
-                {errors[`${prefix}.firstName`]}
+                {localizeWaiverError(errors[`${prefix}.firstName`], language)}
               </span>
             ) : null}
           </label>
           <label className="block text-sm font-bold text-slate-800">
-            Last name
+            {t.last}
             <input
               className={fieldClass}
               autoComplete="family-name"
@@ -82,14 +86,14 @@ export function ParticipantCard({
             />
             {errors[`${prefix}.lastName`] ? (
               <span className="mt-1 block text-sm font-semibold text-red-700">
-                {errors[`${prefix}.lastName`]}
+                {localizeWaiverError(errors[`${prefix}.lastName`], language)}
               </span>
             ) : null}
           </label>
         </div>
 
         <label className="block text-sm font-bold text-slate-800">
-          Date of birth
+          {t.dob}
           <input
             type="date"
             className={fieldClass}
@@ -99,14 +103,14 @@ export function ParticipantCard({
           />
           {errors[`${prefix}.dob`] ? (
             <span className="mt-1 block text-sm font-semibold text-red-700">
-              {errors[`${prefix}.dob`]}
+              {localizeWaiverError(errors[`${prefix}.dob`], language)}
             </span>
           ) : null}
         </label>
 
         <fieldset>
           <legend className="text-sm font-bold text-slate-800">
-            Participant type
+            {t.participantType}
           </legend>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <label
@@ -130,7 +134,7 @@ export function ParticipantCard({
                   })
                 }
               />
-              Child
+              {t.child}
             </label>
             <label
               className={
@@ -152,14 +156,14 @@ export function ParticipantCard({
                   })
                 }
               />
-              Adult
+              {t.coveredAdult}
             </label>
           </div>
         </fieldset>
 
         {participant.kind === "child" ? (
           <label className="block text-sm font-bold text-slate-800">
-            Parent or legal guardian on this waiver
+            {t.guardian}
             <select
               className={fieldClass}
               value={participant.guardianTempId ?? ""}
@@ -171,7 +175,7 @@ export function ParticipantCard({
               }
               aria-invalid={Boolean(errors[`${prefix}.guardianTempId`])}
             >
-              <option value="">Select guardian</option>
+              <option value="">{t.selectGuardian}</option>
               {guardians.map((g) => (
                 <option key={g.tempId} value={g.tempId}>
                   {g.label}
@@ -180,7 +184,7 @@ export function ParticipantCard({
             </select>
             {errors[`${prefix}.guardianTempId`] ? (
               <span className="mt-1 block text-sm font-semibold text-red-700">
-                {errors[`${prefix}.guardianTempId`]}
+                {localizeWaiverError(errors[`${prefix}.guardianTempId`], language)}
               </span>
             ) : null}
           </label>

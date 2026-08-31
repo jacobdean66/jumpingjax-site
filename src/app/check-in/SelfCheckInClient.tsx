@@ -149,8 +149,9 @@ export function SelfCheckInClient({
         booking: selectedParty.id,
         date: businessDayYmd,
         arrival: "1",
+        lang: language ?? "en",
       }).toString()}`
-    : "/waiver";
+    : `/waiver?lang=${encodeURIComponent(language ?? "en")}`;
 
   useEffect(() => {
     const saved = window.sessionStorage.getItem(PENDING_SELF_CHECK_IN_KEY);
@@ -278,7 +279,7 @@ export function SelfCheckInClient({
               <button type="button" onClick={() => chooseVisit("open_play")} className={choiceClass}>
                 <span className="text-4xl" aria-hidden="true">🛝</span><span className="mt-5 block text-2xl font-black">{t.openPlay}</span><span className="mt-1 block font-semibold text-slate-600">{t.openPlaySub}</span>
               </button>
-              <Link href="/waiver" className={`${choiceClass} sm:col-span-2`}>
+              <Link href={`/waiver?lang=${encodeURIComponent(language ?? "en")}`} className={`${choiceClass} sm:col-span-2`}>
                 <span className="text-4xl" aria-hidden="true">👋</span><span className="mt-5 block text-2xl font-black">{t.firstVisit}</span><span className="mt-1 block font-semibold text-slate-600">{t.firstVisitSub}</span>
               </Link>
             </div>

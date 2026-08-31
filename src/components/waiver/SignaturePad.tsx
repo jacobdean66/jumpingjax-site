@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { waiverCopy, type WaiverLanguage } from "@/lib/waivers/localization";
 
 type SignaturePadProps = {
   onSignatureChange: (value: {
@@ -15,6 +16,7 @@ type SignaturePadProps = {
   }) => void;
   disabled?: boolean;
   error?: string;
+  language?: WaiverLanguage;
 };
 
 type Point = { x: number; y: number };
@@ -28,7 +30,9 @@ export function SignaturePad({
   onSignatureChange,
   disabled = false,
   error,
+  language = "en",
 }: SignaturePadProps) {
+  const t = waiverCopy(language);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<Point | null>(null);
@@ -187,11 +191,10 @@ export function SignaturePad({
       <div className="flex items-end justify-between gap-3">
         <div>
           <p id={labelId} className="text-base font-bold text-slate-950">
-            Signature
+            {t.signature}
           </p>
           <p id={helpId} className="mt-1 text-sm leading-6 text-slate-600">
-            Draw your signature with your finger or mouse. Page scrolling is
-            locked while you are signing.
+            {t.signHelp}
           </p>
         </div>
         <button
@@ -200,7 +203,7 @@ export function SignaturePad({
           disabled={disabled || !hasInk}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Clear
+          {t.clear}
         </button>
       </div>
 

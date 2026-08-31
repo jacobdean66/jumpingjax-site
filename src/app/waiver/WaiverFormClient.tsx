@@ -21,6 +21,15 @@ import {
 } from "@/lib/waivers/public-client";
 import { messageForPublicWaiverError } from "@/lib/waivers/public-errors";
 import {
+  localizeWaiverError,
+  localizedWaiverLegalHtml,
+  parseWaiverLanguage,
+  waiverCopy,
+  waiverLanguageNames,
+  WAIVER_LANGUAGES,
+  type WaiverLanguage,
+} from "@/lib/waivers/localization";
+import {
   buildPublicSubmitBody,
   createInitialWaiverFormState,
   createParticipantDraft,
@@ -47,10 +56,13 @@ const secondaryBtnClass =
 function ErrorSummary({
   errors,
   titleId,
+  language,
 }: {
   errors: FieldErrors;
   titleId: string;
+  language: WaiverLanguage;
 }) {
+  const t = waiverCopy(language);
   const messages = Object.values(errors);
   if (messages.length === 0) return null;
   return (
@@ -60,11 +72,11 @@ function ErrorSummary({
       className="rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3 text-red-900"
     >
       <p id={titleId} className="font-black">
-        Please fix the following
+        {t.fix}
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
         {messages.map((message) => (
-          <li key={message}>{message}</li>
+          <li key={message}>{localizeWaiverError(message, language)}</li>
         ))}
       </ul>
     </div>
@@ -74,6 +86,9 @@ function ErrorSummary({
 export function WaiverFormClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [language, setLanguage] = useState<WaiverLanguage>(() =>
+    parseWaiverLanguage(searchParams.get("lang")),
+  );
   const [step, setStep] = useState<WaiverFormStep>("signer");
   const [state, setState] = useState<WaiverFormState>(() =>
     createInitialWaiverFormState(),
@@ -86,10 +101,16 @@ export function WaiverFormClient() {
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const idempotencyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const errorTitleId = useId();
+  const t = waiverCopy(language);
+  const translatedLegalHtml = localizedWaiverLegalHtml(language, state.templateVersionId);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -246,6 +267,7 @@ export function WaiverFormClient() {
       if (facilityPartyDate) completionParams.set("date", facilityPartyDate);
       if (searchParams.get("arrival") === "1") completionParams.set("arrival", "1");
     }
+    completionParams.set("lang", language);
     const completionQuery = completionParams.toString();
     router.replace(
       `/waiver/complete/${encodeURIComponent(result.publicToken)}${
@@ -256,16 +278,16 @@ export function WaiverFormClient() {
 
   const stepTitle =
     step === "signer"
-      ? "Who is signing?"
+      ? t.signerStep
       : step === "participants"
-        ? "Who is covered?"
+        ? t.participantsStep
         : step === "legal"
-          ? "Read and consent"
+          ? t.legalStep
           : step === "signature"
-            ? "Sign the waiver"
+            ? t.signatureStep
             : step === "submit"
-              ? "Submitting…"
-              : "Review and submit";
+              ? t.submitStep
+              : t.reviewStep;
   const facilityPartyDate = searchParams.get("date");
   const isFacilityPartyWaiver =
     searchParams.get("source") === "facility-party" &&
@@ -276,15 +298,27 @@ export function WaiverFormClient() {
       <section className="mx-auto w-full max-w-xl rounded-[1.75rem] border-2 border-white bg-white/95 px-4 py-6 shadow-[0_18px_48px_rgba(8,145,178,0.16)] sm:px-7 sm:py-8">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">
-            Jumping Jax waiver
+            {t.waiver}
           </p>
           <Link
             href="/"
             className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border-2 border-cyan-300 bg-cyan-50 px-5 text-sm font-black text-cyan-950 transition hover:bg-cyan-100"
           >
-            View Website
+            {t.website}
           </Link>
         </div>
+        <label className="mt-4 block rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-950">
+          {t.chooseLanguage}
+          <select
+            value={language}
+            onChange={(event) => setLanguage(parseWaiverLanguage(event.target.value))}
+            className="mt-2 min-h-12 w-full rounded-xl border-2 border-cyan-300 bg-white px-3 text-base font-black text-slate-950"
+          >
+            {WAIVER_LANGUAGES.map((item) => (
+              <option key={item} value={item}>{waiverLanguageNames[item]}</option>
+            ))}
+          </select>
+        </label>
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -293,23 +327,19 @@ export function WaiverFormClient() {
           {stepTitle}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
-          Waivers are intended to remain valid for three years. Expired guests
-          need a new waiver. This form does not collect Open Play admission
-          payment.
+          {t.intro}
         </p>
         {isFacilityPartyWaiver ? (
           <div className="mt-4 rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold leading-relaxed text-orange-950">
-            <p>Birthday party waiver</p>
+            <p>{t.partyWaiver}</p>
             <p className="mt-1 font-semibold">
-              Complete this before the Jumping Jax facility party
-              {facilityPartyDate ? ` on ${facilityPartyDate}` : ""}. Staff will
-              use the signed waiver during check-in.
+              {t.partyHelp}{facilityPartyDate ? ` ${facilityPartyDate}` : ""}
             </p>
           </div>
         ) : null}
 
         <div className="mt-6">
-          <WaiverStepProgress current={step === "submit" ? "review" : step} />
+          <WaiverStepProgress current={step === "submit" ? "review" : step} language={language} />
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={onSubmit} noValidate>
@@ -324,10 +354,10 @@ export function WaiverFormClient() {
 
           {step === "signer" ? (
             <div className="space-y-4">
-              <ErrorSummary errors={errors} titleId={errorTitleId} />
+              <ErrorSummary errors={errors} titleId={errorTitleId} language={language} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-bold text-slate-800">
-                  Legal first name
+                  {t.legalFirst}
                   <input
                     className={fieldClass}
                     autoComplete="given-name"
@@ -342,12 +372,12 @@ export function WaiverFormClient() {
                   />
                   {errors.firstName ? (
                     <span className="mt-1 block text-sm font-semibold text-red-700">
-                      {errors.firstName}
+                      {localizeWaiverError(errors.firstName, language)}
                     </span>
                   ) : null}
                 </label>
                 <label className="block text-sm font-bold text-slate-800">
-                  Legal last name
+                  {t.legalLast}
                   <input
                     className={fieldClass}
                     autoComplete="family-name"
@@ -362,13 +392,13 @@ export function WaiverFormClient() {
                   />
                   {errors.lastName ? (
                     <span className="mt-1 block text-sm font-semibold text-red-700">
-                      {errors.lastName}
+                      {localizeWaiverError(errors.lastName, language)}
                     </span>
                   ) : null}
                 </label>
               </div>
               <label className="block text-sm font-bold text-slate-800">
-                Email
+                {t.email}
                 <input
                   type="email"
                   inputMode="email"
@@ -385,12 +415,12 @@ export function WaiverFormClient() {
                 />
                 {errors.email ? (
                   <span className="mt-1 block text-sm font-semibold text-red-700">
-                    {errors.email}
+                    {localizeWaiverError(errors.email, language)}
                   </span>
                 ) : null}
               </label>
               <label className="block text-sm font-bold text-slate-800">
-                Phone
+                {t.phone}
                 <input
                   type="tel"
                   inputMode="tel"
@@ -407,12 +437,12 @@ export function WaiverFormClient() {
                 />
                 {errors.phone ? (
                   <span className="mt-1 block text-sm font-semibold text-red-700">
-                    {errors.phone}
+                    {localizeWaiverError(errors.phone, language)}
                   </span>
                 ) : null}
               </label>
               <label className="block text-sm font-bold text-slate-800">
-                Date of birth
+                {t.dob}
                 <input
                   type="date"
                   className={fieldClass}
@@ -427,7 +457,7 @@ export function WaiverFormClient() {
                 />
                 {errors.dob ? (
                   <span className="mt-1 block text-sm font-semibold text-red-700">
-                    {errors.dob}
+                    {localizeWaiverError(errors.dob, language)}
                   </span>
                 ) : null}
               </label>
@@ -436,26 +466,23 @@ export function WaiverFormClient() {
 
           {step === "participants" ? (
             <div className="space-y-4">
-              <ErrorSummary errors={errors} titleId={errorTitleId} />
+              <ErrorSummary errors={errors} titleId={errorTitleId} language={language} />
               <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
-                <p className="font-black">Important guardian rule</p>
+                <p className="font-black">{t.guardianRule}</p>
                 <p className="mt-1">
-                  Every child must be covered by their own parent or legal
-                  guardian. A child from another family needs a waiver signed by
-                  that child’s own parent or legal guardian — not by a friend or
-                  host family.
+                  {t.guardianHelp}
                 </p>
               </div>
 
               <div className="rounded-3xl border-2 border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="text-sm font-black uppercase tracking-wide text-slate-500">
-                  Adult signer (you)
+                  {t.adultSigner}
                 </p>
                 <p className="mt-1 text-lg font-bold text-slate-950">
                   {state.signer.firstName} {state.signer.lastName}
                 </p>
                 <p className="text-sm text-slate-600">
-                  Included automatically as the adult signer on this waiver.
+                  {t.includedSigner}
                 </p>
               </div>
 
@@ -481,6 +508,7 @@ export function WaiverFormClient() {
                       participants: prev.participants.filter((_, i) => i !== index),
                     }))
                   }
+                  language={language}
                 />
               ))}
 
@@ -494,21 +522,21 @@ export function WaiverFormClient() {
                   }))
                 }
               >
-                Add participant
+                {t.addParticipant}
               </button>
             </div>
           ) : null}
 
           {step === "legal" ? (
             <div className="space-y-4">
-              <ErrorSummary errors={errors} titleId={errorTitleId} />
+              <ErrorSummary errors={errors} titleId={errorTitleId} language={language} />
 
               {templateLoading ? (
                 <div
                   role="status"
                   className="rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-4 text-sm font-semibold text-cyan-950"
                 >
-                  Loading the current waiver terms…
+                  {t.loadingTerms}
                 </div>
               ) : state.legalTemplateAvailable && state.legalBodyHtml ? (
                 <div className="space-y-2">
@@ -517,36 +545,41 @@ export function WaiverFormClient() {
                       {state.legalVersionLabel}
                     </p>
                   ) : null}
-                  <div
-                    className="max-h-[50vh] overflow-y-auto rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-900 sm:text-base"
-                    // Exact API legalHtml only — never invent or paraphrase legal text.
-                    dangerouslySetInnerHTML={{ __html: state.legalBodyHtml }}
-                  />
+                  {translatedLegalHtml ? (
+                    <>
+                      <p className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">{t.englishControls}</p>
+                      <div className="max-h-[50vh] overflow-y-auto rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-900 sm:text-base" dangerouslySetInnerHTML={{ __html: translatedLegalHtml }} />
+                      <details className="rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3">
+                        <summary className="cursor-pointer font-black text-slate-900">English — {t.courtesyTitle}</summary>
+                        <div className="mt-3 max-h-[45vh] overflow-y-auto text-sm leading-7 text-slate-900" dangerouslySetInnerHTML={{ __html: state.legalBodyHtml }} />
+                      </details>
+                    </>
+                  ) : (
+                    <div className="max-h-[50vh] overflow-y-auto rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-900 sm:text-base" dangerouslySetInnerHTML={{ __html: state.legalBodyHtml }} />
+                  )}
                 </div>
               ) : (
                 <div
                   role="alert"
                   className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-950"
                 >
-                  <p className="font-black">Legal text unavailable</p>
+                  <p className="font-black">{t.legalUnavailable}</p>
                   <p className="mt-2">
                     {templateLoadError ??
                       messageForPublicWaiverError("missing_template")}
                   </p>
                   <p className="mt-2 font-semibold">
-                    Online submission is blocked until the active waiver loads
-                    successfully.
+                    {t.legalBlocked}
                   </p>
                 </div>
               )}
 
               <fieldset className="space-y-3">
                 <legend className="text-base font-black text-slate-950">
-                  Required consents
+                  {t.consents}
                 </legend>
                 <p className="text-sm text-slate-600">
-                  None of these boxes are pre-checked. Each must be confirmed
-                  separately.
+                  {t.noPrecheck}
                 </p>
 
                 <label className="flex min-h-14 items-start gap-3 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3">
@@ -565,11 +598,10 @@ export function WaiverFormClient() {
                     }
                   />
                   <span className="text-sm font-semibold leading-6 text-slate-900">
-                    I acknowledge the risks of participation described in the
-                    waiver terms.
+                    {t.risk}
                     {errors.acknowledgedRisk ? (
                       <span className="mt-1 block font-bold text-red-700">
-                        {errors.acknowledgedRisk}
+                        {localizeWaiverError(errors.acknowledgedRisk, language)}
                       </span>
                     ) : null}
                   </span>
@@ -591,10 +623,10 @@ export function WaiverFormClient() {
                     }
                   />
                   <span className="text-sm font-semibold leading-6 text-slate-900">
-                    I acknowledge and agree to the waiver terms.
+                    {t.terms}
                     {errors.acknowledgedTerms ? (
                       <span className="mt-1 block font-bold text-red-700">
-                        {errors.acknowledgedTerms}
+                        {localizeWaiverError(errors.acknowledgedTerms, language)}
                       </span>
                     ) : null}
                   </span>
@@ -616,11 +648,10 @@ export function WaiverFormClient() {
                     }
                   />
                   <span className="text-sm font-semibold leading-6 text-slate-900">
-                    I confirm I am the parent or legal guardian with authority to
-                    sign for every minor listed on this waiver.
+                    {t.guardianConsent}
                     {errors.isLegalGuardian ? (
                       <span className="mt-1 block font-bold text-red-700">
-                        {errors.isLegalGuardian}
+                        {localizeWaiverError(errors.isLegalGuardian, language)}
                       </span>
                     ) : null}
                   </span>
@@ -631,10 +662,13 @@ export function WaiverFormClient() {
 
           {step === "signature" ? (
             <div className="space-y-4">
-              <ErrorSummary errors={errors} titleId={errorTitleId} />
+              <ErrorSummary errors={errors} titleId={errorTitleId} language={language} />
               <SignaturePad
                 disabled={submitting}
-                error={errors.signature || errors.signatureContentType}
+                error={(errors.signature || errors.signatureContentType)
+                  ? localizeWaiverError(errors.signature || errors.signatureContentType, language)
+                  : undefined}
+                language={language}
                 onSignatureChange={({ present, contentType }) =>
                   setState((prev) => ({
                     ...prev,
@@ -644,9 +678,7 @@ export function WaiverFormClient() {
                 }
               />
               <p className="text-xs leading-5 text-slate-500">
-                Drawing confirms your intent to sign. Signature image upload to
-                storage is not part of the current public submit contract; only
-                the accepted content type is sent with the form.
+                {t.signNote}
               </p>
             </div>
           ) : null}
@@ -655,7 +687,7 @@ export function WaiverFormClient() {
             <div className="space-y-4">
               <div className="rounded-3xl border-2 border-slate-200 bg-slate-50 px-4 py-4">
                 <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-                  Signer
+                  {t.signer}
                 </h2>
                 <p className="mt-1 font-bold text-slate-950">
                   {state.signer.firstName} {state.signer.lastName}
@@ -667,18 +699,17 @@ export function WaiverFormClient() {
 
               <div className="rounded-3xl border-2 border-slate-200 bg-slate-50 px-4 py-4">
                 <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-                  Participants
+                  {t.participants}
                 </h2>
                 <ul className="mt-2 space-y-2">
                   <li className="text-sm font-semibold text-slate-900">
-                    {state.signer.firstName} {state.signer.lastName} — adult
-                    signer
+                    {state.signer.firstName} {state.signer.lastName} — {t.adult}
                   </li>
                   {state.participants.map((p) => (
                     <li key={p.tempId} className="text-sm font-semibold text-slate-900">
-                      {p.firstName} {p.lastName} — {p.kind}
+                      {p.firstName} {p.lastName} — {p.kind === "child" ? t.child : t.coveredAdult}
                       {p.kind === "child"
-                        ? ` (guardian selected)`
+                        ? ` (${t.guardianSelected})`
                         : ""}
                     </li>
                   ))}
@@ -687,21 +718,21 @@ export function WaiverFormClient() {
 
               <div className="rounded-3xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900">
                 <p>
-                  Consents:{" "}
+                  {t.consentsStatus}:{" "}
                   {state.consent.acknowledgedRisk &&
                   state.consent.acknowledgedTerms &&
                   state.consent.isLegalGuardian
-                    ? "All required consents checked"
-                    : "Incomplete"}
+                    ? t.allChecked
+                    : t.incomplete}
                 </p>
                 <p className="mt-2">
-                  Signature: {state.signaturePresent ? "Provided" : "Missing"}
+                  {t.signature}: {state.signaturePresent ? t.provided : t.missing}
                 </p>
                 <p className="mt-2">
-                  Legal text:{" "}
+                  {t.legalText}:{" "}
                   {state.legalTemplateAvailable
-                    ? "Loaded from server"
-                    : "Unavailable (submission blocked)"}
+                    ? t.loaded
+                    : t.unavailable}
                 </p>
               </div>
 
@@ -711,7 +742,7 @@ export function WaiverFormClient() {
                   aria-live="polite"
                   className="rounded-2xl border-2 border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-950"
                 >
-                  Submitting your waiver… Please wait.
+                  {t.submitting}
                 </p>
               ) : null}
             </div>
@@ -721,7 +752,7 @@ export function WaiverFormClient() {
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
               {step !== "signer" && step !== "submit" ? (
                 <button type="button" className={secondaryBtnClass} onClick={goBack}>
-                  Back
+                  {t.back}
                 </button>
               ) : (
                 <span className="hidden sm:block" />
@@ -742,7 +773,7 @@ export function WaiverFormClient() {
                     void onSubmit(event);
                   }}
                 >
-                  {submitting ? "Submitting…" : "Submit waiver"}
+                  {submitting ? t.submitStep : t.submit}
                 </button>
               ) : step !== "submit" ? (
                 <button
@@ -757,7 +788,7 @@ export function WaiverFormClient() {
                   }
                   onClick={goNext}
                 >
-                  Continue
+                  {t.continue}
                 </button>
               ) : null}
             </div>
@@ -765,9 +796,9 @@ export function WaiverFormClient() {
         </form>
 
         <p className="mt-4 text-center text-xs text-slate-500">
-          Need help?{" "}
+          {t.help}{" "}
           <Link href="/contact" className="font-bold text-cyan-800 underline">
-            Contact Jumping Jax
+            {t.contact}
           </Link>
         </p>
       </section>
