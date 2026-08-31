@@ -31,6 +31,8 @@ const copy = {
     birthdaySub: "Join a party happening today",
     openPlay: "Open Play",
     openPlaySub: "Regular admission",
+    firstVisit: "Never been here before",
+    firstVisitSub: "Sign the waiver before checking in",
     chooseParty: "Choose the birthday party",
     noParties: "There are no birthday parties scheduled for today. Please ask the front desk for help.",
     back: "Back",
@@ -68,6 +70,8 @@ const copy = {
     birthdaySub: "Únete a una fiesta de hoy",
     openPlay: "Juego libre",
     openPlaySub: "Entrada regular",
+    firstVisit: "Nunca has venido antes",
+    firstVisitSub: "Firma el formulario antes de registrarte",
     chooseParty: "Elige la fiesta de cumpleaños",
     noParties: "No hay fiestas programadas para hoy. Pide ayuda en la recepción.",
     back: "Atrás",
@@ -96,10 +100,10 @@ const copy = {
     changeLanguage: "Cambiar idioma",
   },
   fr: {
-    language: "Choisissez votre langue", languageSub: "Sélectionnez une langue pour commencer", more: "Plus de langues", welcome: "Bienvenue à Jumping Jax", hereFor: "Pourquoi êtes-vous ici aujourd’hui?", birthday: "Une fête d’anniversaire", birthdaySub: "Rejoindre une fête aujourd’hui", openPlay: "Jeu libre", openPlaySub: "Admission régulière", chooseParty: "Choisissez la fête", noParties: "Aucune fête n’est prévue aujourd’hui. Demandez de l’aide à l’accueil.", back: "Retour", heading: "Enregistrez-vous", formSub: "Entrez le nom sur la décharge signée. L’âge est facultatif.", first: "Prénom", last: "Nom", age: "Âge (facultatif)", search: "Rechercher la décharge", searching: "Recherche…", chooseWaiver: "Choisissez la bonne décharge", chooseWaiverSub: "Touchez la bonne personne pour continuer.", attending: "Participe à", payment: "Comment paierez-vous?", cash: "Espèces", card: "Carte", confirm: "Confirmer ma présence", checking: "Enregistrement…", missing: "Aucune décharge valide trouvée", missingSub: "Vérifiez le nom et l’âge, ou signez une nouvelle décharge.", waiverPrompt: "Pas encore de décharge? Signez-la maintenant.", signWaiver: "Signer une décharge", complete: "Vous êtes enregistré!", completeSub: "Tout est prêt. Adressez-vous à l’accueil si nécessaire.", another: "Enregistrer une autre personne", changeLanguage: "Changer de langue",
+    language: "Choisissez votre langue", languageSub: "Sélectionnez une langue pour commencer", more: "Plus de langues", welcome: "Bienvenue à Jumping Jax", hereFor: "Pourquoi êtes-vous ici aujourd’hui?", birthday: "Une fête d’anniversaire", birthdaySub: "Rejoindre une fête aujourd’hui", openPlay: "Jeu libre", openPlaySub: "Admission régulière", firstVisit: "Vous n’êtes jamais venu?", firstVisitSub: "Signez la décharge avant de vous enregistrer", chooseParty: "Choisissez la fête", noParties: "Aucune fête n’est prévue aujourd’hui. Demandez de l’aide à l’accueil.", back: "Retour", heading: "Enregistrez-vous", formSub: "Entrez le nom sur la décharge signée. L’âge est facultatif.", first: "Prénom", last: "Nom", age: "Âge (facultatif)", search: "Rechercher la décharge", searching: "Recherche…", chooseWaiver: "Choisissez la bonne décharge", chooseWaiverSub: "Touchez la bonne personne pour continuer.", attending: "Participe à", payment: "Comment paierez-vous?", cash: "Espèces", card: "Carte", confirm: "Confirmer ma présence", checking: "Enregistrement…", missing: "Aucune décharge valide trouvée", missingSub: "Vérifiez le nom et l’âge, ou signez une nouvelle décharge.", waiverPrompt: "Pas encore de décharge? Signez-la maintenant.", signWaiver: "Signer une décharge", complete: "Vous êtes enregistré!", completeSub: "Tout est prêt. Adressez-vous à l’accueil si nécessaire.", another: "Enregistrer une autre personne", changeLanguage: "Changer de langue",
   },
   pt: {
-    language: "Escolha seu idioma", languageSub: "Selecione um idioma para começar", more: "Mais idiomas", welcome: "Bem-vindo ao Jumping Jax", hereFor: "Por que você está aqui hoje?", birthday: "Uma festa de aniversário", birthdaySub: "Participar de uma festa de hoje", openPlay: "Brincadeira livre", openPlaySub: "Entrada regular", chooseParty: "Escolha a festa de aniversário", noParties: "Não há festas agendadas para hoje. Peça ajuda na recepção.", back: "Voltar", heading: "Faça seu check-in", formSub: "Digite o nome do termo assinado. A idade é opcional.", first: "Nome", last: "Sobrenome", age: "Idade (opcional)", search: "Procurar termo", searching: "Procurando…", chooseWaiver: "Escolha o termo correto", chooseWaiverSub: "Toque na pessoa correta para continuar.", attending: "Participando de", payment: "Como você vai pagar?", cash: "Dinheiro", card: "Cartão", confirm: "Confirmar que estou no Jumping Jax", checking: "Fazendo check-in…", missing: "Nenhum termo válido encontrado", missingSub: "Confira o nome e a idade ou assine um novo termo.", waiverPrompt: "Ainda não tem um termo? Assine agora.", signWaiver: "Assinar termo", complete: "Check-in concluído!", completeSub: "Tudo pronto. Fale com a recepção se precisar de ajuda.", another: "Fazer check-in de outra pessoa", changeLanguage: "Mudar idioma",
+    language: "Escolha seu idioma", languageSub: "Selecione um idioma para começar", more: "Mais idiomas", welcome: "Bem-vindo ao Jumping Jax", hereFor: "Por que você está aqui hoje?", birthday: "Uma festa de aniversário", birthdaySub: "Participar de uma festa de hoje", openPlay: "Brincadeira livre", openPlaySub: "Entrada regular", firstVisit: "Nunca esteve aqui antes?", firstVisitSub: "Assine o termo antes de fazer o check-in", chooseParty: "Escolha a festa de aniversário", noParties: "Não há festas agendadas para hoje. Peça ajuda na recepção.", back: "Voltar", heading: "Faça seu check-in", formSub: "Digite o nome do termo assinado. A idade é opcional.", first: "Nome", last: "Sobrenome", age: "Idade (opcional)", search: "Procurar termo", searching: "Procurando…", chooseWaiver: "Escolha o termo correto", chooseWaiverSub: "Toque na pessoa correta para continuar.", attending: "Participando de", payment: "Como você vai pagar?", cash: "Dinheiro", card: "Cartão", confirm: "Confirmar que estou no Jumping Jax", checking: "Fazendo check-in…", missing: "Nenhum termo válido encontrado", missingSub: "Confira o nome e a idade ou assine um novo termo.", waiverPrompt: "Ainda não tem um termo? Assine agora.", signWaiver: "Assinar termo", complete: "Check-in concluído!", completeSub: "Tudo pronto. Fale com a recepção se precisar de ajuda.", another: "Fazer check-in de outra pessoa", changeLanguage: "Mudar idioma",
   },
 } as const;
 
@@ -274,6 +278,9 @@ export function SelfCheckInClient({
               <button type="button" onClick={() => chooseVisit("open_play")} className={choiceClass}>
                 <span className="text-4xl" aria-hidden="true">🛝</span><span className="mt-5 block text-2xl font-black">{t.openPlay}</span><span className="mt-1 block font-semibold text-slate-600">{t.openPlaySub}</span>
               </button>
+              <Link href="/waiver" className={`${choiceClass} sm:col-span-2`}>
+                <span className="text-4xl" aria-hidden="true">👋</span><span className="mt-5 block text-2xl font-black">{t.firstVisit}</span><span className="mt-1 block font-semibold text-slate-600">{t.firstVisitSub}</span>
+              </Link>
             </div>
             {visitType === "birthday" ? (
               <div className="mt-7 rounded-3xl border-2 border-orange-200 bg-orange-50 p-5">
