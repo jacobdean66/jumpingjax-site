@@ -1,4 +1,5 @@
 import { ingestAnsweringMachineCall } from "@/lib/answering-machine/service";
+import { getWhatsAppAppSecret } from "@/lib/answering-machine/readiness";
 import {
   extractWhatsAppCallSignals,
   verifyMetaWebhookSignature,
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   if (process.env.WHATSAPP_CALLING_ENABLED !== "1") {
     return Response.json({ ok: false, error: "WhatsApp calling is disabled." }, { status: 503 });
   }
-  const appSecret = process.env.WHATSAPP_APP_SECRET ?? "";
+  const appSecret = getWhatsAppAppSecret();
   const rawBody = await request.text();
   if (!verifyMetaWebhookSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
     return Response.json({ ok: false, error: "Invalid WhatsApp signature." }, { status: 401 });
@@ -58,3 +59,4 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "WhatsApp call could not be handed off safely." }, { status: 503 });
   }
 }
+
