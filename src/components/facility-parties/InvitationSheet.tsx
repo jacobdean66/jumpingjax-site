@@ -30,16 +30,21 @@ export function InvitationSheet({
     <div
       className={dense ? "w-full" : "invitation-print-document grid gap-6 print:block"}
       data-invite-count={String(quantity)}
-      data-print-layout="letter-landscape-4up"
-      data-invitation-format="5.5x4.25-landscape"
+      data-print-layout="legal-landscape-4up"
+      data-invitation-format="6x4-landscape"
     >
       {!dense ? (
         <style>{`@media print {
-          @page { size: letter landscape; margin: 0; }
-          html, body { margin: 0 !important; padding: 0 !important; }
+          @page { size: 14in 8.5in; margin: 0; }
+          html, body {
+            width: 14in !important;
+            height: 8.5in !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           .invitation-print-document {
             display: block !important;
-            width: 11in !important;
+            width: 14in !important;
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -48,7 +53,7 @@ export function InvitationSheet({
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            width: 11in !important;
+            width: 14in !important;
             height: 8.5in !important;
             margin: 0 !important;
             overflow: hidden !important;
@@ -57,8 +62,8 @@ export function InvitationSheet({
           }
           .invitation-print-canvas {
             flex: 0 0 auto !important;
-            width: 10in !important;
-            height: 7.5in !important;
+            width: 12in !important;
+            height: 8in !important;
           }
           .invitation-print-page,
           .invitation-print-page * {
@@ -74,14 +79,14 @@ export function InvitationSheet({
           key={pageIndex}
           className={
             dense
-              ? "invitation-print-page relative mx-auto aspect-[11/8.5] w-full overflow-hidden bg-white"
-              : "invitation-print-page relative mx-auto aspect-[11/8.5] w-full max-w-[11in] overflow-hidden bg-white shadow-sm print:h-[8.5in] print:w-[11in] print:max-w-none print:shadow-none"
+              ? "invitation-print-page relative mx-auto flex aspect-[14/8.5] w-full items-center justify-center overflow-hidden bg-white"
+              : "invitation-print-page relative mx-auto flex aspect-[14/8.5] w-full max-w-[14in] items-center justify-center overflow-hidden bg-white shadow-sm print:h-[8.5in] print:w-[14in] print:max-w-none print:shadow-none"
           }
           data-print-page={String(pageIndex + 1)}
           data-print-page-count={String(pageCount)}
           data-print-dense={dense ? "true" : "false"}
         >
-          <div className="invitation-print-canvas relative h-full w-full overflow-hidden bg-white">
+          <div className="invitation-print-canvas relative h-[94.117647%] w-[85.714286%] overflow-hidden bg-white">
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />
             <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
             <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0">

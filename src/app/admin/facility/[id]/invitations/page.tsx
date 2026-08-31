@@ -227,7 +227,7 @@ export default async function FacilityInvitationsPage({
       <style>{`
         @media print {
           @page {
-            size: letter landscape;
+            size: ${layout === "single" ? "6in 4in" : "14in 8.5in"};
             margin: 0;
           }
         }

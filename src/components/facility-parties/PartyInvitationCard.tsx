@@ -84,7 +84,7 @@ export function PartyInvitationCard({
       data-layout={layout}
       data-preview-scale={previewScale ? "true" : "false"}
       data-sheet-readable={sheetReadable ? "true" : "false"}
-      data-invitation-size={sheetMode ? "5.5x4.25-landscape" : "6x4-landscape"}
+      data-invitation-size="6x4-landscape"
       data-source-theme-treatment={treatment?.id}
       data-theme-artwork-source={approvedFullBleed ? "approved" : "library"}
       className={`relative isolate overflow-hidden text-left ${
