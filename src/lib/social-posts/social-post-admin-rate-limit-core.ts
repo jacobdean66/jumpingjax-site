@@ -22,8 +22,10 @@ export const SOCIAL_POST_ADMIN_RATE_LIMITS: Record<
   preview: { limit: 40, windowMs: 60 * 1000 },
   // Sharp verification + remote image fetch.
   verification: { limit: 60, windowMs: 60 * 1000 },
-  // Social Strategy / regenerate — one intentional charged planning burst.
-  draft: { limit: 8, windowMs: 5 * 60 * 1000 },
+  // A checkpoint workflow uses up to 6 requests but at most 4 model calls.
+  // Allow two owner-inspected attempts plus retries; the workflow's separate
+  // signed model-call budget remains the billing/spend authority.
+  draft: { limit: 20, windowMs: 5 * 60 * 1000 },
 };
 
 type Bucket = {
