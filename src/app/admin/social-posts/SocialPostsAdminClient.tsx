@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import DirectorsConsole from "./DirectorsConsole";
 import MarketingMemoryPanel from "./MarketingMemoryPanel";
@@ -30,6 +31,8 @@ type Props = {
   sourceImages: SocialSourceImage[];
   marketingMemory: MarketingMemorySnapshot;
   agentUiProtection: AgentUiProtectionStatus;
+  detailMode?: boolean;
+  showMarketingMemory?: boolean;
 };
 
 type JsonResponse = {
@@ -307,10 +310,11 @@ export default function SocialPostsAdminClient({
   sourceImages,
   marketingMemory,
   agentUiProtection,
+  detailMode = false,
+  showMarketingMemory = false,
 }: Props) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, EditorDraft>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -319,14 +323,6 @@ export default function SocialPostsAdminClient({
     () => new Map(posts.map((post) => [post.id, post])),
     [posts],
   );
-
-  function startEdit(post: SocialPost) {
-    setEditingId(post.id);
-    setDrafts((current) => ({
-      ...current,
-      [post.id]: current[post.id] ?? draftFromPost(post),
-    }));
-  }
 
   function updateDraft(id: string, patch: Partial<EditorDraft>) {
     const post = postsById.get(id);
@@ -414,7 +410,6 @@ export default function SocialPostsAdminClient({
       payload,
       action ? "Draft regenerated" : "Draft saved",
     );
-    if (!action) setEditingId(null);
   }
 
   async function duplicatePost(id: string) {
@@ -437,7 +432,11 @@ export default function SocialPostsAdminClient({
       if (!response.ok) throw new Error(data.error ?? "Delete failed");
 
       setMessage("Draft deleted");
-      router.refresh();
+      if (detailMode) {
+        router.push(`/admin/social-posts${token ? `?token=${encodeURIComponent(token)}` : ""}`);
+      } else {
+        router.refresh();
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Delete failed");
     } finally {
@@ -493,10 +492,62 @@ export default function SocialPostsAdminClient({
           No social post drafts yet.
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className={detailMode ? "space-y-4" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"}>
           {posts.map((post) => {
             const draft = drafts[post.id] ?? draftFromPost(post);
-            const isEditing = editingId === post.id;
+            const isEditing = detailMode;
+            const detailHref = `/admin/social-posts/${post.id}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+            const compactImage =
+              post.media_url ??
+              post.approved_image_url ??
+              post.generated_image_url ??
+              post.source_image_url;
+
+            if (!detailMode) {
+              return (
+                <SocialPostAdminErrorBoundary
+                  key={post.id}
+                  postId={post.id}
+                  componentName="SocialPostCard"
+                >
+                  <Link
+                    href={detailHref}
+                    className="group flex aspect-square min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    aria-label={`Open ${post.title ?? "untitled social post"}`}
+                  >
+                    <div className="relative min-h-0 flex-[1.15] overflow-hidden bg-slate-100">
+                      {compactImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={compactImage}
+                          alt=""
+                          className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-3 text-center text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          No media yet
+                        </div>
+                      )}
+                      <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-800 shadow-sm">
+                        {post.media_type}
+                      </span>
+                    </div>
+                    <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5 p-2.5">
+                      <h2 className="line-clamp-2 text-xs font-black leading-tight text-slate-950 sm:text-sm">
+                        {post.title ?? "Untitled draft"}
+                      </h2>
+                      <div className="flex items-end justify-between gap-1">
+                        <StatusBadge status={post.status} />
+                        <span className="truncate text-[10px] font-bold text-slate-500">
+                          {post.scheduled_for ? formatDateTime(post.scheduled_for) : "Open to edit"}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                </SocialPostAdminErrorBoundary>
+              );
+            }
+
             return (
               <SocialPostAdminErrorBoundary
                 key={post.id}
@@ -580,15 +631,7 @@ export default function SocialPostsAdminClient({
                     </div>
                   ) : null}
 
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <button
-                      type="button"
-                      disabled={pendingId === post.id}
-                      onClick={() => startEdit(post)}
-                      className="min-h-10 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
-                    >
-                      Edit
-                    </button>
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
                       disabled={pendingId === post.id}
@@ -820,13 +863,12 @@ export default function SocialPostsAdminClient({
                         >
                           Save
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingId(null)}
-                          className="min-h-11 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950"
+                        <Link
+                          href={`/admin/social-posts${token ? `?token=${encodeURIComponent(token)}` : ""}`}
+                          className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-950"
                         >
-                          Cancel
-                        </button>
+                          Back to cards
+                        </Link>
                         <button
                           type="button"
                           disabled={pendingId === post.id}
@@ -911,7 +953,7 @@ export default function SocialPostsAdminClient({
           })}
         </div>
       )}
-      <MarketingMemoryPanel memory={marketingMemory} />
+      {showMarketingMemory ? <MarketingMemoryPanel memory={marketingMemory} /> : null}
     </section>
   );
 }
