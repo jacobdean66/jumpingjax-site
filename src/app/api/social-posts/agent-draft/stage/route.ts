@@ -146,6 +146,11 @@ function creativeCandidate(creative: CreativeDirectorOutput) {
     campaignId: creative.campaignId,
     platforms: creative.platforms,
     mediaType: creative.mediaType,
+    imageAltText:
+      creative.mediaType === "image"
+        ? `${creative.title}. ${creative.visualDirection}`.slice(0, 500)
+        : null,
+    claimsImageOnly: false,
     candidateId: "explicit:staged-social-workflow",
   };
 }

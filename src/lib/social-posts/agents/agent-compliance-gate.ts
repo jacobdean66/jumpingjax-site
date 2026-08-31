@@ -35,6 +35,8 @@ function toCandidate(input: {
   campaignId: string | null;
   platforms?: readonly string[] | null;
   mediaType?: "image" | "video" | null;
+  imageAltText?: string | null;
+  claimsImageOnly?: boolean;
 }): DraftCandidate {
   return {
     id: input.id,
@@ -54,9 +56,9 @@ function toCandidate(input: {
     mediaDeclarations: {
       hasImage: input.mediaType === "image",
       hasVideo: input.mediaType === "video",
-      imageAltText: null,
+      imageAltText: input.mediaType === "image" ? input.imageAltText?.trim() || null : null,
       videoCaptionsOrTranscript: null,
-      claimsImageOnly: input.mediaType === "image",
+      claimsImageOnly: input.claimsImageOnly ?? false,
     },
   };
 }
@@ -86,6 +88,8 @@ export function evaluateAgentComplianceGate(input: {
   campaignId: string | null;
   platforms?: readonly string[] | null;
   mediaType?: "image" | "video" | null;
+  imageAltText?: string | null;
+  claimsImageOnly?: boolean;
   posts: readonly SocialPost[];
   asOf?: string;
   candidateId?: string;
@@ -102,6 +106,8 @@ export function evaluateAgentComplianceGate(input: {
     campaignId: input.campaignId,
     platforms: input.platforms,
     mediaType: input.mediaType,
+    imageAltText: input.imageAltText,
+    claimsImageOnly: input.claimsImageOnly,
   });
 
   const snapshot = replayDraftComplianceValidator({

@@ -188,6 +188,8 @@ test("B1: media_type changes deterministic compliance treatment for identical co
   const asImage = evaluateAgentComplianceGate({
     ...CLEAN_CONTENT,
     mediaType: "image",
+    imageAltText: "Family-friendly Jumping Jax backyard bounce scene.",
+    claimsImageOnly: false,
     candidateId: "explicit:test:media-image",
   });
   const asVideo = evaluateAgentComplianceGate({
@@ -196,23 +198,19 @@ test("B1: media_type changes deterministic compliance treatment for identical co
     candidateId: "explicit:test:media-video",
   });
 
-  // Identical text, different media rules: the evaluated findings differ
-  // (image triggers alt-text + image-only-claims gaps; video triggers the
-  // captions/transcript gap), so evaluating the wrong media_type would gate
-  // against the wrong rule set.
+  // Identical copy, different media declarations: an image with supplied alt
+  // text passes while a video without captions/transcript remains blocked.
   assert.notDeepEqual(asImage.blockingCodes, asVideo.blockingCodes);
   assert.notEqual(asImage.summary, asVideo.summary);
 
-  // Both remain fail-closed here (no allow) — media_type never weakens the
-  // gate for this fixture.
-  assert.notEqual(asImage.decision, "allow");
+  assert.equal(asImage.decision, "allow");
   assert.notEqual(asVideo.decision, "allow");
 
-  // And an approval-ready transition is denied under both evaluations.
+  // The exact media declaration controls approval eligibility.
   assert.equal(
     statusTransitionDecision({ requestedStatus: "approved", compliance: asImage })
       .eligible,
-    false,
+    true,
   );
   assert.equal(
     statusTransitionDecision({ requestedStatus: "approved", compliance: asVideo })
@@ -267,6 +265,8 @@ test("B3: old/new media_type regression — switching type re-gates against the 
   const staleImage = evaluateAgentComplianceGate({
     ...CLEAN_CONTENT,
     mediaType: "image",
+    imageAltText: "Family-friendly Jumping Jax backyard bounce scene.",
+    claimsImageOnly: false,
     candidateId: "explicit:test:stale-image",
   });
   assert.notDeepEqual(resultingVideo.blockingCodes, staleImage.blockingCodes);
