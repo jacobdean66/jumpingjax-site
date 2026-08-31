@@ -49,7 +49,10 @@ function toCandidate(input: {
       primaryMessage: input.caption.slice(0, 1200),
       supportingProof: null,
       cta: null,
-      fullCaption: `${input.caption}\n\n${input.generationPrompt}`.slice(0, 4500),
+      // Visual production instructions are not public-facing copy and must not
+      // be interpreted as business claims. Hard-claim scanning still checks
+      // caption + generationPrompt together before this candidate is built.
+      fullCaption: input.caption.slice(0, 4500),
     },
     declaredPlatform: input.platforms?.[0] ?? null,
     declaredPlacement: null,

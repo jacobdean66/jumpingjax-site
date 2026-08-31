@@ -6,7 +6,7 @@ test("caption-carried image claims with supplied alt text are not mislabeled ima
   const result = evaluateAgentComplianceGate({
     title: "Game-On Party Fun at Jumping Jax",
     caption: "Planning an indoor birthday in Greenwood? Bring your crew to Jumping Jax for active play and a gamer-neon party atmosphere. Message us to ask about facility-party details.",
-    generationPrompt: "Create a clean Gamer Neon indoor facility-party image with no text.",
+    generationPrompt: "Create a clean Gamer Neon indoor facility-party image. Include generic game-inspired visual elements such as a controller, puzzle pieces, stars, and gems. Keep children and adults at realistic human scale with natural anatomy, ground contact, shadows, and occlusion. No text.",
     campaignId: "birthday-parties",
     platforms: ["facebook", "instagram"],
     mediaType: "image",
