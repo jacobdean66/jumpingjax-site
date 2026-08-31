@@ -208,17 +208,13 @@ export function buildDeterministicCreativeDirectorOutput(
   const s = input.strategist;
   const revising = Boolean(input.priorCreative && input.revisionInstructions?.length);
   const prior = input.priorCreative;
-  const revisionNote = revising
-    ? ` Revision focus: ${(input.revisionInstructions ?? []).slice(0, 3).join(" ")}`
-    : "";
-
   const mediaType = s.mediaType;
   const themeLabel = input.themeContext?.themeLabel ?? null;
   const gamerTheme = input.themeContext?.styleFamily === "gamer";
   const facilityParty = s.businessFocus === "facility-parties";
   const title = bound(
     prior && revising
-      ? `${prior.title.replace(/\s*\(revised\)\s*$/i, "")} (revised)`
+      ? prior.title.replace(/\s*\(revised\)\s*$/i, "")
       : gamerTheme
         ? "Level Up the Birthday Fun at Jumping Jax"
         : themeLabel
@@ -230,10 +226,7 @@ export function buildDeterministicCreativeDirectorOutput(
   );
   const caption = bound(
     prior && revising
-      ? `${prior.caption}${revisionNote ? ` ${revisionNote}` : ""}`.slice(
-          0,
-          AGENT_INPUT_LIMITS.caption,
-        )
+      ? prior.caption
       : facilityParty
         ? `${gamerTheme ? "Planning an indoor birthday in Greenwood?" : `Planning a ${themeLabel ?? "birthday"} party in Greenwood?`} Bring your crew to Jumping Jax for active play and a ${gamerTheme ? "gamer-neon" : (themeLabel ?? "colorful").toLowerCase()} party atmosphere. Message us to ask about facility-party details.`
         : `${s.angleMessage} ${s.ctaIntent} Family-friendly fun with Jumping Jax in the Greenwood, SC area.`.slice(0, AGENT_INPUT_LIMITS.caption),
@@ -241,10 +234,7 @@ export function buildDeterministicCreativeDirectorOutput(
   );
   const generationPrompt = bound(
     prior && revising
-      ? `${prior.generationPrompt} Apply revision notes carefully without inventing prices or availability.${revisionNote}`.slice(
-          0,
-          AGENT_INPUT_LIMITS.prompt,
-        )
+      ? `Create a polished ${mediaType} for a Jumping Jax indoor facility party in Greenwood, SC. Use a generic ${themeLabel ?? "colorful party"} aesthetic with bold blue and navy, yellow highlights, cyan accents, controller-inspired geometric motifs, speed lines, stars, and gems. Treat any owner-approved themed artwork as internal mood-board inspiration only: do not reproduce a branded character, logo, composition, or trade dress, and do not mention Sonic or any official licensing. Show a clean, believable family-party setting with no on-screen text or invented offers. Keep the composition concise and suitable for Facebook and Instagram.`.slice(0, AGENT_INPUT_LIMITS.prompt)
       : `Create a polished family-friendly promotional ${mediaType} for Jumping Jax. ${themeLabel ? `Use a ${themeLabel} party direction with ${input.themeContext?.palette.background ?? "the approved"} blue, ${input.themeContext?.palette.accent ?? "gold"}, and energetic graphic accents.` : ""} Show a believable indoor facility-party moment in Greenwood, SC. ${
           s.selectedAssetContext
             ? `Preserve the selected reference exactly: ${s.selectedAssetContext}.`
@@ -266,15 +256,17 @@ export function buildDeterministicCreativeDirectorOutput(
     campaignId: s.campaignId,
     goal: s.goal,
     assetUsageGuidance: bound(
-      s.selectedAssetContext
+      revising && themeLabel
+        ? `Use ${themeLabel} library colors and generic motifs only. The approved theme artwork is an internal mood-board reference, not an instruction to copy branded characters, logos, composition, or trade dress.`
+        : s.selectedAssetContext
         ? `Use the verified asset exactly: ${s.selectedAssetContext}`
         : "Use an approved Jumping Jax catalog asset; do not invent products.",
       800,
     ),
     visualDirection: bound(
-      `${s.notesForCreativeDirector.join(" ")} Constraints: ${s.creativeConstraints.join(
-        " ",
-      )}`,
+      revising && themeLabel
+        ? `Generic ${themeLabel} indoor party energy: blue/navy base, yellow and cyan accents, controller-inspired geometry, speed lines, stars, and gems. No branded character or logo reproduction.`
+        : `${s.notesForCreativeDirector.join(" ")} Constraints: ${s.creativeConstraints.join(" ")}`,
       1200,
     ),
     platformSpecificConstraints: [

@@ -43,3 +43,15 @@ test("instruction-echo creative is stopped before the Reviewer", () => {
   assert.equal(result.allowed, false);
   assert.ok(result.findings.length >= 2);
 });
+
+test("revision instructions can never leak into public caption copy", () => {
+  const result = evaluateCreativeQualityGate({
+    creative: creative({
+      caption: "Planning a party? Revision focus: Remove the Sonic-specific reference and simplify the generation prompt before this goes live.",
+    }),
+    themeLabel: "Gamer Neon",
+    themeSource: "Sonic",
+  });
+  assert.equal(result.allowed, false);
+  assert.ok(result.findings.includes("Copy exposes internal instructions or workflow language."));
+});

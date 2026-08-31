@@ -18,7 +18,7 @@ export function evaluateCreativeQualityGate(input: {
     findings.push("Title is an instruction echo, not finished social copy.");
   }
   if (caption.length < 100) findings.push("Caption is too thin for owner review.");
-  if (/\b(promote\s+indoor|aligned with:|objective:|owner confirms facts)\b/i.test(`${title}\n${caption}`)) {
+  if (/\b(promote\s+indoor|aligned with:|objective:|owner confirms facts|revision focus:|remove the sonic|simplify the generation prompt)\b/i.test(`${title}\n${caption}`)) {
     findings.push("Copy exposes internal instructions or workflow language.");
   }
   if (input.creative.businessFocus === "facility-parties" && !/\b(indoor|facility party|facility-party)\b/i.test(combined)) {
