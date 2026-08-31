@@ -35,22 +35,30 @@ export function InvitationSheet({
     >
       {!dense ? (
         <style>{`@media print {
-          @page { size: letter landscape; margin: 0.25in; }
+          @page { size: letter landscape; margin: 0; }
           html, body { margin: 0 !important; padding: 0 !important; }
           .invitation-print-document {
             display: block !important;
-            width: 10.5in !important;
+            width: 11in !important;
             margin: 0 !important;
             padding: 0 !important;
           }
           .invitation-print-page {
             box-sizing: border-box !important;
-            width: 10.5in !important;
-            height: 8in !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 11in !important;
+            height: 8.5in !important;
             margin: 0 !important;
             overflow: hidden !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+          }
+          .invitation-print-canvas {
+            flex: 0 0 auto !important;
+            width: 10in !important;
+            height: 7.5in !important;
           }
           .invitation-print-page,
           .invitation-print-page * {
@@ -67,36 +75,38 @@ export function InvitationSheet({
           className={
             dense
               ? "invitation-print-page relative mx-auto aspect-[11/8.5] w-full overflow-hidden bg-white"
-              : "invitation-print-page relative mx-auto aspect-[11/8.5] w-full max-w-[11in] overflow-hidden bg-white shadow-sm print:h-[8in] print:w-[10.5in] print:max-w-none print:shadow-none"
+              : "invitation-print-page relative mx-auto aspect-[11/8.5] w-full max-w-[11in] overflow-hidden bg-white shadow-sm print:h-[8.5in] print:w-[11in] print:max-w-none print:shadow-none"
           }
           data-print-page={String(pageIndex + 1)}
           data-print-page-count={String(pageCount)}
           data-print-dense={dense ? "true" : "false"}
         >
-          <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />
-          <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
-          <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0">
-            {Array.from({ length: 4 }, (_, index) => (
-              <div
-                key={index}
-                className="min-h-0 min-w-0 overflow-hidden"
-                data-invite-instance="true"
-              >
-                <PartyInvitationCard
-                  snapshot={snapshot}
-                  childName={childName}
-                  childAge={childAge}
-                  dateLabel={dateLabel}
-                  timeLabel={timeLabel}
-                  compact
-                  qrUrl={qrUrl}
-                  waiverUrl={waiverUrl}
-                  previewScale={dense}
-                  sheetReadable={dense}
-                  sheetMode
-                />
-              </div>
-            ))}
+          <div className="invitation-print-canvas relative h-full w-full overflow-hidden bg-white">
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
+            <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div
+                  key={index}
+                  className="min-h-0 min-w-0 overflow-hidden"
+                  data-invite-instance="true"
+                >
+                  <PartyInvitationCard
+                    snapshot={snapshot}
+                    childName={childName}
+                    childAge={childAge}
+                    dateLabel={dateLabel}
+                    timeLabel={timeLabel}
+                    compact
+                    qrUrl={qrUrl}
+                    waiverUrl={waiverUrl}
+                    previewScale={dense}
+                    sheetReadable={dense}
+                    sheetMode
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ))}
