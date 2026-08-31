@@ -235,7 +235,7 @@ export function buildDeterministicCreativeDirectorOutput(
           AGENT_INPUT_LIMITS.caption,
         )
       : facilityParty
-        ? `${gamerTheme ? "Ready to level up the birthday fun?" : `Bring the ${themeLabel ?? "birthday"} energy!`} Celebrate indoors at Jumping Jax with active play, colorful party energy, and plenty of room for big smiles. Message us to plan a facility party for your crew in Greenwood, SC.`
+        ? `${gamerTheme ? "Planning an indoor birthday in Greenwood?" : `Planning a ${themeLabel ?? "birthday"} party in Greenwood?`} Bring your crew to Jumping Jax for active play and a ${gamerTheme ? "gamer-neon" : (themeLabel ?? "colorful").toLowerCase()} party atmosphere. Message us to ask about facility-party details.`
         : `${s.angleMessage} ${s.ctaIntent} Family-friendly fun with Jumping Jax in the Greenwood, SC area.`.slice(0, AGENT_INPUT_LIMITS.caption),
     AGENT_INPUT_LIMITS.caption,
   );

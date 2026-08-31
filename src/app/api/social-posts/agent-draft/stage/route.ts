@@ -166,7 +166,7 @@ function shouldRevise(
   reviewer: IndependentReviewerOutput,
   compliance: ComplianceGateResult,
 ): boolean {
-  return reviewer.verdict === "revise" || compliance.decision === "quarantine";
+  return reviewer.verdict === "revise" || compliance.decision !== "allow";
 }
 
 async function runManagedStage<T>(input: {
@@ -468,18 +468,20 @@ export async function POST(req: Request) {
         themeLabel: checkpoint.themeContext?.themeLabel,
       });
       const compliance = managed.value;
-      const blocked = compliance.decision === "block" || !visualGate.allowed;
+      const hardBlocked = compliance.hardClaimFindings.length > 0 || !visualGate.allowed;
+      const revisionAvailable = !finalPass && !checkpoint.revisionUsed;
+      const revisionNeeded =
+        revisionAvailable && shouldRevise(checkpoint.reviewer, compliance);
+      const blocked = finalPass
+        ? compliance.decision !== "allow" || !visualGate.allowed
+        : hardBlocked || (compliance.decision !== "allow" && !revisionNeeded);
       const nextStage: SocialDraftNextStage = blocked
         ? "blocked"
-        : finalPass
-          ? compliance.decision === "allow"
+        : revisionNeeded
+          ? "revision"
+          : compliance.decision === "allow"
             ? "persist"
-            : "blocked"
-          : shouldRevise(checkpoint.reviewer, compliance)
-            ? "revision"
-            : compliance.decision === "allow"
-              ? "persist"
-              : "blocked";
+            : "blocked";
       const stageId = finalPass
         ? "final_deterministic_compliance"
         : "deterministic_compliance";
@@ -496,7 +498,9 @@ export async function POST(req: Request) {
                   compliance.summary,
                   ...visualGate.findings,
                 ].join(" ")}`
-              : `Compliance ${compliance.decision}; visual QA passed.`,
+              : revisionNeeded
+                ? `Compliance ${compliance.decision}; visual QA passed; one bounded revision is required.`
+                : `Compliance ${compliance.decision}; visual QA passed.`,
           ),
         ],
         nextStage,

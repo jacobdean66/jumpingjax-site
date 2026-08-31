@@ -18,6 +18,8 @@ test("owner-gated workflow exposes each bounded stage and never publishes", () =
   assert.match(route, /independent_reviewer/);
   assert.match(route, /final_compliance/);
   assert.match(route, /Only an exact compliance allow may be persisted/);
+  assert.match(route, /compliance\.hardClaimFindings\.length > 0/);
+  assert.match(route, /revisionNeeded/);
   assert.match(route, /verifySocialDraftCheckpointSignature/);
   assert.match(route, /signSocialDraftCheckpoint/);
   assert.match(route, /published:\s*false/);
