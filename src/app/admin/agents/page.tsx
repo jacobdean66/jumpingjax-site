@@ -9,6 +9,7 @@ import { TriggerProofClient } from "./TriggerProofClient";
 import { NominationProofClient } from "./NominationProofClient";
 import { BookingTriageClient } from "./BookingTriageClient";
 import { WaiverTriageClient } from "./WaiverTriageClient";
+import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export default async function AgentsPage() {
             </ul>
           </div>
         </div>
+        <CompositeBookingProofClient />
         <BookingTriageClient />
       </section>
       <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
