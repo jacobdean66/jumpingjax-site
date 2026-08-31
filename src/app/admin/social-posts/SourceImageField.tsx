@@ -5,6 +5,7 @@ import type { SocialSourceImage } from "@/lib/social-posts/social-source-images"
 
 type Props = {
   images: SocialSourceImage[];
+  disabled?: boolean;
 };
 
 function isPublicImageUrl(value: string): boolean {
@@ -16,7 +17,7 @@ function isPublicImageUrl(value: string): boolean {
   }
 }
 
-export default function SourceImageField({ images }: Props) {
+export default function SourceImageField({ images, disabled = false }: Props) {
   const [sourceImageUrl, setSourceImageUrl] = useState("");
   const selectedLabel = useMemo(
     () => images.find((image) => image.url === sourceImageUrl)?.label ?? "",
@@ -28,6 +29,7 @@ export default function SourceImageField({ images }: Props) {
     <div className="space-y-2">
       {images.length > 0 ? (
         <select
+          disabled={disabled}
           value={selectedLabel ? sourceImageUrl : ""}
           onChange={(event) => setSourceImageUrl(event.target.value)}
           className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
@@ -47,6 +49,7 @@ export default function SourceImageField({ images }: Props) {
 
       <input
         name="source_image_url"
+        disabled={disabled}
         value={sourceImageUrl}
         onChange={(event) => setSourceImageUrl(event.target.value)}
         className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"

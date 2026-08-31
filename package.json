@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "assets:metadata": "node scripts/generate-public-asset-metadata.mjs",
+    "prebuild": "pnpm assets:metadata",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -12,7 +14,7 @@
     "test:security": "node --conditions=react-server --import tsx --test src/lib/security/security-admin-boundary.test.mts src/lib/security/provider-contracts.test.mts",
     "test:agent-manager": "node --import tsx --test src/lib/agent-manager/worker.test.mts src/lib/agent-manager/boundaries.test.mts src/lib/agent-manager/nomination-inbound.test.mts src/lib/agent-manager/specialist-readiness.test.mts src/lib/agent-manager/booking-triage.test.mts src/lib/agent-manager/composite-booking.test.mts src/lib/agent-manager/composite-booking-evaluation.test.mts src/lib/agent-manager/composite-booking-proof.test.mts src/lib/agent-manager/composite-booking-intent.test.mts src/lib/agent-manager/composite-booking-intent-migration.test.mts src/lib/agent-manager/composite-calendar-staging.test.mts src/lib/agent-manager/composite-availability.test.mts src/lib/agent-manager/composite-booking-request.test.mts src/lib/agent-manager/composite-booking-stage-route.test.mts src/lib/agent-manager/booking-conversation.test.mts src/lib/agent-manager/voice-transport.test.mts src/lib/agent-manager/waiver-triage.test.mts src/lib/giveaway/nomination-email.test.mts",
     "trigger:dev": "trigger.dev dev --profile default --skip-telemetry",
-    "inventory:sync": "node scripts/sync-rental-inventory.mjs"
+    "inventory:sync": "node scripts/sync-rental-inventory.mjs && pnpm assets:metadata"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

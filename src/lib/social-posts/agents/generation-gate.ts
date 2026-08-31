@@ -2,15 +2,14 @@ import type { ComplianceGateResult } from "./agent-compliance-gate";
 
 /**
  * Draft persistence policy (Social Strategy / regeneration):
- * - quarantine: may save only as a clearly labeled, non-approved working draft.
- *   Not compliant, not approved, not publishable, not generation-ready.
- *   Does NOT unlock paid image/video generation. Owner review remains required.
+ * - quarantine: must NOT be persisted through an agent flow. It remains only
+ *   inside the active owner checkpoint so it cannot masquerade as a usable draft.
  * - block: must NOT be persisted through agent-draft or regeneration flows.
  * - allow: may persist as a normal working draft; still requires Jacob approval
  *   before publish; paid generation still requires a fresh allow on the exact prompt.
  */
 export const DRAFT_COMPLIANCE_PERSISTENCE_POLICY = {
-  quarantineMayPersistWorkingDraft: true,
+  quarantineMayPersistWorkingDraft: false,
   quarantineUnlocksPaidGeneration: false,
   blockMayPersistViaAgentFlows: false,
   ownerApprovalAlwaysRequired: true,
@@ -25,7 +24,7 @@ export function complianceAllowsPaidGeneration(
 export function complianceBlocksPersistence(
   compliance: ComplianceGateResult,
 ): boolean {
-  return compliance.decision === "block";
+  return compliance.decision !== "allow" || compliance.allowedToProceed !== true;
 }
 
 export function paidGenerationDeniedResponse(compliance: ComplianceGateResult): {

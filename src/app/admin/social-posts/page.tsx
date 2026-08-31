@@ -1,4 +1,5 @@
 import SocialPostsPageHeader from "@/app/admin/social-posts/SocialPostsPageHeader";
+import Link from "next/link";
 import { AdminAuthError } from "@/app/admin/auth-gate";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
@@ -93,6 +94,13 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
           sourceImages={SOCIAL_SOURCE_IMAGES}
           agentUiProtection={agentUiProtection}
         />
+
+        <Link
+          href={`/admin/social-posts/asset-intelligence${query ? `?${query}` : ""}`}
+          className="mt-4 inline-flex min-h-11 items-center rounded-full border border-cyan-300 bg-cyan-50 px-4 py-2 text-sm font-black text-cyan-950"
+        >
+          View website-wide Asset intelligence
+        </Link>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-4">

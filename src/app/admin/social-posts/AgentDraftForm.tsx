@@ -5,6 +5,10 @@ import { useRef, useState, type FormEvent } from "react";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type { AgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
+import type {
+  SocialDraftCheckpoint,
+  SocialDraftNextStage,
+} from "@/lib/social-posts/agents/staged-workflow-types";
 import SourceImageField from "./SourceImageField";
 
 type Props = {
@@ -15,48 +19,19 @@ type Props = {
 
 type WorkflowStage = {
   stageId?: string;
-  status?: "pending" | "running" | "completed" | "failed" | "skipped";
+  status?: "pending" | "running" | "completed" | "failed" | "skipped" | "not_needed";
   summary?: string;
 };
 
-type AgentDraftResponse = {
+type StagedDraftResponse = {
   ok?: boolean;
   error?: string;
-  agent?: {
-    agentId?: string;
-    source?: "model" | "deterministic-fallback";
-    provider?: string;
-    model?: string | null;
-    requestId?: string;
-    fallbackReason?: string | null;
-    failureKind?: string | null;
-  };
-  compliance?: {
-    deterministic?: boolean;
-    resultState?: string;
-    decision?: "allow" | "quarantine" | "block";
-    summary?: string;
-    allowedToProceed?: boolean;
-  };
-  generationReady?: boolean;
-  generationReadyReason?: string;
-  workflow?: {
-    independentReviewerImplemented?: boolean;
-    ownerApprovalRequired?: boolean;
-    maxCreativeDirectorRevisions?: number;
-    revisionUsed?: boolean;
-    modelCallsUsed?: number;
-    stages?: WorkflowStage[];
-    note?: string;
-  };
-  strategy?: {
-    ownerInputRequired?: string[];
-    factualConstraints?: string[];
-  };
-  publication?: {
-    published?: boolean;
-    note?: string;
-  };
+  blocked?: boolean;
+  stopped?: boolean;
+  checkpoint?: SocialDraftCheckpoint;
+  checkpointSignature?: string;
+  post?: { id?: string; title?: string };
+  publication?: { published?: boolean; note?: string };
 };
 
 const PREMADE_GOALS = [
@@ -86,12 +61,24 @@ const STAGE_LABELS: Record<string, string> = {
   owner_ready: "Owner Approval Required",
 };
 
+const NEXT_STAGE_LABELS: Record<SocialDraftNextStage, string> = {
+  creative_director: "Creative Director",
+  independent_reviewer: "Independent Reviewer",
+  compliance: "Deterministic Compliance",
+  revision: "Creative Director Revision",
+  final_compliance: "Final Deterministic Compliance",
+  persist: "Save owner-ready draft",
+  blocked: "Blocked / stopped",
+  complete: "Complete",
+};
+
 function formatStageLine(stage: WorkflowStage): string | null {
   if (!stage.stageId) return null;
   const label = STAGE_LABELS[stage.stageId] ?? stage.stageId;
   if (stage.status === "completed") return `${label}: completed`;
   if (stage.status === "failed") return `${label}: failed`;
   if (stage.status === "skipped") return `${label}: skipped`;
+  if (stage.status === "not_needed") return `${label}: not needed`;
   if (stage.status === "running") return `${label}: running`;
   return null;
 }
@@ -108,8 +95,23 @@ export default function AgentDraftForm({
   const [error, setError] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [completedStages, setCompletedStages] = useState<string[]>([]);
+  const [checkpoint, setCheckpoint] = useState<SocialDraftCheckpoint | null>(null);
+  const [checkpointSignature, setCheckpointSignature] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const modelActionsDisabled = agentUiProtection.modelActionsDisabled;
+  const workflowActive = Boolean(
+    checkpoint && checkpoint.nextStage !== "blocked" && checkpoint.nextStage !== "complete",
+  );
+
+  function applyCheckpoint(next: SocialDraftCheckpoint, signature: string): void {
+    setCheckpoint(next);
+    setCheckpointSignature(signature);
+    setCompletedStages(
+      next.stages
+        .map(formatStageLine)
+        .filter((line): line is string => Boolean(line)),
+    );
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,99 +127,104 @@ export default function AgentDraftForm({
     setMessage(null);
     setError(null);
     setCompletedStages([]);
-    setAgentStatus(
-      "Orchestrating: Campaign Strategist → Creative Director → Independent Reviewer → compliance…",
-    );
+    setAgentStatus("Running Campaign Strategist only. No later agent has permission yet.");
 
     const customGoal = String(form.get("custom_goal") ?? "").trim();
     const goal = selectedGoal === CUSTOM_GOAL_VALUE ? customGoal : selectedGoal;
 
     try {
-      const response = await fetch("/api/social-posts/agent-draft", {
+      const response = await fetch("/api/social-posts/agent-draft/stage", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           token,
+          action: "start",
           campaignId: String(form.get("campaignId") ?? ""),
           goal,
           platform: String(form.get("platform") ?? "both"),
-          mediaType: String(form.get("mediaType") ?? "video"),
-          businessFocus: String(form.get("businessFocus") ?? "both"),
+          mediaType: String(form.get("mediaType") ?? "image"),
+          businessFocus: String(form.get("businessFocus") ?? "facility-parties"),
           source_image_url: String(form.get("source_image_url") ?? ""),
+          theme: String(form.get("theme") ?? ""),
         }),
       });
-      const data = (await response.json()) as AgentDraftResponse;
+      const data = (await response.json()) as StagedDraftResponse;
 
-      if (!response.ok || !data.ok) {
-        const complianceDecision = data.compliance?.decision;
-        const prefix =
-          complianceDecision === "block"
-            ? "Blocked by deterministic compliance. "
-            : complianceDecision === "quarantine"
-              ? "Quarantined by deterministic compliance. "
-              : "";
-        const stageLines = (data.workflow?.stages ?? [])
-          .map(formatStageLine)
-          .filter((line): line is string => Boolean(line));
-        setCompletedStages(stageLines);
-        throw new Error(
-          `${prefix}${data.error ?? "AI draft could not be created."}`,
-        );
+      if (!response.ok || !data.ok || !data.checkpoint || !data.checkpointSignature) {
+        throw new Error(data.error ?? "Campaign Strategist could not start.");
       }
-
-      const sourceLabel =
-        data.agent?.source === "model"
-          ? "model-backed"
-          : data.agent?.source === "deterministic-fallback"
-            ? "deterministic fallback"
-            : "unknown";
-      const ownerNeeds = data.strategy?.ownerInputRequired?.length
-        ? ` Owner input needed: ${data.strategy.ownerInputRequired.slice(0, 2).join(" ")}`
-        : "";
-      const complianceDecision = data.compliance?.decision ?? null;
-      const complianceNote = data.compliance?.summary
-        ? ` Compliance: ${complianceDecision ?? "unknown"} — ${data.compliance.summary}`
-        : "";
-      const quarantineLabel =
-        complianceDecision === "quarantine"
-          ? " QUARANTINE working draft only — not compliant, not publishable, not generation-ready."
-          : "";
-      const generationNote = data.generationReadyReason
-        ? ` ${data.generationReadyReason}`
-        : " Paid generation remains locked until compliance allow on the exact prompt.";
-      const revisionNote = data.workflow?.revisionUsed
-        ? " One Creative Director revision was used."
-        : "";
-      const ownerGate =
-        data.workflow?.ownerApprovalRequired !== false
-          ? " Owner approval required (model review is advisory only)."
-          : "";
-
-      const stageLines = (data.workflow?.stages ?? [])
-        .map(formatStageLine)
-        .filter((line): line is string => Boolean(line));
-      // Always surface owner-approval as a distinct non-completed gate.
-      if (!stageLines.some((line) => line.startsWith("Owner Approval Required"))) {
-        stageLines.push("Owner Approval Required: pending (Jacob)");
-      }
-      setCompletedStages(stageLines);
-
-      setSelectedGoal(PREMADE_GOALS[0]);
-      if (formElement) {
-        formElement.reset();
-      }
-      setAgentStatus(
-        `Orchestration finished (${sourceLabel}${
-          data.agent?.model ? ` · ${data.agent.model}` : ""
-        }${data.agent?.failureKind ? ` · ${data.agent.failureKind}` : ""}).`,
-      );
-      setMessage(
-        `AI draft created via multi-agent workflow (${sourceLabel}). Not published.${revisionNote}${ownerGate}${ownerNeeds}${complianceNote}${quarantineLabel}${generationNote}`,
-      );
-      router.refresh();
+      applyCheckpoint(data.checkpoint, data.checkpointSignature);
+      setAgentStatus("Campaign Strategist finished. The Creative Director has not run.");
+      setMessage("Review the strategy below. Continue only if it makes sense; otherwise stop without another model call.");
     } catch (caught) {
       setAgentStatus(null);
       setError(caught instanceof Error ? caught.message : "AI draft failed.");
+    } finally {
+      inFlightRef.current = false;
+      setPending(false);
+    }
+  }
+
+  async function continueWorkflow(): Promise<void> {
+    if (!checkpoint || !checkpointSignature || pending || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setPending(true);
+    setError(null);
+    setMessage(null);
+    const label = NEXT_STAGE_LABELS[checkpoint.nextStage];
+    setAgentStatus(`Running ${label} only…`);
+    try {
+      const response = await fetch("/api/social-posts/agent-draft/stage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, action: "continue", checkpoint, checkpointSignature }),
+      });
+      const data = (await response.json()) as StagedDraftResponse;
+      if (!response.ok || !data.ok || !data.checkpoint || !data.checkpointSignature) {
+        throw new Error(data.error ?? `${label} failed.`);
+      }
+      applyCheckpoint(data.checkpoint, data.checkpointSignature);
+      if (data.checkpoint.nextStage === "complete") {
+        setAgentStatus("Owner-ready draft saved. Nothing was published or scheduled.");
+        setMessage(data.publication?.note ?? "Draft saved for owner review.");
+        setSelectedGoal(PREMADE_GOALS[0]);
+        router.refresh();
+      } else if (data.checkpoint.nextStage === "blocked") {
+        setAgentStatus("Workflow stopped at a hard gate.");
+        setError(data.publication?.note ?? "The workflow was blocked before persistence.");
+      } else {
+        setAgentStatus(`${label} finished. ${NEXT_STAGE_LABELS[data.checkpoint.nextStage]} has not run.`);
+        setMessage("Inspect the newest checkpoint below before allowing another agent or save step.");
+      }
+    } catch (caught) {
+      setAgentStatus(null);
+      setError(caught instanceof Error ? caught.message : `${label} failed.`);
+    } finally {
+      inFlightRef.current = false;
+      setPending(false);
+    }
+  }
+
+  async function stopWorkflow(): Promise<void> {
+    if (!checkpoint || !checkpointSignature || pending || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/social-posts/agent-draft/stage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, action: "stop", checkpoint, checkpointSignature }),
+      });
+      const data = (await response.json()) as StagedDraftResponse;
+      if (!response.ok || !data.ok || !data.checkpoint || !data.checkpointSignature) {
+        throw new Error(data.error ?? "Workflow could not be stopped.");
+      }
+      applyCheckpoint(data.checkpoint, data.checkpointSignature);
+      setAgentStatus("Workflow stopped by owner.");
+      setMessage("No later agent ran, no post was saved, and nothing was published.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Workflow stop failed.");
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -234,10 +241,10 @@ export default function AgentDraftForm({
           Multi-agent Social Posts workflow
         </h2>
         <p className="mt-1 text-sm font-semibold text-slate-600">
-          One click runs Campaign Strategist → Creative Director → Independent
-          Reviewer → deterministic compliance (at most one Creative Director
-          revision). Model review is advisory. Jacob remains the only owner
-          approver. Nothing is published from this action.
+          Run one agent at a time. Each result stops at an owner checkpoint so
+          you can inspect it before spending another model call. Deterministic
+          compliance and visual-realism gates must pass before a draft can be
+          saved. Nothing is published or scheduled here.
         </p>
         <p className="mt-2 text-sm font-semibold text-slate-700">
           {agentUiProtection.complianceWaitingLabel}
@@ -293,6 +300,7 @@ export default function AgentDraftForm({
           <select
             name="campaignId"
             defaultValue=""
+            disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
           >
             <option value="">Custom / no campaign</option>
@@ -313,6 +321,7 @@ export default function AgentDraftForm({
             name="goal"
             value={selectedGoal}
             onChange={(event) => setSelectedGoal(event.target.value)}
+            disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
           >
             {PREMADE_GOALS.map((goal) => (
@@ -332,6 +341,7 @@ export default function AgentDraftForm({
             <span className="text-sm font-black text-slate-700">Custom goal</span>
             <input
               name="custom_goal"
+              disabled={workflowActive}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
               placeholder="Describe the post goal"
             />
@@ -339,11 +349,25 @@ export default function AgentDraftForm({
         ) : null}
 
         <label className="block lg:col-span-4">
+          <span className="text-sm font-black text-slate-700">Party theme</span>
+          <input
+            name="theme"
+            disabled={workflowActive}
+            className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
+            placeholder="Sonic, Minecraft, princess, dinosaurs…"
+          />
+          <span className="mt-1 block text-xs font-semibold text-slate-500">
+            Uses the Facility Party / Invitation Agent matcher, approved artwork,
+            licensed illustration libraries, and theme palette.
+          </span>
+        </label>
+
+        <label className="block lg:col-span-4">
           <span className="text-sm font-black text-slate-700">
-            Source image URL for video
+            Reference image or approved theme artwork
           </span>
           <div className="mt-1">
-            <SourceImageField images={sourceImages} />
+            <SourceImageField images={sourceImages} disabled={workflowActive} />
           </div>
         </label>
 
@@ -352,6 +376,7 @@ export default function AgentDraftForm({
           <select
             name="platform"
             defaultValue="both"
+            disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
           >
             <option value="both">Both</option>
@@ -364,7 +389,8 @@ export default function AgentDraftForm({
           <span className="text-sm font-black text-slate-700">Media type</span>
           <select
             name="mediaType"
-            defaultValue="video"
+            defaultValue="image"
+            disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
           >
             <option value="video">Video</option>
@@ -376,7 +402,8 @@ export default function AgentDraftForm({
           <span className="text-sm font-black text-slate-700">Business focus</span>
           <select
             name="businessFocus"
-            defaultValue="both"
+            defaultValue="facility-parties"
+            disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
           >
             <option value="both">Both</option>
@@ -388,7 +415,7 @@ export default function AgentDraftForm({
         <div className="flex items-end">
           <button
             type="submit"
-            disabled={pending || modelActionsDisabled}
+            disabled={pending || modelActionsDisabled || workflowActive}
             aria-busy={pending}
             title={
               modelActionsDisabled
@@ -397,14 +424,152 @@ export default function AgentDraftForm({
             }
             className="min-h-11 w-full rounded-full bg-violet-600 px-5 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending
-              ? "Running multi-agent workflow…"
+            {pending && !checkpoint
+              ? "Running Campaign Strategist…"
               : modelActionsDisabled
                 ? "Create AI Draft unavailable"
-                : "Create AI Draft"}
+                : workflowActive
+                  ? "Review checkpoint below"
+                  : "Run Campaign Strategist"}
           </button>
         </div>
       </form>
+
+      {checkpoint ? (
+        <div className="mt-5 rounded-2xl border-2 border-violet-200 bg-violet-50/40 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
+                Owner checkpoint
+              </p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">
+                {checkpoint.nextStage === "complete"
+                  ? "Owner-ready draft saved"
+                  : checkpoint.nextStage === "blocked"
+                    ? "Workflow stopped"
+                    : `${NEXT_STAGE_LABELS[checkpoint.nextStage]} has not run`}
+              </h3>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700">
+              {checkpoint.modelCallsUsed} of 4 model calls used
+            </span>
+          </div>
+
+          {checkpoint.themeContext ? (
+            <div className="mt-4 rounded-xl border border-cyan-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">
+                Theme match: {checkpoint.themeContext.themeLabel} ({checkpoint.themeContext.themeId})
+              </p>
+              <p className="mt-1 font-semibold">
+                Libraries: {checkpoint.themeContext.attachedLibraries.join(", ") || "none"}
+              </p>
+              <p className="mt-1 font-semibold">
+                Palette: {Object.values(checkpoint.themeContext.palette).join(" · ")}
+              </p>
+              <p className="mt-1 break-all text-xs font-semibold text-slate-600">
+                Reference: {checkpoint.selectedSourceImageUrl ?? checkpoint.themeContext.heroPath}
+              </p>
+            </div>
+          ) : null}
+
+          {checkpoint.strategist ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">Campaign Strategist</p>
+              <p className="mt-2"><strong>Objective:</strong> {checkpoint.strategist.campaignObjective}</p>
+              <p className="mt-1"><strong>Audience:</strong> {checkpoint.strategist.audience}</p>
+              <p className="mt-1"><strong>Angle:</strong> {checkpoint.strategist.angleMessage}</p>
+              <p className="mt-1"><strong>CTA:</strong> {checkpoint.strategist.ctaIntent}</p>
+              {checkpoint.strategist.ownerInputRequired.length > 0 ? (
+                <p className="mt-2 font-bold text-amber-800">
+                  Owner input needed: {checkpoint.strategist.ownerInputRequired.join("; ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {checkpoint.creative ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">Creative Director</p>
+              <p className="mt-2 text-lg font-black">{checkpoint.creative.title}</p>
+              <p className="mt-2 whitespace-pre-wrap font-semibold">{checkpoint.creative.caption}</p>
+              <details className="mt-3">
+                <summary className="cursor-pointer font-black">Visual direction and generation prompt</summary>
+                <p className="mt-2">{checkpoint.creative.visualDirection}</p>
+                <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
+                  {checkpoint.creative.generationPrompt}
+                </p>
+              </details>
+            </div>
+          ) : null}
+
+          {checkpoint.reviewer ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">
+                Independent Reviewer: {checkpoint.reviewer.verdict.toUpperCase()}
+              </p>
+              <p className="mt-2">{checkpoint.reviewer.reasoning}</p>
+              {checkpoint.reviewer.flags.length > 0 ? (
+                <p className="mt-2 font-bold text-amber-800">Flags: {checkpoint.reviewer.flags.join("; ")}</p>
+              ) : null}
+              {checkpoint.reviewer.revisionInstructions.length > 0 ? (
+                <p className="mt-1 font-semibold">
+                  Revision instructions: {checkpoint.reviewer.revisionInstructions.join("; ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {(checkpoint.finalCompliance ?? checkpoint.compliance) ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">
+                Deterministic Compliance: {(checkpoint.finalCompliance ?? checkpoint.compliance)!.decision.toUpperCase()}
+              </p>
+              <p className="mt-2">{(checkpoint.finalCompliance ?? checkpoint.compliance)!.summary}</p>
+              {(checkpoint.finalCompliance ?? checkpoint.compliance)!.blockingCodes.length > 0 ? (
+                <p className="mt-2 font-bold text-rose-800">
+                  Blocking codes: {(checkpoint.finalCompliance ?? checkpoint.compliance)!.blockingCodes.join(", ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {workflowActive ? (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={continueWorkflow}
+                disabled={pending}
+                className="min-h-11 flex-1 rounded-full bg-violet-600 px-5 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-60"
+              >
+                {pending ? `Running ${NEXT_STAGE_LABELS[checkpoint.nextStage]}…` : `Run ${NEXT_STAGE_LABELS[checkpoint.nextStage]}`}
+              </button>
+              <button
+                type="button"
+                onClick={stopWorkflow}
+                disabled={pending}
+                className="min-h-11 rounded-full border-2 border-rose-300 bg-white px-5 py-2 text-sm font-black text-rose-800 hover:bg-rose-50 disabled:opacity-60"
+              >
+                Stop without another agent
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setCheckpoint(null);
+                setCheckpointSignature(null);
+                setCompletedStages([]);
+                setAgentStatus(null);
+                setMessage(null);
+                setError(null);
+              }}
+              className="mt-4 min-h-11 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-800"
+            >
+              Start a new workflow
+            </button>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

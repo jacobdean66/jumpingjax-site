@@ -7,6 +7,10 @@ import {
 import type { SocialCampaign } from "../social-campaigns";
 import type { SocialPost } from "../social-post-data";
 import type { MarketingMemorySnapshot } from "../marketing-memory/marketing-memory-types";
+import {
+  listPublicAssetMetadata,
+  publicAssetDimensions,
+} from "../public-asset-metadata";
 import { classifyAspectRatio, normalizeAssetText } from "./asset-intelligence-domain";
 import { buildAssetIntelligence } from "./asset-intelligence-service";
 import type {
@@ -70,9 +74,11 @@ export function projectPostMediaAssets(
   for (const post of posts) {
     const urls = uniqueUrls(postMediaUrls(post));
     urls.forEach((url, index) => {
-      // Dimensions are unknown for projected post URLs; do not invent placement
-      // support from post_placement alone when aspect ratio cannot be verified.
-      const classified = classifyAspectRatio(null, null);
+      const dimensions = publicAssetDimensions(url);
+      const classified = classifyAspectRatio(
+        dimensions?.width ?? null,
+        dimensions?.height ?? null,
+      );
       const terms = [
         post.title ?? "",
         post.campaign_id ?? "",
@@ -90,8 +96,8 @@ export function projectPostMediaAssets(
         title: post.title?.trim() || `Post ${post.id} media`,
         sourceRecordId: post.id,
         sourcePathOrUrl: url,
-        width: null,
-        height: null,
+        width: dimensions?.width ?? null,
+        height: dimensions?.height ?? null,
         aspectRatioClass: classified.aspectRatioClass,
         orientation: classified.orientation,
         supportedPlacements: classified.supportedPlacements,
@@ -118,6 +124,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     const path = rental.imageSrc?.trim();
     if (!path) continue;
     const category = categoryLabel(rental.categoryId);
+    const dimensions = publicAssetDimensions(path);
+    const classified = classifyAspectRatio(
+      dimensions?.width ?? null,
+      dimensions?.height ?? null,
+    );
     const terms = normalizeAssetText(
       `${rental.title} ${category} ${rental.categoryId}`,
     )
@@ -131,11 +142,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
       title: `${rental.title} (${category})`,
       sourceRecordId: rental.slug,
       sourcePathOrUrl: path,
-      width: null,
-      height: null,
-      aspectRatioClass: "unknown",
-      orientation: "unknown",
-      supportedPlacements: [],
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
+      aspectRatioClass: classified.aspectRatioClass,
+      orientation: classified.orientation,
+      supportedPlacements: classified.supportedPlacements,
       createdAt: null,
       ageDays: null,
       usability: "usable",
@@ -147,6 +158,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
 
   const heroPath = HOMEPAGE_HERO_ASSET.src?.trim();
   if (heroPath) {
+    const dimensions = publicAssetDimensions(heroPath);
+    const classified = classifyAspectRatio(
+      dimensions?.width ?? null,
+      dimensions?.height ?? null,
+    );
     assets.push({
       id: "brand:homepage-hero",
       source: "brand",
@@ -154,11 +170,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
       title: "Homepage hero",
       sourceRecordId: "homepage-hero",
       sourcePathOrUrl: heroPath,
-      width: null,
-      height: null,
-      aspectRatioClass: "unknown",
-      orientation: "unknown",
-      supportedPlacements: [],
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
+      aspectRatioClass: classified.aspectRatioClass,
+      orientation: classified.orientation,
+      supportedPlacements: classified.supportedPlacements,
       createdAt: null,
       ageDays: null,
       usability: "usable",
@@ -170,6 +186,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     });
   }
 
+  const logoDimensions = publicAssetDimensions("/logo.png");
+  const logoClassified = classifyAspectRatio(
+    logoDimensions?.width ?? null,
+    logoDimensions?.height ?? null,
+  );
   assets.push({
     id: "brand:logo",
     source: "brand",
@@ -177,11 +198,11 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     title: "Jumping Jax logo",
     sourceRecordId: "logo",
     sourcePathOrUrl: "/logo.png",
-    width: null,
-    height: null,
-    aspectRatioClass: "unknown",
-    orientation: "unknown",
-    supportedPlacements: [],
+    width: logoDimensions?.width ?? null,
+    height: logoDimensions?.height ?? null,
+    aspectRatioClass: logoClassified.aspectRatioClass,
+    orientation: logoClassified.orientation,
+    supportedPlacements: logoClassified.supportedPlacements,
     createdAt: null,
     ageDays: null,
     usability: "usable",
@@ -189,6 +210,40 @@ export function projectCatalogAssets(): readonly AssetIntelligenceAsset[] {
     subjectHints: ["logo", "brand"],
     matchingTerms: ["logo", "brand", "awareness"],
   });
+
+  // The source library must reflect the whole live website, not only the
+  // hand-maintained rental catalog. Add every measured public image that is
+  // not already represented above, including Invitation Agent theme assets.
+  const representedPaths = new Set(
+    assets.map((asset) => normalizeAssetText(asset.sourcePathOrUrl ?? "")),
+  );
+  for (const item of listPublicAssetMetadata()) {
+    if (representedPaths.has(normalizeAssetText(item.path))) continue;
+    const classified = classifyAspectRatio(item.width, item.height);
+    const pathTerms = normalizeAssetText(item.path)
+      .split(" ")
+      .filter((term) => term.length >= 3);
+    const filename = item.path.split("/").at(-1)?.replace(/\.[^.]+$/, "") ?? item.path;
+    assets.push({
+      id: `public:${item.path}`,
+      source: item.path.startsWith("/invitations/") ? "brand" : "catalog",
+      mediaType: item.path.includes("logo") ? "graphic" : "image",
+      title: filename.replace(/[-_]+/g, " "),
+      sourceRecordId: item.path,
+      sourcePathOrUrl: item.path,
+      width: item.width,
+      height: item.height,
+      aspectRatioClass: classified.aspectRatioClass,
+      orientation: classified.orientation,
+      supportedPlacements: classified.supportedPlacements,
+      createdAt: null,
+      ageDays: null,
+      usability: "usable",
+      campaignHints: item.path.startsWith("/invitations/") ? ["facility-parties"] : [],
+      subjectHints: pathTerms,
+      matchingTerms: Array.from(new Set(pathTerms)).sort(),
+    });
+  }
 
   return assets;
 }

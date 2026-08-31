@@ -21,6 +21,7 @@ export type SocialAgentInput = {
   callToAction?: string;
   seasonalContext?: string | null;
   assetContext?: string | null;
+  theme?: string | null;
 };
 
 export type SocialAgentPlan = {

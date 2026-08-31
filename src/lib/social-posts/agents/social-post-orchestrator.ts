@@ -444,10 +444,9 @@ export async function runSocialPostOrchestrator(
     }
 
     // Reviewer still revise after the single allowed revision => review_needed
-    // (we do not loop). Quarantine also surfaces as review_needed.
+    // (we do not loop). Non-allow compliance has already failed closed above.
     const stillNeedsOwnerAttention =
-      (shouldRevise && reviewerWantsRevision && creativeDirectorRevisionCount >= 1) ||
-      authoritative.decision === "quarantine";
+      shouldRevise && reviewerWantsRevision && creativeDirectorRevisionCount >= 1;
 
     // Note: after one revision we do NOT re-run the reviewer (bounded design).
     // If the initial reviewer said revise, outcome is review_needed unless
@@ -457,9 +456,7 @@ export async function runSocialPostOrchestrator(
         ? "owner_ready"
         : authoritative.decision === "allow" && reviewerWantsRevision
           ? "owner_ready" // revision already applied once; owner reviews
-          : authoritative.decision === "quarantine"
-            ? "review_needed"
-            : "owner_ready";
+          : "owner_ready";
 
     stages.push(
       stage(

@@ -59,9 +59,10 @@ test("quarantine and block cannot start paid generation (allowedToProceed enforc
   assert.equal(denied.publication.published, false);
 });
 
-test("block cannot persist; quarantine persistence policy does not unlock generation", () => {
+test("block and quarantine cannot persist or unlock generation", () => {
   assert.equal(complianceBlocksPersistence(compliance("block")), true);
-  assert.equal(complianceBlocksPersistence(compliance("quarantine")), false);
+  assert.equal(complianceBlocksPersistence(compliance("quarantine")), true);
+  assert.equal(DRAFT_COMPLIANCE_PERSISTENCE_POLICY.quarantineMayPersistWorkingDraft, false);
   assert.equal(complianceBlocksPersistence(compliance("allow")), false);
   assert.equal(DRAFT_COMPLIANCE_PERSISTENCE_POLICY.quarantineUnlocksPaidGeneration, false);
   assert.equal(DRAFT_COMPLIANCE_PERSISTENCE_POLICY.blockMayPersistViaAgentFlows, false);

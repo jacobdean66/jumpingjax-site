@@ -355,7 +355,7 @@ test("orchestration never starts image/video providers", async () => {
   assert.doesNotMatch(JSON.stringify(result.stages), /generate-image|generate-media|replicate/i);
 });
 
-test("quarantine after workflow yields review_needed without owner approval", async () => {
+test("quarantine after workflow fails closed without owner approval", async () => {
   const result = await runSocialPostOrchestrator(
     {
       request: baseRequest,
@@ -378,8 +378,8 @@ test("quarantine after workflow yields review_needed without owner approval", as
     },
   );
 
-  assert.equal(result.ok, true);
-  assert.equal(result.outcome, "review_needed");
+  assert.equal(result.ok, false);
+  assert.equal(result.outcome, "compliance_blocked");
   assert.equal(result.ownerApproved, false);
-  assert.ok(result.revisionUsed);
+  assert.equal(result.revisionUsed, false);
 });

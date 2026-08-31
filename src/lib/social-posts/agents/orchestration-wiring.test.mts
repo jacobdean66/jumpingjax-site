@@ -74,7 +74,7 @@ test("UI Create AI Draft describes multi-agent stages and owner-approval gate", 
   assert.match(src, /Creative Director/);
   assert.match(src, /Independent Reviewer/);
   assert.match(src, /Owner Approval Required/);
-  assert.match(src, /advisory/);
+  assert.match(src, /owner checkpoint/);
   assert.doesNotMatch(src, /No Independent Reviewer agent exists/);
 });
 

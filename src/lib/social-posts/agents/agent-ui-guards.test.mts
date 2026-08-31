@@ -49,20 +49,20 @@ test("getAgentUiProtectionStatus allows model actions in affirmative local devel
 
 test("AgentDraftForm exposes mobile-usable agent states and duplicate-submit guard", () => {
   assert.match(agentDraftForm, /inFlightRef/);
-  assert.match(agentDraftForm, /Social Strategy \/ Copy Agent/);
+  assert.match(agentDraftForm, /Campaign Strategist/);
   assert.match(agentDraftForm, /min-h-11/);
   assert.match(agentDraftForm, /aria-busy=\{pending\}/);
   assert.match(agentDraftForm, /Nothing is published/);
-  assert.match(agentDraftForm, /No Independent Reviewer/);
-  assert.match(agentDraftForm, /deterministic fallback|model-backed/);
-  assert.match(agentDraftForm, /complianceDecision|Compliance:/);
-  assert.match(agentDraftForm, /QUARANTINE|generation-ready|generationReadyReason/);
+  assert.match(agentDraftForm, /Independent Reviewer/);
+  assert.match(agentDraftForm, /model calls used/);
+  assert.match(agentDraftForm, /Deterministic Compliance:/);
+  assert.match(agentDraftForm, /Stop without another agent/);
 });
 
 test("AgentDraftForm pre-disables Create AI Draft when durable protection unavailable", () => {
   assert.match(agentDraftForm, /agentUiProtection/);
   assert.match(agentDraftForm, /modelActionsDisabled/);
-  assert.match(agentDraftForm, /disabled=\{pending \|\| modelActionsDisabled\}/);
+  assert.match(agentDraftForm, /disabled=\{pending \|\| modelActionsDisabled \|\| workflowActive\}/);
   assert.match(agentDraftForm, /Create AI Draft unavailable/);
   assert.match(agentDraftForm, /complianceWaitingLabel/);
   assert.match(agentDraftForm, /role="status"/);

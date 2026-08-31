@@ -4,6 +4,8 @@ import {
   RENTALS,
   type RentalCategoryId,
 } from "@/data/rentals";
+import { APPROVED_INVITATION_ARTWORK } from "@/lib/facility-parties/invitations/approved-artwork";
+import { INVITATION_LIBRARY_THEMES } from "@/lib/facility-parties/invitations/library/themes";
 
 export type SocialSourceImage = {
   label: string;
@@ -76,4 +78,30 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
       focus: "both",
     } satisfies SocialSourceImage;
   })(),
+  ...Object.entries(APPROVED_INVITATION_ARTWORK).map(
+    ([theme, src]): SocialSourceImage | null => {
+      const url = publicImageUrl(src);
+      if (!url) return null;
+      return {
+        label: `${theme} approved invitation artwork`,
+        url,
+        category: "Facility invitation themes",
+        focus: "facility-parties",
+      };
+    },
+  ),
+  ...INVITATION_LIBRARY_THEMES.flatMap((theme) =>
+    [...theme.heroes, ...theme.decorations].map(
+      (asset): SocialSourceImage | null => {
+        const url = publicImageUrl(asset.src);
+        if (!url) return null;
+        return {
+          label: `${theme.label}: ${asset.alt}`,
+          url,
+          category: "Facility invitation themes",
+          focus: "facility-parties",
+        };
+      },
+    ),
+  ),
 ].filter((image): image is SocialSourceImage => Boolean(image)));
