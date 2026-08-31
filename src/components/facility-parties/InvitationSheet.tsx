@@ -35,18 +35,18 @@ export function InvitationSheet({
     >
       {!dense ? (
         <style>{`@media print {
-          @page { size: letter landscape; margin: 0; }
+          @page { size: letter landscape; margin: 0.25in; }
           html, body { margin: 0 !important; padding: 0 !important; }
           .invitation-print-document {
             display: block !important;
-            width: 11in !important;
+            width: 10.5in !important;
             margin: 0 !important;
             padding: 0 !important;
           }
           .invitation-print-page {
             box-sizing: border-box !important;
-            width: 11in !important;
-            height: 8.5in !important;
+            width: 10.5in !important;
+            height: 8in !important;
             margin: 0 !important;
             overflow: hidden !important;
             break-inside: avoid !important;
@@ -67,7 +67,7 @@ export function InvitationSheet({
           className={
             dense
               ? "invitation-print-page relative mx-auto aspect-[11/8.5] w-full overflow-hidden bg-white"
-              : "invitation-print-page relative mx-auto aspect-[11/8.5] w-full max-w-[11in] overflow-hidden bg-white shadow-sm print:h-[8.5in] print:w-[11in] print:max-w-none print:shadow-none"
+              : "invitation-print-page relative mx-auto aspect-[11/8.5] w-full max-w-[11in] overflow-hidden bg-white shadow-sm print:h-[8in] print:w-[10.5in] print:max-w-none print:shadow-none"
           }
           data-print-page={String(pageIndex + 1)}
           data-print-page-count={String(pageCount)}

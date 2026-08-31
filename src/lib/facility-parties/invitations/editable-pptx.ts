@@ -22,8 +22,9 @@ export type EditableInvitationPptxInput = {
 
 const PAGE_WIDTH = 11;
 const PAGE_HEIGHT = 8.5;
-const INVITE_WIDTH = PAGE_WIDTH / 2;
-const INVITE_HEIGHT = PAGE_HEIGHT / 2;
+const PRINT_SAFE_MARGIN = 0.25;
+const INVITE_WIDTH = (PAGE_WIDTH - PRINT_SAFE_MARGIN * 2) / 2;
+const INVITE_HEIGHT = (PAGE_HEIGHT - PRINT_SAFE_MARGIN * 2) / 2;
 
 function publicAssetPath(src: string): string {
   return path.join(process.cwd(), "public", src.replace(/^\/+/, ""));
@@ -105,7 +106,7 @@ function addInvitation(
     x,
     y: y + 2.05,
     w: INVITE_WIDTH,
-    h: 2.2,
+    h: INVITE_HEIGHT - 2.05,
     line: { color: "000000", transparency: 100 },
     fill: { color: "000000", transparency: 18 },
   });
@@ -203,7 +204,7 @@ function addInvitation(
   if (qrData) {
     slide.addText("RSVP & waiver", {
       x: x + 4.04,
-      y: y + 2.98,
+      y: y + 2.82,
       w: 1.13,
       h: 0.2,
       margin: 0,
@@ -216,9 +217,9 @@ function addInvitation(
     slide.addImage({
       data: qrData,
       x: x + 4.17,
-      y: y + 3.22,
-      w: 0.88,
-      h: 0.88,
+      y: y + 3.03,
+      w: 0.82,
+      h: 0.82,
     });
   }
 }
@@ -243,21 +244,42 @@ export async function buildEditableInvitationPptx(
   for (let pageIndex = 0; pageIndex < quantity / 4; pageIndex += 1) {
     const slide = pptx.addSlide();
     slide.background = { color: "FFFFFF" };
-    addInvitation(pptx, slide, input, 0, 0, qrData);
-    addInvitation(pptx, slide, input, INVITE_WIDTH, 0, qrData);
-    addInvitation(pptx, slide, input, 0, INVITE_HEIGHT, qrData);
-    addInvitation(pptx, slide, input, INVITE_WIDTH, INVITE_HEIGHT, qrData);
+    addInvitation(pptx, slide, input, PRINT_SAFE_MARGIN, PRINT_SAFE_MARGIN, qrData);
+    addInvitation(
+      pptx,
+      slide,
+      input,
+      PRINT_SAFE_MARGIN + INVITE_WIDTH,
+      PRINT_SAFE_MARGIN,
+      qrData,
+    );
+    addInvitation(
+      pptx,
+      slide,
+      input,
+      PRINT_SAFE_MARGIN,
+      PRINT_SAFE_MARGIN + INVITE_HEIGHT,
+      qrData,
+    );
+    addInvitation(
+      pptx,
+      slide,
+      input,
+      PRINT_SAFE_MARGIN + INVITE_WIDTH,
+      PRINT_SAFE_MARGIN + INVITE_HEIGHT,
+      qrData,
+    );
     slide.addShape(pptx.ShapeType.line, {
-      x: INVITE_WIDTH,
-      y: 0,
+      x: PAGE_WIDTH / 2,
+      y: PRINT_SAFE_MARGIN,
       w: 0,
-      h: PAGE_HEIGHT,
+      h: PAGE_HEIGHT - PRINT_SAFE_MARGIN * 2,
       line: { color: "4B5563", width: 1, dashType: "dash" },
     });
     slide.addShape(pptx.ShapeType.line, {
-      x: 0,
-      y: INVITE_HEIGHT,
-      w: PAGE_WIDTH,
+      x: PRINT_SAFE_MARGIN,
+      y: PAGE_HEIGHT / 2,
+      w: PAGE_WIDTH - PRINT_SAFE_MARGIN * 2,
       h: 0,
       line: { color: "4B5563", width: 1, dashType: "dash" },
     });
