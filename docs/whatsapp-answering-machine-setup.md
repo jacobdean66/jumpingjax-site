@@ -19,6 +19,13 @@ Use Meta's official WhatsApp Business Calling API. Do not automate the consumer 
 5. Connect a secure media bridge that accepts Meta's call event/SDP payload, runs the speech/voice loop, and posts the bounded final transcript to `https://jumpingjaxllc.com/api/integrations/whatsapp/answering-machine/callback`.
 6. Run a controlled inbound call, confirm two-way audio, verify the transcript inbox, edit the captured fields, and approve only the fixture intake.
 
+## Current production state (2026-08-31)
+
+- The private admin inbox, webhook boundary, callback boundary, and RLS-protected production tables are deployed.
+- The existing Jumping Jax Meta Business Portfolio already contains a WhatsApp Business Account and a registered US business number; WhatsApp Manager currently labels the number `Offline`.
+- The WhatsApp use case and platform terms are now attached to the existing Jumping Jax Meta developer app. Its WhatsApp management and messaging/calling permissions are ready for testing. Do not create duplicate Meta business assets or another production number.
+- Live calls, audio, transcripts, and booking writes are still disabled. The next external step is a scoped test token plus signed webhook configuration, followed by safe linking of the existing WABA/number, the secure media bridge, and one controlled inbound test.
+
 ## Required production configuration
 
 - `WHATSAPP_CALLING_ENABLED=1` only after the controlled proof passes
@@ -38,3 +45,4 @@ Secrets belong in the provider/runtime environment only and must never be commit
 - Provider call IDs deduplicate ingestion. Owner edits use optimistic revisions. Approved/rejected reviews are final.
 - Approval requires a completed transcript, service type, event date, facility time for a facility party, or at least one rental selection for a rental/foam party.
 - Both inbox tables use RLS and are service-role only. The browser receives a masked caller label and a hashed call reference, never the provider call ID or raw caller reference.
+
