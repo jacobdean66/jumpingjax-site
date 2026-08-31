@@ -10,7 +10,7 @@
     "test:booking": "node --import tsx --test src/proxy.test.mts src/lib/site-url.test.mts src/lib/rentals/rental-pricing-text.test.mts src/lib/rentals/rental-api-boundary.test.mts src/lib/facility-parties/availability.test.mts src/lib/facility-parties/booking-horizon.test.mts src/lib/facility-parties/zoned-time.test.mts src/lib/facility-parties/schedule-mutation.test.mts src/lib/facility-parties/invitations.test.mts src/lib/facility-parties/invitations/agent.test.mts src/lib/facility-parties/invitations/editable-pptx.test.mts src/lib/facility-parties/invitations/match-theme.test.mts src/lib/facility-parties/invitations/contrast.test.mts src/lib/facility-parties/invitations/preview-data.test.mts src/components/facility-parties/invitation-delivery-preview.test.mts src/lib/bookings/approval-token.test.mts src/lib/bookings/approval-route-boundary.test.mts src/lib/bookings/facility-calendar-projection.test.mts src/lib/bookings/rental-booking-rpc-migration.test.mts src/lib/admin/booking-admin-boundary.test.mts src/lib/admin/booking-edit.test.mts src/lib/admin/facility-admin-lifecycle-boundary.test.mts src/lib/admin/rental-admin-lifecycle-boundary.test.mts src/lib/admin/schedule.test.mts src/lib/admin/schedule-display.test.mts src/lib/admin/admin-schedule-operations.test.mts src/lib/google/calendar-destinations.test.mts",
     "test:inventory-ops": "node --import tsx --test src/lib/admin/inventory-ops.test.mts",
     "test:security": "node --conditions=react-server --import tsx --test src/lib/security/security-admin-boundary.test.mts src/lib/security/provider-contracts.test.mts",
-    "test:agent-manager": "node --import tsx --test src/lib/agent-manager/worker.test.mts src/lib/agent-manager/boundaries.test.mts src/lib/agent-manager/nomination-inbound.test.mts src/lib/agent-manager/specialist-readiness.test.mts src/lib/agent-manager/booking-triage.test.mts src/lib/agent-manager/composite-booking.test.mts src/lib/agent-manager/composite-booking-evaluation.test.mts src/lib/agent-manager/composite-booking-proof.test.mts src/lib/agent-manager/booking-conversation.test.mts src/lib/agent-manager/voice-transport.test.mts src/lib/agent-manager/waiver-triage.test.mts src/lib/giveaway/nomination-email.test.mts",
+    "test:agent-manager": "node --import tsx --test src/lib/agent-manager/worker.test.mts src/lib/agent-manager/boundaries.test.mts src/lib/agent-manager/nomination-inbound.test.mts src/lib/agent-manager/specialist-readiness.test.mts src/lib/agent-manager/booking-triage.test.mts src/lib/agent-manager/composite-booking.test.mts src/lib/agent-manager/composite-booking-evaluation.test.mts src/lib/agent-manager/composite-booking-proof.test.mts src/lib/agent-manager/composite-booking-intent.test.mts src/lib/agent-manager/composite-booking-intent-migration.test.mts src/lib/agent-manager/composite-calendar-staging.test.mts src/lib/agent-manager/composite-availability.test.mts src/lib/agent-manager/composite-booking-request.test.mts src/lib/agent-manager/composite-booking-stage-route.test.mts src/lib/agent-manager/booking-conversation.test.mts src/lib/agent-manager/voice-transport.test.mts src/lib/agent-manager/waiver-triage.test.mts src/lib/giveaway/nomination-email.test.mts",
     "trigger:dev": "trigger.dev dev --profile default --skip-telemetry",
     "inventory:sync": "node scripts/sync-rental-inventory.mjs"
   },
@@ -28,9 +28,9 @@
     "react-dom": "19.2.8",
     "resend": "^6.12.3",
     "sharp": "0.35.3",
+    "pptxgenjs": "^4.0.1",
     "web-push": "^3.6.7",
-    "zustand": "^5.0.4",
-    "pptxgenjs": "^4.0.1"
+    "zustand": "^5.0.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
