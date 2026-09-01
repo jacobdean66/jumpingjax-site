@@ -9,6 +9,7 @@ import {
   type StaffWaiverParticipant,
   WaiverSearchValidationError,
 } from "./search";
+import { legacyVisitCount, visitCountsByParticipant } from "./visit-count";
 
 export { WaiverSearchValidationError };
 
@@ -86,6 +87,14 @@ type LegacyWaiverRow = {
   signer_last_name: string | null;
   signer_dob: string | null;
   activated: boolean;
+};
+
+type NativeVisitRow = {
+  participant_id: string;
+};
+
+type LegacyCheckInRow = {
+  legacy_participant_id: string;
 };
 
 function rankKey(result: StaffSearchResult, query: string): number {
@@ -187,11 +196,46 @@ export async function searchWaiversForStaff(options: {
     throw new WaiverSubmitSafeError();
   }
 
+  const nativeParticipantRows = (nativeParticipantsRes.data ?? []) as NativeParticipantRow[];
+  const legacyParticipantRows = (legacyParticipantsRes.data ?? []) as LegacyParticipantRow[];
+  const nativeParticipantIds = nativeParticipantRows.map((row) => row.id);
+  const legacyParticipantIds = legacyParticipantRows.map((row) => row.id);
+
+  const [nativeVisitsRes, legacyCheckInsRes] = await Promise.all([
+    nativeParticipantIds.length
+      ? supabase
+          .from("open_play_visit_attendees")
+          .select("participant_id")
+          .in("participant_id", nativeParticipantIds)
+          .eq("status", "active")
+      : Promise.resolve({ data: [], error: null }),
+    legacyParticipantIds.length
+      ? supabase
+          .from("smartwaiver_legacy_check_ins")
+          .select("legacy_participant_id")
+          .in("legacy_participant_id", legacyParticipantIds)
+          .eq("status", "active")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (nativeVisitsRes.error || legacyCheckInsRes.error) {
+    throw new WaiverSubmitSafeError();
+  }
+
+  const nativeVisitCounts = visitCountsByParticipant(
+    (nativeVisitsRes.data ?? []) as NativeVisitRow[],
+    (row) => row.participant_id,
+  );
+  const legacyLedgerCounts = visitCountsByParticipant(
+    (legacyCheckInsRes.data ?? []) as LegacyCheckInRow[],
+    (row) => row.legacy_participant_id,
+  );
+
   const nativeSubmissions = new Map(
     ((nativeSubmissionsRes.data ?? []) as NativeSubmissionRow[]).map((row) => [row.id, row]),
   );
   const nativeParticipantsBySubmission = new Map<string, StaffWaiverParticipant[]>();
-  for (const row of (nativeParticipantsRes.data ?? []) as NativeParticipantRow[]) {
+  for (const row of nativeParticipantRows) {
     const submission = nativeSubmissions.get(row.submission_id);
     if (!submission) continue;
     const expired = isWaiverExpired({ expiresOnYmd: submission.expires_on, evaluationAt });
@@ -210,6 +254,7 @@ export async function searchWaiversForStaff(options: {
       expired,
       signerLastInitial: (submission.signer_last_name.trim()[0] || "").toUpperCase(),
       checkInEligible: row.role === "child" && !expired,
+      visitCount: nativeVisitCounts.get(row.id) ?? 0,
     };
     nativeParticipantsBySubmission.set(row.submission_id, [
       ...(nativeParticipantsBySubmission.get(row.submission_id) ?? []),
@@ -221,7 +266,7 @@ export async function searchWaiversForStaff(options: {
     ((legacyWaiversRes.data ?? []) as LegacyWaiverRow[]).map((row) => [row.id, row]),
   );
   const legacyParticipantsByWaiver = new Map<string, StaffWaiverParticipant[]>();
-  for (const row of (legacyParticipantsRes.data ?? []) as LegacyParticipantRow[]) {
+  for (const row of legacyParticipantRows) {
     const waiver = legacyWaivers.get(row.legacy_waiver_id);
     if (!waiver) continue;
     const expired = isWaiverExpired({ expiresOnYmd: waiver.expires_on, evaluationAt });
@@ -241,6 +286,7 @@ export async function searchWaiversForStaff(options: {
       expired,
       signerLastInitial: ((waiver.signer_last_name ?? "").trim()[0] || "").toUpperCase(),
       checkInEligible: row.role === "child" && Boolean(row.dob) && !expired,
+      visitCount: legacyVisitCount(waiver.check_ins, legacyLedgerCounts.get(row.id) ?? 0),
     };
     legacyParticipantsByWaiver.set(row.legacy_waiver_id, [
       ...(legacyParticipantsByWaiver.get(row.legacy_waiver_id) ?? []),

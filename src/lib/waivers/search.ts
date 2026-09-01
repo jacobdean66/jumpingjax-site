@@ -33,6 +33,8 @@ export type StaffWaiverParticipant = {
   expired: boolean;
   signerLastInitial: string;
   checkInEligible: boolean;
+  /** Completed Open Play check-ins, excluding removed/corrected attendance. */
+  visitCount?: number;
 };
 
 export type StaffWaiverDetails = {
