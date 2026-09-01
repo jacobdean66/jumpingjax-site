@@ -1,4 +1,5 @@
 import { ingestAnsweringMachineCall } from "@/lib/answering-machine/service";
+import { forwardWhatsAppCallToMediaBridge } from "@/lib/answering-machine/media-bridge";
 import { getWhatsAppAppSecret } from "@/lib/answering-machine/readiness";
 import {
   extractWhatsAppCallSignals,
@@ -46,14 +47,7 @@ export async function POST(request: Request) {
     if (!bridgeUrl || !bridgeSecret || !bridgeUrl.startsWith("https://")) {
       return Response.json({ ok: false, error: "WhatsApp media bridge is not configured." }, { status: 503 });
     }
-    const forwarded = await fetch(bridgeUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${bridgeSecret}` },
-      body: rawBody,
-      signal: AbortSignal.timeout(8_000),
-      cache: "no-store",
-    });
-    if (!forwarded.ok) throw new Error("media bridge rejected call event");
+    await forwardWhatsAppCallToMediaBridge({ bridgeUrl, bridgeSecret, rawBody });
     return Response.json({ ok: true, accepted: signals.length });
   } catch {
     return Response.json({ ok: false, error: "WhatsApp call could not be handed off safely." }, { status: 503 });
