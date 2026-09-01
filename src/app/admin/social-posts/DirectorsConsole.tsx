@@ -1092,8 +1092,6 @@ export default function DirectorsConsole({
     }
   }
 
-  if (post.media_type !== "video") return null;
-
   const campaignLabel =
     preview?.campaignLabel ??
     getSocialCampaign(post.campaign_id)?.label ??
@@ -1112,7 +1110,9 @@ export default function DirectorsConsole({
             Director&apos;s Console
           </p>
           <p className="sp-directors-console-help mt-0.5 text-sm font-semibold text-slate-700">
-            Inspect and tweak the final video prompt before spending tokens
+            {post.media_type === "video"
+              ? "Inspect and tweak the final video prompt before spending tokens"
+              : "Preview, inspect, and approve the image direction before spending tokens"}
           </p>
         </div>
         <span className="sp-directors-console-action shrink-0 rounded-full border border-slate-400 bg-white px-3 py-1.5 text-sm font-black text-slate-900">
@@ -1589,6 +1589,8 @@ export default function DirectorsConsole({
             </div>
           </CollapsibleSection>
 
+          {post.media_type === "video" ? (
+            <>
           <Section title="4. Generation Settings">
             <ReadOnlyRow
               label="AI Video App URL"
@@ -1842,6 +1844,8 @@ export default function DirectorsConsole({
               ) : null}
             </div>
           </Section>
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>
