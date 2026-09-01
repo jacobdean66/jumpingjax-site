@@ -699,6 +699,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 1024,
     "format": "png"
   },
+  "/invitations/approved/block-world/print-light-v1.png": {
+    "width": 1536,
+    "height": 1024,
+    "format": "png"
+  },
   "/invitations/approved/sonic/card.png": {
     "width": 1536,
     "height": 1024,
