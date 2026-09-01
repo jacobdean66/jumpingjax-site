@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/morning-brief-push",
       "schedule": "30 11 * * 1-5"
+    },
+    {
+      "path": "/api/cron/agent-supervisor-watch",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
