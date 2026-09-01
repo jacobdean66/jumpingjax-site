@@ -29,6 +29,7 @@ const REVIEWER_KEYS = [
 export type IndependentReviewerAgentInput = {
   strategist: CampaignStrategistOutput;
   creative: CreativeDirectorOutput;
+  workflowContextSummary?: string | null;
   complianceSummary?: string | null;
   complianceDecision?: "allow" | "quarantine" | "block" | null;
 };
@@ -61,6 +62,7 @@ Never invent prices, promotions, dates, or availability as fixes.`;
   const user = JSON.stringify({
     campaignStrategistOutput: input.strategist,
     creativeDirectorOutput: input.creative,
+    workflowContextSummary: input.workflowContextSummary ?? null,
     deterministicComplianceContext: {
       decision: input.complianceDecision ?? null,
       summary: input.complianceSummary ?? null,

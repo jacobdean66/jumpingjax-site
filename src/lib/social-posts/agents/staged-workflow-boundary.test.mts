@@ -13,10 +13,12 @@ const form = readFileSync(
 );
 
 test("owner-gated workflow exposes each bounded stage and never publishes", () => {
+  assert.match(route, /buildSocialDraftWorkflowContext/);
   assert.match(route, /campaign_strategist/);
   assert.match(route, /creative_director/);
   assert.match(route, /independent_reviewer/);
   assert.match(route, /final_compliance/);
+  assert.match(route, /workflowContextSummary/);
   assert.match(route, /Only an exact compliance allow may be persisted/);
   assert.match(route, /compliance\.hardClaimFindings\.length > 0/);
   assert.match(route, /revisionNeeded/);
@@ -33,4 +35,6 @@ test("admin UI requires an explicit owner continuation at every checkpoint", () 
   assert.match(form, /Stop without another agent/);
   assert.match(form, /of 4 model calls used/);
   assert.match(form, /Party theme/);
+  assert.match(form, /Workflow inputs passed in/);
+  assert.match(form, /checkpoint\.workflowContext\.modules\.map/);
 });

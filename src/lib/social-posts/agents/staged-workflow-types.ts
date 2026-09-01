@@ -9,6 +9,7 @@ import type {
 import type { SocialAgentInput } from "../social-agent";
 import type { SocialThemeLibraryContext } from "../social-theme-library";
 import type { CreativeQualityGateResult } from "./creative-quality-gate";
+import type { SocialDraftWorkflowContext } from "./staged-workflow-context";
 
 export const SOCIAL_DRAFT_CHECKPOINT_VERSION = 1 as const;
 
@@ -28,6 +29,7 @@ export type SocialDraftCheckpoint = Readonly<{
   request: SocialAgentInput;
   selectedSourceImageUrl: string | null;
   themeContext: SocialThemeLibraryContext | null;
+  workflowContext: SocialDraftWorkflowContext | null;
   strategist: CampaignStrategistOutput | null;
   creative: CreativeDirectorOutput | null;
   creativeQuality: CreativeQualityGateResult | null;

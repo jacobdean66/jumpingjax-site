@@ -40,6 +40,7 @@ const CREATIVE_KEYS = [
 
 export type CreativeDirectorAgentInput = {
   strategist: CampaignStrategistOutput;
+  workflowContextSummary?: string | null;
   themeContext?: {
     sourceText: string;
     themeLabel: string;
@@ -74,6 +75,7 @@ Hard rules:
 - Do not invent prices, promotions, discounts, dates, inventory, availability, or customer stories.
 - generationPrompt must describe promotional ${input.strategist.mediaType} with no baked-in on-screen text.
 - Preserve verified asset identity from strategist.selectedAssetContext when present.
+- Treat workflowContextSummary as bounded read-only planning context when it is supplied.
 - When themeContext is supplied, make the theme unmistakable without claiming official endorsement or licensing.
 - Write a polished human title and caption; never echo raw instructions such as "Promote...", "Objective:", "aligned with:", or "owner confirms facts".
 - Voice: upbeat, clean, local, family-friendly, safe.
@@ -86,6 +88,7 @@ Hard rules:
     priorCreativeDirectorOutput: input.priorCreative ?? null,
     revisionInstructions: input.revisionInstructions ?? [],
     complianceFindingsSafeToExpose: input.complianceFindings ?? [],
+    workflowContextSummary: input.workflowContextSummary ?? null,
     themeContext: input.themeContext ?? null,
     schemaKeys: CREATIVE_KEYS,
   });
