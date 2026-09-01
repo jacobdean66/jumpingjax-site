@@ -35,7 +35,7 @@ test("a vague scene fails before media generation", () => {
   assert.ok(result.findings.length >= 5);
 });
 
-test("asset kind prevents a product shot from becoming an invented lifestyle scene", () => {
+test("asset kind permits generic kids around an exact product but preserves lifestyle people", () => {
   const productPrompt = applyVisualRealismConstraints({
     prompt: "Feature the selected water slide.",
     hasReferenceAsset: true,
@@ -47,7 +47,7 @@ test("asset kind prevents a product shot from becoming an invented lifestyle sce
     assetKind: "lifestyle",
   });
 
-  assert.match(productPrompt, /do not add, remove, or synthesize children or adults/i);
+  assert.match(productPrompt, /generic, non-identifiable children/i);
+  assert.match(productPrompt, /exact visual subject/i);
   assert.match(lifestylePrompt, /use only the people already visible/i);
 });
-
