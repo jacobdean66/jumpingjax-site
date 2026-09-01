@@ -175,20 +175,6 @@
   margin-top: 0.75rem;
 }
 
-.social-posts-theme .sp-nav-desktop {
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .social-posts-theme .sp-nav-mobile {
-    display: none;
-  }
-
-  .social-posts-theme .sp-nav-desktop {
-    display: flex;
-  }
-}
-
 .social-posts-theme .sp-nav-group {
   display: flex;
   flex-direction: column;

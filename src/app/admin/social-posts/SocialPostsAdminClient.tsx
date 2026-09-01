@@ -280,6 +280,22 @@ function MediaPreview({ post }: { post: SocialPost }) {
     );
   }
 
+  if (post.source_image_url) {
+    return (
+      <div className="relative flex aspect-video max-h-[22rem] w-full items-center justify-center overflow-hidden rounded-lg bg-slate-950">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={post.source_image_url}
+          alt={`${post.title ?? "Social post"} approved theme reference`}
+          className="h-full w-full object-contain"
+        />
+        <span className="absolute left-3 top-3 rounded-full border border-white/60 bg-slate-950/85 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
+          Approved theme reference · media not generated
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-[7.5rem] w-full items-center justify-center rounded-lg bg-slate-100 py-6">
       <MediaPreviewMessage title={SOCIAL_POST_MEDIA_PREVIEW_COPY.imageMissing} />

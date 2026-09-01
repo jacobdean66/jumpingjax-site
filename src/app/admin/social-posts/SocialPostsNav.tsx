@@ -102,16 +102,11 @@ export default function SocialPostsNav({ query = "" }: { query?: string }) {
   );
 
   return (
-    <>
-      <details className="sp-nav-mobile">
-        <summary>AI Marketing tools</summary>
-        <nav className="sp-nav" aria-label="AI Marketing navigation">
-          {navigation}
-        </nav>
-      </details>
-      <nav className="sp-nav sp-nav-desktop" aria-label="AI Marketing navigation">
+    <details className="sp-nav-mobile">
+      <summary>AI Marketing tools</summary>
+      <nav className="sp-nav" aria-label="AI Marketing navigation">
         {navigation}
       </nav>
-    </>
+    </details>
   );
 }
