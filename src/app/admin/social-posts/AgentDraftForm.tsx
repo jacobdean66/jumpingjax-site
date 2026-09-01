@@ -23,6 +23,12 @@ type WorkflowStage = {
   summary?: string;
 };
 
+function workflowModuleClasses(status: "passed" | "blocked" | "empty"): string {
+  if (status === "passed") return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  if (status === "blocked") return "border-rose-200 bg-rose-50 text-rose-900";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
 type StagedDraftResponse = {
   ok?: boolean;
   error?: string;
@@ -469,6 +475,29 @@ export default function AgentDraftForm({
               <p className="mt-1 break-all text-xs font-semibold text-slate-600">
                 Reference: {checkpoint.selectedSourceImageUrl ?? checkpoint.themeContext.heroPath}
               </p>
+            </div>
+          ) : null}
+
+          {checkpoint.workflowContext ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800">
+              <p className="font-black">Workflow inputs passed in</p>
+              <div className="mt-3 space-y-2">
+                {checkpoint.workflowContext.modules.map((module) => (
+                  <div key={module.moduleId} className="rounded-xl border border-slate-200 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-black">{module.label}</span>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase tracking-wide ${workflowModuleClasses(module.status)}`}
+                      >
+                        {module.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-slate-600">
+                      {module.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 
