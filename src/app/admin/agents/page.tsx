@@ -2,15 +2,16 @@ import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { getNextSpecialistReadiness } from "@/lib/agent-manager/specialist-readiness";
 import { loadDashboard } from "@/lib/agent-manager/service";
+import { collectSupervisorSnapshot, loadSupervisorConversation } from "@/lib/agent-manager/supervisor-service";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { AgentsDashboardClient } from "./AgentsDashboardClient";
 import { TriggerProofClient } from "./TriggerProofClient";
 import { NominationProofClient } from "./NominationProofClient";
 import { BookingTriageClient } from "./BookingTriageClient";
-import { BookingFollowUpClient } from "./BookingFollowUpClient";
 import { WaiverTriageClient } from "./WaiverTriageClient";
 import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
+import { SupervisorChat } from "./SupervisorChat";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,20 @@ export default async function AgentsPage() {
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
   let dashboard = null;
+  let supervisorMessages: Awaited<ReturnType<typeof loadSupervisorConversation>> = [];
+  let supervisorSnapshot: Awaited<ReturnType<typeof collectSupervisorSnapshot>> | null = null;
   const nominationReadiness = getNominationAgentReadiness();
   const nextSpecialist = getNextSpecialistReadiness();
   try {
     dashboard = await loadDashboard();
   } catch {
     if (isLocalAgentPreviewEnabled()) dashboard = createLocalAgentPreview();
+  }
+  if (dashboard && !dashboard.demoMode) {
+    [supervisorMessages, supervisorSnapshot] = await Promise.all([
+      loadSupervisorConversation().catch(() => []),
+      collectSupervisorSnapshot(auth.identity.id).catch(() => null),
+    ]);
   }
 
   return (
@@ -35,6 +44,9 @@ export default async function AgentsPage() {
       <p className="mt-4 max-w-3xl text-sm font-semibold text-slate-600">
         Durable, event-driven operations. Models run only for future jobs that explicitly select a model worker; the health demonstration is deterministic.
       </p>
+      {dashboard && !dashboard.demoMode ? (
+        <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
+      ) : null}
       <section className="mt-7 rounded-3xl border border-sky-200 bg-sky-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -99,7 +111,6 @@ export default async function AgentsPage() {
         </div>
         <CompositeBookingProofClient />
         <BookingTriageClient />
-        <BookingFollowUpClient />
       </section>
       <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
