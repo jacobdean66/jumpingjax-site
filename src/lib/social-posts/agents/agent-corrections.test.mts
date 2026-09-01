@@ -9,6 +9,8 @@ import {
 import {
   resolveApprovedAssetContext,
   sanitizeApprovedAssetUrl,
+  validateStagedSocialAssetPolicy,
+  type ApprovedAssetContext,
 } from "./approved-asset-context";
 import {
   evaluateAgentComplianceGate,
@@ -91,6 +93,46 @@ test("approved asset context rejects arbitrary external URLs and strips signed p
   assert.doesNotMatch(sanitized!, /token=/i);
   assert.doesNotMatch(sanitized!, /signature=/i);
   assert.match(sanitized!, /keep=1/);
+});
+
+test("rental workflow requires an exact approved product or lifestyle asset before model work", () => {
+  const missing = validateStagedSocialAssetPolicy({
+    businessFocus: "rentals",
+    asset: null,
+  });
+  assert.equal(missing.ok, false);
+
+  const waterSlide: ApprovedAssetContext = {
+    url: "https://jumpingjaxllc.com/inflatables/waterslides/example.jpg",
+    label: "Example Water Slide",
+    category: "Water Slides",
+    focus: "rentals",
+    assetKind: "product",
+    metadataSummary: "approved product photo",
+  };
+  assert.deepEqual(
+    validateStagedSocialAssetPolicy({
+      businessFocus: "rentals",
+      asset: waterSlide,
+    }),
+    { ok: true },
+  );
+});
+
+test("rental workflow rejects invitation artwork as an inventory stand-in", () => {
+  const invitation: ApprovedAssetContext = {
+    url: "https://jumpingjaxllc.com/invitations/example.jpg",
+    label: "Example invitation",
+    category: "Facility invitation themes",
+    focus: "facility-parties",
+    assetKind: "theme-artwork",
+    metadataSummary: "approved party-theme artwork",
+  };
+  const policy = validateStagedSocialAssetPolicy({
+    businessFocus: "rentals",
+    asset: invitation,
+  });
+  assert.equal(policy.ok, false);
 });
 
 test("hard claim scan blocks fabricated prices and promos", () => {
@@ -221,3 +263,4 @@ test("social strategy schema rejects unknown keys", () => {
   });
   assert.equal(plan, null);
 });
+
