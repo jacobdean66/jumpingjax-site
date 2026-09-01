@@ -8,6 +8,7 @@ export const VISUAL_REALISM_REQUIREMENTS = [
 export function applyVisualRealismConstraints(input: {
   prompt: string;
   hasReferenceAsset: boolean;
+  assetKind?: "product" | "lifestyle" | "theme-artwork" | "brand" | null;
   themeLabel?: string | null;
 }): string {
   const referenceRule = input.hasReferenceAsset
@@ -16,11 +17,17 @@ export function applyVisualRealismConstraints(input: {
   const themeRule = input.themeLabel
     ? `Theme direction comes from the Party / Invitation Agent library match “${input.themeLabel}”; do not imply endorsement, partnership, or official character licensing.`
     : null;
+  const peopleRule = input.assetKind === "lifestyle"
+    ? "Use only the people already visible in the approved lifestyle source; do not add, remove, replace, or synthesize people."
+    : input.assetKind === "product"
+      ? "Use the approved product source as the visual subject; do not add, remove, or synthesize children or adults."
+      : null;
   return [
     input.prompt.trim(),
     "VISUAL QA REQUIREMENTS:",
     referenceRule,
     ...VISUAL_REALISM_REQUIREMENTS.slice(1),
+    peopleRule,
     themeRule,
     "Render target: 4:5 portrait social feed composition with safe crop margins.",
   ]
@@ -64,3 +71,4 @@ export function evaluateVisualRealismGate(input: {
   }
   return { allowed: findings.length === 0, findings };
 }
+
