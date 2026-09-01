@@ -21,6 +21,7 @@ test("invitation artwork produces a theme-aware facility prompt, not an inflatab
   assert.match(prompt, /palette and mood reference/i);
   assert.match(prompt, /not an inflatable/i);
   assert.doesNotMatch(prompt, /exact inflatable/i);
+  assert.doesNotMatch(prompt, /full inflatable/i);
   assert.doesNotMatch(prompt, /protected character likeness/i);
   assert.deepEqual(
     getImageDirectorSafetyWarnings({

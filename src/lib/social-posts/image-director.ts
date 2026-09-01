@@ -130,6 +130,10 @@ function stillImageSuffix(format: ImageDirectorFormat): string {
   return `${format.compositionGuidance} Photorealistic still photograph for ${format.framingLabel} (${formatVariantDimensionsLabel(format)}). Crisp natural detail. No text, logos, watermarks, or captions.`;
 }
 
+function invitationStillImageSuffix(format: ImageDirectorFormat): string {
+  return `Compose for ${format.framingLabel} (${formatVariantDimensionsLabel(format)}) with the full party scene inside safe crop margins. Keep faces and important decorations away from the outer edges. Photorealistic still photograph with crisp natural detail. No text, logos, watermarks, or captions.`;
+}
+
 export function isInvitationArtworkCategory(category: string | null): boolean {
   return /invitation|party[- ]theme artwork/i.test(category?.trim() ?? "");
 }
@@ -150,7 +154,7 @@ function buildInvitationArtworkPrompt(
     "Render every person grounded in the same perspective with anatomically correct faces, hands, limbs, shadows, occlusion, eye lines, and age-appropriate child scale.",
     "Keep facility equipment and people at believable real-world scale with clear walkways and safe spacing.",
     campaignContext(input.campaignName),
-    stillImageSuffix(format),
+    invitationStillImageSuffix(format),
   ]
     .filter(Boolean)
     .join(" ");
