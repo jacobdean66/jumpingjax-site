@@ -51,7 +51,9 @@ import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 import {
   invitationSnapshotFromChoice,
   facilityInvitationShareUrl,
+  facilityInvitationSheetShareUrl,
 } from "@/lib/facility-parties/invitations/snapshot";
+import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
   "Facility party requests are available from today through December 31, 2027.";
@@ -551,6 +553,19 @@ export async function POST(req: NextRequest) {
       const invitationUrl = siteUrl
         ? facilityInvitationShareUrl(siteUrl, bookingId)
         : "";
+      const printableInvitationUrl = siteUrl
+        ? facilityInvitationSheetShareUrl(siteUrl, bookingId)
+        : "";
+      const invitationEmailSection = buildCustomerInvitationEmailSection({
+        childName: String(child_name).trim(),
+        childAge: String(child_age).trim(),
+        dateLabel: storedReadableDate,
+        timeLabel: storedReadableTime,
+        themeText: String(party_theme ?? "").trim(),
+        invitationUrl,
+        printableUrl: printableInvitationUrl,
+        waiverUrl: waiverInvitationLink,
+      });
 
       const { error: customerEmailError } = await sendDurableBookingEmail({
         supabase,
@@ -568,18 +583,14 @@ export async function POST(req: NextRequest) {
           `Party: ${storedPartyLabel}`,
           `Date: ${storedReadableDate}`,
           `Time: ${storedReadableTime}`,
-          `Parent name: ${bookingContactName}`,
-          `Child name: ${String(child_name).trim()}`,
-          `Child age: ${String(child_age).trim()}`,
-          `Party theme: ${String(party_theme).trim()}`,
           `Invitations: ${invitationPreferenceLabel}`,
           `Invitation design: ${invitationTemplateName}`,
           `Invitation quantity: ${invitationQuantity}`,
-          invitationUrl ? `Invitation: ${invitationUrl}` : null,
           `Drink choice: ${String(drink_choice).trim()}`,
           `Payment method: ${String(payment_method).trim()}`,
           `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
-          `Guest waiver link for the party: ${waiverInvitationLink}`,
+          "",
+          ...invitationEmailSection,
           "",
           addonsEmailText,
           ...pricingLines,

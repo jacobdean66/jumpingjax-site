@@ -5,6 +5,7 @@ import {
   approvedArtworkSrc,
 } from "@/lib/facility-parties/invitations/approved-artwork";
 import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
+import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -64,13 +65,16 @@ export function PartyInvitationCard({
         border: treatment.border,
       }
     : composed.palette;
-  const displayName = childName.trim() || "Birthday Star";
-  const headline = childAge.trim()
-    ? `${displayName} is turning ${childAge.trim()}!`
-    : `${displayName} is having a party!`;
-  const celebrationLine = snapshot.sourceText
-    ? `${snapshot.sourceText} celebration`
-    : `${composed.themeLabel} celebration`;
+  const invitationCopy = buildInvitationCopy({
+    childName,
+    childAge,
+    dateLabel,
+    timeLabel,
+    themeText: snapshot.sourceText || composed.themeLabel,
+  });
+  const displayName = invitationCopy.childName;
+  const headline = invitationCopy.headline;
+  const celebrationLine = invitationCopy.celebrationLine;
   const textSize = compact
     ? "text-[clamp(9px,3.2cqw,17px)]"
     : "text-base sm:text-lg";
@@ -87,8 +91,8 @@ export function PartyInvitationCard({
         displayName={displayName}
         childAge={childAge}
         celebrationLine={celebrationLine}
-        dateLabel={dateLabel}
-        timeLabel={timeLabel}
+        dateLabel={invitationCopy.dateLabel}
+        timeLabel={invitationCopy.timeLabel}
         qrUrl={qrUrl}
         waiverUrl={waiverUrl}
         artworkSrc={printArtworkSrc ?? artworkSrc ?? composed.hero.src}
@@ -143,19 +147,6 @@ export function PartyInvitationCard({
         />
       ) : null}
       {!approvedFullBleed ? <BrandMark layout={layout} sheetMode={sheetMode} /> : null}
-      {sheetMode ? (
-        <div
-          className="absolute left-[4%] top-[4%] z-20 max-w-[68%] rounded-[1.5cqw] bg-black/80 px-[3%] py-[2%] text-white shadow-lg"
-          data-child-name-age="true"
-        >
-          <p className="truncate text-[clamp(15px,5.8cqw,30px)] font-black leading-none">
-            {displayName}
-          </p>
-          <p className="mt-[1%] text-[clamp(10px,3.3cqw,17px)] font-black uppercase tracking-wide text-white/95">
-            {childAge.trim() ? `is turning ${childAge.trim()}!` : "Birthday celebration"}
-          </p>
-        </div>
-      ) : null}
       {treatment && !approvedFullBleed ? (
         <SourceThemeMotif treatment={treatment} />
       ) : null}
@@ -171,15 +162,14 @@ export function PartyInvitationCard({
         layout={layout}
         headline={headline}
         celebrationLine={celebrationLine}
-        dateLabel={dateLabel}
-        timeLabel={timeLabel}
+        dateLabel={invitationCopy.dateLabel}
+        timeLabel={invitationCopy.timeLabel}
         textSize={textSize}
         compact={compact}
         pickupReady={pickupReady}
         qrUrl={qrUrl}
         waiverUrl={waiverUrl}
         accent={palette.accent}
-        sheetMode={sheetMode}
       />
     </article>
   );
@@ -401,7 +391,6 @@ function InvitationCopy({
   qrUrl,
   waiverUrl,
   accent,
-  sheetMode,
 }: {
   layout: string;
   headline: string;
@@ -414,7 +403,6 @@ function InvitationCopy({
   qrUrl?: string;
   waiverUrl?: string;
   accent: string;
-  sheetMode: boolean;
 }) {
   const headingSize = compact
     ? "text-[clamp(14px,5.9cqw,31px)]"
@@ -446,11 +434,9 @@ function InvitationCopy({
           </p>
           {readyBadge}
         </div>
-        {!sheetMode ? (
-          <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-            {headline}
-          </h2>
-        ) : null}
+        <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+          {headline}
+        </h2>
         <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
           {celebrationLine}
         </p>
@@ -477,11 +463,9 @@ function InvitationCopy({
           </p>
           {readyBadge}
         </div>
-        {!sheetMode ? (
-          <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-            {headline}
-          </h2>
-        ) : null}
+        <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+          {headline}
+        </h2>
         <p className={`mt-1 font-bold text-slate-700 ${textSize}`}>
           {celebrationLine}
         </p>
@@ -504,11 +488,9 @@ function InvitationCopy({
         </p>
         {readyBadge}
       </div>
-      {!sheetMode ? (
-        <h2 className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
-          {headline}
-        </h2>
-      ) : null}
+      <h2 className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
+        {headline}
+      </h2>
       <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
         {celebrationLine}
       </p>

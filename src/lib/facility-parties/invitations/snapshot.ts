@@ -159,3 +159,11 @@ export function facilityInvitationShareUrl(
   const base = siteUrl.replace(/\/$/, "");
   return `${base}${facilityInvitationPath(bookingId)}`;
 }
+
+export function facilityInvitationSheetShareUrl(
+  siteUrl: string,
+  bookingId: string,
+): string {
+  const base = siteUrl.replace(/\/$/, "");
+  return `${base}${facilityInvitationSheetPath(bookingId)}`;
+}

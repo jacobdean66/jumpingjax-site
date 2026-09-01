@@ -25,7 +25,12 @@ import {
 } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
-import { facilityInvitationShareUrl } from "@/lib/facility-parties/invitations/snapshot";
+import { buildFacilityWaiverInvitationUrl } from "@/lib/facility-parties/invitations";
+import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
+import {
+  facilityInvitationShareUrl,
+  facilityInvitationSheetShareUrl,
+} from "@/lib/facility-parties/invitations/snapshot";
 import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 
 const FACILITY_BOOKING_SELECT =
@@ -362,10 +367,26 @@ async function handleFacilityConfirm(
     const pricingLines = formatFacilityPricingLines(
       facilityPricingFromBooking(booking),
     );
+    const emailSiteUrl = resolveRentalEmailSiteUrl(req.url);
     const invitationUrl =
+      action === "confirm" ? facilityInvitationShareUrl(emailSiteUrl, id) : "";
+    const invitationEmailSection =
       action === "confirm"
-        ? facilityInvitationShareUrl(resolveRentalEmailSiteUrl(req.url), id)
-        : "";
+        ? buildCustomerInvitationEmailSection({
+            childName: booking.child_name,
+            childAge: booking.child_age,
+            dateLabel: booking.readable_date,
+            timeLabel: booking.readable_time,
+            themeText: booking.party_theme,
+            invitationUrl,
+            printableUrl: facilityInvitationSheetShareUrl(emailSiteUrl, id),
+            waiverUrl: buildFacilityWaiverInvitationUrl({
+              siteUrl: emailSiteUrl,
+              bookingId: id,
+              partyDate: booking.readable_date,
+            }),
+          })
+        : [];
 
     const { error: emailError } = await sendDurableBookingEmail({
       supabase,
@@ -383,10 +404,7 @@ async function handleFacilityConfirm(
         `Party: ${booking.party_label}`,
         `Date: ${booking.readable_date}`,
         `Time: ${booking.readable_time}`,
-        booking.child_name ? `Child: ${booking.child_name}` : null,
-        booking.child_age ? `Child age: ${booking.child_age}` : null,
-        booking.party_theme ? `Party theme: ${booking.party_theme}` : null,
-        invitationUrl ? `Invitation: ${invitationUrl}` : null,
+        ...invitationEmailSection,
         booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
         booking.payment_method
           ? `Payment method: ${booking.payment_method}`

@@ -3,6 +3,7 @@ import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 
 import { approvedArtworkSrc } from "./approved-artwork";
+import { buildInvitationCopy } from "./content";
 import { composeLibraryInvitation } from "./library/compose";
 import { normalizeInvitationQuantity } from "../invitations";
 import {
@@ -70,6 +71,13 @@ function addInvitation(
   const fullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
   const background = pptxColor(composed.palette.background, "071326");
   const accent = pptxColor(composed.palette.accent, "22D3EE");
+  const copy = buildInvitationCopy({
+    childName: input.childName,
+    childAge: input.childAge,
+    dateLabel: input.dateLabel,
+    timeLabel: input.timeLabel,
+    themeText: input.snapshot.sourceText || composed.themeLabel,
+  });
 
   slide.addShape(pptx.ShapeType.rect, {
     x,
@@ -119,7 +127,7 @@ function addInvitation(
     line: { color: accent, transparency: 15, width: 1.2 },
     fill: { color: "000000", transparency: 12 },
   });
-  slide.addText(input.childName.trim() || "Birthday Star", {
+  slide.addText(copy.childName, {
     x: x + 0.36,
     y: y + 0.3,
     w: 3.4,
@@ -151,7 +159,7 @@ function addInvitation(
     },
   );
 
-  slide.addText(`${input.snapshot.sourceText || composed.themeLabel} celebration`, {
+  slide.addText(copy.celebrationLine, {
     x: x + 0.3,
     y: y + 2.2,
     w: 3.75,
@@ -163,7 +171,7 @@ function addInvitation(
     bold: true,
     fit: "shrink",
   });
-  slide.addText(input.dateLabel || "Date coming soon", {
+  slide.addText(copy.dateLabel, {
     x: x + 0.3,
     y: y + 2.57,
     w: 3.7,
@@ -175,7 +183,7 @@ function addInvitation(
     bold: true,
     fit: "shrink",
   });
-  slide.addText(input.timeLabel || "Time coming soon", {
+  slide.addText(copy.timeLabel, {
     x: x + 0.3,
     y: y + 2.9,
     w: 3.7,

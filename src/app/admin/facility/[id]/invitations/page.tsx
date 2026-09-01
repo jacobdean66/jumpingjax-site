@@ -21,7 +21,12 @@ import {
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
-import { resolveInvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
+import { buildInvitationEmailDraft } from "@/lib/facility-parties/invitations/content";
+import {
+  facilityInvitationShareUrl,
+  facilityInvitationSheetShareUrl,
+  resolveInvitationSnapshot,
+} from "@/lib/facility-parties/invitations/snapshot";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -60,22 +65,26 @@ function clean(value: string | null | undefined): string {
 function mailtoLink(input: {
   email: string | null;
   childName: string;
+  childAge: string;
   date: string;
+  time: string;
+  themeText: string;
+  invitationUrl: string;
+  printableUrl: string;
   waiverUrl: string;
 }): string | null {
   const email = clean(input.email);
   if (!email) return null;
-  const subject = "Jumping Jax birthday party invitation link";
-  const body = [
-    `Here is the Jumping Jax waiver link for ${input.childName || "the birthday party"}.`,
-    "",
-    input.date ? `Party date: ${input.date}` : "",
-    `Waiver link: ${input.waiverUrl}`,
-    "",
-    "Guests can complete the waiver before the party.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const { subject, body } = buildInvitationEmailDraft({
+    childName: input.childName,
+    childAge: input.childAge,
+    dateLabel: input.date,
+    timeLabel: input.time,
+    themeText: input.themeText,
+    invitationUrl: input.invitationUrl,
+    printableUrl: input.printableUrl,
+    waiverUrl: input.waiverUrl,
+  });
   return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(
     subject,
   )}&body=${encodeURIComponent(body)}`;
@@ -137,7 +146,12 @@ export default async function FacilityInvitationsPage({
   const emailHref = mailtoLink({
     email: data.email,
     childName: clean(data.child_name),
+    childAge: clean(data.child_age),
     date: clean(data.readable_date),
+    time: clean(data.readable_time),
+    themeText: clean(data.party_theme),
+    invitationUrl: facilityInvitationShareUrl(CANONICAL_PRODUCTION_SITE_URL, data.id),
+    printableUrl: facilityInvitationSheetShareUrl(CANONICAL_PRODUCTION_SITE_URL, data.id),
     waiverUrl,
   });
   const storedSnapshot = resolveInvitationSnapshot({
