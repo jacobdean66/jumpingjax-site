@@ -10,7 +10,10 @@ import {
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { createSocialPost } from "@/lib/social-posts/social-post-data";
 import { chooseSourceImageUrl, type SocialAgentInput } from "@/lib/social-posts/social-agent";
-import { resolveApprovedAssetContext } from "@/lib/social-posts/agents/approved-asset-context";
+import {
+  resolveApprovedAssetContext,
+  validateStagedSocialAssetPolicy,
+} from "@/lib/social-posts/agents/approved-asset-context";
 import {
   evaluateAgentComplianceGateWithPosts,
   type ComplianceGateResult,
@@ -263,6 +266,13 @@ export async function POST(req: Request) {
       if (!assetResolved.ok) {
         return NextResponse.json({ ok: false, error: assetResolved.error }, { status: 400 });
       }
+      const assetPolicy = validateStagedSocialAssetPolicy({
+        businessFocus: request.businessFocus ?? "both",
+        asset: assetResolved.asset,
+      });
+      if (!assetPolicy.ok) {
+        return NextResponse.json({ ok: false, error: assetPolicy.error }, { status: 400 });
+      }
       const workflowContext = await buildSocialDraftWorkflowContext({
         campaignId: request.campaignId ?? null,
         themeContext,
@@ -364,11 +374,14 @@ export async function POST(req: Request) {
           managed.value.output.businessFocus,
           managed.value.output.sourceImageKeywords,
         );
+      const sourceAsset = resolveApprovedAssetContext(sourceUrl);
+      if (!sourceAsset.ok) throw new Error(sourceAsset.error);
       const creative: CreativeDirectorOutput = {
         ...managed.value.output,
         generationPrompt: applyVisualRealismConstraints({
           prompt: managed.value.output.generationPrompt,
           hasReferenceAsset: Boolean(sourceUrl),
+          assetKind: sourceAsset.asset?.assetKind ?? null,
           themeLabel: checkpoint.themeContext?.themeLabel,
         }),
       };
@@ -560,11 +573,16 @@ export async function POST(req: Request) {
           result.ok ? "Single permitted Creative Director revision completed." : result.error,
       });
       if (!managed.value.ok) throw new Error(managed.value.error);
+      const revisedSourceAsset = resolveApprovedAssetContext(
+        checkpoint.selectedSourceImageUrl,
+      );
+      if (!revisedSourceAsset.ok) throw new Error(revisedSourceAsset.error);
       const revised: CreativeDirectorOutput = {
         ...managed.value.output,
         generationPrompt: applyVisualRealismConstraints({
           prompt: managed.value.output.generationPrompt,
           hasReferenceAsset: Boolean(checkpoint.selectedSourceImageUrl),
+          assetKind: revisedSourceAsset.asset?.assetKind ?? null,
           themeLabel: checkpoint.themeContext?.themeLabel,
         }),
       };
@@ -681,3 +699,4 @@ export async function POST(req: Request) {
     );
   }
 }
+
