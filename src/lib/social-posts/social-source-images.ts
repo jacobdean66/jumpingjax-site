@@ -12,6 +12,11 @@ export type SocialSourceImage = {
   url: string;
   category?: string;
   focus?: "rentals" | "facility-parties" | "both";
+  /**
+   * Product shots may show the exact inflatable only. Lifestyle photos must
+   * have been separately approved for the visible people and event context.
+   */
+  assetKind?: "product" | "lifestyle" | "theme-artwork" | "brand";
 };
 
 const SITE_URL =
@@ -56,6 +61,7 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
       url,
       category,
       focus: rental.categoryId === "foam-parties" ? "both" : "rentals",
+      assetKind: "product",
     };
   }),
   (() => {
@@ -66,6 +72,7 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
       url,
       category: "Homepage",
       focus: "both",
+      assetKind: "brand",
     } satisfies SocialSourceImage;
   })(),
   (() => {
@@ -76,6 +83,7 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
       url,
       category: "Brand",
       focus: "both",
+      assetKind: "brand",
     } satisfies SocialSourceImage;
   })(),
   ...Object.entries(APPROVED_INVITATION_ARTWORK).map(
@@ -85,8 +93,9 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
       return {
         label: `${theme} approved invitation artwork`,
         url,
-        category: "Facility invitation themes",
-        focus: "facility-parties",
+      category: "Facility invitation themes",
+      focus: "facility-parties",
+      assetKind: "theme-artwork",
       };
     },
   ),
@@ -100,8 +109,10 @@ export const SOCIAL_SOURCE_IMAGES: SocialSourceImage[] = uniqueByUrl([
           url,
           category: "Facility invitation themes",
           focus: "facility-parties",
+          assetKind: "theme-artwork",
         };
       },
     ),
   ),
 ].filter((image): image is SocialSourceImage => Boolean(image)));
+
