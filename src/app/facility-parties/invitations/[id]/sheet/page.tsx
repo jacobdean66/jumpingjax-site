@@ -61,7 +61,9 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
             Download invitations now
           </Link>
           <PrintButton
-            label={paperSize === "legal" ? "Print Legal sheet" : "Print Letter sheet"}
+            label="Choose printer & print landscape"
+            choosePrinter
+            orientation="landscape"
             invitation={{
               sourceText: agentResult.snapshot.sourceText,
               optionIndex: agentResult.snapshot.optionIndex,
@@ -71,6 +73,9 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
           />
         </div>
       </div>
+      <p className="mb-4 text-sm font-bold text-slate-600 print:hidden">
+        The button opens printer selection first. Choose your printer, keep Landscape selected, then print.
+      </p>
       <InvitationSheet
         snapshot={agentResult.snapshot}
         childName={view.childName}

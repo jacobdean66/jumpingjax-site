@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { InvitationDeliveryPreview } from "./InvitationDeliveryPreview.tsx";
 import { InvitationSheet } from "./InvitationSheet.tsx";
 import { AdminShell } from "../../app/admin/_components.tsx";
+import { PrintButton } from "../../app/admin/PrintButton.tsx";
 import { buildInvitationSnapshot } from "../../lib/facility-parties/invitations/snapshot.ts";
 
 const snapshot = buildInvitationSnapshot("Sonic");
@@ -21,6 +22,21 @@ const formFields = {
 function countMatches(html: string, needle: string): number {
   return html.split(needle).length - 1;
 }
+
+test("invitation print control opens printer selection in landscape mode", () => {
+  const html = renderToStaticMarkup(
+    createElement(PrintButton, {
+      label: "Choose printer & print landscape",
+      choosePrinter: true,
+      orientation: "landscape",
+    }),
+  );
+
+  assert.match(html, /Choose printer &amp; print landscape/);
+  assert.match(html, /data-print-dialog="printer-picker"/);
+  assert.match(html, /data-print-orientation="landscape"/);
+  assert.match(html, /aria-haspopup="dialog"/);
+});
 
 test("all three delivery option previews render distinct modes", () => {
   const printHtml = renderToStaticMarkup(
