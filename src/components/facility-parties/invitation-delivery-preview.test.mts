@@ -38,6 +38,17 @@ test("invitation print control opens printer selection in landscape mode", () =>
   assert.match(html, /aria-haspopup="dialog"/);
 });
 
+test("printer control has a visible fallback when an in-app browser blocks printing", async () => {
+  const source = await readFile(
+    new URL("../../app/admin/PrintButton.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /beforeprint/);
+  assert.match(source, /microsoft-edge:/);
+  assert.match(source, /Press Ctrl\+P to choose a printer/);
+});
+
 test("all three delivery option previews render distinct modes", () => {
   const printHtml = renderToStaticMarkup(
     createElement(InvitationDeliveryPreview, {
