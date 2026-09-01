@@ -37,7 +37,7 @@ export default function SourceImageField({ images, disabled = false }: Props) {
           <option value="">Choose an existing rental/facility image</option>
           {images.map((image) => (
             <option key={image.url} value={image.url}>
-              {image.label}
+              {image.label}{image.assetKind === "lifestyle" ? " — approved lifestyle photo" : image.assetKind === "product" ? " — exact product photo" : ""}
             </option>
           ))}
         </select>
@@ -57,8 +57,9 @@ export default function SourceImageField({ images, disabled = false }: Props) {
       />
 
       <p className="text-xs font-semibold text-slate-500">
-        Required for best AI video results. Use a public image URL from the
-        website, Supabase storage, or another hosted image.
+        Required before a rental social post can start. Select the exact
+        product photo, or an owner-approved lifestyle photo with the people
+        you want shown. The workflow will not invent products or people.
       </p>
 
       {canPreview ? (
@@ -74,3 +75,4 @@ export default function SourceImageField({ images, disabled = false }: Props) {
     </div>
   );
 }
+
