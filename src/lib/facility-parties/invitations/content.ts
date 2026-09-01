@@ -25,6 +25,19 @@ function clean(value: string | null | undefined): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+const THEME_PLACEHOLDER = /^(?:will\s+call|tbd|to\s+be\s+determined|none|n\/?a|not\s+sure|unsure)$/i;
+
+function meaningfulThemeText(value: string | null | undefined): string {
+  const normalized = clean(value);
+  return THEME_PLACEHOLDER.test(normalized) ? "" : normalized;
+}
+
+export function invitationThemeDisplayText(
+  value: string | null | undefined,
+): string {
+  return meaningfulThemeText(value) || "Classic birthday";
+}
+
 function ordinalAge(value: string): string {
   const numeric = Number(value);
   if (!Number.isInteger(numeric) || numeric < 1 || numeric > 120) return value;
@@ -37,7 +50,7 @@ function ordinalAge(value: string): string {
 }
 
 function themeLabel(value: string): string {
-  const stripped = value
+  const stripped = meaningfulThemeText(value)
     .replace(/\b(?:birthday|bday)\b/gi, "")
     .replace(/\b(?:party|theme|themed)\b/gi, "")
     .replace(/\s+/g, " ")
@@ -104,7 +117,7 @@ export function buildCustomerInvitationEmailSection(
   return [
     "Your invitation package",
     `Guest of honor: ${copy.childName}${copy.ageLabel ? ` (${copy.ageLabel} birthday)` : ""}`,
-    `Theme: ${clean(input.themeText) || "Classic birthday"}`,
+    `Theme: ${invitationThemeDisplayText(input.themeText)}`,
     `Date: ${copy.dateLabel}`,
     `Time: ${copy.timeLabel}`,
     `Location: ${copy.venueLine}`,

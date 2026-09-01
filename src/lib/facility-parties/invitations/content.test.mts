@@ -5,6 +5,7 @@ import {
   buildCustomerInvitationEmailSection,
   buildInvitationCopy,
   buildInvitationEmailDraft,
+  invitationThemeDisplayText,
 } from "./content.ts";
 
 const sonic = {
@@ -62,4 +63,19 @@ test("ordinal ages are grammatically correct", () => {
   assert.equal(buildInvitationEmailDraft({ ...sonic, childAge: "2" }).subject, "You're invited: Miles's 2nd birthday at Jumping Jax");
   assert.equal(buildInvitationEmailDraft({ ...sonic, childAge: "3" }).subject, "You're invited: Miles's 3rd birthday at Jumping Jax");
   assert.equal(buildInvitationEmailDraft({ ...sonic, childAge: "11" }).subject, "You're invited: Miles's 11th birthday at Jumping Jax");
+});
+
+test("customer follow-up placeholders never become invitation themes", () => {
+  for (const placeholder of ["Will call", "TBD", "none", "N/A", "not sure"]) {
+    const copy = buildInvitationCopy({ ...sonic, themeText: placeholder });
+    const section = buildCustomerInvitationEmailSection({
+      ...sonic,
+      themeText: placeholder,
+    }).join("\n");
+
+    assert.equal(copy.celebrationLine, "A birthday celebration at Jumping Jax");
+    assert.equal(invitationThemeDisplayText(placeholder), "Classic birthday");
+    assert.match(section, /Theme: Classic birthday/);
+    assert.doesNotMatch(section, new RegExp(placeholder.replace("/", "\\/"), "i"));
+  }
 });
