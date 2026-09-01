@@ -1,6 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
-import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
+import {
+  agentPrintArtworkSrc,
+  approvedArtworkSrc,
+} from "@/lib/facility-parties/invitations/approved-artwork";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -74,6 +77,7 @@ export function PartyInvitationCard({
   const approvedFullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
 
   if (sheetMode) {
+    const printArtworkSrc = agentPrintArtworkSrc(snapshot.themeId, snapshot.sourceText);
     return (
       <InkSaverSheetInvitation
         snapshot={snapshot}
@@ -86,7 +90,8 @@ export function PartyInvitationCard({
         timeLabel={timeLabel}
         qrUrl={qrUrl}
         waiverUrl={waiverUrl}
-        artworkSrc={artworkSrc ?? composed.hero.src}
+        artworkSrc={printArtworkSrc ?? artworkSrc ?? composed.hero.src}
+        agentArtwork={Boolean(printArtworkSrc)}
         accent={palette.accent}
         treatmentId={treatment?.id}
       />
@@ -191,6 +196,7 @@ function InkSaverSheetInvitation({
   qrUrl,
   waiverUrl,
   artworkSrc,
+  agentArtwork,
   accent,
   treatmentId,
 }: {
@@ -205,6 +211,7 @@ function InkSaverSheetInvitation({
   qrUrl?: string;
   waiverUrl?: string;
   artworkSrc: string;
+  agentArtwork: boolean;
   accent: string;
   treatmentId?: string;
 }) {
@@ -228,21 +235,21 @@ function InkSaverSheetInvitation({
     >
       <div className="absolute inset-x-0 top-0 h-[2.5%]" style={{ backgroundColor: accent }} />
       <div className="absolute -right-[7%] -top-[11%] h-[42%] w-[34%] rounded-full bg-sky-100/70" />
-      <div className="absolute right-[3.5%] top-[20%] h-[42%] w-[34%] overflow-hidden rounded-[2cqw] border border-slate-200 bg-white">
+      <div className="absolute right-[2.5%] top-[13%] h-[55%] w-[46%] overflow-hidden rounded-[2cqw] border border-slate-200 bg-white">
         <img
           src={artworkSrc}
           alt=""
-          className="h-full w-full object-cover opacity-30"
-          style={{ filter: "brightness(1.5) saturate(0.6)" }}
+          className={`h-full w-full object-cover ${agentArtwork ? "" : "opacity-30"}`}
+          style={agentArtwork ? undefined : { filter: "brightness(1.5) saturate(0.6)" }}
         />
-        <div className="absolute inset-0 bg-white/20" />
+        {!agentArtwork ? <div className="absolute inset-0 bg-white/20" /> : null}
       </div>
 
       <div className="absolute left-[4.5%] top-[5%] z-10 w-[18%]" data-invitation-brand="jumping-jax" data-logo-treatment="light-print">
         <img src="/logo.png" alt="Jumping Jax" className="h-auto w-full object-contain" />
       </div>
 
-      <div className="absolute left-[4.5%] top-[24%] z-10 max-w-[58%]" data-child-name-age="true">
+      <div className="absolute left-[4.5%] top-[24%] z-10 max-w-[45%]" data-child-name-age="true">
         <p className="text-[clamp(10px,2.1cqw,13px)] font-black uppercase tracking-[0.16em] text-slate-600">
           You&apos;re invited
         </p>

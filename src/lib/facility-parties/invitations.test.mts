@@ -14,7 +14,10 @@ import {
   normalizeInvitationTemplateId,
   resolveInvitationTheme,
 } from "./invitations";
-import { approvedArtworkSrc } from "./invitations/approved-artwork";
+import {
+  agentPrintArtworkSrc,
+  approvedArtworkSrc,
+} from "./invitations/approved-artwork";
 
 test("normalizes invitation delivery preference safely", () => {
   assert.equal(normalizeInvitationDeliveryPreference("email"), "email");
@@ -119,6 +122,13 @@ test("uses approved full-bleed character artwork for known party themes", () => 
   assert.equal(
     approvedArtworkSrc("gamer-neon", "Sonic"),
     "/invitations/approved/sonic/card.png",
+  );
+});
+
+test("uses invitation-agent light artwork for Minecraft print sheets", () => {
+  assert.equal(
+    agentPrintArtworkSrc("gamer-neon", "Minecraft"),
+    "/invitations/approved/block-world/print-light-v1.png",
   );
 });
 
