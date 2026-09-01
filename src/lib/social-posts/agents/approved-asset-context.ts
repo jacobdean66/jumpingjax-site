@@ -5,6 +5,7 @@ export type ApprovedAssetContext = {
   label: string;
   category: string | null;
   focus: SocialSourceImage["focus"] | null;
+  assetKind: NonNullable<SocialSourceImage["assetKind"]>;
   /** Safe metadata string for model prompts — no signed params or secrets. */
   metadataSummary: string;
 };
@@ -135,18 +136,58 @@ export function resolveApprovedAssetContext(
       label: match.label,
       category: match.category ?? null,
       focus: match.focus ?? null,
+      assetKind:
+        match.assetKind ??
+        (invitationArtwork ? "theme-artwork" : "product"),
       metadataSummary: [
         `label=${match.label}`,
         match.category ? `category=${match.category}` : null,
         match.focus ? `focus=${match.focus}` : null,
+        `assetKind=${match.assetKind ?? (invitationArtwork ? "theme-artwork" : "product")}`,
         invitationArtwork
           ? "approved party-theme artwork; preserve its exact composition, colors, branding, and proportions; do not describe it as an inflatable product"
-          : "preserve exact inflatable product identity, colors, and geometry from this approved source image",
+          : match.assetKind === "lifestyle"
+            ? "approved lifestyle photo; preserve the exact visible product, people, and event context; do not add, remove, or synthesize people"
+            : "approved product photo; preserve exact inflatable product identity, colors, and geometry; do not substitute a product or synthesize people",
       ]
         .filter(Boolean)
         .join("; "),
     },
   };
+}
+
+/**
+ * A rental promotion must begin with an exact inventory asset. Choosing one
+ * after a model has already drafted creative direction can produce a generic
+ * look-alike inflatable, so it is intentionally not allowed.
+ */
+export function validateStagedSocialAssetPolicy(input: {
+  businessFocus: "rentals" | "facility-parties" | "both";
+  asset: ApprovedAssetContext | null;
+}): { ok: true } | { ok: false; error: string } {
+  if (input.businessFocus === "facility-parties") return { ok: true };
+  if (!input.asset) {
+    return {
+      ok: false,
+      error:
+        "Choose the exact approved rental photo before starting a rental social post. The workflow will not invent or guess an inflatable.",
+    };
+  }
+  if (input.asset.assetKind === "theme-artwork" || input.asset.assetKind === "brand") {
+    return {
+      ok: false,
+      error:
+        "Choose an approved rental product or approved lifestyle photo; theme artwork and brand images cannot represent rental inventory.",
+    };
+  }
+  if (input.asset.focus === "facility-parties") {
+    return {
+      ok: false,
+      error:
+        "Choose an approved rental product or approved lifestyle photo for a rental post.",
+    };
+  }
+  return { ok: true };
 }
 
 export function assertApprovedAssetOrThrow(
@@ -258,3 +299,4 @@ export function resolveVideoSourceAssetContext(input: {
       "An approved Jumping Jax catalog asset or this post's owner-approved generated still is required.",
   };
 }
+
