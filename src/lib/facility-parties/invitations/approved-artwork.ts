@@ -12,6 +12,7 @@ export const AGENT_PRINT_INVITATION_ARTWORK: Readonly<Record<string, string>> = 
   sonic: "/invitations/approved/sonic/print-light-v1.png",
   minecraft: "/invitations/approved/block-world/print-light-v1.png",
   "mine craft": "/invitations/approved/block-world/print-light-v1.png",
+  "princess-royal": "/invitations/approved/princess/print-light-v1.png",
 };
 
 function sourceArtwork(

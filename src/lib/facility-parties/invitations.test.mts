@@ -139,6 +139,13 @@ test("uses invitation-agent light artwork for Sonic print sheets", () => {
   );
 });
 
+test("uses invitation-agent light artwork for princess print sheets", () => {
+  assert.equal(
+    agentPrintArtworkSrc("princess-royal", "Frozen princess"),
+    "/invitations/approved/princess/print-light-v1.png",
+  );
+});
+
 test("builds facility-party waiver URL without private child details", () => {
   const url = new URL(
     buildFacilityWaiverInvitationUrl({
