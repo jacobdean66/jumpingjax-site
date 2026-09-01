@@ -57,6 +57,7 @@ import {
   resolveSocialThemeLibraryContext,
   socialThemePreferredSourceUrl,
 } from "@/lib/social-posts/social-theme-library";
+import { buildSocialDraftWorkflowContext } from "@/lib/social-posts/agents/staged-workflow-context-loader";
 
 type StageAction = "start" | "continue" | "stop";
 
@@ -262,16 +263,15 @@ export async function POST(req: Request) {
       if (!assetResolved.ok) {
         return NextResponse.json({ ok: false, error: assetResolved.error }, { status: 400 });
       }
-      const combinedContext = [
-        assetResolved.asset?.metadataSummary ?? null,
-        themeContext?.promptContext ?? null,
-      ]
-        .filter(Boolean)
-        .join("; ")
-        .slice(0, AGENT_INPUT_LIMITS.assetContext);
+      const workflowContext = await buildSocialDraftWorkflowContext({
+        campaignId: request.campaignId ?? null,
+        themeContext,
+        approvedAsset: assetResolved.asset,
+      });
       const strategyInput: SocialAgentInput = {
         ...request,
-        assetContext: combinedContext || null,
+        seasonalContext: workflowContext.strategistSeasonalContext,
+        assetContext: workflowContext.strategistAssetContext,
       };
       const runId = randomUUID();
       const managed = await runManagedStage({
@@ -292,6 +292,7 @@ export async function POST(req: Request) {
         request: strategyInput,
         selectedSourceImageUrl: assetResolved.asset?.url ?? null,
         themeContext,
+        workflowContext,
         strategist: managed.value.output,
         creative: null,
         creativeQuality: null,
@@ -345,6 +346,8 @@ export async function POST(req: Request) {
           runCreativeDirectorAgent(
             {
               strategist: checkpoint.strategist!,
+              workflowContextSummary:
+                checkpoint.workflowContext?.agentContextSummary ?? null,
               themeContext: checkpoint.themeContext,
             },
             { onModelCall: recordModelCall },
@@ -420,7 +423,12 @@ export async function POST(req: Request) {
         actorId: auth.identity.id,
         execute: (recordModelCall) =>
           runIndependentReviewerAgent(
-            { strategist: checkpoint.strategist!, creative: validCreative.output },
+            {
+              strategist: checkpoint.strategist!,
+              creative: validCreative.output,
+              workflowContextSummary:
+                checkpoint.workflowContext?.agentContextSummary ?? null,
+            },
             { onModelCall: recordModelCall },
           ),
         summarize: (result) =>
@@ -535,6 +543,8 @@ export async function POST(req: Request) {
           runCreativeDirectorAgent(
             {
               strategist: checkpoint.strategist!,
+              workflowContextSummary:
+                checkpoint.workflowContext?.agentContextSummary ?? null,
               themeContext: checkpoint.themeContext,
               priorCreative: checkpoint.creative!,
               revisionInstructions: instructions,
