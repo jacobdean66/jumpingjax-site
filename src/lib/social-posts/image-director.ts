@@ -127,7 +127,33 @@ type ImageDirectorFormat = Readonly<{
 }>;
 
 function stillImageSuffix(format: ImageDirectorFormat): string {
-  return `${format.compositionGuidance} Photorealistic still photograph for ${format.framingLabel} (${formatVariantDimensionsLabel(format)}). No text, logos, watermarks, or captions. No motion blur, no video frames, no animation.`;
+  return `${format.compositionGuidance} Photorealistic still photograph for ${format.framingLabel} (${formatVariantDimensionsLabel(format)}). Crisp natural detail. No text, logos, watermarks, or captions.`;
+}
+
+export function isInvitationArtworkCategory(category: string | null): boolean {
+  return /invitation|party[- ]theme artwork/i.test(category?.trim() ?? "");
+}
+
+function buildInvitationArtworkPrompt(
+  input: ImageDirectorInput,
+  format: ImageDirectorFormat,
+): string {
+  const peopleDirection =
+    input.imageStudioPreset === "parents-watching"
+      ? "Show a small group of children ages 3–7 with realistic child proportions and one or two naturally scaled supervising adults."
+      : "Show a small group of children ages 3–7 with realistic child proportions enjoying the party space; include a naturally scaled supervising adult only when compositionally useful.";
+  return [
+    "Create a photorealistic indoor facility birthday-party scene with generic gamer-neon decorations, vivid blue, deep navy, bright yellow, and electric cyan accents.",
+    "Use the approved party-theme artwork only as palette and mood reference; it is not an inflatable or a physical product.",
+    "Do not reproduce a protected character, character likeness, logo, invitation wording, or branded environment.",
+    peopleDirection,
+    "Render every person grounded in the same perspective with anatomically correct faces, hands, limbs, shadows, occlusion, eye lines, and age-appropriate child scale.",
+    "Keep facility equipment and people at believable real-world scale with clear walkways and safe spacing.",
+    campaignContext(input.campaignName),
+    stillImageSuffix(format),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function resolveImageDirectorFormat(input: ImageDirectorInput): ImageDirectorFormat {
@@ -210,6 +236,10 @@ export function buildImageDirectorPrompt(input: ImageDirectorInput): ImageDirect
     input.imageStudioPreset ?? input.imageDirectionPreset,
   );
   const format = resolveImageDirectorFormat(input);
+
+  if (isInvitationArtworkCategory(input.sourceImageCategory)) {
+    return { prompt: buildInvitationArtworkPrompt(input, format) };
+  }
 
   if (preset === "custom") {
     return { prompt: buildCustomPrompt(input, format) };

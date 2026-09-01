@@ -1,5 +1,6 @@
 import {
   buildImageDirectorPrompt,
+  isInvitationArtworkCategory,
   normalizeImageStudioPresetValue,
   type ImageDirectorInput,
   type ImageStudioPreset,
@@ -66,7 +67,8 @@ Return ONLY valid JSON matching the requested schema. No markdown fences. No unk
 
 Hard rules:
 - Plan a SINGLE photorealistic still image. No video/motion/camera-move language.
-- Preserve the exact inflatable product from the verified source asset when provided.
+- When verified metadata identifies party-theme or invitation artwork, use it only for palette and mood. Never call it an inflatable or reproduce protected characters, logos, or invitation wording.
+- Otherwise, preserve the exact inflatable product from the verified source asset when provided.
 - Do NOT invent Jumping Jax prices, promotions, dates, inventory, availability, or customer claims.
 - Prefer no on-image text. If text overlay is discussed, recommend avoiding baked-in text.
 - Keep children ages 3–7 with child-sized proportions when people are included.
@@ -237,20 +239,27 @@ export function buildDeterministicImageDirectorDirection(
     postPrompt: input.postPrompt?.slice(0, AGENT_INPUT_LIMITS.prompt),
     originalSourceImageUrl: input.originalSourceImageUrl,
   });
+  const invitationArtwork = isInvitationArtworkCategory(
+    input.sourceImageCategory,
+  );
 
   return {
     visualConcept: `Preset-driven still for ${preset.replace(/-/g, " ")}`.slice(
       0,
       600,
     ),
-    composition:
-      "Balanced product-forward framing with the inflatable clearly visible and readable on mobile.",
+    composition: invitationArtwork
+      ? "Balanced 4:5 indoor-party composition with realistic people, clear walkways, and gamer-neon decorations readable on mobile."
+      : "Balanced product-forward framing with the inflatable clearly visible and readable on mobile.",
     subject: (
-      input.sourceImageCategory?.trim() ||
-      "Jumping Jax inflatable rental product from the selected source image"
+      invitationArtwork
+        ? "Photorealistic indoor facility birthday party using the approved artwork only as unbranded palette and mood reference"
+        : input.sourceImageCategory?.trim() ||
+          "Jumping Jax inflatable rental product from the selected source image"
     ).slice(0, 600),
-    backgroundEnvironment:
-      "Clean family-friendly backyard or party environment matching the campaign tone",
+    backgroundEnvironment: invitationArtwork
+      ? "Clean Jumping Jax indoor party environment with believable scale and generic gamer-neon decorations"
+      : "Clean family-friendly backyard or party environment matching the campaign tone",
     textOverlayRecommendation:
       "Do not bake text, logos, watermarks, or captions into the image.",
     aspectRatioOrFraming: (
@@ -260,11 +269,16 @@ export function buildDeterministicImageDirectorDirection(
     ).slice(0, 240),
     brandConstraints: [
       "Family-friendly, clean, local Jumping Jax tone",
-      "Preserve exact inflatable product appearance from the source image when provided",
+      invitationArtwork
+        ? "Treat approved invitation artwork as palette and mood reference only"
+        : "Preserve exact inflatable product appearance from the source image when provided",
       "No invented prices, promotions, or business claims in the image",
     ],
     prohibitedOrRiskyElements: [
       "On-image text, logos, or watermarks",
+      ...(invitationArtwork
+        ? ["Protected characters, character likenesses, and copied invitation wording"]
+        : []),
       "Unsafe play, distorted bodies, or adult-sized children",
       "Video/motion language in a still-image prompt",
     ],
