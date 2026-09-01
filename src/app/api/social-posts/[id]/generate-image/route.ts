@@ -102,13 +102,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    if (post.media_type !== "video") {
-      return NextResponse.json(
-        { ok: false, error: "Image generation is only available for video drafts." },
-        { status: 400 },
-      );
-    }
-
     const limited = await socialPostAdminRateLimitResponse(req, {
       route,
       category: "generation",

@@ -24,11 +24,16 @@ import { getSocialCampaign } from "@/lib/social-posts/social-campaigns";
 import {
   buildSocialPostImageConcept,
   getSocialPostById,
+  listSocialPosts,
   saveSocialPostImageConcepts,
   upsertSocialPostImageConcept,
 } from "@/lib/social-posts/social-post-data";
-import { socialVideoSourceImageUrl } from "@/lib/social-posts/social-video-utils";
-import { sourceImageCategory } from "@/lib/social-posts/video-director";
+import { resolveApprovedAssetContext } from "@/lib/social-posts/agents/approved-asset-context";
+import { evaluateEditedPromptCompliance } from "@/lib/social-posts/agents/agent-compliance-gate";
+import {
+  complianceAllowsPaidGeneration,
+  paidGenerationDeniedResponse,
+} from "@/lib/social-posts/agents/generation-gate";
 import { durableAgentStoreErrorResponse } from "@/lib/social-posts/agents/agent-durable-store";
 import {
   beginAgentIdempotentActionAsync,
@@ -112,22 +117,22 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    if (post.media_type !== "video") {
-      return NextResponse.json(
-        { ok: false, error: "Image Studio is only available for video drafts." },
-        { status: 400 },
-      );
-    }
-
     const preset = normalizeImageStudioPresetValue(
       body.imageStudioPreset ?? body.imageDirectionPreset,
     );
-    const resolvedSourceImageUrl = socialVideoSourceImageUrl(
-      typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
+    const candidateUrl =
+      (typeof body.sourceImageUrl === "string" && body.sourceImageUrl.trim()
         ? body.sourceImageUrl.trim()
-        : post.source_image_url,
-    );
-    const category = sourceImageCategory(resolvedSourceImageUrl);
+        : null) || post.source_image_url;
+    const assetResolved = resolveApprovedAssetContext(candidateUrl);
+    if (!assetResolved.ok) {
+      return NextResponse.json(
+        { ok: false, error: assetResolved.error, code: "unapproved_asset" },
+        { status: 400 },
+      );
+    }
+    const resolvedSourceImageUrl = assetResolved.asset?.url ?? null;
+    const category = assetResolved.asset?.category ?? null;
     const campaignName =
       getSocialCampaign(post.campaign_id)?.label ??
       (post.campaign_id ? post.campaign_id : null);
@@ -141,6 +146,18 @@ export async function POST(req: NextRequest, context: RouteContext) {
     });
 
     const generationPrompt = body.finalImagePrompt?.trim() || builtPrompt;
+    const compliance = evaluateEditedPromptCompliance({
+      prompt: generationPrompt,
+      caption: post.caption,
+      title: post.title,
+      campaignId: post.campaign_id,
+      posts: await listSocialPosts(),
+    });
+    if (!complianceAllowsPaidGeneration(compliance)) {
+      return NextResponse.json(paidGenerationDeniedResponse(compliance), {
+        status: 422,
+      });
+    }
     const mode = resolveImageGenerationMode({
       mode: body.mode,
       sourceImageUrl: resolvedSourceImageUrl,
