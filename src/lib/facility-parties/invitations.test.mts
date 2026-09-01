@@ -132,6 +132,13 @@ test("uses invitation-agent light artwork for Minecraft print sheets", () => {
   );
 });
 
+test("uses invitation-agent light artwork for Sonic print sheets", () => {
+  assert.equal(
+    agentPrintArtworkSrc("gamer-neon", "Sonic"),
+    "/invitations/approved/sonic/print-light-v1.png",
+  );
+});
+
 test("builds facility-party waiver URL without private child details", () => {
   const url = new URL(
     buildFacilityWaiverInvitationUrl({

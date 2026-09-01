@@ -9,6 +9,7 @@ export const APPROVED_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
 
 /** Light artwork created by the invitation agent specifically for printed sheets. */
 export const AGENT_PRINT_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
+  sonic: "/invitations/approved/sonic/print-light-v1.png",
   minecraft: "/invitations/approved/block-world/print-light-v1.png",
   "mine craft": "/invitations/approved/block-world/print-light-v1.png",
 };
