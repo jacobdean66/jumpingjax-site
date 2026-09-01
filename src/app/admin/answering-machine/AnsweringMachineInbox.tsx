@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { AnsweringMachineCall, AnsweringMachineServiceKind } from "@/lib/answering-machine/types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
+import type { AnsweringMachineCall } from "@/lib/answering-machine/types";
 
 type Readiness = {
   provider: "WhatsApp Business Calling API";
@@ -27,23 +30,42 @@ function statusTone(status: AnsweringMachineCall["status"]) {
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
+const callReviewSchema = z.object({
+  serviceKind: z.enum(["", "rental", "facility_party"]),
+  eventDate: z.string().max(10),
+  facilityStartTime: z.string().max(5),
+  rentalItems: z.string().max(2400),
+  transcript: z.string().max(50000),
+  agentSummary: z.string().max(2000),
+  ownerNotes: z.string().max(2000),
+}).strict();
+
+type CallReviewValues = z.infer<typeof callReviewSchema>;
+
 function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpdate: (call: AnsweringMachineCall) => void }) {
-  const [serviceKind, setServiceKind] = useState<AnsweringMachineServiceKind | "">(call.serviceKind ?? "");
-  const [eventDate, setEventDate] = useState(call.eventDate ?? "");
-  const [facilityStartTime, setFacilityStartTime] = useState(call.facilityStartTime ?? "");
-  const [rentalItems, setRentalItems] = useState(call.rentalItems.join(", "));
-  const [transcript, setTranscript] = useState(call.transcript);
-  const [agentSummary, setAgentSummary] = useState(call.agentSummary);
-  const [ownerNotes, setOwnerNotes] = useState(call.ownerNotes);
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const { register, control, handleSubmit, formState: { isSubmitting } } = useForm<CallReviewValues>({
+    resolver: zodResolver(callReviewSchema),
+    defaultValues: {
+      serviceKind: call.serviceKind ?? "",
+      eventDate: call.eventDate ?? "",
+      facilityStartTime: call.facilityStartTime ?? "",
+      rentalItems: call.rentalItems.join(", "),
+      transcript: call.transcript,
+      agentSummary: call.agentSummary,
+      ownerNotes: call.ownerNotes,
+    },
+  });
+  const serviceKind = useWatch({ control, name: "serviceKind" });
+  const eventDate = useWatch({ control, name: "eventDate" });
+  const facilityStartTime = useWatch({ control, name: "facilityStartTime" });
+  const rentalItems = useWatch({ control, name: "rentalItems" });
   const terminal = call.status === "approved" || call.status === "rejected";
 
   const approvalReady = call.transcriptComplete && Boolean(serviceKind) && Boolean(eventDate)
     && (serviceKind === "facility_party" ? Boolean(facilityStartTime) : rentalItems.split(",").some((item) => item.trim()));
 
-  async function submit(action: "save" | "approve" | "reject") {
-    setBusy(true);
+  async function submit(action: "save" | "approve" | "reject", values: CallReviewValues) {
     setMessage("");
     try {
       const response = await fetch("/api/admin/answering-machine", {
@@ -54,13 +76,13 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
           action,
           expectedRevision: call.revision,
           patch: {
-            serviceKind: serviceKind || null,
-            eventDate: eventDate || null,
-            facilityStartTime: serviceKind === "facility_party" ? facilityStartTime || null : null,
-            rentalItems: serviceKind === "rental" ? rentalItems.split(",").map((item) => item.trim()).filter(Boolean) : [],
-            transcript,
-            agentSummary,
-            ownerNotes,
+            serviceKind: values.serviceKind || null,
+            eventDate: values.eventDate || null,
+            facilityStartTime: values.serviceKind === "facility_party" ? values.facilityStartTime || null : null,
+            rentalItems: values.serviceKind === "rental" ? values.rentalItems.split(",").map((item) => item.trim()).filter(Boolean) : [],
+            transcript: values.transcript,
+            agentSummary: values.agentSummary,
+            ownerNotes: values.ownerNotes,
           },
         }),
       });
@@ -70,9 +92,14 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
       setMessage(action === "approve" ? "Approved for the next staged booking step." : action === "reject" ? "Rejected and retained in history." : "Changes saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Review failed safely.");
-    } finally {
-      setBusy(false);
     }
+  }
+
+  function runAction(action: "save" | "approve" | "reject") {
+    void handleSubmit(
+      (values) => submit(action, values),
+      () => setMessage("Review fields are invalid or exceed their safe limits."),
+    )();
   }
 
   return (
@@ -92,7 +119,7 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
         <section className="rounded-2xl bg-slate-50 p-4">
           <label className="block text-sm font-black text-slate-800">
             Call transcript
-            <textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={12} maxLength={50000}
+            <textarea {...register("transcript")} rows={12} maxLength={50000}
               className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium leading-relaxed outline-none focus:border-violet-500" />
           </label>
           <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -103,7 +130,7 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
         <section className="space-y-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
           <label className="block text-sm font-black text-slate-800">
             Booking type
-            <select value={serviceKind} onChange={(event) => setServiceKind(event.target.value as AnsweringMachineServiceKind | "")}
+            <select {...register("serviceKind")}
               className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-base font-bold">
               <option value="">Choose after reviewing</option>
               <option value="rental">Rental / foam party</option>
@@ -112,20 +139,20 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
           </label>
           <label className="block text-sm font-black text-slate-800">
             Event date
-            <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)}
+            <input type="date" {...register("eventDate")}
               className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-base font-bold" />
           </label>
           {serviceKind === "facility_party" ? (
             <label className="block text-sm font-black text-slate-800">
               Facility start time
-              <input type="time" value={facilityStartTime} onChange={(event) => setFacilityStartTime(event.target.value)}
+              <input type="time" {...register("facilityStartTime")}
                 className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-base font-bold" />
             </label>
           ) : null}
           {serviceKind === "rental" ? (
             <label className="block text-sm font-black text-slate-800">
               Rental selection
-              <input value={rentalItems} onChange={(event) => setRentalItems(event.target.value)} maxLength={2400}
+              <input {...register("rentalItems")} maxLength={2400}
                 placeholder="Bounce house, foam party package"
                 className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-base font-bold" />
               <span className="mt-1 block text-xs font-semibold text-slate-500">Separate multiple rentals with commas. Foam parties belong here.</span>
@@ -133,23 +160,23 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
           ) : null}
           <label className="block text-sm font-black text-slate-800">
             Agent summary
-            <textarea value={agentSummary} onChange={(event) => setAgentSummary(event.target.value)} rows={3} maxLength={2000}
+            <textarea {...register("agentSummary")} rows={3} maxLength={2000}
               className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm font-medium" />
           </label>
           <label className="block text-sm font-black text-slate-800">
             Owner notes
-            <textarea value={ownerNotes} onChange={(event) => setOwnerNotes(event.target.value)} rows={3} maxLength={2000}
+            <textarea {...register("ownerNotes")} rows={3} maxLength={2000}
               className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm font-medium" />
           </label>
         </section>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" disabled={busy || terminal} onClick={() => void submit("save")}
+        <button type="button" disabled={isSubmitting || terminal} onClick={() => runAction("save")}
           className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 disabled:opacity-50">Save edits</button>
-        <button type="button" disabled={busy || terminal || !approvalReady} onClick={() => void submit("approve")}
+        <button type="button" disabled={isSubmitting || terminal || !approvalReady} onClick={() => runAction("approve")}
           className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">Approve information</button>
-        <button type="button" disabled={busy || terminal} onClick={() => void submit("reject")}
+        <button type="button" disabled={isSubmitting || terminal} onClick={() => runAction("reject")}
           className="rounded-full bg-rose-700 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Reject</button>
       </div>
       {!approvalReady && call.status !== "approved" ? (
