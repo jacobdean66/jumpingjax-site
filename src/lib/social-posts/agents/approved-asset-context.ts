@@ -148,7 +148,7 @@ export function resolveApprovedAssetContext(
           ? "approved party-theme artwork; preserve its exact composition, colors, branding, and proportions; do not describe it as an inflatable product"
           : match.assetKind === "lifestyle"
             ? "approved lifestyle photo; preserve the exact visible product, people, and event context; do not add, remove, or synthesize people"
-            : "approved product photo; preserve exact inflatable product identity, colors, and geometry; do not substitute a product or synthesize people",
+            : "approved product photo; preserve exact inflatable product identity, colors, and geometry; generic, non-identifiable children and supervising adults may be added safely around the product; do not substitute a product, use customer likenesses, or use impossible positions",
       ]
         .filter(Boolean)
         .join("; "),
@@ -299,4 +299,3 @@ export function resolveVideoSourceAssetContext(input: {
       "An approved Jumping Jax catalog asset or this post's owner-approved generated still is required.",
   };
 }
-
