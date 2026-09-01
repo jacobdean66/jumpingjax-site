@@ -58,8 +58,9 @@ export default function SourceImageField({ images, disabled = false }: Props) {
 
       <p className="text-xs font-semibold text-slate-500">
         Required before a rental social post can start. Select the exact
-        product photo, or an owner-approved lifestyle photo with the people
-        you want shown. The workflow will not invent products or people.
+        product photo, or an owner-approved lifestyle photo. Product photos
+        keep the rental exact while the creative may add generic kids;
+        lifestyle photos preserve the actual people shown.
       </p>
 
       {canPreview ? (
@@ -75,4 +76,3 @@ export default function SourceImageField({ images, disabled = false }: Props) {
     </div>
   );
 }
-
