@@ -20,7 +20,7 @@ export function applyVisualRealismConstraints(input: {
   const peopleRule = input.assetKind === "lifestyle"
     ? "Use only the people already visible in the approved lifestyle source; do not add, remove, replace, or synthesize people."
     : input.assetKind === "product"
-      ? "Use the approved product source as the visual subject; do not add, remove, or synthesize children or adults."
+      ? "Use the approved product source as the exact visual subject. You may add only generic, non-identifiable children and supervising adults enjoying it safely; do not use recognizably real people, customer likenesses, or close-up faces."
       : null;
   return [
     input.prompt.trim(),
@@ -71,4 +71,3 @@ export function evaluateVisualRealismGate(input: {
   }
   return { allowed: findings.length === 0, findings };
 }
-
