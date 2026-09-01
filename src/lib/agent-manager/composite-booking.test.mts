@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 
 import { buildCompositeBookingDryRun, type CompositeBookingRequest } from "./composite-booking.ts";
 
@@ -84,4 +85,50 @@ test("corrections create a new idempotency identity and cancellation creates no 
   assert.equal(cancelled.status, "cancelled");
   assert.deepEqual(cancelled.projections, []);
   assert.equal(cancelled.writesAllowed, false);
+});
+
+test("property: replay, correction, cancellation, and conflicts remain deterministic", () => {
+  fc.assert(
+    fc.property(
+      fc.integer({ min: 0, max: 1_320 }),
+      fc.integer({ min: 15, max: 480 }),
+      fc.integer({ min: 0, max: 80 }),
+      fc.array(fc.stringMatching(/^[a-z0-9-]{1,24}$/), { minLength: 1, maxLength: 4 }),
+      (startMinutes, durationMinutes, distanceMiles, rawItemRefs) => {
+        const itemRefs = [...new Set(rawItemRefs)];
+        const request: CompositeBookingRequest = {
+          conversationRef: "property-safe-fixture",
+          revision: 1,
+          services: [{
+            kind: "rental",
+            date: "2027-06-12",
+            startMinutes,
+            durationMinutes,
+            itemRefs,
+            locationRef: "redacted-location-token",
+            distanceMiles,
+          }],
+        };
+        const first = buildCompositeBookingDryRun(request);
+        const replay = buildCompositeBookingDryRun(request);
+        const correction = buildCompositeBookingDryRun({ ...request, revision: 2 });
+        const cancellation = buildCompositeBookingDryRun({ ...request, cancelled: true });
+        const conflict = buildCompositeBookingDryRun(request, [{
+          resourceRef: `rental:${itemRefs[0]}`,
+          date: "2027-06-12",
+          startMinutes,
+          endMinutes: startMinutes + durationMinutes,
+        }]);
+
+        assert.deepEqual(replay, first);
+        assert.notEqual(correction.transactionKey, first.transactionKey);
+        assert.equal(cancellation.status, "cancelled");
+        assert.deepEqual(cancellation.projections, []);
+        assert.equal(conflict.status, "conflict");
+        assert.deepEqual(conflict.projections, []);
+        assert.equal(first.writesAllowed, false);
+      },
+    ),
+    { seed: 20_260_901, numRuns: 250 },
+  );
 });
