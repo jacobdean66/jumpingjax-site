@@ -516,7 +516,6 @@ export default function SocialPostsAdminClient({
             const compactImage =
               post.media_url ??
               post.approved_image_url ??
-              post.generated_image_url ??
               post.source_image_url;
 
             if (!detailMode) {

@@ -6,6 +6,7 @@ import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post
 import { buildSocialPostAdminRateLimitClientKey } from "@/lib/social-posts/social-post-admin-rate-limit-core";
 import {
   buildImageDirectorPrompt,
+  isInvitationArtworkCategory,
   normalizeImageStudioPresetValue,
 } from "@/lib/social-posts/image-director";
 import {
@@ -158,10 +159,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
         status: 422,
       });
     }
-    const mode = resolveImageGenerationMode({
-      mode: body.mode,
-      sourceImageUrl: resolvedSourceImageUrl,
-    });
+    const invitationArtwork = isInvitationArtworkCategory(category);
+    const mode = invitationArtwork
+      ? "generate"
+      : resolveImageGenerationMode({
+          mode: body.mode,
+          sourceImageUrl: resolvedSourceImageUrl,
+        });
+    const providerSourceImageUrl = invitationArtwork
+      ? null
+      : resolvedSourceImageUrl;
 
     fingerprint = buildImageConceptGenerationFingerprint({
       postId: id,
@@ -207,7 +214,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       const existing = post.image_concepts.find((item) => item.id === body.conceptId);
       const concept = await regenerateImageConcept({
         basePrompt: generationPrompt,
-        sourceImageUrl: resolvedSourceImageUrl,
+        sourceImageUrl: providerSourceImageUrl,
         conceptId: body.conceptId,
         mode,
         providerId: body.providerId ?? undefined,
@@ -291,7 +298,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const concepts = await startImageConceptGenerations({
       basePrompt: generationPrompt,
-      sourceImageUrl: resolvedSourceImageUrl,
+      sourceImageUrl: providerSourceImageUrl,
       mode,
       providerId: body.providerId ?? undefined,
     });

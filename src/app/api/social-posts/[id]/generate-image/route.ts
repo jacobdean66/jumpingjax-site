@@ -5,6 +5,7 @@ import { socialPostAdminSchemaGuardResponse } from "@/lib/social-posts/social-po
 import { socialPostAdminRateLimitResponse } from "@/lib/social-posts/social-post-admin-rate-limit";
 import {
   buildImageDirectorPrompt,
+  isInvitationArtworkCategory,
   normalizeImageStudioPresetValue,
 } from "@/lib/social-posts/image-director";
 import { resolveImageGenerationMode, startImageGeneration } from "@/lib/social-posts/image-engine";
@@ -186,10 +187,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
       placement: post.post_placement,
       formatVariantId: post.format_variant_id,
     });
-    const mode = resolveImageGenerationMode({
-      mode: body.mode,
-      sourceImageUrl: resolvedSourceImageUrl,
-    });
+    const invitationArtwork = isInvitationArtworkCategory(category);
+    const mode = invitationArtwork
+      ? "generate"
+      : resolveImageGenerationMode({
+          mode: body.mode,
+          sourceImageUrl: resolvedSourceImageUrl,
+        });
+    const providerSourceImageUrl = invitationArtwork
+      ? null
+      : resolvedSourceImageUrl;
 
     fingerprint = buildImageGenerationFingerprint({
       postId: id,
@@ -231,7 +238,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const result = await startImageGeneration({
       prompt: generationPrompt,
-      sourceImageUrl: resolvedSourceImageUrl,
+      sourceImageUrl: providerSourceImageUrl,
       mode,
       aspectRatio: mediaFormat.replicateAspectRatio,
     });

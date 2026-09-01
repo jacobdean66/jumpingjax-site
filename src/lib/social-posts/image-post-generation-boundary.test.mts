@@ -14,5 +14,7 @@ test("image posts can reach protected image generation routes", async () => {
     assert.match(source, /paidGenerationProtectionBlock/);
     assert.match(source, /complianceAllowsPaidGeneration/);
     assert.match(source, /resolveApprovedAssetContext/);
+    assert.match(source, /isInvitationArtworkCategory/);
+    assert.match(source, /providerSourceImageUrl/);
   }
 });
