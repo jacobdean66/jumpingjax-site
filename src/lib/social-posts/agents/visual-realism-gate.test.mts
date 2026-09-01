@@ -34,3 +34,20 @@ test("a vague scene fails before media generation", () => {
   assert.equal(result.allowed, false);
   assert.ok(result.findings.length >= 5);
 });
+
+test("asset kind prevents a product shot from becoming an invented lifestyle scene", () => {
+  const productPrompt = applyVisualRealismConstraints({
+    prompt: "Feature the selected water slide.",
+    hasReferenceAsset: true,
+    assetKind: "product",
+  });
+  const lifestylePrompt = applyVisualRealismConstraints({
+    prompt: "Feature the selected party photo.",
+    hasReferenceAsset: true,
+    assetKind: "lifestyle",
+  });
+
+  assert.match(productPrompt, /do not add, remove, or synthesize children or adults/i);
+  assert.match(lifestylePrompt, /use only the people already visible/i);
+});
+
