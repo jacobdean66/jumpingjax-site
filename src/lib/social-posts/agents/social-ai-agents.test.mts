@@ -364,6 +364,41 @@ test("image director agent accepts structured model direction once", async () =>
   assert.match(result.output.visualConcept, /waterslide/i);
 });
 
+test("image director agent rejects unsafe branded invitation-theme output", async () => {
+  const client = createScriptedLlmJsonClient(async (request) => ({
+    ok: true,
+    parsed: validImageDirection({
+      subject: "Indoor gamer-neon birthday party",
+      finalImageGenerationPrompt:
+        "Photorealistic indoor party inspired by Sonic, preserving the exact branding, with no distorted bodies.",
+    }),
+    rawText: "{}",
+    model: "test-model",
+    requestId: request.requestId ?? "req",
+    provider: "openai",
+    truncatedInput: false,
+    timedOut: false,
+  }));
+
+  const result = await runImageDirectorAgent(
+    {
+      originalSourceImageUrl:
+        "https://jumpingjaxllc.com/invitations/approved/sonic/card.png",
+      campaignName: "Birthday Parties",
+      postPrompt: "Gamer-neon indoor party",
+      sourceImageCategory: "Facility invitation themes",
+      imageStudioPreset: "birthday-party",
+    },
+    { client },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.diagnostics.source, "deterministic-fallback");
+  assert.doesNotMatch(result.output.finalImageGenerationPrompt, /sonic/i);
+  assert.doesNotMatch(result.output.finalImageGenerationPrompt, /exact inflatable/i);
+});
+
 test("video director request builder uses campaign/platform/duration context", () => {
   const payload = buildVideoDirectorAgentRequestPayload({
     originalPrompt: "Make a fun waterslide promo",

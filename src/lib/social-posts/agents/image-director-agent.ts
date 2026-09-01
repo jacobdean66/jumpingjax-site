@@ -1,5 +1,6 @@
 import {
   buildImageDirectorPrompt,
+  getImageDirectorSafetyWarnings,
   isInvitationArtworkCategory,
   normalizeImageStudioPresetValue,
   type ImageDirectorInput,
@@ -359,6 +360,40 @@ export async function runImageDirectorAgent(
         failureKind: "schema_failure",
       }),
     };
+  }
+
+  if (isInvitationArtworkCategory(input.sourceImageCategory)) {
+    const prompt = validated.direction.finalImageGenerationPrompt;
+    const warnings = getImageDirectorSafetyWarnings({
+      prompt,
+      sourceImageCategory: input.sourceImageCategory,
+      originalSourceImageUrl: input.originalSourceImageUrl,
+      imageStudioPreset: normalizeImageStudioPresetValue(
+        input.imageStudioPreset ?? input.imageDirectionPreset,
+      ),
+    });
+    const reintroducesProtectedTheme =
+      /\bsonic\b|character likeness|preserv\w*[^.]{0,80}\bbranding\b/i.test(
+        prompt,
+      );
+    if (warnings.length > 0 || reintroducesProtectedTheme) {
+      return {
+        ok: true,
+        output: fallback,
+        diagnostics: diagnosticsFrom({
+          source: "deterministic-fallback",
+          provider: "openai",
+          model: llm.model,
+          requestId: llm.requestId,
+          fallbackReason: reintroducesProtectedTheme
+            ? "Model reintroduced protected theme or branding language."
+            : `Model prompt failed image safety review: ${warnings[0]}`,
+          timedOut: false,
+          truncatedInput: llm.truncatedInput,
+          failureKind: "schema_failure",
+        }),
+      };
+    }
   }
 
   return {
