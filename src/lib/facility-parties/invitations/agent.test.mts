@@ -3,8 +3,19 @@ import test from "node:test";
 
 import {
   INVITATION_AGENT_ACTIONS,
+  INVITATION_AGENT_STANDARD,
   runInvitationAgent,
 } from "./agent.ts";
+
+test("approved invitation standard stays attached to the customer-requested theme", () => {
+  assert.deepEqual(INVITATION_AGENT_STANDARD, {
+    version: "light-ink-standard-v1",
+    themeSource: "customer-party-theme",
+    defaultPrintPaper: "letter",
+    exactFourBySixPaper: "legal",
+    cardsPerSheet: 4,
+  });
+});
 
 test("invitation specialist has all three asset libraries attached", () => {
   const result = runInvitationAgent({

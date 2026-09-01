@@ -1,5 +1,6 @@
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import { normalizeInvitationQuantity } from "@/lib/facility-parties/invitations";
+import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
 import type { InvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
 
 export type InvitationSheetPaper = "letter" | "legal";
@@ -40,7 +41,8 @@ export function InvitationSheet({
       data-invite-count={String(quantity)}
       data-print-layout={legal ? "legal-landscape-exact-4x6" : "letter-landscape-full-sheet"}
       data-invitation-format={legal ? "6x4-landscape" : "5.5x4.25-landscape"}
-      data-agent-print-treatment="ink-saver-preview-v1"
+      data-agent-print-treatment={INVITATION_AGENT_STANDARD.version}
+      data-agent-theme-source={INVITATION_AGENT_STANDARD.themeSource}
     >
       {!dense ? (
         <style>{`@media print {

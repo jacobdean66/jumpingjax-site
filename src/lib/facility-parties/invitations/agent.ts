@@ -21,6 +21,18 @@ export const INVITATION_AGENT_ACTIONS = [
   "print",
 ] as const;
 
+/**
+ * Approved Jumping Jax standard for every facility-party invitation.
+ * The customer party-theme field remains the creative source of truth.
+ */
+export const INVITATION_AGENT_STANDARD = {
+  version: "light-ink-standard-v1",
+  themeSource: "customer-party-theme",
+  defaultPrintPaper: "letter",
+  exactFourBySixPaper: "legal",
+  cardsPerSheet: 4,
+} as const;
+
 export type InvitationAgentAction =
   (typeof INVITATION_AGENT_ACTIONS)[number];
 

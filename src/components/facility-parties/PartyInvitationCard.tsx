@@ -4,6 +4,7 @@ import {
   agentPrintArtworkSrc,
   approvedArtworkSrc,
 } from "@/lib/facility-parties/invitations/approved-artwork";
+import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -229,7 +230,8 @@ function InkSaverSheetInvitation({
       data-invitation-size="ink-saver-sheet-cell"
       data-source-theme-treatment={treatmentId}
       data-theme-artwork-source="agent-light-treatment"
-      data-agent-print-treatment="ink-saver-preview-v1"
+      data-agent-print-treatment={INVITATION_AGENT_STANDARD.version}
+      data-agent-theme-source={INVITATION_AGENT_STANDARD.themeSource}
       className="relative h-full w-full overflow-hidden border border-slate-400 bg-[#fffef8] text-left text-slate-950"
       style={{ containerType: "inline-size" }}
     >

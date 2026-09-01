@@ -54,7 +54,8 @@ test("all three delivery option previews render distinct modes", () => {
   assert.equal(countMatches(printHtml, 'data-logo-treatment="light-print"'), 4);
   assert.equal(countMatches(printHtml, 'data-invitation-size="ink-saver-sheet-cell"'), 4);
   assert.equal(countMatches(printHtml, 'data-source-theme-treatment="speedster-blue"'), 4);
-  assert.equal(countMatches(printHtml, 'data-agent-print-treatment="ink-saver-preview-v1"'), 5);
+  assert.equal(countMatches(printHtml, 'data-agent-print-treatment="light-ink-standard-v1"'), 5);
+  assert.equal(countMatches(printHtml, 'data-agent-theme-source="customer-party-theme"'), 5);
   assert.equal(countMatches(printHtml, 'data-approved-theme-artwork="true"'), 0);
   assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
   assert.match(printHtml, /Milo/);
@@ -95,7 +96,7 @@ test("selecting a preference surfaces selected state without changing snapshot f
   assert.match(html, /turning 6/);
 });
 
-test("printable sheets default to a light-ink full Letter page", () => {
+test("printable sheets enforce the approved light-ink Letter standard", () => {
   const sheetHtml = renderToStaticMarkup(
     createElement(InvitationSheet, {
       ...formFields,
@@ -105,6 +106,8 @@ test("printable sheets default to a light-ink full Letter page", () => {
     }),
   );
   assert.match(sheetHtml, /data-print-layout="letter-landscape-full-sheet"/);
+  assert.match(sheetHtml, /data-agent-print-treatment="light-ink-standard-v1"/);
+  assert.match(sheetHtml, /data-agent-theme-source="customer-party-theme"/);
   assert.match(sheetHtml, /data-invitation-format="5.5x4.25-landscape"/);
   assert.match(sheetHtml, /size: 11in 8\.5in/);
   assert.match(sheetHtml, /data-invite-count="12"/);

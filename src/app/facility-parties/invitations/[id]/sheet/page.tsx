@@ -32,7 +32,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-700">
-            Light-ink invitation print test
+            Printable birthday invitations
           </p>
           <p className="mt-1 text-sm font-bold text-slate-700">
             {paperSize === "legal"
@@ -61,7 +61,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
             Download invitations now
           </Link>
           <PrintButton
-            label={paperSize === "legal" ? "Print Legal test" : "Print Letter test"}
+            label={paperSize === "legal" ? "Print Legal sheet" : "Print Letter sheet"}
             invitation={{
               sourceText: agentResult.snapshot.sourceText,
               optionIndex: agentResult.snapshot.optionIndex,
