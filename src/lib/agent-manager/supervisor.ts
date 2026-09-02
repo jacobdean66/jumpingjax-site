@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { AgentJob } from "./types";
+import type { AgentWiring } from "./agent-wiring";
 
 export const SUPERVISOR_CHAT_JOB_TYPE = "supervisor.chat";
 export const SUPERVISOR_WATCH_JOB_TYPE = "system.website_watch";
@@ -41,8 +42,15 @@ export type SupervisorSnapshot = {
     failedCalls: number | null;
   };
   security: Array<{ name: string; state: string; summary: string }>;
+  wiring: AgentWiring[];
   dataErrors: string[];
   issues: SupervisorIssue[];
+};
+
+export type SupervisorRelatedAction = {
+  label: string;
+  href: string;
+  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center";
 };
 
 export type SupervisorControl =
@@ -69,6 +77,45 @@ function normalizedMessage(message: string) {
   return message.trim().toLowerCase().replace(/[.!?]+$/, "").replace(/\s+/g, " ");
 }
 
+const SOCIAL_REQUEST_WORDS = /\b(social|ad|advert|advertisement|post|promo|campaign|caption|creative)\b/i;
+const SOCIAL_STOP_WORDS = new Set([
+  "about", "advert", "advertisement", "agent", "campaign", "create", "draft", "make", "please",
+  "post", "promo", "social", "something", "that", "themed", "this", "with", "your",
+]);
+
+export function isSocialCreationRequest(message: string): boolean {
+  const normalized = normalizedMessage(message);
+  return SOCIAL_REQUEST_WORDS.test(normalized) && /\b(create|make|build|draft|prepare|write|design)\b/.test(normalized);
+}
+
+export function socialRequestKeywords(message: string): string[] {
+  return Array.from(new Set(normalizedMessage(message)
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.replace(/^-+|-+$/g, ""))
+    .filter((word) => word.length >= 4 && !SOCIAL_STOP_WORDS.has(word))))
+    .slice(0, 8);
+}
+
+export function extractSocialTheme(message: string): string {
+  const normalized = normalizedMessage(message);
+  const match = normalized.match(/(?:create|make|build|draft|prepare)(?: me)?\s+(?:an?\s+)?(.+?)\s+(?:themed\s+)?(?:ad|advertisement|post|promo|campaign)\b/);
+  if (!match) return "";
+  return match[1]
+    .replace(/\b(?:social|themed|seasonal)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+export function socialDraftMatchScore(message: string, candidateText: string): number {
+  const searchable = candidateText.toLowerCase();
+  return socialRequestKeywords(message).reduce(
+    (score, keyword) => score + (searchable.includes(keyword) ? 1 : 0),
+    0,
+  );
+}
+
 export function validateSupervisorMessage(value: unknown): string {
   if (typeof value !== "string") throw new Error("Enter a message for the Permanent Agent.");
   const message = value.trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
@@ -80,6 +127,13 @@ export function validateSupervisorMessage(value: unknown): string {
   return message;
 }
 
+export function validateSupervisorRequestId(value: unknown): string {
+  if (typeof value !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(value)) {
+    throw new Error("Permanent Agent request identity is invalid.");
+  }
+  return value;
+}
+
 export function parseSupervisorControl(message: string): SupervisorControl | null {
   const normalized = normalizedMessage(message);
   if (normalized === "emergency stop" || normalized === "stop all agents") return { kind: "emergency_stop" };
@@ -88,7 +142,7 @@ export function parseSupervisorControl(message: string): SupervisorControl | nul
   if (normalized === "run booking follow-up scan" || normalized === "scan booking follow ups") return { kind: "booking_follow_up_scan" };
   if (normalized === "run waiver scan" || normalized === "scan waiver issues") return { kind: "waiver_scan" };
 
-  const match = normalized.match(/^(pause|resume) (?:the )?(booking|waiver|nomination|party|invitation|social|coding|health|security)(?: agent)?$/);
+  const match = normalized.match(/^(pause|resume) (?:the )?(booking|waiver|social)(?: agent)?$/);
   if (!match) return null;
   const target = AGENT_ALIASES[match[2]];
   return {
@@ -112,6 +166,10 @@ export function buildSupervisorIssues(snapshot: Omit<SupervisorSnapshot, "issues
   if (snapshot.agents.errors > 0) issues.push({ code: "agents:error", area: "agents", severity: "critical", summary: `${snapshot.agents.errors} agent${snapshot.agents.errors === 1 ? " is" : "s are"} in an error state.` });
   if (snapshot.agents.failedJobs > 0) issues.push({ code: "agents:failed-jobs", area: "agents", severity: "warning", summary: `${snapshot.agents.failedJobs} recent Agent Manager job${snapshot.agents.failedJobs === 1 ? " has" : "s have"} failed.` });
   if (snapshot.agents.approvalsWaiting > 0) issues.push({ code: "agents:approvals", area: "agents", severity: "info", summary: `${snapshot.agents.approvalsWaiting} owner approval${snapshot.agents.approvalsWaiting === 1 ? " is" : "s are"} waiting.` });
+  for (const wiring of snapshot.wiring) {
+    if (wiring.state === "not_connected") issues.push({ code: `agents:${wiring.key}:not-connected`, area: "agents", severity: "warning", summary: `${wiring.key === "coding" ? "Coding Agent" : wiring.key} is not connected to a working handler.` });
+    if (wiring.state === "setup_required") issues.push({ code: `agents:${wiring.key}:setup-required`, area: "agents", severity: "warning", summary: `${wiring.key === "nomination" ? "Nomination Agent" : wiring.key} still requires its production connection.` });
+  }
   if ((snapshot.bookings.workflowIssues ?? 0) > 0) issues.push({ code: "bookings:workflow", area: "bookings", severity: "warning", summary: `${snapshot.bookings.workflowIssues} booking integration workflow${snapshot.bookings.workflowIssues === 1 ? " needs" : "s need"} review.` });
   if ((snapshot.answeringMachine.failedCalls ?? 0) > 0) issues.push({ code: "answering-machine:failed", area: "answering_machine", severity: "warning", summary: `${snapshot.answeringMachine.failedCalls} answering-machine call${snapshot.answeringMachine.failedCalls === 1 ? " has" : "s have"} failed.` });
   if ((snapshot.answeringMachine.pendingReview ?? 0) > 0) issues.push({ code: "answering-machine:review", area: "answering_machine", severity: "info", summary: `${snapshot.answeringMachine.pendingReview} captured call${snapshot.answeringMachine.pendingReview === 1 ? " is" : "s are"} waiting for owner review.` });
@@ -155,12 +213,27 @@ function securityReply(snapshot: SupervisorSnapshot) {
   return `Code and security: ${snapshot.security.map((service) => `${service.name} is ${service.state} — ${service.summary}`).join(" ")}`;
 }
 
+function socialReply(snapshot: SupervisorSnapshot) {
+  const social = snapshot.wiring.find((item) => item.key === "social");
+  return `Social Agent: ${social?.summary ?? "status unavailable"} I will route ad, post, promo, campaign, and social-content requests here before interpreting rental or party keywords.`;
+}
+
+function specialistReply(key: string, snapshot: SupervisorSnapshot) {
+  const wiring = snapshot.wiring.find((item) => item.key === key);
+  if (!wiring) return "That specialist's connection status is unavailable.";
+  return `${wiring.handler}: ${wiring.summary} Trigger: ${wiring.trigger}.`;
+}
+
 export function buildSupervisorReply(message: string, snapshot: SupervisorSnapshot, actionOutcome?: string | null) {
   const normalized = normalizedMessage(message);
   const prefix = actionOutcome ? `${actionOutcome} ` : "";
   if (/\b(help|commands|what can you do)\b/.test(normalized)) {
-    return `${prefix}I can check the whole website, bookings, rentals, agents, the answering machine, and code/security health. Exact safe controls include “pause booking agent,” “resume booking agent,” “run booking scan,” “run booking follow-up scan,” “run waiver scan,” “emergency stop,” and “release emergency stop.” Production code, content, customer messages, calendar writes, payments, deletions, and deployments stay approval-gated.`;
+    return `${prefix}I can check the whole website, bookings, rentals, agents, the answering machine, social drafts, invitations, nominations, and code/security health. Exact safe controls include “pause booking agent,” “resume booking agent,” “run booking scan,” “run booking follow-up scan,” “run waiver scan,” “emergency stop,” and “release emergency stop.” Production code, publishing, customer messages, calendar writes, payments, deletions, and deployments stay approval-gated.`;
   }
+  if (/\b(social|ad|advert|post|promo|campaign|caption|creative)\b/.test(normalized)) return `${prefix}${socialReply(snapshot)}`;
+  if (/\b(waiver|signature|signed document)\b/.test(normalized)) return `${prefix}${specialistReply("waiver", snapshot)}`;
+  if (/\b(nomination|nominee|giveaway)\b/.test(normalized)) return `${prefix}${specialistReply("nomination", snapshot)}`;
+  if (/\b(invitation|invite|party theme)\b/.test(normalized)) return `${prefix}${specialistReply("party-invitation", snapshot)}`;
   if (/\b(bookings?|calendar|party|parties)\b/.test(normalized)) return `${prefix}${bookingReply(snapshot)}`;
   if (/\b(rental|inventory|inflatable|foam)\b/.test(normalized)) return `${prefix}Rentals: ${snapshot.rentals.catalogItems} catalog items and ${snapshot.bookings.activeRentals ?? "unknown"} active rental bookings are visible to the supervisor. ${snapshot.bookings.workflowIssues ?? "unknown"} booking workflow issues currently need review. No rental availability or booking record was changed.`;
   if (/\b(code|coding|security|broken|bug|deploy)\b/.test(normalized)) return `${prefix}${securityReply(snapshot)} ${issueSummary(snapshot)} I can diagnose and prepare a reviewed fix, but production code and deployment remain approval-gated.`;
@@ -190,5 +263,15 @@ export function supervisorJobMessage(job: Pick<AgentJob, "payload" | "result_sum
     question: message.slice(0, 800),
     reply: job.result_summary.slice(0, 4000),
     createdAt: job.created_at,
+    relatedAction: parseRelatedAction(job.payload.relatedAction),
   };
+}
+
+function parseRelatedAction(value: unknown): SupervisorRelatedAction | null {
+  if (!value || typeof value !== "object") return null;
+  const action = value as Partial<SupervisorRelatedAction>;
+  if (typeof action.label !== "string" || typeof action.href !== "string") return null;
+  if (!action.href.startsWith("/admin/")) return null;
+  if (!action.kind || !["existing_social_draft", "new_social_draft", "answering_machine", "security_center"].includes(action.kind)) return null;
+  return { label: action.label.slice(0, 120), href: action.href.slice(0, 500), kind: action.kind };
 }
