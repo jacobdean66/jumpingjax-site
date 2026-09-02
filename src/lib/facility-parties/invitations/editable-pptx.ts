@@ -2,7 +2,8 @@ import path from "node:path";
 
 import PptxGenJS from "pptxgenjs";
 
-import { approvedArtworkSrc } from "./approved-artwork";
+import { agentPrintArtworkSrc, approvedArtworkSrc } from "./approved-artwork";
+import { INVITATION_AGENT_STANDARD } from "./agent";
 import { buildInvitationCopy } from "./content";
 import { composeLibraryInvitation } from "./library/compose";
 import { normalizeInvitationQuantity } from "../invitations";
@@ -24,7 +25,7 @@ export type EditableInvitationPptxInput = {
 
 const PAGE_WIDTH = 11;
 const PAGE_HEIGHT = 8.5;
-const PRINT_SAFE_MARGIN = 0.25;
+const PRINT_SAFE_MARGIN = INVITATION_AGENT_STANDARD.printSafeMarginInches;
 const INVITE_WIDTH = (PAGE_WIDTH - PRINT_SAFE_MARGIN * 2) / 2;
 const INVITE_HEIGHT = (PAGE_HEIGHT - PRINT_SAFE_MARGIN * 2) / 2;
 
@@ -64,13 +65,11 @@ function addInvitation(
     artworkVariant: input.snapshot.artworkVariant,
     colorHint: input.snapshot.colorHint,
   });
-  const artworkSrc = approvedArtworkSrc(
-    input.snapshot.themeId,
-    input.snapshot.sourceText,
-  );
+  const artworkSrc =
+    agentPrintArtworkSrc(input.snapshot.themeId, input.snapshot.sourceText) ??
+    approvedArtworkSrc(input.snapshot.themeId, input.snapshot.sourceText);
   const artworkPath = artworkSrc ? publicAssetPath(artworkSrc) : null;
-  const fullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
-  const background = pptxColor(composed.palette.background, "071326");
+  const background = "FFFEF8";
   const accent = pptxColor(composed.palette.accent, "22D3EE");
   const copy = buildInvitationCopy({
     childName: input.childName,
@@ -91,25 +90,14 @@ function addInvitation(
   });
 
   if (artworkPath) {
-    if (fullBleed) {
-      slide.addImage({
-        path: artworkPath,
-        x,
-        y,
-        w: INVITE_WIDTH,
-        h: INVITE_HEIGHT,
-        sizing: { type: "cover", w: INVITE_WIDTH, h: INVITE_HEIGHT },
-      });
-    } else {
-      slide.addImage({
-        path: artworkPath,
-        x: x + 2.95,
-        y: y + 0.18,
-        w: 2.15,
-        h: 2.05,
-        sizing: { type: "contain", w: 2.15, h: 2.05 },
-      });
-    }
+    slide.addImage({
+      path: artworkPath,
+      x: x + 2.7,
+      y: y + 0.08,
+      w: 2.65,
+      h: 2.35,
+      sizing: { type: "contain", w: 2.65, h: 2.35 },
+    });
   }
 
   slide.addShape(pptx.ShapeType.rect, {
@@ -117,8 +105,8 @@ function addInvitation(
     y: y + 2.05,
     w: INVITE_WIDTH,
     h: INVITE_HEIGHT - 2.05,
-    line: { color: "000000", transparency: 100 },
-    fill: { color: "000000", transparency: 18 },
+    line: { color: "FFFFFF", transparency: 100 },
+    fill: { color: "FFFFFF", transparency: 100 },
   });
   slide.addShape(pptx.ShapeType.roundRect, {
     x: x + 0.22,
@@ -126,8 +114,8 @@ function addInvitation(
     w: 3.72,
     h: 0.96,
     rectRadius: 0.06,
-    line: { color: accent, transparency: 15, width: 1.2 },
-    fill: { color: "000000", transparency: 12 },
+    line: { color: "FFFFFF", transparency: 100 },
+    fill: { color: "FFFFFF", transparency: 100 },
   });
   slide.addText(copy.childName, {
     x: x + 0.36,
@@ -135,7 +123,7 @@ function addInvitation(
     w: 3.4,
     h: 0.36,
     margin: 0,
-    color: "FFFFFF",
+    color: "111827",
     fontFace: "Aptos Display",
     fontSize: 23,
     bold: true,
@@ -152,7 +140,7 @@ function addInvitation(
       w: 3.4,
       h: 0.24,
       margin: 0,
-      color: "FFFFFF",
+      color: accent,
       fontFace: "Aptos",
       fontSize: 13,
       bold: true,
@@ -167,7 +155,7 @@ function addInvitation(
     w: 3.75,
     h: 0.28,
     margin: 0,
-    color: "FFFFFF",
+    color: "1F2937",
     fontFace: "Aptos",
     fontSize: 13,
     bold: true,
@@ -179,7 +167,7 @@ function addInvitation(
     w: 3.7,
     h: 0.3,
     margin: 0,
-    color: "FFFFFF",
+    color: "111827",
     fontFace: "Aptos",
     fontSize: 15,
     bold: true,
@@ -191,7 +179,7 @@ function addInvitation(
     w: 3.7,
     h: 0.28,
     margin: 0,
-    color: "FFFFFF",
+    color: "111827",
     fontFace: "Aptos",
     fontSize: 14,
     bold: true,
@@ -203,7 +191,7 @@ function addInvitation(
     w: 3.62,
     h: 0.7,
     margin: 0,
-    color: "FFFFFF",
+    color: "1F2937",
     fontFace: "Aptos",
     fontSize: 10.5,
     bold: true,
@@ -219,7 +207,7 @@ function addInvitation(
       h: 0.2,
       margin: 0,
       align: "center",
-      color: "FFFFFF",
+      color: "111827",
       fontFace: "Aptos",
       fontSize: 8,
       bold: true,
@@ -279,20 +267,6 @@ export async function buildEditableInvitationPptx(
       PRINT_SAFE_MARGIN + INVITE_HEIGHT,
       qrData,
     );
-    slide.addShape(pptx.ShapeType.line, {
-      x: PAGE_WIDTH / 2,
-      y: PRINT_SAFE_MARGIN,
-      w: 0,
-      h: PAGE_HEIGHT - PRINT_SAFE_MARGIN * 2,
-      line: { color: "4B5563", width: 1, dashType: "dash" },
-    });
-    slide.addShape(pptx.ShapeType.line, {
-      x: PRINT_SAFE_MARGIN,
-      y: PAGE_HEIGHT / 2,
-      w: PAGE_WIDTH - PRINT_SAFE_MARGIN * 2,
-      h: 0,
-      line: { color: "4B5563", width: 1, dashType: "dash" },
-    });
     slide.addNotes(
       "[Sources]\n- Theme artwork: Jumping Jax approved local invitation asset.\n- Booking details: Jumping Jax facility booking record.",
     );

@@ -26,11 +26,14 @@ export const INVITATION_AGENT_ACTIONS = [
  * The customer party-theme field remains the creative source of truth.
  */
 export const INVITATION_AGENT_STANDARD = {
-  version: "light-ink-standard-v1",
+  version: "light-ink-full-page-borderless-v3",
   themeSource: "customer-party-theme",
   defaultPrintPaper: "letter",
   exactFourBySixPaper: "legal",
   cardsPerSheet: 4,
+  inkSaver: true,
+  printSafeMarginInches: 0,
+  showCutLines: false,
 } as const;
 
 export type InvitationAgentAction =

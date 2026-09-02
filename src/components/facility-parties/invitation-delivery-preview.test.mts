@@ -82,7 +82,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.equal(countMatches(printHtml, 'data-logo-treatment="light-print"'), 4);
   assert.equal(countMatches(printHtml, 'data-invitation-size="ink-saver-sheet-cell"'), 4);
   assert.equal(countMatches(printHtml, 'data-source-theme-treatment="speedster-blue"'), 4);
-  assert.equal(countMatches(printHtml, 'data-agent-print-treatment="light-ink-standard-v1"'), 5);
+  assert.equal(countMatches(printHtml, 'data-agent-print-treatment="light-ink-full-page-borderless-v3"'), 5);
   assert.equal(countMatches(printHtml, 'data-agent-theme-source="customer-party-theme"'), 5);
   assert.equal(countMatches(printHtml, 'data-approved-theme-artwork="true"'), 0);
   assert.equal(countMatches(printHtml, 'src="\/logo.png"'), 4);
@@ -134,11 +134,15 @@ test("printable sheets enforce the approved light-ink Letter standard", () => {
       invitationQuantity: 12,
     }),
   );
-  assert.match(sheetHtml, /data-print-layout="letter-landscape-full-sheet"/);
-  assert.match(sheetHtml, /data-agent-print-treatment="light-ink-standard-v1"/);
+  assert.match(sheetHtml, /data-print-layout="letter-landscape-full-page"/);
+  assert.match(sheetHtml, /data-agent-print-treatment="light-ink-full-page-borderless-v3"/);
   assert.match(sheetHtml, /data-agent-theme-source="customer-party-theme"/);
   assert.match(sheetHtml, /data-invitation-format="5.5x4.25-landscape"/);
+  assert.match(sheetHtml, /data-print-safe-margin="0in"/);
+  assert.match(sheetHtml, /data-cut-lines="false"/);
   assert.match(sheetHtml, /size: 11in 8\.5in/);
+  assert.match(sheetHtml, /width: 11in !important/);
+  assert.match(sheetHtml, /height: 8.5in !important/);
   assert.match(sheetHtml, /data-invite-count="12"/);
   assert.equal(countMatches(sheetHtml, "data-print-page="), 3);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 12);
@@ -184,7 +188,7 @@ test("princess sheets use the royal portrait design and fill all of Letter paper
     }),
   );
 
-  assert.match(html, /data-print-layout="letter-portrait-full-bleed"/);
+  assert.match(html, /data-print-layout="letter-portrait-full-page"/);
   assert.match(html, /data-invitation-format="4.25x5.5-portrait"/);
   assert.match(html, /size: 8.5in 11in/);
   assert.match(html, /width: 8.5in !important/);
@@ -206,7 +210,7 @@ test("racing cars sheets use matching wording and four full-bleed portrait cards
     }),
   );
 
-  assert.match(html, /data-print-layout="letter-portrait-full-bleed"/);
+  assert.match(html, /data-print-layout="letter-portrait-full-page"/);
   assert.match(html, /data-invitation-format="4.25x5.5-portrait"/);
   assert.equal(countMatches(html, 'data-layout="racing-portrait"'), 4);
   assert.equal(countMatches(html, "You&#x27;re invited to a high-octane celebration"), 4);
@@ -232,6 +236,8 @@ test("admin print container removes dashboard padding around Letter sheets", () 
   assert.match(html, /align-items: center !important/);
   assert.match(html, /justify-content: center !important/);
   assert.match(html, /height: 8.5in !important/);
+  assert.match(html, /data-cut-lines="false"/);
+  assert.doesNotMatch(html, /border-dashed/);
   assert.match(html, /print-color-adjust: exact !important/);
   assert.equal(countMatches(html, "data-print-page="), 1);
 });

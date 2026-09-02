@@ -36,17 +36,20 @@ export function InvitationSheet({
   const portrait = snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars";
   const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
   const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
-  const canvasWidth = portrait ? pageWidth : legal ? 12 : 11;
-  const canvasHeight = portrait ? pageHeight : legal ? 8 : 8.5;
+  const safeMargin = INVITATION_AGENT_STANDARD.printSafeMarginInches;
+  const canvasWidth = legal && !portrait ? 12 : pageWidth - safeMargin * 2;
+  const canvasHeight = legal && !portrait ? 8 : pageHeight - safeMargin * 2;
 
   return (
     <div
       className={dense ? "w-full" : "invitation-print-document grid gap-6 print:block"}
       data-invite-count={String(quantity)}
-      data-print-layout={portrait ? `${paperSize}-portrait-full-bleed` : legal ? "legal-landscape-exact-4x6" : "letter-landscape-full-sheet"}
-      data-invitation-format={portrait ? `${pageWidth / 2}x${pageHeight / 2}-portrait` : legal ? "6x4-landscape" : "5.5x4.25-landscape"}
+      data-print-layout={portrait ? `${paperSize}-portrait-full-page` : legal ? "legal-landscape-exact-4x6" : "letter-landscape-full-page"}
+      data-invitation-format={portrait ? `${canvasWidth / 2}x${canvasHeight / 2}-portrait` : legal ? "6x4-landscape" : "5.5x4.25-landscape"}
       data-agent-print-treatment={INVITATION_AGENT_STANDARD.version}
       data-agent-theme-source={INVITATION_AGENT_STANDARD.themeSource}
+      data-print-safe-margin={`${safeMargin}in`}
+      data-cut-lines={INVITATION_AGENT_STANDARD.showCutLines ? "true" : "false"}
     >
       {!dense ? (
         <style>{`@media print {
@@ -115,8 +118,12 @@ export function InvitationSheet({
               height: `${(canvasHeight / pageHeight) * 100}%`,
             }}
           >
-            <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
+            {INVITATION_AGENT_STANDARD.showCutLines ? (
+              <>
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
+              </>
+            ) : null}
             <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0">
               {Array.from({ length: 4 }, (_, index) => (
                 <div

@@ -35,7 +35,10 @@ test("editable invitation download creates four editable invites per letter slid
   assert.equal((firstSlide.match(/Jumping Jax/g) ?? []).length, 4);
   assert.equal((firstSlide.match(/864-933-1420/g) ?? []).length, 4);
   assert.equal((firstSlide.match(/Party contact: 864-555-0100/g) ?? []).length, 4);
-  assert.match(firstSlide, /x="228600" y="228600"/);
+  assert.match(firstSlide, /x="0" y="0"/);
+  assert.equal((firstSlide.match(/val="dash"/g) ?? []).length, 0);
+  assert.ok((firstSlide.match(/FFFEF8/g) ?? []).length >= 4);
+  assert.equal((firstSlide.match(/solidFill><a:srgbClr val="111827"/g) ?? []).length >= 4, true);
 });
 
 test("editable invitation filename is safe and recognizable", () => {

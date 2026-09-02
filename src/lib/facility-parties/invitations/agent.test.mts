@@ -9,11 +9,14 @@ import {
 
 test("approved invitation standard stays attached to the customer-requested theme", () => {
   assert.deepEqual(INVITATION_AGENT_STANDARD, {
-    version: "light-ink-standard-v1",
+    version: "light-ink-full-page-borderless-v3",
     themeSource: "customer-party-theme",
     defaultPrintPaper: "letter",
     exactFourBySixPaper: "legal",
     cardsPerSheet: 4,
+    inkSaver: true,
+    printSafeMarginInches: 0,
+    showCutLines: false,
   });
 });
 
