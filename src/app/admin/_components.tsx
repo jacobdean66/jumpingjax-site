@@ -78,6 +78,7 @@ export function AdminNav({
   active?:
     | "home"
     | "rentals"
+    | "invoices"
     | "facility"
     | "schedule"
     | "deliveries"
@@ -115,6 +116,12 @@ export function AdminNav({
       id: "rentals" as const,
       label: "Rentals",
       href: `/admin/rentals${query}`,
+      prominent: true,
+    },
+    {
+      id: "invoices" as const,
+      label: "Invoices",
+      href: `/admin/invoices${query}`,
       prominent: true,
     },
     {

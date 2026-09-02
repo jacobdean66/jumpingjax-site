@@ -26,6 +26,7 @@ import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityCancellationButton } from "./FacilityCancellationButton";
 import { FacilityEditButton } from "./FacilityEditButton";
 import { FacilityRestoreButton } from "./FacilityRestoreButton";
+import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
 import { FacilityAgreementPanel } from "./FacilityAgreementPanel";
 
 export const dynamic = "force-dynamic";
@@ -116,6 +117,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
+          <BookingInvoiceButton kind="facility" bookingId={booking.id} />
           {canMutate && (
             <>
               <FacilityEditButton booking={booking} />
