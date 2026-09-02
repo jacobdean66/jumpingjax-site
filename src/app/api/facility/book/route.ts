@@ -561,6 +561,7 @@ export async function POST(req: NextRequest) {
       const invitationEmailSection = buildCustomerInvitationEmailSection({
         childName: String(child_name).trim(),
         childAge: String(child_age).trim(),
+        customerPhone: String(phone).trim(),
         dateLabel: storedReadableDate,
         timeLabel: storedReadableTime,
         themeText: String(party_theme ?? "").trim(),
@@ -599,6 +600,7 @@ export async function POST(req: NextRequest) {
         plainText: customerEmailText,
         childName: String(child_name).trim(),
         childAge: String(child_age).trim(),
+        customerPhone: String(phone).trim(),
         dateLabel: storedReadableDate,
         timeLabel: storedReadableTime,
         themeText: String(party_theme ?? "").trim(),

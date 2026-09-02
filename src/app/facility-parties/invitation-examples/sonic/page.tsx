@@ -36,6 +36,7 @@ export default function SonicInvitationExamplePage() {
           snapshot={snapshot}
           childName={SONIC_SAMPLE_INVITATION.childName}
           childAge={SONIC_SAMPLE_INVITATION.childAge}
+          customerPhone={SONIC_SAMPLE_INVITATION.customerPhone}
           dateLabel={SONIC_SAMPLE_INVITATION.dateLabel}
           timeLabel={SONIC_SAMPLE_INVITATION.timeLabel}
         />
@@ -43,7 +44,7 @@ export default function SonicInvitationExamplePage() {
           Sample booking (not saved to the calendar): {SONIC_SAMPLE_INVITATION.childName}{" "}
           turning {SONIC_SAMPLE_INVITATION.childAge}, {SONIC_SAMPLE_INVITATION.dateLabel},{" "}
           {SONIC_SAMPLE_INVITATION.timeLabel}, {FACILITY_INVITATION_VENUE.name},{" "}
-          {FACILITY_INVITATION_VENUE.address}, theme {SONIC_SAMPLE_INVITATION.customerTheme}.
+          {FACILITY_INVITATION_VENUE.address}, {FACILITY_INVITATION_VENUE.phone}, party contact {SONIC_SAMPLE_INVITATION.customerPhone}, theme {SONIC_SAMPLE_INVITATION.customerTheme}.
         </p>
       </section>
     </main>

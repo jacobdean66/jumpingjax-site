@@ -44,6 +44,7 @@ export default async function PrincessInvitationSheetExamplePage({
         snapshot={snapshot}
         childName={PRINCESS_SAMPLE.childName}
         childAge={PRINCESS_SAMPLE.childAge}
+        customerPhone={PRINCESS_SAMPLE.customerPhone}
         dateLabel={PRINCESS_SAMPLE.dateLabel}
         timeLabel={PRINCESS_SAMPLE.timeLabel}
         paperSize={paperSize}

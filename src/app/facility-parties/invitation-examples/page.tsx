@@ -34,6 +34,7 @@ export default function PublicInvitationExamplesPage() {
                   snapshot={snapshot}
                   childName={example.childName}
                   childAge={example.childAge}
+                  customerPhone={example.customerPhone}
                   dateLabel={example.dateLabel}
                   timeLabel={example.timeLabel}
                 />

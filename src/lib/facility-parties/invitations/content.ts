@@ -3,6 +3,7 @@ import { FACILITY_INVITATION_VENUE } from "./snapshot";
 export type InvitationCopyInput = {
   childName?: string | null;
   childAge?: string | null;
+  customerPhone?: string | null;
   dateLabel?: string | null;
   timeLabel?: string | null;
   themeText?: string | null;
@@ -19,6 +20,7 @@ export type InvitationCopy = {
   dateLabel: string;
   timeLabel: string;
   venueLine: string;
+  customerPhone: string;
 };
 
 function clean(value: string | null | undefined): string {
@@ -76,7 +78,8 @@ export function buildInvitationCopy(input: InvitationCopyInput): InvitationCopy 
         : `A ${theme} birthday celebration`,
     dateLabel: clean(input.dateLabel) || "Date coming soon",
     timeLabel: clean(input.timeLabel) || "Time coming soon",
-    venueLine: `${FACILITY_INVITATION_VENUE.name} - ${FACILITY_INVITATION_VENUE.address}`,
+    venueLine: `${FACILITY_INVITATION_VENUE.name} - ${FACILITY_INVITATION_VENUE.address} - ${FACILITY_INVITATION_VENUE.phone}`,
+    customerPhone: clean(input.customerPhone),
   };
 }
 
@@ -95,6 +98,7 @@ export function buildInvitationEmailDraft(input: InvitationCopyInput): {
     `Date: ${copy.dateLabel}`,
     `Time: ${copy.timeLabel}`,
     `Location: ${copy.venueLine}`,
+    copy.customerPhone ? `Party contact: ${copy.customerPhone}` : null,
     "",
     input.invitationUrl ? `View the invitation: ${clean(input.invitationUrl)}` : null,
     input.printableUrl ? `Download or print invitations: ${clean(input.printableUrl)}` : null,
@@ -121,6 +125,7 @@ export function buildCustomerInvitationEmailSection(
     `Date: ${copy.dateLabel}`,
     `Time: ${copy.timeLabel}`,
     `Location: ${copy.venueLine}`,
+    copy.customerPhone ? `Party contact: ${copy.customerPhone}` : "",
     input.invitationUrl ? `View and share invitation: ${clean(input.invitationUrl)}` : "",
     input.printableUrl ? `Printable invitations: ${clean(input.printableUrl)}` : "",
     input.waiverUrl ? `Guest RSVP and waiver: ${clean(input.waiverUrl)}` : "",

@@ -7,6 +7,7 @@ type InvitationPreviewMode = "single" | "sheet";
 
 export type FacilityInvitationPreviewProps = {
   childName: string;
+  customerPhone?: string;
   partyTheme: string;
   readableDate: string;
   readableTime: string;
@@ -20,6 +21,7 @@ export type FacilityInvitationPreviewProps = {
 
 export function FacilityInvitationPreview({
   childName,
+  customerPhone,
   partyTheme,
   readableDate,
   readableTime,
@@ -40,6 +42,7 @@ export function FacilityInvitationPreview({
         snapshot={snapshot}
         childName={childName}
         childAge=""
+        customerPhone={customerPhone}
         dateLabel={readableDate}
         timeLabel={readableTime}
         compact={mode === "sheet"}

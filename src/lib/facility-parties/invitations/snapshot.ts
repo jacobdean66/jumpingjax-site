@@ -21,6 +21,7 @@ export type InvitationSnapshot = InvitationMatch & {
 export const FACILITY_INVITATION_VENUE = {
   name: "Jumping Jax",
   address: "559 Beaudrot Rd, Greenwood, SC",
+  phone: "864-933-1420",
 } as const;
 
 export {

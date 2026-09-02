@@ -24,6 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const copy = buildInvitationCopy({
     childName: view.childName,
     childAge: view.childAge,
+    customerPhone: view.customerPhone,
     dateLabel: view.dateLabel,
     timeLabel: view.timeLabel,
     themeText: view.snapshot.sourceText,
@@ -54,6 +55,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
   const copy = buildInvitationCopy({
     childName: view.childName,
     childAge: view.childAge,
+    customerPhone: view.customerPhone,
     dateLabel: view.dateLabel,
     timeLabel: view.timeLabel,
     themeText: agentResult.snapshot.sourceText,
@@ -110,6 +112,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
           snapshot={agentResult.snapshot}
           childName={view.childName}
           childAge={view.childAge}
+          customerPhone={view.customerPhone}
           dateLabel={view.dateLabel}
           timeLabel={view.timeLabel}
           qrUrl={view.qrUrl}

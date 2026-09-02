@@ -15,6 +15,7 @@ const formFields = {
   snapshot,
   childName: "Milo",
   childAge: "6",
+  customerPhone: "864-555-0100",
   dateLabel: "Friday, Oct 3",
   timeLabel: "4:00 PM - 5:30 PM",
 };
@@ -153,6 +154,8 @@ test("printable sheets enforce the approved light-ink Letter standard", () => {
   assert.equal(countMatches(sheetHtml, 'data-child-name-age="true"'), 12);
   assert.equal(countMatches(sheetHtml, "Milo"), 12);
   assert.equal(countMatches(sheetHtml, "is turning 6!"), 12);
+  assert.equal(countMatches(sheetHtml, "864-933-1420"), 12);
+  assert.equal(countMatches(sheetHtml, "Party contact: 864-555-0100"), 12);
 });
 
 test("exact 4x6 mode stays available on Legal landscape paper", () => {

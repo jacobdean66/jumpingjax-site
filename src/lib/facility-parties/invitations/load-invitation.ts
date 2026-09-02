@@ -15,6 +15,7 @@ export type FacilityInvitationView = {
   bookingId: string;
   childName: string;
   childAge: string;
+  customerPhone: string;
   dateLabel: string;
   timeLabel: string;
   partyLabel: string | null;
@@ -29,6 +30,7 @@ type InvitationRow = {
   status: string | null;
   child_name: string | null;
   child_age: string | null;
+  phone: string | null;
   readable_date: string | null;
   readable_time: string | null;
   party_label: string | null;
@@ -48,7 +50,7 @@ export async function loadFacilityInvitationView(
   const { data, error } = await supabase
     .from("facility_bookings")
     .select(
-      "id, status, child_name, child_age, readable_date, readable_time, party_label, party_theme, invitation, invitation_quantity, balloon_colors, table_cloth_colors",
+      "id, status, child_name, child_age, phone, readable_date, readable_time, party_label, party_theme, invitation, invitation_quantity, balloon_colors, table_cloth_colors",
     )
     .eq("id", bookingId)
     .maybeSingle<InvitationRow>();
@@ -73,6 +75,7 @@ export async function loadFacilityInvitationView(
     bookingId: data.id,
     childName: data.child_name?.trim() || "Birthday Star",
     childAge: data.child_age?.trim() || "",
+    customerPhone: data.phone?.trim() || "",
     dateLabel: data.readable_date?.trim() || "",
     timeLabel: data.readable_time?.trim() || "",
     partyLabel: data.party_label,

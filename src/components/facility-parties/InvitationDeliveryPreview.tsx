@@ -33,6 +33,7 @@ function PrintSheetPreview({
           snapshot={data.snapshot}
           childName={data.childName}
           childAge={data.childAge}
+          customerPhone={data.customerPhone}
           dateLabel={data.dateLabel}
           timeLabel={data.timeLabel}
           dense
@@ -77,6 +78,7 @@ function EmailSinglePreview({
           snapshot={data.snapshot}
           childName={data.childName}
           childAge={data.childAge}
+          customerPhone={data.customerPhone}
           dateLabel={data.dateLabel}
           timeLabel={data.timeLabel}
           compact
@@ -115,6 +117,7 @@ function OfficePickupPreview({
           snapshot={data.snapshot}
           childName={data.childName}
           childAge={data.childAge}
+          customerPhone={data.customerPhone}
           dateLabel={data.dateLabel}
           timeLabel={data.timeLabel}
           compact

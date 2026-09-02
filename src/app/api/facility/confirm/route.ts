@@ -377,6 +377,7 @@ async function handleFacilityConfirm(
         ? buildCustomerInvitationEmailSection({
             childName: booking.child_name,
             childAge: booking.child_age,
+            customerPhone: booking.phone,
             dateLabel: booking.readable_date,
             timeLabel: booking.readable_time,
             themeText: booking.party_theme,
@@ -424,6 +425,7 @@ async function handleFacilityConfirm(
             plainText: customerEmailText,
             childName: booking.child_name,
             childAge: booking.child_age,
+            customerPhone: booking.phone,
             dateLabel: booking.readable_date,
             timeLabel: booking.readable_time,
             themeText: booking.party_theme,

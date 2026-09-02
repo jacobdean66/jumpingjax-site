@@ -41,6 +41,7 @@ export default async function InvitationOpenGraphImage({
   const copy = buildInvitationCopy({
     childName: view.childName,
     childAge: view.childAge,
+    customerPhone: view.customerPhone,
     dateLabel: view.dateLabel,
     timeLabel: view.timeLabel,
     themeText: view.snapshot.sourceText,
@@ -65,6 +66,7 @@ export default async function InvitationOpenGraphImage({
           <div>{copy.dateLabel}</div>
           <div>{copy.timeLabel}</div>
           <div style={{ fontSize: 22 }}>{copy.venueLine}</div>
+          {copy.customerPhone ? <div style={{ fontSize: 22 }}>Party contact: {copy.customerPhone}</div> : null}
         </div>
       </div>
     </div>,

@@ -99,6 +99,7 @@ export default async function AdminFacilityInvitationPage({
             snapshot={agentResult.snapshot}
             childName={view.childName}
             childAge={view.childAge}
+            customerPhone={view.customerPhone}
             dateLabel={view.dateLabel}
             timeLabel={view.timeLabel}
             qrUrl={view.qrUrl}
@@ -111,6 +112,7 @@ export default async function AdminFacilityInvitationPage({
               snapshot={agentResult.snapshot}
               childName={view.childName}
               childAge={view.childAge}
+              customerPhone={view.customerPhone}
               dateLabel={view.dateLabel}
               timeLabel={view.timeLabel}
               qrUrl={view.qrUrl}

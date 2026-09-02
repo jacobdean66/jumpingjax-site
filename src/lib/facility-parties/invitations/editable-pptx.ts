@@ -15,6 +15,7 @@ export type EditableInvitationPptxInput = {
   snapshot: InvitationSnapshot;
   childName: string;
   childAge: string;
+  customerPhone?: string;
   dateLabel: string;
   timeLabel: string;
   qrUrl?: string;
@@ -74,6 +75,7 @@ function addInvitation(
   const copy = buildInvitationCopy({
     childName: input.childName,
     childAge: input.childAge,
+    customerPhone: input.customerPhone,
     dateLabel: input.dateLabel,
     timeLabel: input.timeLabel,
     themeText: input.snapshot.sourceText || composed.themeLabel,
@@ -195,7 +197,7 @@ function addInvitation(
     bold: true,
     fit: "shrink",
   });
-  slide.addText(`${FACILITY_INVITATION_VENUE.name}\n${FACILITY_INVITATION_VENUE.address}`, {
+  slide.addText(`${FACILITY_INVITATION_VENUE.name} • ${FACILITY_INVITATION_VENUE.address} • ${FACILITY_INVITATION_VENUE.phone}${copy.customerPhone ? `\nParty contact: ${copy.customerPhone}` : ""}`, {
     x: x + 0.3,
     y: y + 3.25,
     w: 3.62,
@@ -203,7 +205,7 @@ function addInvitation(
     margin: 0,
     color: "FFFFFF",
     fontFace: "Aptos",
-    fontSize: 12.5,
+    fontSize: 10.5,
     bold: true,
     breakLine: false,
     fit: "shrink",

@@ -46,7 +46,8 @@ export default async function InvitationExamplesPage({ searchParams }: Props) {
               <PartyInvitationCard
                 snapshot={snapshot}
                 childName={example.childName}
-                childAge={example.childAge}
+              childAge={example.childAge}
+              customerPhone={example.customerPhone}
                 dateLabel={example.dateLabel}
                 timeLabel={example.timeLabel}
               />

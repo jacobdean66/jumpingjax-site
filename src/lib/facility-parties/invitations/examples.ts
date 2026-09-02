@@ -21,6 +21,7 @@ export type InvitationPreviewExample = {
   customerTheme: string;
   childName: string;
   childAge: string;
+  customerPhone: string;
   dateLabel: string;
   timeLabel: string;
   expectedThemeId: string;
@@ -30,6 +31,7 @@ export type InvitationPreviewExample = {
 export const SONIC_SAMPLE_INVITATION = {
   childName: "Miles",
   childAge: "6",
+  customerPhone: "864-555-0100",
   dateLabel: "Saturday, August 22, 2026",
   timeLabel: "2:00 PM – 3:30 PM",
   customerTheme: "Sonic",
@@ -41,6 +43,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: SONIC_SAMPLE_INVITATION.customerTheme,
     childName: SONIC_SAMPLE_INVITATION.childName,
     childAge: SONIC_SAMPLE_INVITATION.childAge,
+    customerPhone: SONIC_SAMPLE_INVITATION.customerPhone,
     dateLabel: SONIC_SAMPLE_INVITATION.dateLabel,
     timeLabel: SONIC_SAMPLE_INVITATION.timeLabel,
     expectedThemeId: "gamer-neon",
@@ -51,6 +54,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: "dinosaur party",
     childName: "Alex",
     childAge: "8",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "dinosaur",
@@ -61,6 +65,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: "Frozen princess",
     childName: "Emma",
     childAge: "7",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "princess-royal",
@@ -71,6 +76,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: "Clemson football",
     childName: "Jackson",
     childAge: "9",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "sports",
@@ -81,6 +87,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: "mermaid",
     childName: "Riley",
     childAge: "4",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "ocean-mermaid",
@@ -91,6 +98,7 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     customerTheme: "Nana's backyard picnic",
     childName: "Quinn",
     childAge: "5",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "classic-birthday",

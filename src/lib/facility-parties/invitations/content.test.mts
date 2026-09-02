@@ -11,6 +11,7 @@ import {
 const sonic = {
   childName: " Miles  ",
   childAge: "6",
+  customerPhone: "864-555-0100",
   dateLabel: "Saturday, August 22, 2026",
   timeLabel: "2:00 PM - 3:30 PM",
   themeText: "Sonic party theme",
@@ -28,8 +29,9 @@ test("invitation copy removes redundant party wording and preserves exact event 
   assert.equal(copy.timeLabel, sonic.timeLabel);
   assert.equal(
     copy.venueLine,
-    "Jumping Jax - 559 Beaudrot Rd, Greenwood, SC",
+    "Jumping Jax - 559 Beaudrot Rd, Greenwood, SC - 864-933-1420",
   );
+  assert.equal(copy.customerPhone, "864-555-0100");
 });
 
 test("guest email draft contains the same date, time, location, and all delivery links", () => {
@@ -39,7 +41,8 @@ test("guest email draft contains the same date, time, location, and all delivery
   for (const expected of [
     sonic.dateLabel,
     sonic.timeLabel,
-    "Jumping Jax - 559 Beaudrot Rd, Greenwood, SC",
+    "Jumping Jax - 559 Beaudrot Rd, Greenwood, SC - 864-933-1420",
+    "Party contact: 864-555-0100",
     sonic.invitationUrl,
     sonic.printableUrl,
     sonic.waiverUrl,
@@ -56,6 +59,7 @@ test("customer booking emails receive one canonical invitation package", () => {
   assert.match(section, /Theme: Sonic party theme/);
   assert.match(section, /Printable invitations:/);
   assert.match(section, /Guest RSVP and waiver:/);
+  assert.match(section, /Party contact: 864-555-0100/);
 });
 
 test("ordinal ages are grammatically correct", () => {

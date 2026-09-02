@@ -1148,6 +1148,7 @@ export function FacilityPartyBookingForm({
                             snapshot={invitationSnapshot}
                             childName={childName}
                             childAge={childAge}
+                            customerPhone={customerPhone}
                             dateLabel={invitationDateLabel}
                             timeLabel={invitationTimeLabel}
                             compact
@@ -1227,6 +1228,7 @@ export function FacilityPartyBookingForm({
                                       snapshot={invitationSnapshot}
                                       childName={childName}
                                       childAge={childAge}
+                                      customerPhone={customerPhone}
                                       dateLabel={invitationDateLabel}
                                       timeLabel={invitationTimeLabel}
                                     />

@@ -11,6 +11,7 @@ test("full invitation email includes the themed invitation and forwarding action
     plainText: "Your booking is confirmed.",
     childName: "Emma",
     childAge: "7",
+    customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM - 3:30 PM",
     themeText: "Frozen princess",
@@ -23,6 +24,8 @@ test("full invitation email includes the themed invitation and forwarding action
   assert.match(html, /Emma is turning 7!/);
   assert.match(html, /A Frozen princess birthday celebration/);
   assert.match(html, /Saturday, August 22, 2026/);
+  assert.match(html, /Jumping Jax - 559 Beaudrot Rd, Greenwood, SC - 864-933-1420/);
+  assert.match(html, /Party contact: 864-555-0100/);
   assert.match(html, /Open &amp; share invitation/);
   assert.match(html, /Print 4 per page/);
   assert.match(html, /RSVP &amp; waiver/);

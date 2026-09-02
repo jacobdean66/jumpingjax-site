@@ -40,6 +40,7 @@ export default async function SonicInvitationSheetExamplePage({
         snapshot={snapshot}
         childName={SONIC_SAMPLE_INVITATION.childName}
         childAge={SONIC_SAMPLE_INVITATION.childAge}
+        customerPhone={SONIC_SAMPLE_INVITATION.customerPhone}
         dateLabel={SONIC_SAMPLE_INVITATION.dateLabel}
         timeLabel={SONIC_SAMPLE_INVITATION.timeLabel}
         paperSize={paperSize}

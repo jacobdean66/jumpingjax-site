@@ -12,6 +12,7 @@ export type InvitationDeliveryPreviewMode =
 export type InvitationPreviewFormFields = {
   childName?: string | null;
   childAge?: string | null;
+  customerPhone?: string | null;
   dateLabel?: string | null;
   timeLabel?: string | null;
   snapshot: InvitationSnapshot;
@@ -20,10 +21,12 @@ export type InvitationPreviewFormFields = {
 export type InvitationDeliveryPreviewData = {
   childName: string;
   childAge: string;
+  customerPhone: string;
   dateLabel: string;
   timeLabel: string;
   venueName: string;
   venueAddress: string;
+  venuePhone: string;
   snapshot: InvitationSnapshot;
 };
 
@@ -46,10 +49,12 @@ export function toInvitationDeliveryPreviewData(
   return {
     childName: clean(input.childName) || "Birthday Star",
     childAge: clean(input.childAge),
+    customerPhone: clean(input.customerPhone),
     dateLabel: clean(input.dateLabel) || "Date coming soon",
     timeLabel: clean(input.timeLabel) || "Time coming soon",
     venueName: FACILITY_INVITATION_VENUE.name,
     venueAddress: FACILITY_INVITATION_VENUE.address,
+    venuePhone: FACILITY_INVITATION_VENUE.phone,
     snapshot: input.snapshot,
   };
 }

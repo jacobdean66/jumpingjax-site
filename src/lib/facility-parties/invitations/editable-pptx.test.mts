@@ -14,6 +14,7 @@ test("editable invitation download creates four editable invites per letter slid
     snapshot: buildInvitationSnapshot("Minecraft"),
     childName: "Will Maffett",
     childAge: "5",
+    customerPhone: "864-555-0100",
     dateLabel: "Sunday, September 27, 2026",
     timeLabel: "1:00 PM - 3:00 PM",
     invitationQuantity: 8,
@@ -32,6 +33,8 @@ test("editable invitation download creates four editable invites per letter slid
   assert.equal((firstSlide.match(/Will Maffett/g) ?? []).length, 4);
   assert.equal((firstSlide.match(/IS TURNING 5!/g) ?? []).length, 4);
   assert.equal((firstSlide.match(/Jumping Jax/g) ?? []).length, 4);
+  assert.equal((firstSlide.match(/864-933-1420/g) ?? []).length, 4);
+  assert.equal((firstSlide.match(/Party contact: 864-555-0100/g) ?? []).length, 4);
   assert.match(firstSlide, /x="228600" y="228600"/);
 });
 

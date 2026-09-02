@@ -19,6 +19,7 @@ export type PartyInvitationCardProps = {
   snapshot: InvitationSnapshot;
   childName: string;
   childAge: string;
+  customerPhone?: string;
   dateLabel: string;
   timeLabel: string;
   compact?: boolean;
@@ -34,6 +35,7 @@ export function PartyInvitationCard({
   snapshot,
   childName,
   childAge,
+  customerPhone = "",
   dateLabel,
   timeLabel,
   compact = false,
@@ -68,6 +70,7 @@ export function PartyInvitationCard({
   const invitationCopy = buildInvitationCopy({
     childName,
     childAge,
+    customerPhone,
     dateLabel,
     timeLabel,
     themeText: snapshot.sourceText || composed.themeLabel,
@@ -91,6 +94,8 @@ export function PartyInvitationCard({
         displayName={displayName}
         childAge={childAge}
         celebrationLine={celebrationLine}
+        customerPhone={invitationCopy.customerPhone}
+        venueLine={invitationCopy.venueLine}
         dateLabel={invitationCopy.dateLabel}
         timeLabel={invitationCopy.timeLabel}
         qrUrl={qrUrl}
@@ -162,6 +167,7 @@ export function PartyInvitationCard({
         layout={layout}
         headline={headline}
         celebrationLine={celebrationLine}
+        customerPhone={invitationCopy.customerPhone}
         dateLabel={invitationCopy.dateLabel}
         timeLabel={invitationCopy.timeLabel}
         textSize={textSize}
@@ -182,6 +188,8 @@ function InkSaverSheetInvitation({
   displayName,
   childAge,
   celebrationLine,
+  customerPhone,
+  venueLine,
   dateLabel,
   timeLabel,
   qrUrl,
@@ -197,6 +205,8 @@ function InkSaverSheetInvitation({
   displayName: string;
   childAge: string;
   celebrationLine: string;
+  customerPhone: string;
+  venueLine: string;
   dateLabel: string;
   timeLabel: string;
   qrUrl?: string;
@@ -260,7 +270,8 @@ function InkSaverSheetInvitation({
         <div className="max-w-[68%] text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800">
           <p className="font-black text-slate-950">{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
-          <p className="mt-[1%]">{FACILITY_INVITATION_VENUE.name} · {FACILITY_INVITATION_VENUE.address}</p>
+          <p className="mt-[1%]">{venueLine}</p>
+          {customerPhone ? <p className="font-black">Party contact: {customerPhone}</p> : null}
         </div>
         <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" />
       </div>
@@ -383,6 +394,7 @@ function InvitationCopy({
   layout,
   headline,
   celebrationLine,
+  customerPhone,
   dateLabel,
   timeLabel,
   textSize,
@@ -395,6 +407,7 @@ function InvitationCopy({
   layout: string;
   headline: string;
   celebrationLine: string;
+  customerPhone: string;
   dateLabel: string;
   timeLabel: string;
   textSize: string;
@@ -412,8 +425,9 @@ function InvitationCopy({
       <p className="font-black">{dateLabel || "Date coming soon"}</p>
       <p>{timeLabel || "Time coming soon"}</p>
       <p className="mt-1 opacity-80">
-        {FACILITY_INVITATION_VENUE.name} · {FACILITY_INVITATION_VENUE.address}
+        {FACILITY_INVITATION_VENUE.name} · {FACILITY_INVITATION_VENUE.address} · {FACILITY_INVITATION_VENUE.phone}
       </p>
+      {customerPhone ? <p className="font-black">Party contact: {customerPhone}</p> : null}
     </div>
   );
   const readyBadge = pickupReady ? (

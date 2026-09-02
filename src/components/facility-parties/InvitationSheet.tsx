@@ -9,6 +9,7 @@ export function InvitationSheet({
   snapshot,
   childName,
   childAge,
+  customerPhone,
   dateLabel,
   timeLabel,
   qrUrl,
@@ -20,6 +21,7 @@ export function InvitationSheet({
   snapshot: InvitationSnapshot;
   childName: string;
   childAge: string;
+  customerPhone?: string;
   dateLabel: string;
   timeLabel: string;
   qrUrl?: string;
@@ -119,6 +121,7 @@ export function InvitationSheet({
                     snapshot={snapshot}
                     childName={childName}
                     childAge={childAge}
+                    customerPhone={customerPhone}
                     dateLabel={dateLabel}
                     timeLabel={timeLabel}
                     compact

@@ -66,6 +66,7 @@ function mailtoLink(input: {
   email: string | null;
   childName: string;
   childAge: string;
+  customerPhone: string;
   date: string;
   time: string;
   themeText: string;
@@ -78,6 +79,7 @@ function mailtoLink(input: {
   const { subject, body } = buildInvitationEmailDraft({
     childName: input.childName,
     childAge: input.childAge,
+    customerPhone: input.customerPhone,
     dateLabel: input.date,
     timeLabel: input.time,
     themeText: input.themeText,
@@ -147,6 +149,7 @@ export default async function FacilityInvitationsPage({
     email: data.email,
     childName: clean(data.child_name),
     childAge: clean(data.child_age),
+    customerPhone: clean(data.phone),
     date: clean(data.readable_date),
     time: clean(data.readable_time),
     themeText: clean(data.party_theme),
@@ -307,6 +310,7 @@ export default async function FacilityInvitationsPage({
             snapshot={agentResult.snapshot}
             childName={clean(data.child_name) || "Birthday Star"}
             childAge={clean(data.child_age)}
+            customerPhone={clean(data.phone)}
             dateLabel={clean(data.readable_date)}
             timeLabel={clean(data.readable_time)}
             waiverUrl={waiverUrl}
@@ -317,6 +321,7 @@ export default async function FacilityInvitationsPage({
             snapshot={agentResult.snapshot}
             childName={clean(data.child_name) || "Birthday Star"}
             childAge={clean(data.child_age)}
+            customerPhone={clean(data.phone)}
             dateLabel={clean(data.readable_date)}
             timeLabel={clean(data.readable_time)}
             waiverUrl={waiverUrl}

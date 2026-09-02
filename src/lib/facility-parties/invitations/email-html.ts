@@ -88,6 +88,7 @@ export function buildFullInvitationEmailHtml(
                   ${escapeHtml(copy.dateLabel)}<br>
                   ${escapeHtml(copy.timeLabel)}<br>
                   ${escapeHtml(copy.venueLine)}
+                  ${copy.customerPhone ? `<br>Party contact: ${escapeHtml(copy.customerPhone)}` : ""}
                 </div>
               </td></tr>
             </table>

@@ -80,6 +80,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
         snapshot={agentResult.snapshot}
         childName={view.childName}
         childAge={view.childAge}
+        customerPhone={view.customerPhone}
         dateLabel={view.dateLabel}
         timeLabel={view.timeLabel}
         qrUrl={view.qrUrl}

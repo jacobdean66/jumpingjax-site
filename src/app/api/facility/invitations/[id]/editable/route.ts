@@ -22,6 +22,7 @@ export async function GET(_request: Request, { params }: Props) {
     snapshot: view.snapshot,
     childName: view.childName,
     childAge: view.childAge,
+    customerPhone: view.customerPhone,
     dateLabel: view.dateLabel,
     timeLabel: view.timeLabel,
     qrUrl: view.qrUrl,
