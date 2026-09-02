@@ -7,6 +7,7 @@ type Result = {
   issuesFound: number;
   created: number;
   reused: number;
+  remainingUntriaged: number;
   aiInvocations: 0;
 };
 
@@ -26,7 +27,7 @@ export function BookingTriageClient() {
       const body = await response.json() as { ok: boolean; result?: Result; error?: string };
       if (!response.ok || !body.result) throw new Error(body.error ?? "Read-only triage failed safely.");
       const result = body.result;
-      setMessage(`${result.workflowsReviewed} workflows reviewed · ${result.issuesFound} issues · ${result.created} new jobs · ${result.reused} deduplicated · AI calls ${result.aiInvocations}`);
+      setMessage(`${result.workflowsReviewed} workflows reviewed · ${result.issuesFound} issues · ${result.created} new jobs · ${result.reused} already triaged · ${result.remainingUntriaged} still untriaged in this bounded scan · AI calls ${result.aiInvocations}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Read-only triage failed safely.");
     } finally {
