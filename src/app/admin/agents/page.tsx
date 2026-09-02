@@ -12,6 +12,7 @@ import { NominationProofClient } from "./NominationProofClient";
 import { BookingTriageClient } from "./BookingTriageClient";
 import { WaiverTriageClient } from "./WaiverTriageClient";
 import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
+import { CodingDiagnosisClient } from "./CodingDiagnosisClient";
 import { SupervisorChat } from "./SupervisorChat";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +152,7 @@ export default async function AgentsPage() {
         </div>
         <WaiverTriageClient />
       </section>
+      <CodingDiagnosisClient />
       <TriggerProofClient />
       <NominationProofClient />
       {dashboard ? (
