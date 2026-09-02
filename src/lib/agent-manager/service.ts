@@ -5,6 +5,7 @@ import type { AgentDashboard, AgentJob } from "./types";
 
 const SAFE_JOB_TYPES = new Set(["system.health_check"]);
 const APPROVAL_ACTIONS = new Set(["production.deploy", "database.destructive", "schema.production", "credentials.change", "provider.paid_enable", "billing.change", "message.bulk", "git.destructive", "git.merge_protected"]);
+const PAUSEABLE_AGENT_KEYS = new Set(["booking", "waiver", "social", "nomination"]);
 
 export function requiresApproval(jobType: string) { return APPROVAL_ACTIONS.has(jobType); }
 export function isSafeManualJob(jobType: string) { return SAFE_JOB_TYPES.has(jobType); }
@@ -146,6 +147,8 @@ export async function recordNominationJobResult(input: {
 
 export async function setAgentPaused(agentId: string, paused: boolean, actorId: string) {
   const db=createServiceRoleClient(); const now=new Date().toISOString();
+  const { data: target, error: targetError } = await db.from("agents").select("key").eq("id", agentId).single();
+  if (targetError || !target || !PAUSEABLE_AGENT_KEYS.has(String(target.key))) throw new Error("Agent has no pauseable worker");
   const { data,error }=await db.from("agents").update({ paused,status:paused?"paused":"idle",updated_at:now }).eq("id",agentId).select("*").single();
   if(error) throw new Error(error.message); await db.from("agent_events").insert({agent_id:agentId,event_type:paused?"agent.paused":"agent.resumed",actor_id:actorId,summary:paused?"Agent paused by owner":"Agent resumed by owner"}); return data;
 }

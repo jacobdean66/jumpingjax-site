@@ -1,4 +1,5 @@
 import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
+import { buildAgentWiring } from "@/lib/agent-manager/agent-wiring";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { getNextSpecialistReadiness } from "@/lib/agent-manager/specialist-readiness";
 import { loadDashboard } from "@/lib/agent-manager/service";
@@ -79,10 +80,10 @@ export default async function AgentsPage() {
       <section className="mt-7 rounded-3xl border border-violet-200 bg-violet-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-violet-700">Next safe specialist</p>
+            <p className="text-xs font-black uppercase tracking-wide text-violet-700">Connected specialist</p>
             <h2 className="mt-1 text-2xl font-black">{nextSpecialist.displayName}</h2>
             <p className="mt-1 text-sm font-semibold text-slate-700">
-              First checkpoint: read-only operational triage over existing durable booking workflow state.
+              Current production boundary: read-only triage and approval-gated coordinated booking staging.
             </p>
           </div>
           <span className="rounded-full bg-violet-800 px-3 py-1 text-xs font-black text-white">
@@ -97,7 +98,7 @@ export default async function AgentsPage() {
         </dl>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl bg-white p-4">
-            <h3 className="text-sm font-black">Prepared first checkpoint</h3>
+            <h3 className="text-sm font-black">Connected safe capabilities</h3>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-slate-700">
               {nextSpecialist.firstCheckpoint.map((item) => <li key={item}>{item}</li>)}
             </ul>
@@ -115,7 +116,7 @@ export default async function AgentsPage() {
       <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-teal-700">Next safe specialist</p>
+            <p className="text-xs font-black uppercase tracking-wide text-teal-700">Connected specialist</p>
             <h2 className="mt-1 text-2xl font-black">Waiver Agent</h2>
             <p className="mt-1 text-sm font-semibold text-slate-700">
               Read-only integrity triage over completed waiver signature and document metadata. No signer or participant details are read.
@@ -131,7 +132,7 @@ export default async function AgentsPage() {
         </dl>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl bg-white p-4">
-            <h3 className="text-sm font-black">Prepared first checkpoint</h3>
+            <h3 className="text-sm font-black">Connected safe capabilities</h3>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-slate-700">
               <li>Review only submission IDs, state, and signature/document relationship metadata</li>
               <li>Flag missing or incomplete signature/document evidence with hashed references</li>
@@ -159,7 +160,10 @@ export default async function AgentsPage() {
               Local preview mode — representative non-customer data. Do not use controls; no database is connected.
             </div>
           ) : null}
-          <AgentsDashboardClient initial={dashboard} />
+          <AgentsDashboardClient
+            initial={dashboard}
+            initialWiring={supervisorSnapshot?.wiring ?? buildAgentWiring({ nominationReady: nominationReadiness.enabled && nominationReadiness.configured })}
+          />
         </>
       ) : (
         <section className="mt-7 rounded-3xl border border-amber-200 bg-amber-50 p-6">

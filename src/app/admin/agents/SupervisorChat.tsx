@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
-import type { SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
+import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
 
-type ConversationItem = { id: string; question: string; reply: string; createdAt: string };
+type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
 
-const STARTERS = ["Check the whole website", "Check bookings and calendars", "Check rentals and inventory", "Check code and security"];
+const STARTERS = ["Check the whole website", "Check bookings and calendars", "Check agent connections", "Check code and security"];
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(initialMessages);
@@ -14,26 +14,29 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const inFlightRef = useRef(false);
 
   async function send(value: string) {
     const trimmed = value.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || inFlightRef.current) return;
+    inFlightRef.current = true;
     setBusy(true);
     setError("");
     try {
       const response = await fetch("/api/admin/agents/supervisor-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, clientRequestId: crypto.randomUUID() }),
       });
-      const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; error?: string };
+      const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; error?: string };
       if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
-      setMessages((current) => [...current, { id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString() }].slice(-20));
+      setMessages((current) => [...current, { id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null }].slice(-20));
       setSnapshot(body.snapshot);
       setMessage("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Permanent Agent request failed safely.");
     } finally {
+      inFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -72,7 +75,10 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         ) : messages.map((item) => (
           <div key={item.id} className="space-y-2">
             <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
-            <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-800">{item.reply}</div>
+            <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-800">
+              <p>{item.reply}</p>
+              {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
+            </div>
           </div>
         ))}
         {busy ? <p className="text-sm font-bold text-slate-500">Checking the live systems…</p> : null}

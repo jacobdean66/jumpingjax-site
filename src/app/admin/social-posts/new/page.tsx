@@ -8,7 +8,7 @@ import { getAgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-p
 import { SOCIAL_SOURCE_IMAGES } from "@/lib/social-posts/social-source-images";
 
 export const dynamic = "force-dynamic";
-type Props = { searchParams?: Promise<{ token?: string; message?: string; error?: string }> };
+type Props = { searchParams?: Promise<{ token?: string; message?: string; error?: string; goal?: string; theme?: string }> };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="text-sm font-black text-slate-700">{label}</span><div className="mt-1">{children}</div></label>;
@@ -29,7 +29,13 @@ export default async function NewSocialPostPage({ searchParams }: Props) {
       {resolved?.message ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">{resolved.message}</div> : null}
       {resolved?.error ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-950">{resolved.error}</div> : null}
 
-      <AgentDraftForm token={token} sourceImages={SOCIAL_SOURCE_IMAGES} agentUiProtection={agentUiProtection} />
+      <AgentDraftForm
+        token={token}
+        sourceImages={SOCIAL_SOURCE_IMAGES}
+        agentUiProtection={agentUiProtection}
+        initialGoal={resolved?.goal?.slice(0, 300) ?? ""}
+        initialTheme={resolved?.theme?.slice(0, 80) ?? ""}
+      />
 
       <details className="mt-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer list-none p-4 text-sm font-black text-slate-900 sm:p-5">Create a manual test draft</summary>

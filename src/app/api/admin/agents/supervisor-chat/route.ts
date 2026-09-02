@@ -1,6 +1,6 @@
 import { loadSupervisorConversation, runSupervisorConversation } from "@/lib/agent-manager/supervisor-service";
 import { collectSupervisorSnapshot } from "@/lib/agent-manager/supervisor-service";
-import { validateSupervisorMessage } from "@/lib/agent-manager/supervisor";
+import { validateSupervisorMessage, validateSupervisorRequestId } from "@/lib/agent-manager/supervisor";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { privateJson, safeOwnerAuthError, validateOwnerPost } from "@/lib/security/request-guard";
 
@@ -25,15 +25,17 @@ export async function POST(request: Request) {
   if (!auth.ok) return safeOwnerAuthError(auth.reason);
   const rejected = validateOwnerPost(request);
   if (rejected) return rejected;
-  const body = await request.json().catch(() => null) as { message?: unknown } | null;
+  const body = await request.json().catch(() => null) as { message?: unknown; clientRequestId?: unknown } | null;
   let message: string;
+  let clientRequestId: string;
   try {
     message = validateSupervisorMessage(body?.message);
+    clientRequestId = validateSupervisorRequestId(body?.clientRequestId);
   } catch (error) {
     return privateJson({ ok: false, error: error instanceof Error ? error.message : "Invalid Permanent Agent message." }, 400);
   }
   try {
-    return privateJson({ ok: true, ...(await runSupervisorConversation(message, auth.identity.id)) });
+    return privateJson({ ok: true, ...(await runSupervisorConversation(message, auth.identity.id, clientRequestId)) });
   } catch (error) {
     const messageText = error instanceof Error ? error.message : "Permanent Agent request failed safely.";
     const safeMessage = /paused|emergency stop|unavailable|required|under 800|password|token|secret/i.test(messageText)
