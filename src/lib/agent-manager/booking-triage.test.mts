@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   BOOKING_TRIAGE_JOB_TYPE,
   BookingTriageWorker,
+  buildBookingTriageReview,
   bookingReference,
   bookingTriageIdempotencyKey,
   identifyBookingTriageIssues,
@@ -54,6 +55,22 @@ test("Booking Agent summary is redacted and uses zero AI", async () => {
 
 test("Booking Agent ignores rows that do not require operator review", () => {
   assert.deepEqual(identifyBookingTriageIssues({ ...row, operator_required: false, owner_notification_status: "sent", calendar_status: "pending" }), []);
+});
+
+test("Booking triage review groups redacted references without replaying actions", () => {
+  const review = buildBookingTriageReview([
+    { payload: { bookingKind: "rental", bookingId: "private-rental-id", workflowStep: "owner_notification", outcome: "failed", workflowUpdatedAt: "2026-09-02T10:00:00.000Z" }, status: "succeeded" },
+    { payload: { bookingKind: "rental", bookingId: "private-rental-id", workflowStep: "calendar", outcome: "pending", workflowUpdatedAt: "2026-09-02T11:00:00.000Z" }, status: "succeeded" },
+    { payload: { bookingKind: "facility", bookingId: "private-facility-id", workflowStep: "decision_email", outcome: "failed", workflowUpdatedAt: "2026-09-01T11:00:00.000Z" }, status: "succeeded" },
+  ], 1);
+  assert.equal(review.totalIssues, 3);
+  assert.equal(review.totalBookings, 2);
+  assert.equal(review.groups.length, 1);
+  assert.equal(review.truncated, true);
+  assert.equal(review.actionCounts.calendar, 1);
+  assert.equal(review.replayedActions, 0);
+  assert.equal(review.aiInvocations, 0);
+  assert.doesNotMatch(JSON.stringify(review), /private-rental-id|private-facility-id/);
 });
 
 test("Booking Agent advances past already-triaged newest issues", () => {
