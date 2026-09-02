@@ -16,6 +16,7 @@ export type FacilityBookingCalendarFields = {
   child_gender: string | null;
   child_age: string | null;
   party_theme: string | null;
+  invitation?: unknown;
   balloon_colors: string | null;
   table_cloth_colors: string | null;
   drink_choice: string | null;

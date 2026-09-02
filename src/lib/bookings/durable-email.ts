@@ -13,6 +13,7 @@ export type DurableEmailInput = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 };
 
 export async function sendDurableBookingEmail(input: DurableEmailInput) {
@@ -24,6 +25,7 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
     recipient: input.to,
     subject: input.subject,
     body: input.text,
+    html_body: input.html ?? null,
   };
   const { error: insertError } = await input.supabase
     .from("booking_notification_outbox")
@@ -35,7 +37,7 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
 
   const { data: stored, error: readError } = await input.supabase
     .from("booking_notification_outbox")
-    .select("status,recipient,subject,body")
+    .select("status,recipient,subject,body,html_body")
     .eq("message_key", input.messageKey)
     .single();
   if (readError || !stored) return { error: { code: "outbox_read_failed" } };
@@ -55,6 +57,7 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
         to: stored.recipient,
         subject: stored.subject,
         text: stored.body,
+        ...(stored.html_body ? { html: stored.html_body } : {}),
       },
       { idempotencyKey: input.messageKey },
     );

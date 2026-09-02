@@ -91,6 +91,7 @@ test("all three delivery option previews render distinct modes", () => {
   assert.match(printHtml, /Selected/);
 
   assert.match(emailHtml, /data-preview-mode="email-single"/);
+  assert.match(emailHtml, /Full invitation email/);
   assert.match(emailHtml, /data-invite-count="1"/);
   assert.equal(countMatches(emailHtml, 'data-invitation-brand="jumping-jax"'), 0);
   assert.equal(countMatches(emailHtml, 'data-logo-treatment="transparent"'), 0);
@@ -196,4 +197,18 @@ test("global print grid follows the selected paper canvas instead of forcing Leg
 
   assert.match(gridRule, /repeat\(2, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(gridRule, /6in|4in/);
+});
+
+test("public invitations expose native sharing with email and copy fallbacks", async () => {
+  const source = await readFile(
+    new URL("./InvitationShareActions.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /navigator\.share/);
+  assert.match(source, /navigator\.clipboard\.writeText/);
+  assert.match(source, /mailto:/);
+  assert.match(source, /Share invitation/);
+  assert.match(source, /Email invitation/);
+  assert.match(source, /Copy link/);
 });

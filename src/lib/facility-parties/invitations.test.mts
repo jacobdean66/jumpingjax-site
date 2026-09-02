@@ -33,7 +33,7 @@ test("normalizes invitation delivery preference safely", () => {
   );
   assert.equal(
     invitationDeliveryPreferenceLabel("email"),
-    "Email invitation (single)",
+    "Email me the full invitation",
   );
 });
 
@@ -62,7 +62,7 @@ test("normalizes multiple invitation delivery preferences safely", () => {
   assert.deepEqual(normalizeInvitationDeliveryPreferences([]), ["print"]);
   assert.equal(
     formatInvitationDeliveryPreferences(["print", "email"]),
-    "Printable sheet (4 per page), Email invitation (single)",
+    "Printable sheet (4 per page), Email me the full invitation",
   );
 });
 

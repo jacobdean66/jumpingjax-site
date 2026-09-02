@@ -66,7 +66,7 @@ function EmailSinglePreview({
     >
       <div className="mb-1.5 flex items-center gap-1.5 rounded-sm bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-800 ring-1 ring-slate-200">
         <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" aria-hidden />
-        Email invitation
+        Full invitation email
       </div>
       <div
         className="mx-auto max-w-[14rem] overflow-hidden rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200 sm:max-w-[16rem]"

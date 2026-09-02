@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("booking_notification_outbox")
-    .select("message_key,booking_kind,booking_id,purpose,recipient,subject,body,status")
+    .select("message_key,booking_kind,booking_id,purpose,recipient,subject,body,html_body,status")
     .eq("message_key", messageKey)
     .single();
   if (error || !data) return NextResponse.json({ error: "Message not found" }, { status: 404 });
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     to: data.recipient,
     subject: data.subject,
     text: data.body,
+    html: data.html_body ?? undefined,
   });
   return NextResponse.json(
     { ok: !result.error, alreadySent: result.alreadySent === true },

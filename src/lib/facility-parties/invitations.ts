@@ -155,7 +155,7 @@ export function invitationTemplateLabel(
 export function invitationDeliveryPreferenceLabel(
   preference: FacilityInvitationDeliveryPreference,
 ): string {
-  if (preference === "email") return "Email invitation (single)";
+  if (preference === "email") return "Email me the full invitation";
   if (preference === "office_pickup") return "Receive in person";
   return "Printable sheet (4 per page)";
 }
@@ -181,8 +181,8 @@ export const FACILITY_INVITATION_DELIVERY_OPTIONS: readonly {
   },
   {
     id: "email",
-    label: "Email invitation (single)",
-    description: "One invitation to share or forward by email.",
+    label: "Email me the full invitation",
+    description: "Receive the complete invitation in your email, ready to forward or share.",
   },
   {
     id: "office_pickup",

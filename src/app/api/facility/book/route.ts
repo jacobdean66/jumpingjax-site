@@ -54,6 +54,7 @@ import {
   facilityInvitationSheetShareUrl,
 } from "@/lib/facility-parties/invitations/snapshot";
 import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
+import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
   "Facility party requests are available from today through December 31, 2027.";
@@ -374,6 +375,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const invitationSnapshot = invitationSnapshotFromChoice(
+      String(party_theme ?? ""),
+      invitation_option_index,
+      invitation_alternates_used,
+    );
     const bookingData = {
           party_kind,
           room,
@@ -388,11 +394,7 @@ export async function POST(req: NextRequest) {
           child_age: String(child_age).trim(),
           party_theme: String(party_theme ?? "").trim(),
           invitation: {
-            ...invitationSnapshotFromChoice(
-              String(party_theme ?? ""),
-              invitation_option_index,
-              invitation_alternates_used,
-            ),
+            ...invitationSnapshot,
             ...(invitationCreationPreference
               ? { creationPreference: invitationCreationPreference }
               : {}),
@@ -567,6 +569,44 @@ export async function POST(req: NextRequest) {
         waiverUrl: waiverInvitationLink,
       });
 
+      const customerEmailText = [
+        `Hi ${bookingContactName},`,
+        "",
+        "We received your facility booking request. It is waiting for confirmation from Jumping Jax.",
+        "",
+        `Party: ${storedPartyLabel}`,
+        `Date: ${storedReadableDate}`,
+        `Time: ${storedReadableTime}`,
+        `Invitations: ${invitationPreferenceLabel}`,
+        `Invitation design: ${invitationTemplateName}`,
+        `Invitation quantity: ${invitationQuantity}`,
+        `Drink choice: ${String(drink_choice).trim()}`,
+        `Payment method: ${String(payment_method).trim()}`,
+        `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
+        "",
+        ...invitationEmailSection,
+        "",
+        addonsEmailText,
+        ...pricingLines,
+        "",
+        "A second email will be sent once your booking is confirmed.",
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n");
+      const customerEmailHtml = buildFullInvitationEmailHtml({
+        snapshot: invitationSnapshot,
+        siteUrl,
+        plainText: customerEmailText,
+        childName: String(child_name).trim(),
+        childAge: String(child_age).trim(),
+        dateLabel: storedReadableDate,
+        timeLabel: storedReadableTime,
+        themeText: String(party_theme ?? "").trim(),
+        invitationUrl,
+        printableUrl: printableInvitationUrl,
+        waiverUrl: waiverInvitationLink,
+      });
+
       const { error: customerEmailError } = await sendDurableBookingEmail({
         supabase,
         messageKey: `facility-${bookingId}-customer-receipt-v1`,
@@ -575,30 +615,8 @@ export async function POST(req: NextRequest) {
         purpose: "initial_customer_receipt",
         to: email,
         subject: "Your Jumping Jax facility booking request was received",
-        text: [
-          `Hi ${bookingContactName},`,
-          "",
-          "We received your facility booking request. It is waiting for confirmation from Jumping Jax.",
-          "",
-          `Party: ${storedPartyLabel}`,
-          `Date: ${storedReadableDate}`,
-          `Time: ${storedReadableTime}`,
-          `Invitations: ${invitationPreferenceLabel}`,
-          `Invitation design: ${invitationTemplateName}`,
-          `Invitation quantity: ${invitationQuantity}`,
-          `Drink choice: ${String(drink_choice).trim()}`,
-          `Payment method: ${String(payment_method).trim()}`,
-          `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
-          "",
-          ...invitationEmailSection,
-          "",
-          addonsEmailText,
-          ...pricingLines,
-          "",
-          "A second email will be sent once your booking is confirmed.",
-        ]
-          .filter((line): line is string => line !== null)
-          .join("\n"),
+        text: customerEmailText,
+        html: customerEmailHtml,
       });
 
       if (customerEmailError) {

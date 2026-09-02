@@ -27,14 +27,16 @@ import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 import { buildFacilityWaiverInvitationUrl } from "@/lib/facility-parties/invitations";
 import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
+import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
 import {
   facilityInvitationShareUrl,
   facilityInvitationSheetShareUrl,
+  resolveInvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
 import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 
 const FACILITY_BOOKING_SELECT =
-  "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
+  "id, email, customer_name, readable_date, readable_time, party_label, start_time, end_time, phone, parent_name, child_name, child_gender, child_age, party_theme, invitation, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, room, notes, addon_selections, facility_package_price, addon_subtotal, subtotal, tax, total, pricing_details, google_calendar_event_id, google_calendar_secondary_event_id";
 
 async function handleFacilityConfirm(
   req: Request,
@@ -388,6 +390,53 @@ async function handleFacilityConfirm(
           })
         : [];
 
+    const customerEmailText = [
+      `Hi ${booking.customer_name},`,
+      "",
+      emailMessage,
+      "",
+      `Party: ${booking.party_label}`,
+      `Date: ${booking.readable_date}`,
+      `Time: ${booking.readable_time}`,
+      ...invitationEmailSection,
+      booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
+      booking.payment_method
+        ? `Payment method: ${booking.payment_method}`
+        : null,
+      action === "confirm"
+        ? "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
+        : null,
+      "",
+      formatStoredFacilityAddons(booking.addon_selections),
+      ...pricingLines,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+    const customerEmailHtml =
+      action === "confirm"
+        ? buildFullInvitationEmailHtml({
+            snapshot: resolveInvitationSnapshot({
+              partyTheme: booking.party_theme,
+              stored: booking.invitation,
+              colorHint: `${booking.balloon_colors ?? ""} ${booking.table_cloth_colors ?? ""}`,
+            }),
+            siteUrl: emailSiteUrl,
+            plainText: customerEmailText,
+            childName: booking.child_name,
+            childAge: booking.child_age,
+            dateLabel: booking.readable_date,
+            timeLabel: booking.readable_time,
+            themeText: booking.party_theme,
+            invitationUrl,
+            printableUrl: facilityInvitationSheetShareUrl(emailSiteUrl, id),
+            waiverUrl: buildFacilityWaiverInvitationUrl({
+              siteUrl: emailSiteUrl,
+              bookingId: id,
+              partyDate: booking.readable_date,
+            }),
+          })
+        : undefined;
+
     const { error: emailError } = await sendDurableBookingEmail({
       supabase,
       messageKey: `facility-${id}-decision-${action}-v1`,
@@ -396,28 +445,8 @@ async function handleFacilityConfirm(
       purpose: `decision_${action}`,
       to: booking.email,
       subject: emailSubject,
-      text: [
-        `Hi ${booking.customer_name},`,
-        "",
-        emailMessage,
-        "",
-        `Party: ${booking.party_label}`,
-        `Date: ${booking.readable_date}`,
-        `Time: ${booking.readable_time}`,
-        ...invitationEmailSection,
-        booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
-        booking.payment_method
-          ? `Payment method: ${booking.payment_method}`
-          : null,
-        action === "confirm"
-          ? "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
-          : null,
-        "",
-        formatStoredFacilityAddons(booking.addon_selections),
-        ...pricingLines,
-      ]
-        .filter((line): line is string => line !== null)
-        .join("\n"),
+      text: customerEmailText,
+      html: customerEmailHtml,
     });
 
     if (emailError) {
