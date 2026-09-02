@@ -41,6 +41,26 @@ export function bookingTriageIdempotencyKey(issue: BookingTriageIssue) {
   ].join(":")).digest("hex")}`;
 }
 
+export function planBookingTriageBatch(
+  issues: BookingTriageIssue[],
+  existingKeys: ReadonlySet<string>,
+  maxNewJobs = 10,
+) {
+  const limit = Math.max(0, Math.trunc(maxNewJobs));
+  const unique = new Map<string, BookingTriageIssue>();
+  for (const issue of issues) {
+    const key = bookingTriageIdempotencyKey(issue);
+    if (!unique.has(key)) unique.set(key, issue);
+  }
+  const novel = [...unique].filter(([key]) => !existingKeys.has(key));
+  return {
+    selected: novel.slice(0, limit).map(([, issue]) => issue),
+    issuesScanned: unique.size,
+    alreadyTriaged: unique.size - novel.length,
+    remainingUntriaged: Math.max(0, novel.length - limit),
+  };
+}
+
 export function identifyBookingTriageIssues(row: Record<string, unknown>): BookingTriageIssue[] {
   const bookingKind = row.booking_kind === "facility" ? "facility" : row.booking_kind === "rental" ? "rental" : null;
   const bookingId = typeof row.booking_id === "string" ? row.booking_id : null;

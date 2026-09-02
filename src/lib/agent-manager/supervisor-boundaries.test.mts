@@ -41,10 +41,22 @@ test("agent cards separate real connection state from database runtime state", a
   assert.match(ui, /Agents and real connections/);
   assert.match(ui, /Supervisor handoff/);
   assert.match(ui, /wiring\?\.canPause/);
-  assert.match(wiring, /key: "coding"[\s\S]*state: "not_connected"/);
+  assert.match(wiring, /key: "coding"[\s\S]*state: "read_only"/);
   assert.match(wiring, /key: "health-security"[\s\S]*state: "read_only"/);
   assert.match(service, /PAUSEABLE_AGENT_KEYS/);
   assert.match(service, /Agent has no pauseable worker/);
   assert.match(ui, /isGenericRetryableJobType/);
   assert.match(controlRoute, /This job has no compatible generic retry handler/);
+});
+
+test("Coding Agent diagnosis is owner-only, request-guarded, and cannot edit or deploy", async () => {
+  const route = await readFile(new URL("../../app/api/admin/agents/coding-diagnosis/route.ts", import.meta.url), "utf8");
+  const service = await readFile(new URL("coding-diagnosis-service.ts", import.meta.url), "utf8");
+  const worker = await readFile(new URL("coding-diagnosis.ts", import.meta.url), "utf8");
+  assert.match(route, /verifyAdminOwnerAccess/);
+  assert.match(route, /validateOwnerPost/);
+  assert.match(service, /collectSupervisorSnapshot/);
+  assert.match(service, /codeWritesAllowed:\s*false/);
+  assert.match(service, /deploymentWritesAllowed:\s*false/);
+  assert.doesNotMatch(`${route}\n${service}\n${worker}`, /writeFile|execFile|spawn\(|github.*update|vercel.*deploy|openai|anthropic|responses\.create/i);
 });

@@ -5,7 +5,7 @@ import type { AgentDashboard, AgentJob } from "./types";
 
 const SAFE_JOB_TYPES = new Set(["system.health_check"]);
 const APPROVAL_ACTIONS = new Set(["production.deploy", "database.destructive", "schema.production", "credentials.change", "provider.paid_enable", "billing.change", "message.bulk", "git.destructive", "git.merge_protected"]);
-const PAUSEABLE_AGENT_KEYS = new Set(["booking", "waiver", "social", "nomination"]);
+const PAUSEABLE_AGENT_KEYS = new Set(["booking", "waiver", "social", "nomination", "coding"]);
 
 export function requiresApproval(jobType: string) { return APPROVAL_ACTIONS.has(jobType); }
 export function isSafeManualJob(jobType: string) { return SAFE_JOB_TYPES.has(jobType); }

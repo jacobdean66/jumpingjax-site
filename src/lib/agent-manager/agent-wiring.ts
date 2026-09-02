@@ -77,12 +77,12 @@ export function buildAgentWiring(input: {
     },
     {
       key: "coding",
-      state: "not_connected",
-      handler: "No production coding worker",
-      trigger: "None",
-      summary: "The supervisor can diagnose code health, but no autonomous code-edit or deploy worker is connected.",
-      supervisorDispatch: false,
-      canPause: false,
+      state: "read_only",
+      handler: "Deterministic code-health diagnosis worker",
+      trigger: "Owner request + supervisor health watcher",
+      summary: "Diagnoses deployed routes, agent failures, and code-security status; fixes and deployments remain approval-gated.",
+      supervisorDispatch: true,
+      canPause: true,
     },
     {
       key: "health-security",
@@ -95,4 +95,3 @@ export function buildAgentWiring(input: {
     },
   ];
 }
-

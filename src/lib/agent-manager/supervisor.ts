@@ -142,7 +142,7 @@ export function parseSupervisorControl(message: string): SupervisorControl | nul
   if (normalized === "run booking follow-up scan" || normalized === "scan booking follow ups") return { kind: "booking_follow_up_scan" };
   if (normalized === "run waiver scan" || normalized === "scan waiver issues") return { kind: "waiver_scan" };
 
-  const match = normalized.match(/^(pause|resume) (?:the )?(booking|waiver|social)(?: agent)?$/);
+  const match = normalized.match(/^(pause|resume) (?:the )?(booking|waiver|social|coding)(?: agent)?$/);
   if (!match) return null;
   const target = AGENT_ALIASES[match[2]];
   return {
