@@ -59,7 +59,7 @@ export default async function InvitationOpenGraphImage({
           <div>{copy.dateLabel}</div>
           <div>{copy.timeLabel}</div>
           <div style={{ fontSize: 22 }}>{copy.venueLine}</div>
-          {copy.customerPhone ? <div style={{ fontSize: 22 }}>Party contact: {copy.customerPhone}</div> : null}
+          {copy.customerPhone ? <div style={{ fontSize: 22 }}>{`Party contact: ${copy.customerPhone}`}</div> : null}
         </div>
       </div>
     </div>,
