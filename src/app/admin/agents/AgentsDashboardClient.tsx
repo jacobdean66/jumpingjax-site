@@ -1,15 +1,72 @@
 "use client";
+
 import { useState } from "react";
+
+import type { AgentWiring } from "@/lib/agent-manager/agent-wiring";
+import { isGenericRetryableJobType } from "@/lib/agent-manager/job-capabilities";
 import type { AgentDashboard } from "@/lib/agent-manager/types";
 
-const tones:Record<string,string>={online:"bg-emerald-100 text-emerald-900",idle:"bg-sky-100 text-sky-900",working:"bg-violet-100 text-violet-900",paused:"bg-amber-100 text-amber-900",error:"bg-rose-100 text-rose-900",not_configured:"bg-slate-200 text-slate-700"};
-export function AgentsDashboardClient({initial}:{initial:AgentDashboard}){const [data,setData]=useState(initial);const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
-async function refresh(){const response=await fetch("/api/admin/agents/status",{cache:"no-store"});const body=await response.json();if(!response.ok)throw new Error(body.error);setData(body.dashboard);}
-async function control(action:string,id?:string){setBusy(true);setMessage("");try{const response=await fetch("/api/admin/agents/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,id})});const body=await response.json();if(!response.ok)throw new Error(body.error);await refresh();setMessage("Action completed and recorded.");}catch(error){setMessage(error instanceof Error?error.message:"Action failed safely.");}finally{setBusy(false)}}
-async function demo(){setBusy(true);setMessage("");try{const key=`admin-demo-${new Date().toISOString().slice(0,10)}`;const response=await fetch("/api/admin/agents/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agentKey:"supervisor",jobType:"system.health_check",idempotencyKey:key})});const body=await response.json();if(!response.ok)throw new Error(body.error);await refresh();setMessage(`Health check complete. Durable job ${body.job.id.slice(0,8)}; replaying today reuses it.`);}catch(error){setMessage(error instanceof Error?error.message:"Demo failed safely.");}finally{setBusy(false)}}
-const queued=data.jobs.filter(j=>j.status==="queued").length,failed=data.jobs.filter(j=>j.status==="failed").length;
-return <div className="mt-7 space-y-6"><section className={`rounded-3xl border p-5 ${data.emergencyStop?"border-rose-300 bg-rose-50":"border-emerald-200 bg-emerald-50"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide">Manager health</p><h2 className="mt-1 text-2xl font-black">{data.emergencyStop?"EMERGENCY STOP":"ONLINE"}</h2><p className="mt-1 text-sm font-semibold">{queued} queued · {failed} recent failures · {data.approvals.length} approvals waiting · concurrency {data.maxConcurrency}</p></div><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={demo} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Run safe check</button><button disabled={busy} onClick={()=>control(data.emergencyStop?"release_stop":"emergency_stop")} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{data.emergencyStop?"Release stop":"Emergency stop"}</button></div></div>{message?<p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm font-bold">{message}</p>:null}</section>
-<section><h2 className="text-xl font-black">Agents</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{data.agents.map(agent=>{const current=data.jobs.find(j=>j.id===agent.current_job_id);return <article key={agent.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><div><h3 className="font-black">{agent.display_name}</h3><p className="text-xs font-semibold text-slate-500">{agent.agent_type}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${tones[agent.paused?"paused":agent.status]}`}>{(agent.paused?"paused":agent.status).replace("_"," ")}</span></div><dl className="mt-3 grid grid-cols-2 gap-2 text-xs"><div><dt className="font-bold text-slate-500">Current job</dt><dd className="font-semibold">{current?.job_type??"None"}</dd></div><div><dt className="font-bold text-slate-500">Last success</dt><dd className="font-semibold">{agent.last_success_at?new Date(agent.last_success_at).toLocaleString():"Never"}</dd></div></dl><button disabled={busy} onClick={()=>control(agent.paused?"resume":"pause",agent.id)} className="mt-4 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-black disabled:opacity-50">{agent.paused?"Resume":"Pause"}</button></article>})}</div></section>
-{data.approvals.length?<section><h2 className="text-xl font-black">Approvals waiting</h2><div className="mt-3 space-y-2">{data.approvals.map(a=><div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="font-bold">{a.action_type}</p><div className="flex gap-2"><button disabled={busy} onClick={()=>control("approve",a.id)} className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">Approve</button><button disabled={busy} onClick={()=>control("reject",a.id)} className="rounded-full bg-rose-600 px-3 py-1.5 text-xs font-black text-white">Reject</button></div></div>)}</div></section>:null}
-<section><h2 className="text-xl font-black">Recent jobs</h2><div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Job</th><th>Status</th><th>Attempts</th><th>Result</th><th>Created</th><th>Control</th></tr></thead><tbody>{data.jobs.map(j=><tr key={j.id} className="border-t border-slate-100"><td className="p-3 font-bold">{j.job_type}</td><td>{j.status}</td><td>{j.attempt_count}/{j.max_attempts}</td><td className="max-w-xs truncate">{j.result_summary||j.error_summary||"—"}</td><td>{new Date(j.created_at).toLocaleString()}</td><td>{j.status==="failed"?<button disabled={busy} onClick={()=>control("retry",j.id)} className="font-black text-sky-700">Retry</button>:(["queued","claimed","approval_required"].includes(j.status)?<button disabled={busy} onClick={()=>control("cancel",j.id)} className="font-black text-rose-700">Cancel</button>:"—")}</td></tr>)}</tbody></table></div></section>
-<section><h2 className="text-xl font-black">Recent activity</h2><ol className="mt-3 space-y-2">{data.events.map(e=><li key={e.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><span className="font-black">{e.event_type}</span> — {e.summary}<time className="ml-2 text-xs text-slate-500">{new Date(e.created_at).toLocaleString()}</time></li>)}</ol></section></div>}
+const tones: Record<string, string> = {
+  online: "bg-emerald-100 text-emerald-900", idle: "bg-sky-100 text-sky-900", working: "bg-violet-100 text-violet-900",
+  paused: "bg-amber-100 text-amber-900", error: "bg-rose-100 text-rose-900", not_configured: "bg-slate-200 text-slate-700",
+  connected: "bg-emerald-100 text-emerald-900", staged: "bg-violet-100 text-violet-900", read_only: "bg-cyan-100 text-cyan-900",
+  setup_required: "bg-amber-100 text-amber-900", not_connected: "bg-rose-100 text-rose-900",
+};
+
+export function AgentsDashboardClient({ initial, initialWiring }: { initial: AgentDashboard; initialWiring: AgentWiring[] }) {
+  const [data, setData] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function refresh() {
+    const response = await fetch("/api/admin/agents/status", { cache: "no-store" });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    setData(body.dashboard);
+  }
+
+  async function control(action: string, id?: string) {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/admin/agents/control", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      await refresh(); setMessage("Action completed and recorded.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Action failed safely."); }
+    finally { setBusy(false); }
+  }
+
+  async function demo() {
+    setBusy(true); setMessage("");
+    try {
+      const key = `admin-demo-${new Date().toISOString().slice(0, 10)}`;
+      const response = await fetch("/api/admin/agents/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentKey: "supervisor", jobType: "system.health_check", idempotencyKey: key }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      await refresh(); setMessage(`Health check complete. Durable job ${body.job.id.slice(0, 8)}; replaying today reuses it.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Demo failed safely."); }
+    finally { setBusy(false); }
+  }
+
+  const queued = data.jobs.filter((job) => job.status === "queued").length;
+  const failed = data.jobs.filter((job) => job.status === "failed").length;
+
+  return <div className="mt-7 space-y-6">
+    <section className={`rounded-3xl border p-5 ${data.emergencyStop ? "border-rose-300 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide">Manager health</p><h2 className="mt-1 text-2xl font-black">{data.emergencyStop ? "EMERGENCY STOP" : "ONLINE"}</h2><p className="mt-1 text-sm font-semibold">{queued} queued · {failed} recent failures · {data.approvals.length} approvals waiting · concurrency {data.maxConcurrency}</p></div><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={demo} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Run safe check</button><button disabled={busy} onClick={() => control(data.emergencyStop ? "release_stop" : "emergency_stop")} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{data.emergencyStop ? "Release stop" : "Emergency stop"}</button></div></div>
+      {message ? <p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm font-bold">{message}</p> : null}
+    </section>
+
+    <section><h2 className="text-xl font-black">Agents and real connections</h2><p className="mt-1 text-sm font-semibold text-slate-600">Connection describes the handler that actually exists. Runtime describes its latest database activity; they are shown separately.</p><div className="mt-3 grid gap-3 md:grid-cols-2">{data.agents.map((agent) => {
+      const current = data.jobs.find((job) => job.id === agent.current_job_id);
+      const wiring = initialWiring.find((item) => item.key === agent.key);
+      const runtime = agent.paused ? "paused" : agent.status;
+      const connection = wiring?.state ?? "not_connected";
+      return <article key={agent.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><div><h3 className="font-black">{agent.display_name}</h3><p className="text-xs font-semibold text-slate-500">{wiring?.handler ?? agent.agent_type}</p></div><div className="flex flex-col items-end gap-1"><span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${tones[connection]}`}>{connection.replaceAll("_", " ")}</span><span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${tones[runtime]}`}>runtime: {runtime.replaceAll("_", " ")}</span></div></div><p className="mt-3 text-sm font-semibold leading-5 text-slate-700">{wiring?.summary ?? "No verified connection description is available."}</p><dl className="mt-3 grid grid-cols-2 gap-2 text-xs"><div><dt className="font-bold text-slate-500">Trigger</dt><dd className="font-semibold">{wiring?.trigger ?? "Unknown"}</dd></div><div><dt className="font-bold text-slate-500">Current job</dt><dd className="font-semibold">{current?.job_type ?? "None"}</dd></div><div><dt className="font-bold text-slate-500">Supervisor handoff</dt><dd className="font-semibold">{wiring?.supervisorDispatch ? "Connected" : "Not connected"}</dd></div><div><dt className="font-bold text-slate-500">Last success</dt><dd className="font-semibold">{agent.last_success_at ? new Date(agent.last_success_at).toLocaleString() : "Never"}</dd></div></dl>{wiring?.canPause ? <button disabled={busy} onClick={() => control(agent.paused ? "resume" : "pause", agent.id)} className="mt-4 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-black disabled:opacity-50">{agent.paused ? "Resume" : "Pause"}</button> : <p className="mt-4 text-xs font-bold text-slate-500">No pause control is shown because this card has no pauseable background worker.</p>}</article>;
+    })}</div></section>
+
+    {data.approvals.length ? <section><h2 className="text-xl font-black">Approvals waiting</h2><div className="mt-3 space-y-2">{data.approvals.map((approval) => <div key={approval.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="font-bold">{approval.action_type}</p><div className="flex gap-2"><button disabled={busy} onClick={() => control("approve", approval.id)} className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">Approve</button><button disabled={busy} onClick={() => control("reject", approval.id)} className="rounded-full bg-rose-600 px-3 py-1.5 text-xs font-black text-white">Reject</button></div></div>)}</div></section> : null}
+    <section><h2 className="text-xl font-black">Recent jobs</h2><div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Job</th><th>Status</th><th>Attempts</th><th>Result</th><th>Created</th><th>Control</th></tr></thead><tbody>{data.jobs.map((job) => <tr key={job.id} className="border-t border-slate-100"><td className="p-3 font-bold">{job.job_type}</td><td>{job.status}</td><td>{job.attempt_count}/{job.max_attempts}</td><td className="max-w-xs truncate">{job.result_summary || job.error_summary || "—"}</td><td>{new Date(job.created_at).toLocaleString()}</td><td>{job.status === "failed" && isGenericRetryableJobType(job.job_type) ? <button disabled={busy} onClick={() => control("retry", job.id)} className="font-black text-sky-700">Retry</button> : (["queued", "claimed", "approval_required"].includes(job.status) ? <button disabled={busy} onClick={() => control("cancel", job.id)} className="font-black text-rose-700">Cancel</button> : "—")}</td></tr>)}</tbody></table></div></section>
+    <section><h2 className="text-xl font-black">Recent activity</h2><ol className="mt-3 space-y-2">{data.events.map((event) => <li key={event.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><span className="font-black">{event.event_type}</span> — {event.summary}<time className="ml-2 text-xs text-slate-500">{new Date(event.created_at).toLocaleString()}</time></li>)}</ol></section>
+  </div>;
+}
