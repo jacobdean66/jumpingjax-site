@@ -15,6 +15,8 @@ type Props = {
   token: string;
   sourceImages: SocialSourceImage[];
   agentUiProtection: AgentUiProtectionStatus;
+  initialGoal?: string;
+  initialTheme?: string;
 };
 
 type WorkflowStage = {
@@ -93,9 +95,11 @@ export default function AgentDraftForm({
   token,
   sourceImages,
   agentUiProtection,
+  initialGoal = "",
+  initialTheme = "",
 }: Props) {
   const router = useRouter();
-  const [selectedGoal, setSelectedGoal] = useState<string>(PREMADE_GOALS[0]);
+  const [selectedGoal, setSelectedGoal] = useState<string>(initialGoal ? CUSTOM_GOAL_VALUE : PREMADE_GOALS[0]);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -347,6 +351,7 @@ export default function AgentDraftForm({
             <span className="text-sm font-black text-slate-700">Custom goal</span>
             <input
               name="custom_goal"
+              defaultValue={initialGoal}
               disabled={workflowActive}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
               placeholder="Describe the post goal"
@@ -358,6 +363,7 @@ export default function AgentDraftForm({
           <span className="text-sm font-black text-slate-700">Party theme</span>
           <input
             name="theme"
+            defaultValue={initialTheme}
             disabled={workflowActive}
             className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
             placeholder="Sonic, Minecraft, princess, dinosaurs…"
