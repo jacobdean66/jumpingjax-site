@@ -250,3 +250,24 @@
 - Corrected stale dashboard copy that described already-live Booking and Waiver read-only workflows as the "next" specialist. The cards now describe their current connected safe capabilities and retained production boundaries.
 - Validation: focused supervisor coverage is 10/10; the full Agent Manager suite is 83/83; full TypeScript and focused ESLint pass; the Next.js 16.3 production build passes and contains the repaired `/admin/agents`, `/admin/social-posts/new`, and supervisor API routes. Production is unchanged pending publication and live verification.
 
+## Permanent Agent connection-audit production evidence (2026-09-02)
+
+- PR #100 merged to `main` as `c800a6f12595c1a134d8fbf6087f0717bd535fef`. Both GitHub/Vercel checks passed, the preview was Ready before merge, and the resulting production Vercel deployment reported success.
+- The signed-in production `/admin/agents` page shows all eight real connection states separately from runtime: supervisor connected; Booking and Waiver read-only; Social staged; Party/Invitation connected inline; Health/Security read-only; Nomination setup-required; Coding not connected.
+- The live prompt `Make a Sonic themed social ad for a facility party rental.` routed to Social Agent before rental/party matching. It reused existing owner-review draft `1bddfb16-0f0a-4c9a-a458-2004172ab800`, returned a clickable handoff, created no duplicate, and published or scheduled nothing.
+- A fresh full-site check returned HTTP 200 for `/`, `/rentals`, `/facility-parties`, and `/booking`, with zero critical issues. Remaining warnings are explicit unfinished connections or review queues: Coding worker not connected, Nomination production inbound not connected, 85 legacy booking integration workflows awaiting review, Aikido manual rescanning requiring its paid tier, and AITHURA live-provider verification still pending.
+
+## Booking legacy-workflow classification batch (2026-09-02)
+
+- Ran one owner-authenticated production Booking Agent triage batch through the existing bounded control. It reviewed 10 operational workflow records, found 10 issues, created 6 new durable triage jobs, and atomically reused 4 existing jobs; AI calls were zero.
+- All six new jobs succeeded on attempt 1/3 and returned hashed facility references only. The observed categories were failed `owner_notification`, `decision_email`, and `initial_customer_email` steps. Booking Agent returned to `idle` with no current job.
+- This was classification only. The 85 source workflow records remain unchanged for owner review; no booking, calendar, payment, customer message, or source workflow record was modified.
+
+## Booking triage advancement and Coding Agent checkpoint (2026-09-02)
+
+- Corrected the Booking Agent's repeat-batch defect. The service now scans at most 100 recent workflow rows and 200 derived issues, checks existing Agent Manager idempotency history in bounded 25-key chunks, skips already-classified state, and queues at most 10 genuinely new review jobs per run. The response shows scanned, already-triaged, newly created, and still-untriaged counts so progress is visible without rewriting source workflows.
+- Connected a real deterministic Coding Agent in read-only mode. Its owner-only, same-origin-guarded dashboard action snapshots public-route health, redacted operational issue codes, deployment identity, and existing security-provider states into the durable Agent Manager ledger. It performs zero code writes, deployments, model calls, business-record writes, or credential changes.
+- Added Coding Agent pause/resume and safe retry support through the existing controls and worker registry. The connection manifest now reports Coding as `read_only` instead of `not_connected`; Nomination remains the only setup-required specialist connection.
+- Validation: the full Agent Manager suite passes 87/87, including the regression proving an already-triaged newest batch advances to later issues; full TypeScript passes; focused ESLint has zero errors; and the Next.js 16.3 production build passes with `/admin/agents` and `/api/admin/agents/coding-diagnosis` present.
+- Scope/safety: local checkpoint only at this point. No customer or owner message was sent, no source workflow, booking, calendar, payment, code, production deployment, provider credential, or paid plan was changed.
+
