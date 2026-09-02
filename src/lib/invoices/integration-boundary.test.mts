@@ -9,9 +9,16 @@ function source(relativePath: string): string {
 test("the admin has a dedicated invoice page and navigation option", () => {
   const navigation = source("../../app/admin/_components.tsx");
   const invoicePage = source("../../app/admin/invoices/page.tsx");
+  const topNavigation = navigation.slice(
+    navigation.indexOf("const items ="),
+    navigation.indexOf("const rentalSubnav ="),
+  );
+  const rentalSubnav = navigation.slice(navigation.indexOf("const rentalSubnav ="));
 
-  assert.match(navigation, /label: "Invoices"/);
-  assert.match(navigation, /href: `\/admin\/invoices/);
+  assert.doesNotMatch(topNavigation, /label: "Invoices"/);
+  assert.match(rentalSubnav, /label: "Invoices"/);
+  assert.match(rentalSubnav, /href: `\/admin\/invoices/);
+  assert.match(navigation, /active === "invoices"/);
   assert.match(invoicePage, /title="Invoices"/);
   assert.match(invoicePage, /Create new invoice/);
   assert.match(invoicePage, /Saved standalone invoices/);

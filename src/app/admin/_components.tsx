@@ -104,6 +104,7 @@ export function AdminNav({
   const query = "";
   const rentalActive =
     active === "rentals" ||
+    active === "invoices" ||
     active === "inventory" ||
     active === "damage-log" ||
     active === "waiver-export" ||
@@ -116,12 +117,6 @@ export function AdminNav({
       id: "rentals" as const,
       label: "Rentals",
       href: `/admin/rentals${query}`,
-      prominent: true,
-    },
-    {
-      id: "invoices" as const,
-      label: "Invoices",
-      href: `/admin/invoices${query}`,
       prominent: true,
     },
     {
@@ -179,6 +174,7 @@ export function AdminNav({
   // Top-level "Rentals" already opens bookings; keep the submenu for sibling
   // rental tools only so Rentals is not duplicated in the nav.
   const rentalSubnav = [
+    { label: "Invoices", href: `/admin/invoices${query}` },
     { label: "Inventory", href: `/admin/inventory${query}` },
     { label: "Damage log", href: `/admin/damage-log${query}` },
     role === "owner"
