@@ -43,8 +43,8 @@ test("Permanent Agent controls require exact deterministic language", () => {
   assert.deepEqual(parseSupervisorControl("pause booking agent"), { kind: "pause_agent", agentKey: "booking", displayName: "Booking Agent" });
   assert.deepEqual(parseSupervisorControl("release emergency stop"), { kind: "release_emergency_stop" });
   assert.deepEqual(parseSupervisorControl("run booking scan"), { kind: "booking_scan" });
+  assert.deepEqual(parseSupervisorControl("pause coding agent"), { kind: "pause_agent", agentKey: "coding", displayName: "Coding Agent" });
   assert.equal(parseSupervisorControl("maybe fix everything and deploy it"), null);
-  assert.equal(parseSupervisorControl("pause coding agent"), null);
 });
 
 test("creative requests route to Social before rental and party keywords", () => {
@@ -59,9 +59,9 @@ test("creative requests route to Social before rental and party keywords", () =>
   assert.doesNotMatch(buildSupervisorReply(prompt, value), /^Bookings:/);
 });
 
-test("connection problems are visible even when a database row previously looked idle", () => {
+test("only genuine connection problems remain visible", () => {
   const value = snapshot({ wiring: buildAgentWiring({ nominationReady: false }) });
-  assert.ok(value.issues.some((issue) => issue.code === "agents:coding:not-connected"));
+  assert.ok(!value.issues.some((issue) => issue.code === "agents:coding:not-connected"));
   assert.ok(value.issues.some((issue) => issue.code === "agents:nomination:setup-required"));
 });
 
