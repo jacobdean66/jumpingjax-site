@@ -4,12 +4,17 @@ import test from "node:test";
 import {
   buildSupervisorIssues,
   buildSupervisorReply,
+  extractSocialTheme,
+  isSocialCreationRequest,
   parseSupervisorControl,
+  socialDraftMatchScore,
+  socialRequestKeywords,
   supervisorWatchKey,
   supervisorWatchSummary,
   validateSupervisorMessage,
   type SupervisorSnapshot,
 } from "./supervisor.ts";
+import { buildAgentWiring } from "./agent-wiring.ts";
 
 function snapshot(overrides: Partial<SupervisorSnapshot> = {}): SupervisorSnapshot {
   const base = {
@@ -21,6 +26,7 @@ function snapshot(overrides: Partial<SupervisorSnapshot> = {}): SupervisorSnapsh
     rentals: { catalogItems: 45 },
     answeringMachine: { live: false, status: "SETUP REQUIRED", pendingReview: 0, failedCalls: 0 },
     security: [{ name: "Aikido", state: "healthy", summary: "Latest scan passed." }],
+    wiring: buildAgentWiring({ nominationReady: true }),
     dataErrors: [],
   } satisfies Omit<SupervisorSnapshot, "issues">;
   const merged = { ...base, ...overrides } as Omit<SupervisorSnapshot, "issues">;
@@ -38,6 +44,25 @@ test("Permanent Agent controls require exact deterministic language", () => {
   assert.deepEqual(parseSupervisorControl("release emergency stop"), { kind: "release_emergency_stop" });
   assert.deepEqual(parseSupervisorControl("run booking scan"), { kind: "booking_scan" });
   assert.equal(parseSupervisorControl("maybe fix everything and deploy it"), null);
+  assert.equal(parseSupervisorControl("pause coding agent"), null);
+});
+
+test("creative requests route to Social before rental and party keywords", () => {
+  const value = snapshot();
+  const prompt = "Make a Sonic themed ad for a facility party rental";
+  assert.equal(isSocialCreationRequest(prompt), true);
+  assert.equal(isSocialCreationRequest("Check Social Agent status"), false);
+  assert.equal(extractSocialTheme(prompt), "sonic");
+  assert.deepEqual(socialRequestKeywords(prompt), ["sonic", "facility", "party", "rental"]);
+  assert.equal(socialDraftMatchScore(prompt, "Sonic inspired facility party owner review draft"), 3);
+  assert.match(buildSupervisorReply(prompt, value), /Social Agent/);
+  assert.doesNotMatch(buildSupervisorReply(prompt, value), /^Bookings:/);
+});
+
+test("connection problems are visible even when a database row previously looked idle", () => {
+  const value = snapshot({ wiring: buildAgentWiring({ nominationReady: false }) });
+  assert.ok(value.issues.some((issue) => issue.code === "agents:coding:not-connected"));
+  assert.ok(value.issues.some((issue) => issue.code === "agents:nomination:setup-required"));
 });
 
 test("website, booking, and security failures become owner-visible issues", () => {
