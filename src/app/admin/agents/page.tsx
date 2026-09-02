@@ -10,6 +10,7 @@ import { AgentsDashboardClient } from "./AgentsDashboardClient";
 import { TriggerProofClient } from "./TriggerProofClient";
 import { NominationProofClient } from "./NominationProofClient";
 import { BookingTriageClient } from "./BookingTriageClient";
+import { BookingTriageReviewClient } from "./BookingTriageReviewClient";
 import { WaiverTriageClient } from "./WaiverTriageClient";
 import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
 import { CodingDiagnosisClient } from "./CodingDiagnosisClient";
@@ -113,6 +114,7 @@ export default async function AgentsPage() {
         </div>
         <CompositeBookingProofClient />
         <BookingTriageClient />
+        <BookingTriageReviewClient />
       </section>
       <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
