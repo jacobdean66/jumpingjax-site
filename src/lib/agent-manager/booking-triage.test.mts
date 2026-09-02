@@ -7,6 +7,7 @@ import {
   bookingReference,
   bookingTriageIdempotencyKey,
   identifyBookingTriageIssues,
+  planBookingTriageBatch,
 } from "./booking-triage.ts";
 import type { AgentJob } from "./types.ts";
 
@@ -53,4 +54,24 @@ test("Booking Agent summary is redacted and uses zero AI", async () => {
 
 test("Booking Agent ignores rows that do not require operator review", () => {
   assert.deepEqual(identifyBookingTriageIssues({ ...row, operator_required: false, owner_notification_status: "sent", calendar_status: "pending" }), []);
+});
+
+test("Booking Agent advances past already-triaged newest issues", () => {
+  const issues = Array.from({ length: 20 }, (_, index) => identifyBookingTriageIssues({
+    ...row,
+    booking_id: `booking-${index}`,
+    calendar_status: "not_required",
+  })[0]);
+  const existingKeys = new Set(issues.slice(0, 10).map(bookingTriageIdempotencyKey));
+  const batch = planBookingTriageBatch(issues, existingKeys, 5);
+  assert.deepEqual(batch.selected.map((issue) => issue.bookingId), [
+    "booking-10",
+    "booking-11",
+    "booking-12",
+    "booking-13",
+    "booking-14",
+  ]);
+  assert.equal(batch.issuesScanned, 20);
+  assert.equal(batch.alreadyTriaged, 10);
+  assert.equal(batch.remainingUntriaged, 5);
 });
