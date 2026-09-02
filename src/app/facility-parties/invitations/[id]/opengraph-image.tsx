@@ -1,10 +1,8 @@
 import { ImageResponse } from "next/og";
 
-import { approvedArtworkSrc } from "@/lib/facility-parties/invitations/approved-artwork";
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
-import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 export const alt = "Jumping Jax birthday invitation";
@@ -34,10 +32,6 @@ export default async function InvitationOpenGraphImage({
     artworkVariant: view.snapshot.artworkVariant,
     colorHint: view.snapshot.colorHint,
   });
-  const artwork =
-    approvedArtworkSrc(view.snapshot.themeId, view.snapshot.sourceText) ??
-    composed.hero.src;
-  const artworkUrl = new URL(artwork, CANONICAL_PRODUCTION_SITE_URL).toString();
   const copy = buildInvitationCopy({
     childName: view.childName,
     childAge: view.childAge,
@@ -49,20 +43,19 @@ export default async function InvitationOpenGraphImage({
 
   return new ImageResponse(
     <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", overflow: "hidden", background: composed.palette.background, color: "white" }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={artworkUrl} alt="" width="1200" height="630" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-      <div style={{ display: "flex", position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,0,0,.94) 0%, rgba(0,0,0,.78) 48%, rgba(0,0,0,.12) 100%)" }} />
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "68%", padding: "58px 64px", textShadow: "0 3px 12px rgba(0,0,0,.8)" }}>
+      <div style={{ display: "flex", position: "absolute", width: 440, height: 440, right: -80, top: -90, borderRadius: 220, background: composed.palette.accent, opacity: 0.3 }} />
+      <div style={{ display: "flex", position: "absolute", width: 300, height: 300, right: 90, bottom: -130, borderRadius: 150, border: `30px solid ${composed.palette.accent}`, opacity: 0.45 }} />
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "82%", padding: "48px 64px" }}>
         <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: 4, textTransform: "uppercase", color: composed.palette.accent }}>
           You&apos;re invited
         </div>
-        <div style={{ marginTop: 18, fontSize: 74, lineHeight: 1, fontWeight: 900 }}>
+        <div style={{ marginTop: 14, fontSize: 66, lineHeight: 1, fontWeight: 900 }}>
           {copy.headline}
         </div>
         <div style={{ marginTop: 18, fontSize: 30, lineHeight: 1.2, fontWeight: 700 }}>
           {copy.celebrationLine}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", marginTop: 34, paddingTop: 20, borderTop: `5px solid ${composed.palette.accent}`, fontSize: 27, lineHeight: 1.4, fontWeight: 800 }}>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 26, paddingTop: 16, borderTop: `5px solid ${composed.palette.accent}`, fontSize: 25, lineHeight: 1.35, fontWeight: 800 }}>
           <div>{copy.dateLabel}</div>
           <div>{copy.timeLabel}</div>
           <div style={{ fontSize: 22 }}>{copy.venueLine}</div>
