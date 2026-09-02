@@ -271,3 +271,17 @@
 - Validation: the full Agent Manager suite passes 87/87, including the regression proving an already-triaged newest batch advances to later issues; full TypeScript passes; focused ESLint has zero errors; and the Next.js 16.3 production build passes with `/admin/agents` and `/api/admin/agents/coding-diagnosis` present.
 - Scope/safety: local checkpoint only at this point. No customer or owner message was sent, no source workflow, booking, calendar, payment, code, production deployment, provider credential, or paid plan was changed.
 
+## Booking triage and Coding Agent production evidence (2026-09-02)
+
+- PR #101 passed both required checks and merged to `main` as `64b23d1b9c7284dcdb66701a332ef34d3ba6dee3`. Vercel production deployment `Dc7LnT846kCcrBQqXqiQo3J5Toqi` reached success before live verification.
+- The signed-in production dashboard exposes the new Coding Agent as a connected read-only specialist. A live diagnosis recorded deployment `64b23d1b9c72`, 0 unhealthy public routes, 0 critical issues, 4 warnings, Aikido and AITHURA as degraded, 0 AI calls, 0 code writes, and 0 deployments.
+- Booking triage advanced through the full bounded production scan instead of repeating the newest records. The final result reported 85 workflows reviewed, 92 unique issues, 82 already triaged, 10 newly recorded in the last batch, and 0 still untriaged. Manager health then showed 0 queued jobs, 0 recent failures, and both Booking and Coding idle with fresh successful run timestamps.
+- Classification did not replay the failed workflow actions. The 85 source workflow rows remain unchanged because retrying email/customer/owner notifications or calendar work requires a separate exact approval and targeted review. No customer message, booking, calendar, payment, credential, paid service, or destructive action occurred.
+
+## Booking classified-issue review checkpoint (2026-09-02)
+
+- Added an owner-only, on-demand grouped review of the existing `booking.workflow.triage` ledger. It reads at most 200 job metadata rows and returns at most 50 grouped booking references with step/outcome/status summaries, plus counts for initial customer email, owner notification, decision email, and calendar categories.
+- The review response contains only hashed booking references and operational metadata. Raw booking IDs, customer names, email addresses, phone numbers, addresses, message content, payment content, and calendar event content are not returned to the browser.
+- The dashboard clearly reports actions replayed as zero and AI calls as zero. Opening or refreshing the review cannot send a message, change a booking/calendar/payment, or approve a repair; it prepares the already-classified backlog for a later exact owner decision.
+- Validation: focused review/boundary coverage passes 11/11; the full Agent Manager suite passes 89/89; full TypeScript and focused ESLint pass; and the Next.js 16.3 production build passes with `/api/admin/agents/booking-triage-review` present. This checkpoint is local only and makes no production or external-service change.
+
