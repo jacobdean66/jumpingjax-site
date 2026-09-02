@@ -60,3 +60,15 @@ test("Coding Agent diagnosis is owner-only, request-guarded, and cannot edit or 
   assert.match(service, /deploymentWritesAllowed:\s*false/);
   assert.doesNotMatch(`${route}\n${service}\n${worker}`, /writeFile|execFile|spawn\(|github.*update|vercel.*deploy|openai|anthropic|responses\.create/i);
 });
+
+test("Booking triage grouped review is owner-only, bounded, redacted, and read-only", async () => {
+  const route = await readFile(new URL("../../app/api/admin/agents/booking-triage-review/route.ts", import.meta.url), "utf8");
+  const service = await readFile(new URL("booking-triage-review-service.ts", import.meta.url), "utf8");
+  const ui = await readFile(new URL("../../app/admin/agents/BookingTriageReviewClient.tsx", import.meta.url), "utf8");
+  assert.match(route, /verifyAdminOwnerAccess/);
+  assert.match(service, /limit\(MAX_REVIEW_JOBS\)/);
+  assert.match(service, /select\("payload,status,created_at"\)/);
+  assert.match(ui, /Actions replayed/);
+  assert.match(ui, /replayedActions/);
+  assert.doesNotMatch(`${route}\n${service}`, /insert\(|update\(|delete\(|send|calendar.*write/i);
+});
