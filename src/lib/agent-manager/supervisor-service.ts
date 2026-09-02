@@ -1,7 +1,5 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
-
 import { RENTALS } from "@/data/rentals";
 import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
 import { scanBookingWorkflowsForTriage } from "@/lib/agent-manager/booking-triage-service";
@@ -9,8 +7,11 @@ import { scanCompositeBookingFollowUps } from "@/lib/agent-manager/booking-follo
 import { scanWaiverSubmissionsForTriage } from "@/lib/agent-manager/waiver-triage-service";
 import { loadSecurityDashboard } from "@/lib/security/dashboard-service";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
+import { buildAgentWiring } from "./agent-wiring";
+import { prepareSupervisorHandoff } from "./supervisor-handoff";
 import { enqueueJob, loadDashboard, setAgentPaused, setEmergencyStop } from "./service";
 import {
   buildSupervisorIssues,
@@ -22,6 +23,7 @@ import {
   supervisorWatchKey,
   supervisorWatchSummary,
   type SupervisorSnapshot,
+  type SupervisorRelatedAction,
 } from "./supervisor";
 import type { AgentJob } from "./types";
 
@@ -72,6 +74,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
   if (securityResult.error) dataErrors.push(securityResult.error);
   const dashboard = dashboardResult.value;
   const readiness = getAnsweringMachineReadiness();
+  const nominationReadiness = getNominationAgentReadiness();
   const base = {
     generatedAt: new Date().toISOString(),
     deployment: {
@@ -102,28 +105,30 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
       failedCalls: countOrNull(failedCalls, "Failed answering-machine calls", dataErrors),
     },
     security: (securityResult.value?.services ?? []).map((service) => ({ name: service.name, state: service.state, summary: service.summary })),
+    wiring: buildAgentWiring({ nominationReady: nominationReadiness.enabled && nominationReadiness.configured }),
     dataErrors,
   } satisfies Omit<SupervisorSnapshot, "issues">;
   return { ...base, issues: buildSupervisorIssues(base) };
 }
 
-async function finishSupervisorJob(job: AgentJob, summary: string) {
+async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Record<string, unknown>) {
   const db = createServiceRoleClient();
   const now = new Date().toISOString();
   const { error } = await db.from("agent_jobs").update({
     status: "succeeded",
     attempt_count: Math.max(1, job.attempt_count),
     result_summary: summary.slice(0, 4000),
+    ...(payload ? { payload } : {}),
     error_summary: null,
     started_at: now,
     completed_at: now,
     updated_at: now,
-  }).eq("id", job.id).in("status", ["queued", "succeeded"]);
+  }).eq("id", job.id).in("status", ["queued", "running", "succeeded"]);
   if (error) throw new Error("Permanent Agent conversation could not be recorded.");
   await Promise.all([
     db.from("agents").update({
       status: "idle",
-      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "agent.pause", "agent.resume", "manager.emergency_stop"],
+      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "social.draft.handoff", "agent.pause", "agent.resume", "manager.emergency_stop"],
       current_job_id: null,
       last_activity_at: now,
       last_success_at: now,
@@ -170,20 +175,61 @@ async function runControl(message: string, actorId: string) {
   return `${control.displayName} ${paused ? "paused" : "resumed"} and the action was recorded.`;
 }
 
-export async function runSupervisorConversation(message: string, actorId: string) {
-  const actionOutcome = await runControl(message, actorId);
-  const snapshot = await collectSupervisorSnapshot(actorId);
-  const reply = buildSupervisorReply(message, snapshot, actionOutcome);
+export async function runSupervisorConversation(message: string, actorId: string, clientRequestId: string) {
   const job = await enqueueJob({
     agentKey: "supervisor",
     jobType: SUPERVISOR_CHAT_JOB_TYPE,
     source: "admin.supervisor-chat",
-    payload: { message, snapshot, actionOutcome, aiInvocations: 0, businessWritesAllowed: false },
-    idempotencyKey: `supervisor-chat:${randomUUID()}`,
+    payload: { message, clientRequestId, aiInvocations: 0, businessWritesAllowed: false },
+    idempotencyKey: `supervisor-chat:${clientRequestId}`,
     actorId,
   });
-  await finishSupervisorJob(job, reply);
-  return { jobId: job.id, reply, snapshot, actionOutcome };
+  if (job.status === "succeeded" && job.result_summary && job.payload.snapshot) {
+    return {
+      jobId: job.id,
+      reply: job.result_summary,
+      snapshot: job.payload.snapshot as SupervisorSnapshot,
+      actionOutcome: typeof job.payload.actionOutcome === "string" ? job.payload.actionOutcome : null,
+      relatedAction: (job.payload.relatedAction as SupervisorRelatedAction | null | undefined) ?? null,
+      deduplicated: true,
+    };
+  }
+  if (job.status !== "queued") throw new Error("This Permanent Agent request is already processing.");
+
+  const db = createServiceRoleClient();
+  const now = new Date().toISOString();
+  const { data: claimed, error: claimError } = await db.from("agent_jobs")
+    .update({ status: "running", started_at: now, updated_at: now })
+    .eq("id", job.id)
+    .eq("status", "queued")
+    .select("id")
+    .maybeSingle();
+  if (claimError || !claimed) throw new Error("This Permanent Agent request is already processing.");
+
+  try {
+    const handoff = await prepareSupervisorHandoff(message);
+    const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
+    const snapshot = await collectSupervisorSnapshot(actorId);
+    const reply = buildSupervisorReply(message, snapshot, actionOutcome);
+    const payload = {
+      message,
+      clientRequestId,
+      snapshot,
+      actionOutcome,
+      relatedAction: handoff?.relatedAction ?? null,
+      aiInvocations: 0,
+      businessWritesAllowed: false,
+    };
+    await finishSupervisorJob(job, reply, payload);
+    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction: handoff?.relatedAction ?? null, deduplicated: false };
+  } catch (error) {
+    const failedAt = new Date().toISOString();
+    await Promise.all([
+      db.from("agent_jobs").update({ status: "failed", error_summary: "Permanent Agent request failed safely.", completed_at: failedAt, updated_at: failedAt }).eq("id", job.id).eq("status", "running"),
+      db.from("agents").update({ status: "idle", current_job_id: null, last_activity_at: failedAt, updated_at: failedAt }).eq("id", job.agent_id),
+    ]);
+    throw error;
+  }
 }
 
 export async function loadSupervisorConversation(limit = 12) {
