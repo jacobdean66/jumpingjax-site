@@ -74,7 +74,7 @@ export function identifyBookingTriageIssues(row: Record<string, unknown>): Booki
   });
 }
 
-function parsePayload(payload: Record<string, unknown>): BookingTriageIssue | null {
+export function parseBookingTriagePayload(payload: Record<string, unknown>): BookingTriageIssue | null {
   const issues = identifyBookingTriageIssues({
     booking_kind: payload.bookingKind,
     booking_id: payload.bookingId,
@@ -83,6 +83,78 @@ function parsePayload(payload: Record<string, unknown>): BookingTriageIssue | nu
     [`${String(payload.workflowStep)}_status`]: payload.outcome,
   });
   return issues.find((issue) => issue.workflowStep === payload.workflowStep) ?? null;
+}
+
+export type BookingTriageReviewRow = {
+  payload?: unknown;
+  status?: unknown;
+  created_at?: unknown;
+};
+
+export function buildBookingTriageReview(rows: BookingTriageReviewRow[], maxGroups = 50) {
+  const limit = Math.max(0, Math.min(100, Math.trunc(maxGroups)));
+  const groups = new Map<string, {
+    reference: string;
+    bookingKind: BookingTriageIssue["bookingKind"];
+    steps: Set<BookingWorkflowStep>;
+    outcomes: Set<BookingTriageIssue["outcome"]>;
+    jobStatuses: Set<string>;
+    issueCount: number;
+    latestWorkflowUpdate: string;
+  }>();
+  const actionCounts: Record<BookingWorkflowStep, number> = {
+    initial_customer_email: 0,
+    owner_notification: 0,
+    decision_email: 0,
+    calendar: 0,
+  };
+  let totalIssues = 0;
+
+  for (const row of rows) {
+    if (!row.payload || typeof row.payload !== "object" || Array.isArray(row.payload)) continue;
+    const issue = parseBookingTriagePayload(row.payload as Record<string, unknown>);
+    if (!issue) continue;
+    totalIssues += 1;
+    actionCounts[issue.workflowStep] += 1;
+    const key = `${issue.bookingKind}:${issue.bookingId}`;
+    const current = groups.get(key) ?? {
+      reference: bookingReference(issue.bookingKind, issue.bookingId),
+      bookingKind: issue.bookingKind,
+      steps: new Set<BookingWorkflowStep>(),
+      outcomes: new Set<BookingTriageIssue["outcome"]>(),
+      jobStatuses: new Set<string>(),
+      issueCount: 0,
+      latestWorkflowUpdate: issue.workflowUpdatedAt,
+    };
+    current.steps.add(issue.workflowStep);
+    current.outcomes.add(issue.outcome);
+    if (typeof row.status === "string") current.jobStatuses.add(row.status.slice(0, 24));
+    current.issueCount += 1;
+    if (issue.workflowUpdatedAt > current.latestWorkflowUpdate) current.latestWorkflowUpdate = issue.workflowUpdatedAt;
+    groups.set(key, current);
+  }
+
+  const allGroups = [...groups.values()]
+    .map((group) => ({
+      reference: group.reference,
+      bookingKind: group.bookingKind,
+      steps: [...group.steps].sort(),
+      outcomes: [...group.outcomes].sort(),
+      jobStatuses: [...group.jobStatuses].sort(),
+      issueCount: group.issueCount,
+      latestWorkflowUpdate: group.latestWorkflowUpdate,
+    }))
+    .sort((left, right) => right.latestWorkflowUpdate.localeCompare(left.latestWorkflowUpdate) || left.reference.localeCompare(right.reference));
+
+  return {
+    totalIssues,
+    totalBookings: allGroups.length,
+    actionCounts,
+    groups: allGroups.slice(0, limit),
+    truncated: allGroups.length > limit,
+    aiInvocations: 0 as const,
+    replayedActions: 0 as const,
+  };
 }
 
 export class BookingTriageWorker implements AgentWorker {
@@ -94,7 +166,7 @@ export class BookingTriageWorker implements AgentWorker {
 
   async execute(job: AgentJob, signal: AbortSignal): Promise<WorkerResult> {
     if (signal.aborted) return { ok: false, summary: "Booking triage cancelled before execution", transient: false };
-    const issue = parsePayload(job.payload);
+    const issue = parseBookingTriagePayload(job.payload);
     if (!issue) return { ok: false, summary: "Booking triage payload was invalid", transient: false };
     const reference = bookingReference(issue.bookingKind, issue.bookingId);
     return {
