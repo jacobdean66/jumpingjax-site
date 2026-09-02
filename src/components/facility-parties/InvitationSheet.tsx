@@ -33,7 +33,7 @@ export function InvitationSheet({
   const quantity = dense ? 4 : normalizeInvitationQuantity(invitationQuantity);
   const pageCount = quantity / 4;
   const legal = paperSize === "legal";
-  const portrait = snapshot.themeId === "princess-royal";
+  const portrait = snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars";
   const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
   const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
   const canvasWidth = portrait ? pageWidth : legal ? 12 : 11;

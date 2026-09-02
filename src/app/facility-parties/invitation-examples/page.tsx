@@ -27,6 +27,13 @@ export default function PublicInvitationExamplesPage() {
           >
             Open the royal princess invitation
           </a>
+          <span className="mx-2 text-slate-400">·</span>
+          <a
+            href="/facility-parties/invitation-examples/cars"
+            className="text-sm font-black text-red-700 underline"
+          >
+            Open the racing cars invitation
+          </a>
         </p>
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           {INVITATION_PREVIEW_EXAMPLES.map((example) => {

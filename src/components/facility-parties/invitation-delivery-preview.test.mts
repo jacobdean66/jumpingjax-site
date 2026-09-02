@@ -196,6 +196,26 @@ test("princess sheets use the royal portrait design and fill all of Letter paper
   assert.equal(countMatches(html, "Party contact: 864-555-0100"), 4);
 });
 
+test("racing cars sheets use matching wording and four full-bleed portrait cards", () => {
+  const carsSnapshot = buildInvitationSnapshot("Cars movie theme");
+  const html = renderToStaticMarkup(
+    createElement(InvitationSheet, {
+      ...formFields,
+      snapshot: carsSnapshot,
+      invitationQuantity: 4,
+    }),
+  );
+
+  assert.match(html, /data-print-layout="letter-portrait-full-bleed"/);
+  assert.match(html, /data-invitation-format="4.25x5.5-portrait"/);
+  assert.equal(countMatches(html, 'data-layout="racing-portrait"'), 4);
+  assert.equal(countMatches(html, "You&#x27;re invited to a high-octane celebration"), 4);
+  assert.equal(countMatches(html, "Race on over"), 4);
+  assert.equal(countMatches(html, 'src="\/invitations\/approved\/racing-cars\/storybook-portrait-v1.png"'), 4);
+  assert.equal(countMatches(html, "864-933-1420"), 4);
+  assert.equal(countMatches(html, "Party contact: 864-555-0100"), 4);
+});
+
 test("admin print container removes dashboard padding around Letter sheets", () => {
   const html = renderToStaticMarkup(
     createElement(

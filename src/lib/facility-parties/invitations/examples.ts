@@ -11,6 +11,7 @@ import {
 export type InvitationPreviewExampleId =
   | "dino"
   | "princess"
+  | "cars"
   | "gamer"
   | "sports"
   | "ocean"
@@ -70,6 +71,17 @@ export const INVITATION_PREVIEW_EXAMPLES: InvitationPreviewExample[] = [
     timeLabel: "2:00 PM – 3:30 PM",
     expectedThemeId: "princess-royal",
     expectedFamily: "princess",
+  },
+  {
+    id: "cars",
+    customerTheme: "Cars movie theme",
+    childName: "Mason",
+    childAge: "5",
+    customerPhone: "864-555-0100",
+    dateLabel: "Saturday, August 22, 2026",
+    timeLabel: "2:00 PM – 3:30 PM",
+    expectedThemeId: "racing-cars",
+    expectedFamily: "sports",
   },
   {
     id: "sports",
