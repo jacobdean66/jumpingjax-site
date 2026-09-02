@@ -20,6 +20,13 @@ export default function PublicInvitationExamplesPage() {
           >
             Open a filled sample invitation
           </a>
+          <span className="mx-2 text-slate-400">·</span>
+          <a
+            href="/facility-parties/invitation-examples/princess"
+            className="text-sm font-black text-pink-700 underline"
+          >
+            Open the royal princess invitation
+          </a>
         </p>
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           {INVITATION_PREVIEW_EXAMPLES.map((example) => {

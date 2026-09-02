@@ -78,6 +78,23 @@ export function PartyInvitationCard({
   const displayName = invitationCopy.childName;
   const headline = invitationCopy.headline;
   const celebrationLine = invitationCopy.celebrationLine;
+
+  if (composed.themeId === "princess-royal") {
+    return (
+      <RoyalPrincessInvitation
+        snapshot={snapshot}
+        displayName={displayName}
+        childAge={childAge}
+        customerPhone={invitationCopy.customerPhone}
+        dateLabel={invitationCopy.dateLabel}
+        timeLabel={invitationCopy.timeLabel}
+        qrUrl={qrUrl}
+        waiverUrl={waiverUrl}
+        sheetMode={sheetMode}
+      />
+    );
+  }
+
   const textSize = compact
     ? "text-[clamp(9px,3.2cqw,17px)]"
     : "text-base sm:text-lg";
@@ -177,6 +194,105 @@ export function PartyInvitationCard({
         waiverUrl={waiverUrl}
         accent={palette.accent}
       />
+    </article>
+  );
+}
+
+function RoyalPrincessInvitation({
+  snapshot,
+  displayName,
+  childAge,
+  customerPhone,
+  dateLabel,
+  timeLabel,
+  qrUrl,
+  waiverUrl,
+  sheetMode,
+}: {
+  snapshot: InvitationSnapshot;
+  displayName: string;
+  childAge: string;
+  customerPhone: string;
+  dateLabel: string;
+  timeLabel: string;
+  qrUrl?: string;
+  waiverUrl?: string;
+  sheetMode: boolean;
+}) {
+  return (
+    <article
+      data-theme-id="princess-royal"
+      data-artwork-slot={snapshot.artworkSlot}
+      data-artwork-variant={String(snapshot.artworkVariant ?? 0)}
+      data-option-index={String(snapshot.optionIndex ?? 0)}
+      data-style-family={snapshot.styleFamily}
+      data-artwork-kind={snapshot.artworkKind}
+      data-layout="royal-portrait"
+      data-preview-scale="false"
+      data-sheet-readable={sheetMode ? "true" : "false"}
+      data-invitation-size={sheetMode ? "full-bleed-sheet-cell" : "4x6-portrait"}
+      data-theme-artwork-source="approved"
+      className={`relative isolate overflow-hidden font-serif text-[#59455f] ${
+        sheetMode
+          ? "h-full w-full border-0 shadow-none"
+          : "mx-auto aspect-[2/3] w-full max-w-[32rem] rounded-[24px] border border-[#d2b681] shadow-xl"
+      }`}
+      style={{ containerType: "inline-size", backgroundColor: "#fff7e8" }}
+    >
+      <img
+        src="/invitations/approved/princess/royal-portrait-v1.png"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        data-approved-theme-artwork="true"
+      />
+
+      <div className="absolute inset-x-[14%] top-[22%] z-10 flex h-[57%] flex-col items-center text-center">
+        <p className="text-[clamp(7px,2.5cqw,15px)] font-bold uppercase tracking-[0.12em] text-[#604b6c]">
+          You&apos;re invited to a royal celebration
+        </p>
+        <p className="mt-[2%] text-[clamp(15px,7.8cqw,45px)] leading-[0.92] text-[#765b7d]">
+          Princess
+        </p>
+        <h2 className="max-w-full truncate text-[clamp(19px,9.5cqw,56px)] leading-[0.92] text-[#b25f79]">
+          {displayName}
+        </h2>
+        <p className="mt-[2%] text-[clamp(9px,3.6cqw,21px)] font-bold uppercase tracking-[0.08em] text-[#614964]">
+          {childAge.trim() ? `is turning ${childAge.trim()}!` : "Birthday celebration"}
+        </p>
+
+        <div className="mt-[4%] w-[84%] border-y border-[#bd9b5f] py-[3%] text-[clamp(7px,2.55cqw,15px)] font-bold uppercase leading-[1.28] tracking-[0.025em]">
+          <p>{dateLabel || "Date coming soon"}</p>
+          <p>{timeLabel || "Time coming soon"}</p>
+        </div>
+
+        <div className="mt-[3%] text-[clamp(6px,2.15cqw,13px)] font-bold uppercase leading-[1.28] tracking-[0.025em]">
+          <p className="text-[clamp(7px,2.45cqw,14px)]">{FACILITY_INVITATION_VENUE.name}</p>
+          <p>{FACILITY_INVITATION_VENUE.address}</p>
+          <p>{FACILITY_INVITATION_VENUE.phone}</p>
+          {customerPhone ? <p className="mt-[2%]">Party contact: {customerPhone}</p> : null}
+        </div>
+
+        {qrUrl || waiverUrl ? (
+          <div className="mt-auto flex items-end justify-center gap-[2%]">
+            <p className="max-w-[8rem] text-right text-[clamp(5px,1.65cqw,10px)] font-bold leading-tight uppercase">
+              Scan to RSVP &amp; complete waiver
+            </p>
+            {qrUrl ? (
+              <img
+                src={qrUrl}
+                alt="Party waiver QR code"
+                data-invitation-qr="true"
+                data-qr-size="large"
+                className="h-[clamp(28px,10cqw,58px)] w-[clamp(28px,10cqw,58px)] bg-white p-0.5"
+              />
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-auto text-[clamp(5px,1.7cqw,10px)] font-bold uppercase tracking-[0.16em]">
+            Jump · Laugh · Celebrate
+          </p>
+        )}
+      </div>
     </article>
   );
 }

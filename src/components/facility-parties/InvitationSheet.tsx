@@ -33,28 +33,35 @@ export function InvitationSheet({
   const quantity = dense ? 4 : normalizeInvitationQuantity(invitationQuantity);
   const pageCount = quantity / 4;
   const legal = paperSize === "legal";
-  const pageWidth = legal ? 14 : 11;
-  const canvasWidth = legal ? 12 : 11;
-  const canvasHeight = legal ? 8 : 8.5;
+  const portrait = snapshot.themeId === "princess-royal";
+  const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
+  const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
+  const canvasWidth = portrait ? pageWidth : legal ? 12 : 11;
+  const canvasHeight = portrait ? pageHeight : legal ? 8 : 8.5;
 
   return (
     <div
       className={dense ? "w-full" : "invitation-print-document grid gap-6 print:block"}
       data-invite-count={String(quantity)}
-      data-print-layout={legal ? "legal-landscape-exact-4x6" : "letter-landscape-full-sheet"}
-      data-invitation-format={legal ? "6x4-landscape" : "5.5x4.25-landscape"}
+      data-print-layout={portrait ? `${paperSize}-portrait-full-bleed` : legal ? "legal-landscape-exact-4x6" : "letter-landscape-full-sheet"}
+      data-invitation-format={portrait ? `${pageWidth / 2}x${pageHeight / 2}-portrait` : legal ? "6x4-landscape" : "5.5x4.25-landscape"}
       data-agent-print-treatment={INVITATION_AGENT_STANDARD.version}
       data-agent-theme-source={INVITATION_AGENT_STANDARD.themeSource}
     >
       {!dense ? (
         <style>{`@media print {
-          @page { size: ${pageWidth}in 8.5in; margin: 0; }
+          @page { size: ${pageWidth}in ${pageHeight}in; margin: 0; }
           html, body {
             width: ${pageWidth}in !important;
-            height: 8.5in !important;
+            height: ${pageHeight}in !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
+          }
+          body main {
+            width: ${pageWidth}in !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .invitation-print-document {
             display: block !important;
@@ -68,7 +75,7 @@ export function InvitationSheet({
             align-items: center !important;
             justify-content: center !important;
             width: ${pageWidth}in !important;
-            height: 8.5in !important;
+            height: ${pageHeight}in !important;
             margin: 0 !important;
             overflow: hidden !important;
             break-inside: avoid !important;
@@ -94,9 +101,9 @@ export function InvitationSheet({
           className={
             dense
               ? "invitation-print-page relative mx-auto flex w-full items-center justify-center overflow-hidden bg-white"
-              : "invitation-print-page relative mx-auto flex w-full items-center justify-center overflow-hidden bg-white shadow-sm print:h-[8.5in] print:max-w-none print:shadow-none"
+              : "invitation-print-page relative mx-auto flex w-full items-center justify-center overflow-hidden bg-white shadow-sm print:max-w-none print:shadow-none"
           }
-          style={{ aspectRatio: `${pageWidth} / 8.5`, maxWidth: `${pageWidth}in` }}
+          style={{ aspectRatio: `${pageWidth} / ${pageHeight}`, maxWidth: `${pageWidth}in` }}
           data-print-page={String(pageIndex + 1)}
           data-print-page-count={String(pageCount)}
           data-print-dense={dense ? "true" : "false"}
@@ -105,7 +112,7 @@ export function InvitationSheet({
             className="invitation-print-canvas relative overflow-hidden bg-white"
             style={{
               width: `${(canvasWidth / pageWidth) * 100}%`,
-              height: `${(canvasHeight / 8.5) * 100}%`,
+              height: `${(canvasHeight / pageHeight) * 100}%`,
             }}
           >
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-30 border-t border-dashed border-slate-500 print:border-black" />

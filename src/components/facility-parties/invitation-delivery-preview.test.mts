@@ -174,6 +174,28 @@ test("exact 4x6 mode stays available on Legal landscape paper", () => {
   assert.match(html, /height: 8in !important/);
 });
 
+test("princess sheets use the royal portrait design and fill all of Letter paper", () => {
+  const princessSnapshot = buildInvitationSnapshot("princess");
+  const html = renderToStaticMarkup(
+    createElement(InvitationSheet, {
+      ...formFields,
+      snapshot: princessSnapshot,
+      invitationQuantity: 4,
+    }),
+  );
+
+  assert.match(html, /data-print-layout="letter-portrait-full-bleed"/);
+  assert.match(html, /data-invitation-format="4.25x5.5-portrait"/);
+  assert.match(html, /size: 8.5in 11in/);
+  assert.match(html, /width: 8.5in !important/);
+  assert.match(html, /height: 11in !important/);
+  assert.equal(countMatches(html, 'data-layout="royal-portrait"'), 4);
+  assert.equal(countMatches(html, 'data-invitation-size="full-bleed-sheet-cell"'), 4);
+  assert.equal(countMatches(html, 'src="\/invitations\/approved\/princess\/royal-portrait-v1.png"'), 4);
+  assert.equal(countMatches(html, "864-933-1420"), 4);
+  assert.equal(countMatches(html, "Party contact: 864-555-0100"), 4);
+});
+
 test("admin print container removes dashboard padding around Letter sheets", () => {
   const html = renderToStaticMarkup(
     createElement(
