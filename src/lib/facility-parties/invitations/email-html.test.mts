@@ -22,7 +22,7 @@ test("full invitation email includes the themed invitation and forwarding action
 
   assert.match(html, /data-full-page-invitation="true"/);
   assert.match(html, /Emma is turning 7!/);
-  assert.match(html, /A Frozen princess birthday celebration/);
+  assert.doesNotMatch(html, /birthday celebration/i);
   assert.match(html, /Saturday, August 22, 2026/);
   assert.match(html, /Jumping Jax - 559 Beaudrot Rd, Greenwood, SC - 864-933-1420/);
   assert.match(html, /Party contact: 864-555-0100/);

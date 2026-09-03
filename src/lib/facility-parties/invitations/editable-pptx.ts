@@ -149,21 +149,9 @@ function addInvitation(
     },
   );
 
-  slide.addText(copy.celebrationLine, {
-    x: x + 0.3,
-    y: y + 2.2,
-    w: 3.75,
-    h: 0.28,
-    margin: 0,
-    color: "1F2937",
-    fontFace: "Aptos",
-    fontSize: 13,
-    bold: true,
-    fit: "shrink",
-  });
   slide.addText(copy.dateLabel, {
     x: x + 0.3,
-    y: y + 2.57,
+    y: y + 2.2,
     w: 3.7,
     h: 0.3,
     margin: 0,
@@ -175,7 +163,7 @@ function addInvitation(
   });
   slide.addText(copy.timeLabel, {
     x: x + 0.3,
-    y: y + 2.9,
+    y: y + 2.53,
     w: 3.7,
     h: 0.28,
     margin: 0,
@@ -187,7 +175,7 @@ function addInvitation(
   });
   slide.addText(`${FACILITY_INVITATION_VENUE.name} • ${FACILITY_INVITATION_VENUE.address} • ${FACILITY_INVITATION_VENUE.phone}${copy.customerPhone ? `\nParty contact: ${copy.customerPhone}` : ""}`, {
     x: x + 0.3,
-    y: y + 3.25,
+    y: y + 2.88,
     w: 3.62,
     h: 0.7,
     margin: 0,

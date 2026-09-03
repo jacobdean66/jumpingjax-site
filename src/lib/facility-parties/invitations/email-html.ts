@@ -83,8 +83,7 @@ export function buildFullInvitationEmailHtml(
               <tr><td style="padding:170px 34px 30px;color:#ffffff;font-family:Arial,sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.8);">
                 <div style="font-size:13px;font-weight:900;letter-spacing:2px;text-transform:uppercase;">You&#39;re invited</div>
                 <div style="margin-top:8px;font-size:38px;line-height:1.05;font-weight:900;">${escapeHtml(copy.headline)}</div>
-                <div style="margin-top:9px;font-size:18px;line-height:1.3;font-weight:700;">${escapeHtml(copy.celebrationLine)}</div>
-                <div style="margin-top:22px;border-top:2px solid ${palette.accent};padding-top:15px;font-size:17px;line-height:1.5;font-weight:700;">
+                <div style="margin-top:18px;border-top:2px solid ${palette.accent};padding-top:15px;font-size:17px;line-height:1.5;font-weight:700;">
                   ${escapeHtml(copy.dateLabel)}<br>
                   ${escapeHtml(copy.timeLabel)}<br>
                   ${escapeHtml(copy.venueLine)}

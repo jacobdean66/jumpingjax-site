@@ -52,9 +52,6 @@ export default async function InvitationOpenGraphImage({
         <div style={{ marginTop: 14, fontSize: 66, lineHeight: 1, fontWeight: 900 }}>
           {copy.headline}
         </div>
-        <div style={{ marginTop: 18, fontSize: 30, lineHeight: 1.2, fontWeight: 700 }}>
-          {copy.celebrationLine}
-        </div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: 26, paddingTop: 16, borderTop: `5px solid ${composed.palette.accent}`, fontSize: 25, lineHeight: 1.35, fontWeight: 800 }}>
           <div>{copy.dateLabel}</div>
           <div>{copy.timeLabel}</div>

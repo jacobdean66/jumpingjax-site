@@ -77,7 +77,6 @@ export function PartyInvitationCard({
   });
   const displayName = invitationCopy.childName;
   const headline = invitationCopy.headline;
-  const celebrationLine = invitationCopy.celebrationLine;
 
   if (composed.themeId === "princess-royal") {
     return (
@@ -126,7 +125,6 @@ export function PartyInvitationCard({
         layout={layout}
         displayName={displayName}
         childAge={childAge}
-        celebrationLine={celebrationLine}
         customerPhone={invitationCopy.customerPhone}
         venueLine={invitationCopy.venueLine}
         dateLabel={invitationCopy.dateLabel}
@@ -199,7 +197,6 @@ export function PartyInvitationCard({
       <InvitationCopy
         layout={layout}
         headline={headline}
-        celebrationLine={celebrationLine}
         customerPhone={invitationCopy.customerPhone}
         dateLabel={invitationCopy.dateLabel}
         timeLabel={invitationCopy.timeLabel}
@@ -418,7 +415,6 @@ function InkSaverSheetInvitation({
   layout,
   displayName,
   childAge,
-  celebrationLine,
   customerPhone,
   venueLine,
   dateLabel,
@@ -435,7 +431,6 @@ function InkSaverSheetInvitation({
   layout: string;
   displayName: string;
   childAge: string;
-  celebrationLine: string;
   customerPhone: string;
   venueLine: string;
   dateLabel: string;
@@ -490,9 +485,6 @@ function InkSaverSheetInvitation({
         </p>
         <p className="mt-[1%] text-[clamp(11px,3cqw,17px)] font-black uppercase tracking-wide" style={{ color: accent }}>
           {childAge.trim() ? `is turning ${childAge.trim()}!` : "Birthday celebration"}
-        </p>
-        <p className="mt-[4%] text-[clamp(10px,2.8cqw,16px)] font-bold text-slate-700">
-          {celebrationLine}
         </p>
       </div>
 
@@ -623,7 +615,6 @@ function BrandMark({ layout, sheetMode }: { layout: string; sheetMode: boolean }
 function InvitationCopy({
   layout,
   headline,
-  celebrationLine,
   customerPhone,
   dateLabel,
   timeLabel,
@@ -636,7 +627,6 @@ function InvitationCopy({
 }: {
   layout: string;
   headline: string;
-  celebrationLine: string;
   customerPhone: string;
   dateLabel: string;
   timeLabel: string;
@@ -681,9 +671,6 @@ function InvitationCopy({
         <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
           {headline}
         </h2>
-        <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
-          {celebrationLine}
-        </p>
         <div className="mt-[5%]">{details}</div>
         <div className="mt-[4%]">
           <FooterBits compact={compact} qrUrl={qrUrl} waiverUrl={waiverUrl} />
@@ -710,9 +697,6 @@ function InvitationCopy({
         <h2 className={`mt-1 font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
           {headline}
         </h2>
-        <p className={`mt-1 font-bold text-slate-700 ${textSize}`}>
-          {celebrationLine}
-        </p>
         <div className="mt-[3%] grid grid-cols-[1fr_auto] items-end gap-3">
           {details}
           <FooterBits compact={compact} qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" />
@@ -735,9 +719,6 @@ function InvitationCopy({
       <h2 className={`mt-1 max-w-[92%] font-black leading-[1.02] tracking-[-0.025em] ${headingSize}`}>
         {headline}
       </h2>
-      <p className={`mt-1.5 font-bold text-white/95 ${textSize}`}>
-        {celebrationLine}
-      </p>
       <div className="mt-[3%] grid grid-cols-[1fr_auto] items-end gap-3">
         {details}
         <FooterBits compact={compact} qrUrl={qrUrl} waiverUrl={waiverUrl} />

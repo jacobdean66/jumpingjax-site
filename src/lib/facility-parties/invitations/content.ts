@@ -16,7 +16,6 @@ export type InvitationCopy = {
   childName: string;
   ageLabel: string;
   headline: string;
-  celebrationLine: string;
   dateLabel: string;
   timeLabel: string;
   venueLine: string;
@@ -51,31 +50,16 @@ function ordinalAge(value: string): string {
   return `${numeric}th`;
 }
 
-function themeLabel(value: string): string {
-  const stripped = meaningfulThemeText(value)
-    .replace(/\b(?:birthday|bday)\b/gi, "")
-    .replace(/\b(?:party|theme|themed)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return stripped || "Birthday";
-}
-
 export function buildInvitationCopy(input: InvitationCopyInput): InvitationCopy {
   const childName = clean(input.childName) || "Birthday Star";
   const childAge = clean(input.childAge);
   const ageLabel = childAge ? ordinalAge(childAge) : "";
-  const theme = themeLabel(clean(input.themeText));
-
   return {
     childName,
     ageLabel,
     headline: childAge
       ? `${childName} is turning ${childAge}!`
       : `Celebrate with ${childName}!`,
-    celebrationLine:
-      theme.toLowerCase() === "birthday"
-        ? "A birthday celebration at Jumping Jax"
-        : `A ${theme} birthday celebration`,
     dateLabel: clean(input.dateLabel) || "Date coming soon",
     timeLabel: clean(input.timeLabel) || "Time coming soon",
     venueLine: `${FACILITY_INVITATION_VENUE.name} - ${FACILITY_INVITATION_VENUE.address} - ${FACILITY_INVITATION_VENUE.phone}`,
@@ -94,7 +78,6 @@ export function buildInvitationEmailDraft(input: InvitationCopyInput): {
   const lines = [
     `You're invited to celebrate ${birthday} at Jumping Jax!`,
     "",
-    copy.celebrationLine,
     `Date: ${copy.dateLabel}`,
     `Time: ${copy.timeLabel}`,
     `Location: ${copy.venueLine}`,

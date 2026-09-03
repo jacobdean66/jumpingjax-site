@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     themeText: view.snapshot.sourceText,
   });
   const title = `${copy.headline} at Jumping Jax`;
-  const description = `${copy.celebrationLine} ${copy.dateLabel}, ${copy.timeLabel}.`;
+  const description = `${copy.dateLabel}, ${copy.timeLabel}.`;
 
   return {
     title,
@@ -105,7 +105,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
         <div className="mb-4 print:hidden">
           <InvitationShareActions
             title={`${copy.headline} at Jumping Jax`}
-            message={`${copy.celebrationLine} ${copy.dateLabel}, ${copy.timeLabel}.`}
+            message={`${copy.dateLabel}, ${copy.timeLabel}.`}
           />
         </div>
         <PartyInvitationCard

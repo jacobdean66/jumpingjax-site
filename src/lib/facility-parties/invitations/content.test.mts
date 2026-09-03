@@ -20,11 +20,11 @@ const sonic = {
   waiverUrl: "https://jumpingjaxllc.com/waiver/123",
 };
 
-test("invitation copy removes redundant party wording and preserves exact event details", () => {
+test("invitation copy omits theme wording and preserves exact event details", () => {
   const copy = buildInvitationCopy(sonic);
 
   assert.equal(copy.headline, "Miles is turning 6!");
-  assert.equal(copy.celebrationLine, "A Sonic birthday celebration");
+  assert.equal("celebrationLine" in copy, false);
   assert.equal(copy.dateLabel, sonic.dateLabel);
   assert.equal(copy.timeLabel, sonic.timeLabel);
   assert.equal(
@@ -77,7 +77,7 @@ test("customer follow-up placeholders never become invitation themes", () => {
       themeText: placeholder,
     }).join("\n");
 
-    assert.equal(copy.celebrationLine, "A birthday celebration at Jumping Jax");
+    assert.equal("celebrationLine" in copy, false);
     assert.equal(invitationThemeDisplayText(placeholder), "Classic birthday");
     assert.match(section, /Theme: Classic birthday/);
     assert.doesNotMatch(section, new RegExp(placeholder.replace("/", "\\/"), "i"));
