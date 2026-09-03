@@ -39,6 +39,7 @@ export function InvitationSheet({
   const safeMargin = INVITATION_AGENT_STANDARD.printSafeMarginInches;
   const canvasWidth = legal && !portrait ? 12 : pageWidth - safeMargin * 2;
   const canvasHeight = legal && !portrait ? 8 : pageHeight - safeMargin * 2;
+  const bleed = legal ? 0 : 0.125;
 
   return (
     <div
@@ -49,6 +50,7 @@ export function InvitationSheet({
       data-agent-print-treatment={INVITATION_AGENT_STANDARD.version}
       data-agent-theme-source={INVITATION_AGENT_STANDARD.themeSource}
       data-print-safe-margin={`${safeMargin}in`}
+      data-print-bleed={`${bleed}in`}
       data-cut-lines={INVITATION_AGENT_STANDARD.showCutLines ? "true" : "false"}
     >
       {!dense ? (
@@ -86,8 +88,8 @@ export function InvitationSheet({
           }
           .invitation-print-canvas {
             flex: 0 0 auto !important;
-            width: ${canvasWidth}in !important;
-            height: ${canvasHeight}in !important;
+            width: ${canvasWidth + bleed * 2}in !important;
+            height: ${canvasHeight + bleed * 2}in !important;
           }
           .invitation-print-page,
           .invitation-print-page * {

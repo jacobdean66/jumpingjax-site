@@ -139,10 +139,13 @@ test("printable sheets enforce the approved light-ink Letter standard", () => {
   assert.match(sheetHtml, /data-agent-theme-source="customer-party-theme"/);
   assert.match(sheetHtml, /data-invitation-format="5.5x4.25-landscape"/);
   assert.match(sheetHtml, /data-print-safe-margin="0in"/);
+  assert.match(sheetHtml, /data-print-bleed="0.125in"/);
   assert.match(sheetHtml, /data-cut-lines="false"/);
   assert.match(sheetHtml, /size: 11in 8\.5in/);
   assert.match(sheetHtml, /width: 11in !important/);
   assert.match(sheetHtml, /height: 8.5in !important/);
+  assert.match(sheetHtml, /width: 11.25in !important/);
+  assert.match(sheetHtml, /height: 8.75in !important/);
   assert.match(sheetHtml, /data-invite-count="12"/);
   assert.equal(countMatches(sheetHtml, "data-print-page="), 3);
   assert.equal(countMatches(sheetHtml, "data-invite-instance"), 12);
