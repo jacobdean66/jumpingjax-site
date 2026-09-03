@@ -10,6 +10,8 @@ test("specific entered themes retain a matching visual identity", () => {
     "speedster-blue",
   );
   assert.equal(resolveInvitationSourceTreatment("Minecraft")?.id, "block-world");
+  assert.equal(resolveInvitationSourceTreatment("Camouflage")?.id, "camouflage");
+  assert.equal(resolveInvitationSourceTreatment("Camoflauge")?.id, "camouflage");
   assert.equal(resolveInvitationSourceTreatment("Spider-Man")?.id, "web-hero");
   assert.equal(resolveInvitationSourceTreatment("Barbie")?.id, "pink-fashion");
 });

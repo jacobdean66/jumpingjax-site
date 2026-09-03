@@ -146,6 +146,19 @@ test("uses invitation-agent light artwork for princess print sheets", () => {
   );
 });
 
+test("uses the camouflage background for either customer spelling", () => {
+  for (const sourceText of ["Camouflage", "Camoflauge"]) {
+    assert.equal(
+      approvedArtworkSrc("birthday", sourceText),
+      "/invitations/approved/camouflage/print-light-v1.png",
+    );
+    assert.equal(
+      agentPrintArtworkSrc("birthday", sourceText),
+      "/invitations/approved/camouflage/print-light-v1.png",
+    );
+  }
+});
+
 test("builds facility-party waiver URL without private child details", () => {
   const url = new URL(
     buildFacilityWaiverInvitationUrl({

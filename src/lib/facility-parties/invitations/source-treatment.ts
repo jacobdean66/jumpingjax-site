@@ -4,6 +4,7 @@ export type InvitationSourceTreatmentId =
   | "speedster-blue"
   | "mushroom-kingdom"
   | "block-world"
+  | "camouflage"
   | "web-hero"
   | "night-hero"
   | "electric-creatures"
@@ -56,6 +57,17 @@ const SOURCE_TREATMENTS: readonly InvitationSourceTreatment[] = [
     text: "#ffffff",
     muted: "#e2f5d7",
     border: "#82cf55",
+  },
+  {
+    id: "camouflage",
+    aliases: ["camouflage", "camoflauge", "camo"],
+    background: "#f4efdb",
+    backgroundAlt: "#d8d7a8",
+    accent: "#66763a",
+    accent2: "#a58b54",
+    text: "#182114",
+    muted: "#4f5b3b",
+    border: "#66763a",
   },
   {
     id: "web-hero",

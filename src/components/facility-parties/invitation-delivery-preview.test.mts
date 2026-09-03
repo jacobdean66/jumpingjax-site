@@ -200,6 +200,24 @@ test("princess sheets use the royal portrait design and fill all of Letter paper
   assert.equal(countMatches(html, "Party contact: 864-555-0100"), 4);
 });
 
+test("camouflage customer themes use a full-cell print background", () => {
+  const html = renderToStaticMarkup(
+    createElement(InvitationSheet, {
+      ...formFields,
+      snapshot: buildInvitationSnapshot("Camoflauge"),
+      childName: "Carson Conyers",
+      invitationQuantity: 4,
+    }),
+  );
+
+  assert.equal(countMatches(html, 'data-source-theme-treatment="camouflage"'), 4);
+  assert.equal(countMatches(html, 'data-approved-theme-artwork="true"'), 4);
+  assert.equal(
+    countMatches(html, 'src="/invitations/approved/camouflage/print-light-v1.png"'),
+    4,
+  );
+});
+
 test("racing cars sheets use matching wording and four full-bleed portrait cards", () => {
   const carsSnapshot = buildInvitationSnapshot("Cars movie theme");
   const html = renderToStaticMarkup(

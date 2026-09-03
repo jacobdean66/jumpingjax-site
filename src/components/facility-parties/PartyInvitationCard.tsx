@@ -461,16 +461,27 @@ function InkSaverSheetInvitation({
       className="relative h-full w-full overflow-hidden bg-[#fffef8] text-left text-slate-950"
       style={{ containerType: "inline-size" }}
     >
-      <div className="absolute -right-[7%] -top-[11%] h-[42%] w-[34%] rounded-full bg-sky-100/70" />
-      <div className="absolute right-[1%] top-[8%] h-[62%] w-[52%] overflow-hidden rounded-[2cqw] bg-white">
+      {treatmentId === "camouflage" ? (
         <img
           src={artworkSrc}
           alt=""
-          className={`h-full w-full object-cover ${agentArtwork ? "" : "opacity-30"}`}
-          style={agentArtwork ? undefined : { filter: "brightness(1.5) saturate(0.6)" }}
+          className="absolute inset-0 h-full w-full object-cover"
+          data-approved-theme-artwork="true"
         />
-        {!agentArtwork ? <div className="absolute inset-0 bg-white/20" /> : null}
-      </div>
+      ) : (
+        <>
+          <div className="absolute -right-[7%] -top-[11%] h-[42%] w-[34%] rounded-full bg-sky-100/70" />
+          <div className="absolute right-[1%] top-[8%] h-[62%] w-[52%] overflow-hidden rounded-[2cqw] bg-white">
+            <img
+              src={artworkSrc}
+              alt=""
+              className={`h-full w-full object-cover ${agentArtwork ? "" : "opacity-30"}`}
+              style={agentArtwork ? undefined : { filter: "brightness(1.5) saturate(0.6)" }}
+            />
+            {!agentArtwork ? <div className="absolute inset-0 bg-white/20" /> : null}
+          </div>
+        </>
+      )}
 
       <div className="absolute left-[4.5%] top-[5%] z-10 w-[18%]" data-invitation-brand="jumping-jax" data-logo-treatment="light-print">
         <img src="/logo.png" alt="Jumping Jax" className="h-auto w-full object-contain" />
@@ -557,6 +568,7 @@ function SourceThemeMotif({
     "pink-fashion": ["✦", "♥", "✧"],
     "rescue-pups": ["●", "♥", "●"],
     "blue-pup": ["●", "✦", "●"],
+    camouflage: ["◆", "●", "▲"],
   }[treatment.id] ?? ["✦", "●", "✧"];
 
   return (
