@@ -307,3 +307,10 @@
 - Every live preview stopped at `Ready for owner review` and displayed test availability, production writes 0, customer messages 0, and AI calls 0. Existing inbox fixtures and `SETUP REQUIRED` phone-connection state remained intact.
 - No real call was placed or received. Connecting a supported receiving number and secure two-way audio bridge remains the exact external gate before a PSTN call-forwarding test.
 
+## Permanent Agent intent-routing hardening checkpoint (2026-09-03)
+
+- Reproduced two status-query routing defects without changing any production capability: `Check the Answering Machine connection` fell through to the generic Agent response because only `answer` was recognized, and `Check the Social Agent connection. Do not create or publish anything.` was misclassified as a creation request because the parser ignored the explicit negation.
+- Added the missing `answering` intent term and a bounded social-creation negation rule. Positive requests such as `Please create a seasonal social post` still route to the existing staged Social workflow, while connection/status requests containing `do not create` or `without creating` stay read-only.
+- Validation passes: the full Agent Manager and Answering Machine suite passes 90/90, including the new regression; full TypeScript passes; focused ESLint passes with zero warnings; and the Next.js 16.3 production build passes with `/admin/agents` and `/admin/answering-machine` present.
+- Scope/safety: this checkpoint changes only deterministic intent routing. It created no social draft, booking, calendar event, customer message, payment, provider credential, paid service, or production deployment. Publication and signed-in live prompt verification remain next.
+
