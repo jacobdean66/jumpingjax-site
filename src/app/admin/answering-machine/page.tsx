@@ -4,6 +4,7 @@ import { loadAnsweringMachineCalls } from "@/lib/answering-machine/service";
 import type { AnsweringMachineCall } from "@/lib/answering-machine/types";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { AnsweringMachineInbox } from "./AnsweringMachineInbox";
+import { AnsweringMachineTestCall } from "./AnsweringMachineTestCall";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AnsweringMachinePage() {
       <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
         Review WhatsApp call transcripts and correct the date, time, or rental selection before approving anything for the next booking step.
       </p>
+      <AnsweringMachineTestCall />
       <AnsweringMachineInbox initialCalls={calls} readiness={readiness} storageError={storageError} />
     </AdminShell>
   );

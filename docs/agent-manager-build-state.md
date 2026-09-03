@@ -285,3 +285,17 @@
 - The dashboard clearly reports actions replayed as zero and AI calls as zero. Opening or refreshing the review cannot send a message, change a booking/calendar/payment, or approve a repair; it prepares the already-classified backlog for a later exact owner decision.
 - Validation: focused review/boundary coverage passes 11/11; the full Agent Manager suite passes 89/89; full TypeScript and focused ESLint pass; and the Next.js 16.3 production build passes with `/api/admin/agents/booking-triage-review` present. This checkpoint is local only and makes no production or external-service change.
 
+## Booking classified-issue review production evidence (2026-09-02)
+
+- PR #102 passed both required checks and merged to `main` as `340c083f50fe790a4865ec22878f3dea7ba82106`; Vercel production deployment `7dg2wQmf9QmpmLasqEDVxUuagqtZ` reached success before verification.
+- The signed-in grouped review loaded 96 durable classified issue entries across 85 hashed booking references: 6 initial customer email, 10 owner notification, 2 decision email, and 78 calendar classifications. The count can exceed the current 92-issue source scan because the ledger retains earlier classified state revisions rather than deleting history.
+- Live safety evidence remained explicit: actions replayed 0 and AI calls 0. Only hashed references, booking type, workflow step/outcome, and ledger status were displayed; no customer or booking identity was returned.
+
+## Answering Machine safe test-call preview checkpoint (2026-09-03)
+
+- Reused the existing provider-neutral Booking Agent conversation, pricing, and calendar-projection planner to add a local owner-visible test-call preview to `/admin/answering-machine`. No second booking engine, phone provider, inbox, or workflow was created.
+- The preview covers a facility party, a rental delivery, and an all-three conversation spanning rental, facility party, and foam party. It displays the deterministic agent/caller transcript, estimated quote, and coordinated calendar projections, and stops at owner review.
+- The preview is explicitly simulation-only: availability is test data, production writes are 0, customer messages are 0, AI calls are 0, and it cannot place or receive a telephone call. The real PSTN calling test remains blocked until a supported receiving number and secure two-way audio bridge are separately connected.
+- Validation passes: 8/8 focused booking-conversation and test-call tests; the full Agent Manager plus Answering Machine suite passes 89/89; full TypeScript passes; focused ESLint passes with zero warnings; and the Next.js 16.3 production build passes with `/admin/answering-machine` present.
+- Production is unchanged at this checkpoint. No booking, calendar, customer, payment, credential, paid service, Meta configuration, or deployment was changed.
+
