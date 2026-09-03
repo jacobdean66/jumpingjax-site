@@ -78,6 +78,8 @@ function normalizedMessage(message: string) {
 }
 
 const SOCIAL_REQUEST_WORDS = /\b(social|ad|advert|advertisement|post|promo|campaign|caption|creative)\b/i;
+const SOCIAL_CREATION_WORDS = /\b(create|make|build|draft|prepare|write|design)\b/;
+const NEGATED_SOCIAL_CREATION = /\b(?:do not|don't|dont|never)\s+(?:create|make|build|draft|prepare|write|design)\b|\bwithout\s+(?:creating|making|building|drafting|preparing|writing|designing)\b/;
 const SOCIAL_STOP_WORDS = new Set([
   "about", "advert", "advertisement", "agent", "campaign", "create", "draft", "make", "please",
   "post", "promo", "social", "something", "that", "themed", "this", "with", "your",
@@ -85,7 +87,9 @@ const SOCIAL_STOP_WORDS = new Set([
 
 export function isSocialCreationRequest(message: string): boolean {
   const normalized = normalizedMessage(message);
-  return SOCIAL_REQUEST_WORDS.test(normalized) && /\b(create|make|build|draft|prepare|write|design)\b/.test(normalized);
+  return SOCIAL_REQUEST_WORDS.test(normalized)
+    && SOCIAL_CREATION_WORDS.test(normalized)
+    && !NEGATED_SOCIAL_CREATION.test(normalized);
 }
 
 export function socialRequestKeywords(message: string): string[] {
@@ -237,7 +241,7 @@ export function buildSupervisorReply(message: string, snapshot: SupervisorSnapsh
   if (/\b(bookings?|calendar|party|parties)\b/.test(normalized)) return `${prefix}${bookingReply(snapshot)}`;
   if (/\b(rental|inventory|inflatable|foam)\b/.test(normalized)) return `${prefix}Rentals: ${snapshot.rentals.catalogItems} catalog items and ${snapshot.bookings.activeRentals ?? "unknown"} active rental bookings are visible to the supervisor. ${snapshot.bookings.workflowIssues ?? "unknown"} booking workflow issues currently need review. No rental availability or booking record was changed.`;
   if (/\b(code|coding|security|broken|bug|deploy)\b/.test(normalized)) return `${prefix}${securityReply(snapshot)} ${issueSummary(snapshot)} I can diagnose and prepare a reviewed fix, but production code and deployment remain approval-gated.`;
-  if (/\b(answer|voicemail|whatsapp|call)\b/.test(normalized)) return `${prefix}Answering machine: ${snapshot.answeringMachine.status}; ${snapshot.answeringMachine.pendingReview ?? "unknown"} calls are waiting for review and ${snapshot.answeringMachine.failedCalls ?? "unknown"} have failed. Calling remains fail-closed unless every provider gate is configured.`;
+  if (/\b(answer|answering|voicemail|whatsapp|call)\b/.test(normalized)) return `${prefix}Answering machine: ${snapshot.answeringMachine.status}; ${snapshot.answeringMachine.pendingReview ?? "unknown"} calls are waiting for review and ${snapshot.answeringMachine.failedCalls ?? "unknown"} have failed. Calling remains fail-closed unless every provider gate is configured.`;
   if (/\b(agent|approval|queue|emergency|pause|resume)\b/.test(normalized)) return `${prefix}${agentReply(snapshot)} ${issueSummary(snapshot)}`;
   if (/\b(site|website|page|route|online|status|health|wrong|issue|problem)\b/.test(normalized)) return `${prefix}${websiteReply(snapshot)}`;
   return `${prefix}${issueSummary(snapshot)} ${agentReply(snapshot)} Ask me to check the website, bookings, rentals, answering machine, code/security, or agents. I will not make a high-impact production change from an ambiguous message.`;
