@@ -299,3 +299,11 @@
 - Validation passes: 8/8 focused booking-conversation and test-call tests; the full Agent Manager plus Answering Machine suite passes 89/89; full TypeScript passes; focused ESLint passes with zero warnings; and the Next.js 16.3 production build passes with `/admin/answering-machine` present.
 - Production is unchanged at this checkpoint. No booking, calendar, customer, payment, credential, paid service, Meta configuration, or deployment was changed.
 
+## Answering Machine safe test-call production evidence (2026-09-03)
+
+- PR #103 passed both GitHub/Vercel checks and merged to `main` as `00bbd4cb264c5e105fe4397e6bc6199cc6936a62`. Vercel production deployment `Ekd92G1mxJxrSV1WDTPPxE7qDthK` reported success.
+- The signed-in owner page at `https://jumpingjaxllc.com/admin/answering-machine` exposed the new safe test-call controls after production deployment.
+- Live browser simulation proved all three choices: facility party produced one 2:00–4:00 PM facility projection and a $272.85 estimate; rental produced one noon–4:00 PM rental projection and a $350.00 estimate; all-three produced coordinated rental, facility, and foam projections and a $922.85 estimate.
+- Every live preview stopped at `Ready for owner review` and displayed test availability, production writes 0, customer messages 0, and AI calls 0. Existing inbox fixtures and `SETUP REQUIRED` phone-connection state remained intact.
+- No real call was placed or received. Connecting a supported receiving number and secure two-way audio bridge remains the exact external gate before a PSTN call-forwarding test.
+
