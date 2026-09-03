@@ -59,6 +59,14 @@ test("creative requests route to Social before rental and party keywords", () =>
   assert.doesNotMatch(buildSupervisorReply(prompt, value), /^Bookings:/);
 });
 
+test("negated social creation stays status-only and answering-machine wording routes correctly", () => {
+  const value = snapshot();
+  assert.equal(isSocialCreationRequest("Check the Social Agent connection. Do not create or publish anything."), false);
+  assert.equal(isSocialCreationRequest("Review social status without creating a post."), false);
+  assert.equal(isSocialCreationRequest("Please create a seasonal social post."), true);
+  assert.match(buildSupervisorReply("Check the Answering Machine connection", value), /^Answering machine:/);
+});
+
 test("only genuine connection problems remain visible", () => {
   const value = snapshot({ wiring: buildAgentWiring({ nominationReady: false }) });
   assert.ok(!value.issues.some((issue) => issue.code === "agents:coding:not-connected"));
