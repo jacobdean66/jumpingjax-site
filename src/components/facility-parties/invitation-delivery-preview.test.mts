@@ -207,6 +207,7 @@ test("camouflage customer themes use a full-cell print background", () => {
       snapshot: buildInvitationSnapshot("Camoflauge"),
       childName: "Carson Conyers",
       invitationQuantity: 4,
+      qrUrl: "/test-party-qr.png",
     }),
   );
 
@@ -214,6 +215,7 @@ test("camouflage customer themes use a full-cell print background", () => {
   assert.equal(countMatches(html, 'data-approved-theme-artwork="true"'), 4);
   assert.equal(countMatches(html, 'data-full-bleed-background="true"'), 4);
   assert.equal(countMatches(html, 'data-safe-footer="true"'), 4);
+  assert.equal(countMatches(html, 'data-qr-print-safe="true"'), 4);
   assert.equal(
     countMatches(html, 'src="/invitations/approved/camouflage/print-light-v1.png"'),
     4,

@@ -503,18 +503,18 @@ function InkSaverSheetInvitation({
       <div
         className={`absolute z-10 flex items-end justify-between gap-[3%] border-t border-slate-300 pt-[3%] ${
           treatmentId === "camouflage"
-            ? "inset-x-[7%] bottom-[10%]"
+            ? "inset-x-[8%] bottom-[10%]"
             : "inset-x-[4.5%] bottom-[5%]"
         }`}
         data-safe-footer={treatmentId === "camouflage" ? "true" : undefined}
       >
-        <div className="max-w-[68%] text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800">
+        <div className={`${treatmentId === "camouflage" ? "min-w-0 max-w-[64%]" : "max-w-[68%]"} text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800`}>
           <p className="font-black text-slate-950">{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
           <p className="mt-[1%]">{venueLine}</p>
           {customerPhone ? <p className="font-black">Party contact: {customerPhone}</p> : null}
         </div>
-        <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" />
+        <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" printSafe={treatmentId === "camouflage"} />
       </div>
     </article>
   );
@@ -793,11 +793,12 @@ function DecorativeArt({ hero, decorations, compact, layout }: {
   );
 }
 
-function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark" }: {
+function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark", printSafe = false }: {
   compact: boolean;
   qrUrl?: string;
   waiverUrl?: string;
   tone?: "dark" | "light";
+  printSafe?: boolean;
 }) {
   const mutedText = tone === "light" ? "text-slate-600" : "text-white/70";
   if (!qrUrl && !waiverUrl) {
@@ -808,8 +809,8 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark" }: {
     );
   }
   return (
-    <div className="flex items-end gap-1.5">
-      <p className={`max-w-20 text-right text-[clamp(7px,0.7vw,10px)] font-bold leading-tight ${mutedText}`}>
+    <div className="flex shrink-0 items-end gap-1.5" data-qr-print-safe={printSafe ? "true" : undefined}>
+      <p className={`${printSafe ? "max-w-16" : "max-w-20"} text-right text-[clamp(7px,0.7vw,10px)] font-bold leading-tight ${mutedText}`}>
         Scan to RSVP &amp; complete waiver
       </p>
       {qrUrl ? (
@@ -819,7 +820,7 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark" }: {
           data-invitation-qr="true"
           data-qr-size="large"
           className={compact
-            ? "h-[clamp(38px,17cqw,76px)] w-[clamp(38px,17cqw,76px)] rounded-md bg-white p-1"
+            ? `${printSafe ? "h-[clamp(42px,15cqw,68px)] w-[clamp(42px,15cqw,68px)]" : "h-[clamp(38px,17cqw,76px)] w-[clamp(38px,17cqw,76px)]"} shrink-0 rounded-md bg-white p-1`
             : "h-24 w-24 rounded-lg bg-white p-1.5"}
         />
       ) : null}
