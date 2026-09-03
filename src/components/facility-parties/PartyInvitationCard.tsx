@@ -465,8 +465,9 @@ function InkSaverSheetInvitation({
         <img
           src={artworkSrc}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute -inset-[2px] h-[calc(100%+4px)] w-[calc(100%+4px)] max-w-none object-cover"
           data-approved-theme-artwork="true"
+          data-full-bleed-background="true"
         />
       ) : (
         <>
@@ -499,7 +500,14 @@ function InkSaverSheetInvitation({
         </p>
       </div>
 
-      <div className="absolute inset-x-[4.5%] bottom-[5%] z-10 flex items-end justify-between gap-[3%] border-t border-slate-300 pt-[3%]">
+      <div
+        className={`absolute z-10 flex items-end justify-between gap-[3%] border-t border-slate-300 pt-[3%] ${
+          treatmentId === "camouflage"
+            ? "inset-x-[7%] bottom-[10%]"
+            : "inset-x-[4.5%] bottom-[5%]"
+        }`}
+        data-safe-footer={treatmentId === "camouflage" ? "true" : undefined}
+      >
         <div className="max-w-[68%] text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800">
           <p className="font-black text-slate-950">{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
