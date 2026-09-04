@@ -333,6 +333,7 @@ export function RoutePlannerWorkspace({
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingRange, setLoadingRange] = useState(false);
+  const [autoPlanning, setAutoPlanning] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("unassigned");
   const [pendingSelection, setPendingSelection] =
     useState<PlannerSelection | null>(null);
@@ -368,6 +369,15 @@ export function RoutePlannerWorkspace({
     dates,
     selection.workType,
   ).length > 0;
+  const autoPlanDates = useMemo(
+    () =>
+      [...new Set(
+        tasks
+          .filter((task) => !taskTruck(task) && task.workDate && dates.includes(task.workDate))
+          .map((task) => task.workDate as string),
+      )].sort(),
+    [dates, tasks],
+  );
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -600,6 +610,44 @@ export function RoutePlannerWorkspace({
           : "Unable to save setup/delivery dates.";
       setSaveStates((current) => ({ ...current, [unassignedKey]: "error" }));
       setSaveErrors((current) => ({ ...current, [unassignedKey]: message }));
+    }
+  }
+
+  async function autoPlanSelectedDates() {
+    if (autoPlanning || autoPlanDates.length === 0 || dirtyKeys.size > 0) return;
+    setAutoPlanning(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/admin/deliveries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoPlanDates: true, dates: autoPlanDates }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            plannedCount?: number;
+            results?: Array<{ ok: boolean }>;
+          }
+        | null;
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Unable to auto-plan selected dates.");
+      }
+      const failed = result?.results?.filter((entry) => !entry.ok).length ?? 0;
+      await loadRange(dates, selection.date);
+      setNotice(
+        failed > 0
+          ? `Planned ${result?.plannedCount ?? 0} routes; ${failed} dates need review.`
+          : `Planned ${result?.plannedCount ?? 0} drop-off and pickup routes across ${autoPlanDates.length} dates.`,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Unable to auto-plan selected dates.",
+      );
+    } finally {
+      setAutoPlanning(false);
     }
   }
 
@@ -1076,19 +1124,35 @@ export function RoutePlannerWorkspace({
                     </span>
                   )}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void saveUnassignedWorkDates()}
-                  disabled={
-                    !isUnassignedDirty ||
-                    (saveStates[unassignedKey] ?? "idle") === "saving"
-                  }
-                  className="rp-btn-save shrink-0 rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {(saveStates[unassignedKey] ?? "idle") === "saving"
-                    ? "Saving…"
-                    : "Save"}
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void autoPlanSelectedDates()}
+                    disabled={
+                      autoPlanning ||
+                      autoPlanDates.length === 0 ||
+                      dirtyKeys.size > 0
+                    }
+                    className="rp-btn-primary rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {autoPlanning
+                      ? "Planning…"
+                      : `Auto-plan ${autoPlanDates.length} date${autoPlanDates.length === 1 ? "" : "s"}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveUnassignedWorkDates()}
+                    disabled={
+                      !isUnassignedDirty ||
+                      (saveStates[unassignedKey] ?? "idle") === "saving"
+                    }
+                    className="rp-btn-save rounded-lg px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {(saveStates[unassignedKey] ?? "idle") === "saving"
+                      ? "Saving…"
+                      : "Save"}
+                  </button>
+                </div>
               </div>
               {saveStates[unassignedKey] === "error" ? (
                 <p className="mt-2 rounded-lg border border-rose-400 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-900">
