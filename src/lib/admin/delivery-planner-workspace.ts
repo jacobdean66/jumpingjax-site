@@ -20,7 +20,18 @@ export type PlannerSelection = {
   truck: PlannerTruck;
 };
 
-export const TRAILER_INFLATABLE_CAPACITY = 3;
+export const TRAILER_INFLATABLE_CAPACITIES: Record<PlannerTruck, number> = {
+  "truck-1": 3,
+  "truck-2": 4,
+};
+
+/** Short-trailer compatibility constant for older planner consumers. */
+export const TRAILER_INFLATABLE_CAPACITY =
+  TRAILER_INFLATABLE_CAPACITIES["truck-1"];
+
+export function trailerInflatableCapacity(truck: PlannerTruck): number {
+  return TRAILER_INFLATABLE_CAPACITIES[truck];
+}
 
 export type WorkspaceStop = {
   id: string;
@@ -690,6 +701,7 @@ export function moveStop(
   const targetTruck = options.target === "unassigned" ? null : options.target;
   const targetLoad = moving[0]?.trailerLoad ?? 1;
   if (targetTruck) {
+    const targetCapacity = trailerInflatableCapacity(targetTruck);
     const existingInflatables = tasks.filter(
       (task) =>
         !movingIds.has(task.id) &&
@@ -698,10 +710,10 @@ export function moveStop(
         (task.trailerLoad ?? 1) === targetLoad &&
         taskMatchesPlannerDates(task, plannerDates),
     ).length;
-    if (existingInflatables + movingIds.size > TRAILER_INFLATABLE_CAPACITY) {
+    if (existingInflatables + movingIds.size > targetCapacity) {
       return {
         tasks,
-        conflict: `Trailer load capacity is ${TRAILER_INFLATABLE_CAPACITY} inflatables.`,
+        conflict: `Trailer load capacity is ${targetCapacity} inflatables.`,
       };
     }
   }

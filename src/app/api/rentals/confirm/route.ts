@@ -1,3 +1,4 @@
+import { after } from "next/server";
 
 import {
   createGoogleCalendarEvent,
@@ -23,6 +24,7 @@ import {
 import { recordWorkflowOutcome } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
+import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 const RENTAL_BOOKING_SELECT =
   "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
@@ -588,6 +590,16 @@ async function handleRentalConfirm(
       status: action === "cancel" ? 409 : undefined,
     });
   }
+
+  const routePlanDate = String(booking.event_date).slice(0, 10);
+  after(() =>
+    runRoutePlannerAgent({
+      bookingId: String(booking.id),
+      eventDates: [routePlanDate],
+      trigger:
+        action === "confirm" ? "rental.confirmed" : "rental.removed",
+    }),
+  );
 
   if (action === "cancel") {
     let calendarSyncFailed = false;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   AUTO_PLAN_NO_STOPS_MESSAGE,
+  DELIVERY_TRUCK_CAPACITIES,
   autoPlanDeliveriesForDate,
   collectAutoPlanRouteItems,
   type AdminDeliveriesResult,
@@ -14,6 +15,13 @@ async function test(name: string, fn: TestFn): Promise<void> {
   await fn();
   console.log(`ok - ${name}`);
 }
+
+await test("automatic planner uses the configured 3/4 trailer capacities", () => {
+  assert.deepEqual(DELIVERY_TRUCK_CAPACITIES, {
+    "truck-1": 3,
+    "truck-2": 4,
+  });
+});
 
 function candidate(
   overrides: Partial<AutoPlanCandidateItem> & Pick<AutoPlanCandidateItem, "itemId">,

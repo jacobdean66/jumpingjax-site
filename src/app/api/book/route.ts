@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import {
   buildRentalListWithPrices,
   estimateCartGrandTotal,
@@ -26,6 +26,7 @@ import {
 } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
+import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 export const dynamic = "force-dynamic";
 
@@ -312,6 +313,14 @@ export async function POST(req: Request) {
 
   const workflowSupabase = createServiceRoleClient();
   await initializeBookingWorkflow(workflowSupabase, "rental", result.id);
+
+  after(() =>
+    runRoutePlannerAgent({
+      bookingId: result.id,
+      eventDates: [eventDateYmd],
+      trigger: "rental.created",
+    }),
+  );
 
   const facilityOwnerEmails = getFacilityOwnerEmails();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);

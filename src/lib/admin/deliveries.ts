@@ -232,6 +232,11 @@ export const DELIVERY_TRUCK_LABELS: Record<DeliveryTruckId, string> = {
   "truck-2": "Long Trailer",
 };
 
+export const DELIVERY_TRUCK_CAPACITIES: Record<DeliveryTruckId, number> = {
+  "truck-1": 3,
+  "truck-2": 4,
+};
+
 function cleanString(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -885,7 +890,6 @@ function chooseTruckForItem(
   matrix: Map<string, RouteLegEstimate>,
   firstDriveMinutes: number,
   betweenStopsMinutes: number,
-  capacity: number,
 ): DeliveryTruckId {
   const candidates = DELIVERY_TRUCKS.map((truck) => {
     const state = truckState[truck];
@@ -900,7 +904,7 @@ function chooseTruckForItem(
     const lateness = deadline == null ? 0 : Math.max(0, setupEnd - deadline);
     return {
       truck,
-      fits: wouldFitTruck(state, item, capacity),
+      fits: wouldFitTruck(state, item, DELIVERY_TRUCK_CAPACITIES[truck]),
       setupStart,
       lateness,
       distanceMiles: leg.distanceMiles,
@@ -910,8 +914,12 @@ function chooseTruckForItem(
   return candidates.sort((a, b) => {
     if (a.fits !== b.fits) return a.fits ? -1 : 1;
     if (a.lateness !== b.lateness) return a.lateness - b.lateness;
-    if (a.setupStart !== b.setupStart) return a.setupStart - b.setupStart;
-    return a.distanceMiles - b.distanceMiles;
+    // When time windows are safe, prefer the shortest leg so the generated
+    // route minimizes unnecessary fuel use.
+    if (a.distanceMiles !== b.distanceMiles) {
+      return a.distanceMiles - b.distanceMiles;
+    }
+    return a.setupStart - b.setupStart;
   })[0].truck;
 }
 
@@ -1060,8 +1068,6 @@ export async function autoPlanDeliveriesForDate(
   const dayStartMinutes = 7 * 60;
   const firstDriveMinutes = 45;
   const betweenStopsMinutes = 30;
-  const truckCapacity = 3;
-
   const truckState: Record<DeliveryTruckId, TruckPlanState> = {
     "truck-1": {
       availableAt: dayStartMinutes,
@@ -1105,9 +1111,9 @@ export async function autoPlanDeliveriesForDate(
       matrix,
       firstDriveMinutes,
       betweenStopsMinutes,
-      truckCapacity,
     );
     const state = truckState[truck];
+    const truckCapacity = DELIVERY_TRUCK_CAPACITIES[truck];
     const { leg, setupStart } = plannedStartForItem(
       item,
       state,
