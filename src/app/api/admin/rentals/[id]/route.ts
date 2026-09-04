@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import {
   isValidBookingId,
@@ -25,6 +25,7 @@ import {
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 const RENTAL_EDIT_SELECT =
   "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
@@ -470,6 +471,14 @@ export async function PATCH(
       items,
     }));
   }
+
+  after(() =>
+    runRoutePlannerAgent({
+      bookingId: id,
+      eventDates: [currentEventDate, parsed.value.eventDate],
+      trigger: "rental.edited",
+    }),
+  );
 
   revalidatePath("/admin/rentals");
   revalidatePath("/admin/schedule");
