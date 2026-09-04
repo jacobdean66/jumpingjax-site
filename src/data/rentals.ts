@@ -252,22 +252,6 @@ const LEGACY_WATERSLIDE_RENTALS: Rental[] = [
     setupRequirements: setupForCategory("water-slides"),
   },
   {
-    id: "water-slides/double-splash-waterslide",
-    slug: "double-splash-waterslide",
-    categoryId: "water-slides",
-    title: "Double Splash Waterslide",
-    shortDescription:
-      "Double Splash Waterslide - 15-foot compact water fun with a friendly price point.",
-    description:
-      "Reserve Double Splash Waterslide for your next South Carolina event. This 15-foot waterslide is a good fit when you want summer fun without the footprint of the tallest units. Our crew handles delivery, inflation, and safety review so you can focus on your guests.",
-    startingPrice: 250,
-    imageSrc: "/inflatables/waterslides/legacy/double-splash-waterslide.jpg",
-    imageAlt: "Double Splash Waterslide rental from Jumping Jax",
-    ageRecommendation:
-      "Ages 5+ with swimming comfort; adult supervision required near water landing areas.",
-    setupRequirements: setupForCategory("water-slides"),
-  },
-  {
     id: "water-slides/mini-tiki-plunge",
     slug: "mini-tiki-plunge",
     categoryId: "water-slides",
