@@ -90,8 +90,16 @@ type RouteAssignment = {
 };
 
 type DeliveryPatchBody =
-  | { assignments?: unknown; autoPlan?: unknown; date?: unknown; dates?: unknown }
+  | {
+      assignments?: unknown;
+      autoPlan?: unknown;
+      autoPlanDates?: unknown;
+      date?: unknown;
+      dates?: unknown;
+    }
   | null;
+
+const MAX_BULK_AUTO_PLAN_DATES = 120;
 
 function nullableText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -154,6 +162,48 @@ export async function PATCH(req: Request) {
       },
       { status: auth.reason === "missing_config" ? 503 : 401 },
     );
+  }
+
+  if (body?.autoPlanDates === true) {
+    const dates = Array.isArray(body.dates)
+      ? [...new Set(body.dates.filter((value): value is string =>
+          typeof value === "string" && isYmd(value),
+        ))].sort()
+      : [];
+    if (dates.length === 0 || dates.length > MAX_BULK_AUTO_PLAN_DATES) {
+      return NextResponse.json(
+        { error: `Choose between 1 and ${MAX_BULK_AUTO_PLAN_DATES} valid dates.` },
+        { status: 400 },
+      );
+    }
+
+    const results = [];
+    for (const date of dates) {
+      try {
+        results.push({
+          ok: true as const,
+          ...(await autoPlanDeliveriesForDate(date, { selectedDates: [date] })),
+        });
+      } catch (error) {
+        results.push({
+          ok: false as const,
+          date,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to auto-plan this date.",
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: results.every((result) => result.ok),
+      results,
+      plannedCount: results.reduce(
+        (sum, result) => sum + ("plannedCount" in result ? result.plannedCount : 0),
+        0,
+      ),
+    });
   }
 
   if (body?.autoPlan === true) {
