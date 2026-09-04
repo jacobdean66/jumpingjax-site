@@ -43,6 +43,12 @@ export function WaiverCompleteClient({
   const isFacilityParty =
     searchParams.get("source") === "facility-party" && Boolean(partyBookingId);
   const atFacility = isFacilityParty && searchParams.get("arrival") === "1";
+  const partyCheckInHref = isFacilityParty
+    ? `/facility-party-check-in?${new URLSearchParams({
+        booking: partyBookingId,
+        ...(partyDate ? { date: partyDate } : {}),
+      }).toString()}`
+    : null;
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [joiningPartyId, setJoiningPartyId] = useState<string | null>(null);
   const [joinedPartyMessage, setJoinedPartyMessage] = useState<string | null>(null);
@@ -255,6 +261,14 @@ export function WaiverCompleteClient({
         ) : null}
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {partyCheckInHref && state.status === "ok" ? (
+            <Link
+              href={partyCheckInHref}
+              className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-base font-black text-white shadow-[0_5px_0_rgba(4,120,87,0.25)] transition hover:bg-emerald-700"
+            >
+              View party guest list
+            </Link>
+          ) : null}
           <Link
             href="/waiver"
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-orange-600 px-7 text-base font-black text-white shadow-[0_5px_0_rgba(154,52,18,0.25)] transition hover:bg-orange-700"

@@ -28,7 +28,7 @@ test("full invitation email includes the themed invitation and forwarding action
   assert.match(html, /Party contact: 864-555-0100/);
   assert.match(html, /Open &amp; share invitation/);
   assert.match(html, /Print 4 per page/);
-  assert.match(html, /RSVP &amp; waiver/);
+  assert.match(html, /Party check-in &amp; waiver/);
   assert.match(html, /https:\/\/jumpingjaxllc\.com\/invitation-library\/themes\/princess-royal\/princess\.png/);
   assert.match(html, /Forward this email/);
 });

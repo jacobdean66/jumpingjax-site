@@ -85,7 +85,7 @@ export function buildInvitationEmailDraft(input: InvitationCopyInput): {
     "",
     input.invitationUrl ? `View the invitation: ${clean(input.invitationUrl)}` : null,
     input.printableUrl ? `Download or print invitations: ${clean(input.printableUrl)}` : null,
-    input.waiverUrl ? `RSVP and complete the waiver: ${clean(input.waiverUrl)}` : null,
+    input.waiverUrl ? `Check in and complete the waiver: ${clean(input.waiverUrl)}` : null,
     "",
     "We can't wait to celebrate with you!",
     "Jumping Jax",
@@ -111,6 +111,6 @@ export function buildCustomerInvitationEmailSection(
     copy.customerPhone ? `Party contact: ${copy.customerPhone}` : "",
     input.invitationUrl ? `View and share invitation: ${clean(input.invitationUrl)}` : "",
     input.printableUrl ? `Printable invitations: ${clean(input.printableUrl)}` : "",
-    input.waiverUrl ? `Guest RSVP and waiver: ${clean(input.waiverUrl)}` : "",
+    input.waiverUrl ? `Guest check-in and waiver: ${clean(input.waiverUrl)}` : "",
   ].filter(Boolean);
 }

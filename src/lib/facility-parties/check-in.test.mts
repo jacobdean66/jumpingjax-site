@@ -27,12 +27,14 @@ test("builds public party check-in and waiver signing URLs", () => {
       siteUrl: "http://localhost:3000",
       bookingId: "booking-123",
       partyDate: "September 12, 2026",
+      arrival: true,
     }),
   );
   assert.equal(waiver.pathname, "/waiver");
   assert.equal(waiver.searchParams.get("source"), "facility-party");
   assert.equal(waiver.searchParams.get("booking"), "booking-123");
   assert.equal(waiver.searchParams.get("date"), "September 12, 2026");
+  assert.equal(waiver.searchParams.get("arrival"), "1");
 });
 
 test("normalizes public party check-in fields", () => {
@@ -44,7 +46,7 @@ test("normalizes public party check-in fields", () => {
 test("builds friendly arrival and signing messages", () => {
   assert.equal(
     partyCheckInArrivalMessage("September 12, 2026"),
-    "You are checked in for the party on September 12, 2026. When you arrive, just tell staff your name and walk on through.",
+    "You are checked in for the party on September 12, 2026. Your name is now on the live guest list.",
   );
   assert.equal(
     partyCheckInSigningMessage("September 12, 2026"),

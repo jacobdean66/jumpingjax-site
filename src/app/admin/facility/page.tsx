@@ -19,6 +19,7 @@ import {
   StatusBadge,
 } from "../_components";
 import { facilityBookingCanMutate } from "@/lib/facility-parties/schedule-mutation";
+import { buildFacilityPartyCheckInUrl } from "@/lib/facility-parties/check-in";
 import { PrintButton } from "../PrintButton";
 import { InvitationAgentLink } from "@/components/facility-parties/InvitationAgentLink";
 import { BookingActionButton } from "../BookingActionButton";
@@ -98,6 +99,9 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
     status: booking.status,
     startTimeIso: booking.startTime,
   });
+  const canCheckIn = ["approved", "confirmed"].includes(
+    booking.status.trim().toLowerCase(),
+  );
   return (
     <article
       className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
@@ -118,6 +122,27 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <BookingInvoiceButton kind="facility" bookingId={booking.id} />
+          {canCheckIn ? (
+            <>
+              <Link
+                href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
+                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+              >
+                Guest list
+              </Link>
+              <Link
+                href={buildFacilityPartyCheckInUrl({
+                  bookingId: booking.id,
+                  partyDate: booking.readableDate,
+                })}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-cyan-700 px-4 py-2 text-xs font-black text-white hover:bg-cyan-800"
+              >
+                Customer check-in
+              </Link>
+            </>
+          ) : null}
           {canMutate && (
             <>
               <FacilityEditButton booking={booking} />
@@ -137,12 +162,6 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
                 className="rounded-full bg-sky-600 px-4 py-2 text-xs font-black text-white hover:bg-sky-700"
               >
                 Download invitations
-              </Link>
-              <Link
-                href={`/admin/facility/${encodeURIComponent(booking.id)}/guest-list`}
-                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
-              >
-                Guest list
               </Link>
               <FacilityCancellationButton
                 endpoint={actionHref(booking.id, "cancel")}

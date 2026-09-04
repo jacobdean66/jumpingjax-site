@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isWaiverExpired } from "@/lib/waivers/expiration";
 import { getCompletionByToken } from "@/lib/waivers/submit";
+import { ageInCompletedYearsOnDate } from "@/lib/open-play/pricing";
+import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import {
   cleanPartyCheckInText,
   isUuid,
@@ -8,12 +10,17 @@ import {
   normalizePartyDate,
   partyCheckInArrivalMessage,
   partyCheckInSigningMessage,
+  type FacilityPartyWaiverMatch,
   type FacilityPartyGuest,
+  type PublicFacilityParty,
 } from "./check-in";
 
 type FacilityBookingLookup = {
   id: string;
   readable_date: string | null;
+  readable_time: string | null;
+  child_name: string | null;
+  party_label: string | null;
   status: string | null;
 };
 
@@ -31,6 +38,7 @@ type WaiverParticipantLookup = {
         signer_first_name: string;
         signer_last_name: string;
         expires_on: string;
+        signed_at?: string;
       }
     | {
         id: string;
@@ -38,6 +46,7 @@ type WaiverParticipantLookup = {
         signer_first_name: string;
         signer_last_name: string;
         expires_on: string;
+        signed_at?: string;
       }[]
     | null;
 };
@@ -85,11 +94,198 @@ async function loadFacilityBooking(bookingId: string) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("facility_bookings")
-    .select("id, readable_date, status")
+    .select("id, readable_date, readable_time, child_name, party_label, status")
     .eq("id", bookingId)
     .maybeSingle<FacilityBookingLookup>();
   if (error) throw new Error(error.message);
   return data;
+}
+
+function bookingAcceptsGuests(status: string | null): boolean {
+  return ["approved", "confirmed"].includes(
+    status?.trim().toLowerCase() ?? "",
+  );
+}
+
+function publicGuestName(firstName: string, lastName: string): string {
+  const first = cleanPartyCheckInText(firstName);
+  const initial = cleanPartyCheckInText(lastName).charAt(0).toUpperCase();
+  return initial ? `${first} ${initial}.` : first;
+}
+
+function ageForMatch(dob: string, evaluationAt: Date): number | null {
+  try {
+    return ageInCompletedYearsOnDate(
+      dob,
+      businessDayYmdFromInstant(evaluationAt),
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function loadActiveWaiverParticipantMatches(input: {
+  firstName: string;
+  lastName: string;
+  evaluationAt: Date;
+}): Promise<WaiverParticipantLookup[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("waiver_participants")
+    .select(
+      "id, submission_id, first_name, last_name, dob, role, waiver_submissions(id, status, signer_first_name, signer_last_name, expires_on, signed_at)",
+    )
+    .eq("search_first_name", input.firstName.toLowerCase())
+    .eq("search_last_name", input.lastName.toLowerCase())
+    .limit(10);
+  if (error) throw new Error(error.message);
+
+  const active = ((data ?? []) as WaiverParticipantLookup[])
+    .filter((row) => {
+      const submission = firstRelated(row.waiver_submissions);
+      return (
+        submission?.status === "completed" &&
+        !isWaiverExpired({
+          expiresOnYmd: submission.expires_on,
+          evaluationAt: input.evaluationAt,
+        })
+      );
+    })
+    .sort((a, b) => {
+      const aSigned = firstRelated(a.waiver_submissions)?.signed_at ?? "";
+      const bSigned = firstRelated(b.waiver_submissions)?.signed_at ?? "";
+      return bSigned.localeCompare(aSigned);
+    });
+
+  const unique = new Map<string, WaiverParticipantLookup>();
+  for (const row of active) {
+    const identity = `${row.first_name.trim().toLowerCase()}|${row.last_name
+      .trim()
+      .toLowerCase()}|${row.dob}`;
+    if (!unique.has(identity)) unique.set(identity, row);
+  }
+  return [...unique.values()];
+}
+
+export async function loadPublicFacilityParty(
+  bookingId: string,
+): Promise<PublicFacilityParty | null> {
+  const booking = await loadFacilityBooking(bookingId);
+  if (!booking || !bookingAcceptsGuests(booking.status)) return null;
+  const guests = await loadFacilityPartyGuests(booking.id);
+  return {
+    id: booking.id,
+    title: cleanPartyCheckInText(booking.child_name) || "Birthday party",
+    partyLabel: cleanPartyCheckInText(booking.party_label) || "Facility party",
+    date: cleanPartyCheckInText(booking.readable_date),
+    time: cleanPartyCheckInText(booking.readable_time),
+    checkedInGuests: guests
+      .filter(
+        (guest): guest is FacilityPartyGuest & { checkedInAt: string } =>
+          Boolean(guest.checkedInAt),
+      )
+      .map((guest) => ({
+        id: guest.id,
+        displayName: publicGuestName(guest.firstName, guest.lastName),
+        checkedInAt: guest.checkedInAt,
+      })),
+  };
+}
+
+export async function findFacilityPartyWaiverMatches(input: {
+  bookingId: string;
+  firstName: unknown;
+  lastName: unknown;
+  evaluationAt?: Date;
+}): Promise<
+  | { ok: true; matches: FacilityPartyWaiverMatch[] }
+  | { ok: false; code: "not_found" | "validation"; message: string }
+> {
+  const booking = await loadFacilityBooking(
+    cleanPartyCheckInText(input.bookingId, 64),
+  );
+  if (!booking || !bookingAcceptsGuests(booking.status)) {
+    return { ok: false, code: "not_found", message: "Party not found." };
+  }
+  const firstName = cleanPartyCheckInText(input.firstName);
+  const lastName = cleanPartyCheckInText(input.lastName);
+  if (!firstName || !lastName) {
+    return {
+      ok: false,
+      code: "validation",
+      message: "Enter the guest first and last name.",
+    };
+  }
+  const evaluationAt = input.evaluationAt ?? new Date();
+  const rows = await loadActiveWaiverParticipantMatches({
+    firstName,
+    lastName,
+    evaluationAt,
+  });
+  return {
+    ok: true,
+    matches: rows.map((row) => ({
+      participantId: row.id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      ageYears: ageForMatch(row.dob, evaluationAt),
+    })),
+  };
+}
+
+export async function checkInFacilityPartyWaiverMatch(input: {
+  bookingId: string;
+  participantId: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  partyDate?: unknown;
+  evaluationAt?: Date;
+}) {
+  const bookingId = cleanPartyCheckInText(input.bookingId, 64);
+  const participantId = cleanPartyCheckInText(input.participantId, 64);
+  const firstName = cleanPartyCheckInText(input.firstName);
+  const lastName = cleanPartyCheckInText(input.lastName);
+  if (!isUuid(participantId)) {
+    return {
+      ok: false as const,
+      code: "validation",
+      message: "Choose your name from the waiver results.",
+    };
+  }
+  const booking = await loadFacilityBooking(bookingId);
+  if (!booking || !bookingAcceptsGuests(booking.status)) {
+    return { ok: false as const, code: "not_found", message: "Party not found." };
+  }
+  const rows = await loadActiveWaiverParticipantMatches({
+    firstName,
+    lastName,
+    evaluationAt: input.evaluationAt ?? new Date(),
+  });
+  const participant = rows.find((row) => row.id === participantId);
+  if (!participant) {
+    return {
+      ok: false as const,
+      code: "not_found",
+      message: "That current waiver is no longer available.",
+    };
+  }
+  let guest = await upsertPartyGuest({ bookingId, participant });
+  if (!guest.checkedInAt) {
+    const present = await setFacilityPartyGuestPresent({
+      bookingId,
+      guestId: guest.id,
+      present: true,
+      staffLabel: "Customer QR",
+    });
+    if (present.ok) guest = present.guest;
+  }
+  const partyDate = normalizePartyDate(input.partyDate) ?? booking.readable_date;
+  return {
+    ok: true as const,
+    guest,
+    partyDate,
+    message: partyCheckInArrivalMessage(partyDate),
+  };
 }
 
 async function upsertPartyGuest(input: {

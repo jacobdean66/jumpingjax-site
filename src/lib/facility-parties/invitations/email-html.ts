@@ -95,7 +95,7 @@ export function buildFullInvitationEmailHtml(
           <tr><td style="padding:20px 6px 8px;text-align:center;">
             ${actionButton("Open & share invitation", invitationUrl, "#db2777")}
             ${actionButton("Print 4 per page", printableUrl, "#059669")}
-            ${actionButton("RSVP & waiver", waiverUrl, "#0284c7")}
+            ${actionButton("Party check-in & waiver", waiverUrl, "#0284c7")}
           </td></tr>
           <tr><td style="padding:14px 18px 22px;border-radius:18px;background:#ffffff;color:#334155;font-family:Arial,sans-serif;font-size:14px;line-height:1.55;white-space:pre-line;">${escapeHtml(input.plainText)}</td></tr>
           <tr><td style="padding:16px;text-align:center;color:#64748b;font-family:Arial,sans-serif;font-size:12px;">Forward this email or use “Open &amp; share invitation” to send it through Messenger, text, or another app.</td></tr>

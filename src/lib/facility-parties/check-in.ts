@@ -24,6 +24,28 @@ export type FacilityPartyGuest = {
   createdAt: string;
 };
 
+export type PublicFacilityPartyGuest = {
+  id: string;
+  displayName: string;
+  checkedInAt: string;
+};
+
+export type PublicFacilityParty = {
+  id: string;
+  title: string;
+  partyLabel: string;
+  date: string;
+  time: string;
+  checkedInGuests: PublicFacilityPartyGuest[];
+};
+
+export type FacilityPartyWaiverMatch = {
+  participantId: string;
+  firstName: string;
+  lastName: string;
+  ageYears: number | null;
+};
+
 export function isUuid(value: string): boolean {
   return UUID_RE.test(value.trim());
 }
@@ -61,6 +83,7 @@ export function buildFacilityPartyWaiverSignUrl(input: {
   siteUrl?: string | null;
   bookingId: string;
   partyDate: string | null | undefined;
+  arrival?: boolean;
 }): string {
   return buildAbsoluteUrl(
     "/waiver",
@@ -69,13 +92,14 @@ export function buildFacilityPartyWaiverSignUrl(input: {
       source: "facility-party",
       booking: input.bookingId,
       ...(normalizePartyDate(input.partyDate) ? { date: normalizePartyDate(input.partyDate)! } : {}),
+      ...(input.arrival ? { arrival: "1" } : {}),
     },
   );
 }
 
 export function partyCheckInArrivalMessage(partyDate: string | null | undefined): string {
   const suffix = partyDate ? ` for the party on ${partyDate}` : " for the party";
-  return `You are checked in${suffix}. When you arrive, just tell staff your name and walk on through.`;
+  return `You are checked in${suffix}. Your name is now on the live guest list.`;
 }
 
 export function partyCheckInSigningMessage(partyDate: string | null | undefined): string {

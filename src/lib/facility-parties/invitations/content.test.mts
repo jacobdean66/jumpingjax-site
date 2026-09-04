@@ -58,7 +58,7 @@ test("customer booking emails receive one canonical invitation package", () => {
   assert.match(section, /Guest of honor: Miles \(6th birthday\)/);
   assert.match(section, /Theme: Sonic party theme/);
   assert.match(section, /Printable invitations:/);
-  assert.match(section, /Guest RSVP and waiver:/);
+  assert.match(section, /Guest check-in and waiver:/);
   assert.match(section, /Party contact: 864-555-0100/);
 });
 

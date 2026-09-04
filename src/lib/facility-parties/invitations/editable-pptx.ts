@@ -188,7 +188,7 @@ function addInvitation(
   });
 
   if (qrData) {
-    slide.addText("RSVP & waiver", {
+    slide.addText("Party check-in & waiver", {
       x: x + 4.04,
       y: y + 2.82,
       w: 1.13,
