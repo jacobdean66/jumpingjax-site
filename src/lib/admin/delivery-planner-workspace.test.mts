@@ -27,6 +27,8 @@ import {
   taskMatchesSelection,
   tasksForSelection,
   TRAILER_INFLATABLE_CAPACITY,
+  TRAILER_INFLATABLE_CAPACITIES,
+  trailerInflatableCapacity,
 } from "./delivery-planner-workspace";
 import { buildPrintDayGroups } from "./delivery-print-layout";
 
@@ -952,6 +954,12 @@ await test("operation-specific mixed-date loads never include the sibling work t
 
 await test("capacity counts actual inflatable items across mixed-date stops", () => {
   assert.equal(TRAILER_INFLATABLE_CAPACITY, 3);
+  assert.deepEqual(TRAILER_INFLATABLE_CAPACITIES, {
+    "truck-1": 3,
+    "truck-2": 4,
+  });
+  assert.equal(trailerInflatableCapacity("truck-1"), 3);
+  assert.equal(trailerInflatableCapacity("truck-2"), 4);
   const dates = ["2026-07-17", "2026-07-18"];
   const existing = [
     task("capacity-a", "delivery", {
@@ -974,6 +982,24 @@ await test("capacity counts actual inflatable items across mixed-date stops", ()
   );
   assert.match(moved.conflict ?? "", /capacity is 3 inflatables/);
   assert.equal(moved.tasks.filter((value) => value.truck === "truck-1").length, 2);
+});
+
+await test("long trailer accepts four inflatables in one editable load", () => {
+  const inflatables = ["a", "b", "c", "d"].map((id) =>
+    task(`long-${id}`, "delivery"),
+  );
+  const moved = moveStop(
+    inflatables,
+    inflatables.map((value) => value.id),
+    {
+      date: "2026-07-18",
+      workType: "delivery",
+      target: "truck-2",
+      targetIndex: 0,
+    },
+  );
+  assert.equal(moved.conflict, null);
+  assert.equal(moved.tasks.filter((value) => value.truck === "truck-2").length, 4);
 });
 
 await test("print preparation keeps a mixed-date trailer in saved sequence", () => {
