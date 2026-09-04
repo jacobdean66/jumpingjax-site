@@ -5,7 +5,7 @@ import test from "node:test";
 
 import { getAnsweringMachineReadiness } from "./readiness.ts";
 import { parseAnsweringMachineIngest, parseAnsweringMachineReview } from "./validation.ts";
-import { extractWhatsAppCallSignals, verifyMetaWebhookSignature } from "./whatsapp.ts";
+import { extractWhatsAppCallSignals, extractWhatsAppVoicemails, verifyMetaWebhookSignature } from "./whatsapp.ts";
 
 const completeReview = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -17,6 +17,7 @@ const completeReview = {
     facilityStartTime: "14:30",
     rentalItems: [],
     transcript: "Caller requested a facility party on October 24 at 2:30 PM.",
+    transcriptComplete: true,
     agentSummary: "Facility party, October 24 at 2:30 PM.",
     ownerNotes: "",
   },
@@ -70,6 +71,24 @@ test("Meta webhook signatures are verified and call signals are bounded", () => 
   assert.equal(signal.callerDisplayName, "Test caller");
 });
 
+test("Meta native voicemail audio is recognized without accepting ordinary audio messages", () => {
+  const payload = { entry: [{ changes: [{ field: "messages", value: {
+    contacts: [{ profile: { name: "Test caller" } }],
+    messages: [{
+      id: "wacid.test-call", from: "15555550123", timestamp: "1788200001", type: "audio",
+      audio: { id: "media-123", mime_type: "audio/ogg; codecs=opus", sha256: "test-hash" },
+    }, {
+      id: "wamid.ordinary-message", from: "15555550123", timestamp: "1788200002", type: "audio",
+      audio: { id: "media-ordinary", mime_type: "audio/ogg" },
+    }],
+  } }] }] };
+  const [voicemail] = extractWhatsAppVoicemails(payload);
+  assert.equal(voicemail.providerCallId, "wacid.test-call");
+  assert.equal(voicemail.mediaId, "media-123");
+  assert.equal(voicemail.callerDisplayName, "Test caller");
+  assert.equal(extractWhatsAppVoicemails(payload).length, 1);
+});
+
 test("WhatsApp Calling readiness stays false until every credential and bridge gate exists", () => {
   assert.equal(getAnsweringMachineReadiness({ WHATSAPP_CALLING_ENABLED: "1" }).live, false);
   const ready = getAnsweringMachineReadiness({
@@ -94,6 +113,19 @@ test("WhatsApp Calling readiness stays false until every credential and bridge g
     ANSWERING_MACHINE_MEDIA_BRIDGE_URL: "https://voice.example.test/whatsapp",
   });
   assert.equal(readyWithExistingMetaSecret.live, true);
+
+  const nativeVoicemail = getAnsweringMachineReadiness({
+    WHATSAPP_CALLING_ENABLED: "1",
+    WHATSAPP_ANSWERING_MODE: "native_voicemail",
+    WHATSAPP_VERIFY_TOKEN: "set",
+    WHATSAPP_APP_SECRET: "set",
+    WHATSAPP_PHONE_NUMBER_ID: "set",
+    WHATSAPP_WABA_ID: "set",
+    WHATSAPP_ACCESS_TOKEN: "set",
+    WHATSAPP_GRAPH_API_VERSION: "v25.0",
+  });
+  assert.equal(nativeVoicemail.live, true);
+  assert.equal(nativeVoicemail.status, "VOICEMAIL READY");
 });
 
 test("Answering Machine storage is private, audited, approval-gated, and isolated from live booking writes", async () => {
@@ -109,6 +141,13 @@ test("Answering Machine storage is private, audited, approval-gated, and isolate
   assert.match(migration, /service_kind = 'facility_party' and v_call\.facility_start_time is null/i);
   assert.match(migration, /service_kind = 'rental' and cardinality\(v_call\.rental_items\) = 0/i);
   assert.doesNotMatch(migration, /insert into public\.(bookings|facility_bookings)|google_calendar_event_id|stripe|payment_intent/i);
+  const voicemailMigration = await readFile(
+    new URL("../../../supabase/migrations/20260904153000_add_whatsapp_native_voicemail.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(voicemailMigration, /record_whatsapp_answering_voicemail/);
+  assert.match(voicemailMigration, /transcriptComplete/);
+  assert.doesNotMatch(voicemailMigration, /insert into public\.(bookings|facility_bookings)|google_calendar_event_id|stripe|payment_intent/i);
 });
 
 test("Answering Machine admin and callback routes enforce their separate trust boundaries", async () => {
@@ -126,5 +165,5 @@ test("Answering Machine admin and callback routes enforce their separate trust b
   assert.match(page, /Call transcript/);
   assert.match(page, /Approve information/);
   assert.match(page, /Rental \/ foam party/);
+  assert.match(page, /Recorded voicemail/);
 });
-

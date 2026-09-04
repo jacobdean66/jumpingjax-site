@@ -17,6 +17,7 @@ type CallRow = {
   rental_items: string[] | null;
   transcript: string;
   transcript_complete: boolean;
+  voicemail_media_id: string | null;
   agent_summary: string;
   owner_notes: string;
   revision: number;
@@ -46,6 +47,7 @@ function mapCall(row: CallRow): AnsweringMachineCall {
     rentalItems: row.rental_items ?? [],
     transcript: row.transcript,
     transcriptComplete: row.transcript_complete,
+    voicemailAvailable: Boolean(row.voicemail_media_id),
     agentSummary: row.agent_summary,
     ownerNotes: row.owner_notes,
     revision: row.revision,
@@ -58,7 +60,7 @@ export async function loadAnsweringMachineCalls(limit = 50) {
   const db = createServiceRoleClient();
   const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
   const { data, error } = await db.from("answering_machine_calls")
-    .select("id,provider_call_id,caller_ref,caller_display_name,status,service_kind,event_date,facility_start_time,rental_items,transcript,transcript_complete,agent_summary,owner_notes,revision,created_at,updated_at")
+    .select("id,provider_call_id,caller_ref,caller_display_name,status,service_kind,event_date,facility_start_time,rental_items,transcript,transcript_complete,voicemail_media_id,agent_summary,owner_notes,revision,created_at,updated_at")
     .order("updated_at", { ascending: false })
     .limit(boundedLimit);
   if (error) throw new Error("Answering Machine inbox is unavailable");
@@ -96,4 +98,37 @@ export async function ingestAnsweringMachineCall(input: AnsweringMachineIngest) 
   });
   if (error || !data) throw new Error(error?.message ?? "WhatsApp call could not be recorded");
   return mapCall(data as CallRow);
+}
+
+export async function ingestAnsweringMachineVoicemail(input: {
+  providerCallId: string;
+  sourceEventId: string;
+  callerRef: string;
+  callerDisplayName: string | null;
+  mediaId: string;
+  mimeType: string;
+  sha256: string | null;
+}) {
+  const db = createServiceRoleClient();
+  const { data, error } = await db.rpc("record_whatsapp_answering_voicemail", {
+    p_provider_call_id: input.providerCallId,
+    p_source_event_id: input.sourceEventId,
+    p_caller_ref: input.callerRef,
+    p_caller_display_name: input.callerDisplayName,
+    p_media_id: input.mediaId,
+    p_mime_type: input.mimeType,
+    p_sha256: input.sha256,
+  });
+  if (error || !data) throw new Error(error?.message ?? "WhatsApp voicemail could not be recorded");
+  return mapCall(data as CallRow);
+}
+
+export async function loadAnsweringMachineVoicemailMedia(id: string) {
+  const db = createServiceRoleClient();
+  const { data, error } = await db.from("answering_machine_calls")
+    .select("voicemail_media_id,voicemail_mime_type")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data?.voicemail_media_id) throw new Error("Voicemail audio is unavailable");
+  return { mediaId: data.voicemail_media_id as string, mimeType: data.voicemail_mime_type as string };
 }

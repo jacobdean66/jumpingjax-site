@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import type { AnsweringMachineIngest } from "./validation";
+import type { AnsweringMachineIngest, AnsweringMachineVoicemailIngest } from "./validation";
 
 function safeEqual(left: string, right: string) {
   const a = Buffer.from(left);
@@ -66,4 +66,47 @@ export function extractWhatsAppCallSignals(value: unknown): AnsweringMachineInge
     }
   }
   return signals.slice(0, 10);
+}
+
+export function extractWhatsAppVoicemails(value: unknown): AnsweringMachineVoicemailIngest[] {
+  if (!value || typeof value !== "object") return [];
+  const entries = Array.isArray((value as UnknownRecord).entry) ? (value as UnknownRecord).entry as unknown[] : [];
+  const voicemails: AnsweringMachineVoicemailIngest[] = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue;
+    const changes = Array.isArray((entry as UnknownRecord).changes) ? (entry as UnknownRecord).changes as unknown[] : [];
+    for (const change of changes) {
+      const payload = change && typeof change === "object" ? (change as UnknownRecord).value : null;
+      if (!payload || typeof payload !== "object") continue;
+      const body = payload as UnknownRecord;
+      const contacts = Array.isArray(body.contacts) ? body.contacts as UnknownRecord[] : [];
+      const profile = contacts[0]?.profile && typeof contacts[0].profile === "object"
+        ? contacts[0].profile as UnknownRecord : null;
+      const displayName = typeof profile?.name === "string" ? profile.name.slice(0, 160) : null;
+      const messages = Array.isArray(body.messages) ? body.messages as unknown[] : [];
+      for (const messageValue of messages) {
+        if (!messageValue || typeof messageValue !== "object") continue;
+        const message = messageValue as UnknownRecord;
+        const audio = message.audio && typeof message.audio === "object" ? message.audio as UnknownRecord : null;
+        const providerCallId = typeof message.id === "string" ? message.id : "";
+        const callerRef = typeof message.from === "string" ? message.from
+          : typeof message.from_user_id === "string" ? message.from_user_id : "";
+        const mediaId = typeof audio?.id === "string" ? audio.id : "";
+        const mimeType = typeof audio?.mime_type === "string" ? audio.mime_type : "";
+        if (message.type !== "audio" || !providerCallId.startsWith("wacid.") || !callerRef
+          || !mediaId || !mimeType.startsWith("audio/") || mediaId.length > 240 || mimeType.length > 120) continue;
+        const timestamp = typeof message.timestamp === "string" ? message.timestamp : "unknown";
+        voicemails.push({
+          providerCallId: providerCallId.slice(0, 240),
+          sourceEventId: `${providerCallId}:voicemail:${timestamp}`.slice(0, 300),
+          callerRef: callerRef.slice(0, 240),
+          callerDisplayName: displayName,
+          mediaId,
+          mimeType,
+          sha256: typeof audio?.sha256 === "string" ? audio.sha256.slice(0, 128) : null,
+        });
+      }
+    }
+  }
+  return voicemails.slice(0, 10);
 }
