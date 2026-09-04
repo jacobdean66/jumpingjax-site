@@ -80,6 +80,10 @@ test("exact grouping collapses duplicate children and keeps distinct submissions
     childGroupKey("  Colton ", 9, 26),
     childGroupKey("Colton", 9, 26),
   );
+  assert.equal(
+    childGroupKey("Andrea O.", 1, 20),
+    childGroupKey("Andrea O", 1, 20),
+  );
 });
 
 test("draw uses one entry per unique child, not per submission", () => {

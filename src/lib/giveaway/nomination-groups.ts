@@ -26,7 +26,7 @@ export type ChildNominationGroup = {
 };
 
 export function normalizeChildName(name: string): string {
-  return name.trim().replace(/\s+/g, " ").toLowerCase();
+  return name.trim().replace(/\./g, "").replace(/\s+/g, " ").toLowerCase();
 }
 
 export function childGroupKey(
