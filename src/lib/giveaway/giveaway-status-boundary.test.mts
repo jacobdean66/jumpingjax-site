@@ -22,3 +22,12 @@ test("giveaway tracking migration keeps one winner and protects status rows", ()
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /revoke all .* from anon, authenticated/i);
 });
+
+test("the giveaway page clearly shows a redeemed free pass", () => {
+  const client = readFileSync(
+    new URL("../../app/admin/giveaway/GiveawayDrawClient.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(client, /Child has used the free pass/);
+  assert.match(client, /freePassRedeemed/);
+});

@@ -198,7 +198,11 @@ export function GiveawayDrawClient({
                     {winnerKey === group.groupKey ? (
                       <p className="text-sm font-black text-amber-700">Marked as the giveaway winner</p>
                     ) : (
-                      <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-slate-800">
+                      <label
+                        className={`flex cursor-pointer items-center gap-2 text-sm font-black ${
+                          redeemedKeys.has(group.groupKey) ? "text-emerald-700" : "text-slate-800"
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={redeemedKeys.has(group.groupKey)}
@@ -206,7 +210,9 @@ export function GiveawayDrawClient({
                           onChange={(event) => saveStatus(group, "free_pass_redeemed", event.target.checked)}
                           className="h-5 w-5 accent-emerald-600"
                         />
-                        Free pass used
+                        {redeemedKeys.has(group.groupKey)
+                          ? "Child has used the free pass"
+                          : "Mark free pass as used"}
                       </label>
                     )}
                     {winnerKey !== group.groupKey ? (
