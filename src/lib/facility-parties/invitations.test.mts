@@ -159,6 +159,17 @@ test("uses the camouflage background for either customer spelling", () => {
   }
 });
 
+test("uses transforming-robot artwork for Transformers themes", () => {
+  assert.equal(
+    approvedArtworkSrc("birthday", "Transformers"),
+    "/invitations/approved/transforming-robots/print-light-v1.png",
+  );
+  assert.equal(
+    agentPrintArtworkSrc("birthday", "Transformers"),
+    "/invitations/approved/transforming-robots/print-light-v1.png",
+  );
+});
+
 test("builds facility-party waiver URL without private child details", () => {
   const url = new URL(
     buildFacilityWaiverInvitationUrl({

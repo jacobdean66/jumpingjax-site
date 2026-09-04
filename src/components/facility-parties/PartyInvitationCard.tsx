@@ -442,6 +442,7 @@ function InkSaverSheetInvitation({
   accent: string;
   treatmentId?: string;
 }) {
+  const fullBleedPrint = treatmentId === "camouflage" || treatmentId === "transforming-robots";
   return (
     <article
       data-theme-id={themeId}
@@ -461,7 +462,7 @@ function InkSaverSheetInvitation({
       className="relative h-full w-full overflow-hidden bg-[#fffef8] text-left text-slate-950"
       style={{ containerType: "inline-size" }}
     >
-      {treatmentId === "camouflage" ? (
+      {fullBleedPrint ? (
         <img
           src={artworkSrc}
           alt=""
@@ -502,19 +503,19 @@ function InkSaverSheetInvitation({
 
       <div
         className={`absolute z-10 flex items-end justify-between gap-[3%] border-t border-slate-300 pt-[3%] ${
-          treatmentId === "camouflage"
+          fullBleedPrint
             ? "inset-x-[8%] bottom-[10%]"
             : "inset-x-[4.5%] bottom-[5%]"
         }`}
-        data-safe-footer={treatmentId === "camouflage" ? "true" : undefined}
+        data-safe-footer={fullBleedPrint ? "true" : undefined}
       >
-        <div className={`${treatmentId === "camouflage" ? "min-w-0 max-w-[64%]" : "max-w-[68%]"} text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800`}>
+        <div className={`${fullBleedPrint ? "min-w-0 max-w-[64%]" : "max-w-[68%]"} text-[clamp(10px,2.7cqw,15px)] font-semibold leading-[1.25] text-slate-800`}>
           <p className="font-black text-slate-950">{dateLabel || "Date coming soon"}</p>
           <p>{timeLabel || "Time coming soon"}</p>
           <p className="mt-[1%]">{venueLine}</p>
           {customerPhone ? <p className="font-black">Party contact: {customerPhone}</p> : null}
         </div>
-        <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" printSafe={treatmentId === "camouflage"} />
+        <FooterBits compact qrUrl={qrUrl} waiverUrl={waiverUrl} tone="light" printSafe={fullBleedPrint} />
       </div>
     </article>
   );
@@ -577,6 +578,7 @@ function SourceThemeMotif({
     "rescue-pups": ["●", "♥", "●"],
     "blue-pup": ["●", "✦", "●"],
     camouflage: ["◆", "●", "▲"],
+    "transforming-robots": ["◆", "⬢", "⚙"],
   }[treatment.id] ?? ["✦", "●", "✧"];
 
   return (

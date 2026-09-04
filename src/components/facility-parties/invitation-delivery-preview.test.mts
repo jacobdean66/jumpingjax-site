@@ -225,6 +225,27 @@ test("camouflage customer themes use a full-cell print background", () => {
   );
 });
 
+test("Transformers test sheets use the full-cell transforming-robots artwork", () => {
+  const html = renderToStaticMarkup(
+    createElement(InvitationSheet, {
+      ...formFields,
+      snapshot: buildInvitationSnapshot("Transformers"),
+      childName: "Test Birthday",
+      invitationQuantity: 4,
+      qrUrl: "/test-party-qr.png",
+    }),
+  );
+
+  assert.equal(countMatches(html, 'data-source-theme-treatment="transforming-robots"'), 4);
+  assert.equal(countMatches(html, 'data-full-bleed-background="true"'), 4);
+  assert.equal(countMatches(html, 'data-safe-footer="true"'), 4);
+  assert.equal(countMatches(html, 'data-qr-print-safe="true"'), 4);
+  assert.equal(
+    countMatches(html, 'src="/invitations/approved/transforming-robots/print-light-v1.png"'),
+    4,
+  );
+});
+
 test("racing cars sheets use matching wording and four full-bleed portrait cards", () => {
   const carsSnapshot = buildInvitationSnapshot("Cars movie theme");
   const html = renderToStaticMarkup(

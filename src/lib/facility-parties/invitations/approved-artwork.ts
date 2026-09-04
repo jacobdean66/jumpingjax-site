@@ -2,6 +2,8 @@ import { getInvitationLibraryTheme } from "./library/themes";
 
 /** Artwork that Jumping Jax has explicitly approved for invitation use. */
 export const APPROVED_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
+  transformers: "/invitations/approved/transforming-robots/print-light-v1.png",
+  transformer: "/invitations/approved/transforming-robots/print-light-v1.png",
   camouflage: "/invitations/approved/camouflage/print-light-v1.png",
   camoflauge: "/invitations/approved/camouflage/print-light-v1.png",
   sonic: "/invitations/approved/sonic/card.png",
@@ -11,6 +13,8 @@ export const APPROVED_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
 
 /** Light artwork created by the invitation agent specifically for printed sheets. */
 export const AGENT_PRINT_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
+  transformers: "/invitations/approved/transforming-robots/print-light-v1.png",
+  transformer: "/invitations/approved/transforming-robots/print-light-v1.png",
   camouflage: "/invitations/approved/camouflage/print-light-v1.png",
   camoflauge: "/invitations/approved/camouflage/print-light-v1.png",
   sonic: "/invitations/approved/sonic/print-light-v1.png",

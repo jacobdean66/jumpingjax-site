@@ -5,6 +5,7 @@ export type InvitationSourceTreatmentId =
   | "mushroom-kingdom"
   | "block-world"
   | "camouflage"
+  | "transforming-robots"
   | "web-hero"
   | "night-hero"
   | "electric-creatures"
@@ -68,6 +69,17 @@ const SOURCE_TREATMENTS: readonly InvitationSourceTreatment[] = [
     text: "#182114",
     muted: "#4f5b3b",
     border: "#66763a",
+  },
+  {
+    id: "transforming-robots",
+    aliases: ["transformers", "transformer", "transforming robots"],
+    background: "#eaf6ff",
+    backgroundAlt: "#0f5ca8",
+    accent: "#d7262e",
+    accent2: "#1671c5",
+    text: "#0a1830",
+    muted: "#34516f",
+    border: "#1671c5",
   },
   {
     id: "web-hero",
