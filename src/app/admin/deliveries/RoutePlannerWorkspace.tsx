@@ -45,7 +45,7 @@ import {
   stopMatchesPlannerDates,
   taskMatchesSelection,
   tasksForSelection,
-  TRAILER_INFLATABLE_CAPACITY,
+  trailerInflatableCapacity,
   unassignedSelectionKey,
   taskSearchText,
   type PlannerColumn,
@@ -1207,7 +1207,7 @@ export function RoutePlannerWorkspace({
                 <div className="rp-panel-title min-w-0 text-xs font-black">
                   <span>
                     {trailerStops.length} stops · {trailerInflatableCount} inflatables
-                    {` · max ${TRAILER_INFLATABLE_CAPACITY}/load · `}
+                    {` · max ${trailerInflatableCapacity(selection.truck)}/load · `}
                   </span>
                   <span
                     className={
