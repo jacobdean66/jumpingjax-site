@@ -2,6 +2,7 @@
 export const VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES = 4.5 * 1024 * 1024;
 
 export const INVENTORY_IMAGE_BUCKET = "rental-inventory-images";
+export const INVENTORY_MEDIA_BUCKET = INVENTORY_IMAGE_BUCKET;
 
 /** Browser + next/image safe formats for public rental photos. */
 export const WEB_SAFE_INVENTORY_IMAGE_TYPES = [

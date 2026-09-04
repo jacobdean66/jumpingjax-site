@@ -27,6 +27,17 @@ export const CATEGORY_IDS = [
 
 export type RentalCategoryId = (typeof CATEGORY_IDS)[number];
 
+export type RentalMedia = {
+  id: string;
+  mediaType: "image" | "video";
+  url: string;
+  altText: string;
+  caption: string;
+  sortOrder: number;
+  isCover: boolean;
+  posterUrl: string | null;
+};
+
 export type Rental = {
   id: string;
   slug: string;
@@ -37,6 +48,8 @@ export type Rental = {
   startingPrice: number;
   imageSrc: string;
   imageAlt: string;
+  /** Detail-page media only. Listing cards continue to use imageSrc. */
+  media?: RentalMedia[];
   ageRecommendation: string;
   setupRequirements: string[];
 };

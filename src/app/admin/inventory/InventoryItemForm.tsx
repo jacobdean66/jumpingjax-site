@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import {
   CATEGORY_COPY,
   CATEGORY_IDS,
 } from "@/data/rentals";
+import type { RentalMedia } from "@/data/rentals";
 import type { AdminInventoryItem } from "@/lib/admin/inventory";
 import {
   INVENTORY_IMAGE_BUCKET,
-  isWebSafeInventoryImageUpload,
 } from "@/lib/admin/inventory-image-constants";
+import { validateInventoryMediaUpload } from "@/lib/admin/inventory-media";
 import { emptyInventoryDimensions } from "@/lib/admin/inventory-ops";
 import { supabase, isSupabaseBrowserConfigured } from "@/lib/supabaseClient";
 import { InventoryOpsFields } from "./InventoryOpsFields";
@@ -29,11 +31,11 @@ type Props = {
   cancelHref: string;
 };
 
-async function uploadInventoryImageDirect(input: {
+async function uploadInventoryMediaDirect(input: {
   file: File;
   slug: string;
   title: string;
-}): Promise<string> {
+}): Promise<{ url: string; mediaType: "image" | "video" }> {
   if (!isSupabaseBrowserConfigured()) {
     throw new Error("Supabase browser client is not configured.");
   }
@@ -44,6 +46,7 @@ async function uploadInventoryImageDirect(input: {
     body: JSON.stringify({
       fileName: input.file.name,
       contentType: input.file.type || "image/jpeg",
+      fileSize: input.file.size,
       slug: input.slug,
       title: input.title,
     }),
@@ -55,6 +58,7 @@ async function uploadInventoryImageDirect(input: {
     path?: string;
     token?: string;
     publicUrl?: string;
+    mediaType?: "image" | "video";
   };
 
   if (!signResponse.ok || !signed.path || !signed.token || !signed.publicUrl) {
@@ -69,13 +73,22 @@ async function uploadInventoryImageDirect(input: {
     });
 
   if (error) throw new Error(error.message);
-  return signed.publicUrl;
+  return {
+    url: signed.publicUrl,
+    mediaType: signed.mediaType === "video" ? "video" : "image",
+  };
+}
+
+function orderedMedia(media: readonly RentalMedia[]): RentalMedia[] {
+  return media.map((item, index) => ({ ...item, sortOrder: index }));
 }
 
 export function InventoryItemForm({ token, item, cancelHref }: Props) {
   const dimensions = item?.dimensions ?? emptyInventoryDimensions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [media, setMedia] = useState<RentalMedia[]>(item?.media ?? []);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
@@ -94,38 +107,51 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
 
     try {
       const formData = new FormData(form);
-      const imageInput = form.elements.namedItem("imageFile") as HTMLInputElement | null;
-      const imageFile = imageInput?.files?.[0];
+      const mediaInput = form.elements.namedItem("mediaFiles") as HTMLInputElement | null;
+      const files = [...(mediaInput?.files ?? [])].filter((file) => file.size > 0);
+      let nextMedia = [...media];
+      const title = String(formData.get("title") ?? "").trim();
+      const slug = String(formData.get("slug") ?? "");
 
-      if (imageFile && imageFile.size > 0) {
-        if (
-          !isWebSafeInventoryImageUpload({
-            fileName: imageFile.name,
-            contentType: imageFile.type,
-          })
-        ) {
-          throw new Error(
-            'Use a JPG, PNG, WEBP, or GIF photo. iPhone HEIC photos will not show on the website — choose "Most Compatible" or export as JPG first.',
-          );
-        }
-        const title = String(formData.get("title") ?? "");
-        const slug = String(formData.get("slug") ?? "");
-        const publicUrl = await uploadInventoryImageDirect({
-          file: imageFile,
-          slug,
-          title,
+      for (const [index, file] of files.entries()) {
+        validateInventoryMediaUpload({
+          fileName: file.name,
+          contentType: file.type,
+          fileSize: file.size,
         });
-        const imageSrcInput = form.elements.namedItem(
-          "imageSrc",
-        ) as HTMLInputElement | null;
-        if (imageSrcInput) imageSrcInput.value = publicUrl;
-        if (imageInput) imageInput.value = "";
+        setUploadStatus(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
+        const uploaded = await uploadInventoryMediaDirect({ file, slug, title });
+        const hasCover = nextMedia.some((item) => item.isCover);
+        nextMedia.push({
+          id: `new:${crypto.randomUUID()}`,
+          mediaType: uploaded.mediaType,
+          url: uploaded.url,
+          altText: uploaded.mediaType === "image" ? title : "",
+          caption: "",
+          sortOrder: nextMedia.length,
+          isCover: uploaded.mediaType === "image" && !hasCover,
+          posterUrl: null,
+        });
       }
+
+      nextMedia = orderedMedia(nextMedia);
+      if (!nextMedia.some((entry) => entry.mediaType === "image" && entry.isCover)) {
+        throw new Error("Add at least one photo and select it as the cover image.");
+      }
+      setMedia(nextMedia);
+      const mediaJsonInput = form.elements.namedItem("mediaJson") as HTMLInputElement;
+      mediaJsonInput.value = JSON.stringify(nextMedia);
+      const cover = nextMedia.find((entry) => entry.isCover);
+      (form.elements.namedItem("imageSrc") as HTMLInputElement).value = cover?.url ?? "";
+      (form.elements.namedItem("imageAlt") as HTMLInputElement).value = cover?.altText ?? title;
+      if (mediaInput) mediaInput.value = "";
+      setUploadStatus(null);
 
       // Native submit bypasses this React handler and posts only metadata/URL.
       HTMLFormElement.prototype.submit.call(form);
     } catch (err) {
       setBusy(false);
+      setUploadStatus(null);
       setError(err instanceof Error ? err.message : "Inventory save failed");
     }
   }
@@ -141,6 +167,8 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
       <input type="hidden" name="token" value={token} />
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
       <input type="hidden" name="imageSrc" defaultValue={item?.imageSrc ?? ""} />
+      <input type="hidden" name="imageAlt" defaultValue={item?.imageAlt ?? ""} />
+      <input type="hidden" name="mediaJson" value={JSON.stringify(orderedMedia(media))} readOnly />
 
       <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -219,36 +247,84 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>
-        <label className="text-sm font-bold text-slate-700">
-          Rental photo
-          <input
-            name="imageFile"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-            disabled={busy}
-            className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-950 file:mr-4 file:rounded-full file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-black file:text-white hover:file:bg-sky-600"
-          />
-          {item?.imageSrc ? (
-            <span className="mt-2 block break-all text-xs font-semibold text-slate-500">
-              Current photo saved. New photos upload directly to storage before
-              Save. Use JPG/PNG/WEBP (not HEIC).
-            </span>
-          ) : (
-            <span className="mt-2 block text-xs font-semibold text-slate-500">
-              Choose a JPG, PNG, or WEBP photo. It uploads to storage before
-              Save.
-            </span>
-          )}
-        </label>
-        <label className="text-sm font-bold text-slate-700">
-          Image description
-          <input
-            name="imageAlt"
-            defaultValue={item?.imageAlt ?? ""}
-            className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
-          />
-        </label>
       </div>
+
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div>
+          <h3 className="text-lg font-black text-slate-950">Rental Photos &amp; Videos</h3>
+          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">
+            Add JPG, PNG, WEBP, or GIF photos (up to 15 MB) and MP4 or WebM videos
+            (up to 100 MB). HEIC, HEVC, and MOV are not supported. Uploads go
+            directly from this browser to storage when you save.
+          </p>
+        </div>
+        <input
+          name="mediaFiles"
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,.jpg,.jpeg,.png,.webp,.gif,.mp4,.webm"
+          disabled={busy}
+          className="mt-3 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 file:mr-4 file:rounded-full file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-black file:text-white hover:file:bg-sky-600"
+        />
+        {uploadStatus ? <p className="mt-2 text-sm font-bold text-sky-700">{uploadStatus}</p> : null}
+
+        <div className="mt-4 grid gap-3">
+          {media.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm font-semibold text-slate-600">
+              No media yet. Add at least one photo to use as the rental cover.
+            </p>
+          ) : media.map((entry, index) => (
+            <div key={entry.id} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[8rem_1fr]">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-900">
+                {entry.mediaType === "image" ? (
+                  <Image src={entry.url} alt={entry.altText || "Rental media preview"} fill unoptimized className="object-cover" sizes="128px" />
+                ) : (
+                  <video src={entry.url} poster={entry.posterUrl ?? undefined} controls preload="metadata" className="h-full w-full object-cover" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black uppercase text-slate-600">{entry.mediaType}</span>
+                  {entry.isCover ? <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-black uppercase text-emerald-800">Cover photo</span> : null}
+                </div>
+                <label className="mt-2 block text-xs font-bold text-slate-700">
+                  {entry.mediaType === "image" ? "Alt text" : "Caption"}
+                  <input
+                    value={entry.mediaType === "image" ? entry.altText : entry.caption}
+                    onChange={(event) => setMedia((current) => current.map((item) => item.id === entry.id ? {
+                      ...item,
+                      ...(item.mediaType === "image" ? { altText: event.target.value } : { caption: event.target.value }),
+                    } : item))}
+                    className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-950"
+                  />
+                </label>
+                {entry.mediaType === "video" ? (
+                  <label className="mt-2 block text-xs font-bold text-slate-700">
+                    Poster image URL (optional)
+                    <input value={entry.posterUrl ?? ""} onChange={(event) => setMedia((current) => current.map((item) => item.id === entry.id ? { ...item, posterUrl: event.target.value || null } : item))} className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-950" />
+                  </label>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {entry.mediaType === "image" && !entry.isCover ? <button type="button" onClick={() => setMedia((current) => orderedMedia([
+                    { ...entry, isCover: true },
+                    ...current.filter((item) => item.id !== entry.id).map((item) => ({ ...item, isCover: false })),
+                  ]))} className="rounded-full bg-emerald-600 px-3 py-2 text-xs font-black text-white">Make cover</button> : null}
+                  <button type="button" disabled={index === 0} onClick={() => setMedia((current) => { const next = [...current]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return orderedMedia(next); })} className="rounded-full border border-slate-300 px-3 py-2 text-xs font-black disabled:opacity-40">Move up</button>
+                  <button type="button" disabled={index === media.length - 1} onClick={() => setMedia((current) => { const next = [...current]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; return orderedMedia(next); })} className="rounded-full border border-slate-300 px-3 py-2 text-xs font-black disabled:opacity-40">Move down</button>
+                  <button type="button" onClick={() => setMedia((current) => {
+                    const remaining = current.filter((item) => item.id !== entry.id);
+                    if (entry.isCover) {
+                      const nextCover = remaining.find((item) => item.mediaType === "image");
+                      return orderedMedia(remaining.map((item) => ({ ...item, isCover: item.id === nextCover?.id })));
+                    }
+                    return orderedMedia(remaining);
+                  })} className="rounded-full bg-rose-100 px-3 py-2 text-xs font-black text-rose-800">Remove</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="mt-4 grid gap-4">
         <label className="text-sm font-bold text-slate-700">

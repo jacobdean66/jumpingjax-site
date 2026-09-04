@@ -1,5 +1,12 @@
-import { CATEGORY_COPY, CATEGORY_IDS, RENTALS, type RentalCategoryId } from "@/data/rentals";
+import {
+  CATEGORY_COPY,
+  CATEGORY_IDS,
+  RENTALS,
+  type RentalCategoryId,
+  type RentalMedia,
+} from "@/data/rentals";
 import { shouldPreserveInventoryImageOnSync } from "@/lib/admin/inventory-image-constants";
+import { normalizeRentalMedia } from "@/lib/admin/inventory-media";
 import {
   catalogSyncOmitsOperationalFields,
   parseInventoryOperationalFields,
@@ -34,6 +41,7 @@ export type AdminInventoryItem = {
   startingPrice: number;
   imageSrc: string;
   imageAlt: string;
+  media: RentalMedia[];
   ageRecommendation: string;
   setupRequirements: string[];
   routeKind: RouteKind;
@@ -91,6 +99,7 @@ export type SaveInventoryInput = {
   startingPrice: number;
   imageSrc: string;
   imageAlt: string;
+  media: RentalMedia[];
   ageRecommendation: string;
   setupRequirements: string[];
   routeKind: string;
@@ -220,6 +229,7 @@ function rowToInventoryItem(row: InventoryRow): AdminInventoryItem {
     startingPrice: numberValue(row.starting_price),
     imageSrc: row.image_src ?? "",
     imageAlt: row.image_alt ?? row.title,
+    media: [],
     ageRecommendation: row.age_recommendation ?? "",
     setupRequirements: row.setup_requirements ?? [],
     routeKind: isRouteKind(row.route_kind) ? row.route_kind : "standard",
@@ -305,6 +315,66 @@ export function buildCatalogSyncRows(): Record<string, unknown>[] {
   });
 }
 
+type InventoryMediaRow = {
+  id: string;
+  rental_id: string;
+  media_type: "image" | "video";
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  sort_order: number | null;
+  is_cover: boolean | null;
+  poster_url: string | null;
+};
+
+function mediaRowToRentalMedia(row: InventoryMediaRow): RentalMedia {
+  return {
+    id: row.id,
+    mediaType: row.media_type,
+    url: row.url,
+    altText: row.alt_text ?? "",
+    caption: row.caption ?? "",
+    sortOrder: row.sort_order ?? 0,
+    isCover: row.is_cover === true,
+    posterUrl: row.poster_url,
+  };
+}
+
+function isMissingMediaTableError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes("rental_inventory_media") &&
+    (lower.includes("does not exist") || lower.includes("could not find"));
+}
+
+async function attachAdminMedia(
+  items: AdminInventoryItem[],
+): Promise<AdminInventoryItem[]> {
+  if (items.length === 0) return items;
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("rental_inventory_media")
+    .select("id, rental_id, media_type, url, alt_text, caption, sort_order, is_cover, poster_url")
+    .in("rental_id", items.map((item) => item.id))
+    .order("sort_order", { ascending: true });
+  if (error && !isMissingMediaTableError(error.message)) {
+    throw new Error(error.message);
+  }
+  const byRental = new Map<string, RentalMedia[]>();
+  for (const row of (data ?? []) as unknown as InventoryMediaRow[]) {
+    const current = byRental.get(row.rental_id) ?? [];
+    current.push(mediaRowToRentalMedia(row));
+    byRental.set(row.rental_id, current);
+  }
+  return items.map((item) => ({
+    ...item,
+    media: normalizeRentalMedia(byRental.get(item.id) ?? [], {
+      rentalId: item.id,
+      imageSrc: item.imageSrc,
+      imageAlt: item.imageAlt,
+    }),
+  }));
+}
+
 export async function loadAdminInventoryItems(): Promise<AdminInventoryItem[]> {
   const supabase = createServiceRoleClient();
   const primary = await supabase
@@ -314,8 +384,8 @@ export async function loadAdminInventoryItems(): Promise<AdminInventoryItem[]> {
     .order("title", { ascending: true });
 
   if (!primary.error) {
-    return ((primary.data ?? []) as unknown as InventoryRow[]).map(
-      rowToInventoryItem,
+    return attachAdminMedia(
+      ((primary.data ?? []) as unknown as InventoryRow[]).map(rowToInventoryItem),
     );
   }
 
@@ -330,7 +400,9 @@ export async function loadAdminInventoryItems(): Promise<AdminInventoryItem[]> {
     .order("title", { ascending: true });
 
   if (legacy.error) throw new Error(legacy.error.message);
-  return ((legacy.data ?? []) as unknown as InventoryRow[]).map(rowToInventoryItem);
+  return attachAdminMedia(
+    ((legacy.data ?? []) as unknown as InventoryRow[]).map(rowToInventoryItem),
+  );
 }
 
 export async function syncCurrentRentalInventory(): Promise<number> {
@@ -410,6 +482,17 @@ export async function saveInventoryItem(
     imageSrc = String(existing?.image_src ?? "").trim();
   }
 
+  const normalizedMedia = normalizeRentalMedia(input.media, {
+    rentalId: input.id ?? slug,
+    imageSrc,
+    imageAlt: input.imageAlt.trim() || input.title.trim(),
+  });
+  const cover = normalizedMedia.find((item) => item.isCover);
+  if (!cover) {
+    throw new Error("Add at least one photo and select it as the cover image.");
+  }
+  imageSrc = cover.url;
+
   const row = {
     slug,
     category_id: categoryId,
@@ -418,7 +501,7 @@ export async function saveInventoryItem(
     description: input.description.trim(),
     starting_price: input.startingPrice,
     image_src: imageSrc,
-    image_alt: input.imageAlt.trim() || input.title.trim(),
+    image_alt: cover?.altText || input.imageAlt.trim() || input.title.trim(),
     age_recommendation: input.ageRecommendation.trim(),
     setup_requirements: input.setupRequirements,
     route_kind: routeKind,
@@ -435,6 +518,7 @@ export async function saveInventoryItem(
       .update(row)
       .eq("id", input.id);
     if (error) throw new Error(error.message);
+    await saveRentalInventoryMedia(input.id, normalizedMedia);
     return { id: input.id, categoryId, slug };
   }
 
@@ -444,7 +528,21 @@ export async function saveInventoryItem(
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+  await saveRentalInventoryMedia(String(data.id), normalizedMedia);
   return { id: String(data.id), categoryId, slug };
+}
+
+async function saveRentalInventoryMedia(
+  rentalId: string,
+  media: readonly RentalMedia[],
+): Promise<void> {
+  if (media.length === 0) return;
+  const supabase = createServiceRoleClient();
+  const { error } = await supabase.rpc("replace_rental_inventory_media", {
+    p_rental_id: rentalId,
+    p_media: media,
+  });
+  if (error) throw new Error(error.message);
 }
 
 /**

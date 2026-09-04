@@ -3,7 +3,9 @@ import {
   isCategoryId,
   type Rental,
   type RentalCategoryId,
+  type RentalMedia,
 } from "@/data/rentals";
+import { normalizeRentalMedia } from "@/lib/admin/inventory-media";
 import {
   isSupabaseServiceConfigured,
   createServiceRoleClient,
@@ -163,9 +165,63 @@ export async function getWebsiteRentalInCategory(
 ): Promise<Rental | undefined> {
   if (!isCategoryId(categoryId)) return undefined;
   const rentals = await loadWebsiteRentals();
-  return rentals.find(
+  const rental = rentals.find(
     (rental) => rental.categoryId === categoryId && rental.slug === slug,
   );
+  if (!rental) return undefined;
+  return { ...rental, media: await loadRentalDetailMedia(rental) };
+}
+
+type PublicMediaRow = {
+  id: string;
+  media_type: "image" | "video";
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  sort_order: number | null;
+  is_cover: boolean | null;
+  poster_url: string | null;
+};
+
+async function loadRentalDetailMedia(rental: Rental): Promise<RentalMedia[]> {
+  const fallback = {
+    rentalId: rental.id,
+    imageSrc: rental.imageSrc,
+    imageAlt: rental.imageAlt,
+  };
+  if (!isSupabaseServiceConfigured()) return normalizeRentalMedia([], fallback);
+  try {
+    const supabase = createServiceRoleClient();
+    const { data: item, error: itemError } = await supabase
+      .from("rental_inventory_items")
+      .select("id")
+      .eq("slug", rental.slug)
+      .maybeSingle();
+    if (itemError || !item?.id) return normalizeRentalMedia([], fallback);
+    const { data, error } = await supabase
+      .from("rental_inventory_media")
+      .select("id, media_type, url, alt_text, caption, sort_order, is_cover, poster_url")
+      .eq("rental_id", item.id)
+      .order("sort_order", { ascending: true });
+    if (error) {
+      console.error("[public-catalog] rental media load failed", error.message);
+      return normalizeRentalMedia([], fallback);
+    }
+    const media = ((data ?? []) as unknown as PublicMediaRow[]).map((row) => ({
+      id: row.id,
+      mediaType: row.media_type,
+      url: row.url,
+      altText: row.alt_text ?? "",
+      caption: row.caption ?? "",
+      sortOrder: row.sort_order ?? 0,
+      isCover: row.is_cover === true,
+      posterUrl: row.poster_url,
+    }));
+    return normalizeRentalMedia(media, fallback);
+  } catch (error) {
+    console.error("[public-catalog] rental media load failed", error);
+    return normalizeRentalMedia([], fallback);
+  }
 }
 
 export async function getWebsiteRentalBySlug(

@@ -177,6 +177,7 @@ test("fixed save posts only the modified item URL metadata under the limit", () 
     JSON.stringify({
       fileName: "IMG_1234.jpg",
       contentType: "image/jpeg",
+      fileSize: 8 * 1024 * 1024,
       slug: "18-ft-basic-waterslide",
       title: "18 Ft Basic Waterslide",
     }),

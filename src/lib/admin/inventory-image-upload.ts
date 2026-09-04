@@ -3,6 +3,10 @@ import {
   buildInventoryImageStoragePath,
   INVENTORY_IMAGE_BUCKET,
 } from "@/lib/admin/inventory-image-constants";
+import {
+  INVENTORY_VIDEO_MAX_BYTES,
+  type InventoryMediaUploadKind,
+} from "@/lib/admin/inventory-media";
 
 export {
   buildInventoryImageStoragePath,
@@ -17,10 +21,30 @@ export {
 
 export async function ensureInventoryImageBucket(): Promise<void> {
   const supabase = createServiceRoleClient();
-  const { error } = await supabase.storage.createBucket(INVENTORY_IMAGE_BUCKET, {
+  const options = {
     public: true,
-  });
-  if (error && !error.message.toLowerCase().includes("already")) {
+    fileSizeLimit: INVENTORY_VIDEO_MAX_BYTES,
+    allowedMimeTypes: [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "video/mp4",
+      "video/webm",
+    ],
+  };
+  const { error } = await supabase.storage.createBucket(
+    INVENTORY_IMAGE_BUCKET,
+    options,
+  );
+  if (error && error.message.toLowerCase().includes("already")) {
+    const { error: updateError } = await supabase.storage.updateBucket(
+      INVENTORY_IMAGE_BUCKET,
+      options,
+    );
+    if (updateError) throw new Error(updateError.message);
+  } else if (error) {
     throw new Error(error.message);
   }
 }
@@ -28,6 +52,7 @@ export async function ensureInventoryImageBucket(): Promise<void> {
 export async function createInventoryImageSignedUpload(input: {
   slug: string;
   fileName: string;
+  mediaType?: InventoryMediaUploadKind;
 }): Promise<{
   bucket: string;
   path: string;
@@ -36,7 +61,10 @@ export async function createInventoryImageSignedUpload(input: {
   publicUrl: string;
 }> {
   await ensureInventoryImageBucket();
-  const path = buildInventoryImageStoragePath(input.slug, input.fileName);
+  const basePath = buildInventoryImageStoragePath(input.slug, input.fileName);
+  const path = input.mediaType
+    ? `${input.mediaType === "video" ? "videos" : "images"}/${basePath}`
+    : basePath;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase.storage
     .from(INVENTORY_IMAGE_BUCKET)

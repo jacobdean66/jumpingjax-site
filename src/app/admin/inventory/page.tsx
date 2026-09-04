@@ -306,6 +306,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
         </section>
 
         <InventoryItemForm
+          key={item?.id ?? "new-item"}
           token={token}
           item={item}
           cancelHref={inventoryHref(token, {

@@ -6,6 +6,7 @@ import {
   saveInventoryItem,
 } from "@/lib/admin/inventory";
 import { isInlineImageDataUrl } from "@/lib/admin/inventory-image-constants";
+import type { RentalMedia } from "@/data/rentals";
 import {
   normalizeBlowerRequirements,
   parsePositiveDimension,
@@ -44,6 +45,37 @@ function optionalDimensionConfidence(
   return raw as DimensionConfidence;
 }
 
+function parseMediaField(value: FormDataEntryValue | null): RentalMedia[] {
+  const raw = String(value ?? "[]").trim() || "[]";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Rental media details are invalid. Refresh and try again.");
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Rental media details are invalid. Refresh and try again.");
+  }
+  return parsed.map((value, index) => {
+    const item = value as Record<string, unknown>;
+    const mediaType = item.mediaType === "video" ? "video" : "image";
+    const url = String(item.url ?? "").trim();
+    if (!url || url.toLowerCase().startsWith("data:")) {
+      throw new Error("Rental media must be uploaded directly to storage first.");
+    }
+    return {
+      id: String(item.id ?? `new:${index}`),
+      mediaType,
+      url,
+      altText: String(item.altText ?? ""),
+      caption: String(item.caption ?? ""),
+      sortOrder: index,
+      isCover: item.isCover === true,
+      posterUrl: String(item.posterUrl ?? "").trim() || null,
+    };
+  });
+}
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const token = String(formData.get("token") ?? "");
@@ -59,6 +91,11 @@ export async function POST(req: NextRequest) {
     if (fileValue(formData.get("imageFile"))) {
       throw new Error(
         "Photo uploads must go directly to storage. Refresh the inventory page and try again.",
+      );
+    }
+    if (formData.getAll("mediaFiles").some((value) => fileValue(value))) {
+      throw new Error(
+        "Photo and video uploads must go directly to storage. Refresh the inventory page and try again.",
       );
     }
 
@@ -83,6 +120,7 @@ export async function POST(req: NextRequest) {
       startingPrice: numberValue(formData.get("startingPrice"), 0),
       imageSrc,
       imageAlt: String(formData.get("imageAlt") ?? ""),
+      media: parseMediaField(formData.get("mediaJson")),
       ageRecommendation: String(formData.get("ageRecommendation") ?? ""),
       setupRequirements: String(formData.get("setupRequirements") ?? "")
         .split("\n")

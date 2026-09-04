@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -8,6 +7,7 @@ import {
   RentalCartButton,
 } from "@/components/booking/RentalBookingPanel";
 import { RentalAvailabilityScrollCue } from "@/components/rental-detail/RentalAvailabilityScrollCue";
+import RentalGallery from "@/components/rental-detail/RentalGallery";
 import { RelatedRentals } from "@/components/rentals/RelatedRentals";
 import {
   CATEGORY_COPY,
@@ -15,7 +15,10 @@ import {
   isCategoryId,
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
-import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
+import {
+  getWebsiteRentalInCategory,
+  loadWebsiteRentals,
+} from "@/lib/rentals/public-catalog";
 import {
   createJsonLdScript,
   generateBreadcrumbSchema,
@@ -60,9 +63,7 @@ export default async function RentalDetailPage({ params }: Props) {
   if (!isCategoryId(category)) notFound();
 
   const websiteRentals = await loadWebsiteRentals();
-  const rental = websiteRentals.find(
-    (item) => item.categoryId === category && item.slug === slug,
-  );
+  const rental = await getWebsiteRentalInCategory(category, slug);
   if (!rental) notFound();
 
   const initialUnavailableYmds: string[] = [];
@@ -108,32 +109,20 @@ export default async function RentalDetailPage({ params }: Props) {
           <span className="text-slate-200">{rental.title}</span>
         </nav>
 
-        <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[0_16px_48px_rgba(0,0,0,0.35)] sm:aspect-[3/2]">
-          {rental.imageSrc ? (
-            <Image
-              src={rental.imageSrc}
-              alt={rental.imageAlt}
-              fill
-              priority
-              fetchPriority="high"
-              quality={82}
-              className="object-cover object-center"
-              sizes="(max-width: 896px) 100vw, 896px"
-            />
-          ) : null}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#071326]/90 via-[#071326]/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
-            <span className="inline-flex rounded-full border border-cyan-200/25 bg-cyan-300/15 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
-              {cat.title}
-            </span>
-            <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">
-              {rental.title}
-            </h1>
-            <p className="mt-3 max-w-2xl text-pretty text-sm text-slate-200 sm:text-base">
-              {rental.description}
-            </p>
-          </div>
+        <div className="mt-6">
+          <RentalGallery rental={rental} />
         </div>
+        <header className="mt-6">
+          <span className="inline-flex rounded-full border border-cyan-200/25 bg-cyan-300/15 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
+            {cat.title}
+          </span>
+          <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">
+            {rental.title}
+          </h1>
+          <p className="mt-3 max-w-2xl text-pretty text-sm text-slate-200 sm:text-base">
+            {rental.description}
+          </p>
+        </header>
 
         <RentalAvailabilityScrollCue />
 
