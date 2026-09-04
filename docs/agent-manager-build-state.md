@@ -323,3 +323,11 @@
 - Validation: 3 focused test files pass, including booking lifecycle trigger coverage, failure isolation, and editable 3/4-capacity behavior; full TypeScript passes; focused backend ESLint passes; and the Next.js 16.3 production build passes with `/admin/deliveries` and all changed lifecycle routes present. A broader booking-suite run exposed one pre-existing Facility dashboard source-boundary expectation (`group-open:aspect-auto`) unrelated to this route-planning change.
 - Scope/safety: local checkpoint only. No live booking was created or changed, no route was written to production, and no customer message, calendar, payment, credential, or paid-plan change occurred. Publication and signed-in production verification remain next.
 
+## Route-planner legacy backfill checkpoint (2026-09-04)
+
+- Production audit of the next 90 days found 43 unassigned drop-offs and 49 unassigned pickups. These were legacy operational bookings created before lifecycle-triggered automatic planning was deployed; the audit made no booking or route changes.
+- Extended the existing deterministic planner to assign pickup trailer, load, sequence, status, and mileage note while preserving any owner-entered pickup time. Drop-offs and pickups reuse the same Google route matrix and the verified Short Trailer 3 / Long Trailer 4 capacities.
+- Added an owner-only bulk action that plans only dates containing unassigned work, is capped at 120 dates, processes dates sequentially, isolates per-date failures, and reloads the selected planner window with a concrete result count. It changes route-assignment fields only.
+- Validation: focused auto-plan and lifecycle tests pass, including pickup planning and bounded bulk-route coverage; full TypeScript passes; focused ESLint has zero errors (one pre-existing hook-dependency warning remains in the active planner); and the Next.js 16.3 production build passes with all 154 pages.
+- Scope/safety: local checkpoint pending publication and owner-authenticated production backfill. No booking, customer message, calendar, payment, credential, provider, dependency, or paid service was created or changed.
+
