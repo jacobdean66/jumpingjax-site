@@ -8,10 +8,11 @@ import type { AnsweringMachineCall } from "@/lib/answering-machine/types";
 
 type Readiness = {
   provider: "WhatsApp Business Calling API";
+  mode: "native_voicemail" | "interactive_bridge";
   enabled: boolean;
   configured: boolean;
   live: boolean;
-  status: "CALL READY" | "SETUP REQUIRED";
+  status: "CALL READY" | "VOICEMAIL READY" | "SETUP REQUIRED";
   missing: readonly string[];
   captureRules: { facilityParty: string[]; rental: string[] };
 };
@@ -36,6 +37,7 @@ const callReviewSchema = z.object({
   facilityStartTime: z.string().max(5),
   rentalItems: z.string().max(2400),
   transcript: z.string().max(50000),
+  transcriptComplete: z.boolean(),
   agentSummary: z.string().max(2000),
   ownerNotes: z.string().max(2000),
 }).strict();
@@ -52,6 +54,7 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
       facilityStartTime: call.facilityStartTime ?? "",
       rentalItems: call.rentalItems.join(", "),
       transcript: call.transcript,
+      transcriptComplete: call.transcriptComplete,
       agentSummary: call.agentSummary,
       ownerNotes: call.ownerNotes,
     },
@@ -60,9 +63,10 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
   const eventDate = useWatch({ control, name: "eventDate" });
   const facilityStartTime = useWatch({ control, name: "facilityStartTime" });
   const rentalItems = useWatch({ control, name: "rentalItems" });
+  const transcriptComplete = useWatch({ control, name: "transcriptComplete" });
   const terminal = call.status === "approved" || call.status === "rejected";
 
-  const approvalReady = call.transcriptComplete && Boolean(serviceKind) && Boolean(eventDate)
+  const approvalReady = transcriptComplete && Boolean(serviceKind) && Boolean(eventDate)
     && (serviceKind === "facility_party" ? Boolean(facilityStartTime) : rentalItems.split(",").some((item) => item.trim()));
 
   async function submit(action: "save" | "approve" | "reject", values: CallReviewValues) {
@@ -81,6 +85,7 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
             facilityStartTime: values.serviceKind === "facility_party" ? values.facilityStartTime || null : null,
             rentalItems: values.serviceKind === "rental" ? values.rentalItems.split(",").map((item) => item.trim()).filter(Boolean) : [],
             transcript: values.transcript,
+            transcriptComplete: values.transcriptComplete,
             agentSummary: values.agentSummary,
             ownerNotes: values.ownerNotes,
           },
@@ -117,14 +122,24 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <section className="rounded-2xl bg-slate-50 p-4">
+          {call.voicemailAvailable ? (
+            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">Recorded voicemail</p>
+              <audio controls preload="none" src={`/api/admin/answering-machine/${call.id}/audio`} className="w-full" />
+            </div>
+          ) : null}
           <label className="block text-sm font-black text-slate-800">
             Call transcript
             <textarea {...register("transcript")} rows={12} maxLength={50000}
               className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium leading-relaxed outline-none focus:border-violet-500" />
           </label>
           <p className="mt-2 text-xs font-semibold text-slate-500">
-            {call.transcriptComplete ? "Transcription complete—review wording before approval." : "Call audio is still processing; approval stays locked."}
+            {transcriptComplete ? "Transcription complete—review wording before approval." : "Type or correct the voicemail transcript, then mark it complete."}
           </p>
+          <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-800">
+            <input type="checkbox" {...register("transcriptComplete")} disabled={terminal} />
+            I finished typing and checking this transcript
+          </label>
         </section>
 
         <section className="space-y-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
@@ -230,7 +245,7 @@ export function AnsweringMachineInbox({ initialCalls, readiness, storageError }:
         </div>
         {!readiness.live ? (
           <p className="mt-4 rounded-2xl bg-white p-3 text-sm font-bold text-amber-950">
-            The review inbox is prepared, but live WhatsApp calls stay disabled until Meta credentials and the secure media bridge are connected.
+            The review inbox is prepared, but WhatsApp stays disabled until Meta credentials and the selected voice mode are connected.
           </p>
         ) : null}
       </section>
