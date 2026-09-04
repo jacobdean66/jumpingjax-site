@@ -1,8 +1,9 @@
-import { ingestAnsweringMachineCall } from "@/lib/answering-machine/service";
+import { ingestAnsweringMachineCall, ingestAnsweringMachineVoicemail } from "@/lib/answering-machine/service";
 import { forwardWhatsAppCallToMediaBridge } from "@/lib/answering-machine/media-bridge";
 import { getWhatsAppAppSecret } from "@/lib/answering-machine/readiness";
 import {
   extractWhatsAppCallSignals,
+  extractWhatsAppVoicemails,
   verifyMetaWebhookSignature,
   verifyWebhookChallenge,
 } from "@/lib/answering-machine/whatsapp";
@@ -38,19 +39,23 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Invalid WhatsApp payload." }, { status: 400 });
   }
   const signals = extractWhatsAppCallSignals(payload);
-  if (signals.length === 0) return Response.json({ ok: true, accepted: 0 });
+  const voicemails = extractWhatsAppVoicemails(payload);
+  if (signals.length === 0 && voicemails.length === 0) return Response.json({ ok: true, accepted: 0 });
 
   try {
     for (const signal of signals) await ingestAnsweringMachineCall(signal);
+    for (const voicemail of voicemails) await ingestAnsweringMachineVoicemail(voicemail);
+    if (process.env.WHATSAPP_ANSWERING_MODE === "native_voicemail") {
+      return Response.json({ ok: true, accepted: signals.length + voicemails.length });
+    }
     const bridgeUrl = process.env.ANSWERING_MACHINE_MEDIA_BRIDGE_URL?.trim();
     const bridgeSecret = process.env.ANSWERING_MACHINE_CALLBACK_SECRET?.trim();
     if (!bridgeUrl || !bridgeSecret || !bridgeUrl.startsWith("https://")) {
       return Response.json({ ok: false, error: "WhatsApp media bridge is not configured." }, { status: 503 });
     }
     await forwardWhatsAppCallToMediaBridge({ bridgeUrl, bridgeSecret, rawBody });
-    return Response.json({ ok: true, accepted: signals.length });
+    return Response.json({ ok: true, accepted: signals.length + voicemails.length });
   } catch {
     return Response.json({ ok: false, error: "WhatsApp call could not be handed off safely." }, { status: 503 });
   }
 }
-

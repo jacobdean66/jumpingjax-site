@@ -44,9 +44,23 @@ export function parseAnsweringMachineReview(value: unknown): AnsweringMachineRev
     id: input.id,
     action: input.action,
     expectedRevision: input.expectedRevision as number,
-    patch: { serviceKind, eventDate, facilityStartTime, rentalItems, transcript, agentSummary, ownerNotes },
+    patch: {
+      serviceKind, eventDate, facilityStartTime, rentalItems, transcript,
+      transcriptComplete: raw.transcriptComplete === true,
+      agentSummary, ownerNotes,
+    },
   };
 }
+
+export type AnsweringMachineVoicemailIngest = {
+  providerCallId: string;
+  sourceEventId: string;
+  callerRef: string;
+  callerDisplayName: string | null;
+  mediaId: string;
+  mimeType: string;
+  sha256: string | null;
+};
 
 export type AnsweringMachineIngest = {
   providerCallId: string;

@@ -20,6 +20,7 @@ export type AnsweringMachineCall = {
   rentalItems: string[];
   transcript: string;
   transcriptComplete: boolean;
+  voicemailAvailable: boolean;
   agentSummary: string;
   ownerNotes: string;
   revision: number;
@@ -37,6 +38,7 @@ export type AnsweringMachineReviewInput = {
     facilityStartTime: string | null;
     rentalItems: string[];
     transcript: string;
+    transcriptComplete: boolean;
     agentSummary: string;
     ownerNotes: string;
   };
