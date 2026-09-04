@@ -70,4 +70,16 @@ await test("booking lifecycle routes schedule the planner after the response", a
   assert.match(sources[2]!, /"rental\.confirmed"\s*:\s*"rental\.removed"/);
 });
 
+await test("owner route API exposes a bounded, failure-isolated bulk backfill", async () => {
+  const source = await readFile(
+    new URL("../../app/api/admin/deliveries/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /MAX_BULK_AUTO_PLAN_DATES\s*=\s*120/);
+  assert.match(source, /body\?\.autoPlanDates\s*===\s*true/);
+  assert.match(source, /for \(const date of dates\)/);
+  assert.match(source, /catch \(error\)/);
+  assert.match(source, /selectedDates:\s*\[date\]/);
+});
+
 console.log("all route planner agent tests passed");

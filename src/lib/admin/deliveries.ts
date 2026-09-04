@@ -944,6 +944,8 @@ export type AutoPlanOptions = {
 export type AutoPlanResult = {
   date: string;
   plannedCount: number;
+  deliveryPlannedCount?: number;
+  pickupPlannedCount?: number;
   message?: string;
 };
 
@@ -1051,16 +1053,33 @@ export async function autoPlanDeliveriesForDate(
       estimatedSetupMinutes: task.estimatedSetupMinutes,
     }));
 
-  const routeItems = singleDateMode
+  const deliveryRouteItems = singleDateMode
     ? taskItems.length > 0
       ? taskItems
       : collectAutoPlanRouteItems(candidates, targetDate, true)
     : taskItems;
 
-  if (routeItems.length === 0) {
+  const pickupRouteItems: PlannedRouteItem[] = deliveries.tasks
+    .filter(
+      (task) => task.workType === "pickup" && task.workDate === targetDate,
+    )
+    .map((task) => ({
+      itemId: task.itemId,
+      bookingId: task.bookingId,
+      deliveryDate: targetDate,
+      eventAddress: task.eventAddress,
+      eventStartTime: null,
+      distanceMiles: task.distanceMiles,
+      isBigSlide: task.isBigSlide,
+      estimatedSetupMinutes: 0,
+    }));
+
+  if (deliveryRouteItems.length === 0 && pickupRouteItems.length === 0) {
     return {
       date: targetDate,
       plannedCount: 0,
+      deliveryPlannedCount: 0,
+      pickupPlannedCount: 0,
       message: AUTO_PLAN_NO_STOPS_MESSAGE,
     };
   }
@@ -1087,7 +1106,7 @@ export async function autoPlanDeliveriesForDate(
 
   const matrix = await loadMatrix([
     SHOP_ADDRESS,
-    ...routeItems
+    ...[...deliveryRouteItems, ...pickupRouteItems]
       .map((item) => item.eventAddress)
       .filter((address): address is string => Boolean(address)),
   ]);
@@ -1103,8 +1122,8 @@ export async function autoPlanDeliveriesForDate(
       if (error) throw new Error(error.message);
     });
 
-  let plannedCount = 0;
-  for (const item of routeItems.sort(sortRouteItems)) {
+  let deliveryPlannedCount = 0;
+  for (const item of deliveryRouteItems.sort(sortRouteItems)) {
     const truck = chooseTruckForItem(
       item,
       truckState,
@@ -1143,8 +1162,68 @@ export async function autoPlanDeliveriesForDate(
     state.currentStop = item.eventAddress ?? state.currentStop;
     state.inflatableCount += 1;
     state.bigSlideCount += item.isBigSlide ? 1 : 0;
-    plannedCount += 1;
+    deliveryPlannedCount += 1;
   }
 
-  return { date: targetDate, plannedCount };
+  const pickupTruckState: Record<DeliveryTruckId, TruckPlanState> = {
+    "truck-1": {
+      availableAt: dayStartMinutes,
+      sequence: 1,
+      inflatableCount: 0,
+      bigSlideCount: 0,
+      currentStop: SHOP_ADDRESS,
+    },
+    "truck-2": {
+      availableAt: dayStartMinutes,
+      sequence: 1,
+      inflatableCount: 0,
+      bigSlideCount: 0,
+      currentStop: SHOP_ADDRESS,
+    },
+  };
+
+  let pickupPlannedCount = 0;
+  for (const item of pickupRouteItems.sort(sortRouteItems)) {
+    const truck = chooseTruckForItem(
+      item,
+      pickupTruckState,
+      matrix,
+      firstDriveMinutes,
+      betweenStopsMinutes,
+    );
+    const state = pickupTruckState[truck];
+    const truckCapacity = DELIVERY_TRUCK_CAPACITIES[truck];
+    const leg = routeLegEstimate(
+      matrix,
+      state.currentStop,
+      item.eventAddress,
+      fallbackDriveMinutesForState(state, firstDriveMinutes, betweenStopsMinutes),
+    );
+
+    await updateItem(item.itemId, {
+      pickup_truck: truck,
+      pickup_date: targetDate,
+      pickup_trailer_load: Math.ceil(state.sequence / truckCapacity),
+      pickup_sequence: state.sequence,
+      pickup_route_status: "planned",
+      pickup_route_notes:
+        item.eventAddress && matrix.size > 0
+          ? `Drive from previous stop: ${leg.distanceMiles.toFixed(1)} mi, ${leg.durationMinutes} min.`
+          : null,
+    });
+
+    state.sequence += 1;
+    state.availableAt += leg.durationMinutes;
+    state.currentStop = item.eventAddress ?? state.currentStop;
+    state.inflatableCount += 1;
+    state.bigSlideCount += item.isBigSlide ? 1 : 0;
+    pickupPlannedCount += 1;
+  }
+
+  return {
+    date: targetDate,
+    plannedCount: deliveryPlannedCount + pickupPlannedCount,
+    deliveryPlannedCount,
+    pickupPlannedCount,
+  };
 }

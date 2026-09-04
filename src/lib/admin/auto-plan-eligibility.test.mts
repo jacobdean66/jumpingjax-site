@@ -6,6 +6,7 @@ import {
   autoPlanDeliveriesForDate,
   collectAutoPlanRouteItems,
   type AdminDeliveriesResult,
+  type AdminDeliveryWorkTask,
   type AutoPlanCandidateItem,
 } from "./deliveries";
 
@@ -299,5 +300,73 @@ await test(
     assert.deepEqual(updated, ["item-yes"]);
   },
 );
+
+await test("auto-plan assigns pickup routes without inventing pickup times", async () => {
+  const patches: Array<Record<string, string | number | null>> = [];
+  const pickupTask = {
+    id: "item-pickup:pickup",
+    itemId: "item-pickup",
+    bookingId: "booking-pickup",
+    workType: "pickup",
+    workDate: "2026-07-18",
+    workTime: null,
+    truck: null,
+    trailerLoad: null,
+    sequence: null,
+    plannedArrivalTime: null,
+    plannedSetupStart: null,
+    plannedSetupEnd: null,
+    routeStatus: null,
+    routeNotes: null,
+    customerName: "Test",
+    customerEmail: null,
+    customerPhone: null,
+    bookingStatus: "approved",
+    eventDate: "2026-07-18",
+    eventStartTime: "14:00",
+    eventAddress: "116 Wenmount Ct, Greenwood, SC",
+    distanceMiles: 4,
+    rentalName: "Combo",
+    rentalItem: "combo",
+    isBigSlide: false,
+    spanDays: 1,
+    setupLocation: null,
+    setupSurface: null,
+    setupAccess: null,
+    setupNotes: null,
+    requestedDeliveryWindow: null,
+    paymentMethod: null,
+    total: null,
+    paymentConfirmedAt: null,
+    paymentConfirmedBy: null,
+    paymentConfirmationNotes: null,
+    estimatedSetupMinutes: 45,
+    singleStopMapUrl: null,
+    crossDateLabel: null,
+    warnings: [],
+  } satisfies AdminDeliveryWorkTask;
+
+  const result = await autoPlanDeliveriesForDate(
+    "2026-07-18",
+    { selectedDates: ["2026-07-18"] },
+    {
+      loadDeliveries: async () => emptyDeliveries({ tasks: [pickupTask] }),
+      loadMatrix: async () => new Map(),
+      updateItem: async (_itemId, patch) => {
+        patches.push(patch);
+      },
+    },
+  );
+
+  assert.equal(result.deliveryPlannedCount, 0);
+  assert.equal(result.pickupPlannedCount, 1);
+  assert.equal(result.plannedCount, 1);
+  assert.equal(patches[0]?.pickup_truck, "truck-1");
+  assert.equal(patches[0]?.pickup_date, "2026-07-18");
+  assert.equal(patches[0]?.pickup_trailer_load, 1);
+  assert.equal(patches[0]?.pickup_sequence, 1);
+  assert.equal(patches[0]?.pickup_route_status, "planned");
+  assert.equal("pickup_time" in (patches[0] ?? {}), false);
+});
 
 console.log("all auto-plan eligibility tests passed");
