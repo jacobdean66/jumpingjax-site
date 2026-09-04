@@ -1104,12 +1104,24 @@ export async function autoPlanDeliveriesForDate(
     },
   };
 
-  const matrix = await loadMatrix([
-    SHOP_ADDRESS,
-    ...[...deliveryRouteItems, ...pickupRouteItems]
-      .map((item) => item.eventAddress)
-      .filter((address): address is string => Boolean(address)),
-  ]);
+  let matrix: Map<string, RouteLegEstimate>;
+  try {
+    matrix = await loadMatrix([
+      SHOP_ADDRESS,
+      ...[...deliveryRouteItems, ...pickupRouteItems]
+        .map((item) => item.eventAddress)
+        .filter((address): address is string => Boolean(address)),
+    ]);
+  } catch (error) {
+    // Route assignments must remain usable when the optional distance provider is
+    // unavailable. The planner already has bounded drive-time fallbacks and omits
+    // mileage notes when the matrix is empty.
+    console.error("[admin/deliveries] route matrix unavailable; using fallback", {
+      date: targetDate,
+      message: error instanceof Error ? error.message : "Unknown route matrix error",
+    });
+    matrix = new Map();
+  }
 
   const updateItem =
     deps?.updateItem ??
