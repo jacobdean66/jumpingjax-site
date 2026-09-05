@@ -65,6 +65,7 @@ test("gallery wiring preserves cards, booking UI, sync safety, and lazy video be
   const detail = readFileSync(new URL("app/rentals/[category]/[slug]/page.tsx", root), "utf8");
   const gallery = readFileSync(new URL("components/rental-detail/RentalGallery.tsx", root), "utf8");
   const editor = readFileSync(new URL("app/admin/inventory/InventoryItemForm.tsx", root), "utf8");
+  const upload = readFileSync(new URL("lib/admin/inventory-image-upload.ts", root), "utf8");
 
   assert.doesNotMatch(syncBody, /delete\(\).*rental_inventory_media/s);
   assert.doesNotMatch(syncBody, /rental_inventory_media/);
@@ -82,6 +83,8 @@ test("gallery wiring preserves cards, booking UI, sync safety, and lazy video be
   assert.match(editor, /mergeSelectedFiles/);
   assert.match(editor, /Large\s+photos are resized automatically/);
   assert.match(editor, /will be resized automatically/);
+  assert.match(editor, /PHOTO_OPTIMIZE_TARGET_BYTES = 900 \* 1024/);
+  assert.match(upload, /fileSizeLimit: null/);
   assert.match(editor, /Make cover/);
   assert.match(editor, /Move up/);
   assert.match(editor, /Remove/);

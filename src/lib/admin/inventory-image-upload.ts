@@ -3,10 +3,7 @@ import {
   buildInventoryImageStoragePath,
   INVENTORY_IMAGE_BUCKET,
 } from "@/lib/admin/inventory-image-constants";
-import {
-  INVENTORY_VIDEO_MAX_BYTES,
-  type InventoryMediaUploadKind,
-} from "@/lib/admin/inventory-media";
+import type { InventoryMediaUploadKind } from "@/lib/admin/inventory-media";
 
 export {
   buildInventoryImageStoragePath,
@@ -23,7 +20,8 @@ export async function ensureInventoryImageBucket(): Promise<void> {
   const supabase = createServiceRoleClient();
   const options = {
     public: true,
-    fileSizeLimit: INVENTORY_VIDEO_MAX_BYTES,
+    // Use the project's storage ceiling instead of imposing a second bucket cap.
+    fileSizeLimit: null,
     allowedMimeTypes: [
       "image/jpeg",
       "image/jpg",

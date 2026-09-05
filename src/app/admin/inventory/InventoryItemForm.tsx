@@ -28,8 +28,10 @@ const ROUTE_KIND_OPTIONS = [
   ["yard-game", "Yard game"],
 ] as const;
 
-const PHOTO_OPTIMIZE_THRESHOLD_BYTES = 4 * 1024 * 1024;
-const PHOTO_MAX_EDGE_PX = 3000;
+// Keep optimized photos comfortably below any project-level storage ceiling.
+// Owners can select a photo of any size; this is an output target, not an input cap.
+const PHOTO_OPTIMIZE_TARGET_BYTES = 900 * 1024;
+const PHOTO_MAX_EDGE_PX = 2400;
 
 function selectedFileKey(file: File): string {
   return [file.name, file.size, file.lastModified, file.type].join(":");
@@ -65,7 +67,7 @@ function canvasToBlob(
 }
 
 async function optimizeLargePhoto(file: File): Promise<File> {
-  if (file.size <= PHOTO_OPTIMIZE_THRESHOLD_BYTES) return file;
+  if (file.size <= PHOTO_OPTIMIZE_TARGET_BYTES) return file;
 
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
@@ -88,7 +90,7 @@ async function optimizeLargePhoto(file: File): Promise<File> {
       for (const quality of [0.9, 0.82, 0.72, 0.6, 0.48]) {
         const blob = await canvasToBlob(canvas, quality);
         if (!smallest || blob.size < smallest.size) smallest = blob;
-        if (blob.size <= PHOTO_OPTIMIZE_THRESHOLD_BYTES) {
+        if (blob.size <= PHOTO_OPTIMIZE_TARGET_BYTES) {
           return new File([blob], photoUploadName(file.name), {
             type: "image/webp",
             lastModified: file.lastModified,
@@ -218,7 +220,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
             fileSize: file.size,
           });
         }
-        if (mediaType === "image" && file.size > PHOTO_OPTIMIZE_THRESHOLD_BYTES) {
+        if (mediaType === "image" && file.size > PHOTO_OPTIMIZE_TARGET_BYTES) {
           setUploadStatus(`Optimizing ${index + 1} of ${files.length}: ${file.name}`);
         }
         const uploadFile = mediaType === "image" ? await optimizeLargePhoto(file) : file;
@@ -417,7 +419,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
                   <p className="truncate text-sm font-black text-slate-950">{file.name}</p>
                   <p className="text-xs font-semibold text-slate-600">
                     {formatFileSize(file.size)}
-                    {classifyInventoryMediaUpload({ fileName: file.name, contentType: file.type }) === "image" && file.size > PHOTO_OPTIMIZE_THRESHOLD_BYTES
+                    {classifyInventoryMediaUpload({ fileName: file.name, contentType: file.type }) === "image" && file.size > PHOTO_OPTIMIZE_TARGET_BYTES
                       ? " · will be resized automatically"
                       : " · ready to upload"}
                   </p>
