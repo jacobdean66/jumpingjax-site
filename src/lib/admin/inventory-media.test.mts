@@ -79,6 +79,9 @@ test("gallery wiring preserves cards, booking UI, sync safety, and lazy video be
   assert.match(gallery, /preload=\{active \? "metadata" : "none"\}/);
   assert.match(editor, /Rental Photos &amp; Videos/);
   assert.match(editor, /multiple/);
+  assert.match(editor, /mergeSelectedFiles/);
+  assert.match(editor, /Large\s+photos are resized automatically/);
+  assert.match(editor, /will be resized automatically/);
   assert.match(editor, /Make cover/);
   assert.match(editor, /Move up/);
   assert.match(editor, /Remove/);

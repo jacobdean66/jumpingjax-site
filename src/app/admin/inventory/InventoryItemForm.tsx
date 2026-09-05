@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import {
   CATEGORY_COPY,
   CATEGORY_IDS,
@@ -12,7 +12,10 @@ import type { AdminInventoryItem } from "@/lib/admin/inventory";
 import {
   INVENTORY_IMAGE_BUCKET,
 } from "@/lib/admin/inventory-image-constants";
-import { validateInventoryMediaUpload } from "@/lib/admin/inventory-media";
+import {
+  classifyInventoryMediaUpload,
+  validateInventoryMediaUpload,
+} from "@/lib/admin/inventory-media";
 import { emptyInventoryDimensions } from "@/lib/admin/inventory-ops";
 import { supabase, isSupabaseBrowserConfigured } from "@/lib/supabaseClient";
 import { InventoryOpsFields } from "./InventoryOpsFields";
@@ -24,6 +27,88 @@ const ROUTE_KIND_OPTIONS = [
   ["foam", "Foam party"],
   ["yard-game", "Yard game"],
 ] as const;
+
+const PHOTO_OPTIMIZE_THRESHOLD_BYTES = 4 * 1024 * 1024;
+const PHOTO_MAX_EDGE_PX = 3000;
+
+function selectedFileKey(file: File): string {
+  return [file.name, file.size, file.lastModified, file.type].join(":");
+}
+
+function mergeSelectedFiles(current: readonly File[], additions: readonly File[]): File[] {
+  const files = new Map(current.map((file) => [selectedFileKey(file), file]));
+  for (const file of additions) files.set(selectedFileKey(file), file);
+  return [...files.values()];
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function photoUploadName(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, "").trim() || "rental-photo";
+  return `${base}.webp`;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error("Could not optimize this photo.")),
+      "image/webp",
+      quality,
+    );
+  });
+}
+
+async function optimizeLargePhoto(file: File): Promise<File> {
+  if (file.size <= PHOTO_OPTIMIZE_THRESHOLD_BYTES) return file;
+
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    const initialScale = Math.min(
+      1,
+      PHOTO_MAX_EDGE_PX / Math.max(bitmap.width, bitmap.height),
+    );
+    let width = Math.max(1, Math.round(bitmap.width * initialScale));
+    let height = Math.max(1, Math.round(bitmap.height * initialScale));
+    let smallest: Blob | null = null;
+
+    for (let resizeAttempt = 0; resizeAttempt < 5; resizeAttempt += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("This browser could not prepare the photo.");
+      context.drawImage(bitmap, 0, 0, width, height);
+
+      for (const quality of [0.9, 0.82, 0.72, 0.6, 0.48]) {
+        const blob = await canvasToBlob(canvas, quality);
+        if (!smallest || blob.size < smallest.size) smallest = blob;
+        if (blob.size <= PHOTO_OPTIMIZE_THRESHOLD_BYTES) {
+          return new File([blob], photoUploadName(file.name), {
+            type: "image/webp",
+            lastModified: file.lastModified,
+          });
+        }
+      }
+
+      width = Math.max(1, Math.round(width * 0.8));
+      height = Math.max(1, Math.round(height * 0.8));
+    }
+
+    if (!smallest) throw new Error("Could not optimize this photo.");
+    return new File([smallest], photoUploadName(file.name), {
+      type: "image/webp",
+      lastModified: file.lastModified,
+    });
+  } finally {
+    bitmap.close();
+  }
+}
 
 type Props = {
   token: string;
@@ -88,7 +173,15 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [media, setMedia] = useState<RentalMedia[]>(item?.media ?? []);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  function handleMediaSelection(event: ChangeEvent<HTMLInputElement>) {
+    const selected = [...(event.currentTarget.files ?? [])].filter((file) => file.size > 0);
+    setPendingFiles((current) => mergeSelectedFiles(current, selected));
+    setError(null);
+    event.currentTarget.value = "";
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
@@ -108,19 +201,35 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
     try {
       const formData = new FormData(form);
       const mediaInput = form.elements.namedItem("mediaFiles") as HTMLInputElement | null;
-      const files = [...(mediaInput?.files ?? [])].filter((file) => file.size > 0);
+      const files = [...pendingFiles];
       let nextMedia = [...media];
       const title = String(formData.get("title") ?? "").trim();
       const slug = String(formData.get("slug") ?? "");
 
       for (const [index, file] of files.entries()) {
-        validateInventoryMediaUpload({
+        const mediaType = classifyInventoryMediaUpload({
           fileName: file.name,
           contentType: file.type,
-          fileSize: file.size,
         });
-        setUploadStatus(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
-        const uploaded = await uploadInventoryMediaDirect({ file, slug, title });
+        if (!mediaType) {
+          validateInventoryMediaUpload({
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+          });
+        }
+        if (mediaType === "image" && file.size > PHOTO_OPTIMIZE_THRESHOLD_BYTES) {
+          setUploadStatus(`Optimizing ${index + 1} of ${files.length}: ${file.name}`);
+        }
+        const uploadFile = mediaType === "image" ? await optimizeLargePhoto(file) : file;
+        validateInventoryMediaUpload({
+          fileName: uploadFile.name,
+          contentType: uploadFile.type,
+          fileSize: uploadFile.size,
+        });
+        const optimized = uploadFile !== file ? " (optimized automatically)" : "";
+        setUploadStatus(`Uploading ${index + 1} of ${files.length}: ${file.name}${optimized}`);
+        const uploaded = await uploadInventoryMediaDirect({ file: uploadFile, slug, title });
         const hasCover = nextMedia.some((item) => item.isCover);
         nextMedia.push({
           id: `new:${crypto.randomUUID()}`,
@@ -145,6 +254,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
       (form.elements.namedItem("imageSrc") as HTMLInputElement).value = cover?.url ?? "";
       (form.elements.namedItem("imageAlt") as HTMLInputElement).value = cover?.altText ?? title;
       if (mediaInput) mediaInput.value = "";
+      setPendingFiles([]);
       setUploadStatus(null);
 
       // Native submit bypasses this React handler and posts only metadata/URL.
@@ -152,7 +262,12 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
     } catch (err) {
       setBusy(false);
       setUploadStatus(null);
-      setError(err instanceof Error ? err.message : "Inventory save failed");
+      const message = err instanceof Error ? err.message : "Inventory save failed";
+      setError(
+        /exceeded the maximum allowed size/i.test(message)
+          ? "That file is larger than the storage service allows. Large photos are normally resized automatically; try uploading this file as a photo instead of a video."
+          : message,
+      );
     }
   }
 
@@ -253,19 +368,72 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
         <div>
           <h3 className="text-lg font-black text-slate-950">Rental Photos &amp; Videos</h3>
           <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">
-            Add JPG, PNG, WEBP, or GIF photos (up to 15 MB) and MP4 or WebM videos
-            (up to 100 MB). HEIC, HEVC, and MOV are not supported. Uploads go
-            directly from this browser to storage when you save.
+            Add as many photos as you want—even in separate selections. Large
+            photos are resized automatically. MP4 and WebM videos are also supported.
+            HEIC, HEVC, and MOV files are not supported.
           </p>
         </div>
         <input
+          id="inventory-media-files"
           name="mediaFiles"
           type="file"
           multiple
           accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,.jpg,.jpeg,.png,.webp,.gif,.mp4,.webm"
           disabled={busy}
-          className="mt-3 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 file:mr-4 file:rounded-full file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-black file:text-white hover:file:bg-sky-600"
+          onChange={handleMediaSelection}
+          className="sr-only"
         />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <label
+            htmlFor="inventory-media-files"
+            className={`cursor-pointer rounded-full bg-sky-500 px-5 py-3 text-sm font-black text-white hover:bg-sky-600 ${busy ? "pointer-events-none opacity-60" : ""}`}
+          >
+            {pendingFiles.length > 0 ? "Add more photos or videos" : "Choose photos or videos"}
+          </label>
+          <span className="text-sm font-bold text-slate-700">
+            {pendingFiles.length > 0
+              ? `${pendingFiles.length} new ${pendingFiles.length === 1 ? "file" : "files"} ready`
+              : "No new files selected"}
+          </span>
+          {pendingFiles.length > 0 ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setPendingFiles([])}
+              className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+            >
+              Clear new files
+            </button>
+          ) : null}
+        </div>
+        {pendingFiles.length > 0 ? (
+          <div className="mt-3 grid gap-2" aria-label="New files ready to upload">
+            {pendingFiles.map((file) => (
+              <div
+                key={selectedFileKey(file)}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950">{file.name}</p>
+                  <p className="text-xs font-semibold text-slate-600">
+                    {formatFileSize(file.size)}
+                    {classifyInventoryMediaUpload({ fileName: file.name, contentType: file.type }) === "image" && file.size > PHOTO_OPTIMIZE_THRESHOLD_BYTES
+                      ? " · will be resized automatically"
+                      : " · ready to upload"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setPendingFiles((current) => current.filter((entry) => selectedFileKey(entry) !== selectedFileKey(file)))}
+                  className="rounded-full bg-white px-3 py-2 text-xs font-black text-rose-700 shadow-sm disabled:opacity-60"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {uploadStatus ? <p className="mt-2 text-sm font-bold text-sky-700">{uploadStatus}</p> : null}
 
         <div className="mt-4 grid gap-3">
