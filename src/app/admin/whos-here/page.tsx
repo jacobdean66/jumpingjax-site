@@ -5,6 +5,7 @@ import { verifyAdminAccess } from "@/lib/admin/session";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import { getOpenPlayDailyReport } from "@/lib/open-play/report-service";
 import { AdminAuthError } from "../_components";
+import { PrintButton } from "../PrintButton";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +17,25 @@ export default async function WhosHerePage() {
   const report = await getOpenPlayDailyReport(today).catch(() => null);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-950 sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-950 sm:px-6 sm:py-8 print:min-h-0 print:bg-white print:p-0">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex items-center gap-4">
-          <Link
-            href="/admin/check-in"
-            className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-slate-300 bg-white px-6 text-base font-black text-slate-800 shadow-sm hover:bg-slate-100"
-          >
-            ← Back
-          </Link>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-              Jumping Jax
-            </p>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Who&apos;s here</h1>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 print:mb-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/check-in"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-slate-300 bg-white px-6 text-base font-black text-slate-800 shadow-sm hover:bg-slate-100 print:hidden"
+            >
+              ← Back
+            </Link>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+                Jumping Jax
+              </p>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Who&apos;s here</h1>
+            </div>
+          </div>
+          <div className="print:hidden">
+            <PrintButton label="Print who's here" />
           </div>
         </div>
 

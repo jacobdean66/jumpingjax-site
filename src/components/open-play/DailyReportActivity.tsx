@@ -429,7 +429,7 @@ export function DailyReportActivity({ report }: Props) {
     <section
       id="todays-check-ins"
       aria-labelledby="daily-report-activity-heading"
-      className="scroll-mt-4 space-y-3"
+      className="scroll-mt-4 space-y-3 print:space-y-2"
     >
       <h2 id="daily-report-activity-heading" className="text-xl font-black text-slate-950">
         Today&apos;s check-ins
@@ -438,7 +438,7 @@ export function DailyReportActivity({ report }: Props) {
         {checkedIn.length} participant{checkedIn.length === 1 ? "" : "s"} · tap a name for details.
       </p>
 
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 print:grid-cols-2 print:gap-2">
         {checkedIn.map((item) => {
           const profile = profileFor(item.attendee);
           const name = `${profile.firstName} ${profile.lastName}`.trim() || "Guest";
@@ -448,7 +448,7 @@ export function DailyReportActivity({ report }: Props) {
               <button
                 type="button"
                 onClick={() => openCard(item)}
-                className="group w-full rounded-xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 px-3 py-2 text-left shadow-[0_4px_0_#059669,0_7px_12px_rgba(15,23,42,0.14)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_0_#059669,0_9px_14px_rgba(15,23,42,0.16)] active:translate-y-0.5 active:shadow-[0_2px_0_#059669]"
+                className="group w-full rounded-xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 px-3 py-2 text-left shadow-[0_4px_0_#059669,0_7px_12px_rgba(15,23,42,0.14)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_0_#059669,0_9px_14px_rgba(15,23,42,0.16)] active:translate-y-0.5 active:shadow-[0_2px_0_#059669] print:break-inside-avoid print:border-slate-500 print:bg-none print:bg-white print:shadow-none"
                 aria-label={`Open child card for ${name}`}
               >
                 <span className="block truncate text-sm font-black text-slate-950">{name}</span>
@@ -463,7 +463,7 @@ export function DailyReportActivity({ report }: Props) {
 
       {selected && selectedProfile ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm print:hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="child-card-title"
