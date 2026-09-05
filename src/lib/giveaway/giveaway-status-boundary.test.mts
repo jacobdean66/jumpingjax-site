@@ -11,6 +11,7 @@ test("giveaway status changes are owner-only and same-origin guarded", () => {
   assert.match(route, /validateOwnerPost/);
   assert.match(route, /set_giveaway_winner/);
   assert.match(route, /set_giveaway_free_pass_redeemed/);
+  assert.match(route, /set_giveaway_party_prize_redeemed/);
 });
 
 test("giveaway tracking migration keeps one winner and protects status rows", () => {
@@ -30,4 +31,14 @@ test("the giveaway page clearly shows a redeemed free pass", () => {
   );
   assert.match(client, /Child has used the free pass/);
   assert.match(client, /freePassRedeemed/);
+});
+
+test("the giveaway winner can be marked as having used the free party", () => {
+  const client = readFileSync(
+    new URL("../../app/admin/giveaway/GiveawayDrawClient.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(client, /Mark free party as used/);
+  assert.match(client, /Child has used the free party/);
+  assert.match(client, /partyPrizeRedeemed/);
 });

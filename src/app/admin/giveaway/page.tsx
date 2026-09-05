@@ -62,12 +62,15 @@ async function loadGroups(): Promise<{
   }
 
   const grouped = groupNominationsByChild(submissions);
-  const statusByKey = new Map<string, { isWinner: boolean; freePassRedeemed: boolean }>();
+  const statusByKey = new Map<
+    string,
+    { isWinner: boolean; freePassRedeemed: boolean; partyPrizeRedeemed: boolean }
+  >();
 
   if (!isLocalAgentPreviewEnabled()) {
     const { data: statuses, error: statusError } = await createServiceRoleClient()
       .from("giveaway_nominee_status")
-      .select("group_key, is_winner, free_pass_redeemed");
+      .select("group_key, is_winner, free_pass_redeemed, party_prize_redeemed");
     if (statusError) {
       console.error("[giveaway] nominee status list failed", { code: statusError.code });
     } else {
@@ -75,6 +78,7 @@ async function loadGroups(): Promise<{
         statusByKey.set(String(status.group_key), {
           isWinner: Boolean(status.is_winner),
           freePassRedeemed: Boolean(status.free_pass_redeemed),
+          partyPrizeRedeemed: Boolean(status.party_prize_redeemed),
         });
       }
     }
@@ -88,6 +92,7 @@ async function loadGroups(): Promise<{
     nominationCount: group.nominationCount,
     isWinner: statusByKey.get(group.groupKey)?.isWinner ?? false,
     freePassRedeemed: statusByKey.get(group.groupKey)?.freePassRedeemed ?? false,
+    partyPrizeRedeemed: statusByKey.get(group.groupKey)?.partyPrizeRedeemed ?? false,
     submissions: group.submissions.map((submission) => ({
       id: submission.id,
       reason: submission.reason,

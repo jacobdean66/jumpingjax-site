@@ -20,6 +20,7 @@ export type GiveawayDrawGroup = {
   nominationCount: number;
   isWinner: boolean;
   freePassRedeemed: boolean;
+  partyPrizeRedeemed: boolean;
   submissions: GiveawayDrawSubmission[];
 };
 
@@ -52,6 +53,9 @@ export function GiveawayDrawClient({
   const [redeemedKeys, setRedeemedKeys] = useState(
     () => new Set(groups.filter((group) => group.freePassRedeemed).map((group) => group.groupKey)),
   );
+  const [partyRedeemedKeys, setPartyRedeemedKeys] = useState(
+    () => new Set(groups.filter((group) => group.partyPrizeRedeemed).map((group) => group.groupKey)),
+  );
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [statusError, setStatusError] = useState("");
 
@@ -78,7 +82,7 @@ export function GiveawayDrawClient({
 
   async function saveStatus(
     group: GiveawayDrawGroup,
-    action: "winner" | "free_pass_redeemed",
+    action: "winner" | "free_pass_redeemed" | "party_prize_redeemed",
     value?: boolean,
   ) {
     setSavingKey(group.groupKey);
@@ -99,8 +103,15 @@ export function GiveawayDrawClient({
           next.delete(group.groupKey);
           return next;
         });
-      } else {
+      } else if (action === "free_pass_redeemed") {
         setRedeemedKeys((current) => {
+          const next = new Set(current);
+          if (value) next.add(group.groupKey);
+          else next.delete(group.groupKey);
+          return next;
+        });
+      } else {
+        setPartyRedeemedKeys((current) => {
           const next = new Set(current);
           if (value) next.add(group.groupKey);
           else next.delete(group.groupKey);
@@ -196,7 +207,27 @@ export function GiveawayDrawClient({
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
                     {winnerKey === group.groupKey ? (
-                      <p className="text-sm font-black text-amber-700">Marked as the giveaway winner</p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-sm font-black text-amber-700">Marked as the giveaway winner</p>
+                        <label
+                          className={`flex cursor-pointer items-center gap-2 text-sm font-black ${
+                            partyRedeemedKeys.has(group.groupKey) ? "text-emerald-700" : "text-slate-800"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={partyRedeemedKeys.has(group.groupKey)}
+                            disabled={savingKey === group.groupKey}
+                            onChange={(event) =>
+                              saveStatus(group, "party_prize_redeemed", event.target.checked)
+                            }
+                            className="h-5 w-5 accent-emerald-600"
+                          />
+                          {partyRedeemedKeys.has(group.groupKey)
+                            ? "Child has used the free party"
+                            : "Mark free party as used"}
+                        </label>
+                      </div>
                     ) : (
                       <label
                         className={`flex cursor-pointer items-center gap-2 text-sm font-black ${

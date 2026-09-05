@@ -3,7 +3,7 @@ import { validateOwnerPost, privateJson } from "@/lib/security/request-guard";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 type StatusRequest = {
-  action?: "winner" | "free_pass_redeemed";
+  action?: "winner" | "free_pass_redeemed" | "party_prize_redeemed";
   groupKey?: string;
   childName?: string;
   value?: boolean;
@@ -51,6 +51,20 @@ export async function POST(request: Request) {
     if (error) {
       console.error("[giveaway] free pass update failed", { code: error.code });
       return privateJson({ ok: false, error: "The free-pass status could not be saved." }, 503);
+    }
+    return privateJson({ ok: true });
+  }
+
+  if (body.action === "party_prize_redeemed" && typeof body.value === "boolean") {
+    const { error } = await db.rpc("set_giveaway_party_prize_redeemed", {
+      p_group_key: groupKey,
+      p_child_name: childName,
+      p_redeemed: body.value,
+      p_updated_by: auth.identity.id,
+    });
+    if (error) {
+      console.error("[giveaway] party prize update failed", { code: error.code });
+      return privateJson({ ok: false, error: "The party-prize status could not be saved." }, 503);
     }
     return privateJson({ ok: true });
   }
