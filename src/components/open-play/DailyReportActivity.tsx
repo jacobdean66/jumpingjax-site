@@ -424,6 +424,17 @@ export function DailyReportActivity({ report }: Props) {
   const relatedAdultCanSubmit = relatedAdultDraft
     ? canSubmitCheckInGroup([relatedAdultDraft], report.businessDayYmd)
     : null;
+  const attendeeCards = checkedIn.map((item) => {
+    const profile = profileFor(item.attendee);
+    return {
+      item,
+      name: `${profile.firstName} ${profile.lastName}`.trim() || "Guest",
+      age:
+        ageOnDate(profile.birthDate, report.businessDayYmd) ??
+        item.attendee.ageYearsOnVisit ??
+        "Not recorded",
+    };
+  });
 
   return (
     <section
@@ -434,31 +445,39 @@ export function DailyReportActivity({ report }: Props) {
       <h2 id="daily-report-activity-heading" className="text-xl font-black text-slate-950">
         Today&apos;s check-ins
       </h2>
-      <p className="text-sm font-semibold text-slate-600">
+      <p className="text-sm font-semibold text-slate-600 print:hidden">
         {checkedIn.length} participant{checkedIn.length === 1 ? "" : "s"} · tap a name for details.
       </p>
+      <p className="hidden text-sm font-semibold text-slate-600 print:block">
+        {checkedIn.length} participant{checkedIn.length === 1 ? "" : "s"} checked in.
+      </p>
 
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 print:grid-cols-2 print:gap-2">
-        {checkedIn.map((item) => {
-          const profile = profileFor(item.attendee);
-          const name = `${profile.firstName} ${profile.lastName}`.trim() || "Guest";
-          const age = ageOnDate(profile.birthDate, report.businessDayYmd);
-          return (
-            <li key={item.attendee.id}>
-              <button
-                type="button"
-                onClick={() => openCard(item)}
-                className="group w-full rounded-xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 px-3 py-2 text-left shadow-[0_4px_0_#059669,0_7px_12px_rgba(15,23,42,0.14)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_0_#059669,0_9px_14px_rgba(15,23,42,0.16)] active:translate-y-0.5 active:shadow-[0_2px_0_#059669] print:break-inside-avoid print:border-slate-500 print:bg-none print:bg-white print:shadow-none"
-                aria-label={`Open child card for ${name}`}
-              >
-                <span className="block truncate text-sm font-black text-slate-950">{name}</span>
-                <span className="block text-xs font-bold text-emerald-900">
-                  Age {age ?? item.attendee.ageYearsOnVisit ?? "Not recorded"}
-                </span>
-              </button>
-            </li>
-          );
-        })}
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 print:hidden">
+        {attendeeCards.map(({ item, name, age }) => (
+          <li key={item.attendee.id}>
+            <button
+              type="button"
+              onClick={() => openCard(item)}
+              className="group w-full rounded-xl border border-emerald-300 bg-gradient-to-br from-white via-emerald-50 to-cyan-100 px-3 py-2 text-left shadow-[0_4px_0_#059669,0_7px_12px_rgba(15,23,42,0.14)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_0_#059669,0_9px_14px_rgba(15,23,42,0.16)] active:translate-y-0.5 active:shadow-[0_2px_0_#059669]"
+              aria-label={`Open child card for ${name}`}
+            >
+              <span className="block truncate text-sm font-black text-slate-950">{name}</span>
+              <span className="block text-xs font-bold text-emerald-900">Age {age}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <ul className="hidden grid-cols-2 gap-2 print:grid">
+        {attendeeCards.map(({ item, name, age }) => (
+          <li
+            key={item.attendee.id}
+            className="break-inside-avoid rounded-lg border border-slate-500 bg-white px-3 py-2"
+          >
+            <p className="text-sm font-black text-slate-950">{name}</p>
+            <p className="text-xs font-bold text-slate-700">Age {age}</p>
+          </li>
+        ))}
       </ul>
 
       {selected && selectedProfile ? (
