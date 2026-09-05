@@ -80,7 +80,7 @@ export function PrintButton({
               open this sheet in Microsoft Edge
             </a>
           ) : null}
-          . The invitation is already formatted for landscape.
+          . The printable is already formatted{orientation ? ` for ${orientation}` : ""}.
         </span>
       ) : null}
     </span>

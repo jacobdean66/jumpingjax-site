@@ -35,7 +35,7 @@ export default async function WhosHerePage() {
             </div>
           </div>
           <div className="print:hidden">
-            <PrintButton label="Print who's here" />
+            <PrintButton label="Print who's here" choosePrinter orientation="portrait" />
           </div>
         </div>
 
