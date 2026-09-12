@@ -34,7 +34,11 @@ export async function PATCH(
   }
 
   const { participantId } = await params;
-  if (!UUID_RE.test(participantId)) {
+  const source = body.source === "legacy_smartwaiver" ? "legacy_smartwaiver" : "native";
+  const legacyParticipantId =
+    typeof body.legacyParticipantId === "string" ? body.legacyParticipantId : "";
+  const idToValidate = source === "legacy_smartwaiver" ? legacyParticipantId : participantId;
+  if (!UUID_RE.test(idToValidate.trim())) {
     return NextResponse.json(
       { ok: false, error: "participantId must be a UUID", code: "validation" },
       { status: 400 },
@@ -44,6 +48,8 @@ export async function PATCH(
   try {
     const result = await correctWaiverParticipantDisplayName({
       participantId,
+      legacyParticipantId,
+      source,
       firstName: typeof body.firstName === "string" ? body.firstName : "",
       lastName: typeof body.lastName === "string" ? body.lastName : "",
       reason: typeof body.reason === "string" ? body.reason : "",

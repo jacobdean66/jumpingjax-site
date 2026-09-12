@@ -133,6 +133,8 @@ export type CheckInConflict = {
   visitId: string;
   participantId: string;
   submissionId: string;
+  legacyParticipantId?: string;
+  source?: "native" | "legacy_smartwaiver";
   firstName: string;
   lastName: string;
   fullName: string;
@@ -149,6 +151,8 @@ export type NameCorrectionSuccess = {
   correction: {
     participantId: string;
     submissionId: string;
+    legacyParticipantId?: string;
+    source?: "native" | "legacy_smartwaiver";
     originalFirstName: string;
     originalLastName: string;
     correctedFirstName: string;
@@ -252,7 +256,13 @@ export function resultToDraft(
 export function replaceAttendeeDisplayName<
   T extends SelectedAttendeeDraft | StaffSearchResult | StaffWaiverParticipant,
 >(attendee: T, correction: NameCorrectionSuccess["correction"]): T {
-  if (attendee.participantId !== correction.participantId) return attendee;
+  const sameNative =
+    correction.participantId &&
+    attendee.participantId === correction.participantId;
+  const sameLegacy =
+    correction.legacyParticipantId &&
+    attendee.legacyParticipantId === correction.legacyParticipantId;
+  if (!sameNative && !sameLegacy) return attendee;
   return {
     ...attendee,
     firstName: correction.correctedFirstName,
@@ -265,7 +275,13 @@ export function replaceAttendeeDisplayName<
 }
 
 export function conflictsByParticipantId(conflicts: CheckInConflict[]): Set<string> {
-  return new Set(conflicts.map((conflict) => conflict.participantId));
+  return new Set(
+    conflicts.map((conflict) =>
+      conflict.source === "legacy_smartwaiver"
+        ? `legacy:${conflict.legacyParticipantId ?? ""}`
+        : conflict.participantId,
+    ),
+  );
 }
 
 export function attendeesWithoutConflicts(
@@ -273,7 +289,11 @@ export function attendeesWithoutConflicts(
   conflicts: CheckInConflict[],
 ): SelectedAttendeeDraft[] {
   const conflictIds = conflictsByParticipantId(conflicts);
-  return attendees.filter((attendee) => !conflictIds.has(attendee.participantId));
+  return attendees.filter(
+    (attendee) =>
+      !conflictIds.has(attendee.selectionKey) &&
+      !conflictIds.has(attendee.participantId),
+  );
 }
 
 /**
@@ -911,10 +931,12 @@ export async function createLegacyCheckInRequest(
 export async function fetchOpenPlayVisitConflicts(options: {
   visitDateYmd: string;
   participantIds: string[];
+  legacyParticipantIds?: string[];
   signal?: AbortSignal;
 }): Promise<CheckInConflict[]> {
   const nativeParticipantIds = options.participantIds.filter(Boolean);
-  if (nativeParticipantIds.length === 0) return [];
+  const legacyParticipantIds = (options.legacyParticipantIds ?? []).filter(Boolean);
+  if (nativeParticipantIds.length === 0 && legacyParticipantIds.length === 0) return [];
 
   const response = await fetch(CONFLICTS_PATH, {
     method: "POST",
@@ -924,6 +946,7 @@ export async function fetchOpenPlayVisitConflicts(options: {
     body: JSON.stringify({
       visitDate: options.visitDateYmd,
       participantIds: nativeParticipantIds,
+      legacyParticipantIds,
     }),
     signal: options.signal,
   });
@@ -950,12 +973,18 @@ export async function fetchOpenPlayVisitConflicts(options: {
 
 export async function saveWaiverParticipantNameCorrection(options: {
   participantId: string;
+  legacyParticipantId?: string;
+  source?: "native" | "legacy_smartwaiver";
   firstName: string;
   lastName: string;
   reason: string;
 }): Promise<NameCorrectionSuccess["correction"]> {
+  const routeId =
+    options.source === "legacy_smartwaiver"
+      ? options.legacyParticipantId ?? ""
+      : options.participantId;
   const response = await fetch(
-    `/api/admin/open-play/waivers/participants/${encodeURIComponent(options.participantId)}/name`,
+    `/api/admin/open-play/waivers/participants/${encodeURIComponent(routeId)}/name`,
     {
       method: "PATCH",
       credentials: "same-origin",
@@ -965,6 +994,8 @@ export async function saveWaiverParticipantNameCorrection(options: {
         firstName: options.firstName,
         lastName: options.lastName,
         reason: options.reason,
+        source: options.source ?? "native",
+        legacyParticipantId: options.legacyParticipantId,
       }),
     },
   );

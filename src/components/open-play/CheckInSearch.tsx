@@ -140,7 +140,7 @@ export function CheckInSearchResults({
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-rose-800">A current waiver with a birthday is required before check-in.</p>
                 <Link href="/waiver" target="_blank" rel="noreferrer" className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-rose-300 bg-white px-5 text-sm font-black text-rose-900">Open waiver form</Link>
-                {result.participantId ? (
+                {result.participantId || result.legacyParticipantId ? (
                   <button
                     type="button"
                     onClick={() => onEditName(result)}
@@ -187,7 +187,7 @@ export function CheckInSearchResults({
                               </p>
                             ) : null}
                             {!blocked ? <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(participant)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : isChild ? "Mark child on location" : "Mark adult on location"}</button> : null}
-                            {participant.participantId ? (
+                            {participant.participantId || participant.legacyParticipantId ? (
                               <button
                                 type="button"
                                 onClick={() => onEditName(participant)}

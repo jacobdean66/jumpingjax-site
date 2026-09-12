@@ -5,6 +5,8 @@ export const MAX_WAIVER_NAME_REASON_LENGTH = 500;
 
 export type WaiverDisplayNameCorrectionInput = {
   participantId: string;
+  legacyParticipantId?: string;
+  source?: "native" | "legacy_smartwaiver";
   firstName: string;
   lastName: string;
   reason: string;
@@ -14,6 +16,9 @@ export type WaiverDisplayNameCorrectionInput = {
 export type WaiverDisplayNameCorrectionResult = {
   participantId: string;
   submissionId: string;
+  legacyParticipantId?: string;
+  legacyWaiverId?: string;
+  source: "native" | "legacy_smartwaiver";
   originalFirstName: string;
   originalLastName: string;
   correctedFirstName: string;
@@ -25,6 +30,8 @@ type CorrectionRpcOutcome = {
   outcome: string;
   participant_id?: string;
   submission_id?: string;
+  legacy_participant_id?: string;
+  legacy_waiver_id?: string;
   original_first_name?: string;
   original_last_name?: string;
   corrected_first_name?: string;
@@ -75,9 +82,14 @@ export async function correctWaiverParticipantDisplayName(
   input: WaiverDisplayNameCorrectionInput,
 ): Promise<WaiverDisplayNameCorrectionResult> {
   const participantId = input.participantId.trim();
+  const legacyParticipantId = (input.legacyParticipantId ?? "").trim();
+  const source = input.source ?? "native";
   const staffId = input.staffId.trim();
-  if (!participantId) {
+  if (source === "native" && !participantId) {
     throw new WaiverNameCorrectionValidationError("participantId is required");
+  }
+  if (source === "legacy_smartwaiver" && !legacyParticipantId) {
+    throw new WaiverNameCorrectionValidationError("legacyParticipantId is required");
   }
   if (!staffId) {
     throw new WaiverNameCorrectionValidationError("staffId is required");
@@ -88,18 +100,20 @@ export async function correctWaiverParticipantDisplayName(
   const reason = normalizeCorrectionReason(input.reason);
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.rpc(
-    "correct_waiver_participant_display_name_atomic",
-    {
-      p_payload: {
-        participant_id: participantId,
-        first_name: firstName,
-        last_name: lastName,
-        reason,
-        staff_id: staffId,
-      },
+  const rpcName =
+    source === "legacy_smartwaiver"
+      ? "correct_smartwaiver_legacy_participant_display_name_atomic"
+      : "correct_waiver_participant_display_name_atomic";
+  const { data, error } = await supabase.rpc(rpcName, {
+    p_payload: {
+      participant_id: participantId,
+      legacy_participant_id: legacyParticipantId,
+      first_name: firstName,
+      last_name: lastName,
+      reason,
+      staff_id: staffId,
     },
-  );
+  });
 
   if (error) {
     if (error.message?.includes("invalid_input")) {
@@ -125,6 +139,10 @@ export async function correctWaiverParticipantDisplayName(
   return {
     participantId: result.participant_id ?? participantId,
     submissionId: result.submission_id ?? "",
+    legacyParticipantId:
+      (result.legacy_participant_id ?? legacyParticipantId) || undefined,
+    legacyWaiverId: result.legacy_waiver_id,
+    source,
     originalFirstName: result.original_first_name ?? "",
     originalLastName: result.original_last_name ?? "",
     correctedFirstName: result.corrected_first_name ?? firstName,

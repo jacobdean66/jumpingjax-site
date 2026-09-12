@@ -41,6 +41,9 @@ type LegacySearchRpcRow = {
   signer_last_name: string | null;
   check_in_eligible: boolean;
   source_label: string;
+  original_first_name?: string;
+  original_last_name?: string;
+  name_corrected?: boolean;
 };
 
 type NativeParticipantRow = {
@@ -72,6 +75,14 @@ type LegacyParticipantRow = {
   last_name: string;
   dob: string | null;
   role: "child" | "adult_signer" | "adult_covered";
+};
+
+type LegacyNameCorrectionRow = {
+  legacy_participant_id: string;
+  corrected_first_name: string;
+  corrected_last_name: string;
+  created_at: string;
+  id: string;
 };
 
 type LegacyWaiverRow = {
@@ -162,7 +173,13 @@ export async function searchWaiversForStaff(options: {
   const nativeSubmissionIds = [...new Set(nativeSearchRows.map((row) => row.submission_id))];
   const legacyWaiverIds = [...new Set(eligibleLegacyRows.map((row) => row.legacy_waiver_id))];
 
-  const [nativeParticipantsRes, nativeSubmissionsRes, legacyParticipantsRes, legacyWaiversRes] =
+  const [
+    nativeParticipantsRes,
+    nativeSubmissionsRes,
+    legacyParticipantsRes,
+    legacyWaiversRes,
+    legacyCorrectionsRes,
+  ] =
     await Promise.all([
       nativeSubmissionIds.length
         ? supabase
@@ -188,19 +205,36 @@ export async function searchWaiversForStaff(options: {
             .select("id,waiver_id,signed_at,signed_on_ymd,expires_on,waiver_title,tags,check_ins,marketing_consent,phone,email,signer_first_name,signer_last_name,signer_dob,activated")
             .in("id", legacyWaiverIds)
         : Promise.resolve({ data: [], error: null }),
+      legacyWaiverIds.length
+        ? supabase
+            .from("smartwaiver_legacy_participant_name_corrections")
+            .select("legacy_participant_id,corrected_first_name,corrected_last_name,created_at,id")
+            .in("legacy_waiver_id", legacyWaiverIds)
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
   if (
     nativeParticipantsRes.error ||
     nativeSubmissionsRes.error ||
     legacyParticipantsRes.error ||
-    legacyWaiversRes.error
+    legacyWaiversRes.error ||
+    (legacyCorrectionsRes.error &&
+      !/does not exist|schema cache|Could not find/i.test(legacyCorrectionsRes.error.message ?? ""))
   ) {
     throw new WaiverSubmitSafeError();
   }
 
   const nativeParticipantRows = (nativeParticipantsRes.data ?? []) as NativeParticipantRow[];
   const legacyParticipantRows = (legacyParticipantsRes.data ?? []) as LegacyParticipantRow[];
+  const legacyCorrections = new Map<string, LegacyNameCorrectionRow>();
+  for (const correction of
+    ((legacyCorrectionsRes.error ? [] : legacyCorrectionsRes.data) ?? []) as LegacyNameCorrectionRow[]) {
+    if (!legacyCorrections.has(correction.legacy_participant_id)) {
+      legacyCorrections.set(correction.legacy_participant_id, correction);
+    }
+  }
   const nativeParticipantIds = nativeParticipantRows.map((row) => row.id);
   const legacyParticipantIds = legacyParticipantRows.map((row) => row.id);
 
@@ -275,6 +309,9 @@ export async function searchWaiversForStaff(options: {
   for (const row of legacyParticipantRows) {
     const waiver = legacyWaivers.get(row.legacy_waiver_id);
     if (!waiver) continue;
+    const correction = legacyCorrections.get(row.id);
+    const firstName = correction?.corrected_first_name ?? row.first_name;
+    const lastName = correction?.corrected_last_name ?? row.last_name;
     const expired = isWaiverExpired({ expiresOnYmd: waiver.expires_on, evaluationAt });
     const participant: StaffWaiverParticipant = {
       participantId: "",
@@ -282,12 +319,12 @@ export async function searchWaiversForStaff(options: {
       legacyParticipantId: row.id,
       selectionKey: `legacy:${row.id}`,
       source: "legacy_smartwaiver",
-      firstName: row.first_name,
-      lastName: row.last_name,
-      fullName: `${row.first_name} ${row.last_name}`.trim(),
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`.trim(),
       originalFirstName: row.first_name,
       originalLastName: row.last_name,
-      nameCorrected: false,
+      nameCorrected: Boolean(correction),
       dobYmd: row.dob ?? "",
       birthYear: row.dob ? Number(row.dob.slice(0, 4)) || 0 : 0,
       role: "child",
@@ -360,9 +397,9 @@ export async function searchWaiversForStaff(options: {
       firstName: row.first_name,
       lastName: row.last_name,
       fullName: `${row.first_name} ${row.last_name}`.trim(),
-      originalFirstName: row.first_name,
-      originalLastName: row.last_name,
-      nameCorrected: false,
+      originalFirstName: row.original_first_name ?? row.first_name,
+      originalLastName: row.original_last_name ?? row.last_name,
+      nameCorrected: row.name_corrected === true,
       birthYear: Number.isFinite(birthYear) ? birthYear : 0,
       role: row.role,
       expiresOnYmd: row.expires_on,

@@ -8,6 +8,18 @@ import {
 import type { AdmissionClassification } from "./pricing";
 import type { PaymentEntry, PaymentMethod } from "./ledger";
 
+type NameCorrectionRow = {
+  participant_id: string;
+  corrected_first_name: string;
+  corrected_last_name: string;
+};
+
+type LegacyNameCorrectionRow = {
+  legacy_participant_id: string;
+  corrected_first_name: string;
+  corrected_last_name: string;
+};
+
 export async function getOpenPlayDailyReport(
   dateYmd: string,
 ): Promise<DailyReport> {
@@ -37,17 +49,40 @@ export async function getOpenPlayDailyReport(
         .in("id", participantIds)
     : { data: [], error: null };
   if (participantError) throw new Error(participantError.message);
+  const { data: participantCorrections, error: participantCorrectionError } = participantIds.length
+    ? await supabase
+        .from("waiver_participant_name_corrections")
+        .select("participant_id,corrected_first_name,corrected_last_name")
+        .in("participant_id", participantIds)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+    : { data: [], error: null };
+  if (participantCorrectionError) throw new Error(participantCorrectionError.message);
+  const correctionsByParticipantId = new Map<string, NameCorrectionRow>();
+  for (const correction of (participantCorrections ?? []) as NameCorrectionRow[]) {
+    if (!correctionsByParticipantId.has(correction.participant_id)) {
+      correctionsByParticipantId.set(correction.participant_id, correction);
+    }
+  }
   const participantsById = new Map(
-    (participants ?? []).map((participant) => [
-      participant.id,
-      {
-        firstName: participant.first_name,
-        lastName: participant.last_name,
-        fullName: `${participant.first_name} ${participant.last_name}`.trim(),
-        birthDate: participant.dob,
-        submissionId: participant.submission_id,
-      },
-    ]),
+    (participants ?? []).map((participant) => {
+      const correction = correctionsByParticipantId.get(participant.id);
+      const firstName = correction?.corrected_first_name ?? participant.first_name;
+      const lastName = correction?.corrected_last_name ?? participant.last_name;
+      return [
+        participant.id,
+        {
+          firstName,
+          lastName,
+          originalFirstName: participant.first_name,
+          originalLastName: participant.last_name,
+          nameCorrected: Boolean(correction),
+          fullName: `${firstName} ${lastName}`.trim(),
+          birthDate: participant.dob,
+          submissionId: participant.submission_id,
+        },
+      ];
+    }),
   );
 
   const submissionIds = [...new Set((participants ?? []).map((item) => item.submission_id))];
@@ -68,22 +103,42 @@ export async function getOpenPlayDailyReport(
     ]);
   if (submissionError) throw new Error(submissionError.message);
   if (waiverParticipantError) throw new Error(waiverParticipantError.message);
+  const allWaiverParticipantIds = (waiverParticipants ?? []).map((item) => item.id);
+  const { data: waiverParticipantCorrections, error: waiverParticipantCorrectionError } =
+    allWaiverParticipantIds.length
+      ? await supabase
+          .from("waiver_participant_name_corrections")
+          .select("participant_id,corrected_first_name,corrected_last_name")
+          .in("participant_id", allWaiverParticipantIds)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+      : { data: [], error: null };
+  if (waiverParticipantCorrectionError) throw new Error(waiverParticipantCorrectionError.message);
+  const waiverCorrectionsByParticipantId = new Map<string, NameCorrectionRow>();
+  for (const correction of (waiverParticipantCorrections ?? []) as NameCorrectionRow[]) {
+    if (!waiverCorrectionsByParticipantId.has(correction.participant_id)) {
+      waiverCorrectionsByParticipantId.set(correction.participant_id, correction);
+    }
+  }
   const submissionsById = new Map((submissions ?? []).map((item) => [item.id, item]));
   const waiverParticipantsBySubmission = new Map<string, NonNullable<VisitSnapshot["attendees"][number]["waiverParticipants"]>>();
   for (const participant of waiverParticipants ?? []) {
     const submission = submissionsById.get(participant.submission_id);
     if (!submission) continue;
+    const correction = waiverCorrectionsByParticipantId.get(participant.id);
+    const firstName = correction?.corrected_first_name ?? participant.first_name;
+    const lastName = correction?.corrected_last_name ?? participant.last_name;
     const item = {
       participantId: participant.id,
       submissionId: participant.submission_id,
       selectionKey: participant.id,
       source: "native" as const,
-      firstName: participant.first_name,
-      lastName: participant.last_name,
+      firstName,
+      lastName,
       originalFirstName: participant.first_name,
       originalLastName: participant.last_name,
-      nameCorrected: false,
-      fullName: `${participant.first_name} ${participant.last_name}`.trim(),
+      nameCorrected: Boolean(correction),
+      fullName: `${firstName} ${lastName}`.trim(),
       dobYmd: participant.dob,
       birthYear: Number(participant.dob.slice(0, 4)) || 0,
       role: participant.role as "child" | "adult_signer" | "adult_covered",
@@ -118,6 +173,9 @@ export async function getOpenPlayDailyReport(
           firstName: participantsById.get(item.participant_id)?.firstName,
           lastName: participantsById.get(item.participant_id)?.lastName,
           fullName: participantsById.get(item.participant_id)?.fullName ?? "Unknown attendee",
+          originalFirstName: participantsById.get(item.participant_id)?.originalFirstName,
+          originalLastName: participantsById.get(item.participant_id)?.originalLastName,
+          nameCorrected: participantsById.get(item.participant_id)?.nameCorrected,
           birthDate: participantsById.get(item.participant_id)?.birthDate,
           waiverDetails: (() => {
             const submission = submissionsById.get(participantsById.get(item.participant_id)?.submissionId ?? "");
@@ -205,17 +263,41 @@ export async function getOpenPlayDailyReport(
           .in("id", legacyParticipantIds)
       : { data: [], error: null };
   if (legacyParticipantError) throw new Error(legacyParticipantError.message);
+  const { data: legacyParticipantCorrections, error: legacyParticipantCorrectionError } =
+    legacyParticipantIds.length
+      ? await supabase
+          .from("smartwaiver_legacy_participant_name_corrections")
+          .select("legacy_participant_id,corrected_first_name,corrected_last_name")
+          .in("legacy_participant_id", legacyParticipantIds)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+      : { data: [], error: null };
+  if (legacyParticipantCorrectionError) throw new Error(legacyParticipantCorrectionError.message);
+  const legacyCorrectionsByParticipantId = new Map<string, LegacyNameCorrectionRow>();
+  for (const correction of (legacyParticipantCorrections ?? []) as LegacyNameCorrectionRow[]) {
+    if (!legacyCorrectionsByParticipantId.has(correction.legacy_participant_id)) {
+      legacyCorrectionsByParticipantId.set(correction.legacy_participant_id, correction);
+    }
+  }
   const legacyParticipantsById = new Map(
-    (legacyParticipants ?? []).map((participant) => [
-      participant.id,
-      {
-        firstName: participant.first_name,
-        lastName: participant.last_name,
-        fullName: `${participant.first_name} ${participant.last_name}`.trim(),
-        birthDate: participant.dob,
-        legacyWaiverId: participant.legacy_waiver_id,
-      },
-    ]),
+    (legacyParticipants ?? []).map((participant) => {
+      const correction = legacyCorrectionsByParticipantId.get(participant.id);
+      const firstName = correction?.corrected_first_name ?? participant.first_name;
+      const lastName = correction?.corrected_last_name ?? participant.last_name;
+      return [
+        participant.id,
+        {
+          firstName,
+          lastName,
+          originalFirstName: participant.first_name,
+          originalLastName: participant.last_name,
+          nameCorrected: Boolean(correction),
+          fullName: `${firstName} ${lastName}`.trim(),
+          birthDate: participant.dob,
+          legacyWaiverId: participant.legacy_waiver_id,
+        },
+      ];
+    }),
   );
 
   const legacyWaiverIds = [
@@ -238,23 +320,43 @@ export async function getOpenPlayDailyReport(
     ]);
   if (legacyWaiverError) throw new Error(legacyWaiverError.message);
   if (allLegacyParticipantError) throw new Error(allLegacyParticipantError.message);
+  const allLegacyParticipantIds = (allLegacyParticipants ?? []).map((item) => item.id);
+  const { data: allLegacyParticipantCorrections, error: allLegacyParticipantCorrectionError } =
+    allLegacyParticipantIds.length
+      ? await supabase
+          .from("smartwaiver_legacy_participant_name_corrections")
+          .select("legacy_participant_id,corrected_first_name,corrected_last_name")
+          .in("legacy_participant_id", allLegacyParticipantIds)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+      : { data: [], error: null };
+  if (allLegacyParticipantCorrectionError) throw new Error(allLegacyParticipantCorrectionError.message);
+  const allLegacyCorrectionsByParticipantId = new Map<string, LegacyNameCorrectionRow>();
+  for (const correction of (allLegacyParticipantCorrections ?? []) as LegacyNameCorrectionRow[]) {
+    if (!allLegacyCorrectionsByParticipantId.has(correction.legacy_participant_id)) {
+      allLegacyCorrectionsByParticipantId.set(correction.legacy_participant_id, correction);
+    }
+  }
   const legacyWaiversById = new Map((legacyWaivers ?? []).map((item) => [item.id, item]));
   const participantsByLegacyWaiver = new Map<string, NonNullable<VisitSnapshot["attendees"][number]["waiverParticipants"]>>();
   for (const participant of allLegacyParticipants ?? []) {
     const waiver = legacyWaiversById.get(participant.legacy_waiver_id);
     if (!waiver) continue;
+    const correction = allLegacyCorrectionsByParticipantId.get(participant.id);
+    const firstName = correction?.corrected_first_name ?? participant.first_name;
+    const lastName = correction?.corrected_last_name ?? participant.last_name;
     const item = {
       participantId: "",
       submissionId: "",
       legacyParticipantId: participant.id,
       selectionKey: `legacy:${participant.id}`,
       source: "legacy_smartwaiver" as const,
-      firstName: participant.first_name,
-      lastName: participant.last_name,
+      firstName,
+      lastName,
       originalFirstName: participant.first_name,
       originalLastName: participant.last_name,
-      nameCorrected: false,
-      fullName: `${participant.first_name} ${participant.last_name}`.trim(),
+      nameCorrected: Boolean(correction),
+      fullName: `${firstName} ${lastName}`.trim(),
       dobYmd: participant.dob ?? "",
       birthYear: participant.dob ? Number(participant.dob.slice(0, 4)) || 0 : 0,
       role: participant.role as "child" | "adult_signer" | "adult_covered",
@@ -290,6 +392,9 @@ export async function getOpenPlayDailyReport(
           fullName:
             legacyParticipantsById.get(item.legacy_participant_id)?.fullName ??
             "Unknown attendee",
+          originalFirstName: legacyParticipantsById.get(item.legacy_participant_id)?.originalFirstName,
+          originalLastName: legacyParticipantsById.get(item.legacy_participant_id)?.originalLastName,
+          nameCorrected: legacyParticipantsById.get(item.legacy_participant_id)?.nameCorrected,
           birthDate: legacyParticipantsById.get(item.legacy_participant_id)?.birthDate,
           waiverDetails: (() => {
             const waiver = legacyWaiversById.get(legacyParticipantsById.get(item.legacy_participant_id)?.legacyWaiverId ?? "");

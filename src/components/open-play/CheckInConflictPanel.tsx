@@ -15,7 +15,7 @@ type Props = {
   pendingAttendees: SelectedAttendeeDraft[];
   visitDateYmd: string;
   onKeepExistingAndContinue: (conflict: CheckInConflict) => void;
-  onRemovePending: (participantId: string) => void;
+  onRemovePending: (selectionKey: string) => void;
   onEditName: (conflict: CheckInConflict) => void;
 };
 
@@ -29,9 +29,9 @@ export function CheckInConflictPanel({
 }: Props) {
   if (conflicts.length === 0) return null;
 
-  const conflictIds = new Set(conflicts.map((conflict) => conflict.participantId));
+  const conflictIds = new Set(conflicts.map((conflict) => conflictSelectionKey(conflict)));
   const remainingCount = pendingAttendees.filter(
-    (attendee) => !conflictIds.has(attendee.participantId),
+    (attendee) => !conflictIds.has(attendee.selectionKey),
   ).length;
 
   return (
@@ -86,7 +86,7 @@ export function CheckInConflictPanel({
               </button>
               <button
                 type="button"
-                onClick={() => onRemovePending(conflict.participantId)}
+                onClick={() => onRemovePending(conflictSelectionKey(conflict))}
                 className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-800"
               >
                 Remove from pending group
@@ -110,4 +110,10 @@ export function CheckInConflictPanel({
       </ul>
     </section>
   );
+}
+
+function conflictSelectionKey(conflict: CheckInConflict): string {
+  return conflict.source === "legacy_smartwaiver"
+    ? `legacy:${conflict.legacyParticipantId ?? ""}`
+    : conflict.participantId;
 }

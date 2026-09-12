@@ -36,6 +36,8 @@ export type OpenPlayVisitConflict = {
   visitId: string;
   participantId: string;
   submissionId: string;
+  legacyParticipantId?: string;
+  source: "native" | "legacy_smartwaiver";
   firstName: string;
   lastName: string;
   fullName: string;
@@ -82,6 +84,21 @@ type ConflictRpcRow = {
   created_at: string;
 };
 
+type LegacyConflictRpcRow = {
+  attendee_id: string;
+  visit_id: string;
+  legacy_participant_id: string;
+  legacy_waiver_id: string;
+  first_name: string;
+  last_name: string;
+  original_first_name: string;
+  original_last_name: string;
+  name_corrected: boolean;
+  classification: string;
+  unit_price_cents: number;
+  created_at: string;
+};
+
 type ExistingAttendeeRow = {
   waiver_participants:
     | { first_name: string; last_name: string; dob: string }
@@ -92,27 +109,42 @@ type ExistingAttendeeRow = {
 export async function findOpenPlayVisitConflicts(options: {
   visitDateYmd: string;
   participantIds: string[];
+  legacyParticipantIds?: string[];
 }): Promise<OpenPlayVisitConflict[]> {
   const ids = Array.from(
     new Set(options.participantIds.map((id) => id.trim()).filter(Boolean)),
   );
-  if (ids.length === 0) return [];
+  const legacyIds = Array.from(
+    new Set((options.legacyParticipantIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  );
+  if (ids.length === 0 && legacyIds.length === 0) return [];
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.rpc("list_open_play_same_day_conflicts", {
-    p_business_day_ymd: options.visitDateYmd,
-    p_participant_ids: ids,
-  });
+  const [nativeRes, legacyRes] = await Promise.all([
+    ids.length
+      ? supabase.rpc("list_open_play_same_day_conflicts", {
+          p_business_day_ymd: options.visitDateYmd,
+          p_participant_ids: ids,
+        })
+      : Promise.resolve({ data: [], error: null }),
+    legacyIds.length
+      ? supabase.rpc("list_smartwaiver_legacy_same_day_conflicts", {
+          p_business_day_ymd: options.visitDateYmd,
+          p_legacy_participant_ids: legacyIds,
+        })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
-  if (error) {
+  if (nativeRes.error || legacyRes.error) {
     throw new Error("Unable to load check-in conflicts");
   }
 
-  return ((data as ConflictRpcRow[] | null) ?? []).map((row) => ({
+  const nativeConflicts = ((nativeRes.data as ConflictRpcRow[] | null) ?? []).map((row) => ({
     attendeeId: row.attendee_id,
     visitId: row.visit_id,
     participantId: row.participant_id,
     submissionId: row.submission_id,
+    source: "native" as const,
     firstName: row.first_name,
     lastName: row.last_name,
     fullName: `${row.first_name} ${row.last_name}`.trim(),
@@ -123,6 +155,26 @@ export async function findOpenPlayVisitConflicts(options: {
     unitPriceCents: row.unit_price_cents,
     createdAt: row.created_at,
   }));
+  const legacyConflicts = ((legacyRes.data as LegacyConflictRpcRow[] | null) ?? []).map((row) => ({
+    attendeeId: row.attendee_id,
+    visitId: row.visit_id,
+    participantId: "",
+    submissionId: "",
+    legacyParticipantId: row.legacy_participant_id,
+    source: "legacy_smartwaiver" as const,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    fullName: `${row.first_name} ${row.last_name}`.trim(),
+    originalFirstName: row.original_first_name,
+    originalLastName: row.original_last_name,
+    nameCorrected: row.name_corrected,
+    classification: row.classification,
+    unitPriceCents: row.unit_price_cents,
+    createdAt: row.created_at,
+  }));
+  return [...nativeConflicts, ...legacyConflicts].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
 }
 
 export async function createOpenPlayVisit(

@@ -9,6 +9,8 @@ import {
 
 export type EditableWaiverName = {
   participantId: string;
+  legacyParticipantId?: string;
+  source?: "native" | "legacy_smartwaiver";
   firstName: string;
   lastName: string;
   fullName: string;
@@ -77,6 +79,8 @@ function EditWaiverNameDialogContent({
     try {
       const correction = await saveWaiverParticipantNameCorrection({
         participantId: target.participantId,
+        legacyParticipantId: target.legacyParticipantId,
+        source: target.source,
         firstName,
         lastName,
         reason,

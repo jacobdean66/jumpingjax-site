@@ -73,9 +73,15 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
   const searchRequestIdRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
+  function conflictSelectionKey(conflict: CheckInConflict): string {
+    return conflict.source === "legacy_smartwaiver"
+      ? `legacy:${conflict.legacyParticipantId ?? ""}`
+      : conflict.participantId;
+  }
+
   const conflictIds = useMemo(() => conflictsByParticipantId(conflicts), [conflicts]);
   const confirmableAttendees = useMemo(
-    () => attendees.filter((attendee) => !conflictIds.has(attendee.participantId)),
+    () => attendees.filter((attendee) => !conflictIds.has(attendee.selectionKey)),
     [attendees, conflictIds],
   );
   const confirmableTotals = useMemo(
@@ -188,25 +194,21 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     if (attendees.length === 0 || attendees[0]?.source === result.source) {
       setSubmitError(null);
     }
-    if (result.participantId) {
+    if (result.participantId || result.legacyParticipantId) {
+      const removedKey = result.selectionKey || result.participantId;
       setConflicts((current) =>
-        current.filter((conflict) => conflict.participantId !== result.participantId),
+        current.filter((conflict) => conflictSelectionKey(conflict) !== removedKey),
       );
     }
   }
 
   function removeAttendee(selectionKey: string) {
-    let removedParticipantId = "";
     setAttendees((current) => {
-      const removed = current.find((item) => item.selectionKey === selectionKey);
-      removedParticipantId = removed?.participantId ?? "";
       return current.filter((item) => item.selectionKey !== selectionKey);
     });
-    if (removedParticipantId) {
-      setConflicts((current) =>
-        current.filter((item) => item.participantId !== removedParticipantId),
-      );
-    }
+    setConflicts((current) =>
+      current.filter((item) => conflictSelectionKey(item) !== selectionKey),
+    );
   }
 
   function setAdultMode(selectionKey: string, mode: AdultPlayMode) {
@@ -306,8 +308,14 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
       current?.map((item) => replaceAttendeeDisplayName(item, correction)) ?? null,
     );
     setConflicts((current) =>
-      current.map((item) =>
-        item.participantId === correction.participantId
+      current.map((item) => {
+        const sameNative =
+          correction.participantId &&
+          item.participantId === correction.participantId;
+        const sameLegacy =
+          correction.legacyParticipantId &&
+          item.legacyParticipantId === correction.legacyParticipantId;
+        return sameNative || sameLegacy
           ? {
               ...item,
               firstName: correction.correctedFirstName,
@@ -318,8 +326,8 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
               originalLastName: correction.originalLastName,
               nameCorrected: true,
             }
-          : item,
-      ),
+          : item;
+      }),
     );
   }
 
@@ -343,6 +351,9 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
       const foundConflicts = await fetchOpenPlayVisitConflicts({
         visitDateYmd: resolvedVisitDate,
         participantIds: nativeAttendeesToSubmit.map((attendee) => attendee.participantId),
+        legacyParticipantIds: attendeesToSubmit
+          .filter((item) => item.source === "legacy_smartwaiver" && item.legacyParticipantId)
+          .map((attendee) => attendee.legacyParticipantId ?? ""),
       });
       if (foundConflicts.length > 0) {
         setConflicts(foundConflicts);
@@ -418,10 +429,10 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
 
   function keepExistingAndContinue(conflict: CheckInConflict) {
     const remaining = attendees.filter(
-      (attendee) => attendee.participantId !== conflict.participantId,
+      (attendee) => attendee.selectionKey !== conflictSelectionKey(conflict),
     );
     const removed = attendees.find(
-      (attendee) => attendee.participantId === conflict.participantId,
+      (attendee) => attendee.selectionKey === conflictSelectionKey(conflict),
     );
     if (removed) removeAttendee(removed.selectionKey);
     if (remaining.length > 0) {
@@ -486,8 +497,8 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
         pendingAttendees={attendees}
         visitDateYmd={resolvedVisitDate}
         onKeepExistingAndContinue={keepExistingAndContinue}
-        onRemovePending={(participantId) => {
-          const attendee = attendees.find((item) => item.participantId === participantId);
+        onRemovePending={(selectionKey) => {
+          const attendee = attendees.find((item) => item.selectionKey === selectionKey);
           if (attendee) removeAttendee(attendee.selectionKey);
         }}
         onEditName={(conflict) => setEditNameTarget(conflict)}

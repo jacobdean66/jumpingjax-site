@@ -45,11 +45,21 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  const legacyParticipantIds = Array.isArray(body.legacyParticipantIds)
+    ? body.legacyParticipantIds.filter((item): item is string => typeof item === "string")
+    : [];
+  if (legacyParticipantIds.some((item) => !UUID_RE.test(item.trim()))) {
+    return NextResponse.json(
+      { ok: false, error: "legacyParticipantIds must be UUID strings", code: "validation" },
+      { status: 400 },
+    );
+  }
 
   try {
     const conflicts = await findOpenPlayVisitConflicts({
       visitDateYmd,
       participantIds,
+      legacyParticipantIds,
     });
     return NextResponse.json(
       { ok: true, conflicts },
