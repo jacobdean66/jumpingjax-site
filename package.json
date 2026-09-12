@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "assets:metadata": "node scripts/generate-public-asset-metadata.mjs",
-    "prebuild": "pnpm assets:metadata",
+    "prebuild": "node scripts/generate-public-asset-metadata.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
