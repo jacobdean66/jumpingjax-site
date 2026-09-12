@@ -23,10 +23,15 @@ export type VisitAttendeeSnapshot = {
   id: string;
   visitId: string;
   participantRecordId?: string;
+  participantId?: string;
+  submissionId?: string;
   source?: "native" | "legacy_smartwaiver";
   firstName?: string;
   lastName?: string;
   fullName?: string;
+  originalFirstName?: string;
+  originalLastName?: string;
+  nameCorrected?: boolean;
   birthDate?: string;
   waiverDetails?: StaffWaiverDetails;
   waiverParticipants?: StaffWaiverParticipant[];

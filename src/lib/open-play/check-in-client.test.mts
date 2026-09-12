@@ -5,11 +5,14 @@ import {
   buildVisitCreateBody,
   canSubmitCheckInGroup,
   computeGroupTotalsPreview,
+  attendeesWithoutConflicts,
   formatCents,
   isAdultRole,
   mapStaffApiError,
   previewAdmissionPrice,
+  replaceAttendeeDisplayName,
   resultToDraft,
+  type CheckInConflict,
   type SelectedAttendeeDraft,
   type StaffSearchResult,
 } from "./check-in-client";
@@ -23,6 +26,9 @@ function childResult(
     firstName: "Ava",
     lastName: "Smith",
     fullName: "Ava Smith",
+    originalFirstName: "Ava",
+    originalLastName: "Smith",
+    nameCorrected: false,
     birthYear: 2024,
     role: "child",
     expiresOnYmd: "2029-01-01",
@@ -44,6 +50,9 @@ function adultResult(
     firstName: "Taylor",
     lastName: "Smith",
     fullName: "Taylor Smith",
+    originalFirstName: "Taylor",
+    originalLastName: "Smith",
+    nameCorrected: false,
     birthYear: 1990,
     role: "adult_signer",
     expiresOnYmd: "2029-01-01",
@@ -140,6 +149,81 @@ test("group totals support mixed cash and card", () => {
   assert.equal(totals.totalAttendanceCount, 3);
   assert.equal(totals.missingPaymentMethod, false);
   assert.equal(totals.missingAdultMode, false);
+});
+
+test("name correction helper updates display fields without changing identity", () => {
+  const draft = resultToDraft(childResult());
+  const updated = replaceAttendeeDisplayName(draft, {
+    participantId: draft.participantId,
+    submissionId: draft.submissionId,
+    originalFirstName: "Ava",
+    originalLastName: "Smith",
+    correctedFirstName: "Olivia",
+    correctedLastName: "Stone",
+    correctedAt: "2026-09-12T12:00:00.000Z",
+  });
+  assert.equal(updated.participantId, draft.participantId);
+  assert.equal(updated.fullName, "Olivia Stone");
+  assert.equal(updated.originalFirstName, "Ava");
+  assert.equal(updated.nameCorrected, true);
+});
+
+test("conflict helper keeps only non-conflicting attendees for totals and confirm count", () => {
+  const c1: SelectedAttendeeDraft = {
+    ...resultToDraft(childResult({ participantId: "c1" })),
+    paymentMethod: "cash",
+  };
+  const c2: SelectedAttendeeDraft = {
+    ...resultToDraft(childResult({ participantId: "c2", birthYear: 2020 })),
+    paymentMethod: "card",
+  };
+  const conflicts: CheckInConflict[] = [
+    {
+      attendeeId: "a-existing",
+      visitId: "v-existing",
+      participantId: "c1",
+      submissionId: "s-1",
+      firstName: "Ava",
+      lastName: "Smith",
+      fullName: "Ava Smith",
+      originalFirstName: "Ava",
+      originalLastName: "Smith",
+      nameCorrected: false,
+      classification: "child_2_or_under",
+      unitPriceCents: 700,
+      createdAt: "2026-09-12T12:00:00.000Z",
+    },
+  ];
+  const remaining = attendeesWithoutConflicts([c1, c2], conflicts);
+  assert.deepEqual(remaining.map((attendee) => attendee.participantId), ["c2"]);
+  const totals = computeGroupTotalsPreview(remaining, "2026-08-06");
+  assert.equal(totals.cardTotalCents, 1000);
+  assert.equal(totals.totalAttendanceCount, 1);
+});
+
+test("all-conflict groups have no confirmable attendees", () => {
+  const draft: SelectedAttendeeDraft = {
+    ...resultToDraft(childResult({ participantId: "c1" })),
+    paymentMethod: "cash",
+  };
+  const remaining = attendeesWithoutConflicts([draft], [
+    {
+      attendeeId: "a-existing",
+      visitId: "v-existing",
+      participantId: "c1",
+      submissionId: "s-1",
+      firstName: "Ava",
+      lastName: "Smith",
+      fullName: "Ava Smith",
+      originalFirstName: "Ava",
+      originalLastName: "Smith",
+      nameCorrected: false,
+      classification: "child_2_or_under",
+      unitPriceCents: 700,
+      createdAt: "2026-09-12T12:00:00.000Z",
+    },
+  ]);
+  assert.equal(remaining.length, 0);
 });
 
 test("canSubmit rejects empty group and missing payment", () => {

@@ -14,6 +14,7 @@ type Props = {
   attendees: SelectedAttendeeDraft[];
   visitDateYmd: string;
   onRemove: (selectionKey: string) => void;
+  onEditName: (attendee: SelectedAttendeeDraft) => void;
   onAdultModeChange: (selectionKey: string, mode: AdultPlayMode) => void;
   onPaymentMethodChange: (
     selectionKey: string,
@@ -26,6 +27,7 @@ export function CheckInGroupPanel({
   attendees,
   visitDateYmd,
   onRemove,
+  onEditName,
   onAdultModeChange,
   onPaymentMethodChange,
   onPriceChange,
@@ -92,14 +94,28 @@ export function CheckInGroupPanel({
                       ? ` · Signer ${attendee.signerLastInitial}.`
                       : ""}
                   </p>
+                  {attendee.nameCorrected ? (
+                    <p className="mt-1 text-xs font-bold text-amber-800">
+                      Corrected from {attendee.originalFirstName} {attendee.originalLastName}
+                    </p>
+                  ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onRemove(attendee.selectionKey)}
-                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-700"
-                >
-                  Remove
-                </button>
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => onEditName(attendee)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-700"
+                  >
+                    Edit name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(attendee.selectionKey)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-700"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
 
               {adult ? (

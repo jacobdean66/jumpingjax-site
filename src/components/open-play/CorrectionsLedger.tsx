@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  type EditableWaiverName,
+} from "@/components/open-play/EditWaiverNameDialog";
+import {
   attendeeStatusLabel,
   classificationLabel,
   entryTypeLabel,
@@ -15,9 +18,10 @@ import {
 
 type Props = {
   visit: VisitReportRow;
+  onEditName?: (attendee: EditableWaiverName) => void;
 };
 
-export function CorrectionsLedger({ visit }: Props) {
+export function CorrectionsLedger({ visit, onEditName }: Props) {
   const ledger = sortLedgerEntries(visit.payments ?? []);
 
   return (
@@ -42,22 +46,52 @@ export function CorrectionsLedger({ visit }: Props) {
       <div>
         <h3 className="text-sm font-black uppercase tracking-wide text-slate-500">Attendees</h3>
         <ul className="mt-2 grid gap-2">
-          {(visit.attendees ?? []).map((attendee) => (
+          {(visit.attendees ?? []).map((attendee) => {
+            const participantId = attendee.participantId ?? attendee.participantRecordId;
+            const editableName: EditableWaiverName | null =
+              participantId && attendee.fullName
+                ? {
+                    participantId,
+                    firstName: attendee.firstName ?? "",
+                    lastName: attendee.lastName ?? "",
+                    fullName: attendee.fullName,
+                    originalFirstName: attendee.originalFirstName ?? attendee.firstName ?? "",
+                    originalLastName: attendee.originalLastName ?? attendee.lastName ?? "",
+                    nameCorrected: attendee.nameCorrected === true,
+                  }
+                : null;
+            return (
             <li
               key={attendee.id}
               className="rounded-xl border border-slate-200 bg-slate-50 p-3"
             >
               <p className="text-sm font-black text-slate-950">
-                {classificationLabel(attendee.classification)}
+                {attendee.fullName || "Unnamed attendee"}
               </p>
               <p className="mt-1 text-sm font-semibold text-slate-600">
+                {classificationLabel(attendee.classification)} ·{" "}
                 {attendeeStatusLabel(attendee.status)} · Unit {formatCents(attendee.unitPriceCents)}
               </p>
+              {attendee.nameCorrected ? (
+                <p className="mt-1 text-xs font-bold text-amber-800">
+                  Corrected from {attendee.originalFirstName} {attendee.originalLastName}
+                </p>
+              ) : null}
               <p className="mt-1 break-all text-xs font-semibold text-slate-500">
                 Attendee {attendee.id}
               </p>
+              {onEditName && editableName ? (
+                <button
+                  type="button"
+                  onClick={() => onEditName(editableName)}
+                  className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-800"
+                >
+                  Edit name
+                </button>
+              ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
 

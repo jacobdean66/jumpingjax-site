@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { CheckInConflictPanel } from "@/components/open-play/CheckInConflictPanel";
+import { CheckInGroupPanel } from "@/components/open-play/CheckInGroupPanel";
+import {
+  EditWaiverNameDialog,
+  type EditableWaiverName,
+} from "@/components/open-play/EditWaiverNameDialog";
 import {
   CheckInSearchForm,
   CheckInSearchResults,
@@ -12,17 +18,22 @@ import {
   buildVisitCreateBody,
   buildLegacyCheckInBody,
   canSubmitCheckInGroup,
+  conflictsByParticipantId,
   computeGroupTotalsPreview,
   createOpenPlayVisitRequest,
   createLegacyCheckInRequest,
+  fetchOpenPlayVisitConflicts,
   formatCents,
   isAdultRole,
   resultToDraft,
+  replaceAttendeeDisplayName,
   searchWaivers,
   todayBusinessDayYmd,
   type BirthdayPartyOption,
   type AdultPlayMode,
+  type CheckInConflict,
   type CheckInStep,
+  type NameCorrectionSuccess,
   type PaymentMethodChoice,
   type SelectedAttendeeDraft,
   type StaffFacingError,
@@ -48,6 +59,8 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [attendees, setAttendees] = useState<SelectedAttendeeDraft[]>([]);
+  const [conflicts, setConflicts] = useState<CheckInConflict[]>([]);
+  const [editNameTarget, setEditNameTarget] = useState<EditableWaiverName | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<VisitCreateSuccess | null>(null);
@@ -60,9 +73,14 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
   const searchRequestIdRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
-  const totals = useMemo(
-    () => computeGroupTotalsPreview(attendees, resolvedVisitDate),
-    [attendees, resolvedVisitDate],
+  const conflictIds = useMemo(() => conflictsByParticipantId(conflicts), [conflicts]);
+  const confirmableAttendees = useMemo(
+    () => attendees.filter((attendee) => !conflictIds.has(attendee.participantId)),
+    [attendees, conflictIds],
+  );
+  const confirmableTotals = useMemo(
+    () => computeGroupTotalsPreview(confirmableAttendees, resolvedVisitDate),
+    [confirmableAttendees, resolvedVisitDate],
   );
 
   const searchActive = step === "search" && query.trim().length >= 1;
@@ -170,6 +188,25 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     if (attendees.length === 0 || attendees[0]?.source === result.source) {
       setSubmitError(null);
     }
+    if (result.participantId) {
+      setConflicts((current) =>
+        current.filter((conflict) => conflict.participantId !== result.participantId),
+      );
+    }
+  }
+
+  function removeAttendee(selectionKey: string) {
+    let removedParticipantId = "";
+    setAttendees((current) => {
+      const removed = current.find((item) => item.selectionKey === selectionKey);
+      removedParticipantId = removed?.participantId ?? "";
+      return current.filter((item) => item.selectionKey !== selectionKey);
+    });
+    if (removedParticipantId) {
+      setConflicts((current) =>
+        current.filter((item) => item.participantId !== removedParticipantId),
+      );
+    }
   }
 
   function setAdultMode(selectionKey: string, mode: AdultPlayMode) {
@@ -216,7 +253,7 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     );
   }
 
-  function setPrice(selectionKey: string, amountCents: number) {
+  function setPrice(selectionKey: string, amountCents: number | null) {
     setAttendees((current) =>
       current.map((item) =>
         item.selectionKey === selectionKey
@@ -261,10 +298,35 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     );
   }
 
-  async function submitVisit() {
+  function applyNameCorrection(correction: NameCorrectionSuccess["correction"]) {
+    setAttendees((current) =>
+      current.map((item) => replaceAttendeeDisplayName(item, correction)),
+    );
+    setResults((current) =>
+      current?.map((item) => replaceAttendeeDisplayName(item, correction)) ?? null,
+    );
+    setConflicts((current) =>
+      current.map((item) =>
+        item.participantId === correction.participantId
+          ? {
+              ...item,
+              firstName: correction.correctedFirstName,
+              lastName: correction.correctedLastName,
+              fullName:
+                `${correction.correctedFirstName} ${correction.correctedLastName}`.trim(),
+              originalFirstName: correction.originalFirstName,
+              originalLastName: correction.originalLastName,
+              nameCorrected: true,
+            }
+          : item,
+      ),
+    );
+  }
+
+  async function submitVisit(attendeesToSubmit = attendees) {
     if (submitLockRef.current || submitting) return;
 
-    const gate = canSubmitCheckInGroup(attendees, resolvedVisitDate);
+    const gate = canSubmitCheckInGroup(attendeesToSubmit, resolvedVisitDate);
     if (!gate.ok) {
       setSubmitError(gate.message);
       return;
@@ -275,18 +337,31 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     setSubmitError(null);
 
     try {
+      const nativeAttendeesToSubmit = attendeesToSubmit.filter(
+        (item) => item.source !== "legacy_smartwaiver" && item.participantId,
+      );
+      const foundConflicts = await fetchOpenPlayVisitConflicts({
+        visitDateYmd: resolvedVisitDate,
+        participantIds: nativeAttendeesToSubmit.map((attendee) => attendee.participantId),
+      });
+      if (foundConflicts.length > 0) {
+        setConflicts(foundConflicts);
+        setSubmitError(null);
+        return;
+      }
+
       const nativeBody = buildVisitCreateBody({
         visitDateYmd: resolvedVisitDate,
-        attendees,
-        notes: attendees
+        attendees: attendeesToSubmit,
+        notes: attendeesToSubmit
           .filter((item) => item.paymentMethod === "birthday_party")
           .map((item) => `${item.fullName} attending ${item.birthdayPartyLabel}`)
           .join("; ") || null,
       });
       const legacyBody = buildLegacyCheckInBody({
         visitDateYmd: resolvedVisitDate,
-        attendees,
-        notes: attendees
+        attendees: attendeesToSubmit,
+        notes: attendeesToSubmit
           .filter((item) => item.paymentMethod === "birthday_party")
           .map((item) => `${item.fullName} attending ${item.birthdayPartyLabel}`)
           .join("; ") || null,
@@ -319,6 +394,7 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
       }
       setSuccess(created);
       setAttendees([]);
+      setConflicts([]);
       setResults(null);
       setQuery("");
       setStep("success");
@@ -340,12 +416,26 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
     }
   }
 
+  function keepExistingAndContinue(conflict: CheckInConflict) {
+    const remaining = attendees.filter(
+      (attendee) => attendee.participantId !== conflict.participantId,
+    );
+    const removed = attendees.find(
+      (attendee) => attendee.participantId === conflict.participantId,
+    );
+    if (removed) removeAttendee(removed.selectionKey);
+    if (remaining.length > 0) {
+      void submitVisit(remaining);
+    }
+  }
+
   function startNewCheckIn() {
     submitLockRef.current = false;
     setSubmitting(false);
     setSuccess(null);
     setSubmitError(null);
     setAttendees([]);
+    setConflicts([]);
     setResults(null);
     setQuery("");
     setSearchError(null);
@@ -381,23 +471,45 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
         inputRef={searchInputRef}
       />
 
+      <CheckInGroupPanel
+        attendees={attendees}
+        visitDateYmd={resolvedVisitDate}
+        onRemove={removeAttendee}
+        onEditName={(attendee) => setEditNameTarget(attendee)}
+        onAdultModeChange={setAdultMode}
+        onPaymentMethodChange={setPaymentMethod}
+        onPriceChange={setPrice}
+      />
+
+      <CheckInConflictPanel
+        conflicts={conflicts}
+        pendingAttendees={attendees}
+        visitDateYmd={resolvedVisitDate}
+        onKeepExistingAndContinue={keepExistingAndContinue}
+        onRemovePending={(participantId) => {
+          const attendee = attendees.find((item) => item.participantId === participantId);
+          if (attendee) removeAttendee(attendee.selectionKey);
+        }}
+        onEditName={(conflict) => setEditNameTarget(conflict)}
+      />
+
       {attendees.length > 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <dl className="grid gap-2 text-sm">
             <div className="flex justify-between gap-3 font-semibold text-slate-700">
               <dt>Expected cash</dt>
-              <dd>{formatCents(totals.cashTotalCents)}</dd>
+              <dd>{formatCents(confirmableTotals.cashTotalCents)}</dd>
             </div>
             <div className="flex justify-between gap-3 font-semibold text-slate-700">
               <dt>Expected card</dt>
-              <dd>{formatCents(totals.cardTotalCents)}</dd>
+              <dd>{formatCents(confirmableTotals.cardTotalCents)}</dd>
             </div>
             <div className="flex justify-between gap-3 text-base font-black text-slate-950">
               <dt>Expected combined</dt>
-              <dd>{formatCents(totals.combinedTotalCents)}</dd>
+              <dd>{formatCents(confirmableTotals.combinedTotalCents)}</dd>
             </div>
           </dl>
-          {totals.hasUncertainPrices ? (
+          {confirmableTotals.hasUncertainPrices ? (
             <p className="mt-2 text-xs font-semibold text-amber-800">
               Some child prices are estimates until the server confirms them.
             </p>
@@ -432,6 +544,7 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
           onPriceChange={setPrice}
           onPaymentConfirmedChange={setPaymentConfirmed}
           onBirthdayPartyChange={setBirthdayParty}
+          onEditName={(result) => setEditNameTarget(result)}
           statusRef={searchStatusRef}
         />
       </section>
@@ -440,20 +553,29 @@ export function CheckInClient({ visitDateYmd, birthdayParties = [] }: Props) {
         <div className="mx-auto flex max-w-xl gap-3">
           <button
             type="button"
-            disabled={attendees.length === 0 || submitting}
+            disabled={
+              attendees.length === 0 ||
+              submitting ||
+              (conflicts.length > 0 && confirmableAttendees.length === 0)
+            }
             onClick={() => {
-              void submitVisit();
+              void submitVisit(conflicts.length > 0 ? confirmableAttendees : attendees);
             }}
             className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting
               ? "Checking in…"
-              : attendees.length > 0
-                ? `Confirm check-in (${attendees.length})`
+              : confirmableAttendees.length > 0
+                ? `Confirm check-in (${conflicts.length > 0 ? confirmableAttendees.length : attendees.length})`
                 : "Confirm check-in"}
           </button>
         </div>
       </div>
+      <EditWaiverNameDialog
+        target={editNameTarget}
+        onClose={() => setEditNameTarget(null)}
+        onSaved={applyNameCorrection}
+      />
     </div>
   );
 }

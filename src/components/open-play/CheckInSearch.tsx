@@ -54,6 +54,7 @@ type ResultsProps = {
   onPriceChange: (selectionKey: string, amountCents: number) => void;
   onPaymentConfirmedChange: (selectionKey: string, confirmed: boolean) => void;
   onBirthdayPartyChange: (selectionKey: string, party: BirthdayPartyOption | null) => void;
+  onEditName: (result: StaffSearchResult | StaffWaiverParticipant) => void;
   emptyMessage?: string;
   statusRef?: React.RefObject<HTMLDivElement | null>;
 };
@@ -87,7 +88,7 @@ function participantRole(role: StaffWaiverParticipant["role"]): string {
 export function CheckInSearchResults({
   results, loading, error, attendees, visitDateYmd, birthdayParties,
   onLocationToggle, onAdultModeChange, onPaymentMethodChange, onPriceChange,
-  onPaymentConfirmedChange, onBirthdayPartyChange,
+  onPaymentConfirmedChange, onBirthdayPartyChange, onEditName,
   emptyMessage = "No matching waivers found.", statusRef,
 }: ResultsProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -126,6 +127,11 @@ export function CheckInSearchResults({
                   {expanded ? "Hide waiver information" : "View waiver information"}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">Expires {result.expiresOnYmd}</p>
+                {result.nameCorrected ? (
+                  <p className="mt-1 text-xs font-bold text-amber-800">
+                    Corrected from {result.originalFirstName} {result.originalLastName}
+                  </p>
+                ) : null}
                 {legacy ? <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-800">{result.sourceLabel || "Legacy Smartwaiver"}</p> : null}
               </div>
               <span className={blocked ? "shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black uppercase text-white" : "shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase text-emerald-800"}>{result.expired ? "Expired" : blocked ? "No check-in" : "Valid"}</span>
@@ -134,6 +140,15 @@ export function CheckInSearchResults({
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-rose-800">A current waiver with a birthday is required before check-in.</p>
                 <Link href="/waiver" target="_blank" rel="noreferrer" className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-rose-300 bg-white px-5 text-sm font-black text-rose-900">Open waiver form</Link>
+                {result.participantId ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditName(result)}
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-rose-300 bg-white px-5 text-sm font-black text-rose-900"
+                  >
+                    Edit name
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {expanded ? (
@@ -166,7 +181,21 @@ export function CheckInSearchResults({
                           <div key={participant.selectionKey} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-black text-slate-950">{participant.fullName}</p><span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black uppercase text-slate-700">{participantRole(participant.role)}</span></div>
                             <p className="mt-1 text-sm font-semibold text-slate-600">Birthday {displayDob(participant.dobYmd)} · Age {childAge(participant.dobYmd, visitDateYmd)} · Visits {participant.visitCount ?? 0}</p>
+                            {participant.nameCorrected ? (
+                              <p className="mt-1 text-xs font-bold text-amber-800">
+                                Corrected from {participant.originalFirstName} {participant.originalLastName}
+                              </p>
+                            ) : null}
                             {!blocked ? <button type="button" aria-pressed={Boolean(attendee)} onClick={() => onLocationToggle(participant)} className={attendee ? "mt-3 min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-black text-white" : "mt-3 min-h-12 w-full rounded-full border-2 border-emerald-500 bg-white px-5 text-sm font-black text-emerald-900"}>{attendee ? "On location today ✓" : isChild ? "Mark child on location" : "Mark adult on location"}</button> : null}
+                            {participant.participantId ? (
+                              <button
+                                type="button"
+                                onClick={() => onEditName(participant)}
+                                className="mt-3 min-h-12 w-full rounded-full border border-slate-300 bg-white px-5 text-sm font-black text-slate-800"
+                              >
+                                Edit name
+                              </button>
+                            ) : null}
                             {attendee && isChild ? <ChildCheckInControls attendee={attendee} birthdayParties={birthdayParties} onPaymentMethodChange={onPaymentMethodChange} onPriceChange={onPriceChange} onPaymentConfirmedChange={onPaymentConfirmedChange} onBirthdayPartyChange={onBirthdayPartyChange} /> : null}
                             {attendee && !isChild ? <AdultCheckInControls attendee={attendee} onAdultModeChange={onAdultModeChange} onPaymentMethodChange={onPaymentMethodChange} onPaymentConfirmedChange={onPaymentConfirmedChange} /> : null}
                           </div>

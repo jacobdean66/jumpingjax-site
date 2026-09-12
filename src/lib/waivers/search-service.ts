@@ -23,6 +23,9 @@ type SearchRpcRow = {
   expires_on: string;
   signer_first_name: string;
   signer_last_name: string;
+  original_first_name?: string;
+  original_last_name?: string;
+  name_corrected?: boolean;
 };
 
 type LegacySearchRpcRow = {
@@ -247,6 +250,9 @@ export async function searchWaiversForStaff(options: {
       firstName: row.first_name,
       lastName: row.last_name,
       fullName: `${row.first_name} ${row.last_name}`.trim(),
+      originalFirstName: row.first_name,
+      originalLastName: row.last_name,
+      nameCorrected: false,
       dobYmd: row.dob,
       birthYear: Number(row.dob.slice(0, 4)) || 0,
       role: "child",
@@ -279,6 +285,9 @@ export async function searchWaiversForStaff(options: {
       firstName: row.first_name,
       lastName: row.last_name,
       fullName: `${row.first_name} ${row.last_name}`.trim(),
+      originalFirstName: row.first_name,
+      originalLastName: row.last_name,
+      nameCorrected: false,
       dobYmd: row.dob ?? "",
       birthYear: row.dob ? Number(row.dob.slice(0, 4)) || 0 : 0,
       role: "child",
@@ -300,6 +309,9 @@ export async function searchWaiversForStaff(options: {
       submissionId: row.submission_id,
       firstName: row.first_name,
       lastName: row.last_name,
+      originalFirstName: row.original_first_name ?? row.first_name,
+      originalLastName: row.original_last_name ?? row.last_name,
+      nameCorrected: row.name_corrected === true,
       dob: row.dob,
       role: row.role,
       expiresOnYmd: row.expires_on,
@@ -348,6 +360,9 @@ export async function searchWaiversForStaff(options: {
       firstName: row.first_name,
       lastName: row.last_name,
       fullName: `${row.first_name} ${row.last_name}`.trim(),
+      originalFirstName: row.first_name,
+      originalLastName: row.last_name,
+      nameCorrected: false,
       birthYear: Number.isFinite(birthYear) ? birthYear : 0,
       role: row.role,
       expiresOnYmd: row.expires_on,
