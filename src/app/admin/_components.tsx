@@ -94,6 +94,7 @@ export function AdminNav({
     | "tax-export"
     | "giveaway"
     | "campaigns"
+    | "air-hockey"
     | "ad-analytics"
     | "security"
     | "agents"
@@ -140,6 +141,9 @@ export function AdminNav({
       : null,
     role === "owner"
       ? { id: "campaigns" as const, label: "Campaign Hub", href: `/admin/campaigns${query}` }
+      : null,
+    role === "owner"
+      ? { id: "air-hockey" as const, label: "Air Hockey", href: `/admin/air-hockey${query}` }
       : null,
     role === "owner"
       ? {

@@ -66,6 +66,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
             accent: "warn" as const,
           },
           {
+            title: "Air Hockey",
+            eyebrow: "Owner Tools",
+            description:
+              "Import registrations, manage players, build the bracket, and advance winners.",
+            href: "/admin/air-hockey",
+            cta: "Open tournament",
+            accent: "info" as const,
+          },
+          {
             title: "Ad Analytics",
             eyebrow: "Owner Tools",
             description:
