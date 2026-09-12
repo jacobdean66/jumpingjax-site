@@ -252,7 +252,7 @@ export function CorrectionActionPanel({
             {activeAttendees.length === 0 ? <option value="">No active attendees</option> : null}
             {activeAttendees.map((attendee) => (
               <option key={attendee.id} value={attendee.id}>
-                {attendee.classification} · {attendee.id.slice(0, 8)}
+                {attendee.fullName || attendee.id.slice(0, 8)} · {attendee.classification}
               </option>
             ))}
           </select>

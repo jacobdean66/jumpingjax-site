@@ -21,6 +21,14 @@ import {
 export type VisitAttendeeSnapshot = {
   id: string;
   visitId: string;
+  participantId?: string;
+  submissionId?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  originalFirstName?: string;
+  originalLastName?: string;
+  nameCorrected?: boolean;
   classification: AdmissionClassification;
   unitPriceCents: number;
   status: "active" | "removed";

@@ -8,6 +8,9 @@ export type SearchableParticipant = {
   submissionId: string;
   firstName: string;
   lastName: string;
+  originalFirstName: string;
+  originalLastName: string;
+  nameCorrected: boolean;
   /** Full DOB is retained for disambiguation; UI should prefer derived display. */
   dob: string;
   role: "child" | "adult_signer" | "adult_covered";
@@ -23,6 +26,9 @@ export type StaffSearchResult = {
   firstName: string;
   lastName: string;
   fullName: string;
+  originalFirstName: string;
+  originalLastName: string;
+  nameCorrected: boolean;
   /** Year of birth only in API responses for privacy minimization. */
   birthYear: number;
   role: "child" | "adult_signer" | "adult_covered";
@@ -94,6 +100,9 @@ export function toStaffSearchResult(
     firstName: participant.firstName,
     lastName: participant.lastName,
     fullName: `${participant.firstName} ${participant.lastName}`.trim(),
+    originalFirstName: participant.originalFirstName,
+    originalLastName: participant.originalLastName,
+    nameCorrected: participant.nameCorrected,
     birthYear: Number.isFinite(birthYear) ? birthYear : 0,
     role: participant.role,
     expiresOnYmd: participant.expiresOnYmd,

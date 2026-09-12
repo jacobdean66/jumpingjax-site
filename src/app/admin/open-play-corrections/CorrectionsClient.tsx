@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { CorrectionActionPanel } from "@/components/open-play/CorrectionActionPanel";
 import { CorrectionsLedger } from "@/components/open-play/CorrectionsLedger";
 import {
+  EditWaiverNameDialog,
+  type EditableWaiverName,
+} from "@/components/open-play/EditWaiverNameDialog";
+import type { NameCorrectionSuccess } from "@/lib/open-play/check-in-client";
+import {
   beginCorrectionMutation,
   beginReportRequest,
   canBrowseVisitsAndDates,
@@ -33,6 +38,7 @@ import {
 
 type Props = {
   initialDateYmd: string;
+  initialVisitId?: string;
 };
 
 type LoadState =
@@ -54,15 +60,16 @@ type MutationState =
       financialReversalRequired?: boolean;
     };
 
-export function CorrectionsClient({ initialDateYmd }: Props) {
+export function CorrectionsClient({ initialDateYmd, initialVisitId = "" }: Props) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialDateYmd);
   const [loadState, setLoadState] = useState<LoadState>({ status: "idle" });
-  const [manualVisitId, setManualVisitId] = useState("");
+  const [manualVisitId, setManualVisitId] = useState(initialVisitId);
   const [visit, setVisit] = useState<VisitReportRow | null>(null);
+  const [editNameTarget, setEditNameTarget] = useState<EditableWaiverName | null>(null);
   const [mutation, setMutation] = useState<MutationState>({ status: "idle" });
   const [gate, setGate] = useState<CorrectionsGateState>(() =>
-    createCorrectionsGateState(),
+    createCorrectionsGateState({ selectedVisitId: initialVisitId }),
   );
   const gateRef = useRef(gate);
   const requestIdRef = useRef(0);
@@ -95,10 +102,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
     requestIdRef.current += 1;
   }
 
-  async function loadDay(
-    dateInput: string,
-    options?: { loadKind?: ReportLoadKind },
-  ) {
+  async function loadDay(dateInput: string, options?: { loadKind?: ReportLoadKind }) {
     const loadKind: ReportLoadKind = options?.loadKind ?? "browse";
     const started = beginReportRequest(gateRef.current, {
       kind: loadKind,
@@ -181,7 +185,7 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
     };
     // Initial load only; later loads are explicit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialDateYmd]);
+  }, [initialDateYmd, initialVisitId]);
 
   function pickVisitFromReady(visitId: string) {
     const next = selectVisitFromCachedReport(gateRef.current, visitId);
@@ -194,6 +198,33 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
       return;
     }
     setVisit(loadState.visits.find((item) => item.visitId === visitId) ?? null);
+  }
+
+  function applyNameCorrection(correction: NameCorrectionSuccess["correction"]) {
+    const updateVisit = (item: VisitReportRow): VisitReportRow => ({
+      ...item,
+      attendees: item.attendees.map((attendee) =>
+        attendee.participantId === correction.participantId
+          ? {
+              ...attendee,
+              firstName: correction.correctedFirstName,
+              lastName: correction.correctedLastName,
+              fullName:
+                `${correction.correctedFirstName} ${correction.correctedLastName}`.trim(),
+              originalFirstName: correction.originalFirstName,
+              originalLastName: correction.originalLastName,
+              nameCorrected: true,
+            }
+          : attendee,
+      ),
+    });
+
+    setVisit((current) => (current ? updateVisit(current) : current));
+    setLoadState((current) =>
+      current.status === "ready"
+        ? { ...current, visits: current.visits.map(updateVisit) }
+        : current,
+    );
   }
 
   async function reloadSelectedVisit() {
@@ -536,7 +567,10 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
 
       {visit ? (
         <>
-          <CorrectionsLedger visit={visit} />
+          <CorrectionsLedger
+            visit={visit}
+            onEditName={(attendee) => setEditNameTarget(attendee)}
+          />
           <CorrectionActionPanel
             key={visit.visitId}
             visit={visit}
@@ -548,6 +582,11 @@ export function CorrectionsClient({ initialDateYmd }: Props) {
           />
         </>
       ) : null}
+      <EditWaiverNameDialog
+        target={editNameTarget}
+        onClose={() => setEditNameTarget(null)}
+        onSaved={applyNameCorrection}
+      />
     </div>
   );
 }

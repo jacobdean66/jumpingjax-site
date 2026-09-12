@@ -29,7 +29,9 @@ test("public waiver search route does not exist", () => {
 test("admin routes distinguish staff vs owner authorization", () => {
   const staffRoutes = [
     "src/app/api/admin/open-play/waivers/search/route.ts",
+    "src/app/api/admin/open-play/waivers/participants/[participantId]/name/route.ts",
     "src/app/api/admin/open-play/visits/route.ts",
+    "src/app/api/admin/open-play/visits/conflicts/route.ts",
   ];
   for (const route of staffRoutes) {
     const source = readRoute(route);
@@ -46,6 +48,12 @@ test("admin routes distinguish staff vs owner authorization", () => {
     const source = readRoute(route);
     assert.match(source, /requireOwnerAuth/);
   }
+});
+
+test("conflict preflight is separated from visit creation", () => {
+  const source = readRoute("src/app/api/admin/open-play/visits/conflicts/route.ts");
+  assert.match(source, /findOpenPlayVisitConflicts/);
+  assert.doesNotMatch(source, /createOpenPlayVisit/);
 });
 
 test("owner auth helper returns 403 for employees", () => {

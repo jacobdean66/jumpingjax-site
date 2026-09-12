@@ -64,6 +64,7 @@ type ResultsProps = {
   error: string | null;
   selectedIds: Set<string>;
   onSelect: (result: StaffSearchResult) => void;
+  onEditName: (result: StaffSearchResult) => void;
   emptyMessage?: string;
   statusRef?: React.RefObject<HTMLDivElement | null>;
 };
@@ -74,6 +75,7 @@ export function CheckInSearchResults({
   error,
   selectedIds,
   onSelect,
+  onEditName,
   emptyMessage = "No matching waivers found.",
   statusRef,
 }: ResultsProps) {
@@ -156,6 +158,11 @@ export function CheckInSearchResults({
                   Expires {result.expiresOnYmd}
                   {result.role ? ` · ${result.role.replaceAll("_", " ")}` : ""}
                 </p>
+                {result.nameCorrected ? (
+                  <p className="mt-1 text-xs font-bold text-amber-800">
+                    Corrected from {result.originalFirstName} {result.originalLastName}
+                  </p>
+                ) : null}
               </div>
               <span
                 className={
@@ -190,13 +197,24 @@ export function CheckInSearchResults({
                 >
                   Open waiver form
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => onEditName(result)}
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-rose-300 bg-white px-5 text-sm font-black text-rose-900"
+                >
+                  Edit name
+                </button>
               </div>
             </article>
           );
         }
 
         return (
-          <article key={result.participantId} role="listitem">
+          <article
+            key={result.participantId}
+            role="listitem"
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+          >
             <button
               type="button"
               disabled={selected}
@@ -222,6 +240,15 @@ export function CheckInSearchResults({
                   : "Tap name to add · details open in today’s group"}
               </p>
             </button>
+            <div className="border-t border-slate-100 p-3">
+              <button
+                type="button"
+                onClick={() => onEditName(result)}
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-black text-slate-800"
+              >
+                Edit name
+              </button>
+            </div>
           </article>
         );
       })}

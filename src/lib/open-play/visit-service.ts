@@ -31,6 +31,22 @@ export type CreateVisitResult = {
   paymentEntries: PaymentEntry[];
 };
 
+export type OpenPlayVisitConflict = {
+  attendeeId: string;
+  visitId: string;
+  participantId: string;
+  submissionId: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  originalFirstName: string;
+  originalLastName: string;
+  nameCorrected: boolean;
+  classification: string;
+  unitPriceCents: number;
+  createdAt: string;
+};
+
 type RpcOutcome = {
   outcome: string;
   visit_id?: string;
@@ -50,6 +66,57 @@ type RpcOutcome = {
   participant_id?: string;
   error_message?: string;
 };
+
+type ConflictRpcRow = {
+  attendee_id: string;
+  visit_id: string;
+  participant_id: string;
+  submission_id: string;
+  first_name: string;
+  last_name: string;
+  original_first_name: string;
+  original_last_name: string;
+  name_corrected: boolean;
+  classification: string;
+  unit_price_cents: number;
+  created_at: string;
+};
+
+export async function findOpenPlayVisitConflicts(options: {
+  visitDateYmd: string;
+  participantIds: string[];
+}): Promise<OpenPlayVisitConflict[]> {
+  const ids = Array.from(
+    new Set(options.participantIds.map((id) => id.trim()).filter(Boolean)),
+  );
+  if (ids.length === 0) return [];
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase.rpc("list_open_play_same_day_conflicts", {
+    p_business_day_ymd: options.visitDateYmd,
+    p_participant_ids: ids,
+  });
+
+  if (error) {
+    throw new Error("Unable to load check-in conflicts");
+  }
+
+  return ((data as ConflictRpcRow[] | null) ?? []).map((row) => ({
+    attendeeId: row.attendee_id,
+    visitId: row.visit_id,
+    participantId: row.participant_id,
+    submissionId: row.submission_id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    fullName: `${row.first_name} ${row.last_name}`.trim(),
+    originalFirstName: row.original_first_name,
+    originalLastName: row.original_last_name,
+    nameCorrected: row.name_corrected,
+    classification: row.classification,
+    unitPriceCents: row.unit_price_cents,
+    createdAt: row.created_at,
+  }));
+}
 
 export async function createOpenPlayVisit(
   input: CreateVisitInput,

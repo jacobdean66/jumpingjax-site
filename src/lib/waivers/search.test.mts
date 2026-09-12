@@ -15,6 +15,9 @@ const base: SearchableParticipant[] = [
     submissionId: "s1",
     firstName: "Ava",
     lastName: "Smith",
+    originalFirstName: "Ava",
+    originalLastName: "Smith",
+    nameCorrected: false,
     dob: "2019-01-01",
     role: "child",
     expiresOnYmd: "2029-01-01",
@@ -27,6 +30,9 @@ const base: SearchableParticipant[] = [
     submissionId: "s2",
     firstName: "ava",
     lastName: "Jones",
+    originalFirstName: "ava",
+    originalLastName: "Jones",
+    nameCorrected: false,
     dob: "2018-05-05",
     role: "child",
     expiresOnYmd: "2020-01-01",
@@ -39,6 +45,9 @@ const base: SearchableParticipant[] = [
     submissionId: "s3",
     firstName: "Noah",
     lastName: "Smith",
+    originalFirstName: "Noah",
+    originalLastName: "Smith",
+    nameCorrected: false,
     dob: "2020-02-02",
     role: "child",
     expiresOnYmd: "2030-02-02",
@@ -64,6 +73,27 @@ test("full-name search works", () => {
   const results = filterAndRankSearchResults(base, "Noah Smith");
   assert.equal(results.length, 1);
   assert.equal(results[0]?.participantId, "p3");
+});
+
+test("corrected display names drive search without exposing full DOB", () => {
+  const results = filterAndRankSearchResults(
+    [
+      {
+        ...base[0]!,
+        firstName: "Olivia",
+        lastName: "Stone",
+        originalFirstName: "Ava",
+        originalLastName: "Smith",
+        nameCorrected: true,
+      },
+    ],
+    "olivia",
+  );
+  assert.equal(results.length, 1);
+  assert.equal(results[0]?.fullName, "Olivia Stone");
+  assert.equal(results[0]?.originalFirstName, "Ava");
+  assert.equal(results[0]?.nameCorrected, true);
+  assert.equal((results[0] as { dob?: string }).dob, undefined);
 });
 
 test("common duplicate first names are disambiguated by last name and dob order", () => {

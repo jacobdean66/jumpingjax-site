@@ -29,9 +29,48 @@ export async function getOpenPlayDailyReport(
   const visitIds = visits.map((visit) => visit.id);
   const { data: attendees, error: attendeeError } = await supabase
     .from("open_play_visit_attendees")
-    .select("id, visit_id, classification, unit_price_cents, status")
+    .select("id, visit_id, participant_id, waiver_submission_id, classification, unit_price_cents, status")
     .in("visit_id", visitIds);
   if (attendeeError) throw new Error(attendeeError.message);
+
+  const participantIds = Array.from(
+    new Set((attendees ?? []).map((item) => item.participant_id).filter(Boolean)),
+  );
+  const { data: participantRows, error: participantError } = participantIds.length
+    ? await supabase
+        .from("waiver_participants")
+        .select("id, first_name, last_name")
+        .in("id", participantIds)
+    : { data: [], error: null };
+  if (participantError) throw new Error(participantError.message);
+
+  const { data: correctionRows, error: correctionError } = participantIds.length
+    ? await supabase
+        .from("waiver_participant_name_corrections")
+        .select("participant_id, corrected_first_name, corrected_last_name, created_at, id")
+        .in("participant_id", participantIds)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+    : { data: [], error: null };
+  if (correctionError) throw new Error(correctionError.message);
+
+  const participantsById = new Map(
+    (participantRows ?? []).map((item) => [
+      item.id,
+      { firstName: item.first_name, lastName: item.last_name },
+    ]),
+  );
+  const correctionsByParticipantId = new Map<string, {
+    firstName: string;
+    lastName: string;
+  }>();
+  for (const correction of correctionRows ?? []) {
+    if (correctionsByParticipantId.has(correction.participant_id)) continue;
+    correctionsByParticipantId.set(correction.participant_id, {
+      firstName: correction.corrected_first_name,
+      lastName: correction.corrected_last_name,
+    });
+  }
 
   const { data: payments, error: paymentError } = await supabase
     .from("open_play_payment_entries")
@@ -45,13 +84,30 @@ export async function getOpenPlayDailyReport(
     const visitAttendees =
       attendees
         ?.filter((item) => item.visit_id === visit.id)
-        .map((item) => ({
-          id: item.id,
-          visitId: item.visit_id,
-          classification: item.classification as AdmissionClassification,
-          unitPriceCents: item.unit_price_cents,
-          status: item.status as "active" | "removed",
-        })) ?? [];
+        .map((item) => {
+          const original = participantsById.get(item.participant_id) ?? {
+            firstName: "",
+            lastName: "",
+          };
+          const correction = correctionsByParticipantId.get(item.participant_id);
+          const firstName = correction?.firstName ?? original.firstName;
+          const lastName = correction?.lastName ?? original.lastName;
+          return {
+            id: item.id,
+            visitId: item.visit_id,
+            participantId: item.participant_id,
+            submissionId: item.waiver_submission_id,
+            firstName,
+            lastName,
+            fullName: `${firstName} ${lastName}`.trim(),
+            originalFirstName: original.firstName,
+            originalLastName: original.lastName,
+            nameCorrected: correction != null,
+            classification: item.classification as AdmissionClassification,
+            unitPriceCents: item.unit_price_cents,
+            status: item.status as "active" | "removed",
+          };
+        }) ?? [];
 
     const visitPayments: PaymentEntry[] =
       payments

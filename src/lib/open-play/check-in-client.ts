@@ -27,6 +27,9 @@ export type SelectedAttendeeDraft = {
   firstName: string;
   lastName: string;
   fullName: string;
+  originalFirstName: string;
+  originalLastName: string;
+  nameCorrected: boolean;
   birthYear: number;
   role: StaffSearchResult["role"];
   expiresOnYmd: string;
@@ -94,6 +97,35 @@ export type VisitCreateSuccess = {
   }>;
 };
 
+export type CheckInConflict = {
+  attendeeId: string;
+  visitId: string;
+  participantId: string;
+  submissionId: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  originalFirstName: string;
+  originalLastName: string;
+  nameCorrected: boolean;
+  classification: string;
+  unitPriceCents: number;
+  createdAt: string;
+};
+
+export type NameCorrectionSuccess = {
+  ok: true;
+  correction: {
+    participantId: string;
+    submissionId: string;
+    originalFirstName: string;
+    originalLastName: string;
+    correctedFirstName: string;
+    correctedLastName: string;
+    correctedAt: string;
+  };
+};
+
 export type ApiErrorPayload = {
   ok?: false;
   error?: string;
@@ -111,6 +143,7 @@ export type StaffFacingError = {
 
 const SEARCH_PATH = "/api/admin/open-play/waivers/search";
 const VISIT_PATH = "/api/admin/open-play/visits";
+const CONFLICTS_PATH = "/api/admin/open-play/visits/conflicts";
 
 export function todayBusinessDayYmd(now: Date = new Date()): string {
   return businessDayYmdFromInstant(now);
@@ -149,6 +182,9 @@ export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft 
     firstName: result.firstName,
     lastName: result.lastName,
     fullName: result.fullName,
+    originalFirstName: result.originalFirstName,
+    originalLastName: result.originalLastName,
+    nameCorrected: result.nameCorrected,
     birthYear: result.birthYear,
     role: result.role,
     expiresOnYmd: result.expiresOnYmd,
@@ -156,6 +192,33 @@ export function resultToDraft(result: StaffSearchResult): SelectedAttendeeDraft 
     adultMode: isAdultRole(result.role) ? null : null,
     paymentMethod: null,
   };
+}
+
+export function replaceAttendeeDisplayName<
+  T extends SelectedAttendeeDraft | StaffSearchResult,
+>(attendee: T, correction: NameCorrectionSuccess["correction"]): T {
+  if (attendee.participantId !== correction.participantId) return attendee;
+  return {
+    ...attendee,
+    firstName: correction.correctedFirstName,
+    lastName: correction.correctedLastName,
+    fullName: `${correction.correctedFirstName} ${correction.correctedLastName}`.trim(),
+    originalFirstName: correction.originalFirstName,
+    originalLastName: correction.originalLastName,
+    nameCorrected: true,
+  };
+}
+
+export function conflictsByParticipantId(conflicts: CheckInConflict[]): Set<string> {
+  return new Set(conflicts.map((conflict) => conflict.participantId));
+}
+
+export function attendeesWithoutConflicts(
+  attendees: SelectedAttendeeDraft[],
+  conflicts: CheckInConflict[],
+): SelectedAttendeeDraft[] {
+  const conflictIds = conflictsByParticipantId(conflicts);
+  return attendees.filter((attendee) => !conflictIds.has(attendee.participantId));
 }
 
 /**
@@ -644,6 +707,83 @@ export async function createOpenPlayVisitRequest(
       ? payload.paymentEntries
       : [],
   };
+}
+
+export async function fetchOpenPlayVisitConflicts(options: {
+  visitDateYmd: string;
+  participantIds: string[];
+  signal?: AbortSignal;
+}): Promise<CheckInConflict[]> {
+  const response = await fetch(CONFLICTS_PATH, {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      visitDate: options.visitDateYmd,
+      participantIds: options.participantIds,
+    }),
+    signal: options.signal,
+  });
+
+  let payload: (ApiErrorPayload & { conflicts?: CheckInConflict[] }) | null = null;
+  try {
+    payload = (await response.json()) as ApiErrorPayload & {
+      conflicts?: CheckInConflict[];
+    };
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || payload?.ok === false) {
+    throw mapStaffApiError({
+      status: response.status,
+      payload,
+      fallbackMessage: "Could not check for existing visits. Try again.",
+    });
+  }
+
+  return Array.isArray(payload?.conflicts) ? payload.conflicts : [];
+}
+
+export async function saveWaiverParticipantNameCorrection(options: {
+  participantId: string;
+  firstName: string;
+  lastName: string;
+  reason: string;
+}): Promise<NameCorrectionSuccess["correction"]> {
+  const response = await fetch(
+    `/api/admin/open-play/waivers/participants/${encodeURIComponent(options.participantId)}/name`,
+    {
+      method: "PATCH",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: options.firstName,
+        lastName: options.lastName,
+        reason: options.reason,
+      }),
+    },
+  );
+
+  let payload: (ApiErrorPayload & Partial<NameCorrectionSuccess>) | null = null;
+  try {
+    payload = (await response.json()) as ApiErrorPayload &
+      Partial<NameCorrectionSuccess>;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || payload?.ok !== true || !payload.correction) {
+    throw mapStaffApiError({
+      status: response.status,
+      payload,
+      fallbackMessage: "Name correction failed. Review the fields and try again.",
+    });
+  }
+
+  return payload.correction;
 }
 
 export function authoritativeVisitTotals(success: VisitCreateSuccess): {

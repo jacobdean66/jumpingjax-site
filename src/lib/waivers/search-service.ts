@@ -21,6 +21,9 @@ type SearchRpcRow = {
   expires_on: string;
   signer_first_name: string;
   signer_last_name: string;
+  original_first_name?: string;
+  original_last_name?: string;
+  name_corrected?: boolean;
 };
 
 export async function searchWaiversForStaff(options: {
@@ -49,6 +52,9 @@ export async function searchWaiversForStaff(options: {
       submissionId: row.submission_id,
       firstName: row.first_name,
       lastName: row.last_name,
+      originalFirstName: row.original_first_name ?? row.first_name,
+      originalLastName: row.original_last_name ?? row.last_name,
+      nameCorrected: row.name_corrected === true,
       dob: row.dob,
       role: row.role,
       expiresOnYmd: row.expires_on,
