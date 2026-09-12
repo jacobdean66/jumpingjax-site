@@ -99,6 +99,7 @@ export function AdminNav({
     | "tasks"
     | "tax-export"
     | "giveaway"
+    | "air-hockey"
     | "ad-analytics"
     | "open-play"
     | "waiver-export";
@@ -138,6 +139,9 @@ export function AdminNav({
       : null,
     role === "owner"
       ? { id: "giveaway" as const, label: "Giveaway Draw", href: `/admin/giveaway${query}` }
+      : null,
+    role === "owner"
+      ? { id: "air-hockey" as const, label: "Air Hockey", href: `/admin/air-hockey${query}` }
       : null,
     role === "owner"
       ? {
