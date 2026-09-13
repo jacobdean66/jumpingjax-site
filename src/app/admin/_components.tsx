@@ -100,6 +100,7 @@ export function AdminNav({
     | "tax-export"
     | "giveaway"
     | "air-hockey"
+    | "campaigns"
     | "ad-analytics"
     | "open-play"
     | "waiver-export";
