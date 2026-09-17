@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildRentalEditUpdate,
   facilityBookingIsEditable,
   parseFacilityEditInput,
   parseRentalEditInput,
@@ -125,4 +126,35 @@ test("rental edit parser rejects invalid dates", () => {
     paymentMethod: "Cash",
   });
   assert.equal(parsed.ok, false);
+});
+
+test("saving rental details keeps delivery windows separate from stored clock times", () => {
+  for (const deliveryTime of ["13:00:00", null]) {
+    for (const requestedDeliveryWindow of [
+      "1:00 PM - 4:00 PM", "Friday 4:00 PM - 7:00 PM", "",
+    ]) {
+      const parsed = parseRentalEditInput({
+        customerName: "Jordan Lee",
+        customerEmail: "updated@example.com",
+        customerPhone: "864-555-0100",
+        eventDate: "2026-10-22",
+        eventStartTime: "17:00:00",
+        requestedDeliveryWindow,
+        eventAddress: "100 Main St",
+        paymentMethod: "Card",
+        setupNotes: "Updated setup instructions",
+      });
+      assert.equal(parsed.ok, true);
+      if (!parsed.ok) continue;
+      const saved = {
+        delivery_time: deliveryTime,
+        ...buildRentalEditUpdate(parsed.value),
+      };
+      assert.equal(saved.delivery_time, deliveryTime);
+      assert.equal(saved.requested_delivery_window, requestedDeliveryWindow || null);
+      assert.equal(saved.event_start_time, "17:00");
+      assert.equal(saved.customer_email, "updated@example.com");
+      assert.equal(saved.setup_notes, "Updated setup instructions");
+    }
+  }
 });

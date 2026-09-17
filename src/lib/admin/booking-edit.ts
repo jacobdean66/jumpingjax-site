@@ -100,6 +100,25 @@ export type RentalEditInput = {
   paymentMethod: string;
 };
 
+export function buildRentalEditUpdate(input: RentalEditInput) {
+  return {
+    customer_name: input.customerName,
+    customer_email: input.customerEmail,
+    customer_phone: input.customerPhone,
+    event_date: input.eventDate,
+    event_start_time: input.eventStartTime,
+    // A requested window is free text; delivery_time is a separate SQL time.
+    // Editing the window must not overwrite an existing delivery clock time.
+    requested_delivery_window: input.requestedDeliveryWindow,
+    event_address: input.eventAddress,
+    setup_location: input.setupLocation,
+    setup_surface: input.setupSurface,
+    setup_access: input.setupAccess,
+    setup_notes: input.setupNotes,
+    payment_method: input.paymentMethod,
+  };
+}
+
 export type FacilityEditInput = {
   customerName: string;
   email: string | null;

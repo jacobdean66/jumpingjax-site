@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { after, NextResponse } from "next/server";
 
 import {
+  buildRentalEditUpdate,
   isValidBookingId,
   parseRentalEditInput,
   rentalBookingIsEditable,
@@ -425,21 +426,7 @@ export async function PATCH(
 
   const { data: updated, error: updateError } = await supabase
     .from("bookings")
-    .update({
-      customer_name: parsed.value.customerName,
-      customer_email: parsed.value.customerEmail,
-      customer_phone: parsed.value.customerPhone,
-      event_date: parsed.value.eventDate,
-      event_start_time: parsed.value.eventStartTime,
-      requested_delivery_window: parsed.value.requestedDeliveryWindow,
-      delivery_time: parsed.value.requestedDeliveryWindow,
-      event_address: parsed.value.eventAddress,
-      setup_location: parsed.value.setupLocation,
-      setup_surface: parsed.value.setupSurface,
-      setup_access: parsed.value.setupAccess,
-      setup_notes: parsed.value.setupNotes,
-      payment_method: parsed.value.paymentMethod,
-    })
+    .update(buildRentalEditUpdate(parsed.value))
     .eq("id", id)
     .in("status", ["pending", "approved"])
     .select(RENTAL_EDIT_SELECT)
