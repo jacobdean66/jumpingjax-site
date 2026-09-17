@@ -835,6 +835,19 @@ export function RentalBookingPanel({
                 {activeSuccessId}
               </span>
             </p>
+            <div className="mt-6 border-t border-white/10 pt-6">
+              <p className="text-sm font-black text-white">Pay your rental in full</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                Use the approved base rental amount. SwipeSimple adds the 3% card
+                adjustment during secure checkout.
+              </p>
+              <Link
+                href={`/payments?booking=${encodeURIComponent(activeSuccessId)}${totalAmount !== null ? `&amount=${encodeURIComponent(String(totalAmount))}` : ""}`}
+                className="mt-4 inline-flex min-h-12 items-center justify-center rounded-md bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 hover:bg-cyan-200"
+              >
+                Open rental payment
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -54,6 +54,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   const query = "";
   const tools: AdminLink[] = [
+    {
+      title: "Payments",
+      eyebrow: "Front Counter",
+      description:
+        "Take facility deposits, rental payments, and general payments, then open live transaction reports.",
+      href: `/admin/payments?${query}`,
+      cta: "Open payments",
+      accent: "ops",
+    },
     ...(auth.role === "owner"
       ? [
           {
@@ -176,6 +185,7 @@ export default async function AdminHomePage({ searchParams }: Props) {
 
   const quickLinks = [
     { label: "Open Play Check-in", href: `/admin/check-in` },
+    { label: "Payments", href: `/admin/payments?${query}` },
     ...(auth.role === "owner"
       ? [
           { label: "Open Play Daily report", href: `/admin/open-play-report` },
@@ -225,6 +235,9 @@ export default async function AdminHomePage({ searchParams }: Props) {
             </Link>
             <Link className="ah-nav-link" href={`/admin/deliveries?${query}`}>
               Route Planner
+            </Link>
+            <Link className="ah-nav-link" href={`/admin/payments?${query}`}>
+              Payments
             </Link>
           </nav>
         </div>
