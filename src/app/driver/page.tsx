@@ -35,6 +35,11 @@ import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
 import { DriverLoginGate } from "./DriverLoginGate";
 import { PrintButton } from "@/app/admin/PrintButton";
+import {
+  SWIPESIMPLE_RENTAL_PAYMENT_URL,
+  adjustedCardTotal,
+  formatPaymentAmount,
+} from "@/lib/payments/swipesimple";
 
 export const dynamic = "force-dynamic";
 
@@ -761,6 +766,21 @@ function StopCard({
             <p className="mb-2 text-xs font-semibold text-slate-600">
               Confirms payment for the whole booking, not just this item.
             </p>
+            {task.total !== null ? (
+              <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-950">
+                Enter {formatPaymentAmount(task.total)} in SwipeSimple. With the
+                3% card adjustment, the customer total is{" "}
+                {formatPaymentAmount(adjustedCardTotal(task.total))}.
+              </p>
+            ) : null}
+            <a
+              href={SWIPESIMPLE_RENTAL_PAYMENT_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mb-3 flex min-h-12 w-full items-center justify-center rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white hover:bg-sky-700"
+            >
+              Open secure rental payment
+            </a>
             <PaymentConfirmForm
               token={token}
               date={date}

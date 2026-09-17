@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -194,6 +195,7 @@ export function FacilityPartyBookingForm({
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
+  const [successBookingId, setSuccessBookingId] = useState<string | null>(null);
   const submitIdempotencyKey = useRef<string | null>(null);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
@@ -544,6 +546,16 @@ export function FacilityPartyBookingForm({
         throw new Error("Failed to book");
       }
 
+      const data: unknown = await res.json().catch(() => null);
+      const bookingId =
+        data &&
+        typeof data === "object" &&
+        "id" in data &&
+        typeof (data as { id?: unknown }).id === "string"
+          ? (data as { id: string }).id
+          : null;
+      setSuccessBookingId(bookingId);
+
       trackLead("facility_party_request", {
         party_kind: request.kind,
         room_id: request.roomId,
@@ -596,6 +608,24 @@ export function FacilityPartyBookingForm({
             <p className="mt-1">Time: {submittedReadableTime}</p>
           )}
           {paymentMethod && <p className="mt-1">Payment: {paymentMethod}</p>}
+          {successBookingId ? (
+            <p className="mt-1">
+              Booking number: <span className="font-mono text-white">{successBookingId}</span>
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-6 border-t border-white/10 pt-6">
+          <p className="text-sm font-black text-white">Facility party deposit</p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">
+            Pay the $50 deposit by card now. SwipeSimple adds the 3% card
+            adjustment, for a total of $51.50. The remaining balance is paid in cash.
+          </p>
+          <Link
+            href={`/payments${successBookingId ? `?booking=${encodeURIComponent(successBookingId)}` : ""}`}
+            className="mt-4 inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 hover:bg-emerald-300"
+          >
+            Pay facility deposit
+          </Link>
         </div>
       </div>
     );
