@@ -71,6 +71,52 @@ test("facility edit parser accepts confirmed-party field updates", () => {
   assert.equal(parsed.value.childName, "Sam");
 });
 
+test("rental edits accept saved database times and normalize to minutes", () => {
+  for (const [eventStartTime, expected] of [
+    ["17:00:00", "17:00"],
+    ["17:00:00.000000", "17:00"],
+    [" 09:15:00 ", "09:15"],
+    ["00:00:00", "00:00"],
+    ["23:59:59.123456", "23:59"],
+    ["17:00", "17:00"],
+    ["", null],
+    [null, null],
+    [undefined, null],
+  ] as const) {
+    const parsed = parseRentalEditInput({
+      customerName: "Jordan Lee",
+      eventDate: "2026-10-22",
+      eventAddress: "100 Main St",
+      paymentMethod: "Card",
+      eventStartTime,
+      setupNotes: "Updated delivery instructions",
+    });
+    assert.equal(parsed.ok, true, `Expected ${eventStartTime} to be accepted`);
+    if (!parsed.ok) continue;
+    assert.equal(parsed.value.eventStartTime, expected);
+    assert.equal(parsed.value.setupNotes, "Updated delivery instructions");
+  }
+});
+
+test("rental edits reject malformed or out-of-range start times", () => {
+  for (const eventStartTime of [
+    "24:00", "17:60", "17:00:60", "17:00:xx", "17:00:00junk",
+    "17:00.5", "17:00:00.", "5:00 PM", "2026-10-22T17:00:00", "17:00:00Z",
+  ]) {
+    const parsed = parseRentalEditInput({
+      customerName: "Jordan Lee",
+      eventDate: "2026-10-22",
+      eventAddress: "100 Main St",
+      paymentMethod: "Card",
+      eventStartTime,
+    });
+    assert.deepEqual(parsed, {
+      ok: false,
+      error: "Event start time must be HH:MM.",
+    }, eventStartTime);
+  }
+});
+
 test("rental edit parser rejects invalid dates", () => {
   const parsed = parseRentalEditInput({
     customerName: "Jordan",

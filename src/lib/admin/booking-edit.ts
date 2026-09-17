@@ -45,7 +45,8 @@ export function isValidYmd(value: string): boolean {
 }
 
 export function isValidClockTime(value: string): boolean {
-  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+  // PostgreSQL time values include seconds, even when the editor shows minutes.
+  return /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?$/.test(value.trim());
 }
 
 function requiredTrimmed(
@@ -196,7 +197,7 @@ export function parseRentalEditInput(
       customerEmail: customerEmail.value,
       customerPhone: customerPhone.value,
       eventDate: eventDate.value,
-      eventStartTime: eventStartTime.value,
+      eventStartTime: eventStartTime.value?.slice(0, 5) ?? null,
       requestedDeliveryWindow: requestedDeliveryWindow.value,
       eventAddress: eventAddress.value,
       setupLocation: setupLocation.value,

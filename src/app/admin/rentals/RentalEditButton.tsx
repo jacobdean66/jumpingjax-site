@@ -192,7 +192,7 @@ export function RentalEditButton({ booking }: Props) {
                 <input
                   name="eventStartTime"
                   type="time"
-                  defaultValue={booking.eventStartTime ?? ""}
+                  defaultValue={booking.eventStartTime?.slice(0, 5) ?? ""}
                   className={inputClass}
                 />
               </Field>
