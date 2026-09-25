@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import { invitationSnapshotFromChoice } from "@/lib/facility-parties/invitations/snapshot";
 import type { FacilityInvitationTemplateId } from "@/lib/facility-parties/invitations";

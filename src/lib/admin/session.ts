@@ -13,12 +13,14 @@ async function cookieAuth(): Promise<AdminDeliveryAuthResult> {
 export async function verifyAdminAccess(
   _legacyToken?: string | null,
 ): Promise<AdminDeliveryAuthResult> {
+  void _legacyToken;
   return cookieAuth();
 }
 
 export async function verifyAdminOwnerAccess(
   _legacyToken?: string | null,
 ): Promise<AdminDeliveryAuthResult> {
+  void _legacyToken;
   const auth = await cookieAuth();
   if (!auth.ok) return auth;
   return auth.role === "owner"

@@ -1,12 +1,17 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
+
   return (
     <button
       type="button"
       onClick={async () => {
         await fetch("/api/admin/session", { method: "DELETE" });
-        window.location.href = "/admin";
+        router.push("/admin");
+        router.refresh();
       }}
       className={compact
         ? "inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-[11px] font-bold leading-tight text-slate-700 hover:bg-slate-50"

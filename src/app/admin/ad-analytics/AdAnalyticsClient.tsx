@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   MetaAdRow,
@@ -44,14 +44,17 @@ function StatusPill({ status }: { status: string }) {
 
 function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
   const router = useRouter();
-  const [status, setStatus] = useState(ad.effectiveStatus);
+  const [statusOverride, setStatusOverride] = useState<{
+    adId: string;
+    status: string;
+  } | null>(null);
+  const status =
+    statusOverride?.adId === ad.id
+      ? statusOverride.status
+      : ad.effectiveStatus;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canStop = !["PAUSED", "DELETED", "ARCHIVED", "COMPLETED"].includes(status);
-
-  useEffect(() => {
-    setStatus(ad.effectiveStatus);
-  }, [ad.effectiveStatus]);
 
   async function stopAd() {
     setPending(true);
@@ -71,7 +74,7 @@ function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
       if (!response.ok) {
         throw new Error(payload.error || "Meta did not stop this ad.");
       }
-      setStatus("PAUSED");
+      setStatusOverride({ adId: ad.id, status: "PAUSED" });
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Meta did not stop this ad.");

@@ -430,6 +430,7 @@ test("replaySocialExecutionRunner returns deterministic read model", async () =>
     attemptId: ATTEMPT_ID,
     ...fixtures,
     ownerApprovalVerification: { status: "verified", code: null },
+    now: new Date("2026-07-05T12:30:00.000Z"),
   });
 
   const replay = await replaySocialExecutionRunner({
@@ -437,6 +438,7 @@ test("replaySocialExecutionRunner returns deterministic read model", async () =>
     ...fixtures,
     runnerSnapshot: await runnerStore.loadSnapshot(),
     ownerApprovalVerification: { status: "verified", code: null },
+    now: new Date("2026-07-05T12:30:00.000Z"),
   });
 
   assert.equal(replay.summary.transcriptCount, 1);
@@ -448,7 +450,6 @@ test("replaySocialExecutionRunner returns deterministic read model", async () =>
 });
 
 test("validateExecutionRunnerTranscriptRecord rejects forbidden execution permission", () => {
-  const fixtures = readyFixtures();
   const validation = validateExecutionRunnerTranscriptRecord({
     runnerVersion: "d16-w11-v1",
     transcriptId: "exec-runner-transcript:test-1",
