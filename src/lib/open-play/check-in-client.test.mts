@@ -227,6 +227,41 @@ test("canSubmit rejects empty group and missing payment", () => {
   assert.equal(missing.ok, false);
 });
 
+test("adult and child on the same waiver require playing or watching", () => {
+  const submissionId = "shared-waiver";
+  const adult = resultToDraft(adultResult({ submissionId }));
+  const child: SelectedAttendeeDraft = {
+    ...resultToDraft(childResult({ submissionId, birthYear: 2020 })),
+    paymentMethod: "cash",
+  };
+
+  const missingMode = canSubmitCheckInGroup([adult, child], "2026-08-06");
+  assert.equal(missingMode.ok, false);
+  if (!missingMode.ok) {
+    assert.match(missingMode.message, /playing or watching/i);
+  }
+
+  const playingAdult: SelectedAttendeeDraft = {
+    ...adult,
+    adultMode: "playing",
+    paymentMethod: "card",
+  };
+  assert.equal(
+    canSubmitCheckInGroup([playingAdult, child], "2026-08-06").ok,
+    true,
+  );
+
+  const watchingAdult: SelectedAttendeeDraft = {
+    ...adult,
+    adultMode: "watching",
+    paymentMethod: null,
+  };
+  assert.equal(
+    canSubmitCheckInGroup([watchingAdult, child], "2026-08-06").ok,
+    true,
+  );
+});
+
 test("buildVisitCreateBody omits clientPriceCents when child price uncertain but still sends payment", () => {
   const body = buildVisitCreateBody({
     visitDateYmd: "2026-08-06",
