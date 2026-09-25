@@ -29,6 +29,12 @@ import { FacilityEditButton } from "./FacilityEditButton";
 import { FacilityRestoreButton } from "./FacilityRestoreButton";
 import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
 import { FacilityAgreementPanel } from "./FacilityAgreementPanel";
+import { BookingPaymentButton } from "../BookingPaymentButton";
+import {
+  formatCents,
+  remainingBookingBalanceCents,
+  sumBookingPaymentCents,
+} from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -80,15 +86,21 @@ function kidCountForBooking(booking: AdminFacilityBooking): number | null {
 }
 
 function partyTimeLabel(booking: AdminFacilityBooking): string {
-  return [booking.readableDate, booking.readableTime]
-    .filter((value): value is string => Boolean(value))
-    .join(" - ") || "Time not set";
+  return (
+    [booking.readableDate, booking.readableTime]
+      .filter((value): value is string => Boolean(value))
+      .join(" - ") || "Time not set"
+  );
 }
 
-function canRetryCancelledCalendarRemoval(booking: AdminFacilityBooking): boolean {
+function canRetryCancelledCalendarRemoval(
+  booking: AdminFacilityBooking,
+): boolean {
   return (
     (booking.status === "cancelled" || booking.status === "canceled") &&
-    Boolean(booking.googleCalendarEventId || booking.googleCalendarSecondaryEventId)
+    Boolean(
+      booking.googleCalendarEventId || booking.googleCalendarSecondaryEventId,
+    )
   );
 }
 
@@ -102,10 +114,13 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const canCheckIn = ["approved", "confirmed"].includes(
     booking.status.trim().toLowerCase(),
   );
+  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
+  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
+    booking.status,
+  );
   return (
-    <article
-      className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
-    >
+    <article className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -116,12 +131,19 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </div>
           <h2 className="mt-3 text-2xl font-black">{booking.customerName}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-600">
-            {booking.partyLabel ?? "Facility party"} -{" "}
-            {partyTime}
+            {booking.partyLabel ?? "Facility party"} - {partyTime}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <BookingInvoiceButton kind="facility" bookingId={booking.id} />
+          {canCollectPayment ? (
+            <BookingPaymentButton
+              bookingId={booking.id}
+              kind="facility"
+              customerEmail={booking.email}
+              balanceCents={balanceCents}
+            />
+          ) : null}
           {canCheckIn ? (
             <>
               <Link
@@ -173,7 +195,8 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               />
             </>
           )}
-          {(booking.status === "cancelled" || booking.status === "canceled") && (
+          {(booking.status === "cancelled" ||
+            booking.status === "canceled") && (
             <FacilityRestoreButton
               bookingId={booking.id}
               customerName={booking.customerName}
@@ -183,16 +206,16 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             />
           )}
           {canRetryCancelledCalendarRemoval(booking) && (
-              <FacilityCancellationButton
-                endpoint={actionHref(booking.id, "cancel")}
-                customerName={booking.customerName}
-                partyTime={partyTime}
-                childName={booking.childName}
-                kidCount={kidCount}
-                currentStatus={booking.status}
-                retryCalendarOnly
-              />
-            )}
+            <FacilityCancellationButton
+              endpoint={actionHref(booking.id, "cancel")}
+              customerName={booking.customerName}
+              partyTime={partyTime}
+              childName={booking.childName}
+              kidCount={kidCount}
+              currentStatus={booking.status}
+              retryCalendarOnly
+            />
+          )}
         </div>
         {booking.calendarNeedsRepair && (
           <div className="flex flex-col items-start gap-2 print:hidden">
@@ -200,8 +223,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               {booking.safeWorkflowErrorClass ===
                 "calendar_secondary_projection_failed" ||
               (booking.googleCalendarEventId &&
-                booking.safeWorkflowErrorClass !==
-                  "calendar_projection_failed")
+                booking.safeWorkflowErrorClass !== "calendar_projection_failed")
                 ? "Primary calendar synced. Backup calendar sync needs attention."
                 : "Calendar sync needs attention."}
               {booking.safeWorkflowErrorClass
@@ -226,7 +248,8 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               Pending approval
             </p>
             <p className="mt-1 text-sm font-semibold text-amber-900">
-              Review the complete party request below, then approve or reject this party.
+              Review the complete party request below, then approve or reject
+              this party.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
@@ -306,7 +329,9 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             />
             <Detail
               label="Deposit"
-              value={booking.depositAcknowledged ? "Acknowledged" : "Not checked"}
+              value={
+                booking.depositAcknowledged ? "Acknowledged" : "Not checked"
+              }
             />
             <Detail label="Notes" value={booking.notes ?? "None"} />
           </div>
@@ -332,7 +357,45 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <Detail label="Total" value={formatMoney(booking.total)} />
         </section>
       </div>
-      {!['cancelled', 'canceled', 'rejected'].includes(booking.status) ? (
+      <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-black uppercase tracking-wide text-emerald-800">
+            Deposit record
+          </h3>
+          <p className="text-sm font-black text-emerald-900">
+            Paid {formatCents(paidCents)}
+            {balanceCents === null
+              ? ""
+              : ` | Balance ${formatCents(balanceCents)}`}
+          </p>
+        </div>
+        {booking.paymentEntries.length === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            No deposits have been recorded for this party.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {booking.paymentEntries.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm"
+              >
+                <span className="font-bold text-slate-900">
+                  {formatCents(entry.amountCents)} via {entry.paymentMethod}
+                  {entry.processingFeeCents > 0
+                    ? ` (+${formatCents(entry.processingFeeCents)} fee)`
+                    : ""}
+                </span>
+                <span className="text-xs font-semibold text-slate-600">
+                  {new Date(entry.createdAt).toLocaleString()} | Receipt{" "}
+                  {entry.receiptEmailSentAt ? "emailed" : "not emailed"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      {!["cancelled", "canceled", "rejected"].includes(booking.status) ? (
         <FacilityAgreementPanel
           booking={{
             id: booking.id,
@@ -353,7 +416,11 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   );
 }
 
-function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) {
+function FacilityExpandableCard({
+  booking,
+}: {
+  booking: AdminFacilityBooking;
+}) {
   const kidCount = kidCountForBooking(booking);
   return (
     <details
@@ -386,7 +453,9 @@ function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) 
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-3 text-xs font-bold text-slate-500">
             <span>{booking.partyLabel ?? "Facility party"}</span>
             <span>{roomLabel(booking.room)}</span>
-            <span>{kidCount === null ? "Kids not set" : `${kidCount} kids`}</span>
+            <span>
+              {kidCount === null ? "Kids not set" : `${kidCount} kids`}
+            </span>
           </div>
         </div>
       </summary>
@@ -460,7 +529,10 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
       >
         <div className="relative z-10">
           <section className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-6 print:border-0 print:p-0 print:shadow-none">
-            <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard">
+            <AdminHeader
+              eyebrow="Facility Admin"
+              title="Facility Party Dashboard"
+            >
               <FilterForm
                 key={`${from}-${effectiveTo}-${singleDay}-${status}-${kind}`}
                 token={token}
@@ -531,7 +603,9 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {displayedBookings.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-                  <p className="text-lg font-bold">No facility parties found.</p>
+                  <p className="text-lg font-bold">
+                    No facility parties found.
+                  </p>
                   <p className="mt-2 text-sm text-slate-600">
                     Adjust the date range or status filter.
                   </p>
@@ -544,15 +618,15 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             </div>
           </section>
 
-        {displayedBookings.length > 0 && (
-          <div className="mt-8 hidden gap-5 print:grid">
-            {displayedBookings.map((booking) => (
-              <div key={booking.id}>
-                <FacilityCard booking={booking} />
-              </div>
-            ))}
-          </div>
-        )}
+          {displayedBookings.length > 0 && (
+            <div className="mt-8 hidden gap-5 print:grid">
+              {displayedBookings.map((booking) => (
+                <div key={booking.id}>
+                  <FacilityCard booking={booking} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AdminShell>
