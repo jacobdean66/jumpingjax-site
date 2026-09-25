@@ -135,7 +135,12 @@ export function verifyAdminDeliveryToken(
 
   const identity = identities.find((item) => item.password === cleanToken);
   if (identity) {
-    const { password: _password, ...safeIdentity } = identity;
+    const safeIdentity: AdminIdentity = {
+      id: identity.id,
+      name: identity.name,
+      role: identity.role,
+      username: identity.username,
+    };
     return { ok: true, role: safeIdentity.role, identity: safeIdentity };
   }
 
@@ -168,7 +173,12 @@ export function verifyAdminLogin(
     return { ok: false, reason: "invalid_token" };
   }
 
-  const { password: _password, ...safeIdentity } = identity;
+  const safeIdentity: AdminIdentity = {
+    id: identity.id,
+    name: identity.name,
+    role: identity.role,
+    username: identity.username,
+  };
   return { ok: true, role: safeIdentity.role, identity: safeIdentity };
 }
 

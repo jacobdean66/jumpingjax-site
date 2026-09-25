@@ -360,7 +360,7 @@ function FacilityExpandableCard({ booking }: { booking: AdminFacilityBooking }) 
       id={`booking-${booking.id}`}
       className="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-lg open:col-span-full open:translate-y-0 open:border-pink-300 open:shadow-xl"
     >
-      <summary className="flex min-h-52 cursor-pointer list-none flex-col rounded-2xl p-5 transition hover:bg-pink-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-inset group-open:min-h-0 group-open:rounded-b-none group-open:border-b group-open:border-slate-200 group-open:bg-slate-50 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-52 cursor-pointer list-none flex-col rounded-2xl p-5 transition hover:bg-pink-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-inset group-open:aspect-auto group-open:min-h-0 group-open:rounded-b-none group-open:border-b group-open:border-slate-200 group-open:bg-slate-50 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-3">
           <StatusBadge status={booking.status} />
           <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 group-open:bg-white">

@@ -704,7 +704,37 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 1024,
     "format": "png"
   },
+  "/invitations/approved/camouflage/print-light-v1.png": {
+    "width": 1536,
+    "height": 1024,
+    "format": "png"
+  },
+  "/invitations/approved/princess/print-light-v1.png": {
+    "width": 1536,
+    "height": 1024,
+    "format": "png"
+  },
+  "/invitations/approved/princess/royal-portrait-v1.png": {
+    "width": 1024,
+    "height": 1536,
+    "format": "png"
+  },
+  "/invitations/approved/racing-cars/storybook-portrait-v1.png": {
+    "width": 1024,
+    "height": 1536,
+    "format": "png"
+  },
   "/invitations/approved/sonic/card.png": {
+    "width": 1536,
+    "height": 1024,
+    "format": "png"
+  },
+  "/invitations/approved/sonic/print-light-v1.png": {
+    "width": 1536,
+    "height": 1024,
+    "format": "png"
+  },
+  "/invitations/approved/transforming-robots/print-light-v1.png": {
     "width": 1536,
     "height": 1024,
     "format": "png"

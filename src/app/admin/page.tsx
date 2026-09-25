@@ -93,6 +93,15 @@ export default async function AdminHomePage({ searchParams }: Props) {
             accent: "info" as const,
           },
           {
+            title: "Security Center",
+            eyebrow: "Owner Tools",
+            description:
+              "Review deployment health, provider findings, and guarded repair recommendations.",
+            href: "/admin/security",
+            cta: "Open Security Center",
+            accent: "steel" as const,
+          },
+          {
             title: "Agent Manager",
             eyebrow: "Owner Tools",
             description: "Monitor durable agents, queued jobs, approvals, failures, and the global emergency stop.",
