@@ -35,16 +35,42 @@ const callReviewSchema = z.object({
   serviceKind: z.enum(["", "rental", "facility_party"]),
   eventDate: z.string().max(10),
   facilityStartTime: z.string().max(5),
-  rentalItems: z.string().max(2400),
+  rentalItems: z.array(z.string().max(120)).max(20),
   transcript: z.string().max(50000),
   transcriptComplete: z.boolean(),
   agentSummary: z.string().max(2000),
   ownerNotes: z.string().max(2000),
+  customerName: z.string().max(120),
+  customerEmail: z.string().max(254),
+  customerPhone: z.string().max(40),
+  eventStartTime: z.string().max(5),
+  duration: z.string().max(80),
+  requestedDeliveryWindow: z.string().max(100),
+  eventAddress: z.string().max(500),
+  distanceMiles: z.string().max(10),
+  setupSurface: z.string().max(120),
+  setupAccess: z.string().max(500),
+  setupNotes: z.string().max(2000),
+  paymentMethod: z.enum(["Cash", "Card"]),
+  facilityPartyKind: z.enum(["public", "private"]),
+  facilityRoom: z.enum(["room-10", "room-20"]),
+  facilityDurationMinutes: z.enum(["90", "120", "180"]),
+  childName: z.string().max(120),
+  childGender: z.string().max(80),
+  childAge: z.string().max(40),
+  partyTheme: z.string().max(200),
+  drinkChoice: z.string().max(120),
 }).strict();
 
 type CallReviewValues = z.infer<typeof callReviewSchema>;
 
-function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpdate: (call: AnsweringMachineCall) => void }) {
+type RentalOption = { slug: string; title: string };
+
+function CallReviewCard({ call, rentalOptions, onUpdate }: {
+  call: AnsweringMachineCall;
+  rentalOptions: RentalOption[];
+  onUpdate: (call: AnsweringMachineCall) => void;
+}) {
   const [message, setMessage] = useState("");
   const { register, control, handleSubmit, formState: { isSubmitting } } = useForm<CallReviewValues>({
     resolver: zodResolver(callReviewSchema),
@@ -52,11 +78,31 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
       serviceKind: call.serviceKind ?? "",
       eventDate: call.eventDate ?? "",
       facilityStartTime: call.facilityStartTime ?? "",
-      rentalItems: call.rentalItems.join(", "),
+      rentalItems: call.rentalItems,
       transcript: call.transcript,
       transcriptComplete: call.transcriptComplete,
       agentSummary: call.agentSummary,
       ownerNotes: call.ownerNotes,
+      customerName: call.bookingDetails.customerName,
+      customerEmail: call.bookingDetails.customerEmail,
+      customerPhone: call.bookingDetails.customerPhone,
+      eventStartTime: call.bookingDetails.eventStartTime,
+      duration: call.bookingDetails.duration,
+      requestedDeliveryWindow: call.bookingDetails.requestedDeliveryWindow,
+      eventAddress: call.bookingDetails.eventAddress,
+      distanceMiles: call.bookingDetails.distanceMiles?.toString() ?? "",
+      setupSurface: call.bookingDetails.setupSurface,
+      setupAccess: call.bookingDetails.setupAccess,
+      setupNotes: call.bookingDetails.setupNotes,
+      paymentMethod: call.bookingDetails.paymentMethod === "Cash" ? "Cash" : "Card",
+      facilityPartyKind: call.bookingDetails.facilityPartyKind,
+      facilityRoom: call.bookingDetails.facilityRoom,
+      facilityDurationMinutes: call.bookingDetails.facilityDurationMinutes.toString() as "90" | "120" | "180",
+      childName: call.bookingDetails.childName,
+      childGender: call.bookingDetails.childGender,
+      childAge: call.bookingDetails.childAge,
+      partyTheme: call.bookingDetails.partyTheme,
+      drinkChoice: call.bookingDetails.drinkChoice,
     },
   });
   const serviceKind = useWatch({ control, name: "serviceKind" });
@@ -64,12 +110,13 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
   const facilityStartTime = useWatch({ control, name: "facilityStartTime" });
   const rentalItems = useWatch({ control, name: "rentalItems" });
   const transcriptComplete = useWatch({ control, name: "transcriptComplete" });
-  const terminal = call.status === "approved" || call.status === "rejected";
+  const facilityPartyKind = useWatch({ control, name: "facilityPartyKind" });
+  const terminal = Boolean(call.bookingId) || call.status === "rejected";
 
   const approvalReady = transcriptComplete && Boolean(serviceKind) && Boolean(eventDate)
-    && (serviceKind === "facility_party" ? Boolean(facilityStartTime) : rentalItems.split(",").some((item) => item.trim()));
+    && (serviceKind === "facility_party" ? Boolean(facilityStartTime) : rentalItems.length > 0);
 
-  async function submit(action: "save" | "approve" | "reject", values: CallReviewValues) {
+  async function submit(action: "save" | "book" | "reject", values: CallReviewValues) {
     setMessage("");
     try {
       const response = await fetch("/api/admin/answering-machine", {
@@ -83,24 +130,38 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
             serviceKind: values.serviceKind || null,
             eventDate: values.eventDate || null,
             facilityStartTime: values.serviceKind === "facility_party" ? values.facilityStartTime || null : null,
-            rentalItems: values.serviceKind === "rental" ? values.rentalItems.split(",").map((item) => item.trim()).filter(Boolean) : [],
+            rentalItems: values.serviceKind === "rental" ? values.rentalItems : [],
             transcript: values.transcript,
             transcriptComplete: values.transcriptComplete,
             agentSummary: values.agentSummary,
             ownerNotes: values.ownerNotes,
+            bookingDetails: {
+              customerName: values.customerName.trim(), customerEmail: values.customerEmail.trim(),
+              customerPhone: values.customerPhone.trim(), eventStartTime: values.eventStartTime,
+              duration: values.duration.trim(), requestedDeliveryWindow: values.requestedDeliveryWindow.trim(),
+              eventAddress: values.eventAddress.trim(),
+              distanceMiles: values.distanceMiles.trim() ? Number(values.distanceMiles) : null,
+              setupSurface: values.setupSurface.trim(), setupAccess: values.setupAccess.trim(),
+              setupNotes: values.setupNotes.trim(), paymentMethod: values.paymentMethod,
+              facilityPartyKind: values.facilityPartyKind, facilityRoom: values.facilityRoom,
+              facilityDurationMinutes: Number(values.facilityDurationMinutes) as 90 | 120 | 180,
+              childName: values.childName.trim(), childGender: values.childGender.trim(),
+              childAge: values.childAge.trim(), partyTheme: values.partyTheme.trim(),
+              drinkChoice: values.drinkChoice.trim(),
+            },
           },
         }),
       });
       const body = await response.json() as { ok: boolean; call?: AnsweringMachineCall; error?: string };
       if (!response.ok || !body.call) throw new Error(body.error ?? "Review failed safely.");
       onUpdate(body.call);
-      setMessage(action === "approve" ? "Approved for the next staged booking step." : action === "reject" ? "Rejected and retained in history." : "Changes saved.");
+      setMessage(action === "book" ? `Booking ${body.call.bookingId} was created and is waiting for normal confirmation.` : action === "reject" ? "Rejected and retained in history." : "Changes saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Review failed safely.");
     }
   }
 
-  function runAction(action: "save" | "approve" | "reject") {
+  function runAction(action: "save" | "book" | "reject") {
     void handleSubmit(
       (values) => submit(action, values),
       () => setMessage("Review fields are invalid or exceed their safe limits."),
@@ -167,10 +228,11 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
           {serviceKind === "rental" ? (
             <label className="block text-sm font-black text-slate-800">
               Rental selection
-              <input {...register("rentalItems")} maxLength={2400}
-                placeholder="Bounce house, foam party package"
-                className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-base font-bold" />
-              <span className="mt-1 block text-xs font-semibold text-slate-500">Separate multiple rentals with commas. Foam parties belong here.</span>
+              <select multiple size={Math.min(8, Math.max(4, rentalOptions.length))} {...register("rentalItems")}
+                className="mt-2 block w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm font-bold">
+                {rentalOptions.map((rental) => <option key={rental.slug} value={rental.slug}>{rental.title}</option>)}
+              </select>
+              <span className="mt-1 block text-xs font-semibold text-slate-500">Hold Ctrl while clicking to select more than one rental.</span>
             </label>
           ) : null}
           <label className="block text-sm font-black text-slate-800">
@@ -186,11 +248,48 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
         </section>
       </div>
 
+      <section className="mt-4 border-t border-slate-200 pt-4">
+        <h3 className="text-base font-black text-slate-950">Customer and booking details</h3>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <label className="text-sm font-bold">Customer name<input {...register("customerName")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+          <label className="text-sm font-bold">Email<input type="email" {...register("customerEmail")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+          <label className="text-sm font-bold">Phone<input type="tel" {...register("customerPhone")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+        </div>
+
+        {serviceKind === "rental" ? (
+          <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <label className="text-sm font-bold">Event start time<input type="time" {...register("eventStartTime")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Rental duration<select {...register("duration")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option>4 Hours</option><option>8 Hours</option><option>Overnight</option><option>2 Days</option></select></label>
+            <label className="text-sm font-bold">Requested delivery window<input {...register("requestedDeliveryWindow")} placeholder="8:00 AM - 10:00 AM" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold md:col-span-2">Event address<input {...register("eventAddress")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Distance in miles<input type="number" min="0" max="500" step="0.1" {...register("distanceMiles")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Setup surface<input {...register("setupSurface")} placeholder="Grass, pavement, indoors" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold md:col-span-2">Setup access<input {...register("setupAccess")} placeholder="Gate width, stairs, parking instructions" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold md:col-span-3">Setup notes<textarea rows={2} {...register("setupNotes")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+          </div>
+        ) : null}
+
+        {serviceKind === "facility_party" ? (
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <label className="text-sm font-bold">Party type<select {...register("facilityPartyKind")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option value="public">Public Play Party</option><option value="private">Private Party</option></select></label>
+            {facilityPartyKind === "public" ? <label className="text-sm font-bold">Party room<select {...register("facilityRoom")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option value="room-10">10 kid room</option><option value="room-20">20 kid room</option></select></label> : null}
+            <label className="text-sm font-bold">Duration<select {...register("facilityDurationMinutes")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option value="90">1.5 hours</option>{facilityPartyKind === "private" ? <><option value="120">2 hours</option><option value="180">3 hours</option></> : null}</select></label>
+            <label className="text-sm font-bold">Birthday child<input {...register("childName")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Child gender<input {...register("childGender")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Child age<input {...register("childAge")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Party theme<input {...register("partyTheme")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+            <label className="text-sm font-bold">Drink choice<select {...register("drinkChoice")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">Choose</option><option>Capri-Sun</option><option>Kool-Aid Jammers</option><option>Gatorade</option><option>Soda</option><option>Huggs</option></select></label>
+          </div>
+        ) : null}
+
+        <label className="mt-3 block max-w-xs text-sm font-bold">Payment method<select {...register("paymentMethod")} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option>Card</option><option>Cash</option></select></label>
+      </section>
+
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={isSubmitting || terminal} onClick={() => runAction("save")}
           className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-800 disabled:opacity-50">Save edits</button>
-        <button type="button" disabled={isSubmitting || terminal || !approvalReady} onClick={() => runAction("approve")}
-          className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">Approve information</button>
+        <button type="button" disabled={isSubmitting || terminal || !approvalReady} onClick={() => runAction("book")}
+          className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">Create booking request</button>
         <button type="button" disabled={isSubmitting || terminal} onClick={() => runAction("reject")}
           className="rounded-full bg-rose-700 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Reject</button>
       </div>
@@ -198,12 +297,15 @@ function CallReviewCard({ call, onUpdate }: { call: AnsweringMachineCall; onUpda
         <p className="mt-2 text-xs font-bold text-amber-800">Approval requires a completed transcript plus the date and required service details.</p>
       ) : null}
       {message ? <p role="status" className="mt-3 text-sm font-bold text-slate-700">{message}</p> : null}
+      {call.bookingId ? <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm font-black text-emerald-900">Created {call.bookingKind === "rental" ? "rental" : "facility"} booking: {call.bookingId}</p> : null}
+      {call.bookingError ? <p className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-900">Last booking attempt: {call.bookingError}</p> : null}
     </article>
   );
 }
 
-export function AnsweringMachineInbox({ initialCalls, readiness, storageError }: {
+export function AnsweringMachineInbox({ initialCalls, rentalOptions, readiness, storageError }: {
   initialCalls: AnsweringMachineCall[];
+  rentalOptions: RentalOption[];
   readiness: Readiness;
   storageError: string | null;
 }) {
@@ -263,7 +365,7 @@ export function AnsweringMachineInbox({ initialCalls, readiness, storageError }:
         </div>
         {message ? <p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-slate-700">{message}</p> : null}
         <div className="mt-4 grid gap-5">
-          {calls.length > 0 ? calls.map((call) => <CallReviewCard key={`${call.id}:${call.revision}`} call={call} onUpdate={updateCall} />) : (
+          {calls.length > 0 ? calls.map((call) => <CallReviewCard key={`${call.id}:${call.revision}`} call={call} rentalOptions={rentalOptions} onUpdate={updateCall} />) : (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <h3 className="text-xl font-black">No WhatsApp calls yet</h3>
               <p className="mt-2 text-sm font-semibold text-slate-600">Completed call transcripts will appear here for editing and approval.</p>
