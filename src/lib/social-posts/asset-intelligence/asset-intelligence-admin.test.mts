@@ -8,8 +8,8 @@ const PAGE_SOURCE = readFileSync(
   `${DIRECTORY}../../../app/admin/social-posts/asset-intelligence/page.tsx`,
   "utf8",
 );
-const HUB_SOURCE = readFileSync(
-  `${DIRECTORY}../../../app/admin/social-posts/page.tsx`,
+const NAV_SOURCE = readFileSync(
+  `${DIRECTORY}../../../app/admin/social-posts/SocialPostsNav.tsx`,
   "utf8",
 );
 const PLANNER_SOURCE = readFileSync(
@@ -37,9 +37,9 @@ test("asset admin page is informational and exposes no mutation controls", () =>
   assert.doesNotMatch(PAGE_SOURCE, /scheduleSocialPost/i);
 });
 
-test("social posts hub links to the authenticated asset intelligence page", () => {
-  assert.match(HUB_SOURCE, /\/admin\/social-posts\/asset-intelligence/);
-  assert.match(HUB_SOURCE, /Asset intelligence/);
+test("social posts navigation links to the authenticated asset intelligence page", () => {
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/asset-intelligence/);
+  assert.match(NAV_SOURCE, /Asset intelligence/);
 });
 
 test("campaign planner page surfaces asset readiness summary", () => {

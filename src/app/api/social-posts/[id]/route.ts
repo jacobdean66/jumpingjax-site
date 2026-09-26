@@ -209,6 +209,18 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return schemaGuard;
     }
 
+    if (stringValue(body.status) === "posted") {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "durable_meta_result_required",
+          error:
+            "Posted status can only be recorded by a durable successful Meta publication result.",
+        },
+        { status: 409 },
+      );
+    }
+
     try {
       if (body.action === "duplicate") {
         const post = await duplicateSocialPostDraft(id);

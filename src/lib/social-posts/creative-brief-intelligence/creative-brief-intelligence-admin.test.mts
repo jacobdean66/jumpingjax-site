@@ -8,8 +8,8 @@ const PAGE_SOURCE = readFileSync(
   `${DIRECTORY}../../../app/admin/social-posts/creative-brief-intelligence/page.tsx`,
   "utf8",
 );
-const HUB_SOURCE = readFileSync(
-  `${DIRECTORY}../../../app/admin/social-posts/page.tsx`,
+const NAV_SOURCE = readFileSync(
+  `${DIRECTORY}../../../app/admin/social-posts/SocialPostsNav.tsx`,
   "utf8",
 );
 const PLANNER_SOURCE = readFileSync(
@@ -37,12 +37,13 @@ test("creative brief admin page is informational and exposes no mutation control
   assert.doesNotMatch(PAGE_SOURCE, /approveSocial/i);
 });
 
-test("social posts hub links to the authenticated creative brief intelligence page", () => {
-  assert.match(HUB_SOURCE, /\/admin\/social-posts\/creative-brief-intelligence/);
-  assert.match(HUB_SOURCE, /Creative brief intelligence/);
+test("social posts navigation links to the authenticated creative brief intelligence page", () => {
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/creative-brief-intelligence/);
+  assert.match(NAV_SOURCE, /Creative brief intelligence/);
 });
 
-test("campaign planner page links to creative brief intelligence", () => {
-  assert.match(PLANNER_SOURCE, /\/admin\/social-posts\/creative-brief-intelligence/);
-  assert.match(PLANNER_SOURCE, /Creative brief intelligence/);
+test("campaign planner shares navigation to creative brief intelligence", () => {
+  assert.match(PLANNER_SOURCE, /SocialPostsPageHeader/);
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/creative-brief-intelligence/);
+  assert.match(NAV_SOURCE, /Creative brief intelligence/);
 });

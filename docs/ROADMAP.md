@@ -364,7 +364,7 @@ Meta Live OAuth Connect (D16 Wave 1; owner redirect + callback + code exchange +
 Meta Asset Discovery & Publication Target Binding (D16 Wave 2; Page/Instagram discovery + target binding; identity mapping only)
 ```
 
-D13 complete: credential vault metadata persistence, encryption boundary contracts, cryptographic policy contracts, and read-only admin diagnostics — envelope encryption execution is limited to D16 OAuth runtime token envelopes only. D15 Waves 1–3 complete: credential runtime orchestration, provider integration planning, credential resolution execution bridge, and publication execution eligibility preflight — still no live HTTP/SDK adapters, publishing, or execution authority. **D16 Wave 1** adds owner-initiated Meta OAuth connect with encrypted vault persistence and admin diagnostics only. See `docs/D15_ARCHITECTURE_BASELINE.md` for the authoritative D1–D15 reference and `docs/ARCHITECTURE.md` for D16 Wave 1.
+D13 credential storage and D15 planning/preflight remain intact. D16 now includes owner-initiated Meta OAuth, Page discovery/binding, manual token refresh, durable owner approval, exact execution authorization, idempotent Facebook Page publication, authoritative post-status reconciliation, and owner-authorized scheduled publication through a protected due-job worker. The older D9 Scheduler, Publisher, Metrics, Learning, and D10-D16 modeling layers remain non-authoritative; they do not gain publication authority from this live path. See `docs/ARCHITECTURE.md` Layer 31 for the current execution boundary.
 
 Admin read-only surfaces (all auth-gated):
 
@@ -379,7 +379,7 @@ Admin read-only surfaces (all auth-gated):
 | `/admin/social-posts/publication-metrics` | D9 + H24 | Metric observation records and computed replay |
 | `/admin/social-posts/publication-publisher` | D9 + H19 | Publisher request/result records and computed replay |
 | `/admin/social-posts/publication-learning` | D9 + H26 | Candidate/blocked/accepted/rejected learning insights and computed, explainable replay |
-| `/admin/social-posts/publication-execution` | D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1-9 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H43/H44/H45/H46/H47/H48 | Execution records, replay, preflight, planner, adapter, runbook, coordinator, platform adapter, OAuth modeling, credential, orchestration, eligibility, live Meta OAuth connect, token lifecycle, execution authorization, execution attempt, and evidence append diagnostics |
+| `/admin/social-posts/publication-execution` | D10-D16 diagnostics + controlled Meta execution | Primary owner workflow for Meta connection, durable approval handoff, scoped authorization, immediate Facebook publication, scheduled publication, and recovery visibility; advanced modeling remains read-only |
 | `/admin/social-posts/operations` | D9 Wave 11 | AI Operations Console: unified subsystem overview, cross-system pipeline explainability, passive diagnostics |
 
 Decision History is the immutable source of truth. It records durable facts about accepted, rejected, and selected marketing decisions.

@@ -88,6 +88,7 @@ test("evaluateMetaRefreshEligibility allows fb_exchange_token for valid token", 
     expiryAssessment: assessTokenExpiry({
       expiresAt: baseLifecycle.expires_at,
       issuedAt: baseLifecycle.issued_at,
+      now: new Date("2026-07-05T12:00:00.000Z"),
     }),
     hasRefreshTokenInVault: false,
   });

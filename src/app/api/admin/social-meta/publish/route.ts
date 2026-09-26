@@ -122,7 +122,8 @@ export async function POST(req: NextRequest) {
     );
     redirectUrl.searchParams.set(
       "meta_publish_message",
-      result.replay ? "Idempotent replay (no new Meta post)." : "Published.",
+      result.warning ??
+        (result.replay ? "Idempotent replay (no new Meta post)." : "Published."),
     );
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
@@ -153,6 +154,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     replay: result.replay,
+    postStatusSynced: result.postStatusSynced,
+    warning: result.warning,
     result: {
       externalPostId: result.result.externalPostId,
       status: result.result.status,

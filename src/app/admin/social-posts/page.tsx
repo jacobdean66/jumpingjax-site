@@ -64,7 +64,7 @@ export default async function AdminSocialPostsPage({ searchParams }: Props) {
         </div>
 
         {loadError ? null : (
-          <SocialPostsAdminClient posts={posts} token={token} sourceImages={SOCIAL_SOURCE_IMAGES} marketingMemory={marketingMemory} agentUiProtection={agentUiProtection} />
+          <SocialPostsAdminClient posts={posts} token={token} sourceImages={SOCIAL_SOURCE_IMAGES} marketingMemory={marketingMemory} agentUiProtection={agentUiProtection} ownerMode={auth.role === "owner"} />
         )}
       </section>
     </main>

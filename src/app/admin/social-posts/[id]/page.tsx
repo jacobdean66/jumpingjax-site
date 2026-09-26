@@ -28,7 +28,7 @@ export default async function SocialPostEditorPage({ params, searchParams }: Pro
     <main className="sp-page"><section className="sp-container">
       <SocialPostsPageHeader title={post.title ?? "Untitled Social Post"} description="Complete editor, generation controls, approval, and scheduling for this post only." query={query.slice(1)} singleLineTitle />
       <Link href={`/admin/social-posts${query}`} className="mt-4 inline-flex text-sm font-black text-violet-700 hover:text-violet-900">← Back to draft cards</Link>
-      <SocialPostsAdminClient posts={[post]} token={token} sourceImages={SOCIAL_SOURCE_IMAGES} marketingMemory={marketingMemory} agentUiProtection={agentUiProtection} detailMode />
+      <SocialPostsAdminClient posts={[post]} token={token} sourceImages={SOCIAL_SOURCE_IMAGES} marketingMemory={marketingMemory} agentUiProtection={agentUiProtection} ownerMode={auth.role === "owner"} detailMode />
     </section></main>
   );
 }

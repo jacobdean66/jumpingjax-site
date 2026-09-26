@@ -8,8 +8,8 @@ const PAGE_SOURCE = readFileSync(
   `${DIRECTORY}../../../app/admin/social-posts/content-draft-specification/page.tsx`,
   "utf8",
 );
-const HUB_SOURCE = readFileSync(
-  `${DIRECTORY}../../../app/admin/social-posts/page.tsx`,
+const NAV_SOURCE = readFileSync(
+  `${DIRECTORY}../../../app/admin/social-posts/SocialPostsNav.tsx`,
   "utf8",
 );
 const BRIEF_SOURCE = readFileSync(
@@ -57,12 +57,13 @@ test("content draft specification admin page preserves planner rank and score di
   assert.match(PAGE_SOURCE, /specifications\.map\(\(spec\) =>/);
 });
 
-test("social posts hub links to the authenticated content draft specification page", () => {
-  assert.match(HUB_SOURCE, /\/admin\/social-posts\/content-draft-specification/);
-  assert.match(HUB_SOURCE, /Content draft specification/i);
+test("social posts navigation links to the authenticated content draft specification page", () => {
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/content-draft-specification/);
+  assert.match(NAV_SOURCE, /Content draft specification/i);
 });
 
-test("creative brief intelligence page links to content draft specification", () => {
-  assert.match(BRIEF_SOURCE, /\/admin\/social-posts\/content-draft-specification/);
-  assert.match(BRIEF_SOURCE, /Content draft specification/i);
+test("creative brief intelligence shares navigation to content draft specification", () => {
+  assert.match(BRIEF_SOURCE, /SocialPostsPageHeader/);
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/content-draft-specification/);
+  assert.match(NAV_SOURCE, /Content draft specification/i);
 });

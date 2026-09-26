@@ -699,6 +699,32 @@ export async function updateSocialPostStatus(
   return mapSocialPostRow(data);
 }
 
+export async function markSocialPostPublished(
+  id: string,
+  postedAt: string,
+): Promise<SocialPost> {
+  const normalizedPostedAt = normalizeScheduledFor(postedAt);
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({
+      status: "posted",
+      posted_at: normalizedPostedAt,
+      scheduled_for: null,
+      updated_at: normalizedPostedAt,
+      error_message: null,
+    })
+    .eq("id", id)
+    .select(SOCIAL_POST_SELECT)
+    .single<SocialPost>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapSocialPostRow(data);
+}
+
 export async function scheduleSocialPost(
   id: string,
   scheduled_for: string,

@@ -31,12 +31,17 @@ type Props = {
   sourceImages: SocialSourceImage[];
   marketingMemory: MarketingMemorySnapshot;
   agentUiProtection: AgentUiProtectionStatus;
+  ownerMode: boolean;
   detailMode?: boolean;
   showMarketingMemory?: boolean;
 };
 
 type JsonResponse = {
   error?: string;
+  socialPostId?: string;
+  ownerApprovalId?: string;
+  approvalId?: string;
+  executionIntentId?: string;
 };
 
 type EditorDraft = {
@@ -326,6 +331,7 @@ export default function SocialPostsAdminClient({
   sourceImages,
   marketingMemory,
   agentUiProtection,
+  ownerMode,
   detailMode = false,
   showMarketingMemory = false,
 }: Props) {
@@ -403,12 +409,57 @@ export default function SocialPostsAdminClient({
     }
   }
 
+  async function approveAndContinue(postId: string) {
+    setPendingId(postId);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/admin/social-owner-approval", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ social_post_id: postId }),
+      });
+      const data = (await response.json()) as JsonResponse;
+      if (
+        !response.ok ||
+        !data.socialPostId ||
+        !data.ownerApprovalId ||
+        !data.approvalId ||
+        !data.executionIntentId
+      ) {
+        throw new Error(data.error ?? "Owner approval could not be recorded");
+      }
+
+      const params = new URLSearchParams({
+        socialPostId: data.socialPostId,
+        ownerApprovalId: data.ownerApprovalId,
+        approvalId: data.approvalId,
+        executionIntentId: data.executionIntentId,
+      });
+      if (token) params.set("token", token);
+      router.push(`/admin/social-posts/publication-execution?${params.toString()}`);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Owner approval could not be recorded",
+      );
+      setPendingId(null);
+    }
+  }
+
   function schedulePost(id: string) {
     return (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const scheduledFor = String(form.get("scheduled_for") ?? "");
-      void patchPost(id, { scheduled_for: scheduledFor });
+      const scheduledDate = new Date(scheduledFor);
+      if (!scheduledFor || Number.isNaN(scheduledDate.getTime())) {
+        setError("Choose a valid schedule date and time.");
+        return;
+      }
+      void patchPost(id, { scheduled_for: scheduledDate.toISOString() });
     };
   }
 
@@ -591,6 +642,41 @@ export default function SocialPostsAdminClient({
                     </div>
                     <StatusBadge status={post.status} />
                   </div>
+
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-3">
+                    <div>
+                      <p className="font-black text-slate-500">Scheduled for</p>
+                      <p className="mt-1 font-semibold text-slate-800">
+                        {post.scheduled_for ? formatDateTime(post.scheduled_for) : "Not scheduled"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-500">Published at</p>
+                      <p className="mt-1 font-semibold text-slate-800">
+                        {post.posted_at ? formatDateTime(post.posted_at) : "Not published"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-500">Publication outcome</p>
+                      <p className="mt-1 font-semibold text-slate-800">
+                        {post.status === "posted"
+                          ? "Confirmed by durable Meta result"
+                          : post.status === "failed"
+                            ? "Needs owner attention"
+                            : "No confirmed Meta result"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {post.error_message ? (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-950">
+                      <p className="font-black">Publication needs attention</p>
+                      <p className="mt-1 font-semibold">{post.error_message}</p>
+                      <p className="mt-1 text-xs font-semibold">
+                        Review Publication Execution before authorizing another attempt. A recovery review is required when Meta completion is uncertain.
+                      </p>
+                    </div>
+                  ) : null}
 
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button
@@ -787,7 +873,11 @@ export default function SocialPostsAdminClient({
                             <option value="draft">Draft</option>
                             <option value="approved">Approved</option>
                             <option value="scheduled">Scheduled</option>
-                            <option value="posted">Posted</option>
+                            {post.status === "posted" ? (
+                              <option value="posted" disabled>
+                                Posted (Meta confirmed)
+                              </option>
+                            ) : null}
                             <option value="rejected">Rejected</option>
                             <option value="failed">Failed</option>
                           </select>
@@ -876,11 +966,11 @@ export default function SocialPostsAdminClient({
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      disabled={pendingId === post.id}
-                      onClick={() => void patchPost(post.id, { status: "approved" })}
+                      disabled={pendingId === post.id || !ownerMode}
+                      onClick={() => void approveAndContinue(post.id)}
                       className="min-h-11 flex-1 rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Approve
+                      {ownerMode ? "Approve & Continue" : "Owner Approval Required"}
                     </button>
                     <button
                       type="button"
@@ -907,6 +997,10 @@ export default function SocialPostsAdminClient({
                       Schedule
                     </button>
                   </form>
+                  <p className="text-xs font-semibold text-slate-500">
+                    Scheduling records the intended time. Publishing still requires explicit owner
+                    authorization on the next screen.
+                  </p>
                 </div>
               </article>
               </SocialPostAdminErrorBoundary>
