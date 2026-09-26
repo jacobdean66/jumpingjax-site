@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { AgentWiring } from "@/lib/agent-manager/agent-wiring";
 import { isGenericRetryableJobType } from "@/lib/agent-manager/job-capabilities";
@@ -18,12 +18,18 @@ export function AgentsDashboardClient({ initial, initialWiring }: { initial: Age
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/agents/status", { cache: "no-store" });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error);
     setData(body.dashboard);
-  }
+  }, []);
+
+  useEffect(() => {
+    const handleRefresh = () => { void refresh().catch(() => setMessage("Status refresh failed safely.")); };
+    window.addEventListener("agent-manager:refresh", handleRefresh);
+    return () => window.removeEventListener("agent-manager:refresh", handleRefresh);
+  }, [refresh]);
 
   async function control(action: string, id?: string) {
     setBusy(true); setMessage("");
@@ -48,12 +54,17 @@ export function AgentsDashboardClient({ initial, initialWiring }: { initial: Age
     finally { setBusy(false); }
   }
 
-  const queued = data.jobs.filter((job) => job.status === "queued").length;
+  const active = data.queue.queued + data.queue.claimed + data.queue.running;
   const failed = data.jobs.filter((job) => job.status === "failed").length;
+  const watcherFresh = data.queue.watcherLastSeenAt
+    ? new Date(data.generatedAt).getTime() - new Date(data.queue.watcherLastSeenAt).getTime() < 15 * 60_000
+    : false;
+  const managerStatus = data.emergencyStop ? "EMERGENCY STOP" : data.queue.stale > 0 ? "NEEDS ATTENTION" : watcherFresh ? "ONLINE" : "WATCHER STALE";
+  const healthy = managerStatus === "ONLINE";
 
   return <div className="mt-7 space-y-6">
-    <section className={`rounded-3xl border p-5 ${data.emergencyStop ? "border-rose-300 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide">Manager health</p><h2 className="mt-1 text-2xl font-black">{data.emergencyStop ? "EMERGENCY STOP" : "ONLINE"}</h2><p className="mt-1 text-sm font-semibold">{queued} queued · {failed} recent failures · {data.approvals.length} approvals waiting · concurrency {data.maxConcurrency}</p></div><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={demo} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Run safe check</button><button disabled={busy} onClick={() => control(data.emergencyStop ? "release_stop" : "emergency_stop")} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{data.emergencyStop ? "Release stop" : "Emergency stop"}</button></div></div>
+    <section className={`rounded-lg border p-5 ${healthy ? "border-emerald-200 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase">Manager health</p><h2 className="mt-1 text-2xl font-black">{managerStatus}</h2><p className="mt-1 text-sm font-semibold">{active} active · {data.queue.queued} queued · {data.queue.stale} stale · {failed} recent failures · {data.approvals.length} approvals waiting · concurrency {data.maxConcurrency}</p>{data.queue.oldestActiveAt ? <p className="mt-1 text-xs font-semibold text-slate-600">Oldest active job: {new Date(data.queue.oldestActiveAt).toLocaleString()}</p> : null}</div><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={() => void refresh()} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black disabled:opacity-50">Refresh</button><button disabled={busy} onClick={demo} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Run safe check</button><button disabled={busy} onClick={() => control(data.emergencyStop ? "release_stop" : "emergency_stop")} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{data.emergencyStop ? "Release stop" : "Emergency stop"}</button></div></div>
       {message ? <p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm font-bold">{message}</p> : null}
     </section>
 

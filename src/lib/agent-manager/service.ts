@@ -44,16 +44,40 @@ export async function runOne(workerId: string): Promise<AgentJob | null> {
 
 export async function loadDashboard(): Promise<AgentDashboard> {
   const db = createServiceRoleClient();
-  const [agents, jobs, events, approvals, settings] = await Promise.all([
+  const staleBefore = new Date(Date.now() - 15 * 60_000).toISOString();
+  const [agents, jobs, events, approvals, settings, queued, claimed, running, stale, oldestActive] = await Promise.all([
     db.from("agents").select("*").order("display_name"),
     db.from("agent_jobs").select("*").order("created_at", { ascending: false }).limit(40),
     db.from("agent_events").select("id,event_type,summary,created_at,job_id").order("created_at", { ascending: false }).limit(50),
     db.from("agent_approvals").select("id,job_id,action_type,status,created_at").eq("status", "pending").order("created_at"),
     db.from("agent_manager_settings").select("*").eq("singleton", true).single(),
+    db.from("agent_jobs").select("id", { count: "exact", head: true }).eq("status", "queued"),
+    db.from("agent_jobs").select("id", { count: "exact", head: true }).eq("status", "claimed"),
+    db.from("agent_jobs").select("id", { count: "exact", head: true }).eq("status", "running"),
+    db.from("agent_jobs").select("id", { count: "exact", head: true }).in("status", ["queued", "claimed", "running"]).lt("updated_at", staleBefore),
+    db.from("agent_jobs").select("created_at").in("status", ["queued", "claimed", "running"]).order("created_at", { ascending: true }).limit(1).maybeSingle(),
   ]);
-  const error = [agents.error,jobs.error,events.error,approvals.error,settings.error].find(Boolean);
+  const error = [agents.error,jobs.error,events.error,approvals.error,settings.error,queued.error,claimed.error,running.error,stale.error,oldestActive.error].find(Boolean);
   if (error) throw new Error(`Agent dashboard unavailable: ${error.message}`);
-  return { generatedAt: new Date().toISOString(), emergencyStop: Boolean(settings.data.emergency_stop), maxConcurrency: settings.data.max_concurrency, agents: agents.data as AgentDashboard["agents"], jobs: jobs.data as AgentDashboard["jobs"], events: events.data as AgentDashboard["events"], approvals: approvals.data as AgentDashboard["approvals"] };
+  const agentRows = agents.data as AgentDashboard["agents"];
+  const supervisor = agentRows.find((agent) => agent.key === "supervisor");
+  return {
+    generatedAt: new Date().toISOString(),
+    emergencyStop: Boolean(settings.data.emergency_stop),
+    maxConcurrency: settings.data.max_concurrency,
+    agents: agentRows,
+    jobs: jobs.data as AgentDashboard["jobs"],
+    events: events.data as AgentDashboard["events"],
+    approvals: approvals.data as AgentDashboard["approvals"],
+    queue: {
+      queued: queued.count ?? 0,
+      claimed: claimed.count ?? 0,
+      running: running.count ?? 0,
+      stale: stale.count ?? 0,
+      oldestActiveAt: oldestActive.data?.created_at ?? null,
+      watcherLastSeenAt: supervisor?.last_activity_at ?? null,
+    },
+  };
 }
 
 export async function assertAgentDispatchAllowed(agentKey: string) {

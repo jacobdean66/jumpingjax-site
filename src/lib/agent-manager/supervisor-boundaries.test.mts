@@ -24,6 +24,14 @@ test("continuous supervisor watcher requires the existing cron secret and expose
   assert.doesNotMatch(route, /send|publish|refund|delete|calendar.*insert/i);
 });
 
+test("the bounded cron worker consumes durable jobs instead of leaving the queue stuck", async () => {
+  const route = await readFile(new URL("../../app/api/cron/agent-worker/route.ts", import.meta.url), "utf8");
+  assert.match(route, /CRON_SECRET/);
+  assert.match(route, /runOne/);
+  assert.match(route, /index < 8/);
+  assert.doesNotMatch(route, /while\s*\(true\)/);
+});
+
 test("Permanent Agent UI contains a real text box and clear approval boundary", async () => {
   const ui = await readFile(new URL("../../app/admin/agents/SupervisorChat.tsx", import.meta.url), "utf8");
   assert.match(ui, /Ask the Permanent Agent/);

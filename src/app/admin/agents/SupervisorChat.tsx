@@ -32,6 +32,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
       setMessages((current) => [...current, { id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null }].slice(-20));
       setSnapshot(body.snapshot);
+      window.dispatchEvent(new Event("agent-manager:refresh"));
       setMessage("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Permanent Agent request failed safely.");
@@ -48,6 +49,9 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
 
   const critical = snapshot?.issues.filter((issue) => issue.severity === "critical").length ?? 0;
   const warnings = snapshot?.issues.filter((issue) => issue.severity === "warning").length ?? 0;
+  const connectedServices = snapshot?.services.filter((service) => service.state === "connected").length ?? 0;
+  const serviceTotal = snapshot?.services.length ?? 0;
+  const attentionServices = snapshot?.services.filter((service) => service.state !== "connected") ?? [];
 
   return (
     <section className="mt-7 rounded-3xl border border-slate-300 bg-slate-950 p-5 text-white shadow-xl">
@@ -66,6 +70,42 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       <div className="mt-4 flex flex-wrap gap-2">
         {STARTERS.map((starter) => <button key={starter} disabled={busy} onClick={() => void send(starter)} className="rounded-full border border-slate-600 bg-slate-900 px-3 py-1.5 text-xs font-black hover:border-sky-400 disabled:opacity-50">{starter}</button>)}
       </div>
+
+      {snapshot ? (
+        <div className="mt-5 grid gap-3 border-y border-slate-700 py-4 lg:grid-cols-[220px_1fr]">
+          <div className="p-2">
+            <p className="text-xs font-black uppercase text-slate-400">Service coverage</p>
+            <p className="mt-1 text-3xl font-black">{connectedServices}/{serviceTotal}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-300">connected with a current read-only check</p>
+          </div>
+          <div className="border-l-0 border-slate-700 p-2 lg:border-l lg:pl-5">
+            <p className="text-xs font-black uppercase text-slate-400">Needs attention</p>
+            {attentionServices.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {attentionServices.map((service) => (
+                  <a key={service.key} href={service.href} title={service.blocker ?? service.summary} className={`rounded-full px-3 py-1 text-xs font-black ${service.state === "unavailable" ? "bg-rose-600 text-white" : service.state === "setup_required" ? "bg-amber-400 text-slate-950" : "bg-slate-700 text-white"}`}>
+                    {service.name}
+                  </a>
+                ))}
+              </div>
+            ) : <p className="mt-2 text-sm font-bold text-emerald-300">All registered services are connected.</p>}
+          </div>
+          <details className="lg:col-span-2">
+            <summary className="cursor-pointer text-sm font-black text-sky-300">View all service connections</summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {snapshot.services.map((service) => (
+                <a key={service.key} href={service.href} className="border-l-2 border-slate-600 px-3 py-2 hover:border-sky-400">
+                  <span className="flex items-center justify-between gap-2 text-sm font-black">
+                    {service.name}
+                    <span className={service.state === "connected" ? "text-emerald-300" : service.state === "unavailable" ? "text-rose-300" : "text-amber-300"}>{service.state.replaceAll("_", " ")}</span>
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold text-slate-300">{service.summary}</span>
+                </a>
+              ))}
+            </div>
+          </details>
+        </div>
+      ) : null}
 
       <div className="mt-5 max-h-[32rem] space-y-4 overflow-y-auto rounded-2xl bg-white p-4 text-slate-950">
         {messages.length === 0 ? (

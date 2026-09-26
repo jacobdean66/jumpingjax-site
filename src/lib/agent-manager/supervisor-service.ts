@@ -11,6 +11,7 @@ import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-read
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 import { buildAgentWiring } from "./agent-wiring";
+import { loadDashboardServiceCoverage } from "./service-coverage-service";
 import { prepareSupervisorHandoff } from "./supervisor-handoff";
 import { enqueueJob, loadDashboard, setAgentPaused, setEmergencyStop } from "./service";
 import {
@@ -75,6 +76,11 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
   const dashboard = dashboardResult.value;
   const readiness = getAnsweringMachineReadiness();
   const nominationReadiness = getNominationAgentReadiness();
+  const security = (securityResult.value?.services ?? []).map((service) => ({ name: service.name, state: service.state, summary: service.summary }));
+  const services = await loadDashboardServiceCoverage({ dashboard, security }).catch(() => {
+    dataErrors.push("Dashboard service coverage could not be checked.");
+    return [];
+  });
   const base = {
     generatedAt: new Date().toISOString(),
     deployment: {
@@ -86,7 +92,9 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
       total: dashboard?.agents.length ?? 0,
       paused: dashboard?.agents.filter((agent) => agent.paused).length ?? 0,
       errors: dashboard?.agents.filter((agent) => agent.status === "error").length ?? 0,
-      queuedJobs: dashboard?.jobs.filter((job) => job.status === "queued").length ?? 0,
+      queuedJobs: dashboard?.queue.queued ?? 0,
+      activeJobs: dashboard ? dashboard.queue.queued + dashboard.queue.claimed + dashboard.queue.running : 0,
+      staleJobs: dashboard?.queue.stale ?? 0,
       failedJobs: dashboard?.jobs.filter((job) => job.status === "failed").length ?? 0,
       approvalsWaiting: dashboard?.approvals.length ?? 0,
       emergencyStop: dashboard?.emergencyStop ?? false,
@@ -104,7 +112,8 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
       pendingReview: countOrNull(pendingCalls, "Answering-machine review queue", dataErrors),
       failedCalls: countOrNull(failedCalls, "Failed answering-machine calls", dataErrors),
     },
-    security: (securityResult.value?.services ?? []).map((service) => ({ name: service.name, state: service.state, summary: service.summary })),
+    security,
+    services,
     wiring: buildAgentWiring({ nominationReady: nominationReadiness.enabled && nominationReadiness.configured }),
     dataErrors,
   } satisfies Omit<SupervisorSnapshot, "issues">;
@@ -260,5 +269,9 @@ export async function runSupervisorWatch(actorId = "system:vercel-cron") {
     actorId,
   });
   if (job.status === "queued") await finishSupervisorJob(job, summary);
+  else {
+    const db = createServiceRoleClient();
+    await db.from("agents").update({ last_activity_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("key", "supervisor");
+  }
   return { jobId: job.id, deduplicated: job.status !== "queued", summary, snapshot };
 }
