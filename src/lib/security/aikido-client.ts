@@ -69,7 +69,7 @@ export function getAikidoStatus(now = new Date()): SecurityServiceSnapshot {
     dashboardUrl: repositoryDashboardUrl(config.repositoryId),
     metrics: [
       { label: "Repository", value: hasRepository ? "Connected" : "Not configured" },
-      { label: "Scheduled scanning", value: hasRepository ? "Active in Aikido" : "Unavailable" },
+      { label: "Scheduled scanning", value: hasRepository ? "Managed in Aikido" : "Unavailable" },
       { label: "Production commit", value: deploymentReady ? config.deployedCommitId!.slice(0, 7) : "Unavailable" },
     ],
     capabilities: {

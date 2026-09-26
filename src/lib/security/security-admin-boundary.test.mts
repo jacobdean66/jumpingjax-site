@@ -53,10 +53,27 @@ test("provider endpoints are fixed and redirects are rejected", () => {
 test("repair control cannot mutate, merge, or deploy", () => {
   const client = read("src/app/admin/security/SecurityDashboardClient.tsx");
   const apiFiles = ["status", "scan", "health"];
-  assert.match(client, /AutoFix opens in Aikido for review/);
+  assert.match(client, /Repairs begin from the recorded finding/);
   assert.match(client, /actionUrl/);
   assert.equal(apiFiles.some((name) => /fix|merge|deploy/.test(name)), false);
   assert.doesNotMatch(client, /\/api\/admin\/security\/(fix|merge|deploy)/);
+});
+
+test("dashboard reports deployment identity, application controls, and recorded findings", () => {
+  const service = read("src/lib/security/dashboard-service.ts");
+  const client = read("src/app/admin/security/SecurityDashboardClient.tsx");
+  assert.match(service, /getApplicationSecurityChecks/);
+  assert.match(service, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(service, /effectiveLatestScan\.detailsUrl/);
+  assert.match(client, /Application security controls/);
+  assert.match(client, /Production findings/);
+  assert.doesNotMatch(service, /repositories\/2828507/);
+});
+
+test("latest scan status is scoped to the current deployment, not one owner", () => {
+  const store = read("src/lib/security/action-store.ts");
+  assert.match(store, /export async function loadLatestAikidoScan\(\)/);
+  assert.match(store, /\.eq\("deployment_sha", deploymentSha\)/);
 });
 
 test("security navigation is owner-only", () => {

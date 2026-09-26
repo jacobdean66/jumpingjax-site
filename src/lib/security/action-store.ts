@@ -114,6 +114,19 @@ export async function loadSecurityObservations(): Promise<SecurityObservation[]>
   }
 }
 
+export async function checkSecurityStoreReachable(): Promise<boolean> {
+  try {
+    const client = createServiceRoleClient();
+    const { error } = await client
+      .from("security_action_audit_events")
+      .select("id")
+      .limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 export async function saveAikidoScanJob(input: { scanId: number; correlationId: string; actorId: string }) {
   const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
   const branchName = process.env.VERCEL_GIT_COMMIT_REF?.trim();
@@ -151,7 +164,7 @@ export async function loadPendingAikidoScan(actorId: string): Promise<PendingAik
   }
 }
 
-export async function loadLatestAikidoScan(actorId: string): Promise<LatestAikidoScan> {
+export async function loadLatestAikidoScan(): Promise<LatestAikidoScan> {
   const fallback: LatestAikidoScan = {
     state: "not_run",
     checkedAt: null,
@@ -159,12 +172,14 @@ export async function loadLatestAikidoScan(actorId: string): Promise<LatestAikid
     message: "Run the first production repository scan to establish a verified baseline.",
     detailsUrl: null,
   };
+  const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+  if (!deploymentSha) return fallback;
   try {
     const client = createServiceRoleClient();
     const { data, error } = await client
       .from("security_scan_jobs")
       .select("status, result_state, issue_count, message, details_url, requested_at, completed_at")
-      .eq("actor_id", actorId)
+      .eq("deployment_sha", deploymentSha)
       .order("requested_at", { ascending: false })
       .limit(1)
       .maybeSingle();
