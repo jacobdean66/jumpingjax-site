@@ -2,19 +2,36 @@ import "server-only";
 
 import { getAikidoStatus } from "./aikido-client";
 import { getAithuraStatus } from "./aithura-client";
-import { loadLatestAikidoScan, loadPendingAikidoScan, loadSecurityObservations } from "./action-store";
-import type { SecurityDashboardSnapshot, SecurityServiceSnapshot } from "./types";
+import { getApplicationSecurityChecks } from "./application-security";
+import {
+  checkSecurityStoreReachable,
+  loadLatestAikidoScan,
+  loadPendingAikidoScan,
+  loadSecurityObservations,
+} from "./action-store";
+import type {
+  SecurityDashboardSnapshot,
+  SecurityFindingSummary,
+  SecurityServiceSnapshot,
+} from "./types";
 
 const OBSERVATION_TTL_MS = 24 * 60 * 60_000;
-const AIKIDO_AUTOFIX_URL = "https://app.aikido.dev/issues/fix/sast";
 
 export async function loadSecurityDashboard(actorId: string, now = new Date()): Promise<SecurityDashboardSnapshot> {
-  const [observations, pendingScan, latestScan] = await Promise.all([
+  const [observations, pendingScan, latestScan, securityStoreReachable] = await Promise.all([
     loadSecurityObservations(),
     loadPendingAikidoScan(actorId),
-    loadLatestAikidoScan(actorId),
+    loadLatestAikidoScan(),
+    checkSecurityStoreReachable(),
   ]);
   const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || null;
+  const deploymentBranch = process.env.VERCEL_GIT_COMMIT_REF?.trim() || null;
+  const deployment = {
+    sha: deploymentSha,
+    shortSha: deploymentSha?.slice(0, 7) || null,
+    branch: deploymentBranch,
+    environment: process.env.VERCEL_ENV?.trim() || process.env.NODE_ENV || "unknown",
+  };
   const services = [getAikidoStatus(now), getAithuraStatus(now)].map((service) => {
     const observation = observations.find((item) => item.provider === service.id);
     const ageMs = observation ? now.getTime() - new Date(observation.checkedAt).getTime() : Number.POSITIVE_INFINITY;
@@ -56,6 +73,20 @@ export async function loadSecurityDashboard(actorId: string, now = new Date()): 
     ? { state: "pending" as const, checkedAt: now.toISOString(), issueCount: null, message: "Aikido is scanning the production repository.", detailsUrl: null }
     : latestScan;
 
+  const findings: SecurityFindingSummary[] = effectiveLatestScan.state === "findings"
+    ? [{
+        provider: "aikido",
+        severity: "high-or-higher",
+        count: effectiveLatestScan.issueCount,
+        deploymentSha,
+        checkedAt: effectiveLatestScan.checkedAt,
+        message: effectiveLatestScan.message,
+        detailsUrl: effectiveLatestScan.detailsUrl,
+      }]
+    : [];
+
+  const applicationChecks = getApplicationSecurityChecks({ now, securityStoreReachable });
+
   const repair = effectiveLatestScan.state === "passed"
     ? {
         state: "no_findings" as const,
@@ -67,10 +98,10 @@ export async function loadSecurityDashboard(actorId: string, now = new Date()): 
     : effectiveLatestScan.state === "findings"
       ? {
           state: "findings_ready" as const,
-          summary: "The latest scan found issues. Open the reviewed Aikido result, then use AutoFix to prepare a pull request without deploying automatically.",
-          steps: ["Review the exact finding and affected commit.", "Open Aikido AutoFix and inspect its proposed change.", "Run tests and review the diff before merging.", "Keep production deployment as a separate owner action."],
-          actionLabel: "Open Aikido AutoFix",
-          actionUrl: AIKIDO_AUTOFIX_URL,
+          summary: "The latest scan found issues. Review the recorded result for this production commit before preparing any change.",
+          steps: ["Review the exact finding and affected production commit.", "Prepare a dedicated fix branch or reviewed AutoFix pull request.", "Run security tests, the full test suite, and a production build.", "Merge and deploy only after owner review, then scan the new deployment."],
+          actionLabel: effectiveLatestScan.detailsUrl ? "Review recorded findings" : "Open Aikido repository",
+          actionUrl: effectiveLatestScan.detailsUrl || services.find((service) => service.id === "aikido")?.dashboardUrl || null,
         }
       : effectiveLatestScan.state === "pending"
         ? {
@@ -82,11 +113,20 @@ export async function loadSecurityDashboard(actorId: string, now = new Date()): 
           }
         : {
             state: "scan_required" as const,
-            summary: "Aikido manages scheduled scans on the current Free plan. Review its latest result; if findings appear, use Aikido AutoFix to prepare a reviewed pull request.",
-            steps: ["Review the latest scheduled result in Aikido.", "Open any confirmed finding and affected commit.", "Use AutoFix for a reviewed pull request when a finding exists."],
-            actionLabel: "Review Aikido results",
-            actionUrl: "https://app.aikido.dev/repositories/2828507",
-          };
+          summary: "Aikido manages scheduled scans on the current Free plan. Review its latest result; if findings appear, use Aikido AutoFix to prepare a reviewed pull request.",
+          steps: ["Review the latest scheduled result in Aikido.", "Open any confirmed finding and affected commit.", "Use AutoFix for a reviewed pull request when a finding exists."],
+          actionLabel: "Review Aikido results",
+          actionUrl: services.find((service) => service.id === "aikido")?.dashboardUrl || null,
+        };
 
-  return { generatedAt: now.toISOString(), services, pendingScan, latestScan: effectiveLatestScan, repair };
+  return {
+    generatedAt: now.toISOString(),
+    deployment,
+    services,
+    applicationChecks,
+    findings,
+    pendingScan,
+    latestScan: effectiveLatestScan,
+    repair,
+  };
 }

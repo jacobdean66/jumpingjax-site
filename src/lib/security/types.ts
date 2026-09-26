@@ -26,9 +26,40 @@ export type SecurityServiceSnapshot = {
   };
 };
 
+export type ApplicationSecurityCheck = {
+  id:
+    | "deployment-identity"
+    | "admin-session"
+    | "database-boundary"
+    | "security-store"
+    | "public-secret-exposure";
+  name: string;
+  state: SecurityState;
+  summary: string;
+  checkedAt: string;
+};
+
+export type SecurityFindingSummary = {
+  provider: "aikido";
+  severity: "high-or-higher";
+  count: number | null;
+  deploymentSha: string | null;
+  checkedAt: string | null;
+  message: string;
+  detailsUrl: string | null;
+};
+
 export type SecurityDashboardSnapshot = {
   generatedAt: string;
+  deployment: {
+    sha: string | null;
+    shortSha: string | null;
+    branch: string | null;
+    environment: string;
+  };
   services: SecurityServiceSnapshot[];
+  applicationChecks: ApplicationSecurityCheck[];
+  findings: SecurityFindingSummary[];
   pendingScan: { scanId: number; correlationId: string } | null;
   latestScan: {
     state: "not_run" | "pending" | "passed" | "findings";

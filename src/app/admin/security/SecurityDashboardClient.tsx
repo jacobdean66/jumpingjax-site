@@ -1,6 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AlertTriangle,
+  Bot,
+  ExternalLink,
+  GitCommitHorizontal,
+  LockKeyhole,
+  RefreshCw,
+  ScanSearch,
+  ShieldCheck,
+} from "lucide-react";
 import type { SecurityDashboardSnapshot, SecurityServiceSnapshot } from "@/lib/security/types";
 
 type ActionState = { service: string; message: string; ok: boolean } | null;
@@ -103,9 +113,20 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
   return (
     <div className="mt-7 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Last refreshed {new Date(dashboard.generatedAt).toLocaleString()}</p>
-        <button type="button" onClick={refresh} disabled={busy !== null} className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
-          {busy === "refresh" ? "Refreshing…" : "Refresh security results"}
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Last refreshed {new Date(dashboard.generatedAt).toLocaleString()}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-slate-700">
+            <GitCommitHorizontal aria-hidden="true" className="h-4 w-4" />
+            {dashboard.deployment.branch && dashboard.deployment.shortSha
+              ? `${dashboard.deployment.branch}@${dashboard.deployment.shortSha}`
+              : "Deployment identity unavailable"}
+            <span className="text-slate-400">·</span>
+            <span className="capitalize">{dashboard.deployment.environment}</span>
+          </p>
+        </div>
+        <button type="button" onClick={refresh} disabled={busy !== null} className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
+          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${busy === "refresh" ? "animate-spin" : ""}`} />
+          {busy === "refresh" ? "Refreshing…" : "Refresh results"}
         </button>
       </div>
 
@@ -113,19 +134,41 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
 
       <section aria-label="Security overview" className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Latest repository scan</p>
+          <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500"><ScanSearch aria-hidden="true" className="h-4 w-4" />Latest repository scan</p>
           <p className="mt-2 text-xl font-black capitalize text-slate-950">{dashboard.latestScan.state === "not_run" ? "Aikido managed" : dashboard.latestScan.state.replace("_", " ")}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">{dashboard.latestScan.issueCount === null ? "No recorded finding count" : `${dashboard.latestScan.issueCount} finding${dashboard.latestScan.issueCount === 1 ? "" : "s"}`}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Protected AI route</p>
+          <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500"><Bot aria-hidden="true" className="h-4 w-4" />Protected AI route</p>
           <p className="mt-2 text-xl font-black text-slate-950">{stateLabel[aithura?.state || "unavailable"]}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">AITHURA Sentinel</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Repair readiness</p>
+          <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500"><ShieldCheck aria-hidden="true" className="h-4 w-4" />Repair readiness</p>
           <p className="mt-2 text-xl font-black capitalize text-slate-950">{dashboard.repair.state.replaceAll("_", " ")}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">Owner-reviewed changes only</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="application-security-heading" className="border-y border-slate-200 py-6">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Jumping Jax</p>
+            <h2 id="application-security-heading" className="mt-1 text-2xl font-black text-slate-950">Application security controls</h2>
+          </div>
+          <p className="text-xs font-semibold text-slate-500">Configuration and live private-store checks</p>
+        </div>
+        <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+          {dashboard.applicationChecks.map((item) => (
+            <div key={item.id} className="grid gap-2 bg-white px-4 py-4 md:grid-cols-[220px_120px_1fr] md:items-center">
+              <p className="flex items-center gap-2 text-sm font-black text-slate-950">
+                <LockKeyhole aria-hidden="true" className="h-4 w-4 text-slate-500" />
+                {item.name}
+              </p>
+              <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black uppercase ${stateTone[item.state]}`}>{stateLabel[item.state]}</span>
+              <p className="text-sm font-semibold leading-relaxed text-slate-600">{item.summary}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -141,7 +184,7 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
               {service.metrics.map((metric) => <div key={metric.label} className="rounded-2xl bg-slate-50 p-3"><dt className="text-[11px] font-black uppercase tracking-wide text-slate-500">{metric.label}</dt><dd className="mt-1 text-sm font-black text-slate-950">{metric.value}</dd></div>)}
             </dl>
             <div className="mt-5 flex flex-wrap gap-2">
-              {service.dashboardUrl ? <a href={service.dashboardUrl} target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50">Open {service.name}</a> : null}
+              {service.dashboardUrl ? <a href={service.dashboardUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50">Open {service.name}<ExternalLink aria-hidden="true" className="h-4 w-4" /></a> : null}
               {service.id === "aikido" ? (
                 <>
                   {service.capabilities.scan.available ? <button type="button" disabled={busy !== null || Boolean(dashboard.pendingScan)} onClick={() => runAction("scan")} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">{busy === "scan" ? "Starting…" : "Run production repository scan"}</button> : null}
@@ -158,6 +201,40 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
         ))}
       </section>
 
+      <section aria-labelledby="findings-heading" className="border-y border-slate-200 py-6">
+        <div className="flex items-center gap-3">
+          {dashboard.findings.length > 0
+            ? <AlertTriangle aria-hidden="true" className="h-6 w-6 text-rose-700" />
+            : <ShieldCheck aria-hidden="true" className="h-6 w-6 text-emerald-700" />}
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Recorded evidence</p>
+            <h2 id="findings-heading" className="text-2xl font-black text-slate-950">Production findings</h2>
+          </div>
+        </div>
+        {dashboard.findings.length === 0 ? (
+          <p className="mt-4 text-sm font-semibold text-slate-600">
+            {dashboard.latestScan.state === "passed"
+              ? "The recorded scan for this deployment passed."
+              : "No completed finding record exists for this deployment yet."}
+          </p>
+        ) : dashboard.findings.map((finding) => (
+          <div key={`${finding.provider}-${finding.checkedAt}`} className="mt-4 grid gap-3 border-l-4 border-rose-500 bg-rose-50 px-4 py-4 md:grid-cols-[160px_1fr_auto] md:items-center">
+            <div>
+              <p className="text-xs font-black uppercase text-rose-800">High or higher</p>
+              <p className="mt-1 text-2xl font-black text-rose-950">{finding.count ?? "Confirmed"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-rose-950">{finding.message}</p>
+              <p className="mt-1 text-xs font-semibold text-rose-800">
+                {finding.deploymentSha ? `Commit ${finding.deploymentSha.slice(0, 7)}` : "Commit unavailable"}
+                {finding.checkedAt ? ` · ${new Date(finding.checkedAt).toLocaleString()}` : ""}
+              </p>
+            </div>
+            {finding.detailsUrl ? <a href={finding.detailsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-rose-800 px-4 py-2 text-sm font-black text-white">Review result<ExternalLink aria-hidden="true" className="h-4 w-4" /></a> : null}
+          </div>
+        ))}
+      </section>
+
       <section className={`rounded-3xl border p-5 ${dashboard.repair.state === "no_findings" ? "border-emerald-200 bg-emerald-50" : dashboard.repair.state === "findings_ready" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
         <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">Safe repair loop</p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">{dashboard.repair.state === "no_findings" ? "No fixes needed" : dashboard.repair.state === "findings_ready" ? "Findings ready for review" : "Scan before preparing fixes"}</h2>
@@ -165,8 +242,8 @@ export function SecurityDashboardClient({ initial }: { initial: SecurityDashboar
         <ol className="mt-4 grid gap-2 text-sm font-semibold text-slate-800 md:grid-cols-2">
           {dashboard.repair.steps.map((step, index) => <li key={step} className="rounded-2xl border border-slate-200 bg-white/70 p-3"><span className="mr-2 font-black">{index + 1}.</span>{step}</li>)}
         </ol>
-        {dashboard.repair.actionUrl ? <a href={dashboard.repair.actionUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">{dashboard.repair.actionLabel}</a> : <button type="button" disabled className="mt-4 rounded-full bg-slate-300 px-4 py-2 text-sm font-black text-slate-600 cursor-not-allowed">{dashboard.repair.actionLabel}</button>}
-        <p className="mt-2 text-xs font-semibold text-slate-700">AutoFix opens in Aikido for review. This page never merges or deploys automatically.</p>
+        {dashboard.repair.actionUrl ? <a href={dashboard.repair.actionUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800">{dashboard.repair.actionLabel}<ExternalLink aria-hidden="true" className="h-4 w-4" /></a> : <button type="button" disabled className="mt-4 rounded-full bg-slate-300 px-4 py-2 text-sm font-black text-slate-600 cursor-not-allowed">{dashboard.repair.actionLabel}</button>}
+        <p className="mt-2 text-xs font-semibold text-slate-700">Repairs begin from the recorded finding. This page never merges or deploys automatically.</p>
       </section>
     </div>
   );
