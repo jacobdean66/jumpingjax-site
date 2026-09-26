@@ -24,6 +24,12 @@ import { RentalCancellationButton } from "./RentalCancellationButton";
 import { RentalEditButton } from "./RentalEditButton";
 import { RentalRestoreButton } from "./RentalRestoreButton";
 import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
+import { BookingPaymentButton } from "../BookingPaymentButton";
+import {
+  formatCents,
+  remainingBookingBalanceCents,
+  sumBookingPaymentCents,
+} from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +75,11 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
 }
 
 function RentalCard({ booking }: { booking: AdminRentalBooking }) {
+  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
+  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
+    booking.status,
+  );
   return (
     <article
       id={`booking-${booking.id}`}
@@ -89,6 +100,14 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <BookingInvoiceButton kind="rental" bookingId={booking.id} />
+          {canCollectPayment ? (
+            <BookingPaymentButton
+              bookingId={booking.id}
+              kind="rental"
+              customerEmail={booking.customerEmail}
+              balanceCents={balanceCents}
+            />
+          ) : null}
           {(booking.status === "pending" || booking.status === "approved") && (
             <RentalEditButton booking={booking} />
           )}
@@ -118,13 +137,15 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
               currentStatus={booking.status}
             />
           )}
-          {(booking.status === "cancelled" || booking.status === "canceled") &&
+          {(booking.status === "cancelled" ||
+            booking.status === "canceled") && (
             <RentalRestoreButton
               bookingId={booking.id}
               customerName={booking.customerName}
               eventDate={booking.eventDate}
               itemNames={booking.items.map((item) => item.rental_name)}
-            />}
+            />
+          )}
           {(booking.status === "cancelled" || booking.status === "canceled") &&
             (booking.googleCalendarEventId ||
               booking.googleCalendarSecondaryEventId ||
@@ -181,7 +202,8 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
             <Detail
               label="Calendar"
               value={
-                booking.googleCalendarEventId || booking.googleFoamCalendarEventId
+                booking.googleCalendarEventId ||
+                booking.googleFoamCalendarEventId
                   ? "Created"
                   : "Not created"
               }
@@ -205,7 +227,10 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
                   : `${booking.distanceMiles.toFixed(1)} miles`
               }
             />
-            <Detail label="Location" value={booking.setupLocation ?? "Not set"} />
+            <Detail
+              label="Location"
+              value={booking.setupLocation ?? "Not set"}
+            />
             <Detail label="Surface" value={booking.setupSurface ?? "Not set"} />
             <Detail label="Access" value={booking.setupAccess ?? "Not set"} />
             <Detail label="Notes" value={booking.setupNotes ?? "None"} />
@@ -219,6 +244,44 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
         <Detail label="Delivery fee" value={formatMoney(booking.deliveryFee)} />
         <Detail label="Total" value={formatMoney(booking.total)} />
       </div>
+      <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-black uppercase tracking-wide text-emerald-800">
+            Payment record
+          </h3>
+          <p className="text-sm font-black text-emerald-900">
+            Paid {formatCents(paidCents)}
+            {balanceCents === null
+              ? ""
+              : ` | Balance ${formatCents(balanceCents)}`}
+          </p>
+        </div>
+        {booking.paymentEntries.length === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            No payments have been recorded for this rental.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {booking.paymentEntries.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm"
+              >
+                <span className="font-bold text-slate-900">
+                  {formatCents(entry.amountCents)} via {entry.paymentMethod}
+                  {entry.processingFeeCents > 0
+                    ? ` (+${formatCents(entry.processingFeeCents)} fee)`
+                    : ""}
+                </span>
+                <span className="text-xs font-semibold text-slate-600">
+                  {new Date(entry.createdAt).toLocaleString()} | Receipt{" "}
+                  {entry.receiptEmailSentAt ? "emailed" : "not emailed"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </article>
   );
 }

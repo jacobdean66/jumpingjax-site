@@ -808,15 +808,11 @@ export function RoutePlannerWorkspace({
     }
   }
 
-  const printTaskIds = useMemo(() => {
-    return new Set(
-      tasksForSelection(tasks, loadSelection).map((task) => task.id),
-    );
-  }, [tasks, dates, selection]);
-  const printStops = useMemo(
-    () =>
-      groupOperationalStops(tasks.filter((task) => printTaskIds.has(task.id))),
-    [tasks, printTaskIds],
+  const printTaskIds = new Set(
+    tasksForSelection(tasks, loadSelection).map((task) => task.id),
+  );
+  const printStops = groupOperationalStops(
+    tasks.filter((task) => printTaskIds.has(task.id)),
   );
   const printLoads = useMemo(() => {
     const loads = new Map<number, WorkspaceStop[]>();

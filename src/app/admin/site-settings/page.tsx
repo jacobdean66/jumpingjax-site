@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import {
   formatUsd,

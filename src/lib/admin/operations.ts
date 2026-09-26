@@ -4,6 +4,7 @@ import {
   type AgreementPayment,
 } from "@/lib/facility-parties/agreement";
 import { loadAgreementHistoryForBookings } from "@/lib/facility-parties/agreement-store";
+import { type BookingPaymentEntry } from "@/lib/payments/booking-payments";
 import {
   invitationDeliveryPreferenceLabel,
   invitationTemplateLabel,
@@ -100,6 +101,38 @@ type FacilityRow = {
   total: number | string | null;
 };
 
+type BookingPaymentRow = {
+  id: string;
+  booking_kind: "facility" | "rental";
+  booking_id: string;
+  entry_type: "facility_deposit" | "rental_payment";
+  payment_method: "card" | "cash" | "check" | "other";
+  amount_cents: number;
+  processing_fee_cents: number;
+  processor_reference: string | null;
+  recorded_by: string;
+  receipt_email: string | null;
+  receipt_email_sent_at: string | null;
+  created_at: string;
+};
+
+function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
+  return {
+    id: row.id,
+    bookingKind: row.booking_kind,
+    bookingId: String(row.booking_id),
+    entryType: row.entry_type,
+    paymentMethod: row.payment_method,
+    amountCents: Number(row.amount_cents),
+    processingFeeCents: Number(row.processing_fee_cents),
+    processorReference: clean(row.processor_reference),
+    recordedBy: row.recorded_by,
+    receiptEmail: clean(row.receipt_email),
+    receiptEmailSentAt: row.receipt_email_sent_at,
+    createdAt: row.created_at,
+  };
+}
+
 export type AdminRentalBooking = {
   id: string;
   createdAt: string | null;
@@ -132,6 +165,7 @@ export type AdminRentalBooking = {
   googleCalendarSecondaryEventId: string | null;
   googleFoamCalendarEventId: string | null;
   items: { rental_item: string; rental_name: string }[];
+  paymentEntries: BookingPaymentEntry[];
 };
 
 const SAFE_WORKFLOW_ERROR_CLASSES = new Set([
@@ -187,11 +221,16 @@ export type AdminFacilityBooking = {
   safeWorkflowErrorClass: string | null;
   agreementHistory: AdminAgreementSummary[];
   paymentHistory: AgreementPayment[];
+  paymentEntries: BookingPaymentEntry[];
 };
 
-function sanitizeWorkflowErrorClass(value: string | null | undefined): string | null {
+function sanitizeWorkflowErrorClass(
+  value: string | null | undefined,
+): string | null {
   if (!value) return null;
-  return SAFE_WORKFLOW_ERROR_CLASSES.has(value) ? value : "integration_attention_required";
+  return SAFE_WORKFLOW_ERROR_CLASSES.has(value)
+    ? value
+    : "integration_attention_required";
 }
 
 export type AdminStatusSummary = Record<string, number>;
@@ -286,6 +325,7 @@ export async function loadAdminRentalBookings(input: {
 
   const ids = rows.map((row) => row.id);
   const itemMap = new Map<string, RentalItemRow[]>();
+  const paymentMap = new Map<string, BookingPaymentEntry[]>();
 
   if (ids.length > 0) {
     const { data: itemRows, error: itemError } = await supabase
@@ -297,6 +337,23 @@ export async function loadAdminRentalBookings(input: {
     for (const item of (itemRows ?? []) as RentalItemRow[]) {
       const key = String(item.booking_id);
       itemMap.set(key, [...(itemMap.get(key) ?? []), item]);
+    }
+
+    const { data: paymentRows, error: paymentError } = await supabase
+      .from("booking_payment_entries")
+      .select(
+        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
+      )
+      .eq("booking_kind", "rental")
+      .in("booking_id", ids.map(String))
+      .order("created_at", { ascending: false });
+    if (paymentError) throw new Error(paymentError.message);
+    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
+      const key = String(payment.booking_id);
+      paymentMap.set(key, [
+        ...(paymentMap.get(key) ?? []),
+        paymentEntryFromRow(payment),
+      ]);
     }
   }
 
@@ -352,6 +409,7 @@ export async function loadAdminRentalBookings(input: {
         rental_name:
           clean(item.rental_name) ?? clean(item.rental_item) ?? "Rental",
       })),
+      paymentEntries: paymentMap.get(String(row.id)) ?? [],
     };
   });
 
@@ -384,6 +442,25 @@ export async function loadAdminFacilityBookings(input: {
   const bookingIds = rows.map((row) => row.id);
   const { agreementMap, paymentMap } =
     await loadAgreementHistoryForBookings(bookingIds);
+  const bookingPaymentMap = new Map<string, BookingPaymentEntry[]>();
+  if (bookingIds.length > 0) {
+    const { data: paymentRows, error: paymentError } = await supabase
+      .from("booking_payment_entries")
+      .select(
+        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
+      )
+      .eq("booking_kind", "facility")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false });
+    if (paymentError) throw new Error(paymentError.message);
+    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
+      const key = String(payment.booking_id);
+      bookingPaymentMap.set(key, [
+        ...(bookingPaymentMap.get(key) ?? []),
+        paymentEntryFromRow(payment),
+      ]);
+    }
+  }
   const workflowByBookingId = new Map<
     string,
     { calendar_status: string | null; last_error_class: string | null }
@@ -415,8 +492,9 @@ export async function loadAdminFacilityBookings(input: {
     const calendarStatus = workflow?.calendar_status ?? null;
     const status = clean(row.status) ?? "pending";
     const needsRepair = status === "confirmed" && calendarStatus === "failed";
-    const invitationDeliveryPreference =
-      normalizeInvitationDeliveryPreference(row.invitation_delivery_preference);
+    const invitationDeliveryPreference = normalizeInvitationDeliveryPreference(
+      row.invitation_delivery_preference,
+    );
     const invitationTemplateId = normalizeInvitationTemplateId(
       row.invitation_template_id,
     );
@@ -467,6 +545,7 @@ export async function loadAdminFacilityBookings(input: {
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,
       agreementHistory: agreementMap.get(row.id) ?? [],
       paymentHistory: paymentMap.get(row.id) ?? [],
+      paymentEntries: bookingPaymentMap.get(row.id) ?? [],
     };
   });
 

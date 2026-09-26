@@ -254,7 +254,7 @@ test("one revision maximum: reviewer revise causes exactly one Creative Director
         }
         return okCreative(input);
       },
-      runReviewer: async (input) => {
+      runReviewer: async () => {
         reviewerCalls += 1;
         return okReviewer({
           verdict: "revise",
@@ -335,7 +335,7 @@ test("no autonomous owner approval or publish on successful workflow", async () 
 });
 
 test("orchestration never starts image/video providers", async () => {
-  let providerStarts = 0;
+  const providerStarts = 0;
   const result = await runSocialPostOrchestrator(
     {
       request: baseRequest,

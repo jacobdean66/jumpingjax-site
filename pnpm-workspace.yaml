@@ -3,6 +3,10 @@ allowBuilds:
   esbuild: true
   msw: false
   unrs-resolver: false
+overrides:
+  fast-uri: 3.1.6
+  image-size: 2.0.4
+  ws: 8.21.3
 minimumReleaseAgeExclude:
   - "@trigger.dev/build@4.5.12"
   - "@trigger.dev/core@4.5.12"

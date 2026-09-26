@@ -9,7 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "jumpingjax-waiver-orchestrator/**",
     "out/**",
+    "tmp/**",
     "build/**",
     "next-env.d.ts",
   ]),

@@ -2,8 +2,9 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import type { AnsweringMachineCall, AnsweringMachineReviewInput } from "./types";
+import type { AnsweringMachineCall, AnsweringMachineReviewInput, AnsweringMachineServiceKind } from "./types";
 import type { AnsweringMachineIngest } from "./validation";
+import { EMPTY_ANSWERING_MACHINE_BOOKING_DETAILS } from "./validation";
 
 type CallRow = {
   id: string;
@@ -20,6 +21,11 @@ type CallRow = {
   voicemail_media_id: string | null;
   agent_summary: string;
   owner_notes: string;
+  booking_details: AnsweringMachineCall["bookingDetails"] | null;
+  booking_kind: AnsweringMachineCall["bookingKind"];
+  booking_id: string | null;
+  booking_created_at: string | null;
+  booking_error: string | null;
   revision: number;
   created_at: string;
   updated_at: string;
@@ -50,6 +56,11 @@ function mapCall(row: CallRow): AnsweringMachineCall {
     voicemailAvailable: Boolean(row.voicemail_media_id),
     agentSummary: row.agent_summary,
     ownerNotes: row.owner_notes,
+    bookingDetails: { ...EMPTY_ANSWERING_MACHINE_BOOKING_DETAILS, ...(row.booking_details ?? {}) },
+    bookingKind: row.booking_kind,
+    bookingId: row.booking_id,
+    bookingCreatedAt: row.booking_created_at,
+    bookingError: row.booking_error ?? "",
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -60,7 +71,7 @@ export async function loadAnsweringMachineCalls(limit = 50) {
   const db = createServiceRoleClient();
   const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
   const { data, error } = await db.from("answering_machine_calls")
-    .select("id,provider_call_id,caller_ref,caller_display_name,status,service_kind,event_date,facility_start_time,rental_items,transcript,transcript_complete,voicemail_media_id,agent_summary,owner_notes,revision,created_at,updated_at")
+    .select("id,provider_call_id,caller_ref,caller_display_name,status,service_kind,event_date,facility_start_time,rental_items,transcript,transcript_complete,voicemail_media_id,agent_summary,owner_notes,booking_details,booking_kind,booking_id,booking_created_at,booking_error,revision,created_at,updated_at")
     .order("updated_at", { ascending: false })
     .limit(boundedLimit);
   if (error) throw new Error("Answering Machine inbox is unavailable");
@@ -78,6 +89,33 @@ export async function reviewAnsweringMachineCall(input: AnsweringMachineReviewIn
   });
   if (error || !data) throw new Error(error?.message ?? "Answering Machine review failed safely");
   return mapCall(data as CallRow);
+}
+
+export async function completeAnsweringMachineBooking(input: {
+  callId: string;
+  expectedRevision: number;
+  bookingKind: AnsweringMachineServiceKind;
+  bookingId: string;
+  actorId: string;
+}) {
+  const db = createServiceRoleClient();
+  const { data, error } = await db.rpc("complete_answering_machine_booking", {
+    p_call_id: input.callId,
+    p_expected_revision: input.expectedRevision,
+    p_booking_kind: input.bookingKind,
+    p_booking_id: input.bookingId,
+    p_actor_id: input.actorId,
+  });
+  if (error || !data) throw new Error(error?.message ?? "Booking was created but could not be linked to the call");
+  return mapCall(data as CallRow);
+}
+
+export async function recordAnsweringMachineBookingError(callId: string, message: string) {
+  const db = createServiceRoleClient();
+  await db.from("answering_machine_calls")
+    .update({ booking_error: message.slice(0, 500), updated_at: new Date().toISOString() })
+    .eq("id", callId)
+    .is("booking_id", null);
 }
 
 export async function ingestAnsweringMachineCall(input: AnsweringMachineIngest) {
