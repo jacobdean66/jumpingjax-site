@@ -86,6 +86,7 @@ function configuredDeps(overrides: Record<string, unknown> = {}) {
   resetMetaOrganicPublishLedgerMemoryForTests();
   let metaCalled = 0;
   let tokenLoads = 0;
+  let statusSyncs = 0;
   const ledger = createTestMetaOrganicPublishLedger();
 
   const deps = {
@@ -135,6 +136,10 @@ function configuredDeps(overrides: Record<string, unknown> = {}) {
         status: "published" as const,
       };
     },
+    markSocialPostPublished: async () => {
+      statusSyncs += 1;
+      return BASE_POST;
+    },
     now: () => new Date("2026-08-08T12:00:00.000Z"),
     ...overrides,
   };
@@ -143,6 +148,7 @@ function configuredDeps(overrides: Record<string, unknown> = {}) {
   return {
     getMetaCalls: () => metaCalled,
     getTokenLoads: () => tokenLoads,
+    getStatusSyncs: () => statusSyncs,
     ledger,
   };
 }
@@ -490,6 +496,7 @@ test("cross-instance duplicate uses shared durable ledger memory", async () => {
         status: "published" as const,
       };
     },
+    markSocialPostPublished: async () => BASE_POST,
     now: () => new Date("2026-08-08T12:00:00.000Z"),
   });
 
@@ -514,7 +521,7 @@ test("cross-instance duplicate uses shared durable ledger memory", async () => {
 });
 
 test("bound Page publishes through the mocked adapter", async () => {
-  const { getMetaCalls } = configuredDeps();
+  const { getMetaCalls, getStatusSyncs } = configuredDeps();
   const first = await publishOrganicMetaPagePost({
     socialPostId: POST_ID,
     publicationTargetId: TARGET_ID,
@@ -525,8 +532,66 @@ test("bound Page publishes through the mocked adapter", async () => {
   assert.equal(first.ok, true);
   if (first.ok) {
     assert.equal(first.result.status, "published");
+    assert.equal(first.postStatusSynced, true);
+    assert.equal(first.warning, null);
     assert.ok(!JSON.stringify(first.result).includes("page-token-secret"));
   }
+  assert.equal(getMetaCalls(), 1);
+  assert.equal(getStatusSyncs(), 1);
+});
+
+test("local status failure preserves durable Meta success", async () => {
+  const { getMetaCalls } = configuredDeps({
+    markSocialPostPublished: async () => {
+      throw new Error("database unavailable");
+    },
+  });
+
+  const result = await publishOrganicMetaPagePost({
+    socialPostId: POST_ID,
+    publicationTargetId: TARGET_ID,
+    pageId: "page-1",
+    authorizationId: "exec-auth:test-1",
+    adminActorId: "owner",
+  });
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.replay, false);
+    assert.equal(result.postStatusSynced, false);
+    assert.match(result.warning ?? "", /durably recorded/i);
+  }
+  assert.equal(getMetaCalls(), 1);
+});
+
+test("durable replay repairs a previously failed local status sync", async () => {
+  let statusSyncAttempts = 0;
+  const { getMetaCalls } = configuredDeps({
+    markSocialPostPublished: async () => {
+      statusSyncAttempts += 1;
+      if (statusSyncAttempts === 1) throw new Error("temporary failure");
+      return BASE_POST;
+    },
+  });
+
+  const input = {
+    socialPostId: POST_ID,
+    publicationTargetId: TARGET_ID,
+    pageId: "page-1",
+    authorizationId: "exec-auth:test-1",
+    adminActorId: "owner",
+  };
+  const first = await publishOrganicMetaPagePost(input);
+  const second = await publishOrganicMetaPagePost(input);
+
+  assert.equal(first.ok && first.postStatusSynced, false);
+  assert.equal(second.ok, true);
+  if (second.ok) {
+    assert.equal(second.replay, true);
+    assert.equal(second.postStatusSynced, true);
+    assert.equal(second.warning, null);
+  }
+  assert.equal(statusSyncAttempts, 2);
   assert.equal(getMetaCalls(), 1);
 });
 

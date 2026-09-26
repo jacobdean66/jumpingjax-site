@@ -3,7 +3,29 @@ import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { authorizeExecutionForOwner } from "@/lib/social-posts/execution-authorization/social-execution-authorization-service";
 import { validateExecutionAuthorizationRequest } from "@/lib/social-posts/execution-authorization/social-execution-authorization-request";
 
+function isAgentInvocation(req: NextRequest): boolean {
+  const purpose = req.headers.get("x-purpose")?.trim().toLowerCase();
+  return Boolean(
+    req.headers.get("x-social-agent") ||
+      req.headers.get("x-cursor-agent") ||
+      req.headers.get("x-agent-invoke") ||
+      purpose === "agent" ||
+      purpose === "llm" ||
+      purpose === "autonomous",
+  );
+}
+
 export async function POST(req: NextRequest) {
+  if (isAgentInvocation(req)) {
+    return NextResponse.json(
+      {
+        error: "Agents and LLMs cannot authorize publication execution.",
+        code: "agent_authorization_forbidden",
+      },
+      { status: 403 },
+    );
+  }
+
   const formData = await req.formData();
   const token = String(formData.get("token") ?? "");
   const executionIntentId = String(formData.get("execution_intent_id") ?? "");
@@ -11,6 +33,7 @@ export async function POST(req: NextRequest) {
   const ownerApprovalId = String(formData.get("owner_approval_id") ?? "");
   const approvalId = String(formData.get("approval_id") ?? "");
   const socialPostId = String(formData.get("social_post_id") ?? "");
+  const scheduledFor = String(formData.get("scheduled_for") ?? "");
 
   const auth = await verifyAdminOwnerAccess(token);
   if (!auth.ok) {
@@ -34,6 +57,7 @@ export async function POST(req: NextRequest) {
     ownerApprovalId: validation.ownerApprovalId,
     approvalId: validation.approvalId,
     socialPostId: validation.socialPostId,
+    scheduledFor: scheduledFor || undefined,
     adminActorId: auth.identity.id,
   });
 
@@ -42,6 +66,15 @@ export async function POST(req: NextRequest) {
   redirectUrl.searchParams.set("executionIntentId", validation.executionIntentId);
   redirectUrl.searchParams.set("publicationTargetId", validation.publicationTargetId);
   redirectUrl.searchParams.set("ownerApprovalId", validation.ownerApprovalId);
+  if (validation.approvalId) {
+    redirectUrl.searchParams.set("approvalId", validation.approvalId);
+  }
+  if (validation.socialPostId) {
+    redirectUrl.searchParams.set("socialPostId", validation.socialPostId);
+  }
+  if (scheduledFor) {
+    redirectUrl.searchParams.set("scheduledFor", scheduledFor);
+  }
 
   if (!authorization.ok) {
     redirectUrl.searchParams.set("exec_auth", "authorize_failed");

@@ -199,6 +199,7 @@ import { buildSocialOAuthOrchestrationDiagnostics } from "@/lib/social-posts/oau
 import { countActiveMetaPageAccessVaultRecords } from "@/lib/social-posts/oauth/social-oauth-token-loader";
 import { evaluateMetaOrganicPublishReadiness } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
 import { resolveVerifiedMetaOrganicPublishGates } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
+import { getSocialPostById } from "@/lib/social-posts/social-post-data";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +239,10 @@ type Props = {
     meta_publish_error?: string;
     meta_publish_message?: string;
     meta_publish_external_id?: string;
+    meta_schedule?: string;
+    meta_schedule_error?: string;
+    meta_schedule_message?: string;
+    meta_schedule_id?: string;
     oauth_refresh?: string;
     oauth_refresh_error?: string;
     oauth_refresh_message?: string;
@@ -2748,6 +2753,10 @@ export default async function AdminPublicationExecutionPage({
     campaignMemoryId: resolved.campaignMemoryId?.trim() ?? "",
     decisionHistoryId: resolved.decisionHistoryId?.trim() ?? "",
   };
+  const selectedPost = filters.socialPostId
+    ? await getSocialPostById(filters.socialPostId).catch(() => null)
+    : null;
+  const selectedScheduledFor = selectedPost?.scheduled_for ?? "";
 
   const loaded = await loadExecution(filters);
   const credentialModel = await loadCredentialPersistenceModel();
@@ -3024,6 +3033,15 @@ export default async function AdminPublicationExecutionPage({
             {filters.socialPostId ? (
               <input type="hidden" name="socialPostId" value={filters.socialPostId} />
             ) : null}
+            {filters.executionIntentId ? (
+              <input type="hidden" name="executionIntentId" value={filters.executionIntentId} />
+            ) : null}
+            {filters.ownerApprovalId ? (
+              <input type="hidden" name="ownerApprovalId" value={filters.ownerApprovalId} />
+            ) : null}
+            {filters.approvalId ? (
+              <input type="hidden" name="approvalId" value={filters.approvalId} />
+            ) : null}
             <label className="min-w-[16rem] flex-1">
               <span className="text-sm font-black text-slate-700">Facebook page target</span>
               <select
@@ -3149,6 +3167,164 @@ export default async function AdminPublicationExecutionPage({
             <p className="mt-4 text-sm font-semibold text-slate-600">
               Connected. Run Discover, then Bind the Jumping Jax Facebook Page.
             </p>
+          ) : null}
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-amber-300 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                Owner Publish
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">
+                Authorize and publish this post
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-600">
+                Draft approval and publishing are separate actions. Authorize this exact post and
+                Facebook target, then publish only when every server check passes.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-amber-900">
+              {metaPublishReadinessLabel}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field
+              label="Social post"
+              value={filters.socialPostId ? `${filters.socialPostId.slice(0, 13)}…` : "not selected"}
+            />
+            <Field
+              label="Owner approval"
+              value={filters.ownerApprovalId ? "recorded" : "required"}
+            />
+            <Field
+              label="Execution authorization"
+              value={resolved.exec_auth_id ? "authorized" : "required"}
+            />
+            <Field label="Publish state" value={metaOrganicPublishReadiness.state} />
+          </div>
+
+          {!filters.socialPostId || !filters.ownerApprovalId || !filters.executionIntentId ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+              Start with <strong>Approve &amp; Continue</strong> on Social Post Drafts so this screen
+              receives the reviewed post and durable owner approval.
+            </div>
+          ) : null}
+
+          {auth.role === "owner" &&
+          filters.socialPostId &&
+          filters.ownerApprovalId &&
+          filters.executionIntentId &&
+          metaTargetId &&
+          !resolved.exec_auth_id ? (
+            <form
+              className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4"
+              action="/api/admin/social-execution/authorize"
+              method="post"
+            >
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="execution_intent_id" value={filters.executionIntentId} />
+              <input type="hidden" name="publication_target_id" value={metaTargetId} />
+              <input type="hidden" name="owner_approval_id" value={filters.ownerApprovalId} />
+              <input type="hidden" name="approval_id" value={filters.approvalId} />
+              <input type="hidden" name="social_post_id" value={filters.socialPostId} />
+              {selectedScheduledFor ? (
+                <input type="hidden" name="scheduled_for" value={selectedScheduledFor} />
+              ) : null}
+              <button
+                type="submit"
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-amber-700 px-6 py-2.5 text-sm font-black text-white hover:bg-amber-800"
+              >
+                Authorize This Publish
+              </button>
+              <p className="max-w-xl text-xs font-semibold text-amber-900">
+                Owner-only authorization for this exact post and Facebook target. It expires and
+                does not publish by itself.
+              </p>
+            </form>
+          ) : null}
+
+          {auth.role === "owner" &&
+          filters.socialPostId &&
+          metaTargetId &&
+          metaOrganicPublishReadiness.pageId &&
+          resolved.exec_auth_id ? (
+            <form
+              className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4"
+              action="/api/admin/social-meta/publish"
+              method="post"
+            >
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="social_post_id" value={filters.socialPostId} />
+              <input type="hidden" name="publication_target_id" value={metaTargetId} />
+              <input type="hidden" name="page_id" value={metaOrganicPublishReadiness.pageId} />
+              <input type="hidden" name="authorization_id" value={resolved.exec_auth_id} />
+              <button
+                type="submit"
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!metaOrganicPublishReadiness.canPublish}
+              >
+                Publish to Facebook
+              </button>
+              <p className="max-w-xl text-xs font-semibold text-emerald-900">
+                {metaOrganicPublishReadiness.canPublish
+                  ? "Every server-side gate passed. This action will publish the reviewed caption to the bound Page."
+                  : metaOrganicPublishReadiness.notes.at(-1) ?? "Complete the remaining readiness step above."}
+              </p>
+            </form>
+          ) : null}
+
+          {auth.role === "owner" &&
+          filters.socialPostId &&
+          metaTargetId &&
+          metaOrganicPublishReadiness.pageId &&
+          resolved.exec_auth_id &&
+          selectedScheduledFor ? (
+            <form
+              className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50/70 p-4"
+              action="/api/admin/social-meta/schedule"
+              method="post"
+            >
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="social_post_id" value={filters.socialPostId} />
+              <input type="hidden" name="publication_target_id" value={metaTargetId} />
+              <input type="hidden" name="page_id" value={metaOrganicPublishReadiness.pageId} />
+              <input type="hidden" name="authorization_id" value={resolved.exec_auth_id} />
+              <input type="hidden" name="scheduled_for" value={selectedScheduledFor} />
+              <input type="hidden" name="execution_intent_id" value={filters.executionIntentId} />
+              <input type="hidden" name="owner_approval_id" value={filters.ownerApprovalId} />
+              <input type="hidden" name="approval_id" value={filters.approvalId} />
+              <button
+                type="submit"
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-sky-700 px-6 py-2.5 text-sm font-black text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!metaOrganicPublishReadiness.canPublish}
+              >
+                Schedule for {formatDateTime(selectedScheduledFor)}
+              </button>
+              <p className="max-w-xl text-xs font-semibold text-sky-900">
+                The protected scheduler will publish this exact approved post and target. You can
+                still use Publish to Facebook above for an immediate post instead.
+              </p>
+            </form>
+          ) : null}
+
+          {metaPublishStatusParam ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
+              Publish result: {metaPublishStatusParam}
+              {resolved.meta_publish_message ? ` — ${resolved.meta_publish_message}` : ""}
+              {resolved.meta_publish_external_id
+                ? ` — external id: ${resolved.meta_publish_external_id}`
+                : ""}
+            </div>
+          ) : null}
+          {resolved.meta_schedule ? (
+            <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-950">
+              Schedule result: {resolved.meta_schedule}
+              {resolved.meta_schedule_message ? ` — ${resolved.meta_schedule_message}` : ""}
+              {resolved.meta_schedule_error ? ` (${resolved.meta_schedule_error})` : ""}
+              {resolved.meta_schedule_id ? ` — schedule: ${resolved.meta_schedule_id}` : ""}
+            </div>
           ) : null}
         </section>
 

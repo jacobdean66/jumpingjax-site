@@ -20,6 +20,10 @@ const socialPostsPage = readFileSync(
   fileURLToPath(new URL("../../../app/admin/social-posts/page.tsx", import.meta.url)),
   "utf8",
 );
+const socialPostsNewPage = readFileSync(
+  fileURLToPath(new URL("../../../app/admin/social-posts/new/page.tsx", import.meta.url)),
+  "utf8",
+);
 const socialPostsAdminClient = readFileSync(
   fileURLToPath(
     new URL("../../../app/admin/social-posts/SocialPostsAdminClient.tsx", import.meta.url),
@@ -117,8 +121,8 @@ test("DirectorsConsole and draft forms use ~44px mobile tap targets", () => {
     directorsConsole,
     /className="ml-auto min-h-11 rounded-full bg-slate-950 px-4 py-2/,
   );
-  assert.match(socialPostsPage, /size-5 shrink-0/);
-  assert.match(socialPostsPage, /inline-flex min-h-11 items-center gap-2/);
+  assert.match(socialPostsNewPage, /min-h-11/);
+  assert.match(socialPostsNewPage, /Create manual draft/);
   assert.match(socialPostsAdminClient, /size-5 shrink-0/);
   assert.match(socialPostsAdminClient, /inline-flex min-h-11 items-center gap-2/);
 });

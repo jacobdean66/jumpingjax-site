@@ -33,6 +33,8 @@ import {
 } from "./social-execution-authorization-store";
 
 export const SOCIAL_EXECUTION_AUTHORIZATION_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+export const SOCIAL_EXECUTION_AUTHORIZATION_MAX_SCHEDULE_MS =
+  90 * 24 * 60 * 60 * 1000;
 
 export type SocialExecutionAuthorizationServiceDependencies = Readonly<{
   verifyOwnerApprovalForAuthorization: (
@@ -113,6 +115,7 @@ export async function authorizeExecutionForOwner(input: {
   ownerApprovalId: unknown;
   approvalId?: unknown;
   socialPostId?: unknown;
+  scheduledFor?: unknown;
   adminActorId: string;
   now?: Date;
 }): Promise<SocialExecutionAuthorizationServiceResult> {
@@ -153,7 +156,28 @@ export async function authorizeExecutionForOwner(input: {
 
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
-  const expiresAt = new Date(now.getTime() + SOCIAL_EXECUTION_AUTHORIZATION_SESSION_TTL_MS).toISOString();
+  const expiration = resolveExecutionAuthorizationExpiration({
+    now,
+    scheduledFor: input.scheduledFor,
+  });
+  if (!expiration.ok) {
+    await appendSocialExecutionAuthorizationAuditEvent({
+      audit_event_id: createExecutionAuthorizationAuditEventId(),
+      authorization_id: null,
+      authorization_identity: buildExecutionAuthorizationIdentity({
+        executionIntentId: validation.executionIntentId,
+        publicationTargetId: validation.publicationTargetId,
+      }),
+      correlation_id: null,
+      action: "authorize_validation_failed",
+      outcome: "validation_failed",
+      sanitized_detail: expiration.code,
+      admin_actor_id: input.adminActorId,
+      created_at: nowIso,
+    }).catch(() => undefined);
+    return expiration;
+  }
+  const expiresAt = expiration.expiresAt;
   const authorizationIdentity = buildExecutionAuthorizationIdentity({
     executionIntentId: validation.executionIntentId,
     publicationTargetId: validation.publicationTargetId,
@@ -350,6 +374,55 @@ export async function authorizeExecutionForOwner(input: {
     sessionId,
     correlationId,
     authorizationIdentity,
+  };
+}
+
+export function resolveExecutionAuthorizationExpiration(input: {
+  now: Date;
+  scheduledFor?: unknown;
+}):
+  | { ok: true; expiresAt: string }
+  | { ok: false; code: string; message: string } {
+  const defaultExpiration =
+    input.now.getTime() + SOCIAL_EXECUTION_AUTHORIZATION_SESSION_TTL_MS;
+  if (input.scheduledFor == null || String(input.scheduledFor).trim() === "") {
+    return { ok: true, expiresAt: new Date(defaultExpiration).toISOString() };
+  }
+
+  const scheduledAt = Date.parse(String(input.scheduledFor));
+  if (!Number.isFinite(scheduledAt)) {
+    return {
+      ok: false,
+      code: "scheduled_for_invalid",
+      message: "Scheduled publication time is invalid.",
+    };
+  }
+  if (scheduledAt <= input.now.getTime()) {
+    return {
+      ok: false,
+      code: "scheduled_for_not_future",
+      message: "Scheduled publication time must be in the future.",
+    };
+  }
+  if (
+    scheduledAt - input.now.getTime() >
+    SOCIAL_EXECUTION_AUTHORIZATION_MAX_SCHEDULE_MS
+  ) {
+    return {
+      ok: false,
+      code: "scheduled_for_too_far",
+      message: "Scheduled publication must be within 90 days.",
+    };
+  }
+
+  return {
+    ok: true,
+    expiresAt: new Date(
+      Math.max(
+        defaultExpiration,
+        scheduledAt + SOCIAL_EXECUTION_AUTHORIZATION_SESSION_TTL_MS,
+      ),
+    ).toISOString(),
   };
 }
 

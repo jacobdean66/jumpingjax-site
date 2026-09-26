@@ -6,6 +6,7 @@ import {
   cancelExecutionAuthorizationForOwner,
   configureSocialExecutionAuthorizationServiceTestDependencies,
   createExecutionAuthorizationId,
+  resolveExecutionAuthorizationExpiration,
 } from "./social-execution-authorization-service";
 import {
   configureSocialExecutionAuthorizationStoreTestDependencies,
@@ -80,6 +81,35 @@ test("authorizeExecutionForOwner appends authorization, session, intents, and au
 
   configureSocialExecutionAuthorizationStoreTestDependencies(null);
   configureSocialExecutionAuthorizationServiceTestDependencies(null);
+});
+
+test("scheduled authorization remains valid through its exact future publish window", () => {
+  const result = resolveExecutionAuthorizationExpiration({
+    now: new Date("2026-07-05T12:00:00.000Z"),
+    scheduledFor: "2026-07-12T15:30:00.000Z",
+  });
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.expiresAt, "2026-07-13T15:30:00.000Z");
+  }
+});
+
+test("scheduled authorization rejects past and overly distant times", () => {
+  const now = new Date("2026-07-05T12:00:00.000Z");
+  const past = resolveExecutionAuthorizationExpiration({
+    now,
+    scheduledFor: "2026-07-05T11:59:59.000Z",
+  });
+  const tooFar = resolveExecutionAuthorizationExpiration({
+    now,
+    scheduledFor: "2027-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(past.ok, false);
+  if (!past.ok) assert.equal(past.code, "scheduled_for_not_future");
+  assert.equal(tooFar.ok, false);
+  if (!tooFar.ok) assert.equal(tooFar.code, "scheduled_for_too_far");
 });
 
 test("authorizeExecutionForOwner blocks unapproved owner approval references", async () => {

@@ -12,6 +12,7 @@ import { loadSocialExecutionAuthorizationSnapshot } from "../execution-authoriza
 import { verifyOwnerApprovalForExecutionAuthorization } from "../execution-authorization/social-execution-authorization-owner-approval";
 import {
   getSocialPostById,
+  markSocialPostPublished,
   type SocialPost,
 } from "../social-post-data";
 import {
@@ -46,6 +47,8 @@ export type MetaOrganicPublishResult = Readonly<
       ok: true;
       replay: boolean;
       result: MetaOrganicPublishResultMetadata;
+      postStatusSynced: boolean;
+      warning: string | null;
     }
   | {
       ok: false;
@@ -72,6 +75,7 @@ export type MetaOrganicPublishDependencies = Readonly<{
   ledger: MetaOrganicPublishLedger;
   loadPageAccessToken: typeof loadMetaPageAccessTokenForPublicationTarget;
   publishFeedPost: typeof publishMetaPageFeedPost;
+  markSocialPostPublished: typeof markSocialPostPublished;
   now: () => Date;
 }>;
 
@@ -111,6 +115,7 @@ function dependencies(): MetaOrganicPublishDependencies {
       ledger: createDurableMetaOrganicPublishLedger(),
       loadPageAccessToken: loadMetaPageAccessTokenForPublicationTarget,
       publishFeedPost: publishMetaPageFeedPost,
+      markSocialPostPublished,
       now: () => new Date(),
     }
   );
@@ -363,7 +368,16 @@ export async function publishOrganicMetaPagePost(input: {
     };
   }
   if (claim.kind === "replay") {
-    return { ok: true, replay: true, result: claim.result };
+    const reconciliation = await reconcilePublishedPostStatus(
+      deps,
+      claim.result.socialPostId,
+    );
+    return {
+      ok: true,
+      replay: true,
+      result: claim.result,
+      ...reconciliation,
+    };
   }
   if (claim.kind === "awaiting_reconciliation") {
     return {
@@ -471,7 +485,35 @@ export async function publishOrganicMetaPagePost(input: {
     };
   }
 
-  return { ok: true, replay: false, result };
+  const reconciliation = await reconcilePublishedPostStatus(
+    deps,
+    socialPostId,
+  );
+  return {
+    ok: true,
+    replay: false,
+    result,
+    ...reconciliation,
+  };
+}
+
+async function reconcilePublishedPostStatus(
+  deps: MetaOrganicPublishDependencies,
+  socialPostId: string,
+): Promise<{
+  postStatusSynced: boolean;
+  warning: string | null;
+}> {
+  try {
+    await deps.markSocialPostPublished(socialPostId, deps.now().toISOString());
+    return { postStatusSynced: true, warning: null };
+  } catch {
+    return {
+      postStatusSynced: false,
+      warning:
+        "Meta publication is durably recorded, but the local post status could not be updated. Reopen this result to retry status reconciliation without publishing again.",
+    };
+  }
 }
 
 function authorizationMatchesPublishScope(

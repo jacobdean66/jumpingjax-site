@@ -557,9 +557,20 @@ Current components:
 - **D16 W15 plan store** (`execution-plan/social-execution-plan-store.ts`) — append-only in-memory plan and audit history for model-only planning.
 - **D16 W15 admin visibility** — execution plan preflight, diagnostics, plan table, and expected dry-run operation table on `/admin/social-posts/publication-execution` (GET-only; no run button).
 
-## Admin Read-Only Surfaces
+### Layer 31: Owner-Controlled Meta Publication and Scheduling
 
-All implemented marketing-platform admin pages are auth-gated and read-only for inspection:
+The live Meta path is separate from the historical D9-D16 planning and diagnostic models. It accepts only an exact durable owner approval plus a scoped execution authorization. Agents and LLM callers are rejected by the approval, authorization, scheduling, and publish routes.
+
+- **Owner approval handoff** — `Approve & Continue` creates durable proposal/event history and carries the post, approval, execution intent, and target scope into Publication Execution.
+- **Immediate publication** — the owner-only Meta publish route verifies authorization state, owner approval, Page binding, vaulted token readiness, current post content, deterministic compliance, and a durable idempotent claim before invoking Meta.
+- **Durable outcome** — confirmed Meta success records the external post id and updates `social_posts.status`, `posted_at`, schedule, and error fields. Replays repair local status without another Meta mutation.
+- **Scheduled publication** — `social_meta_scheduled_publications` stores an exact post/target/Page/authorization job. A `CRON_SECRET`-protected worker claims due or stale jobs with a lease and reuses the same publish service. Uncertain completion becomes `recovery_required` and is never automatically sent again.
+- **Bounded authorization** — immediate authorization expires after 24 hours. An explicitly scheduled authorization remains valid through its selected time plus a 24-hour execution window, up to 90 days.
+- **Passive subsystems** — Publication Metrics remains passive observation only, and Publication Learning remains read-only candidate replay; neither automatically changes content or publishing decisions.
+
+## Admin Surfaces
+
+All implemented marketing-platform admin pages are auth-gated. Most historical subsystem pages remain read-only; the main Social Posts and Publication Execution pages contain the owner-only mutation controls described above.
 
 - **Social posts hub** — navigation entry point for drafts and subsystem pages.
 - **Working Context (D5)** — temporary campaign-scoped context preview.
@@ -570,7 +581,7 @@ All implemented marketing-platform admin pages are auth-gated and read-only for 
 - **Publication Publisher (D9 + H19)** — durable Publisher request/result records and computed replay through H18 bridge.
 - **Publication Metrics (D9 + H24)** — durable metric observation records and computed replay through H24 bridge.
 - **Publication Learning (D9 + H26)** — candidate/blocked/accepted-for-review/rejected learning insight records and computed, explainable replay through the H25 bridge. No production store; storage-unavailable is an expected state.
-- **Publication Execution (D10 + D11 Wave 1-4 + D12 Wave 4 + D13 + D15 Wave 1-3 + D16 Wave 1-15 + H32/H34/H35/H36/H37/H38/H39/H40/H41/H42/H45/H46/H47/H48)** — durable Execution request/result records, computed replay, read-only preflight diagnostics, simulated planner visibility, adapter contract diagnostics, runbook readiness diagnostics, coordinator pipeline diagnostics, platform adapter registry diagnostics, Meta/TikTok/LinkedIn adapter contract diagnostics, credential/OAuth boundary diagnostics, platform readiness gate diagnostics, D12 OAuth request/callback/session replay diagnostics, D15 credential runtime orchestration diagnostics, D15 provider integration planning diagnostics, D15 credential resolution execution bridge diagnostics, D15 publication execution eligibility preflight diagnostics (including D16 token lifecycle, execution authorization blocking, durable owner approval verification awareness, informational execution attempt awareness, duplicate attempt blocking, informational execution attempt evidence coverage, and informational evidence append availability), D16 live Meta OAuth connect diagnostics, D16 Meta asset binding diagnostics, D16 token lifecycle/binding health diagnostics, D16 owner-gated manual refresh diagnostics, D16 owner-gated execution authorization/runtime session diagnostics with owner approval verification replay, D16 execution attempt modeling diagnostics, D16 owner-gated execution attempt creation diagnostics, D16 execution attempt evidence/state modeling diagnostics, D16 dry-run execution runner preflight/transcript diagnostics, D16 execution session orchestration preflight/timeline diagnostics, and D16 execution plan modeling preflight/expected-operation diagnostics through H31 bridge; owner connect/discover/bind/refresh/authorize/cancel-authorization/create-attempt remain the mutation surfaces. D12 OAuth diagnostics remain read-only modeling.
+- **Publication Execution (D10-D16 diagnostics + controlled Meta execution)** — primary owner workflow for connect/discover/bind, durable approval handoff, exact execution authorization, immediate Facebook publication, and durable scheduling. Advanced historical planning and diagnostic views remain collapsed and read-only.
 - **AI Operations Console (D9 Wave 11)** — unified, GET-only overview of all read-visible subsystems, a cross-system pipeline trace scoped by social post id, and passive health diagnostics. Composes existing bridges/replay only; introduces no new persistence or mutation.
 
 H7 added cross-links between hub, manifest, and ledger. H8 completed navigation reachability for memory and working-context surfaces and reconciled documentation. H14 added scheduler links between the social-posts hub, scheduler, manifest, and ledger read surfaces. H20 added Publisher links between the hub, Publisher, scheduler, ledger, and manifest read surfaces. H27 added Learning links between the hub, Metrics, Publisher, Scheduler, Ledger, and Manifest read surfaces. Wave 11 added the Operations Console link from the social-posts hub. The D9 Final Architecture Audit (pre-D10) closed the remaining Operations Console back-link gap. H33 adds Execution links between the hub, Scheduler, Publisher, Metrics, Learning, Ledger, Manifest, and Operations Console.
@@ -604,9 +615,14 @@ social_publication_publisher_requests / results / evidence (D9 + H15)
 social_publication_metric_observations / evidence (D9 + H21)
 social_publication_execution_intents / results / evidence (D10 + H28)
 social_credential_vault_records / provider_accounts / lifecycle_states / audit_events / key_versions (D13)
+social_execution_authorizations / cancellations / audit_events (D16)
+social_meta_organic_publish_claims (controlled Meta publication)
+social_meta_scheduled_publications (owner-authorized due-job execution)
 ```
 
 Publication manifest and readiness are computed views over `social_posts` and related rows. They are not separate authoritative history stores. Ledger records are append-only evidence; Scheduler records are append-only intent; Publisher records are append-only request/result/evidence persistence. Metrics records are append-only passive observations/evidence. Learning insight records are library-only (no persistence exists yet) candidate insights that reference prior records by id only. Scheduler, Ledger, Publisher, Metrics, and Learning replay outputs are computed at read time. None of these durable rows, library records, or replay outputs grant publish authority.
+
+Live Meta authority comes only from the owner approval plus the exact execution authorization. `social_meta_organic_publish_claims` is the idempotent external-mutation authority, and `social_meta_scheduled_publications` may invoke that same protected path only after its owner-authorized due time.
 
 ## Promotion Engine
 

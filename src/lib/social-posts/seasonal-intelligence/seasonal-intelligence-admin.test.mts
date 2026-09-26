@@ -8,8 +8,8 @@ const PAGE_SOURCE = readFileSync(
   `${DIRECTORY}../../../app/admin/social-posts/seasonal-intelligence/page.tsx`,
   "utf8",
 );
-const HUB_SOURCE = readFileSync(
-  `${DIRECTORY}../../../app/admin/social-posts/page.tsx`,
+const NAV_SOURCE = readFileSync(
+  `${DIRECTORY}../../../app/admin/social-posts/SocialPostsNav.tsx`,
   "utf8",
 );
 
@@ -29,7 +29,7 @@ test("seasonal admin page is informational and exposes no mutation controls", ()
   assert.doesNotMatch(PAGE_SOURCE, /\bfetch\(/i);
 });
 
-test("social posts hub links to the authenticated seasonal intelligence page", () => {
-  assert.match(HUB_SOURCE, /\/admin\/social-posts\/seasonal-intelligence/);
-  assert.match(HUB_SOURCE, /Seasonal intelligence/);
+test("social posts navigation links to the authenticated seasonal intelligence page", () => {
+  assert.match(NAV_SOURCE, /\/admin\/social-posts\/seasonal-intelligence/);
+  assert.match(NAV_SOURCE, /Seasonal intelligence/);
 });
