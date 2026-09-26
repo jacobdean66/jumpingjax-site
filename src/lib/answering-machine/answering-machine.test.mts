@@ -4,12 +4,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { getAnsweringMachineReadiness } from "./readiness.ts";
-import { parseAnsweringMachineIngest, parseAnsweringMachineReview } from "./validation.ts";
+import { EMPTY_ANSWERING_MACHINE_BOOKING_DETAILS, parseAnsweringMachineIngest, parseAnsweringMachineReview } from "./validation.ts";
 import { extractWhatsAppCallSignals, extractWhatsAppVoicemails, verifyMetaWebhookSignature } from "./whatsapp.ts";
 
 const completeReview = {
   id: "11111111-1111-4111-8111-111111111111",
-  action: "approve",
+  action: "book",
   expectedRevision: 2,
   patch: {
     serviceKind: "facility_party",
@@ -20,6 +20,7 @@ const completeReview = {
     transcriptComplete: true,
     agentSummary: "Facility party, October 24 at 2:30 PM.",
     ownerNotes: "",
+    bookingDetails: EMPTY_ANSWERING_MACHINE_BOOKING_DETAILS,
   },
 };
 
@@ -163,7 +164,7 @@ test("Answering Machine admin and callback routes enforce their separate trust b
   assert.match(webhook, /ANSWERING_MACHINE_MEDIA_BRIDGE_URL/);
   assert.match(callback, /hasAnsweringMachineCallbackAuthorization/);
   assert.match(page, /Call transcript/);
-  assert.match(page, /Approve information/);
+  assert.match(page, /Create booking request/);
   assert.match(page, /Rental \/ foam party/);
   assert.match(page, /Recorded voicemail/);
 });

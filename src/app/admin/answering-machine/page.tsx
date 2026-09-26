@@ -2,6 +2,7 @@ import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
 import { loadAnsweringMachineCalls } from "@/lib/answering-machine/service";
 import type { AnsweringMachineCall } from "@/lib/answering-machine/types";
+import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { AnsweringMachineInbox } from "./AnsweringMachineInbox";
 import { AnsweringMachineTestCall } from "./AnsweringMachineTestCall";
@@ -14,6 +15,7 @@ export default async function AnsweringMachinePage() {
   const readiness = getAnsweringMachineReadiness();
   let calls: AnsweringMachineCall[] = [];
   let storageError: string | null = null;
+  const rentalOptions = (await loadWebsiteRentals()).map(({ slug, title }) => ({ slug, title }));
   try {
     calls = await loadAnsweringMachineCalls();
   } catch {
@@ -26,10 +28,10 @@ export default async function AnsweringMachinePage() {
         <AdminNav token="" role={auth.role} active="answering-machine" compact />
       </AdminHeader>
       <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
-        Review WhatsApp call transcripts and correct the date, time, or rental selection before approving anything for the next booking step.
+        Review the call, complete the customer details, and create a protected pending booking through the normal Jumping Jax workflow.
       </p>
       <AnsweringMachineTestCall />
-      <AnsweringMachineInbox initialCalls={calls} readiness={readiness} storageError={storageError} />
+      <AnsweringMachineInbox initialCalls={calls} rentalOptions={rentalOptions} readiness={readiness} storageError={storageError} />
     </AdminShell>
   );
 }
