@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { AgentJob } from "./types";
 import type { AgentWiring } from "./agent-wiring";
+import { serviceCoverageReply, type DashboardServiceCoverage } from "./service-coverage";
 
 export const SUPERVISOR_CHAT_JOB_TYPE = "supervisor.chat";
 export const SUPERVISOR_WATCH_JOB_TYPE = "system.website_watch";
@@ -24,6 +25,8 @@ export type SupervisorSnapshot = {
     paused: number;
     errors: number;
     queuedJobs: number;
+    activeJobs: number;
+    staleJobs: number;
     failedJobs: number;
     approvalsWaiting: number;
     emergencyStop: boolean;
@@ -42,6 +45,7 @@ export type SupervisorSnapshot = {
     failedCalls: number | null;
   };
   security: Array<{ name: string; state: string; summary: string }>;
+  services: DashboardServiceCoverage[];
   wiring: AgentWiring[];
   dataErrors: string[];
   issues: SupervisorIssue[];
@@ -168,6 +172,7 @@ export function buildSupervisorIssues(snapshot: Omit<SupervisorSnapshot, "issues
   }
   if (snapshot.agents.emergencyStop) issues.push({ code: "agents:emergency-stop", area: "agents", severity: "critical", summary: "The Agent Manager emergency stop is active." });
   if (snapshot.agents.errors > 0) issues.push({ code: "agents:error", area: "agents", severity: "critical", summary: `${snapshot.agents.errors} agent${snapshot.agents.errors === 1 ? " is" : "s are"} in an error state.` });
+  if (snapshot.agents.staleJobs > 0) issues.push({ code: "agents:stale-jobs", area: "agents", severity: "critical", summary: `${snapshot.agents.staleJobs} Agent Manager job${snapshot.agents.staleJobs === 1 ? " has" : "s have"} been active for over 15 minutes.` });
   if (snapshot.agents.failedJobs > 0) issues.push({ code: "agents:failed-jobs", area: "agents", severity: "warning", summary: `${snapshot.agents.failedJobs} recent Agent Manager job${snapshot.agents.failedJobs === 1 ? " has" : "s have"} failed.` });
   if (snapshot.agents.approvalsWaiting > 0) issues.push({ code: "agents:approvals", area: "agents", severity: "info", summary: `${snapshot.agents.approvalsWaiting} owner approval${snapshot.agents.approvalsWaiting === 1 ? " is" : "s are"} waiting.` });
   for (const wiring of snapshot.wiring) {
@@ -183,6 +188,10 @@ export function buildSupervisorIssues(snapshot: Omit<SupervisorSnapshot, "issues
     else if (service.state === "degraded" || service.state === "misconfigured" || service.state === "unavailable") issues.push({ code: `security:${service.name}`, area: "security", severity: "warning", summary: `${service.name}: ${service.summary}` });
   }
   for (const error of snapshot.dataErrors) issues.push({ code: `data:${createHash("sha256").update(error).digest("hex").slice(0, 8)}`, area: "website", severity: "warning", summary: error });
+  for (const service of snapshot.services) {
+    if (service.state === "unavailable") issues.push({ code: `service:${service.key}:unavailable`, area: "website", severity: "critical", summary: `${service.name}: ${service.blocker ?? service.summary}` });
+    else if (service.state === "setup_required") issues.push({ code: `service:${service.key}:setup-required`, area: "website", severity: "warning", summary: `${service.name}: ${service.blocker ?? service.summary}` });
+  }
   return issues.sort((left, right) => {
     const rank = { critical: 0, warning: 1, info: 2 } as const;
     return rank[left.severity] - rank[right.severity] || left.code.localeCompare(right.code);
@@ -209,7 +218,7 @@ function bookingReply(snapshot: SupervisorSnapshot) {
 
 function agentReply(snapshot: SupervisorSnapshot) {
   const a = snapshot.agents;
-  return `Agents: ${a.total} registered, ${a.paused} paused, ${a.errors} in error, ${a.queuedJobs} queued jobs, ${a.failedJobs} recent failures, and ${a.approvalsWaiting} approvals waiting. Emergency stop is ${a.emergencyStop ? "ON" : "off"}.`;
+  return `Agents: ${a.total} registered, ${a.paused} paused, ${a.errors} in error, ${a.activeJobs} active jobs (${a.queuedJobs} queued), ${a.staleJobs} stale, ${a.failedJobs} recent failures, and ${a.approvalsWaiting} approvals waiting. Emergency stop is ${a.emergencyStop ? "ON" : "off"}.`;
 }
 
 function securityReply(snapshot: SupervisorSnapshot) {
@@ -231,6 +240,9 @@ function specialistReply(key: string, snapshot: SupervisorSnapshot) {
 export function buildSupervisorReply(message: string, snapshot: SupervisorSnapshot, actionOutcome?: string | null) {
   const normalized = normalizedMessage(message);
   const prefix = actionOutcome ? `${actionOutcome} ` : "";
+  if (/\b(every|all|list|coverage|connected|cannot|can't|unconnected)\b/.test(normalized) && /\b(service|services|dashboard|connection|connections)\b/.test(normalized)) {
+    return `${prefix}${serviceCoverageReply(snapshot.services)}`;
+  }
   if (/\b(help|commands|what can you do)\b/.test(normalized)) {
     return `${prefix}I can check the whole website, bookings, rentals, agents, the answering machine, social drafts, invitations, nominations, and code/security health. Exact safe controls include “pause booking agent,” “resume booking agent,” “run booking scan,” “run booking follow-up scan,” “run waiver scan,” “emergency stop,” and “release emergency stop.” Production code, publishing, customer messages, calendar writes, payments, deletions, and deployments stay approval-gated.`;
   }

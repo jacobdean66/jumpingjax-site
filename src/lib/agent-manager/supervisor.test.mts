@@ -21,11 +21,15 @@ function snapshot(overrides: Partial<SupervisorSnapshot> = {}): SupervisorSnapsh
     generatedAt: "2026-09-01T12:00:00.000Z",
     deployment: { commitSha: "abc123", environment: "production" },
     website: [{ path: "/", ok: true, status: 200, latencyMs: 20 }],
-    agents: { total: 8, paused: 0, errors: 0, queuedJobs: 0, failedJobs: 0, approvalsWaiting: 0, emergencyStop: false },
+    agents: { total: 8, paused: 0, errors: 0, queuedJobs: 0, activeJobs: 0, staleJobs: 0, failedJobs: 0, approvalsWaiting: 0, emergencyStop: false },
     bookings: { workflowIssues: 0, activeRentals: 3, activeFacilityParties: 2, pendingCompositeIntents: 1 },
     rentals: { catalogItems: 45 },
     answeringMachine: { live: false, status: "SETUP REQUIRED", pendingReview: 0, failedCalls: 0 },
     security: [{ name: "Aikido", state: "healthy", summary: "Latest scan passed." }],
+    services: [
+      { key: "rentals", name: "Rental Dashboard", href: "/admin/rentals", state: "connected", summary: "Readable.", checkedAt: "2026-09-01T12:00:00.000Z", source: "database", recordCount: 3, blocker: null },
+      { key: "payments", name: "Payments", href: "/admin/payments", state: "degraded", summary: "External reports only.", checkedAt: "2026-09-01T12:00:00.000Z", source: "provider", recordCount: null, blocker: "Provider API unavailable." },
+    ],
     wiring: buildAgentWiring({ nominationReady: true }),
     dataErrors: [],
   } satisfies Omit<SupervisorSnapshot, "issues">;
@@ -73,10 +77,18 @@ test("only genuine connection problems remain visible", () => {
   assert.ok(value.issues.some((issue) => issue.code === "agents:nomination:setup-required"));
 });
 
+test("coverage questions list connected and blocked dashboard services directly", () => {
+  const value = snapshot();
+  const reply = buildSupervisorReply("List every dashboard service you can and cannot check", value);
+  assert.match(reply, /Dashboard coverage: 1\/2 services connected/);
+  assert.match(reply, /Rental Dashboard/);
+  assert.match(reply, /Payments \(degraded\)/);
+});
+
 test("website, booking, and security failures become owner-visible issues", () => {
   const value = snapshot({
     website: [{ path: "/booking", ok: false, status: 500, latencyMs: 12 }],
-    agents: { total: 8, paused: 0, errors: 1, queuedJobs: 0, failedJobs: 2, approvalsWaiting: 1, emergencyStop: false },
+    agents: { total: 8, paused: 0, errors: 1, queuedJobs: 0, activeJobs: 0, staleJobs: 0, failedJobs: 2, approvalsWaiting: 1, emergencyStop: false },
     bookings: { workflowIssues: 3, activeRentals: 3, activeFacilityParties: 2, pendingCompositeIntents: 1 },
     security: [{ name: "Aikido", state: "failing", summary: "Two findings." }],
   });
