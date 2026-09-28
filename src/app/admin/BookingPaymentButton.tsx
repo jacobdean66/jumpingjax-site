@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CreditCard, Mail, X } from "lucide-react";
 
 import {
-  BOOKING_PAYMENT_IDEMPOTENCY_PREFIX,
   FACILITY_DEPOSIT_CENTS,
   formatCents,
   processingFeeCents,
@@ -20,6 +19,7 @@ type Props = {
   bookingId: string;
   kind: BookingPaymentKind;
   customerEmail: string | null;
+  customerName?: string;
   balanceCents: number | null;
   depositRecorded?: boolean;
 };
@@ -35,21 +35,16 @@ function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
-function newPaymentIdempotencyKey(bookingId: string): string {
-  const random =
-    globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return `${BOOKING_PAYMENT_IDEMPOTENCY_PREFIX}:${bookingId}:${random}`;
-}
 
 export function BookingPaymentButton({
   bookingId,
   kind,
   customerEmail,
+  customerName,
   balanceCents,
   depositRecorded = false,
 }: Props) {
-  const alreadyRecorded = kind === "facility" && depositRecorded;
+
   const initialCents =
     kind === "facility"
       ? FACILITY_DEPOSIT_CENTS
@@ -58,10 +53,12 @@ export function BookingPaymentButton({
   const [amount, setAmount] = useState(centsToInput(initialCents));
   const [method, setMethod] = useState<BookingPaymentMethod>("card");
   const [reference, setReference] = useState("");
-  const [sendReceipt, setSendReceipt] = useState(Boolean(customerEmail));
-  const [idempotencyKey, setIdempotencyKey] = useState(() =>
-    newPaymentIdempotencyKey(bookingId),
-  );
+  const [sendReceipt, setSendReceipt] = useState(false);
+  const [payerName, setPayerName] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [paidAt, setPaidAt] = useState("");
+  const [purpose, setPurpose] = useState(kind === "facility" ? "deposit" : "payment");
+  const alreadyRecorded = kind === "facility" && depositRecorded && purpose === "deposit";
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -90,7 +87,10 @@ export function BookingPaymentButton({
             paymentMethod: method,
             reference,
             sendReceipt,
-            idempotencyKey,
+            payerName,
+            requestId,
+            paidAt: paidAt ? new Date(paidAt).toISOString() : undefined,
+            paymentPurpose: purpose,
           }),
         },
       );
@@ -102,7 +102,6 @@ export function BookingPaymentButton({
         throw new Error(result?.message || "Payment could not be recorded.");
       }
       setNotice(result.message || "Payment recorded.");
-      setIdempotencyKey(newPaymentIdempotencyKey(bookingId));
       window.setTimeout(() => window.location.reload(), 700);
     } catch (error) {
       setNotice(
@@ -119,7 +118,7 @@ export function BookingPaymentButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { if (!requestId) setRequestId(crypto.randomUUID()); setOpen(true); }}
         className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-xs font-black text-white hover:bg-emerald-800"
       >
         <CreditCard className="h-4 w-4" aria-hidden="true" />
@@ -134,7 +133,7 @@ export function BookingPaymentButton({
         >
           <form
             onSubmit={recordPayment}
-            className="w-full max-w-lg rounded-t-xl bg-white p-5 shadow-2xl sm:rounded-xl"
+            className="max-h-[95dvh] overflow-y-auto w-full max-w-lg rounded-t-xl bg-white p-5 shadow-2xl sm:rounded-xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -146,7 +145,7 @@ export function BookingPaymentButton({
                   className="mt-1 text-xl font-black text-slate-950"
                 >
                   {kind === "facility"
-                    ? alreadyRecorded ? "Facility deposit recorded" : "Record facility deposit"
+                    ? "Record facility payment"
                     : "Record rental payment"}
                 </h2>
               </div>
@@ -188,7 +187,6 @@ export function BookingPaymentButton({
                 <input
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
-                  readOnly={kind === "facility"}
                   inputMode="decimal"
                   className="min-h-11 rounded-md border border-slate-300 px-3 font-semibold"
                   aria-label="Payment amount"
@@ -211,6 +209,20 @@ export function BookingPaymentButton({
                 </select>
               </label>
             </div>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Payment purpose
+              <select value={purpose} onChange={e => setPurpose(e.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">
+                <option value="deposit">Deposit</option><option value="payment">Payment</option><option value="balance">Balance</option>
+              </select>
+            </label>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Who paid?
+              <input required value={payerName} onChange={e => setPayerName(e.target.value)} maxLength={160} placeholder={customerName ? `Booking customer: ${customerName}` : "Name on receipt or person who paid"} className="min-h-11 rounded-md border border-slate-300 px-3" />
+            </label>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Payment date and time (your local time)
+              <input required type="datetime-local" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" />
+            </label>
             <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm font-bold text-slate-700">
               {method === "card" ? (
                 <>
@@ -237,8 +249,9 @@ export function BookingPaymentButton({
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
                 maxLength={120}
+                required={method === "card"}
                 className="min-h-11 rounded-md border border-slate-300 px-3 font-semibold"
-                placeholder="Optional, but recommended"
+                placeholder={method === "card" ? "Required: transaction number from approved receipt" : "Optional receipt number"}
               />
             </label>
             <label className="mt-4 flex items-start gap-3 rounded-md border border-slate-200 p-3 text-sm text-slate-800">

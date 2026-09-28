@@ -4,6 +4,9 @@ import { AdminTokenGate } from "@/app/admin/AdminTokenGate";
 import { PaymentHub } from "@/components/payments/PaymentHub";
 import { MobilePaymentsSection } from "@/components/payments/MobilePaymentsSection";
 import { verifyAdminAccess } from "@/lib/admin/session";
+import { loadRecentPayments } from "@/lib/payments/store";
+import { formatCents, paymentDateLabel } from "@/lib/payments/booking-payments";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,11 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     );
   }
 
+  const page = Math.max(0, Math.min(10000, Number.parseInt(resolved?.page ?? "0", 10) || 0));
+  const recent = await loadRecentPayments(page);
+  const {data: unlinked, error: reviewError} = await createServiceRoleClient().from("swipesimple_transaction_imports")
+    .select("transaction_id,transaction_number,amount_cents,payer_name,paid_at,review_note")
+    .is("payment_entry_id",null).order("paid_at",{ascending:false}).limit(100);
   return (
     <main className="min-h-screen bg-[#eef3f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-5xl">
@@ -53,7 +61,25 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <PaymentHub />
         </section>
-        <MobilePaymentsSection page={Math.max(0, Math.min(10000, Number.parseInt(resolved?.mobilePage ?? "0", 10) || 0))} recentPage={Math.max(0, Number.parseInt(resolved?.page ?? "0", 10) || 0)} />
+        <MobilePaymentsSection page={Math.max(0, Math.min(10000, Number.parseInt(resolved?.mobilePage ?? "0", 10) || 0))} recentPage={page} />
+        <section className="mt-6 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-black">Recent Purchases</h2>
+          <p className="mt-2 text-sm text-slate-600">Recorded booking payments, including deposits. The payer and booking customer can be different people. Card fees are separate from the amount credited to the booking.</p>
+          <div className="mt-4 divide-y divide-slate-200">
+            {recent.length === 0 ? <p>No recorded payments on this page.</p> : recent.map(entry => <article key={entry.id} className="py-4">
+              <div className="flex flex-wrap justify-between gap-2"><Link className="font-bold text-blue-800 underline" href={entry.bookingHref}>{entry.customerName}{entry.childName ? ` · ${entry.childName}` : ""}</Link><strong>{formatCents(entry.amountCents)} applied</strong></div>
+              <p className="mt-1 text-sm">Paid by: <strong>{entry.payerName || "Payer not recorded"}</strong> · {paymentDateLabel(entry.paidAt)} · {entry.paymentMethod}</p>
+              <p className="mt-1 text-sm text-slate-600">{entry.bookingKind} · {entry.paymentPurpose} · {entry.status === "posted" ? "Recorded" : `${entry.status} — not credited`}{entry.processorReference ? ` · Receipt ${entry.processorReference}` : ""}{entry.processingFeeCents ? ` · Fee ${formatCents(entry.processingFeeCents)}` : ""}</p>
+            </article>)}
+          </div>
+          <nav className="mt-4 flex gap-4">{page > 0 ? <Link href={`/admin/payments?page=${page-1}`} className="underline">Newer payments</Link> : null}{recent.length === 50 ? <Link href={`/admin/payments?page=${page+1}`} className="underline">Older payments</Link> : null}</nav>
+        </section>
+        <section className="mt-6 rounded-md border border-amber-300 bg-white p-5">
+          <h2 className="text-xl font-black">Payments needing a party match</h2>
+          <p className="mt-2 text-sm">These processor receipts have not been credited to a booking. Verify the invoice number or customer contact details before recording a payment from the correct party card. An amount or name alone does not establish a match.</p>
+          {reviewError ? <p className="mt-3">Review history is unavailable. Please retry.</p> : <ul className="mt-3 divide-y">{unlinked?.map(row=><li className="py-3 text-sm" key={row.transaction_id}><strong>{row.payer_name || "Payer unavailable"}</strong> · {formatCents(row.amount_cents)} charged · {paymentDateLabel(row.paid_at)}<br/><a className="text-blue-800 underline" href={`https://swipesimple.com/transactions/${encodeURIComponent(row.transaction_id)}`} target="_blank" rel="noreferrer">Receipt {row.transaction_number}</a>{row.review_note ? <p>{row.review_note}</p> : null}</li>)}</ul>}
+          {!reviewError && !unlinked?.length ? <p className="mt-3">No imported receipts awaiting a match.</p> : null}
+        </section>
         <section className="mt-6 border-l-4 border-amber-400 bg-white p-5 text-sm leading-relaxed text-slate-700 shadow-sm">
           <h2 className="font-black text-slate-950">Front-counter recordkeeping</h2>
           <p className="mt-2">
