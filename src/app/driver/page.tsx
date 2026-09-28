@@ -34,6 +34,8 @@ import {
 import { DriverAutoRefresh } from "./DriverAutoRefresh";
 import { DriverAssignmentPrintButtons } from "./DriverAssignmentPrintButtons";
 import { DriverLoginGate } from "./DriverLoginGate";
+import { DriverLocationTracker } from "./DriverLocationTracker";
+import { DriverLogoutButton } from "./DriverLogoutButton";
 import { PrintButton } from "@/app/admin/PrintButton";
 import {
   SWIPESIMPLE_RENTAL_PAYMENT_URL,
@@ -975,6 +977,7 @@ export default async function DriverPage({ searchParams }: Props) {
             Schedule
           </Link>
           {printSheets.length > 0 ? <PrintButton label="Print All Sheets" /> : null}
+          <DriverLogoutButton />
         </nav>
 
         <DriverAssignmentPrintButtons
@@ -1083,6 +1086,11 @@ export default async function DriverPage({ searchParams }: Props) {
             {resolved.error}
           </div>
         ) : null}
+
+        <DriverLocationTracker
+          truck={activeView && activeView !== "unassigned" ? activeView : null}
+          workDate={date}
+        />
 
         <div className="driver-screen-only mt-4 grid grid-cols-3 gap-2">
           <Link
