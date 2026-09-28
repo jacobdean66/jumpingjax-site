@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { z } from "zod";
-import { resolveOpenAIClientOptions } from "@/lib/security/protected-openai-config";
+import { resolveOpenAIClientOptions, resolveProtectedOpenAIConfig } from "@/lib/security/protected-openai-config";
+import { searchInvitationThemesWithChat } from "./theme-search-chat-provider";
 import { publicHttpsUrl, themeCandidateSchema, type ThemeCandidate, type ThemeSearchRequest } from "./theme-search";
 
 const answerSchema = z.object({
@@ -59,6 +60,11 @@ export function parseThemeSearchResponse(response: { output: unknown[]; output_t
 }
 
 export async function searchInvitationThemes(input: ThemeSearchRequest) {
+  // The hosted Sentinel gateway documents Chat Completions. Choose that
+  // protected contract up front instead of retrying unsupported Responses calls.
+  if (resolveProtectedOpenAIConfig()?.route === "sentinel_proxy") {
+    return searchInvitationThemesWithChat(input);
+  }
   const options = resolveOpenAIClientOptions();
   if (!options) throw new Error("Theme search is not configured.");
   const client = new OpenAI({ ...options, timeout: 45_000, maxRetries: 0 });
