@@ -12,9 +12,10 @@ export type SearchDependencies = {
   inspect: (input: SearchInput, images: Evidence[], signal: AbortSignal) => Promise<unknown>;
 };
 
+type ThemeChatCapabilityCode = "protected_gateway_not_configured" | "protected_chat_search_rejected" | "protected_vision_rejected" | "chat_response_incomplete" | "chat_search_citations_missing" | "vision_response_invalid";
 export class ThemeChatCapabilityError extends Error {
-  code: string;
-  constructor(code: string) { super(code); this.name = "ThemeChatCapabilityError"; this.code = code; }
+  code: ThemeChatCapabilityCode;
+  constructor(code: ThemeChatCapabilityCode) { super(code); this.name = "ThemeChatCapabilityError"; this.code = code; }
 }
 
 function object(value: unknown): Record<string, unknown> | null {
