@@ -89,7 +89,7 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
       <div aria-live="polite">
         {busy ? <p className="mt-3 text-sm font-bold text-cyan-100">{busy === "search" ? "Finding matching themes and pictures…" : "Saving your chosen picture and making your invitation…"}</p> : null}
         {error ? <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p> : null}
-        {result ? <p className="mt-4 font-bold text-white">{selected ? "Is this the right character or theme?" : result.question}</p> : null}
+        {result ? <p className="mt-4 font-bold text-white">{selected ? "Is this the right character or theme?" : result.candidates.length ? "Which picture matches the theme you want? Select a picture to check it, or add details below." : result.question}</p> : null}
       </div>
       <div className={`mt-3 grid gap-3 ${selected ? "" : "sm:grid-cols-2"}`}>
         {shown.map(candidate => (
