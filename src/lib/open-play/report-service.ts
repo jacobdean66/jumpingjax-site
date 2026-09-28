@@ -7,6 +7,8 @@ import {
 } from "./daily-report";
 import type { AdmissionClassification } from "./pricing";
 import type { PaymentEntry, PaymentMethod } from "./ledger";
+import { includeFacilityAttendance } from "./facility-attendance";
+import { loadFacilityAttendance } from "./facility-attendance-store";
 
 type NameCorrectionRow = {
   participant_id: string;
@@ -439,5 +441,5 @@ export async function getOpenPlayDailyReport(
     });
   }
 
-  return buildDailyReport(dateYmd, snapshots);
+  return includeFacilityAttendance(buildDailyReport(dateYmd, snapshots), await loadFacilityAttendance(dateYmd));
 }
