@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { publicHttps } from "./public-resource";
+import { safeProviderFailure, type ProviderFailure } from "./provider-failure";
 
 export type SearchInput = { query: string; refinements: string[]; rejected: string[] };
 export type Candidate = { id: string; label: string; description: string; imageUrl: string; sourceUrl: string };
@@ -16,7 +17,13 @@ export type SearchDependencies = {
 type ThemeChatCapabilityCode = "protected_gateway_not_configured" | "protected_chat_search_rejected" | "protected_vision_rejected" | "chat_response_incomplete" | "chat_search_citations_missing" | "vision_response_invalid";
 export class ThemeChatCapabilityError extends Error {
   code: ThemeChatCapabilityCode;
-  constructor(code: ThemeChatCapabilityCode) { super(code); this.name = "ThemeChatCapabilityError"; this.code = code; }
+  status?: number;
+  providerType?: ProviderFailure["providerType"];
+  providerErrorType?: ProviderFailure["providerErrorType"];
+  constructor(code: ThemeChatCapabilityCode, error?: unknown) {
+    super(code); this.name = "ThemeChatCapabilityError"; this.code = code;
+    if (error !== undefined) Object.assign(this, safeProviderFailure(error));
+  }
 }
 
 function object(value: unknown): Record<string, unknown> | null {

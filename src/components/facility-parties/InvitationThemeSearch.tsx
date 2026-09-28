@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ThemeDesign, ThemeSearchCandidate, ThemeSearchResult } from "@/lib/facility-parties/invitations/theme-search";
+import { readThemeResponse } from "@/lib/facility-parties/invitations/theme-response";
 
 const button = "rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -37,9 +38,7 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(body), signal: controller.signal,
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Please try again.");
-    return data;
+    return readThemeResponse(response);
   }
 
   async function search() {
