@@ -37,6 +37,8 @@ import {
   sumBookingPaymentCents,
   facilityDepositStatus,
   paymentDateLabel,
+  paymentStatusLabel,
+  projectBookingPaymentStatus,
 } from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
@@ -121,6 +123,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const paidCents = sumBookingPaymentCents(booking.paymentEntries);
   const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
   const depositStatus = facilityDepositStatus(booking.paymentEntries);
+  const paymentProjection = projectBookingPaymentStatus(booking.total, booking.paymentEntries);
   const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
     booking.status,
   );
@@ -147,6 +150,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               kind="facility"
               customerEmail={booking.email}
               customerName={booking.customerName}
+              depositRecorded={depositStatus === "paid"}
               balanceCents={balanceCents}
             />
           ) : null}
@@ -370,15 +374,16 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             Deposit &amp; payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
-            Paid {formatCents(paidCents)}
-            {balanceCents === null
+            {paymentStatusLabel(paymentProjection.status)} | Paid{" "}
+            {formatCents(paymentProjection.paidCents)}
+            {paymentProjection.balanceCents === null
               ? ""
-              : ` | Balance ${formatCents(balanceCents)}`}
+              : ` | Balance ${formatCents(paymentProjection.balanceCents)}`}
           </p>
         </div>
         {booking.paymentEntries.length === 0 ? (
           <p className="mt-3 text-sm font-semibold text-slate-600">
-            No deposits have been recorded for this party.
+            No payments have been recorded for this party.
           </p>
         ) : (
           <ul className="mt-3 space-y-2">

@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
+import { GET as savedInvitationImage } from "@/app/api/facility/invitations/[id]/approved/route";
 
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
@@ -16,6 +18,14 @@ export default async function InvitationOpenGraphImage({
 }) {
   const { id } = await params;
   const view = await loadFacilityInvitationView(id);
+
+  if (view?.snapshot.approvedPrint) {
+    const image = await savedInvitationImage(new Request("https://jumpingjaxllc.com/?format=png"), { params: Promise.resolve({ id }) });
+    if (image.ok) {
+      const png = await sharp(Buffer.from(await image.arrayBuffer())).resize(size.width, size.height, { fit: "contain", background: "#ffffff" }).png().toBuffer();
+      return new Response(new Uint8Array(png), { headers: { "content-type": "image/png", "cache-control": "private, no-store" } });
+    }
+  }
 
   if (!view) {
     return new ImageResponse(
@@ -45,7 +55,7 @@ export default async function InvitationOpenGraphImage({
     <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", overflow: "hidden", background: composed.palette.background, color: "white" }}>
       <div style={{ display: "flex", position: "absolute", width: 440, height: 440, right: -80, top: -90, borderRadius: 220, background: composed.palette.accent, opacity: 0.3 }} />
       <div style={{ display: "flex", position: "absolute", width: 300, height: 300, right: 90, bottom: -130, borderRadius: 150, border: `30px solid ${composed.palette.accent}`, opacity: 0.45 }} />
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "82%", padding: "48px 64px" }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "78%", padding: "48px 64px" }}>
         <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: 4, textTransform: "uppercase", color: composed.palette.accent }}>
           You&apos;re invited
         </div>
@@ -58,6 +68,11 @@ export default async function InvitationOpenGraphImage({
           <div style={{ fontSize: 22 }}>{copy.venueLine}</div>
           {copy.customerPhone ? <div style={{ fontSize: 22 }}>{`Party contact: ${copy.customerPhone}`}</div> : null}
         </div>
+      </div>
+      <div style={{ display: "flex", position: "absolute", right: 40, bottom: 48, flexDirection: "column", alignItems: "center", width: 190, color: "white", fontSize: 18, textAlign: "center" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={view.qrUrl} alt="Party check-in and guest list QR code" width={180} height={180} style={{ background: "white" }} />
+        <div style={{ display: "flex", marginTop: 10 }}>Party check-in &amp; guest list</div>
       </div>
     </div>,
     size,

@@ -58,7 +58,8 @@ function privateBasePrice(
     return config.privateAny180;
   }
 
-  if (day === 1 || day === 2) {
+  // Weekday private slots are offered Monday through Thursday.
+  if (day >= 1 && day <= 4) {
     if (durationMinutes === 90) return config.privateWeekday90;
     if (durationMinutes === 120) return config.privateWeekday120;
   }
@@ -77,13 +78,14 @@ function publicBasePrice(
   durationMinutes: number,
   config: FacilityPricingConfig,
 ): number | null {
-  if (durationMinutes !== 90) {
+  if (durationMinutes !== 90 || day < 3 || day > 6) {
     return null;
   }
 
   if (roomId === "room-10") {
     return config.publicRoom10;
   }
+  if (roomId !== "room-20") return null;
 
   if (day === 3 || day === 4) {
     return config.publicRoom20Weekday;
@@ -103,7 +105,9 @@ export function priceFacilityPartyWithConfig(
   const day = getLocalDayOfWeek(input.date);
   const packagePrice =
     input.partyKind === "private"
-      ? privateBasePrice(day, input.durationMinutes, config)
+      ? input.roomId === "room-20"
+        ? privateBasePrice(day, input.durationMinutes, config)
+        : null
       : publicBasePrice(day, input.roomId, input.durationMinutes, config);
 
   const resolvedPackagePrice = packagePrice ?? 0;

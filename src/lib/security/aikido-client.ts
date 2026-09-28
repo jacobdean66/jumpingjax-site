@@ -1,4 +1,5 @@
 import type { AikidoScanResult, AikidoScanStatus, SecurityServiceSnapshot } from "./types";
+import { sanitizeAikidoDetailsUrl } from "./sanitization";
 
 const AIKIDO_ORIGIN = "https://app.aikido.dev";
 const SCAN_PATH = "/api/integrations/continuous_integration/scan/repository";
@@ -34,19 +35,6 @@ function scanConfiguration() {
 
 function isCommitSha(value: string | null): value is string {
   return Boolean(value && /^[0-9a-f]{40}$/i.test(value));
-}
-
-function safeAikidoDetailsUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" || url.hostname !== "app.aikido.dev" || !url.pathname.startsWith("/featurebranch/scan/")) return null;
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
 }
 
 export function getAikidoStatus(now = new Date()): SecurityServiceSnapshot {
@@ -164,7 +152,7 @@ export async function pollAikidoScanStatus(scanId: number, fetchImpl: typeof fet
       completed,
       passed,
       issueCount,
-      detailsUrl: safeAikidoDetailsUrl(raw.diff_url),
+      detailsUrl: sanitizeAikidoDetailsUrl(raw.diff_url),
       message: !completed
         ? `Aikido repository scan ${scanId} is still running.`
         : passed

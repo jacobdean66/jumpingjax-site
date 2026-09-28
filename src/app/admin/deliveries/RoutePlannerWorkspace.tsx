@@ -14,6 +14,7 @@ import type {
   AdminDeliveriesResult,
   AdminDeliveryWorkTask,
 } from "@/lib/admin/deliveries";
+import type { DriverLocationSnapshot } from "@/lib/admin/driver-location";
 import {
   addDays,
   datesToSearchParams,
@@ -294,11 +295,13 @@ export function RoutePlannerWorkspace({
   initialActiveDate,
   initialWorkType = "delivery",
   initialTruck = "truck-1",
+  latestDriverLocations = [],
 }: {
   initialDeliveries: AdminDeliveriesResult;
   initialActiveDate?: string;
   initialWorkType?: WorkType;
   initialTruck?: PlannerTruck;
+  latestDriverLocations?: DriverLocationSnapshot[];
 }) {
   const initialTasks = useMemo(
     () => allPlannerTasks(initialDeliveries),
@@ -840,6 +843,9 @@ export function RoutePlannerWorkspace({
   }
 
   const currentSaveState = saveStates[currentKey] ?? "idle";
+  const activeDriverLocations = latestDriverLocations.filter(
+    (location) => dates.includes(location.workDate ?? ""),
+  );
 
   return (
     <>
@@ -938,6 +944,42 @@ export function RoutePlannerWorkspace({
                 >
                   Next
                 </button>
+              </div>
+              <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-sky-800">
+                  Driver locations
+                </p>
+                {activeDriverLocations.length === 0 ? (
+                  <p className="mt-1 text-[11px] font-bold leading-relaxed text-sky-900">
+                    No recent shared driver location. Customer pages do not receive these coordinates.
+                  </p>
+                ) : (
+                  <div className="mt-2 grid gap-2">
+                    {activeDriverLocations.slice(0, 4).map((location) => (
+                      <a
+                        key={location.id}
+                        href={`https://www.google.com/maps?q=${location.latitude},${location.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg bg-white px-2 py-2 text-[11px] font-bold text-sky-950 ring-1 ring-sky-100 hover:bg-sky-100"
+                      >
+                        <span className="block font-black">
+                          {location.driverName}
+                          {location.truck ? ` · ${TRUCK_DETAIL[location.truck as PlannerTruck] ?? location.truck}` : ""}
+                        </span>
+                        <span className="mt-0.5 block">
+                          {new Date(location.createdAt).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                          {location.accuracyMeters != null
+                            ? ` · ±${Math.round(location.accuracyMeters)}m`
+                            : ""}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               <input
                 type="search"

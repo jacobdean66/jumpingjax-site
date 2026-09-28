@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { loadAdminDeliveriesForDates } from "@/lib/admin/deliveries";
+import { loadLatestDriverLocationSnapshots } from "@/lib/admin/driver-location";
 import {
   parsePlannerNavigationState,
   todayYmd,
@@ -85,6 +86,9 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
           : "Unable to load route planner data.",
     }));
   const deliveries = deliveriesResult.deliveries;
+  const latestDriverLocations = deliveries
+    ? await loadLatestDriverLocationSnapshots({ dates }).catch(() => [])
+    : [];
 
   return (
     <main className="rp-app h-dvh overflow-hidden p-2 sm:p-3">
@@ -136,6 +140,7 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
               initialActiveDate={navigation.activeDate}
               initialWorkType={resolved?.work === "pickups" ? "pickup" : "delivery"}
               initialTruck={resolved?.truck === "truck-2" ? "truck-2" : "truck-1"}
+              latestDriverLocations={latestDriverLocations}
             />
           </div>
         )}

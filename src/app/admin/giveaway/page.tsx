@@ -1,6 +1,7 @@
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { GiveawayDrawClient, type GiveawayDrawGroup } from "./GiveawayDrawClient";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { giveawayCampaignLabel } from "@/lib/giveaway/giveaway-campaigns";
 import {
   excludeSyntheticNominations,
   groupNominationsByChild,
@@ -11,11 +12,6 @@ import { isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
 import { listFixtureNominations } from "@/lib/giveaway/nomination-store";
 
 export const dynamic = "force-dynamic";
-
-const partyLabels: Record<string, string> = {
-  september_birthday: "September birthday party",
-  back_to_school: "Back-to-school party",
-};
 
 async function loadGroups(): Promise<{
   groups: GiveawayDrawGroup[];
@@ -29,7 +25,7 @@ async function loadGroups(): Promise<{
       childName: row.child_name,
       birthMonth: row.child_birth_month,
       birthDay: row.child_birth_day,
-      partyChoice: partyLabels[row.party_choice] ?? row.party_choice,
+      partyChoice: giveawayCampaignLabel(row.party_choice),
       reason: row.nomination_reason,
       nominatorName: row.nominator_name,
       nominatorEmail: row.nominator_email,
@@ -52,7 +48,7 @@ async function loadGroups(): Promise<{
         childName: String(row.child_name),
         birthMonth: Number(row.child_birth_month),
         birthDay: Number(row.child_birth_day),
-        partyChoice: partyLabels[String(row.party_choice)] ?? String(row.party_choice),
+        partyChoice: giveawayCampaignLabel(String(row.party_choice)),
         reason: String(row.nomination_reason),
         nominatorName: String(row.nominator_name),
         nominatorEmail: String(row.nominator_email),

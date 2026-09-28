@@ -40,7 +40,9 @@ export function FacilityAgreementPanel({
   const [includePayment, setIncludePayment] = useState(false);
   const [amount, setAmount] = useState(() => {
     if (!latestSnapshot) return "50.00";
-    return latestSnapshot.balanceDue > 0 ? latestSnapshot.balanceDue.toFixed(2) : "";
+    const paid = booking.paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
+    const balance = Math.max(0, latestSnapshot.total - paid);
+    return balance > 0 ? balance.toFixed(2) : "";
   });
   const [paymentKind, setPaymentKind] = useState(booking.paymentHistory.length ? "balance" : "deposit");
   const [paymentMethod, setPaymentMethod] = useState("Card by phone (facility POS)");

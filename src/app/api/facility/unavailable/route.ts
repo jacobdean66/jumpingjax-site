@@ -9,17 +9,17 @@ export async function GET(req: Request) {
     const date = searchParams.get("date");
 
     if (partyKind && partyKind !== "public" && partyKind !== "private") {
-      return Response.json([]);
+      return Response.json({ error: "Invalid party type" }, { status: 400 });
     }
     if (!date || !isCanonicalFacilityBookingYmd(date)) {
-      return Response.json([]);
+      return Response.json({ error: "Invalid booking date" }, { status: 400 });
     }
 
     const supabase = createServiceRoleClient();
     const loaded = await loadPublicFacilityAvailabilityRows(supabase, date);
     if (!loaded.ok) {
       console.error("Supabase error:", loaded.error);
-      return Response.json([]);
+      return Response.json({ error: "Availability could not be loaded. Please try again." }, { status: 503 });
     }
 
     const rows = partyKind
@@ -29,6 +29,6 @@ export async function GET(req: Request) {
     return Response.json(rows);
   } catch (err) {
     console.error("Route crash:", err);
-    return Response.json([]);
+    return Response.json({ error: "Availability could not be loaded. Please try again." }, { status: 503 });
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { trackLead } from "@/lib/analytics/client";
@@ -7,6 +8,30 @@ import { trackLead } from "@/lib/analytics/client";
 export function SiteChrome() {
   const pathname = usePathname();
   const isHome = pathname === "/";
+
+  if (pathname.startsWith("/nominate")) {
+    return (
+      <header className="border-b-4 border-pink-400 bg-white shadow-[0_8px_0_rgba(236,72,153,0.12)]">
+        <div className="h-2 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <Image
+            src="/logo.png"
+            alt="Jumping Jax Inflatable Rentals and Parties"
+            width={430}
+            height={220}
+            priority
+            className="h-auto w-28 sm:w-36"
+          />
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white transition hover:bg-pink-600"
+          >
+            View website
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   if (
     pathname.startsWith("/admin") ||

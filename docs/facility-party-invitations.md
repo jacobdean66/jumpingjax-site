@@ -1,5 +1,7 @@
 # Facility birthday party invitations
 
+New themed invitations use [visual theme search and explicit confirmation](invitation-theme-search.md). Customers search the web for a theme, inspect a picture, refine rejected matches, and confirm before the invitation is composed. The confirmed picture is preserved in the booking snapshot. The catalog matching below remains for legacy invitations and layout styling; it must not silently select the identity for a new themed invitation.
+
 Birthday invitation themes are customer-entered text and should be interpreted as common kids TV/game/movie/team/character themes using fuzzy matching. When Jumping Jax has owner/license permission, use real character artwork for recognized theme IDs. Inspired/generic motifs are only the fallback when no approved character asset exists yet.
 
 ## How matching works

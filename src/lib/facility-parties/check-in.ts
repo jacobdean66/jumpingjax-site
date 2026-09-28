@@ -36,7 +36,9 @@ export type PublicFacilityParty = {
   partyLabel: string;
   date: string;
   time: string;
+  isPartyDay: boolean;
   checkedInGuests: PublicFacilityPartyGuest[];
+  expectedGuests: Array<{ id: string; displayName: string }>;
 };
 
 export type FacilityPartyWaiverMatch = {
@@ -100,6 +102,11 @@ export function buildFacilityPartyWaiverSignUrl(input: {
 export function partyCheckInArrivalMessage(partyDate: string | null | undefined): string {
   const suffix = partyDate ? ` for the party on ${partyDate}` : " for the party";
   return `You are checked in${suffix}. Your name is now on the live guest list.`;
+}
+
+export function partyRsvpMessage(partyDate: string | null | undefined): string {
+  const suffix = partyDate ? ` for the party on ${partyDate}` : " for the party";
+  return `You’re on the guest list${suffix}. Check in here when you arrive.`;
 }
 
 export function partyCheckInSigningMessage(partyDate: string | null | undefined): string {

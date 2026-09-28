@@ -55,6 +55,7 @@ import {
 } from "@/lib/facility-parties/invitations/snapshot";
 import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
 import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
+import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
   "Facility party requests are available from today through December 31, 2027.";
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       party_theme,
       invitation_option_index,
       invitation_alternates_used,
+      invitation_theme_token,
       balloon_colors,
       table_cloth_colors,
       drink_choice,
@@ -168,6 +170,10 @@ export async function POST(req: NextRequest) {
     const invitationCreationPreference = normalizeInvitationCreationPreference(
       invitation_creation_preference,
     );
+    const confirmedInvitationTheme = readConfirmedTheme(invitation_theme_token, String(party_theme ?? ""));
+    if (invitationCreationPreference === "create" && !confirmedInvitationTheme) {
+      return NextResponse.json({ error: "Search for your theme and confirm the correct picture before creating invitations.", code: "theme_confirmation_required" }, { status: 409 });
+    }
     const invitationTemplateId = normalizeInvitationTemplateId(
       invitation_template_id,
     );
@@ -379,6 +385,8 @@ export async function POST(req: NextRequest) {
       String(party_theme ?? ""),
       invitation_option_index,
       invitation_alternates_used,
+      `${String(balloon_colors ?? "")} ${String(table_cloth_colors ?? "")}`,
+      invitationCreationPreference === "create" ? confirmedInvitationTheme ?? undefined : undefined,
     );
     const bookingData = {
           party_kind,

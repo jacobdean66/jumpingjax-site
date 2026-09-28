@@ -3,11 +3,14 @@ import {
   runInvitationAgent,
 } from "@/lib/facility-parties/invitations/agent";
 import { recordInvitationAgentRun } from "@/lib/agent-manager/invitation-run";
+import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    const input: unknown = await request.json();
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid request body.");
+    body = input as Record<string, unknown>;
   } catch {
     return Response.json({ error: "Invalid invitation request." }, { status: 400 });
   }
@@ -21,9 +24,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invitation theme is too long." }, { status: 400 });
   }
 
+  const confirmedTheme = readConfirmedTheme(body.confirmationToken, sourceText);
+  if (["create", "alternate", "choose-delivery", "choose-template"].includes(String(body.action)) && !confirmedTheme) {
+    return Response.json({ error: "Search for your theme and confirm the right picture first.", code: "theme_confirmation_required" }, { status: 409 });
+  }
+
   const result = runInvitationAgent({
     action: body.action,
     sourceText,
+    confirmedTheme: confirmedTheme ?? undefined,
     colorHint: typeof body.colorHint === "string" ? body.colorHint : "",
     optionIndex: typeof body.optionIndex === "number" ? body.optionIndex : 0,
     alternatesUsed:

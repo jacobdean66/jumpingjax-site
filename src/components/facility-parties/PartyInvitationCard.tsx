@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { approvedPrintUrl } from "@/lib/facility-parties/invitations/approved-print";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import {
   agentPrintArtworkSrc,
@@ -6,6 +7,9 @@ import {
 } from "@/lib/facility-parties/invitations/approved-artwork";
 import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
+import { pickReadableTextColor } from "@/lib/facility-parties/invitations/contrast";
+import { buildQrCodeImageUrl } from "@/lib/facility-parties/invitations";
+import { InvitationQr } from "./InvitationQr";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -39,13 +43,22 @@ export function PartyInvitationCard({
   dateLabel,
   timeLabel,
   compact = false,
-  qrUrl,
+  qrUrl: suppliedQrUrl,
   waiverUrl,
   pickupReady = false,
   previewScale = false,
   sheetReadable = false,
   sheetMode = false,
 }: PartyInvitationCardProps) {
+  const qrUrl = waiverUrl ? buildQrCodeImageUrl(waiverUrl, 300) : suppliedQrUrl;
+  if (snapshot.approvedPrint) {
+    const print = snapshot.approvedPrint;
+    return <article data-approved-print-id={print.id} data-theme-id={snapshot.themeId} className={sheetMode ? "h-full w-full" : "mx-auto w-full max-w-xl"}>
+      <a href={print.rsvpUrl} aria-label={`${childName} — RSVP and guest list`} className="block h-full w-full">
+        <img data-invitation-qr="true" src={approvedPrintUrl(print)} alt={`${childName} is turning ${childAge}. ${dateLabel}, ${timeLabel}. ${print.themeText} invitation with party RSVP QR code.`} className="h-full w-full object-contain" />
+      </a>
+    </article>;
+  }
   compact = compact || previewScale || sheetReadable;
   const composed = composeLibraryInvitation({
     themeId: snapshot.themeId,
@@ -77,6 +90,18 @@ export function PartyInvitationCard({
   });
   const displayName = invitationCopy.childName;
   const headline = invitationCopy.headline;
+
+  if (snapshot.confirmedTheme) {
+    return (
+      <div className={sheetMode ? "h-full w-full" : "aspect-[3/2] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"} data-confirmed-theme-id={snapshot.confirmedTheme.id}>
+        <InkSaverSheetInvitation snapshot={snapshot} themeId={composed.themeId} layout={layout}
+          displayName={displayName} childAge={childAge} customerPhone={invitationCopy.customerPhone}
+          venueLine={invitationCopy.venueLine} dateLabel={invitationCopy.dateLabel} timeLabel={invitationCopy.timeLabel}
+          qrUrl={qrUrl} waiverUrl={waiverUrl} artworkSrc={snapshot.confirmedTheme.imagePath}
+          agentArtwork accent={pickReadableTextColor("#fffef8", palette.accent)} />
+      </div>
+    );
+  }
 
   if (composed.themeId === "princess-royal") {
     return (
@@ -288,14 +313,12 @@ function RoyalPrincessInvitation({
         {qrUrl || waiverUrl ? (
           <div className="mt-auto flex items-end justify-center gap-[2%]">
             <p className="max-w-[8rem] text-right text-[clamp(5px,1.65cqw,10px)] font-bold leading-tight uppercase">
-              Scan to check in &amp; complete waiver
+              Scan to RSVP &amp; view guest list
             </p>
             {qrUrl ? (
-              <img
+              <InvitationQr
                 src={qrUrl}
-                alt="Party waiver QR code"
-                data-invitation-qr="true"
-                data-qr-size="large"
+                href={waiverUrl}
                 className="h-[clamp(28px,10cqw,58px)] w-[clamp(28px,10cqw,58px)] bg-white p-0.5"
               />
             ) : null}
@@ -387,14 +410,12 @@ function RacingCarsInvitation({
         {qrUrl || waiverUrl ? (
           <div className="mt-auto flex items-end justify-center gap-[2%]">
             <p className="max-w-[8rem] text-right text-[clamp(5px,1.65cqw,10px)] font-black uppercase leading-tight">
-              Scan to check in &amp; complete waiver
+              Scan to RSVP &amp; view guest list
             </p>
             {qrUrl ? (
-              <img
+              <InvitationQr
                 src={qrUrl}
-                alt="Party waiver QR code"
-                data-invitation-qr="true"
-                data-qr-size="large"
+                href={waiverUrl}
                 className="h-[clamp(28px,10cqw,58px)] w-[clamp(28px,10cqw,58px)] bg-white p-0.5"
               />
             ) : null}
@@ -443,6 +464,8 @@ function InkSaverSheetInvitation({
   treatmentId?: string;
 }) {
   const fullBleedPrint = treatmentId === "camouflage" || treatmentId === "transforming-robots";
+  const mirrored = Boolean(snapshot.confirmedTheme && snapshot.optionIndex % 2 === 1);
+  const framed = Boolean(snapshot.confirmedTheme && snapshot.optionIndex >= 2);
   return (
     <article
       data-theme-id={themeId}
@@ -473,11 +496,11 @@ function InkSaverSheetInvitation({
       ) : (
         <>
           <div className="absolute -right-[7%] -top-[11%] h-[42%] w-[34%] rounded-full bg-sky-100/70" />
-          <div className="absolute right-[1%] top-[8%] h-[62%] w-[52%] overflow-hidden rounded-[2cqw] bg-white">
+          <div className={`absolute ${mirrored ? "left-[1%]" : "right-[1%]"} top-[8%] h-[62%] w-[52%] overflow-hidden rounded-[2cqw] bg-white ${framed ? "border-2 border-slate-200" : ""}`}>
             <img
               src={artworkSrc}
-              alt=""
-              className={`h-full w-full object-cover ${agentArtwork ? "" : "opacity-30"}`}
+              alt={snapshot.confirmedTheme?.label ?? ""}
+              className={`h-full w-full ${snapshot.confirmedTheme ? "object-contain" : "object-cover"} ${agentArtwork ? "" : "opacity-30"}`}
               style={agentArtwork ? undefined : { filter: "brightness(1.5) saturate(0.6)" }}
             />
             {!agentArtwork ? <div className="absolute inset-0 bg-white/20" /> : null}
@@ -485,11 +508,11 @@ function InkSaverSheetInvitation({
         </>
       )}
 
-      <div className="absolute left-[4.5%] top-[5%] z-10 w-[18%]" data-invitation-brand="jumping-jax" data-logo-treatment="light-print">
+      <div className={`absolute ${mirrored ? "right-[4.5%]" : "left-[4.5%]"} top-[5%] z-10 w-[18%]`} data-invitation-brand="jumping-jax" data-logo-treatment="light-print">
         <img src="/logo.png" alt="Jumping Jax" className="h-auto w-full object-contain" />
       </div>
 
-      <div className="absolute left-[4.5%] top-[24%] z-10 max-w-[45%]" data-child-name-age="true">
+      <div className={`absolute ${mirrored ? "right-[4.5%] text-right" : "left-[4.5%]"} top-[24%] z-10 max-w-[45%]`} data-child-name-age="true">
         <p className="text-[clamp(10px,2.1cqw,13px)] font-black uppercase tracking-[0.16em] text-slate-600">
           You&apos;re invited
         </p>
@@ -813,14 +836,12 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark", printSafe = fals
   return (
     <div className="flex shrink-0 items-end gap-1.5" data-qr-print-safe={printSafe ? "true" : undefined}>
       <p className={`${printSafe ? "max-w-16" : "max-w-20"} text-right text-[clamp(7px,0.7vw,10px)] font-bold leading-tight ${mutedText}`}>
-        Scan to check in &amp; complete waiver
+        Scan to RSVP &amp; view guest list
       </p>
       {qrUrl ? (
-        <img
+        <InvitationQr
           src={qrUrl}
-          alt="Party waiver QR code"
-          data-invitation-qr="true"
-          data-qr-size="large"
+          href={waiverUrl}
           className={compact
             ? `${printSafe ? "h-[clamp(42px,15cqw,68px)] w-[clamp(42px,15cqw,68px)]" : "h-[clamp(38px,17cqw,76px)] w-[clamp(38px,17cqw,76px)]"} shrink-0 rounded-md bg-white p-1`
             : "h-24 w-24 rounded-lg bg-white p-1.5"}

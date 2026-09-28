@@ -36,7 +36,9 @@ export type VisitAttendeeSnapshot = {
   waiverDetails?: StaffWaiverDetails;
   waiverParticipants?: StaffWaiverParticipant[];
   ageYearsOnVisit?: number;
-  classification: AdmissionClassification;
+  classification: AdmissionClassification | "party_adult";
+  facilityParty?: { bookingId: string; label: string };
+  checkedInAt?: string;
   unitPriceCents: number;
   status: "active" | "removed";
 };
@@ -64,6 +66,8 @@ export type DailyReport = {
   childrenAge3OrOlder: number;
   playingAdults: number;
   watchingAdults: number;
+  partyAdults?: number;
+  facilityAttendance?: VisitAttendeeSnapshot[];
   paidAttendance: number;
   totalAttendance: number;
   corrections: number;

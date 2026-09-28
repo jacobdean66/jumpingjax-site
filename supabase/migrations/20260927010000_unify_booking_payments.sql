@@ -101,7 +101,7 @@ begin
              when lower(r.payment_method) like '%check%' then 'check'
              when lower(r.payment_method) like '%card%' or lower(r.payment_method) like '%pos%' then 'card' else 'other' end,
         round(r.amount * 100)::integer, nullif(trim(r.pos_receipt_number), ''),
-        r.recorded_by, r.paid_at, r.payment_kind, 'legacy_agreement', r.id, r.notes, r.created_at
+        r.recorded_by, r.paid_at, r.payment_kind, 'legacy_agreement', r.id, r.notes, r.paid_at
       );
     end if;
   end loop;
@@ -141,6 +141,7 @@ declare
   v_request uuid := (p_payment->>'request_id')::uuid;
   v_reference text := nullif(trim(p_payment->>'processor_reference'), '');
   v_row public.booking_payment_entries%rowtype;
+  v_import public.swipesimple_transaction_imports%rowtype;
 begin
   if v_kind is null or v_kind not in ('facility','rental') or v_booking is null or v_request is null
     or v_amount is null or v_amount <= 0 or v_amount > 10000000
@@ -177,6 +178,13 @@ begin
     perform 1 from public.bookings where id::text = v_booking and lower(status) not in ('cancelled','canceled','rejected') for update;
   end if;
   if not found then return jsonb_build_object('outcome','inactive_booking'); end if;
+  if v_kind='facility' and p_payment->>'payment_purpose'='deposit' and exists(select 1 from booking_payment_entries where booking_kind=v_kind and booking_id=v_booking and status='posted' and payment_purpose='deposit') then
+    return jsonb_build_object('outcome','deposit_exists');
+  end if;
+  select * into v_import from swipesimple_transaction_imports where transaction_number=v_reference for update;
+  if found and (v_import.payment_entry_id is not null or lower(v_import.result)<>'approved' or lower(v_import.transaction_type)<>'sale' or v_amount+coalesce((p_payment->>'processing_fee_cents')::integer,0)<>v_import.amount_cents) then
+    return jsonb_build_object('outcome','conflict');
+  end if;
   insert into public.booking_payment_entries (
     booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents,
     processor_reference, recorded_by, receipt_email, paid_at, payer_name, payer_email,
@@ -189,6 +197,10 @@ begin
     coalesce((p_payment->>'paid_at')::timestamptz,now()), nullif(trim(p_payment->>'payer_name'),''),
     nullif(trim(p_payment->>'payer_email'),''), v_request, coalesce(p_payment->>'payment_purpose','deposit'), p_payment->>'notes'
   ) returning * into v_row;
+  if v_import.transaction_id is not null then
+    update booking_payment_entries set provider_transaction_id=v_import.transaction_id where id=v_row.id;
+    update swipesimple_transaction_imports set payment_entry_id=v_row.id,reviewed_by=p_payment->>'recorded_by',reviewed_at=now(),review_note='Matched by staff from booking payment form using full processor receipt' where transaction_id=v_import.transaction_id;
+  end if;
   return jsonb_build_object('outcome','created','id',v_row.id);
 end;
 $$;

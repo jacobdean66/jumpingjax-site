@@ -131,7 +131,7 @@ export async function POST(
     receipt_email:sendReceipt && customerEmail && validEmail(customerEmail) ? customerEmail : null,
   }});
   if (insertError || !entry || !["created","duplicate"].includes(entry.outcome)) {
-    return NextResponse.json({ok:false,message:entry?.outcome === "reference_exists"
+    return NextResponse.json({ok:false,message:entry?.outcome === "deposit_exists" ? "A deposit is already recorded for this party. Choose Payment or Balance for an additional payment." : entry?.outcome === "reference_exists"
       ? "This receipt is already recorded. Review payment history before adding another payment."
       : entry?.outcome === "conflict" ? "This request was already saved with different details. Reload and check payment history."
       : "Payment could not be recorded. Check payment history before retrying."},{status:insertError ? 503 : 409});
@@ -154,6 +154,7 @@ export async function POST(
     paidCents,
   );
 
+  if (sendReceipt && customerEmail) await supabase.from("booking_payment_entries").update({receipt_requested_at:new Date().toISOString()}).eq("id",entry.id);
   let receiptSent = false;
   if (sendReceipt && customerEmail && validEmail(customerEmail)) {
     const paymentLabel =
@@ -177,10 +178,11 @@ export async function POST(
       text: `Hello ${booking.customer_name?.trim() || "there"},\n\nWe recorded your ${paymentLabel} for booking #${id}.\n\nPayment applied to your booking: ${formatCents(amountCents)}${chargeLine}${balanceLine}\nPayment method: ${paymentMethod}${reference ? `\nReference: ${reference}` : ""}\n\nThank you,\nJumping Jax`,
     });
     receiptSent = !receipt.error;
+    if (!receiptSent) await supabase.from("booking_payment_entries").update({receipt_error_class:receipt.error?.code || "email_failed"}).eq("id",entry.id);
     if (receiptSent) {
       await supabase
         .from("booking_payment_entries")
-        .update({ receipt_email_sent_at: new Date().toISOString() })
+        .update({ receipt_email_sent_at: new Date().toISOString(), receipt_error_class: null })
         .eq("id", entry.id);
     }
   }

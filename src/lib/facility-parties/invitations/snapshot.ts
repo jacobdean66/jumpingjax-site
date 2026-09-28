@@ -6,16 +6,21 @@ import {
   type InvitationMatch,
 } from "./match-theme";
 import { getInvitationTheme, type InvitationThemeDefinition } from "./theme-catalog";
+import { confirmedThemeSchema, type ConfirmedInvitationTheme } from "./theme-search";
+
+import type { ApprovedPrint } from "./approved-print";
 
 export const INVITATION_SNAPSHOT_VERSION = 1 as const;
 
 export type InvitationSnapshot = InvitationMatch & {
   version: typeof INVITATION_SNAPSHOT_VERSION;
+  approvedPrint?: ApprovedPrint;
   sourceText: string;
   optionIndex: number;
   alternatesUsed: number;
   alternatesLocked: boolean;
   colorHint: string;
+  confirmedTheme?: ConfirmedInvitationTheme;
 };
 
 export const FACILITY_INVITATION_VENUE = {
@@ -35,6 +40,7 @@ export function invitationSnapshotFromChoice(
   optionIndex: unknown = 0,
   alternatesUsed: unknown = 0,
   colorHint = "",
+  confirmedTheme?: ConfirmedInvitationTheme,
 ): InvitationSnapshot {
   const trimmed = sourceText.trim();
   const index = clampInvitationOptionIndex(optionIndex);
@@ -49,6 +55,12 @@ export function invitationSnapshotFromChoice(
     alternatesUsed: used,
     alternatesLocked: used >= MAX_INVITATION_ALTERNATE_LOADS,
     colorHint: colorHint.trim(),
+    ...(confirmedTheme && confirmedTheme.label === trimmed ? {
+      confirmedTheme,
+      themeLabel: confirmedTheme.label,
+      matchKind: "confirmed" as const,
+      artworkSlot: `confirmed:${confirmedTheme.id}`,
+    } : {}),
   };
 }
 
@@ -77,6 +89,7 @@ export function advanceInvitationSnapshot(
     snapshot.optionIndex + 1,
     snapshot.alternatesUsed + 1,
     snapshot.colorHint,
+    snapshot.confirmedTheme,
   );
 }
 
@@ -107,6 +120,10 @@ export function resolveInvitationSnapshot(input: {
   const source = (input.partyTheme ?? "").trim();
   const colorHint = (input.colorHint ?? "").trim();
   if (isInvitationSnapshot(input.stored) && input.stored.sourceText === source) {
+    const confirmed = confirmedThemeSchema.safeParse(input.stored.confirmedTheme);
+    if (confirmed.success && confirmed.data.label === source) {
+      return invitationSnapshotFromChoice(source, input.stored.optionIndex, input.stored.alternatesUsed, colorHint || input.stored.colorHint, confirmed.data);
+    }
     const theme = getInvitationTheme(input.stored.themeId);
     const optionIndex = clampInvitationOptionIndex(
       input.stored.optionIndex ?? 0,

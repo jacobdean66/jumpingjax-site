@@ -1,3 +1,4 @@
+import { resolveApprovedPrint } from "./approved-print";
 import { isValidBookingId } from "@/lib/admin/booking-edit";
 import {
   buildFacilityWaiverInvitationUrl,
@@ -8,8 +9,9 @@ import {
   resolveInvitationSnapshot,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
-import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { invitationBookingStatus } from "./booking-status";
 
 export type FacilityInvitationView = {
   bookingId: string;
@@ -56,7 +58,7 @@ export async function loadFacilityInvitationView(
     .maybeSingle<InvitationRow>();
 
   if (error || !data) return null;
-  if (data.status === "rejected" || data.status === "cancelled") return null;
+  if (!invitationBookingStatus(data.status)) return null;
 
   const snapshot = resolveInvitationSnapshot({
     partyTheme: data.party_theme,
@@ -66,9 +68,16 @@ export async function loadFacilityInvitationView(
       .join(" "),
   });
   const waiverUrl = buildFacilityWaiverInvitationUrl({
-    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    siteUrl: resolveEmailSiteUrl(),
     bookingId: data.id,
     partyDate: data.readable_date,
+  });
+
+  snapshot.approvedPrint = resolveApprovedPrint(data.invitation, {
+    bookingId: data.id, childName: data.child_name?.trim() || "Birthday Star",
+    childAge: data.child_age?.trim() || "", customerPhone: data.phone?.trim() || "",
+    dateLabel: data.readable_date?.trim() || "", timeLabel: data.readable_time?.trim() || "",
+    themeText: data.party_theme?.trim() || "", rsvpUrl: waiverUrl,
   });
 
   return {

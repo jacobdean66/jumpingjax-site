@@ -8,13 +8,13 @@ import type {
   MetaCampaignRow,
   MetaAdsDashboardViewModel,
   MetricValue,
-} from "@/lib/meta-ads";
+} from "@/lib/meta-ads/types";
 import {
   formatMetricCount,
   formatMetricDecimal,
   formatMetricMoney,
   formatMetricRate,
-} from "@/lib/meta-ads";
+} from "@/lib/meta-ads/normalize";
 
 function money(metric: MetricValue, currency: string) {
   return formatMetricMoney(metric, currency);

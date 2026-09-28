@@ -37,6 +37,15 @@ export function getCanonicalSiteUrl(): string {
  * localhost, while Vercel previews may use their deployment origin.
  */
 export function resolveEmailSiteUrl(requestUrl?: string): string {
+  // A Vercel Preview also runs with NODE_ENV=production. Keep its booking
+  // links on the trusted deployment origin, never on a supplied Host header.
+  if (process.env.VERCEL_ENV === "preview") {
+    for (const value of [process.env.VERCEL_BRANCH_URL, process.env.VERCEL_URL]) {
+      const preview = parseSiteUrl(value);
+      if (preview && preview.hostname.endsWith(".vercel.app") && !preview.username && !preview.password && !preview.port) return preview.origin;
+    }
+    return CANONICAL_PRODUCTION_SITE_URL;
+  }
   if (
     process.env.NODE_ENV === "production" ||
     process.env.VERCEL_ENV === "production"
@@ -49,11 +58,6 @@ export function resolveEmailSiteUrl(requestUrl?: string): string {
 
   const requestOrigin = originOf(requestUrl);
   if (requestOrigin) return requestOrigin;
-
-  if (process.env.VERCEL_ENV === "preview") {
-    const previewOrigin = originOf(process.env.VERCEL_URL);
-    if (previewOrigin) return previewOrigin;
-  }
 
   return CANONICAL_PRODUCTION_SITE_URL;
 }

@@ -5,18 +5,17 @@ import {
   getFacilityOwnerEmails,
   getResendFromAddress,
 } from "@/lib/email/resend";
+import {
+  GIVEAWAY_CAMPAIGN_LABELS,
+  type GiveawayCampaignChoice,
+  isGiveawayCampaignChoice,
+} from "@/lib/giveaway/giveaway-campaigns";
 import { formatPublicChildDisplayName } from "@/lib/giveaway/public-nominee-display";
 import { saveGiveawayNomination } from "@/lib/giveaway/nomination-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
-const ENTRY_DEADLINE = new Date("2026-08-31T04:00:00.000Z");
-const PARTY_LABELS = {
-  september_birthday: "September birthday party",
-  back_to_school: "Back-to-school party",
-} as const;
-
-type PartyChoice = keyof typeof PARTY_LABELS;
+const ENTRY_DEADLINE = new Date("2026-10-15T13:00:00.000Z");
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -24,10 +23,6 @@ function cleanText(value: unknown, maxLength: number) {
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function isPartyChoice(value: unknown): value is PartyChoice {
-  return value === "september_birthday" || value === "back_to_school";
 }
 
 function isValidMonthDay(month: number, day: number) {
@@ -46,7 +41,7 @@ export async function POST(request: NextRequest) {
 
   if (new Date() >= ENTRY_DEADLINE) {
     return NextResponse.json(
-      { error: "Nominations closed August 30, 2026." },
+      { error: "Nominations closed October 15, 2026 at 9:00 a.m. Eastern." },
       { status: 410 },
     );
   }
@@ -79,7 +74,7 @@ export async function POST(request: NextRequest) {
       childName === "Nominee" ||
       childNameRaw.split(/\s+/).length > 3 ||
       !isValidMonthDay(birthMonth, birthDay) ||
-      !isPartyChoice(partyChoice) ||
+      !isGiveawayCampaignChoice(partyChoice) ||
       reason.length < 10 ||
       !idempotencyKey ||
       body.permission_acknowledged !== true
@@ -121,7 +116,7 @@ export async function POST(request: NextRequest) {
       try {
         const resend = new Resend(apiKey);
       const birthday = `${String(birthMonth).padStart(2, "0")}/${String(birthDay).padStart(2, "0")}`;
-      const partyLabel = PARTY_LABELS[partyChoice];
+      const partyLabel = GIVEAWAY_CAMPAIGN_LABELS[partyChoice as GiveawayCampaignChoice];
 
         const confirmation = await resend.emails.send(
         {
@@ -136,9 +131,9 @@ export async function POST(request: NextRequest) {
             `Child: ${childName}`,
             `Party choice: ${partyLabel}`,
             "Prize: one public or private party for up to 20 children",
-            "Included: drinks, balloons, plates, cutlery, and themed tablecloths",
-            "Entry deadline: August 30, 2026",
-            "Party date: winner's choice, subject to availability",
+            "Included: Halloween candy, drinks, balloons, plates, cutlery, and themed tablecloths",
+            "Entry deadline and winner selection: October 15, 2026 at 9:00 a.m. Eastern",
+            "Party date: any day of Halloween weekend, subject to availability",
             "",
             "One winner will be selected after entries close. A parent or legal guardian must approve the prize before it can be redeemed.",
             "",

@@ -9,6 +9,7 @@ export type BookingPaymentRow = {
   created_at: string; paid_at: string; payer_name: string | null; payer_email: string | null;
   status: BookingPaymentEntry["status"]; payment_purpose: string; provider_transaction_id: string | null;
   source: string; notes: string | null;
+  idempotency_key: string|null; receipt_requested_at: string|null; receipt_error_class:string|null;
 };
 
 export function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
@@ -19,6 +20,7 @@ export function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry
     receiptEmailSentAt: row.receipt_email_sent_at, createdAt: row.created_at, paidAt: row.paid_at,
     payerName: row.payer_name, payerEmail: row.payer_email, status: row.status, paymentPurpose: row.payment_purpose,
     providerTransactionId: row.provider_transaction_id, source: row.source, notes: row.notes,
+    idempotencyKey:row.idempotency_key, receiptRequestedAt:row.receipt_requested_at, receiptErrorClass:row.receipt_error_class,
   };
 }
 

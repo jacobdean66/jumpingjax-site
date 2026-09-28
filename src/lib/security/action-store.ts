@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { sanitizeAikidoDetailsUrl, sanitizeSecurityMessage } from "./sanitization";
 import type { SecurityState } from "./types";
 
 type Provider = "aikido" | "aithura";
@@ -79,7 +80,7 @@ export async function saveSecurityObservation(input: Omit<SecurityObservation, "
       provider: input.provider,
       state: input.state,
       checked_at: input.checkedAt,
-      message: input.message.slice(0, 240),
+      message: sanitizeSecurityMessage(input.message),
       actor_id: input.actorId,
       deployment_sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 64) || null,
       updated_at: new Date().toISOString(),
@@ -105,7 +106,7 @@ export async function loadSecurityObservations(): Promise<SecurityObservation[]>
         provider: row.provider as Provider,
         state: row.state as SecurityObservation["state"],
         checkedAt: String(row.checked_at),
-        message: String(row.message).slice(0, 240),
+        message: sanitizeSecurityMessage(row.message),
         deploymentSha: row.deployment_sha ? String(row.deployment_sha) : null,
       }];
     });
@@ -198,8 +199,8 @@ export async function loadLatestAikidoScan(): Promise<LatestAikidoScan> {
       state,
       checkedAt: data.completed_at ? String(data.completed_at) : String(data.requested_at),
       issueCount: typeof data.issue_count === "number" ? data.issue_count : null,
-      message: String(data.message || (state === "passed" ? "The latest scan passed." : "The latest scan found issues.")).slice(0, 240),
-      detailsUrl: typeof data.details_url === "string" && data.details_url.startsWith("https://app.aikido.dev/") ? data.details_url : null,
+      message: sanitizeSecurityMessage(data.message || (state === "passed" ? "The latest scan passed." : "The latest scan found issues.")),
+      detailsUrl: sanitizeAikidoDetailsUrl(data.details_url),
     };
   } catch {
     return fallback;
@@ -232,9 +233,9 @@ export async function completeAikidoScanJob(input: PendingAikidoScan & { actorId
     p_actor_id: input.actorId,
     p_deployment_sha: deploymentSha,
     p_passed: input.passed,
-    p_message: input.message,
+    p_message: sanitizeSecurityMessage(input.message),
     p_issue_count: input.issueCount,
-    p_details_url: input.detailsUrl,
+    p_details_url: sanitizeAikidoDetailsUrl(input.detailsUrl),
   });
   if (error) throw new Error("security_scan_completion_unavailable");
   return data === true;

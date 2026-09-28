@@ -32,7 +32,11 @@ export async function GET(req: Request) {
       { ok: true, report },
       { headers: { "Cache-Control": "private, no-store" } },
     );
-  } catch {
+  } catch (error) {
+    console.error("[open-play-daily-report] failed", {
+      date,
+      message: error instanceof Error ? error.message : "Unknown report error",
+    });
     return publicSafeError("database", 503);
   }
 }

@@ -140,7 +140,8 @@ export function DailyReportClient({ initialDateYmd }: Props) {
           const form = new FormData(event.currentTarget);
           const next = String(form.get("report-date") ?? "");
           const normalized = normalizeReportDateInput(next);
-          if (normalized) setSelectedDate(normalized);
+          if (normalized === selectedDate) retry();
+          else if (normalized) setSelectedDate(normalized);
         }}
       >
         <label htmlFor="report-date" className="block text-sm font-bold text-slate-700">

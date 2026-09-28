@@ -166,12 +166,9 @@ export async function searchWaiversForStaff(options: {
         })()
       : ((legacyRes.data as LegacySearchRpcRow[] | null) ?? []);
 
-  const nativeSearchRows = ((nativeRes.data as SearchRpcRow[] | null) ?? []).filter(
-    (row) => row.role === "child",
-  );
-  const eligibleLegacyRows = legacyRows.filter((row) => row.role === "child");
+  const nativeSearchRows = (nativeRes.data as SearchRpcRow[] | null) ?? [];
   const nativeSubmissionIds = [...new Set(nativeSearchRows.map((row) => row.submission_id))];
-  const legacyWaiverIds = [...new Set(eligibleLegacyRows.map((row) => row.legacy_waiver_id))];
+  const legacyWaiverIds = [...new Set(legacyRows.map((row) => row.legacy_waiver_id))];
 
   const [
     nativeParticipantsRes,
@@ -289,11 +286,11 @@ export async function searchWaiversForStaff(options: {
       nameCorrected: false,
       dobYmd: row.dob,
       birthYear: Number(row.dob.slice(0, 4)) || 0,
-      role: "child",
+      role: row.role,
       expiresOnYmd: submission.expires_on,
       expired,
       signerLastInitial: (submission.signer_last_name.trim()[0] || "").toUpperCase(),
-      checkInEligible: row.role === "child" && !expired,
+      checkInEligible: !expired,
       visitCount: nativeVisitCounts.get(row.id) ?? 0,
     };
     nativeParticipantsBySubmission.set(row.submission_id, [
@@ -327,11 +324,11 @@ export async function searchWaiversForStaff(options: {
       nameCorrected: Boolean(correction),
       dobYmd: row.dob ?? "",
       birthYear: row.dob ? Number(row.dob.slice(0, 4)) || 0 : 0,
-      role: "child",
+      role: row.role,
       expiresOnYmd: waiver.expires_on,
       expired,
       signerLastInitial: ((waiver.signer_last_name ?? "").trim()[0] || "").toUpperCase(),
-      checkInEligible: row.role === "child" && Boolean(row.dob) && !expired,
+      checkInEligible: waiver.activated && Boolean(row.dob) && !expired,
       visitCount: legacyVisitCount(waiver.check_ins, legacyLedgerCounts.get(row.id) ?? 0),
     };
     legacyParticipantsByWaiver.set(row.legacy_waiver_id, [
@@ -384,7 +381,7 @@ export async function searchWaiversForStaff(options: {
     };
   });
 
-  const legacyResults: StaffSearchResult[] = eligibleLegacyRows.map((row) => {
+  const legacyResults: StaffSearchResult[] = legacyRows.map((row) => {
     const expired = isWaiverExpired({
       expiresOnYmd: row.expires_on,
       evaluationAt,
@@ -436,13 +433,13 @@ export async function searchWaiversForStaff(options: {
   const newestFirst = [...nativeResults, ...legacyResults].sort((a, b) =>
     (b.waiverSignedAt ?? "").localeCompare(a.waiverSignedAt ?? ""),
   );
-  const uniqueChildren = new Map<string, StaffSearchResult>();
+  const uniqueParticipants = new Map<string, StaffSearchResult>();
   for (const result of newestFirst) {
     const identity = `${result.firstName.trim().toLowerCase()}|${result.lastName.trim().toLowerCase()}|${result.dobYmd ?? result.birthYear}`;
-    if (!uniqueChildren.has(identity)) uniqueChildren.set(identity, result);
+    if (!uniqueParticipants.has(identity)) uniqueParticipants.set(identity, result);
   }
 
-  return [...uniqueChildren.values()]
+  return [...uniqueParticipants.values()]
     .sort((a, b) => {
       const rankDiff = rankKey(a, normalized) - rankKey(b, normalized);
       if (rankDiff !== 0) return rankDiff;

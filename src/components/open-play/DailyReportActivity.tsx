@@ -24,6 +24,7 @@ import {
   type DailyReport,
 } from "@/lib/open-play/daily-report-client";
 import type { StaffWaiverParticipant } from "@/lib/waivers/search";
+import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 
 type Props = {
   report: DailyReport;
@@ -111,7 +112,7 @@ function birthdayPartyFromNotes(notes: string | null, fullName: string): string 
 export function DailyReportActivity({ report }: Props) {
   const router = useRouter();
   const visits = sortVisitsForDisplay(report);
-  const checkedIn = visits.flatMap((visit) =>
+  const checkedIn: SelectedCard[] = visits.flatMap((visit) =>
     visit.status === "voided"
       ? []
       : visit.attendees
@@ -125,6 +126,15 @@ export function DailyReportActivity({ report }: Props) {
             payments: visit.payments,
           })),
   );
+  checkedIn.push(...(report.facilityAttendance ?? []).map((attendee) => ({
+    attendee,
+    visitId: attendee.visitId,
+    checkedInAt: attendee.checkedInAt!,
+    visitSource: attendee.source,
+    visitNotes: null,
+    payments: [],
+  })));
+  checkedIn.sort((a, b) => a.checkedInAt.localeCompare(b.checkedInAt));
   const [selected, setSelected] = useState<SelectedCard | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -417,7 +427,7 @@ export function DailyReportActivity({ report }: Props) {
     : null;
   const canEditProfile =
     (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
-  const canEdit = selected?.attendee.status === "active";
+  const canEdit = selected?.attendee.status === "active" && !selected.attendee.facilityParty;
   const selectedIsAdult =
     selectedAdmission?.classification === "playing_adult" ||
     selectedAdmission?.classification === "watching_adult";
@@ -625,7 +635,9 @@ export function DailyReportActivity({ report }: Props) {
                 </div>
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Check-in time</dt>
-                  <dd className="mt-1 font-black text-slate-950">{checkInTime(selected.checkedInAt)}</dd>
+                  <dd className="mt-1 font-black text-slate-950">{selected.attendee.facilityParty && businessDayYmdFromInstant(selected.checkedInAt) !== report.businessDayYmd
+                    ? `Marked here ${signedAtLabel(selected.checkedInAt)}`
+                    : checkInTime(selected.checkedInAt)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Admission</dt>
@@ -636,12 +648,17 @@ export function DailyReportActivity({ report }: Props) {
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Payment option</dt>
                   <dd className="mt-1 font-black capitalize text-slate-950">
-                    {selectedAdmission?.classification === "watching_adult"
+                    {selected.attendee.facilityParty
+                      ? `Birthday party - ${selected.attendee.facilityParty.label} - No admission charge`
+                      : selectedAdmission?.classification === "watching_adult"
                       ? "No payment — watching adult"
                       : selectedBirthdayParty
                       ? `Birthday party — ${selectedBirthdayParty}`
                       : (selectedAdmission?.paymentOption ?? "cash").replace("_", " ")}
                   </dd>
+                  {selected.attendee.facilityParty ? (
+                    <dd className="mt-2"><a className="font-bold underline" href={`/admin/facility/${encodeURIComponent(selected.attendee.facilityParty.bookingId)}/guest-list`}>Party guest list</a></dd>
+                  ) : null}
                 </div>
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Status</dt>
@@ -873,7 +890,7 @@ export function DailyReportActivity({ report }: Props) {
                     }}
                     className="min-h-12 rounded-xl bg-sky-600 px-4 text-sm font-black text-white shadow-[0_5px_0_#0369a1] active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
                   >
-                    {canEdit ? "Edit details" : "Signed record"}
+                    {canEdit ? "Edit details" : selected.attendee.facilityParty ? "Party guest" : "Signed record"}
                   </button>
                 </>
               )}

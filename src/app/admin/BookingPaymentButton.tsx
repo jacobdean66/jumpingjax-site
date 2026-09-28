@@ -21,6 +21,7 @@ type Props = {
   customerEmail: string | null;
   customerName?: string;
   balanceCents: number | null;
+  depositRecorded?: boolean;
 };
 
 const methodLabels: Record<BookingPaymentMethod, string> = {
@@ -34,13 +35,16 @@ function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+
 export function BookingPaymentButton({
   bookingId,
   kind,
   customerEmail,
   customerName,
   balanceCents,
+  depositRecorded = false,
 }: Props) {
+
   const initialCents =
     kind === "facility"
       ? FACILITY_DEPOSIT_CENTS
@@ -54,6 +58,7 @@ export function BookingPaymentButton({
   const [requestId, setRequestId] = useState("");
   const [paidAt, setPaidAt] = useState("");
   const [purpose, setPurpose] = useState(kind === "facility" ? "deposit" : "payment");
+  const alreadyRecorded = kind === "facility" && depositRecorded && purpose === "deposit";
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -153,6 +158,12 @@ export function BookingPaymentButton({
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
+            {alreadyRecorded ? (
+              <div role="status" className="mt-4 text-sm font-semibold text-emerald-800">
+                <p>The deposit is already recorded for this booking.</p>
+                {balanceCents !== null ? <p className="mt-2">Current booking balance: {formatCents(balanceCents)}</p> : null}
+              </div>
+            ) : <>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               Complete the payment first, then save it here. This adds it to
               this booking&apos;s balance and receipt history.
@@ -263,6 +274,7 @@ export function BookingPaymentButton({
                 </span>
               </span>
             </label>
+            </>}
             {notice ? (
               <p
                 role="status"
@@ -281,10 +293,10 @@ export function BookingPaymentButton({
               </button>
               <button
                 type="submit"
-                disabled={saving || parsedCents <= 0}
+                disabled={alreadyRecorded || saving || parsedCents <= 0}
                 className="min-h-11 rounded-md bg-emerald-700 px-4 py-2 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving
+                {alreadyRecorded ? "Deposit already recorded" : saving
                   ? "Saving..."
                   : sendReceipt && customerEmail
                     ? "Record payment and email receipt"

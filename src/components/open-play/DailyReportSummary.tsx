@@ -92,6 +92,9 @@ export function DailyReportSummary({ summary }: Props) {
           </div>
         </div>
 
+        {(summary.partyAdults ?? 0) > 0 ? (
+          <p className="text-sm font-bold text-slate-700">Party adults: {summary.partyAdults}</p>
+        ) : null}
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
             <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
