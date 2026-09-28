@@ -15,6 +15,7 @@ import {
   formatMetricMoney,
   formatMetricRate,
 } from "@/lib/meta-ads/normalize";
+import type { GiveawayFunnelAnalytics } from "@/lib/meta-ads/giveaway-funnel";
 
 function money(metric: MetricValue, currency: string) {
   return formatMetricMoney(metric, currency);
@@ -330,9 +331,11 @@ function DailyBars({
 
 export function AdAnalyticsClient({
   initial,
+  giveawayFunnel,
   adsManagerUrl,
 }: {
   initial: MetaAdsDashboardViewModel;
+  giveawayFunnel: GiveawayFunnelAnalytics;
   adsManagerUrl: string | null;
 }) {
   const currency =
@@ -341,6 +344,84 @@ export function AdAnalyticsClient({
 
   return (
     <div className="mt-6 space-y-6">
+      <section className="border-y border-cyan-200 bg-cyan-50 px-4 py-5 sm:px-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-800">
+              Website conversions
+            </p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">
+              Giveaway funnel
+            </h2>
+          </div>
+          <p className="text-xs font-semibold text-slate-600">
+            Same Indiana date range as the Meta totals below
+          </p>
+        </div>
+
+        {giveawayFunnel.available ? (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SummaryCard
+                label="Meta link clicks"
+                value={formatMetricCount(initial.totals.linkClicks)}
+                hint="Reported by Meta"
+              />
+              <SummaryCard
+                label="Successful entries"
+                value={String(giveawayFunnel.submissions)}
+                hint="Saved nomination forms"
+              />
+              <SummaryCard
+                label="Confirmations sent"
+                value={String(giveawayFunnel.confirmationEmails)}
+                hint="Confirmation emails accepted"
+              />
+              <SummaryCard
+                label="Unique nominees"
+                value={String(giveawayFunnel.uniqueNominees)}
+                hint="Duplicate child entries combined"
+              />
+            </div>
+
+            {giveawayFunnel.campaigns.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-cyan-200 text-xs uppercase text-slate-600">
+                      <th className="px-2 py-2 font-black">Giveaway</th>
+                      <th className="px-2 py-2 text-right font-black">Entries</th>
+                      <th className="px-2 py-2 text-right font-black">Confirmations</th>
+                      <th className="px-2 py-2 text-right font-black">Nominees</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {giveawayFunnel.campaigns.map((campaign) => (
+                      <tr key={campaign.campaignKey} className="border-b border-cyan-100 last:border-0">
+                        <td className="px-2 py-3 font-black text-slate-950">
+                          {campaign.campaignLabel}
+                        </td>
+                        <td className="px-2 py-3 text-right font-bold">{campaign.submissions}</td>
+                        <td className="px-2 py-3 text-right font-bold">{campaign.confirmationEmails}</td>
+                        <td className="px-2 py-3 text-right font-bold">{campaign.uniqueNominees}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm font-semibold text-slate-600">
+                No giveaway entries were received in this date range.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900">
+            {giveawayFunnel.message}
+          </p>
+        )}
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           label="Spend"

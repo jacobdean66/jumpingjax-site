@@ -5,6 +5,7 @@ import { sanitizedError } from "@/lib/meta-ads/errors";
 import { pauseMetaAd } from "@/lib/meta-ads/marketing-api";
 import { checkMetaAdsReadPermission } from "@/lib/meta-ads/permissions";
 import { resolveMetaAdsAccessToken } from "@/lib/meta-ads/token-resolver";
+import { loadGiveawayFunnelAnalytics } from "@/lib/meta-ads/giveaway-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
     status,
     campaignId,
   });
+  const giveawayFunnel = await loadGiveawayFunnelAnalytics(dashboard.dateRange);
 
   if (dashboard.freshness === "unavailable" && dashboard.errors.some((e) => e.code === "invalid_account")) {
     return noStoreJson(
@@ -93,6 +95,7 @@ export async function GET(request: Request) {
     comparisonTotals: dashboard.comparisonTotals,
     campaigns: dashboard.campaigns,
     daily: dashboard.daily,
+    giveawayFunnel,
     metricGlossary: dashboard.metricGlossary,
     errors: dashboard.errors,
   });

@@ -12,6 +12,7 @@ import {
   META_ADS_DATE_PRESETS,
 } from "@/lib/meta-ads";
 import { AdAnalyticsClient } from "./AdAnalyticsClient";
+import { loadGiveawayFunnelAnalytics } from "@/lib/meta-ads/giveaway-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export default async function AdminAdAnalyticsPage({
     status: params.status,
     campaignId: params.campaign_id,
   });
+  const giveawayFunnel = await loadGiveawayFunnelAnalytics(dashboard.dateRange);
 
   const adsManagerUrl = dashboard.selectedAccountId
     ? buildSafeAdsManagerUrl(dashboard.selectedAccountId)
@@ -254,7 +256,11 @@ export default async function AdminAdAnalyticsPage({
         </p>
       ) : null}
 
-      <AdAnalyticsClient initial={dashboard} adsManagerUrl={adsManagerUrl} />
+      <AdAnalyticsClient
+        initial={dashboard}
+        giveawayFunnel={giveawayFunnel}
+        adsManagerUrl={adsManagerUrl}
+      />
     </AdminShell>
   );
 }
