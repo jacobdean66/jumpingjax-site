@@ -31,6 +31,14 @@ Only theme queries/refinements and rejected theme labels go to search. Customer 
 
 Official search contract: https://developers.openai.com/api/docs/guides/tools-web-search#image-search-results
 
+## Post-booking delivery
+
+For a themed invitation, the successful booking screen now immediately offers **Email me the invitation link** and **Download the invitation**. Both may be used. Download retrieves the existing editable PowerPoint endpoint; it does not require a second booking or email. A view/share link remains available. The page continues to state that the party date needs staff approval.
+
+The email action requires the random request key from the submitting browser and looks up the recipient from that booking. It rejects client-supplied recipients, mismatched keys and cancelled/rejected bookings. Durable outbox and provider idempotency prevent duplicate sends; failed sends can be retried. This supplements the existing automatic booking receipt, which still includes invitation links.
+
+Latest preview verification: changes are on `fix/invitation-theme-clarification`, not main. Vercel built the first preview successfully. The actual customer flow reached Kpop search, which returned an error; the Preview environment lacked an invitation signing secret. A dedicated Preview-only setting has been added for the next build. The artwork bucket migration remains unapplied. No production deployment, booking, customer email, or finished Kpop invitation has been created. Local delivery authorization/recipient/retry checks and all 191 booking tests pass.
+
 ## Party QR and guest-list connection
 
 Every saved invitation uses the booking-specific `/facility-party-check-in?booking=...` destination. Cards derive the QR from that destination so a stale QR image cannot point at another party. QR images are clickable on a phone. Each printed card, both email layouts, the share-preview image, and each editable PowerPoint card include the QR. The public invitation also links directly to the guest list. Printing is blocked through the print button if the saved invitation's QR has not loaded; an editable download fails rather than quietly omitting a missing QR.

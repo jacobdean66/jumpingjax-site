@@ -65,6 +65,7 @@ import { trackLead } from "@/lib/analytics/client";
 import { invokeInvitationAgent } from "@/lib/facility-parties/invitations/agent-client";
 import type { InvitationAgentAction } from "@/lib/facility-parties/invitations/agent";
 import { InvitationThemeSearch } from "./InvitationThemeSearch";
+import { InvitationDeliveryActions } from "./InvitationDeliveryActions";
 import { themeDesignMatches, type ThemeDesign } from "@/lib/facility-parties/invitations/theme-search";
 
 const controlClassName =
@@ -199,6 +200,7 @@ export function FacilityPartyBookingForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const [successBookingId, setSuccessBookingId] = useState<string | null>(null);
+  const [successRequestKey, setSuccessRequestKey] = useState<string | null>(null);
   const submitIdempotencyKey = useRef<string | null>(null);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
@@ -576,6 +578,7 @@ export function FacilityPartyBookingForm({
           ? (data as { id: string }).id
           : null;
       setSuccessBookingId(bookingId);
+      setSuccessRequestKey(submitIdempotencyKey.current);
 
       trackLead("facility_party_request", {
         party_kind: request.kind,
@@ -635,6 +638,9 @@ export function FacilityPartyBookingForm({
             </p>
           ) : null}
         </div>
+        {successBookingId && successRequestKey && invitationCreationPreference === "create" ? (
+          <InvitationDeliveryActions bookingId={successBookingId} requestKey={successRequestKey} />
+        ) : null}
         <div className="mt-6 border-t border-white/10 pt-6">
           <p className="text-sm font-black text-white">Facility party deposit</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">

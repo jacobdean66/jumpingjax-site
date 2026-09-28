@@ -14,7 +14,9 @@ export async function POST(request: Request) {
     const result = await performThemeSearch(body.data, { search: searchInvitationThemes });
     return Response.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
-    console.error("[invitation-theme-search] unavailable", error instanceof Error ? error.name : "UnknownError");
+    const configurationError = error instanceof Error && ["Invitation theme signing is not configured.", "Theme search is not configured."].includes(error.message) ? error.message : undefined;
+    const providerStatus = error && typeof error === "object" && "status" in error && typeof error.status === "number" ? error.status : undefined;
+    console.error("[invitation-theme-search] unavailable", { name: error instanceof Error ? error.name : "UnknownError", configurationError, providerStatus });
     return Response.json({ error: "Theme search couldn’t finish. Your theme has not been changed. Please try again." }, { status: 503 });
   }
 }
