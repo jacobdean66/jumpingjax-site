@@ -5,6 +5,7 @@ import {
 } from "@/lib/facility-parties/agreement";
 import { loadAgreementHistoryForBookings } from "@/lib/facility-parties/agreement-store";
 import { type BookingPaymentEntry } from "@/lib/payments/booking-payments";
+import { loadBookingPaymentMap } from "@/lib/payments/store";
 import {
   invitationDeliveryPreferenceLabel,
   invitationTemplateLabel,
@@ -100,38 +101,6 @@ type FacilityRow = {
   tax: number | string | null;
   total: number | string | null;
 };
-
-type BookingPaymentRow = {
-  id: string;
-  booking_kind: "facility" | "rental";
-  booking_id: string;
-  entry_type: "facility_deposit" | "rental_payment";
-  payment_method: "card" | "cash" | "check" | "other";
-  amount_cents: number;
-  processing_fee_cents: number;
-  processor_reference: string | null;
-  recorded_by: string;
-  receipt_email: string | null;
-  receipt_email_sent_at: string | null;
-  created_at: string;
-};
-
-function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
-  return {
-    id: row.id,
-    bookingKind: row.booking_kind,
-    bookingId: String(row.booking_id),
-    entryType: row.entry_type,
-    paymentMethod: row.payment_method,
-    amountCents: Number(row.amount_cents),
-    processingFeeCents: Number(row.processing_fee_cents),
-    processorReference: clean(row.processor_reference),
-    recordedBy: row.recorded_by,
-    receiptEmail: clean(row.receipt_email),
-    receiptEmailSentAt: row.receipt_email_sent_at,
-    createdAt: row.created_at,
-  };
-}
 
 export type AdminRentalBooking = {
   id: string;
@@ -325,7 +294,7 @@ export async function loadAdminRentalBookings(input: {
 
   const ids = rows.map((row) => row.id);
   const itemMap = new Map<string, RentalItemRow[]>();
-  const paymentMap = new Map<string, BookingPaymentEntry[]>();
+  const paymentMap = await loadBookingPaymentMap("rental", ids.map(String));
 
   if (ids.length > 0) {
     const { data: itemRows, error: itemError } = await supabase
@@ -339,22 +308,6 @@ export async function loadAdminRentalBookings(input: {
       itemMap.set(key, [...(itemMap.get(key) ?? []), item]);
     }
 
-    const { data: paymentRows, error: paymentError } = await supabase
-      .from("booking_payment_entries")
-      .select(
-        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
-      )
-      .eq("booking_kind", "rental")
-      .in("booking_id", ids.map(String))
-      .order("created_at", { ascending: false });
-    if (paymentError) throw new Error(paymentError.message);
-    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
-      const key = String(payment.booking_id);
-      paymentMap.set(key, [
-        ...(paymentMap.get(key) ?? []),
-        paymentEntryFromRow(payment),
-      ]);
-    }
   }
 
   const bookings = rows.map((row): AdminRentalBooking => {
@@ -442,25 +395,7 @@ export async function loadAdminFacilityBookings(input: {
   const bookingIds = rows.map((row) => row.id);
   const { agreementMap, paymentMap } =
     await loadAgreementHistoryForBookings(bookingIds);
-  const bookingPaymentMap = new Map<string, BookingPaymentEntry[]>();
-  if (bookingIds.length > 0) {
-    const { data: paymentRows, error: paymentError } = await supabase
-      .from("booking_payment_entries")
-      .select(
-        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
-      )
-      .eq("booking_kind", "facility")
-      .in("booking_id", bookingIds)
-      .order("created_at", { ascending: false });
-    if (paymentError) throw new Error(paymentError.message);
-    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
-      const key = String(payment.booking_id);
-      bookingPaymentMap.set(key, [
-        ...(bookingPaymentMap.get(key) ?? []),
-        paymentEntryFromRow(payment),
-      ]);
-    }
-  }
+  const bookingPaymentMap = await loadBookingPaymentMap("facility", bookingIds);
   const workflowByBookingId = new Map<
     string,
     { calendar_status: string | null; last_error_class: string | null }

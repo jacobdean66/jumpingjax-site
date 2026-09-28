@@ -1,3 +1,4 @@
+import { loadBookingPaymentMap } from "@/lib/payments/store";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
@@ -59,36 +60,20 @@ type AgreementRow = {
   signer_legal_name: string | null;
 };
 
-type PaymentRow = {
-  id: string;
-  booking_id: string;
-  amount: number | string;
-  payment_kind: string;
-  payment_method: string;
-  paid_at: string;
-  pos_receipt_number: string | null;
-  recorded_by: string;
-  notes: string | null;
-};
-
 export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
   const agreementMap = new Map<string, AdminAgreementSummary[]>();
   const paymentMap = new Map<string, AgreementPayment[]>();
   if (bookingIds.length === 0) return { agreementMap, paymentMap };
 
   const supabase = createServiceRoleClient();
-  const [{ data: agreements, error: agreementError }, { data: payments, error: paymentError }] =
+  const [{ data: agreements, error: agreementError }, ledger] =
     await Promise.all([
       supabase
         .from("facility_party_agreements")
         .select("id,booking_id,version,status,email_status,snapshot,created_at,sent_at,signed_at,signer_legal_name")
         .in("booking_id", bookingIds)
         .order("version", { ascending: false }),
-      supabase
-        .from("facility_party_payments")
-        .select("id,booking_id,amount,payment_kind,payment_method,paid_at,pos_receipt_number,recorded_by,notes")
-        .in("booking_id", bookingIds)
-        .order("paid_at", { ascending: true }),
+      loadBookingPaymentMap("facility", bookingIds),
     ]);
 
   // Production may briefly run the new code before its migration is applied.
@@ -96,9 +81,7 @@ export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
   if (agreementError && agreementError.code !== "42P01") {
     console.error("[facility-agreements] agreement history load failed", agreementError.code);
   }
-  if (paymentError && paymentError.code !== "42P01") {
-    console.error("[facility-agreements] payment history load failed", paymentError.code);
-  }
+
 
   for (const row of (agreements ?? []) as AgreementRow[]) {
     let customerSigningPath: string | null = null;
@@ -122,18 +105,12 @@ export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
     agreementMap.set(row.booking_id, [...(agreementMap.get(row.booking_id) ?? []), item]);
   }
 
-  for (const row of (payments ?? []) as PaymentRow[]) {
-    const item: AgreementPayment = {
-      id: row.id,
-      amount: Number(row.amount),
-      paymentKind: row.payment_kind,
-      paymentMethod: row.payment_method,
-      paidAt: row.paid_at,
-      posReceiptNumber: row.pos_receipt_number,
-      recordedBy: row.recorded_by,
-      notes: row.notes,
-    };
-    paymentMap.set(row.booking_id, [...(paymentMap.get(row.booking_id) ?? []), item]);
+  for (const [bookingId, entries] of ledger) {
+    paymentMap.set(bookingId, entries.filter(e => e.status === "posted").map(e => ({
+      id: e.id, amount: e.amountCents / 100, paymentKind: e.paymentPurpose,
+      paymentMethod: e.paymentMethod, paidAt: e.paidAt, posReceiptNumber: e.processorReference,
+      recordedBy: e.recordedBy, notes: e.notes,
+    })));
   }
   return { agreementMap, paymentMap };
 }

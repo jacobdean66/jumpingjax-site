@@ -19,6 +19,7 @@ type Props = {
   bookingId: string;
   kind: BookingPaymentKind;
   customerEmail: string | null;
+  customerName?: string;
   balanceCents: number | null;
 };
 
@@ -37,6 +38,7 @@ export function BookingPaymentButton({
   bookingId,
   kind,
   customerEmail,
+  customerName,
   balanceCents,
 }: Props) {
   const initialCents =
@@ -47,7 +49,11 @@ export function BookingPaymentButton({
   const [amount, setAmount] = useState(centsToInput(initialCents));
   const [method, setMethod] = useState<BookingPaymentMethod>("card");
   const [reference, setReference] = useState("");
-  const [sendReceipt, setSendReceipt] = useState(Boolean(customerEmail));
+  const [sendReceipt, setSendReceipt] = useState(false);
+  const [payerName, setPayerName] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [paidAt, setPaidAt] = useState("");
+  const [purpose, setPurpose] = useState(kind === "facility" ? "deposit" : "payment");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -76,6 +82,10 @@ export function BookingPaymentButton({
             paymentMethod: method,
             reference,
             sendReceipt,
+            payerName,
+            requestId,
+            paidAt: paidAt ? new Date(paidAt).toISOString() : undefined,
+            paymentPurpose: purpose,
           }),
         },
       );
@@ -103,7 +113,7 @@ export function BookingPaymentButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { if (!requestId) setRequestId(crypto.randomUUID()); setOpen(true); }}
         className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-xs font-black text-white hover:bg-emerald-800"
       >
         <CreditCard className="h-4 w-4" aria-hidden="true" />
@@ -118,7 +128,7 @@ export function BookingPaymentButton({
         >
           <form
             onSubmit={recordPayment}
-            className="w-full max-w-lg rounded-t-xl bg-white p-5 shadow-2xl sm:rounded-xl"
+            className="max-h-[95dvh] overflow-y-auto w-full max-w-lg rounded-t-xl bg-white p-5 shadow-2xl sm:rounded-xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -130,7 +140,7 @@ export function BookingPaymentButton({
                   className="mt-1 text-xl font-black text-slate-950"
                 >
                   {kind === "facility"
-                    ? "Record facility deposit"
+                    ? "Record facility payment"
                     : "Record rental payment"}
                 </h2>
               </div>
@@ -166,7 +176,6 @@ export function BookingPaymentButton({
                 <input
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
-                  readOnly={kind === "facility"}
                   inputMode="decimal"
                   className="min-h-11 rounded-md border border-slate-300 px-3 font-semibold"
                   aria-label="Payment amount"
@@ -189,6 +198,20 @@ export function BookingPaymentButton({
                 </select>
               </label>
             </div>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Payment purpose
+              <select value={purpose} onChange={e => setPurpose(e.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">
+                <option value="deposit">Deposit</option><option value="payment">Payment</option><option value="balance">Balance</option>
+              </select>
+            </label>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Who paid?
+              <input required value={payerName} onChange={e => setPayerName(e.target.value)} maxLength={160} placeholder={customerName ? `Booking customer: ${customerName}` : "Name on receipt or person who paid"} className="min-h-11 rounded-md border border-slate-300 px-3" />
+            </label>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Payment date and time (your local time)
+              <input required type="datetime-local" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" />
+            </label>
             <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm font-bold text-slate-700">
               {method === "card" ? (
                 <>
@@ -215,8 +238,9 @@ export function BookingPaymentButton({
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
                 maxLength={120}
+                required={method === "card"}
                 className="min-h-11 rounded-md border border-slate-300 px-3 font-semibold"
-                placeholder="Optional, but recommended"
+                placeholder={method === "card" ? "Required: transaction number from approved receipt" : "Optional receipt number"}
               />
             </label>
             <label className="mt-4 flex items-start gap-3 rounded-md border border-slate-200 p-3 text-sm text-slate-800">

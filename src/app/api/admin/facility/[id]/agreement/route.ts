@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -118,7 +118,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     additionalChildrenAge2Under: boundedCount(body.additionalChildrenAge2Under),
   });
 
-  const agreementId = randomUUID();
+  const agreementId = typeof body.requestId === "string" ? body.requestId : "";
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(agreementId)) {
+    return NextResponse.json({ok:false,message:"Reload this page before saving the agreement."},{status:400});
+  }
   let token: string;
   try {
     token = agreementToken(agreementId);
@@ -138,6 +141,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     notes: clean(paymentInput.notes),
   } : null;
 
+  if (payment && /card|pos/i.test(payment.payment_method) && !payment.pos_receipt_number) {
+    return NextResponse.json({ok:false,message:"Enter the approved SwipeSimple transaction number before recording a card payment."},{status:400});
+  }
+  const requestFingerprint = createHash("sha256").update(JSON.stringify({snapshot,payment})).digest("hex");
   const { data: rpcData, error: rpcError } = await supabase.rpc(
     "create_facility_party_agreement_version",
     {
@@ -145,14 +152,14 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       p_booking_id: id,
       p_public_token_hash: hashAgreementToken(token),
       p_created_by: auth.identity.name,
-      p_snapshot: snapshot,
+      p_snapshot: {...snapshot, requestFingerprint},
       p_payment: payment,
     },
   );
   const result = rpcData as { outcome?: string; version?: number; snapshot?: typeof snapshot } | null;
   if (rpcError || result?.outcome !== "created" || !result.version || !result.snapshot) {
     console.error("[facility-agreement] create failed", rpcError?.code ?? result?.outcome);
-    return NextResponse.json({ ok: false, message: "The payment and agreement could not be saved." }, { status: 503 });
+    return NextResponse.json({ ok: false, message: result?.outcome === "reference_exists" ? "This receipt is already recorded. Uncheck Record a payment and send the agreement without another credit." : "The payment and agreement could not be saved. Check existing records before retrying." }, { status: 503 });
   }
 
   const url = new URL(`/facility-party-agreement/${token}`, resolveRentalEmailSiteUrl(req.url)).toString();
@@ -175,11 +182,12 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     .eq("id", agreementId);
 
   revalidatePath("/admin/facility");
+  revalidatePath("/admin/payments");
   return NextResponse.json({
     ok: true,
     message: emailError
-      ? "Payment saved, but the agreement email failed. Create an updated version without another payment to retry."
-      : "Payment saved and the signing link was emailed to the customer.",
+      ? "Agreement saved, but the email failed. Retry this same request to send it without another payment."
+      : "Agreement saved and the signing link was emailed to the customer.",
     agreementId,
     signingPath: `/facility-party-agreement/${token}`,
     emailSent: !emailError,

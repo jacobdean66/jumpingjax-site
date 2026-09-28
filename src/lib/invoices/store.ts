@@ -1,4 +1,6 @@
 import "server-only";
+import { loadBookingPaymentMap } from "@/lib/payments/store";
+import { sumBookingPaymentCents } from "@/lib/payments/booking-payments";
 
 import { estimateRentalLineSubtotal } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -142,7 +144,7 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
     deliveryFee: money(data.delivery_fee),
     discount: 0,
     tax: 0,
-    paymentsReceived: 0,
+    paymentsReceived: sumBookingPaymentCents((await loadBookingPaymentMap("rental", [bookingId])).get(bookingId) ?? []) / 100,
     notes: clean(data.setup_notes),
   };
 }
@@ -166,15 +168,7 @@ async function buildFacilityInvoice(bookingId: string): Promise<BookingInvoice |
       unitPrice: money(data.addon_subtotal),
     });
   }
-  const { data: paymentRows, error: paymentError } = await supabase
-    .from("facility_party_payments")
-    .select("amount")
-    .eq("booking_id", bookingId);
-  if (paymentError && paymentError.code !== "42P01") throw new Error(paymentError.message);
-  const paymentsReceived = (paymentRows ?? []).reduce(
-    (sum, row) => sum + money((row as { amount: unknown }).amount),
-    0,
-  );
+  const paymentsReceived = sumBookingPaymentCents((await loadBookingPaymentMap("facility", [bookingId])).get(bookingId) ?? []) / 100;
   const eventDate = clean(data.readable_date) || String(data.start_time).slice(0, 10);
   return {
     kind: "facility",
@@ -231,7 +225,7 @@ export async function loadBookingInvoice(
     ? await buildRentalInvoice(bookingId)
     : await buildFacilityInvoice(bookingId);
   if (!generated) return null;
-  return normalizeInvoice(data?.payload, generated);
+  return { ...normalizeInvoice(data?.payload, generated), paymentsReceived: generated.paymentsReceived };
 }
 
 export type StandaloneInvoiceSummary = {
@@ -268,6 +262,9 @@ export async function listStandaloneInvoices(): Promise<StandaloneInvoiceSummary
 
 export async function saveBookingInvoice(invoice: BookingInvoice): Promise<void> {
   const normalized = normalizeInvoice(invoice, invoice);
+  if (normalized.kind !== "standalone") {
+    normalized.paymentsReceived = sumBookingPaymentCents((await loadBookingPaymentMap(normalized.kind, [normalized.bookingId])).get(normalized.bookingId) ?? []) / 100;
+  }
   const totals = calculateInvoiceTotals(normalized);
   const supabase = createServiceRoleClient();
   const { error } = await supabase.from("booking_invoices").upsert(

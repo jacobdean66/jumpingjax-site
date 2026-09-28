@@ -1,6 +1,6 @@
 export type BookingPaymentKind = "facility" | "rental";
 export type BookingPaymentMethod = "card" | "cash" | "check" | "other";
-export type BookingPaymentEntryType = "facility_deposit" | "rental_payment";
+export type BookingPaymentEntryType = "facility_deposit" | "facility_payment" | "rental_payment";
 
 export type BookingPaymentEntry = {
   id: string;
@@ -15,6 +15,14 @@ export type BookingPaymentEntry = {
   receiptEmail: string | null;
   receiptEmailSentAt: string | null;
   createdAt: string;
+  paidAt: string;
+  payerName: string | null;
+  payerEmail: string | null;
+  status: "posted" | "needs_review" | "voided";
+  paymentPurpose: string;
+  providerTransactionId: string | null;
+  source: string;
+  notes: string | null;
 };
 
 export const CARD_PROCESSING_RATE = 0.03;
@@ -28,9 +36,18 @@ export function processingFeeCents(
 }
 
 export function sumBookingPaymentCents(
-  entries: readonly Pick<BookingPaymentEntry, "amountCents">[],
+  entries: readonly (Pick<BookingPaymentEntry, "amountCents"> & Partial<Pick<BookingPaymentEntry, "status">>)[],
 ): number {
-  return entries.reduce((sum, entry) => sum + entry.amountCents, 0);
+  return entries.reduce((sum, entry) => sum + (!entry.status || entry.status === "posted" ? entry.amountCents : 0), 0);
+}
+
+export function facilityDepositStatus(entries: readonly BookingPaymentEntry[]): "paid" | "unrecorded" | "review" {
+  if (entries.some((entry) => entry.status === "needs_review")) return "review";
+  return sumBookingPaymentCents(entries) >= FACILITY_DEPOSIT_CENTS ? "paid" : "unrecorded";
+}
+
+export function paymentDateLabel(value: string): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(value));
 }
 
 export function remainingBookingBalanceCents(

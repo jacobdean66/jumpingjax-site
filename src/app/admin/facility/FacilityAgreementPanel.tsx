@@ -37,7 +37,7 @@ export function FacilityAgreementPanel({
 }) {
   const latest = booking.agreementHistory[0];
   const latestSnapshot = latest?.snapshot;
-  const [includePayment, setIncludePayment] = useState(true);
+  const [includePayment, setIncludePayment] = useState(false);
   const [amount, setAmount] = useState(() => {
     if (!latestSnapshot) return "50.00";
     return latestSnapshot.balanceDue > 0 ? latestSnapshot.balanceDue.toFixed(2) : "";
@@ -51,6 +51,7 @@ export function FacilityAgreementPanel({
   const [age2Under, setAge2Under] = useState(String(latestSnapshot?.additionalChildrenAge2Under ?? 0));
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const [requestId] = useState(() => crypto.randomUUID());
   const status = statusLabel(latest);
 
   const preview = useMemo(() => {
@@ -82,6 +83,7 @@ export function FacilityAgreementPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          requestId,
           additionalChildrenAge3Plus: Number(age3Plus),
           additionalChildrenAge2Under: Number(age2Under),
           payment: includePayment ? {
@@ -115,8 +117,8 @@ export function FacilityAgreementPanel({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Agreement total</p><p className="mt-1 text-lg font-black">{money(preview.total)}</p></div>
-        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Paid after this entry</p><p className="mt-1 text-lg font-black text-emerald-700">{money(preview.paid)}</p></div>
-        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Balance due</p><p className="mt-1 text-lg font-black text-amber-800">{money(preview.balance)}</p></div>
+        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">{includePayment ? "Paid after proposed entry" : "Recorded payments"}</p><p className="mt-1 text-lg font-black text-emerald-700">{money(preview.paid)}</p></div>
+        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">{includePayment ? "Balance after proposed entry" : "Balance due"}</p><p className="mt-1 text-lg font-black text-amber-800">{money(preview.balance)}</p></div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

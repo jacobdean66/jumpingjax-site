@@ -1,3 +1,4 @@
+import { facilityDepositStatus } from "@/lib/payments/booking-payments";
 import {
   loadAdminFacilityBookings,
   loadAdminRentalBookings,
@@ -94,15 +95,15 @@ export async function loadAdminTaskAutomation(input?: {
       });
     }
 
-    if (!booking.depositAcknowledged) {
+    if (facilityDepositStatus(booking.paymentEntries) !== "paid") {
       tasks.push({
         category: "Missing payment/deposit",
         priority: "Normal",
         due: booking.readableDate ?? from,
         owner: "Office",
         customer: booking.customerName,
-        detail: "Facility deposit acknowledgement is not checked.",
-        action: "Follow up on $50 deposit requirement.",
+        detail: "No verified deposit is recorded, or its payment needs review.",
+        action: "Check SwipeSimple and the payment history before following up on the deposit.",
       });
     }
   }
