@@ -621,7 +621,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
                 const last = b.paymentEntries.find(e => e.status === "posted");
                 const balance = remainingBookingBalanceCents(b.total, paid);
                 return <li key={b.id} className="py-3 text-sm">
-                  <Link className="font-black text-emerald-900 underline" href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}#booking-${b.id}`}>{b.customerName} · {b.childName || "Birthday child not set"}</Link>
+                  <a className="font-black text-emerald-900 underline" href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}#booking-${b.id}`}>{b.customerName} · {b.childName || "Birthday child not set"}</a>
                   <p className="mt-1">Party {b.readableDate} · Paid {formatCents(paid)}{balance === null ? "" : ` · Balance ${formatCents(balance)}`}</p>
                   {last ? <p className="mt-1 text-xs text-slate-600">Latest payment {paymentDateLabel(last.paidAt)} · {last.paymentMethod} · Paid by {last.payerName || "payer not recorded"}</p> : null}
                 </li>;
