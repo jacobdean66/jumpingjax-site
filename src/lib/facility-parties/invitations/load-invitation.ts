@@ -8,7 +8,7 @@ import {
   resolveInvitationSnapshot,
   type InvitationSnapshot,
 } from "@/lib/facility-parties/invitations/snapshot";
-import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export type FacilityInvitationView = {
@@ -66,7 +66,7 @@ export async function loadFacilityInvitationView(
       .join(" "),
   });
   const waiverUrl = buildFacilityWaiverInvitationUrl({
-    siteUrl: CANONICAL_PRODUCTION_SITE_URL,
+    siteUrl: resolveEmailSiteUrl(),
     bookingId: data.id,
     partyDate: data.readable_date,
   });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 import { rateLimit } from "@/lib/rate-limit";
-import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
+import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { facilityInvitationShareUrl } from "@/lib/facility-parties/invitations/snapshot";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!data || !data.email || !data.invitation || ["rejected", "cancelled"].includes(data.status)) {
       return Response.json({ error: "Invitation not found." }, { status: 404 });
     }
-    const invitationUrl = facilityInvitationShareUrl(CANONICAL_PRODUCTION_SITE_URL, data.id);
+    const invitationUrl = facilityInvitationShareUrl(resolveEmailSiteUrl(), data.id);
     const { error: emailError } = await sendDurableBookingEmail({
       supabase,
       messageKey: `facility-${data.id}-customer-invitation-link-v1`,

@@ -6,11 +6,13 @@ const bookingId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const requestKey = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 test("post-booking invitation email authorizes the booking browser, fixes the recipient, and deduplicates retries", async context => {
-  const names = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "RESEND_API_KEY"] as const;
+  const names = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "RESEND_API_KEY", "VERCEL_ENV", "VERCEL_BRANCH_URL"] as const;
   const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://delivery-test.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only-key";
   process.env.RESEND_API_KEY = "re_test_only";
+  process.env.VERCEL_ENV = "preview";
+  process.env.VERCEL_BRANCH_URL = "invitation-delivery-test.vercel.app";
   context.after(() => { for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; } });
   let status = "pending";
   let failEmail = false;
@@ -27,6 +29,7 @@ test("post-booking invitation email authorizes the booking browser, fixes the re
       assert.equal(url.pathname, "/emails");
       assert.equal(body.to, recipient);
       assert.match(body.text, new RegExp(`/facility-parties/invitations/${bookingId}`));
+      assert.ok(body.text.includes(`https://invitation-delivery-test.vercel.app/facility-parties/invitations/${bookingId}`));
       assert.ok(!body.text.includes(requestKey));
       sent += 1;
       return Response.json(failEmail ? { name: "validation_error", message: "Test failure" } : { id: "test-email" }, { status: failEmail ? 422 : 200 });
