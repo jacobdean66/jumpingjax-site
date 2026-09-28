@@ -36,6 +36,7 @@ export type PublicFacilityParty = {
   partyLabel: string;
   date: string;
   time: string;
+  isPartyDay: boolean;
   checkedInGuests: PublicFacilityPartyGuest[];
   expectedGuests: Array<{ id: string; displayName: string }>;
 };

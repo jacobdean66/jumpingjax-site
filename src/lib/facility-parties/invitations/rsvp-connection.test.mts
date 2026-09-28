@@ -3,6 +3,10 @@ import test from "node:test";
 import { loadFacilityInvitationView } from "./load-invitation.ts";
 import { POST, GET } from "../../../app/api/facility-party/check-in/route.ts";
 import { POST as completeWaiver } from "../../../app/api/facility-party/check-in/complete/route.ts";
+import { loadPublicFacilityParty } from "../check-in-service.ts";
+import { PartyGuestList } from "../../../app/facility-party-check-in/PartyGuestList.tsx";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 const partyA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const partyB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const participantId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -53,6 +57,15 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
   const post = (mode: string) => POST(new Request("https://example.com/api/facility-party/check-in", { method: "POST", body: JSON.stringify({ mode, bookingId: partyA, firstName: "Ava", lastName: "Smith", participantId, partyDate: "wrong stale date" }) }));
   const list = async (id: string) => (await GET(new Request(`https://example.com/api/facility-party/check-in?bookingId=${id}`))).json();
   try {
+    for (const [instant, isPartyDay] of [
+      ["2027-02-14T04:59:59Z", false],
+      ["2027-02-14T05:00:00Z", true],
+      ["2027-02-15T04:59:59Z", true],
+      ["2027-02-15T05:00:00Z", false],
+    ] as const) {
+      const party = await loadPublicFacilityParty(partyA, new Date(instant));
+      assert.equal(party?.isPartyDay, isPartyDay, "Arrival view uses the venue's local party day");
+    }
     for (const id of [partyA, partyB]) {
       const view = await loadFacilityInvitationView(id);
       assert.ok(view);
@@ -70,6 +83,13 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     assert.equal(guests.size, 1, "Repeated RSVP must not duplicate the guest");
     assert.equal((await (await post("check-in")).json()).checkedIn, true);
     const arrived = (await list(partyA)).party;
+    const beforeParty = renderToStaticMarkup(React.createElement(PartyGuestList, { party: { ...arrived, isPartyDay: false } }));
+    assert.match(beforeParty, /Who’s coming/);
+    assert.match(beforeParty, /Ava S\./, "Arrived guests remain in the full RSVP list");
+    assert.doesNotMatch(beforeParty, /checked in|check-in|Checked-in/i);
+    const onPartyDay = renderToStaticMarkup(React.createElement(PartyGuestList, { party: { ...arrived, isPartyDay: true } }));
+    assert.match(onPartyDay, /Who’s checked in/);
+    assert.equal((onPartyDay.match(/Ava S\./g) ?? []).length, 2, "The day-of arrival list supplements the full RSVP list");
     assert.equal(arrived.expectedGuests.length, 0);
     assert.equal(arrived.checkedInGuests.length, 1);
     assert.equal((await list(partyB)).party.checkedInGuests.length, 0);
