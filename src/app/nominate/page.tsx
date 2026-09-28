@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
 
 import { GiveawayNominationForm } from "@/components/giveaway/GiveawayNominationForm";
 
@@ -12,28 +10,29 @@ export const metadata: Metadata = {
 
 export default function NominatePage() {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_44%,#fce7f3_100%)] px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_44%,#fce7f3_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-4xl">
         <div className="text-center">
-          <Image src="/logo.png" alt="Jumping Jax Inflatable Rentals and Parties" width={430} height={220} priority className="mx-auto h-auto w-full max-w-sm" />
-          <p className="mt-5 inline-flex rotate-[-1deg] rounded-full bg-yellow-300 px-5 py-2 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_5px_0_#f59e0b]">Winner chosen October 15 • 9:00 a.m.</p>
-          <h1 className="mt-7 text-4xl font-black leading-[0.95] text-slate-950 sm:text-6xl">Nominate a child for the <span className="text-pink-500">October Giveaway!</span></h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg font-semibold text-slate-700">Win a Halloween costume party at Jumping Jax in Greenwood. Choose a public or private party on any day of Halloween weekend. Guests wear their own costumes, and Halloween candy is included.</p>
-          <Link
-            href="/nominees"
-            className="mt-6 inline-flex rounded-full border-2 border-pink-300 bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-pink-700 shadow-[0_5px_0_#fbcfe8] transition hover:-translate-y-0.5 hover:bg-pink-50"
+          <p className="inline-flex rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase text-slate-950 shadow-[0_4px_0_#f59e0b] sm:text-sm">Winner chosen October 15 at 9:00 a.m.</p>
+          <h1 className="mt-5 text-3xl font-black leading-tight text-slate-950 sm:text-5xl">Nominate a child for a <span className="text-pink-500">free Halloween costume party</span></h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base font-semibold text-slate-700 sm:text-lg">Choose a public or private party on any day of Halloween weekend. Guests wear their own costumes, and Halloween candy is included.</p>
+          <a
+            href="#nomination-form"
+            className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-orange-500 px-7 py-3 text-base font-black uppercase text-white shadow-[0_6px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
           >
-            View all nominees
-          </Link>
+            Start nomination ↓
+          </a>
         </div>
 
-        <section className="my-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {["Public or private party", "Any day Halloween weekend", "Up to 20 children", "Halloween candy included", "Drinks and balloons", "Party supplies included"].map((item) => (
-            <div key={item} className="rounded-2xl border-2 border-white bg-white/80 px-4 py-3 text-center font-black text-slate-800 shadow-md">✓ {item}</div>
+        <div className="mt-7">
+          <GiveawayNominationForm />
+        </div>
+
+        <section aria-label="Prize highlights" className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {["Public or private", "Any day Halloween weekend", "Up to 20 children", "Candy included", "Drinks and balloons", "Party supplies"].map((item) => (
+            <div key={item} className="rounded-lg border-2 border-white bg-white/85 px-3 py-2 text-center text-sm font-black text-slate-800 shadow-sm">{item}</div>
           ))}
         </section>
-
-        <GiveawayNominationForm />
 
         <section className="mt-8 rounded-3xl bg-slate-950 p-6 text-sm text-slate-200 sm:p-8">
           <h2 className="text-xl font-black text-white">Giveaway details</h2>

@@ -60,7 +60,12 @@ export function GiveawayNominationForm() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-[2rem] border-4 border-cyan-200 bg-white p-5 shadow-2xl sm:p-8">
+    <form id="nomination-form" onSubmit={submit} className="scroll-mt-6 rounded-[2rem] border-4 border-cyan-200 bg-white p-5 shadow-2xl sm:p-8">
+      <div className="mb-6 border-b-2 border-cyan-100 pb-5">
+        <p className="text-xs font-black uppercase text-cyan-700">Entry form</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">Tell us who you are nominating</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-600">All fields are required. It only takes a minute.</p>
+      </div>
       <div className="grid gap-6 sm:grid-cols-2">
         <label className="font-bold text-slate-800">
           Your name
