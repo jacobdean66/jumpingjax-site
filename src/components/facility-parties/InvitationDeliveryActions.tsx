@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InvitationDownloadButton } from "./InvitationDownloadButton";
 
 export function InvitationDeliveryActions({ bookingId, requestKey }: { bookingId: string; requestKey: string }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -25,7 +26,7 @@ export function InvitationDeliveryActions({ bookingId, requestKey }: { bookingId
       <button type="button" onClick={() => void emailLink()} disabled={state === "sending" || state === "sent"} className="min-h-12 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
         {state === "sending" ? "Sending your link…" : state === "sent" ? "Invitation link emailed" : "Email me the invitation link"}
       </button>
-      <a href={`/api/facility/invitations/${encodeURIComponent(bookingId)}/editable`} download className="inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-4 py-3 text-center text-sm font-black text-slate-950">Download the invitation</a>
+      <InvitationDownloadButton bookingId={bookingId} className="min-h-12 w-full rounded-xl bg-white px-4 py-3 text-center text-sm font-black text-slate-950 disabled:opacity-60" />
     </div>
     <p role={state === "error" ? "alert" : "status"} className="mt-3 text-sm text-slate-200">
       {state === "sent" ? "Sent to the email address on your booking." : state === "error" ? "We couldn’t email your link. Please try again, or download your invitation now." : "The download is an editable PowerPoint file with your party’s QR code on every invitation."}

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { InvitationSheet } from "@/components/facility-parties/InvitationSheet";
+import { InvitationDownloadButton } from "@/components/facility-parties/InvitationDownloadButton";
 import { PrintButton } from "@/app/admin/PrintButton";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
@@ -54,13 +55,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
           >
             Exact 4 × 6 on Legal
           </Link>
-          <Link
-            href={`/api/facility/invitations/${encodeURIComponent(view.bookingId)}/editable`}
-            download
-            className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700"
-          >
-            Download invitations now
-          </Link>
+          <InvitationDownloadButton bookingId={view.bookingId} label="Download invitations now" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700 disabled:opacity-60" />
           <PrintButton
             label="Choose printer & print landscape"
             choosePrinter
