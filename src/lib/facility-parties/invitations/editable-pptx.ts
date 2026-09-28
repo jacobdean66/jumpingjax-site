@@ -3,6 +3,7 @@ import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { pickReadableTextColor } from "./contrast";
+import { invitationArtworkBucket } from "./artwork-bucket";
 
 import { agentPrintArtworkSrc, approvedArtworkSrc } from "./approved-artwork";
 import { INVITATION_AGENT_STANDARD } from "./agent";
@@ -230,7 +231,7 @@ export async function buildEditableInvitationPptx(
   if (input.snapshot.confirmedTheme) {
     const id = input.snapshot.confirmedTheme.imagePath.split("/").pop();
     if (!id || !/^[a-f0-9]{64}$/.test(id)) throw new Error("Invalid confirmed invitation artwork.");
-    const { data, error } = await createServiceRoleClient().storage.from("invitation-theme-artwork").download(`${id}.png`);
+    const { data, error } = await createServiceRoleClient().storage.from(invitationArtworkBucket()).download(`${id}.png`);
     if (error || !data) throw new Error("The confirmed theme picture could not be loaded. Please retry the download.");
     confirmedArtworkData = `data:image/png;base64,${Buffer.from(await data.arrayBuffer()).toString("base64")}`;
   }

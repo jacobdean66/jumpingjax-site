@@ -17,6 +17,7 @@ import { POST as bookingPost } from "../../../app/api/facility/book/route.ts";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
 import { buildEditableInvitationPptx } from "./editable-pptx.ts";
+import { GET as artworkGet } from "../../../app/api/facility/invitations/artwork/[id]/route.ts";
 
 process.env.INVITATION_THEME_TOKEN_SECRET = "test-only-invitation-secret-at-least-32-characters";
 const movie: ThemeCandidate = { id: "movie", label: "KPop Demon Hunters", description: "The animated movie characters.", imageUrl: "https://images.example.com/demon-hunters.png", sourceUrl: "https://www.example.com/demon-hunters" };
@@ -158,6 +159,32 @@ test("editable download embeds the saved confirmed image and refuses a replaceme
     if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
     if (originalKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
   }
+});
+
+test("Preview displays and embeds pictures from its separate private bucket", async context => {
+  const names = ["VERCEL_ENV", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  process.env.VERCEL_ENV = "preview";
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://invitation-test.supabase.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+  context.after(() => { for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; } });
+  const bytes = await readFile("public/invitation-library/themes/princess-royal/princess.png");
+  let reads = 0;
+  context.mock.method(globalThis, "fetch", async (source: string | Request) => {
+    const url = typeof source === "string" ? source : source.url;
+    assert.match(url, /invitation-test\.supabase\.co\/storage\/v1\/object\/invitation-theme-artwork-preview\/a{64}\.png$/);
+    reads += 1;
+    return new Response(bytes, { headers: { "content-type": "image/png" } });
+  });
+  const previewImage = await artworkGet(new Request("https://preview.example/artwork"), { params: Promise.resolve({ id: "a".repeat(64) }) });
+  assert.equal(previewImage.status, 200);
+  assert.ok(Buffer.from(await previewImage.arrayBuffer()).equals(bytes));
+  const theme: ConfirmedInvitationTheme = { ...movie, originalQuery: "Kpop", imagePath, confirmedAt: new Date().toISOString() };
+  const file = await buildEditableInvitationPptx({ snapshot: invitationSnapshotFromChoice(movie.label, 0, 0, "", theme), ...details, invitationQuantity: 4 });
+  const archive = await JSZip.loadAsync(file);
+  const pictures = await Promise.all(Object.keys(archive.files).filter(name => /^ppt\/media\//.test(name) && !archive.files[name].dir).map(name => archive.file(name)!.async("nodebuffer")));
+  assert.ok(pictures.some(picture => picture.equals(bytes)));
+  assert.equal(reads, 2);
 });
 
 test("agent endpoint rejects unconfirmed create and alternate requests before any completion event", async () => {

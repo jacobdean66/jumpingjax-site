@@ -4,8 +4,8 @@ import { get } from "node:https";
 import sharp from "sharp";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { publicHttpsUrl } from "./theme-search";
+import { invitationArtworkBucket } from "./artwork-bucket";
 
-export const INVITATION_ARTWORK_BUCKET = "invitation-theme-artwork";
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export function isPublicImageAddress(address: string): boolean {
@@ -61,7 +61,7 @@ export async function persistThemeArtwork(source: string): Promise<string> {
   const bytes = await image.rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
   const id = createHash("sha256").update(bytes).digest("hex");
   const db = createServiceRoleClient();
-  const { error } = await db.storage.from(INVITATION_ARTWORK_BUCKET).upload(`${id}.png`, bytes, { contentType: "image/png", upsert: false, cacheControl: "31536000" });
+  const { error } = await db.storage.from(invitationArtworkBucket()).upload(`${id}.png`, bytes, { contentType: "image/png", upsert: false, cacheControl: "31536000" });
   if (error && !("statusCode" in error && String(error.statusCode) === "409") && !/already exists|duplicate/i.test(error.message)) throw new Error("The confirmed picture could not be saved. Please try again.");
   return `/api/facility/invitations/artwork/${id}`;
 }
