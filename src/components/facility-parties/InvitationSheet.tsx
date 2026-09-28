@@ -33,7 +33,7 @@ export function InvitationSheet({
   const quantity = dense ? 4 : normalizeInvitationQuantity(invitationQuantity);
   const pageCount = quantity / 4;
   const legal = paperSize === "legal";
-  const portrait = Boolean(snapshot.approvedPrint) || snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars";
+  const portrait = Boolean(snapshot.approvedPrint) || (!snapshot.confirmedTheme && (snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars"));
   const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
   const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
   const safeMargin = snapshot.approvedPrint ? 0.25 : INVITATION_AGENT_STANDARD.printSafeMarginInches;

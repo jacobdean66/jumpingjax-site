@@ -27,9 +27,10 @@ export async function recordInvitationAgentRun(
     db.from("agent_events").insert({
       agent_id: agent.id,
       event_type: `invitation.${result.action}`,
-      summary: `Invitation ${result.action} completed with ${result.snapshot.themeId}`,
+      summary: `Invitation ${result.action} completed with ${result.snapshot.confirmedTheme?.label ?? result.snapshot.themeId}`,
       metadata: {
         theme_id: result.snapshot.themeId,
+        confirmed_theme_id: result.snapshot.confirmedTheme?.id ?? null,
         libraries: result.usedLibraries,
       },
     }),

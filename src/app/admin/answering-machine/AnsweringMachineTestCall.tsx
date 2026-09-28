@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  runAnsweringMachineTestCall,
-  type AnsweringMachineTestCallResult,
-  type AnsweringMachineTestScenario,
+import type {
+  AnsweringMachineTestCallResult,
+  AnsweringMachineTestScenario,
 } from "@/lib/answering-machine/test-call";
 
 const scenarios: Array<{ id: AnsweringMachineTestScenario; label: string }> = [
@@ -20,7 +19,9 @@ function formatMinutes(value: number) {
     .format(new Date(Date.UTC(2027, 0, 1, hour, minutes)));
 }
 
-export function AnsweringMachineTestCall() {
+export function AnsweringMachineTestCall({ results }: {
+  results: Record<AnsweringMachineTestScenario, AnsweringMachineTestCallResult>;
+}) {
   const [scenario, setScenario] = useState<AnsweringMachineTestScenario>("facility");
   const [result, setResult] = useState<AnsweringMachineTestCallResult | null>(null);
 
@@ -39,7 +40,7 @@ export function AnsweringMachineTestCall() {
             {option.label}
           </button>
         ))}
-        <button type="button" onClick={() => setResult(runAnsweringMachineTestCall(scenario))}
+        <button type="button" onClick={() => setResult(results[scenario])}
           className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white">
           Run test conversation
         </button>

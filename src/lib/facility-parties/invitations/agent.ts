@@ -8,6 +8,7 @@ import {
   invitationLibrariesForTheme,
   type InvitationAgentLibraryId,
 } from "./library/registry";
+import type { ConfirmedInvitationTheme } from "./theme-search";
 
 import type { ApprovedPrint } from "./approved-print";
 
@@ -49,6 +50,8 @@ export type InvitationAgentInput = {
   alternatesUsed?: number;
   selection?: string;
   bookingId?: string;
+  confirmedTheme?: ConfirmedInvitationTheme;
+  confirmationToken?: string;
   approvedPrint?: ApprovedPrint;
 };
 
@@ -68,9 +71,9 @@ export function isInvitationAgentAction(
 }
 
 /**
- * Single entry point for every invitation interaction. The specialist matches
- * the customer's free-text theme, composes from all attached local libraries,
- * and returns the stable snapshot used by every renderer.
+ * Compose a stable snapshot for every renderer, preserving confirmed artwork.
+ * Legacy saved invitations continue to resolve from the local theme libraries;
+ * new customer selections are verified by the API before reaching this helper.
  */
 export function runInvitationAgent(
   input: InvitationAgentInput,
@@ -82,6 +85,7 @@ export function runInvitationAgent(
     input.optionIndex,
     input.alternatesUsed,
     colorHint,
+    input.confirmedTheme,
   );
   const snapshot =
     input.action === "alternate"
@@ -96,6 +100,6 @@ export function runInvitationAgent(
     action: input.action,
     snapshot,
     attachedLibraries: INVITATION_AGENT_LIBRARIES,
-    usedLibraries: invitationLibrariesForTheme(snapshot.themeId),
+    usedLibraries: snapshot.confirmedTheme ? [] : invitationLibrariesForTheme(snapshot.themeId),
   };
 }

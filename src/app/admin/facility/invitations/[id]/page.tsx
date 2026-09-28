@@ -40,6 +40,7 @@ export default async function AdminFacilityInvitationPage({
   const agentResult = runInvitationAgent({
     action: sheet ? "view-sheet" : "view-single",
     sourceText: view.snapshot.sourceText,
+    confirmedTheme: view.snapshot.confirmedTheme,
     colorHint: view.snapshot.colorHint,
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,

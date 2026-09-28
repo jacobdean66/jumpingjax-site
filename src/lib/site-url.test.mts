@@ -18,6 +18,7 @@ const ORIGINAL_ENV = {
   VERCEL_ENV: process.env.VERCEL_ENV,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   VERCEL_URL: process.env.VERCEL_URL,
+  VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
   APPROVAL_TOKEN_SECRET: process.env.APPROVAL_TOKEN_SECRET,
 };
 
@@ -52,6 +53,19 @@ test("local development can use localhost", () => {
   process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000/";
 
   assert.equal(resolveEmailSiteUrl(), "http://localhost:3000");
+});
+
+test("Preview links use the trusted branch origin even with a production Node build", () => {
+  (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+  process.env.VERCEL_ENV = "preview";
+  process.env.NEXT_PUBLIC_SITE_URL = CANONICAL_PRODUCTION_SITE_URL;
+  process.env.VERCEL_BRANCH_URL = "jumpingjax-site-git-test.vercel.app";
+  process.env.VERCEL_URL = "jumpingjax-site-build.vercel.app";
+  assert.equal(resolveEmailSiteUrl("https://untrusted.example/booking"), "https://jumpingjax-site-git-test.vercel.app");
+  delete process.env.VERCEL_BRANCH_URL;
+  assert.equal(resolveEmailSiteUrl(), "https://jumpingjax-site-build.vercel.app");
+  process.env.VERCEL_URL = "jumpingjax.vercel.app.attacker.example";
+  assert.equal(resolveEmailSiteUrl("https://untrusted.example/booking"), CANONICAL_PRODUCTION_SITE_URL);
 });
 
 test("rental and facility action links use canonical encoded URLs without duplicate slashes", () => {

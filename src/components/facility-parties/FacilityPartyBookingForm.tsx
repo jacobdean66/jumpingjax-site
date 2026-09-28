@@ -35,7 +35,6 @@ import {
 } from "@/lib/facility-parties/pricing";
 import {
   FACILITY_INVITATION_CREATION_PREFERENCES,
-  FACILITY_INVITATION_DELIVERY_OPTIONS,
   FACILITY_INVITATION_QUANTITIES,
   invitationCreationPreferenceLabel,
   normalizeInvitationTemplateId,
@@ -51,10 +50,8 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
-import { InvitationDeliveryPreview } from "@/components/facility-parties/InvitationDeliveryPreview";
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
-  advanceInvitationSnapshot,
   invitationSnapshotFromChoice,
   remainingInvitationAlternates,
 } from "@/lib/facility-parties/invitations/snapshot";
@@ -65,6 +62,9 @@ import {
 import { trackLead } from "@/lib/analytics/client";
 import { invokeInvitationAgent } from "@/lib/facility-parties/invitations/agent-client";
 import type { InvitationAgentAction } from "@/lib/facility-parties/invitations/agent";
+import { InvitationThemeSearch } from "./InvitationThemeSearch";
+import { InvitationDeliveryActions } from "./InvitationDeliveryActions";
+import { themeDesignMatches, type ThemeDesign } from "@/lib/facility-parties/invitations/theme-search";
 
 const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
@@ -156,6 +156,8 @@ export function FacilityPartyBookingForm({
   const [childGender, setChildGender] = useState("");
   const [childAgeDraft, setChildAgeDraft] = useState<string | null>(null);
   const [partyThemeDraft, setPartyThemeDraft] = useState<string | null>(null);
+  const [themeDesign, setThemeDesign] = useState<ThemeDesign | null>(null);
+  const invitationRequestSequence = useRef(0);
   const childName = childNameDraft ?? urlChild;
   const childAge = childAgeDraft ?? urlAge;
   const partyTheme = partyThemeDraft ?? urlTheme;
@@ -196,6 +198,7 @@ export function FacilityPartyBookingForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const [successBookingId, setSuccessBookingId] = useState<string | null>(null);
+  const [successRequestKey, setSuccessRequestKey] = useState<string | null>(null);
   const submitIdempotencyKey = useRef<string | null>(null);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
@@ -234,6 +237,7 @@ export function FacilityPartyBookingForm({
   );
 
   const invitationColorHint = `${balloonColors} ${tableClothColors}`.trim();
+  const confirmedTheme = themeDesignMatches(themeDesign, partyTheme) ? themeDesign.theme : undefined;
   const invitationSnapshot = useMemo(() => {
     const trimmed = partyTheme.trim();
     if (
@@ -245,10 +249,11 @@ export function FacilityPartyBookingForm({
         invitationOverride.optionIndex,
         invitationOverride.alternatesUsed,
         invitationColorHint,
+        confirmedTheme,
       );
     }
-    return invitationSnapshotFromChoice(partyTheme, 0, 0, invitationColorHint);
-  }, [partyTheme, invitationOverride, invitationColorHint]);
+    return invitationSnapshotFromChoice(partyTheme, 0, 0, invitationColorHint, confirmedTheme);
+  }, [partyTheme, invitationOverride, invitationColorHint, confirmedTheme]);
 
   const invitationDateLabel = selectedDate
     ? new Intl.DateTimeFormat(undefined, {
@@ -269,6 +274,8 @@ export function FacilityPartyBookingForm({
     action: InvitationAgentAction,
     selection = "",
   ) => {
+    if (!themeDesignMatches(themeDesign, partyTheme)) return null;
+    const requestSequence = ++invitationRequestSequence.current;
     setInvitationAgentState("working");
     try {
       const result = await invokeInvitationAgent({
@@ -278,7 +285,9 @@ export function FacilityPartyBookingForm({
         optionIndex: invitationSnapshot.optionIndex,
         alternatesUsed: invitationSnapshot.alternatesUsed,
         selection,
+        confirmationToken: themeDesign.confirmationToken,
       });
+      if (requestSequence !== invitationRequestSequence.current) return null;
       setInvitationOverride({
         sourceText: result.snapshot.sourceText,
         optionIndex: result.snapshot.optionIndex,
@@ -287,7 +296,7 @@ export function FacilityPartyBookingForm({
       setInvitationAgentState("ready");
       return result.snapshot;
     } catch {
-      setInvitationAgentState("error");
+      if (requestSequence === invitationRequestSequence.current) setInvitationAgentState("error");
       return null;
     }
   };
@@ -476,6 +485,15 @@ export function FacilityPartyBookingForm({
       return;
     }
 
+    if (invitationCreationPreference === "create" && !themeDesignMatches(themeDesign, partyTheme)) {
+      setFormError("Search for your theme and confirm the correct picture before creating invitations.");
+      return;
+    }
+    if (!invitationCreationPreference) {
+      setFormError("Choose themed invitations or generic invitations from the office.");
+      return;
+    }
+
     const resolvedRoomId =
       partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID;
 
@@ -519,6 +537,7 @@ export function FacilityPartyBookingForm({
           party_theme: partyTheme.trim(),
           invitation_option_index: invitationSnapshot.optionIndex,
           invitation_alternates_used: invitationSnapshot.alternatesUsed,
+          invitation_theme_token: themeDesign?.confirmationToken,
           balloon_colors: balloonColors.trim(),
           table_cloth_colors: tableClothColors.trim(),
           drink_choice: drinkChoice.trim(),
@@ -543,7 +562,9 @@ export function FacilityPartyBookingForm({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to book");
+        const failure = await res.json().catch(() => null);
+        setFormError(typeof failure?.error === "string" ? failure.error : "Something went wrong. Please try again.");
+        return;
       }
 
       const data: unknown = await res.json().catch(() => null);
@@ -555,6 +576,7 @@ export function FacilityPartyBookingForm({
           ? (data as { id: string }).id
           : null;
       setSuccessBookingId(bookingId);
+      setSuccessRequestKey(submitIdempotencyKey.current);
 
       trackLead("facility_party_request", {
         party_kind: request.kind,
@@ -614,6 +636,9 @@ export function FacilityPartyBookingForm({
             </p>
           ) : null}
         </div>
+        {successBookingId && successRequestKey && invitationCreationPreference === "create" ? (
+          <InvitationDeliveryActions bookingId={successBookingId} requestKey={successRequestKey} />
+        ) : null}
         <div className="mt-6 border-t border-white/10 pt-6">
           <p className="text-sm font-black text-white">Facility party deposit</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
@@ -1093,15 +1118,35 @@ export function FacilityPartyBookingForm({
                   <input
                     type="text"
                     name="partyTheme"
+                    maxLength={160}
                     value={partyTheme}
                     onChange={(e) => {
                       setPartyTheme(e.target.value);
+                      setThemeDesign(null);
+                      invitationRequestSequence.current += 1;
+                      setInvitationAgentState("idle");
                       setInvitationOverride(null);
                     }}
                     className={inputClassName}
                     placeholder="Princess, Sonic, sports, glow party..."
                   />
                 </label>
+                {partyTheme.trim() && invitationCreationPreference !== "office_generic" ? (
+                  <InvitationThemeSearch
+                    key={partyTheme}
+                    query={partyTheme}
+                    design={themeDesignMatches(themeDesign, partyTheme) ? themeDesign : null}
+                    onClear={() => { setThemeDesign(null); setInvitationOverride(null); invitationRequestSequence.current += 1; setInvitationAgentState("idle"); }}
+                    onConfirmed={(design) => {
+                      invitationRequestSequence.current += 1;
+                      setPartyTheme(design.sourceText);
+                      setThemeDesign(design);
+                      setInvitationOverride(null);
+                      setInvitationCreationPreference("create");
+                      setInvitationAgentState("ready");
+                    }}
+                  />
+                ) : null}
                 {partyTheme.trim() ? (
                   <fieldset className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-3">
                     <legend className="px-1 text-xs font-bold uppercase tracking-wider text-cyan-200">
@@ -1134,10 +1179,7 @@ export function FacilityPartyBookingForm({
                                 }
                                 // Keep a stable default template id for API compatibility.
                                 setInvitationTemplateId("spotlight");
-                                await askInvitationAgent(
-                                  "create",
-                                  preference,
-                                );
+                                if (preference === "create" && confirmedTheme) await askInvitationAgent("create", preference);
                               }}
                               className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition ${
                                 active
@@ -1157,7 +1199,10 @@ export function FacilityPartyBookingForm({
                         the office. No digital design needed.
                       </p>
                     ) : null}
-                    {invitationCreationPreference === "create" ? (
+                    {invitationCreationPreference === "create" && !confirmedTheme ? (
+                      <p className="mt-3 text-sm font-semibold text-cyan-100">Search above, check the picture, and confirm the theme to make your invitations.</p>
+                    ) : null}
+                    {invitationCreationPreference === "create" && confirmedTheme ? (
                       <div className="mt-4 grid gap-4">
                         <p
                           className={`rounded-lg px-3 py-2 text-xs font-bold ${
@@ -1168,10 +1213,10 @@ export function FacilityPartyBookingForm({
                           aria-live="polite"
                         >
                           {invitationAgentState === "working"
-                            ? "Invitation Designer is composing from its three attached libraries…"
+                            ? "Updating your invitation with the confirmed theme…"
                             : invitationAgentState === "error"
                               ? "Invitation Designer could not be reached. Please try that invitation button again."
-                              : "Invitation Designer connected · approved artwork, Fluent Emoji, and Kenney CC0 libraries"}
+                              : `Invitation theme confirmed: ${confirmedTheme.label}`}
                         </p>
                         <div className="mx-auto w-full max-w-sm">
                           <PartyInvitationCard
@@ -1185,9 +1230,7 @@ export function FacilityPartyBookingForm({
                           />
                         </div>
                         <p className="text-sm font-semibold text-slate-300">
-                          Type a different theme above anytime to rematch. You
-                          can also load a different invitation style up to three
-                          times.
+                          Change the theme above to search again. You can also try up to three other layouts using your confirmed picture.
                         </p>
                         <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                           {invitationSnapshot.alternatesLocked
@@ -1196,11 +1239,11 @@ export function FacilityPartyBookingForm({
                         </p>
                         <button
                           type="button"
-                          disabled={invitationSnapshot.alternatesLocked}
+                          disabled={invitationSnapshot.alternatesLocked || invitationAgentState === "working"}
                           onClick={async () => {
                             const designed = await askInvitationAgent("alternate");
-                            const next = designed ??
-                              advanceInvitationSnapshot(invitationSnapshot);
+                            if (!designed) return;
+                            const next = designed;
                             setInvitationOverride({
                               sourceText: next.sourceText,
                               optionIndex: next.optionIndex,
@@ -1218,62 +1261,7 @@ export function FacilityPartyBookingForm({
                           </p>
                         ) : null}
                         <div className="grid gap-3">
-                          <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
-                            Choose how you want invitations
-                          </p>
-                          <div
-                            role="radiogroup"
-                            aria-label="Invitation delivery method"
-                            className="grid grid-cols-1 gap-3 md:grid-cols-3"
-                          >
-                            {FACILITY_INVITATION_DELIVERY_OPTIONS.map(
-                              (option) => {
-                                const active =
-                                  invitationDeliveryPreference === option.id;
-                                return (
-                                  <label
-                                    key={option.id}
-                                    className="group relative block min-h-[44px] cursor-pointer rounded-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-300"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="invitationDeliveryPreference"
-                                      value={option.id}
-                                      checked={active}
-                                      onChange={() => {
-                                        setInvitationDeliveryPreference(
-                                          option.id,
-                                        );
-                                        void askInvitationAgent(
-                                          "choose-delivery",
-                                          option.id,
-                                        );
-                                      }}
-                                      className="sr-only"
-                                      aria-label={`${option.label}. ${option.description}`}
-                                    />
-                                    <InvitationDeliveryPreview
-                                      preference={option.id}
-                                      active={active}
-                                      snapshot={invitationSnapshot}
-                                      childName={childName}
-                                      childAge={childAge}
-                                      customerPhone={customerPhone}
-                                      dateLabel={invitationDateLabel}
-                                      timeLabel={invitationTimeLabel}
-                                    />
-                                    <span className="mt-2 block px-0.5 text-xs font-semibold leading-snug text-slate-300">
-                                      <span className="block text-sm font-black text-white">
-                                        {option.label}
-                                      </span>
-                                      {option.description}
-                                    </span>
-                                  </label>
-                                );
-                              },
-                            )}
-                          </div>
-                          {invitationDeliveryPreference !== "email" ? (
+                          <p className="text-sm text-cyan-100">After you submit your booking, choose to email your invitation link or download the file.</p>
                             <label className="block rounded-xl border border-white/10 bg-[#071326]/55 p-3">
                               <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">
                                 Number of invitations
@@ -1296,7 +1284,6 @@ export function FacilityPartyBookingForm({
                                 Printed four per letter-size page. Choose 4 through 28 in groups of four.
                               </span>
                             </label>
-                          ) : null}
                         </div>
                       </div>
                     ) : null}

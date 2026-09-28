@@ -9,6 +9,7 @@ import {
 } from "./theme-catalog";
 
 export type InvitationMatchKind =
+  | "confirmed"
   | "exact"
   | "alias"
   | "fuzzy"

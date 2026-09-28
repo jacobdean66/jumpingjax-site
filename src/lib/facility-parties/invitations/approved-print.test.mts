@@ -24,6 +24,7 @@ test("saved design survives the invitation agent and every four-up cell links to
   assert.equal(runInvitationAgent({ action: "view-sheet", sourceText: "NASCAR", bookingId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", approvedPrint }).snapshot.approvedPrint, undefined);
   const html = renderToStaticMarkup(React.createElement(InvitationSheet, { snapshot: result.snapshot, childName: details.childName, childAge: details.childAge, dateLabel: details.dateLabel, timeLabel: details.timeLabel, waiverUrl: details.rsvpUrl, invitationQuantity: 4 }));
   assert.equal((html.match(/data-approved-print-id=/g) || []).length,4);
+  assert.equal((html.match(/data-invitation-qr="true"/g) || []).length,4);
   assert.equal((html.match(/aria-label="Test Child — RSVP and guest list"/g) || []).length,4);
   assert.match(html,/letter-portrait-full-page/);
   assert.match(html,/0.25in/);

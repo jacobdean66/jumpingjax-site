@@ -1,6 +1,4 @@
 import { GET as approvedInvitation } from "../approved/route";
-import { notFound } from "next/navigation";
-
 import {
   buildEditableInvitationPptx,
   editableInvitationFileName,
@@ -16,34 +14,42 @@ type Props = {
 
 export async function GET(_request: Request, { params }: Props) {
   const { id } = await params;
-  const view = await loadFacilityInvitationView(id);
-  if (!view) notFound();
-  if (view.snapshot.approvedPrint) {
-    const url = new URL(_request.url);
-    url.searchParams.set("format", "pdf");
-    return approvedInvitation(new Request(url), { params: Promise.resolve({ id }) });
+  try {
+    const view = await loadFacilityInvitationView(id);
+    if (!view) return Response.json({ error: "Invitation not found." }, { status: 404, headers: { "cache-control": "private, no-store" } });
+    if (view.snapshot.approvedPrint) {
+      const url = new URL(_request.url);
+      url.searchParams.set("format", "pdf");
+      return approvedInvitation(new Request(url), { params: Promise.resolve({ id }) });
+    }
+
+    const content = await buildEditableInvitationPptx({
+      snapshot: view.snapshot,
+      childName: view.childName,
+      childAge: view.childAge,
+      customerPhone: view.customerPhone,
+      dateLabel: view.dateLabel,
+      timeLabel: view.timeLabel,
+      qrUrl: view.qrUrl,
+      waiverUrl: view.waiverUrl,
+      invitationQuantity: view.invitationQuantity,
+    });
+    const fileName = editableInvitationFileName(view.childName);
+
+    return new Response(Buffer.from(content), {
+      status: 200,
+      headers: {
+        "content-type":
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "content-disposition": `attachment; filename="${fileName}"`,
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  } catch {
+    return Response.json({ error: "We couldn’t prepare your invitation. Please try downloading again." }, {
+      status: 503,
+      headers: { "cache-control": "private, no-store" },
+    });
   }
-
-  const content = await buildEditableInvitationPptx({
-    snapshot: view.snapshot,
-    childName: view.childName,
-    childAge: view.childAge,
-    customerPhone: view.customerPhone,
-    dateLabel: view.dateLabel,
-    timeLabel: view.timeLabel,
-    qrUrl: view.qrUrl,
-    invitationQuantity: view.invitationQuantity,
-  });
-  const fileName = editableInvitationFileName(view.childName);
-
-  return new Response(Buffer.from(content), {
-    status: 200,
-    headers: {
-      "content-type":
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "content-disposition": `attachment; filename="${fileName}"`,
-      "cache-control": "private, no-store",
-      "x-content-type-options": "nosniff",
-    },
-  });
 }

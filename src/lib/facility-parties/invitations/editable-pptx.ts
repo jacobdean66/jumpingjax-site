@@ -1,12 +1,15 @@
 import path from "node:path";
 
 import PptxGenJS from "pptxgenjs";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { pickReadableTextColor } from "./contrast";
+import { invitationArtworkBucket } from "./artwork-bucket";
 
 import { agentPrintArtworkSrc, approvedArtworkSrc } from "./approved-artwork";
 import { INVITATION_AGENT_STANDARD } from "./agent";
 import { buildInvitationCopy } from "./content";
 import { composeLibraryInvitation } from "./library/compose";
-import { normalizeInvitationQuantity } from "../invitations";
+import { buildQrCodeImageUrl, normalizeInvitationQuantity } from "../invitations";
 import {
   FACILITY_INVITATION_VENUE,
   type InvitationSnapshot,
@@ -20,6 +23,7 @@ export type EditableInvitationPptxInput = {
   dateLabel: string;
   timeLabel: string;
   qrUrl?: string;
+  waiverUrl?: string;
   invitationQuantity: number;
 };
 
@@ -41,10 +45,12 @@ function pptxColor(value: string, fallback: string): string {
 async function imageDataUri(url: string | undefined): Promise<string | null> {
   if (!url) return null;
   try {
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (!response.ok) return null;
-    const mime = response.headers.get("content-type")?.split(";")[0] || "image/png";
+    const mime = response.headers.get("content-type")?.split(";")[0];
+    if (!mime || !["image/png", "image/jpeg"].includes(mime)) return null;
     const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > 1_000_000) return null;
     return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch {
     return null;
@@ -58,6 +64,7 @@ function addInvitation(
   x: number,
   y: number,
   qrData: string | null,
+  confirmedArtworkData: string | null,
 ) {
   const composed = composeLibraryInvitation({
     themeId: input.snapshot.themeId,
@@ -70,7 +77,7 @@ function addInvitation(
     approvedArtworkSrc(input.snapshot.themeId, input.snapshot.sourceText);
   const artworkPath = artworkSrc ? publicAssetPath(artworkSrc) : null;
   const background = "FFFEF8";
-  const accent = pptxColor(composed.palette.accent, "22D3EE");
+  const accent = pptxColor(input.snapshot.confirmedTheme ? pickReadableTextColor("#fffef8", composed.palette.accent) : composed.palette.accent, "0F172A");
   const copy = buildInvitationCopy({
     childName: input.childName,
     childAge: input.childAge,
@@ -89,9 +96,9 @@ function addInvitation(
     fill: { color: background },
   });
 
-  if (artworkPath) {
+  if (artworkPath || confirmedArtworkData) {
     slide.addImage({
-      path: artworkPath,
+      ...(confirmedArtworkData ? { data: confirmedArtworkData } : { path: artworkPath! }),
       x: x + 2.7,
       y: y + 0.08,
       w: 2.65,
@@ -188,7 +195,7 @@ function addInvitation(
   });
 
   if (qrData) {
-    slide.addText("Party check-in & waiver", {
+    slide.addText("RSVP & guest list", {
       x: x + 4.04,
       y: y + 2.82,
       w: 1.13,
@@ -202,6 +209,9 @@ function addInvitation(
     });
     slide.addImage({
       data: qrData,
+      altText: "Party check-in and guest list QR code",
+      // PptxGenJS image hyperlinks are inserted directly into relationship XML.
+      ...(input.waiverUrl ? { hyperlink: { url: input.waiverUrl.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;") } } : {}),
       x: x + 4.17,
       y: y + 3.03,
       w: 0.82,
@@ -214,7 +224,17 @@ export async function buildEditableInvitationPptx(
   input: EditableInvitationPptxInput,
 ): Promise<Uint8Array> {
   const quantity = normalizeInvitationQuantity(input.invitationQuantity);
-  const qrData = await imageDataUri(input.qrUrl);
+  const qrUrl = input.waiverUrl ? buildQrCodeImageUrl(input.waiverUrl, 300) : input.qrUrl;
+  const qrData = await imageDataUri(qrUrl);
+  if (qrUrl && !qrData) throw new Error("The party QR code could not be loaded. Please retry the download.");
+  let confirmedArtworkData: string | null = null;
+  if (input.snapshot.confirmedTheme) {
+    const id = input.snapshot.confirmedTheme.imagePath.split("/").pop();
+    if (!id || !/^[a-f0-9]{64}$/.test(id)) throw new Error("Invalid confirmed invitation artwork.");
+    const { data, error } = await createServiceRoleClient().storage.from(invitationArtworkBucket()).download(`${id}.png`);
+    if (error || !data) throw new Error("The confirmed theme picture could not be loaded. Please retry the download.");
+    confirmedArtworkData = `data:image/png;base64,${Buffer.from(await data.arrayBuffer()).toString("base64")}`;
+  }
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: "LETTER_LANDSCAPE", width: PAGE_WIDTH, height: PAGE_HEIGHT });
   pptx.layout = "LETTER_LANDSCAPE";
@@ -230,7 +250,7 @@ export async function buildEditableInvitationPptx(
   for (let pageIndex = 0; pageIndex < quantity / 4; pageIndex += 1) {
     const slide = pptx.addSlide();
     slide.background = { color: "FFFFFF" };
-    addInvitation(pptx, slide, input, PRINT_SAFE_MARGIN, PRINT_SAFE_MARGIN, qrData);
+    addInvitation(pptx, slide, input, PRINT_SAFE_MARGIN, PRINT_SAFE_MARGIN, qrData, confirmedArtworkData);
     addInvitation(
       pptx,
       slide,
@@ -238,6 +258,7 @@ export async function buildEditableInvitationPptx(
       PRINT_SAFE_MARGIN + INVITE_WIDTH,
       PRINT_SAFE_MARGIN,
       qrData,
+      confirmedArtworkData,
     );
     addInvitation(
       pptx,
@@ -246,6 +267,7 @@ export async function buildEditableInvitationPptx(
       PRINT_SAFE_MARGIN,
       PRINT_SAFE_MARGIN + INVITE_HEIGHT,
       qrData,
+      confirmedArtworkData,
     );
     addInvitation(
       pptx,
@@ -254,9 +276,10 @@ export async function buildEditableInvitationPptx(
       PRINT_SAFE_MARGIN + INVITE_WIDTH,
       PRINT_SAFE_MARGIN + INVITE_HEIGHT,
       qrData,
+      confirmedArtworkData,
     );
     slide.addNotes(
-      "[Sources]\n- Theme artwork: Jumping Jax approved local invitation asset.\n- Booking details: Jumping Jax facility booking record.",
+      `[Sources]\n- Theme artwork: ${input.snapshot.confirmedTheme?.sourceUrl ?? "Jumping Jax approved local invitation asset"}.\n- Booking details: Jumping Jax facility booking record.`,
     );
   }
 
