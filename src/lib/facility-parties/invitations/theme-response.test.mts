@@ -6,7 +6,7 @@ test("HTML, empty and malformed theme responses give a retry message without par
   for (const response of [new Response("<!DOCTYPE html>not found", { status: 404 }), new Response("", { status: 502 }), new Response("null"), new Response("[]")]) {
     await assert.rejects(readThemeResponse(response), error => {
       assert.ok(error instanceof Error);
-      assert.match(error.message, /try again.*selection has been kept/i);
+      assert.match(error.message, /try again.*theme details have been kept/i);
       assert.doesNotMatch(error.message, /Unexpected token|DOCTYPE|JSON/);
       return true;
     });
