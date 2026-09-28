@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const limited = rateLimit(req, {
     scope: "facility-party-guest-list",
-    limit: 120,
+    limit: 600,
     windowMs: 60 * 60 * 1000,
   });
   if (limited) return limited;
@@ -50,7 +50,9 @@ export async function POST(req: Request) {
 
   let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    const input: unknown = await req.json();
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid body");
+    body = input as Record<string, unknown>;
   } catch {
     return publicSafeError("invalid_json", 400, "Invalid request.");
   }
@@ -58,14 +60,15 @@ export async function POST(req: Request) {
   try {
     const partyDate = normalizePartyDate(body.partyDate);
     const bookingId = cleanPartyCheckInText(body.bookingId, 64);
-    const mode = body.mode === "check-in" ? "check-in" : "search";
-    const result = mode === "check-in"
+    const mode = body.mode === "check-in" ? "check-in" : body.mode === "rsvp" ? "rsvp" : "search";
+    const result = mode !== "search"
       ? await checkInFacilityPartyWaiverMatch({
           bookingId,
           participantId: body.participantId,
           firstName: body.firstName,
           lastName: body.lastName,
           partyDate,
+          markPresent: mode === "check-in",
         })
       : await findFacilityPartyWaiverMatches({
           bookingId,
@@ -87,8 +90,8 @@ export async function POST(req: Request) {
             : buildFacilityPartyWaiverSignUrl({
                 siteUrl: CANONICAL_PRODUCTION_SITE_URL,
                 bookingId,
-                partyDate,
-                arrival: true,
+                partyDate: result.partyDate,
+                arrival: body.atFacility === true,
               }),
         },
         { headers: { "Cache-Control": "private, no-store" } },
@@ -98,7 +101,8 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: true,
-        checkedIn: true,
+        checkedIn: "guest" in result && Boolean(result.guest.checkedInAt),
+        registered: true,
         partyDate: "partyDate" in result ? result.partyDate : partyDate,
         message: "message" in result ? result.message : "You are checked in.",
         guestName: "guest" in result

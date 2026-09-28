@@ -22,11 +22,20 @@ export function PrintButton({
 }) {
   const [printBlocked, setPrintBlocked] = useState(false);
   const [edgePrintUrl, setEdgePrintUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState(false);
 
   const button = (
     <button
       type="button"
       onClick={() => {
+        if (invitation?.bookingId) {
+          const codes = Array.from(document.querySelectorAll<HTMLImageElement>('img[data-invitation-qr="true"]'));
+          if (!codes.length || codes.some(code => !code.complete || code.naturalWidth === 0)) {
+            setQrError(true);
+            return;
+          }
+        }
+        setQrError(false);
         if (invitation) {
           notifyInvitationAgent({
             action: "print",
@@ -64,11 +73,12 @@ export function PrintButton({
     </button>
   );
 
-  if (!choosePrinter) return button;
+  if (!choosePrinter && !qrError) return button;
 
   return (
     <span className="inline-flex max-w-full flex-col items-start gap-2">
       {button}
+      {qrError ? <span role="alert" className="max-w-md rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-950">The party QR code has not loaded. Wait a moment or reload this page, then try printing again.</span> : null}
       {printBlocked ? (
         <span
           role="status"

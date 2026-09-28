@@ -47,6 +47,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
   const agentResult = runInvitationAgent({
     action: "view-single",
     sourceText: view.snapshot.sourceText,
+    confirmedTheme: view.snapshot.confirmedTheme,
     colorHint: view.snapshot.colorHint,
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,
@@ -118,6 +119,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
           qrUrl={view.qrUrl}
           waiverUrl={view.waiverUrl}
         />
+        <p className="mt-4 text-center print:hidden"><a href={`${view.waiverUrl}#guest-list`} className="font-bold text-sky-800 underline">View this party’s guest list</a></p>
       </section>
     </main>
   );

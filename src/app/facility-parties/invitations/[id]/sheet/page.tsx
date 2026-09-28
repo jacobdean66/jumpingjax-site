@@ -21,6 +21,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
   const agentResult = runInvitationAgent({
     action: "view-sheet",
     sourceText: view.snapshot.sourceText,
+    confirmedTheme: view.snapshot.confirmedTheme,
     colorHint: view.snapshot.colorHint,
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,

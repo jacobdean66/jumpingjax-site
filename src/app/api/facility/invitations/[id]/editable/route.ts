@@ -26,6 +26,7 @@ export async function GET(_request: Request, { params }: Props) {
     dateLabel: view.dateLabel,
     timeLabel: view.timeLabel,
     qrUrl: view.qrUrl,
+    waiverUrl: view.waiverUrl,
     invitationQuantity: view.invitationQuantity,
   });
   const fileName = editableInvitationFileName(view.childName);

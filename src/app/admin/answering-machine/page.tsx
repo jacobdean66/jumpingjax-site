@@ -1,6 +1,7 @@
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
 import { loadAnsweringMachineCalls } from "@/lib/answering-machine/service";
+import { runAnsweringMachineTestCall } from "@/lib/answering-machine/test-call";
 import type { AnsweringMachineCall } from "@/lib/answering-machine/types";
 import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
@@ -30,7 +31,11 @@ export default async function AnsweringMachinePage() {
       <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
         Review the call, complete the customer details, and create a protected pending booking through the normal Jumping Jax workflow.
       </p>
-      <AnsweringMachineTestCall />
+      <AnsweringMachineTestCall results={{
+        facility: runAnsweringMachineTestCall("facility"),
+        rental: runAnsweringMachineTestCall("rental"),
+        all_three: runAnsweringMachineTestCall("all_three"),
+      }} />
       <AnsweringMachineInbox initialCalls={calls} rentalOptions={rentalOptions} readiness={readiness} storageError={storageError} />
     </AdminShell>
   );

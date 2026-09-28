@@ -165,6 +165,7 @@ export default async function FacilityInvitationsPage({
   const agentResult = runInvitationAgent({
     action: layout === "single" ? "view-single" : "view-sheet",
     sourceText: storedSnapshot.sourceText,
+    confirmedTheme: storedSnapshot.confirmedTheme,
     colorHint: storedSnapshot.colorHint,
     optionIndex: storedSnapshot.optionIndex,
     alternatesUsed: storedSnapshot.alternatesUsed,

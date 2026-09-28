@@ -3,6 +3,7 @@ import { buildInvitationCopy, type InvitationCopyInput } from "./content";
 import { composeLibraryInvitation } from "./library/compose";
 import type { InvitationSnapshot } from "./snapshot";
 import { resolveInvitationSourceTreatment } from "./source-treatment";
+import { buildQrCodeImageUrl } from "../invitations";
 
 export type FullInvitationEmailInput = InvitationCopyInput & {
   snapshot: InvitationSnapshot;
@@ -61,15 +62,31 @@ export function buildFullInvitationEmailHtml(
     : composed.palette;
   const copy = buildInvitationCopy(input);
   const artwork =
+    input.snapshot.confirmedTheme?.imagePath ??
     approvedArtworkSrc(input.snapshot.themeId, input.snapshot.sourceText) ??
     composed.hero.src;
   const artworkUrl = absoluteUrl(input.siteUrl, artwork);
   const invitationUrl = absoluteUrl(input.siteUrl, input.invitationUrl);
   const printableUrl = absoluteUrl(input.siteUrl, input.printableUrl);
   const waiverUrl = absoluteUrl(input.siteUrl, input.waiverUrl);
+  const qrSection = waiverUrl ? `<div style="padding:16px;text-align:center;background:#ffffff;color:#0f172a;border-radius:12px"><a href="${escapeHtml(waiverUrl)}" style="color:#0369a1"><img data-invitation-qr="true" src="${escapeHtml(buildQrCodeImageUrl(waiverUrl, 300))}" alt="Party check-in and guest list QR code" width="150" height="150" style="display:block;margin:0 auto;background:#ffffff;border:0" /><span style="display:block;margin-top:8px;font:700 13px Arial,sans-serif">Scan or tap for party check-in, waivers &amp; guest list</span></a></div>` : "";
   const backgroundImage = artworkUrl
     ? `background-image:linear-gradient(180deg,rgba(0,0,0,0.06) 0%,rgba(0,0,0,0.18) 42%,rgba(0,0,0,0.94) 100%),url('${escapeHtml(artworkUrl)}');background-position:center;background-size:cover;`
     : `background:linear-gradient(145deg,${palette.background},${palette.backgroundAlt});`;
+
+  if (input.snapshot.confirmedTheme) {
+    return `<!doctype html><html lang="en"><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
+      <table role="presentation" width="100%" style="max-width:680px;background:#fff;border-radius:20px" cellpadding="0" cellspacing="0">
+      <tr><td align="center" style="padding:20px"><img src="${escapeHtml(artworkUrl)}" alt="${escapeHtml(input.snapshot.confirmedTheme.label)}" width="360" style="display:block;max-width:100%;height:auto;max-height:380px;object-fit:contain" /></td></tr>
+      <tr><td style="padding:10px 28px 24px"><div style="font-size:13px;font-weight:bold;letter-spacing:2px">YOU’RE INVITED</div>
+      <h1 style="font-size:30px;margin:12px 0">${escapeHtml(copy.headline)}</h1>
+      <p style="font-size:17px;line-height:1.5">${escapeHtml(copy.dateLabel)}<br>${escapeHtml(copy.timeLabel)}<br>${escapeHtml(copy.venueLine)}${copy.customerPhone ? `<br>Party contact: ${escapeHtml(copy.customerPhone)}` : ""}</p>
+      ${qrSection}
+      ${actionButton("Open & share invitation", invitationUrl, "#0369a1")}${actionButton("Print 4 per page", printableUrl, "#047857")}${actionButton("Party check-in & waiver", waiverUrl, "#0369a1")}
+      <div style="padding-top:16px;white-space:pre-line;font-size:14px;line-height:1.5">${escapeHtml(input.plainText)}</div>
+      </td></tr></table></td></tr></table></body></html>`;
+  }
 
   return `<!doctype html>
 <html lang="en">
@@ -89,6 +106,7 @@ export function buildFullInvitationEmailHtml(
                   ${escapeHtml(copy.venueLine)}
                   ${copy.customerPhone ? `<br>Party contact: ${escapeHtml(copy.customerPhone)}` : ""}
                 </div>
+                ${qrSection}
               </td></tr>
             </table>
           </td></tr>

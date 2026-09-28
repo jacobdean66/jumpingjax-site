@@ -166,6 +166,7 @@ export function WaiverCompleteClient({
                 {state.partyMessage}
               </p>
             ) : null}
+            {isFacilityParty && !state.partyMessage ? <p role="alert" className="mt-4 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950">Your waiver is saved, but we could not add you to this party’s guest list. Use the party link below to finish your RSVP or check-in.</p> : null}
             {!isFacilityParty &&
             birthdayParties.length > 0 &&
             !joinedPartyMessage &&

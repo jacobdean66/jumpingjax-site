@@ -9,6 +9,7 @@ import {
   normalizeGuestDob,
   normalizePartyDate,
   partyCheckInArrivalMessage,
+  partyRsvpMessage,
   partyCheckInSigningMessage,
   type FacilityPartyWaiverMatch,
   type FacilityPartyGuest,
@@ -179,6 +180,10 @@ export async function loadPublicFacilityParty(
     partyLabel: cleanPartyCheckInText(booking.party_label) || "Facility party",
     date: cleanPartyCheckInText(booking.readable_date),
     time: cleanPartyCheckInText(booking.readable_time),
+    expectedGuests: guests.filter(guest => !guest.checkedInAt).map(guest => ({
+      id: guest.id,
+      displayName: publicGuestName(guest.firstName, guest.lastName),
+    })),
     checkedInGuests: guests
       .filter(
         (guest): guest is FacilityPartyGuest & { checkedInAt: string } =>
@@ -198,7 +203,7 @@ export async function findFacilityPartyWaiverMatches(input: {
   lastName: unknown;
   evaluationAt?: Date;
 }): Promise<
-  | { ok: true; matches: FacilityPartyWaiverMatch[] }
+  | { ok: true; matches: FacilityPartyWaiverMatch[]; partyDate: string | null }
   | { ok: false; code: "not_found" | "validation"; message: string }
 > {
   const booking = await loadFacilityBooking(
@@ -224,6 +229,7 @@ export async function findFacilityPartyWaiverMatches(input: {
   });
   return {
     ok: true,
+    partyDate: booking.readable_date,
     matches: rows.map((row) => ({
       participantId: row.id,
       firstName: row.first_name,
@@ -240,6 +246,7 @@ export async function checkInFacilityPartyWaiverMatch(input: {
   lastName: unknown;
   partyDate?: unknown;
   evaluationAt?: Date;
+  markPresent?: boolean;
 }) {
   const bookingId = cleanPartyCheckInText(input.bookingId, 64);
   const participantId = cleanPartyCheckInText(input.participantId, 64);
@@ -270,21 +277,22 @@ export async function checkInFacilityPartyWaiverMatch(input: {
     };
   }
   let guest = await upsertPartyGuest({ bookingId, participant });
-  if (!guest.checkedInAt) {
+  if (input.markPresent !== false && !guest.checkedInAt) {
     const present = await setFacilityPartyGuestPresent({
       bookingId,
       guestId: guest.id,
       present: true,
       staffLabel: "Customer QR",
     });
-    if (present.ok) guest = present.guest;
+    if (!present.ok) throw new Error("The guest could not be checked in.");
+    guest = present.guest;
   }
-  const partyDate = normalizePartyDate(input.partyDate) ?? booking.readable_date;
+  const partyDate = booking.readable_date;
   return {
     ok: true as const,
     guest,
     partyDate,
-    message: partyCheckInArrivalMessage(partyDate),
+    message: guest.checkedInAt ? partyCheckInArrivalMessage(partyDate) : partyRsvpMessage(partyDate),
   };
 }
 
@@ -400,12 +408,12 @@ export async function addFacilityPartySubmissionGuests(input: {
 }) {
   const bookingId = cleanPartyCheckInText(input.bookingId, 64);
   const booking = await loadFacilityBooking(bookingId);
-  if (!booking) {
+  if (!booking || !bookingAcceptsGuests(booking.status)) {
     return { ok: false as const, code: "not_found", message: "Party not found." };
   }
 
   const completion = await getCompletionByToken({ token: input.publicToken });
-  if (!completion) {
+  if (!completion || completion.expired || completion.status !== "completed") {
     return { ok: false as const, code: "not_found", message: "Waiver not found." };
   }
 
@@ -428,17 +436,18 @@ export async function addFacilityPartySubmissionGuests(input: {
         present: true,
         staffLabel: "Customer kiosk",
       });
-      if (present.ok) guest = present.guest;
+      if (!present.ok) throw new Error("The guest could not be checked in.");
+      guest = present.guest;
     }
     guests.push(guest);
   }
 
-  const partyDate = normalizePartyDate(input.partyDate) ?? booking.readable_date;
+  const partyDate = booking.readable_date;
   return {
     ok: true as const,
     partyDate,
     guests,
-    message: partyCheckInArrivalMessage(partyDate),
+    message: input.markPresent ? partyCheckInArrivalMessage(partyDate) : partyRsvpMessage(partyDate),
   };
 }
 
