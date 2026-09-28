@@ -35,7 +35,6 @@ import {
 } from "@/lib/facility-parties/pricing";
 import {
   FACILITY_INVITATION_CREATION_PREFERENCES,
-  FACILITY_INVITATION_DELIVERY_OPTIONS,
   FACILITY_INVITATION_QUANTITIES,
   invitationCreationPreferenceLabel,
   normalizeInvitationTemplateId,
@@ -51,7 +50,6 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/time";
-import { InvitationDeliveryPreview } from "@/components/facility-parties/InvitationDeliveryPreview";
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
   invitationSnapshotFromChoice,
@@ -1263,62 +1261,7 @@ export function FacilityPartyBookingForm({
                           </p>
                         ) : null}
                         <div className="grid gap-3">
-                          <p className="text-xs font-bold uppercase tracking-wider text-cyan-100">
-                            Choose how you want invitations
-                          </p>
-                          <div
-                            role="radiogroup"
-                            aria-label="Invitation delivery method"
-                            className="grid grid-cols-1 gap-3 md:grid-cols-3"
-                          >
-                            {FACILITY_INVITATION_DELIVERY_OPTIONS.map(
-                              (option) => {
-                                const active =
-                                  invitationDeliveryPreference === option.id;
-                                return (
-                                  <label
-                                    key={option.id}
-                                    className="group relative block min-h-[44px] cursor-pointer rounded-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-300"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="invitationDeliveryPreference"
-                                      value={option.id}
-                                      checked={active}
-                                      onChange={() => {
-                                        setInvitationDeliveryPreference(
-                                          option.id,
-                                        );
-                                        void askInvitationAgent(
-                                          "choose-delivery",
-                                          option.id,
-                                        );
-                                      }}
-                                      className="sr-only"
-                                      aria-label={`${option.label}. ${option.description}`}
-                                    />
-                                    <InvitationDeliveryPreview
-                                      preference={option.id}
-                                      active={active}
-                                      snapshot={invitationSnapshot}
-                                      childName={childName}
-                                      childAge={childAge}
-                                      customerPhone={customerPhone}
-                                      dateLabel={invitationDateLabel}
-                                      timeLabel={invitationTimeLabel}
-                                    />
-                                    <span className="mt-2 block px-0.5 text-xs font-semibold leading-snug text-slate-300">
-                                      <span className="block text-sm font-black text-white">
-                                        {option.label}
-                                      </span>
-                                      {option.description}
-                                    </span>
-                                  </label>
-                                );
-                              },
-                            )}
-                          </div>
-                          {invitationDeliveryPreference !== "email" ? (
+                          <p className="text-sm text-cyan-100">After you submit your booking, choose to email your invitation link or download the file.</p>
                             <label className="block rounded-xl border border-white/10 bg-[#071326]/55 p-3">
                               <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">
                                 Number of invitations
@@ -1341,7 +1284,6 @@ export function FacilityPartyBookingForm({
                                 Printed four per letter-size page. Choose 4 through 28 in groups of four.
                               </span>
                             </label>
-                          ) : null}
                         </div>
                       </div>
                     ) : null}
