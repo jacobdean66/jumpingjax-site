@@ -7,11 +7,14 @@ import {
   FACILITY_DEPOSIT_CENTS,
   dollarsToCents,
   formatCents,
+  mergeFacilityPaymentEntries,
   processingFeeCents,
   remainingBookingBalanceCents,
   sumBookingPaymentCents,
+  type BookingPaymentEntry,
   type BookingPaymentKind,
   type BookingPaymentMethod,
+  type FacilityLegacyPayment,
 } from "@/lib/payments/booking-payments";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -29,6 +32,44 @@ function validBookingId(value: string): boolean {
 
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+type BookingPaymentRow = {
+  id: string;
+  booking_id: string;
+  entry_type: "facility_deposit" | "rental_payment";
+  payment_method: BookingPaymentMethod;
+  amount_cents: number;
+  processing_fee_cents: number;
+  processor_reference: string | null;
+  recorded_by: string;
+  receipt_email: string | null;
+  receipt_email_sent_at: string | null;
+  created_at: string;
+};
+
+function clean(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function bookingPaymentEntryFromRow(
+  row: BookingPaymentRow,
+): BookingPaymentEntry {
+  return {
+    id: row.id,
+    bookingKind: "facility",
+    bookingId: String(row.booking_id),
+    entryType: row.entry_type,
+    paymentMethod: row.payment_method,
+    amountCents: Number(row.amount_cents),
+    processingFeeCents: Number(row.processing_fee_cents),
+    processorReference: clean(row.processor_reference),
+    recordedBy: row.recorded_by,
+    receiptEmail: clean(row.receipt_email),
+    receiptEmailSentAt: row.receipt_email_sent_at,
+    createdAt: row.created_at,
+  };
 }
 
 export async function POST(
@@ -116,14 +157,105 @@ export async function POST(
   const customerEmail =
     (kind === "facility" ? booking.email : booking.customer_email)?.trim() ||
     null;
+  const total = Number(booking.total);
+  const bookingTotal = Number.isFinite(total) ? total : null;
+  let existingFacilityEntries: BookingPaymentEntry[] = [];
+  if (kind === "facility") {
+    const [
+      { data: existingBookingPayments, error: existingBookingPaymentsError },
+      { data: legacyPayments, error: legacyPaymentsError },
+    ] = await Promise.all([
+      supabase
+        .from("booking_payment_entries")
+        .select("id,booking_id,entry_type,payment_method,amount_cents,processing_fee_cents,processor_reference,recorded_by,receipt_email,receipt_email_sent_at,created_at")
+        .eq("booking_kind", "facility")
+        .eq("booking_id", id),
+      supabase
+        .from("facility_party_payments")
+        .select("id,amount,payment_kind,payment_method,paid_at,pos_receipt_number,recorded_by,notes")
+        .eq("booking_id", id),
+    ]);
+    if (existingBookingPaymentsError) {
+      console.error(
+        "[booking-payment] facility ledger preflight failed",
+        existingBookingPaymentsError.code,
+      );
+      return NextResponse.json(
+        { ok: false, message: "Could not load this booking's payments." },
+        { status: 503 },
+      );
+    }
+    if (legacyPaymentsError) {
+      console.error(
+        "[booking-payment] facility legacy payment preflight failed",
+        legacyPaymentsError.code,
+      );
+      return NextResponse.json(
+        { ok: false, message: "Could not load this booking's payments." },
+        { status: 503 },
+      );
+    }
+    existingFacilityEntries = mergeFacilityPaymentEntries({
+      bookingEntries: ((existingBookingPayments ?? []) as BookingPaymentRow[]).map(
+        bookingPaymentEntryFromRow,
+      ),
+      legacyPayments: ((legacyPayments ?? []) as {
+        id: string;
+        amount: number | string;
+        payment_kind: string;
+        payment_method: string;
+        paid_at: string;
+        pos_receipt_number: string | null;
+        recorded_by: string;
+        notes: string | null;
+      }[]).map((row): FacilityLegacyPayment => ({
+        id: row.id,
+        amount: Number(row.amount),
+        paymentKind: row.payment_kind,
+        paymentMethod: row.payment_method,
+        paidAt: row.paid_at,
+        posReceiptNumber: row.pos_receipt_number,
+        recordedBy: row.recorded_by,
+        notes: row.notes,
+      })),
+    });
+    if (
+      amountCents === FACILITY_DEPOSIT_CENTS &&
+      existingFacilityEntries.some(
+        (entry) =>
+          entry.entryType === "facility_deposit",
+      )
+    ) {
+      const paidCents = sumBookingPaymentCents(existingFacilityEntries);
+      return NextResponse.json(
+        {
+          ok: false,
+          paidCents,
+          remainingCents: remainingBookingBalanceCents(bookingTotal, paidCents),
+          message: "This facility deposit is already recorded for the booking.",
+        },
+        { status: 409 },
+      );
+    }
+  }
   const feeCents = processingFeeCents(amountCents, paymentMethod);
-  const entryType = kind === "facility" ? "facility_deposit" : "rental_payment";
-  const { data: entry, error: insertError } = await supabase
-    .from("booking_payment_entries")
-    .insert({
+  // Facility deposits share the agreement ledger; the booking ID makes card retries unique.
+  const paymentInsert = kind === "facility"
+    ? supabase.from("facility_party_payments").insert({
+      id,
+      booking_id: id,
+      amount: amountCents / 100,
+      payment_kind: "deposit",
+      payment_method: paymentMethod,
+      paid_at: new Date().toISOString(),
+      pos_receipt_number: reference,
+      recorded_by: auth.identity.name,
+      notes: feeCents > 0 ? `Recorded card processing fee: ${formatCents(feeCents)}` : null,
+    })
+    : supabase.from("booking_payment_entries").insert({
       booking_kind: kind,
       booking_id: id,
-      entry_type: entryType,
+      entry_type: "rental_payment",
       payment_method: paymentMethod,
       amount_cents: amountCents,
       processing_fee_cents: feeCents,
@@ -133,30 +265,30 @@ export async function POST(
         sendReceipt && customerEmail && validEmail(customerEmail)
           ? customerEmail
           : null,
-    })
-    .select("id")
+    });
+  const { data: entry, error: insertError } = await paymentInsert.select("id")
     .single<{ id: string }>();
   if (insertError || !entry) {
     return NextResponse.json(
-      { ok: false, message: "Payment could not be recorded." },
-      { status: 503 },
+      { ok: false, message: insertError?.code === "23505" ? "This facility deposit is already recorded for the booking." : "Payment could not be recorded." },
+      { status: insertError?.code === "23505" ? 409 : 503 },
     );
   }
 
-  const { data: entries, error: entriesError } = await supabase
-    .from("booking_payment_entries")
-    .select("amount_cents")
-    .eq("booking_kind", kind)
-    .eq("booking_id", id);
+  const { data: entries, error: entriesError } = kind === "rental"
+    ? await supabase.from("booking_payment_entries")
+      .select("amount_cents")
+      .eq("booking_kind", kind)
+      .eq("booking_id", id)
+    : { data: null, error: null };
   if (entriesError) {
     console.error("[booking-payment] ledger read failed", entriesError.code);
   }
-  const paidCents = sumBookingPaymentCents(
-    (entries ?? []).map((row) => ({ amountCents: Number(row.amount_cents) })),
-  );
-  const total = Number(booking.total);
+  const paidCents = kind === "facility"
+    ? sumBookingPaymentCents(existingFacilityEntries) + amountCents
+    : sumBookingPaymentCents((entries ?? []).map((row) => ({ amountCents: Number(row.amount_cents) })));
   const remainingCents = remainingBookingBalanceCents(
-    Number.isFinite(total) ? total : null,
+    bookingTotal,
     paidCents,
   );
 
@@ -183,7 +315,7 @@ export async function POST(
       text: `Hello ${booking.customer_name?.trim() || "there"},\n\nWe recorded your ${paymentLabel} for booking #${id}.\n\nPayment applied to your booking: ${formatCents(amountCents)}${chargeLine}${balanceLine}\nPayment method: ${paymentMethod}${reference ? `\nReference: ${reference}` : ""}\n\nThank you,\nJumping Jax`,
     });
     receiptSent = !receipt.error;
-    if (receiptSent) {
+    if (receiptSent && kind === "rental") {
       await supabase
         .from("booking_payment_entries")
         .update({ receipt_email_sent_at: new Date().toISOString() })

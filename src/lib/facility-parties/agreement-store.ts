@@ -8,6 +8,10 @@ import {
   type AgreementPayment,
   type FacilityAgreementSnapshot,
 } from "./agreement";
+import {
+  mergeFacilityAgreementPayments,
+  type BookingPaymentEntry,
+} from "@/lib/payments/booking-payments";
 
 type PrintableBookingRow = {
   id: string;
@@ -70,6 +74,37 @@ type PaymentRow = {
   recorded_by: string;
   notes: string | null;
 };
+
+type BookingPaymentRow = {
+  id: string;
+  booking_id: string;
+  entry_type: "facility_deposit" | "rental_payment";
+  payment_method: "card" | "cash" | "check" | "other";
+  amount_cents: number;
+  processing_fee_cents: number;
+  processor_reference: string | null;
+  recorded_by: string;
+  receipt_email: string | null;
+  receipt_email_sent_at: string | null;
+  created_at: string;
+};
+
+function bookingPaymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
+  return {
+    id: row.id,
+    bookingKind: "facility",
+    bookingId: String(row.booking_id),
+    entryType: row.entry_type,
+    paymentMethod: row.payment_method,
+    amountCents: Number(row.amount_cents),
+    processingFeeCents: Number(row.processing_fee_cents),
+    processorReference: clean(row.processor_reference),
+    recordedBy: row.recorded_by,
+    receiptEmail: clean(row.receipt_email),
+    receiptEmailSentAt: row.receipt_email_sent_at,
+    createdAt: row.created_at,
+  };
+}
 
 export async function loadAgreementHistoryForBookings(bookingIds: string[]) {
   const agreementMap = new Map<string, AdminAgreementSummary[]>();
@@ -173,7 +208,20 @@ export async function loadCurrentPrintableAgreement(bookingId: string) {
   if (!data) return null;
 
   const { agreementMap, paymentMap } = await loadAgreementHistoryForBookings([bookingId]);
-  const payments = paymentMap.get(bookingId) ?? [];
+  const { data: bookingPayments, error: bookingPaymentError } = await supabase
+    .from("booking_payment_entries")
+    .select("id,booking_id,entry_type,payment_method,amount_cents,processing_fee_cents,processor_reference,recorded_by,receipt_email,receipt_email_sent_at,created_at")
+    .eq("booking_kind", "facility")
+    .eq("booking_id", bookingId);
+  if (bookingPaymentError && bookingPaymentError.code !== "42P01") {
+    throw new Error("agreement_payment_lookup_failed");
+  }
+  const payments = mergeFacilityAgreementPayments({
+    bookingEntries: ((bookingPayments ?? []) as BookingPaymentRow[]).map(
+      bookingPaymentEntryFromRow,
+    ),
+    legacyPayments: paymentMap.get(bookingId) ?? [],
+  });
   const latestActiveAgreement = agreementMap
     .get(bookingId)
     ?.find((agreement) => agreement.status !== "superseded");

@@ -142,6 +142,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               kind="facility"
               customerEmail={booking.email}
               balanceCents={balanceCents}
+              depositRecorded={booking.paymentEntries.some((entry) => entry.entryType === "facility_deposit")}
             />
           ) : null}
           {canCheckIn ? (
@@ -360,7 +361,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
       <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-black uppercase tracking-wide text-emerald-800">
-            Deposit record
+            Payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
             Paid {formatCents(paidCents)}
@@ -371,7 +372,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         </div>
         {booking.paymentEntries.length === 0 ? (
           <p className="mt-3 text-sm font-semibold text-slate-600">
-            No deposits have been recorded for this party.
+            No payments have been recorded for this party.
           </p>
         ) : (
           <ul className="mt-3 space-y-2">
@@ -387,8 +388,8 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
                     : ""}
                 </span>
                 <span className="text-xs font-semibold text-slate-600">
-                  {new Date(entry.createdAt).toLocaleString()} | Receipt{" "}
-                  {entry.receiptEmailSentAt ? "emailed" : "not emailed"}
+                  {new Date(entry.createdAt).toLocaleString()}
+                  {!entry.id.startsWith("facility-party-payment:") ? ` | Receipt ${entry.receiptEmailSentAt ? "emailed" : "not emailed"}` : ""}
                 </span>
               </li>
             ))}

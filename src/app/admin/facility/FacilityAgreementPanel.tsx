@@ -37,10 +37,12 @@ export function FacilityAgreementPanel({
 }) {
   const latest = booking.agreementHistory[0];
   const latestSnapshot = latest?.snapshot;
-  const [includePayment, setIncludePayment] = useState(true);
+  const [includePayment, setIncludePayment] = useState(false);
   const [amount, setAmount] = useState(() => {
     if (!latestSnapshot) return "50.00";
-    return latestSnapshot.balanceDue > 0 ? latestSnapshot.balanceDue.toFixed(2) : "";
+    const paid = booking.paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
+    const balance = Math.max(0, latestSnapshot.total - paid);
+    return balance > 0 ? balance.toFixed(2) : "";
   });
   const [paymentKind, setPaymentKind] = useState(booking.paymentHistory.length ? "balance" : "deposit");
   const [paymentMethod, setPaymentMethod] = useState("Card by phone (facility POS)");
@@ -115,8 +117,8 @@ export function FacilityAgreementPanel({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Agreement total</p><p className="mt-1 text-lg font-black">{money(preview.total)}</p></div>
-        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Paid after this entry</p><p className="mt-1 text-lg font-black text-emerald-700">{money(preview.paid)}</p></div>
-        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">Balance due</p><p className="mt-1 text-lg font-black text-amber-800">{money(preview.balance)}</p></div>
+        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">{includePayment ? "Paid after proposed payment" : "Posted payments"}</p><p className="mt-1 text-lg font-black text-emerald-700">{money(preview.paid)}</p></div>
+        <div className="rounded-xl bg-white p-3"><p className="text-[10px] font-black uppercase text-slate-500">{includePayment ? "Balance after proposed payment" : "Balance due"}</p><p className="mt-1 text-lg font-black text-amber-800">{money(preview.balance)}</p></div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

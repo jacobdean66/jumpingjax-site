@@ -4,7 +4,11 @@ import {
   type AgreementPayment,
 } from "@/lib/facility-parties/agreement";
 import { loadAgreementHistoryForBookings } from "@/lib/facility-parties/agreement-store";
-import { type BookingPaymentEntry } from "@/lib/payments/booking-payments";
+import {
+  mergeFacilityAgreementPayments,
+  mergeFacilityPaymentEntries,
+  type BookingPaymentEntry,
+} from "@/lib/payments/booking-payments";
 import {
   invitationDeliveryPreferenceLabel,
   invitationTemplateLabel,
@@ -544,8 +548,14 @@ export async function loadAdminFacilityBookings(input: {
       calendarNeedsRepair: needsRepair,
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,
       agreementHistory: agreementMap.get(row.id) ?? [],
-      paymentHistory: paymentMap.get(row.id) ?? [],
-      paymentEntries: bookingPaymentMap.get(row.id) ?? [],
+      paymentHistory: mergeFacilityAgreementPayments({
+        bookingEntries: bookingPaymentMap.get(row.id) ?? [],
+        legacyPayments: paymentMap.get(row.id) ?? [],
+      }),
+      paymentEntries: mergeFacilityPaymentEntries({
+        bookingEntries: bookingPaymentMap.get(row.id) ?? [],
+        legacyPayments: paymentMap.get(row.id) ?? [],
+      }),
     };
   });
 
