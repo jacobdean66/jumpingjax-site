@@ -60,6 +60,7 @@ import {
   type FacilityAvailabilityRow,
 } from "@/lib/facility-parties/availability-source";
 import { trackLead } from "@/lib/analytics/client";
+import { readFacilityBookingResponse } from "@/lib/facility-parties/booking-response";
 import { invokeInvitationAgent } from "@/lib/facility-parties/invitations/agent-client";
 import type { InvitationAgentAction } from "@/lib/facility-parties/invitations/agent";
 import { InvitationThemeSearch } from "./InvitationThemeSearch";
@@ -200,6 +201,8 @@ export function FacilityPartyBookingForm({
   const [successBookingId, setSuccessBookingId] = useState<string | null>(null);
   const [successRequestKey, setSuccessRequestKey] = useState<string | null>(null);
   const submitIdempotencyKey = useRef<string | null>(null);
+  const submitInFlight = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const date = selectedDate ? dateToYmd(selectedDate) : "";
   const dateOk = partyKind ? dateAllowedForKind(partyKind, date) : false;
@@ -306,18 +309,22 @@ export function FacilityPartyBookingForm({
       return;
     }
 
+    const controller = new AbortController();
     const fetchUnavailable = async () => {
       setAvailabilityLoading(true);
       setAvailabilityLoadError(null);
       try {
         const res = await fetch(
           `/api/facility/unavailable?date=${encodeURIComponent(date)}`,
+          { signal: controller.signal },
         );
         if (!res.ok) {
           throw new Error("Failed to fetch unavailable dates");
         }
         const data = await res.json();
-        const bookings = Array.isArray(data) ? data : [];
+        if (!Array.isArray(data)) throw new Error("Invalid availability response");
+        if (controller.signal.aborted) return;
+        const bookings = data;
         const liveBlocks = bookings
           .map((booking) =>
             mapFacilityAvailabilityRowToBlock(booking as FacilityAvailabilityRow),
@@ -329,17 +336,20 @@ export function FacilityPartyBookingForm({
         setBlocks(liveBlocks);
         setAvailabilityLoadError(null);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Failed to fetch unavailable dates", err);
+        setBlocks([]);
         setSelectedStart(null);
         setAvailabilityLoadError(
           "Availability could not be loaded. Please try again.",
         );
       } finally {
-        setAvailabilityLoading(false);
+        if (!controller.signal.aborted) setAvailabilityLoading(false);
       }
     };
 
     fetchUnavailable();
+    return () => controller.abort();
   }, [date]);
 
   const availabilityUnavailable =
@@ -435,6 +445,7 @@ export function FacilityPartyBookingForm({
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInFlight.current || bookingSubmitted) return;
     setFormError(null);
     setSuccessMessage(null);
 
@@ -464,6 +475,10 @@ export function FacilityPartyBookingForm({
     }
     if (partyKind === "public" && !roomId) {
       setFormError("Select which room you want.");
+      return;
+    }
+    if (!pricingPreview || pricingPreview.missingPrice) {
+      setFormError("Pricing is unavailable for this party option. Please contact Jumping Jax for help.");
       return;
     }
     if (!parentName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
@@ -513,6 +528,8 @@ export function FacilityPartyBookingForm({
       status: "pending",
     };
 
+    submitInFlight.current = true;
+    setIsSubmitting(true);
     try {
       submitIdempotencyKey.current ??= crypto.randomUUID();
       const res = await fetch("/api/facility/book", {
@@ -561,20 +578,7 @@ export function FacilityPartyBookingForm({
         }),
       });
 
-      if (!res.ok) {
-        const failure = await res.json().catch(() => null);
-        setFormError(typeof failure?.error === "string" ? failure.error : "Something went wrong. Please try again.");
-        return;
-      }
-
-      const data: unknown = await res.json().catch(() => null);
-      const bookingId =
-        data &&
-        typeof data === "object" &&
-        "id" in data &&
-        typeof (data as { id?: unknown }).id === "string"
-          ? (data as { id: string }).id
-          : null;
+      const bookingId = await readFacilityBookingResponse(res);
       setSuccessBookingId(bookingId);
       setSuccessRequestKey(submitIdempotencyKey.current);
 
@@ -584,8 +588,11 @@ export function FacilityPartyBookingForm({
         value: pricingPreview?.total ?? 0,
       });
       setBookingSubmitted(true);
-    } catch {
-      setFormError("Something went wrong. Please try again.");
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "We could not submit your booking request. Please try again.");
+    } finally {
+      submitInFlight.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -666,8 +673,8 @@ export function FacilityPartyBookingForm({
           Request a party
         </h2>
         <p className="text-sm leading-relaxed text-slate-400">
-          Send a booking request — no online payment. Availability below updates
-          locally for this preview.
+          Send a booking request — no online payment. Availability is checked
+          before your request is saved.
         </p>
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm leading-relaxed text-slate-200">
           <p className="font-semibold text-cyan-100">Scheduling notes</p>
@@ -1505,6 +1512,11 @@ export function FacilityPartyBookingForm({
                     ))}
                   </div>
                 )}
+                {pricingPreview?.missingPrice && (
+                  <p role="alert" className="text-sm font-semibold text-amber-200">
+                    Pricing is unavailable for this party option. Please contact Jumping Jax for help.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -1512,7 +1524,7 @@ export function FacilityPartyBookingForm({
       </div>
 
       {formError && (
-        <p className="mt-8 text-sm font-semibold text-amber-200">{formError}</p>
+        <p role="alert" className="mt-8 text-sm font-semibold text-amber-200">{formError}</p>
       )}
       {successMessage && (
         <p className="mt-8 text-sm font-semibold text-emerald-200">
@@ -1526,10 +1538,10 @@ export function FacilityPartyBookingForm({
         </p>
         <button
           type="submit"
-          disabled={!customerStepUnlocked}
+          disabled={!customerStepUnlocked || isSubmitting || Boolean(pricingPreview?.missingPrice)}
           className="inline-flex items-center justify-center rounded-full bg-cyan-400 px-6 py-3 text-sm font-black uppercase tracking-wide text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-slate-600"
         >
-          Submit request
+          {isSubmitting ? "Submitting…" : "Submit request"}
         </button>
       </div>
     </form>

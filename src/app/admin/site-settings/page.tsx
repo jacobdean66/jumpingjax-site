@@ -87,7 +87,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
     },
     {
       label: "20 kid private party",
-      context: "Room 20, 90 minutes, Monday/Tuesday baseline",
+      context: "Room 20, 90 minutes, Monday–Thursday baseline",
       price: priceFacilityPartyWithConfig(
         {
           partyKind: "private",
@@ -121,13 +121,13 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
     },
     {
       name: "privateWeekday90",
-      label: "Private party, Mon/Tue, 90 minutes",
+      label: "Private party, Mon–Thu, 90 minutes",
       help: "Full facility",
       value: settings.facilityPricing.privateWeekday90,
     },
     {
       name: "privateWeekday120",
-      label: "Private party, Mon/Tue, 120 minutes",
+      label: "Private party, Mon–Thu, 120 minutes",
       help: "Full facility",
       value: settings.facilityPricing.privateWeekday120,
     },
