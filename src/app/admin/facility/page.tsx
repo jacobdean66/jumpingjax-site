@@ -30,11 +30,15 @@ import { FacilityRestoreButton } from "./FacilityRestoreButton";
 import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
 import { FacilityAgreementPanel } from "./FacilityAgreementPanel";
 import { BookingPaymentButton } from "../BookingPaymentButton";
+import { BookingCardAnchor } from "../BookingCardAnchor";
 import {
   formatCents,
+  remainingBookingBalanceCents,
+  sumBookingPaymentCents,
+  facilityDepositStatus,
+  paymentDateLabel,
   paymentStatusLabel,
   projectBookingPaymentStatus,
-  receiptAuditLabel,
 } from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +51,7 @@ type Props = {
     day?: string;
     status?: string;
     kind?: string;
+    deposit?: string;
   }>;
 };
 
@@ -115,10 +120,10 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const canCheckIn = ["approved", "confirmed"].includes(
     booking.status.trim().toLowerCase(),
   );
-  const paymentProjection = projectBookingPaymentStatus(
-    booking.total,
-    booking.paymentEntries,
-  );
+  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
+  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  const depositStatus = facilityDepositStatus(booking.paymentEntries);
+  const paymentProjection = projectBookingPaymentStatus(booking.total, booking.paymentEntries);
   const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
     booking.status,
   );
@@ -144,8 +149,9 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               bookingId={booking.id}
               kind="facility"
               customerEmail={booking.email}
-              balanceCents={paymentProjection.balanceCents}
-              depositRecorded={booking.paymentEntries.some((entry) => entry.entryType === "facility_deposit")}
+              customerName={booking.customerName}
+              depositRecorded={depositStatus === "paid"}
+              balanceCents={balanceCents}
             />
           ) : null}
           {canCheckIn ? (
@@ -334,9 +340,10 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             <Detail
               label="Deposit"
               value={
-                booking.depositAcknowledged ? "Acknowledged" : "Not checked"
+                depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Needs verification" : "No deposit recorded"
               }
             />
+            <Detail label="Deposit requirement acknowledged" value={booking.depositAcknowledged ? "Yes" : "No"} />
             <Detail label="Notes" value={booking.notes ?? "None"} />
           </div>
         </section>
@@ -364,7 +371,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
       <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-black uppercase tracking-wide text-emerald-800">
-            Payment record
+            Deposit &amp; payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
             {paymentStatusLabel(paymentProjection.status)} | Paid{" "}
@@ -392,10 +399,8 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
                     : ""}
                 </span>
                 <span className="text-xs font-semibold text-slate-600">
-                  {new Date(entry.createdAt).toLocaleString()}
-                  {!entry.id.startsWith("facility-party-payment:")
-                    ? ` | ${receiptAuditLabel(entry)}`
-                    : ""}
+                  {paymentDateLabel(entry.paidAt)} · {entry.status === "posted" ? "Recorded" : entry.status === "voided" ? "Voided — not credited" : "Needs verification — not credited"}
+                  <span className="block">Paid by: {entry.payerName || "Payer not recorded"}{entry.processorReference ? ` · Receipt ${entry.processorReference}` : ""}</span>
                 </span>
               </li>
             ))}
@@ -429,6 +434,9 @@ function FacilityExpandableCard({
   booking: AdminFacilityBooking;
 }) {
   const kidCount = kidCountForBooking(booking);
+  const depositStatus = facilityDepositStatus(booking.paymentEntries);
+  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
+  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
   return (
     <details
       id={`booking-${booking.id}`}
@@ -443,6 +451,10 @@ function FacilityExpandableCard({
           </span>
         </div>
         <div className="mt-5">
+          <p className={`mb-3 rounded-lg px-3 py-2 text-sm font-black ${depositStatus === "paid" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
+            {depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Needs verification" : "No deposit recorded"}
+            <span className="mt-1 block text-xs font-semibold">Paid {formatCents(paidCents)}{balanceCents === null ? "" : ` · Balance ${formatCents(balanceCents)}`}</span>
+          </p>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">
             {booking.readableDate ?? "Date not set"}
           </p>
@@ -505,10 +517,13 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
       status: "all",
     }),
   ]);
-  const displayedBookings =
+  const scopedBookings =
     kind === "private"
       ? bookings.filter((booking) => booking.partyKind === "private")
       : bookings;
+  const depositFilter = ["paid", "unrecorded", "review"].includes(resolved?.deposit ?? "") ? resolved!.deposit! : "all";
+  const displayedBookings = scopedBookings.filter(b => depositFilter === "all" || facilityDepositStatus(b.paymentEntries) === depositFilter);
+  const paidDepositBookings = scopedBookings.filter(b => facilityDepositStatus(b.paymentEntries) === "paid" && !["cancelled", "canceled", "rejected"].includes(b.status));
   const baseQuery = singleDay
     ? `token=${encodeURIComponent(token)}&day=${encodeURIComponent(singleDay)}`
     : `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
@@ -530,6 +545,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
 
   return (
     <AdminShell>
+      <BookingCardAnchor />
       <div
         className="relative overflow-x-hidden rounded-3xl p-3 sm:p-5"
         style={pageBackgroundStyle}
@@ -589,6 +605,28 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
                 href={`/admin/facility?${baseQuery}&status=all&kind=private`}
               />
             </div>
+          </section>
+
+          <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5 text-slate-950 print:hidden">
+            <h2 className="text-xl font-black text-emerald-900">Deposits Paid <span className="text-base">({paidDepositBookings.length})</span></h2>
+            <p className="mt-1 text-sm text-slate-600">Recorded payments for active parties in the selected date range. Select a customer to open their card.</p>
+            <nav aria-label="Deposit status" className="my-4 flex flex-wrap gap-2">
+              {([['all','All parties'],['paid','Deposits paid'],['unrecorded','No deposit recorded'],['review','Needs verification']] as const).map(([value,label]) => (
+                <Link key={value} aria-current={depositFilter === value ? "page" : undefined} href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}&deposit=${value}`} className={`rounded-full border px-4 py-2 text-sm font-bold ${depositFilter === value ? "bg-emerald-800 text-white" : "bg-white text-slate-800"}`}>{label}</Link>
+              ))}
+            </nav>
+            {paidDepositBookings.length ? <ul className="divide-y divide-emerald-100">
+              {paidDepositBookings.map(b => {
+                const paid = sumBookingPaymentCents(b.paymentEntries);
+                const last = b.paymentEntries.find(e => e.status === "posted");
+                const balance = remainingBookingBalanceCents(b.total, paid);
+                return <li key={b.id} className="py-3 text-sm">
+                  <Link className="font-black text-emerald-900 underline" href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}#booking-${b.id}`}>{b.customerName} · {b.childName || "Birthday child not set"}</Link>
+                  <p className="mt-1">Party {b.readableDate} · Paid {formatCents(paid)}{balance === null ? "" : ` · Balance ${formatCents(balance)}`}</p>
+                  {last ? <p className="mt-1 text-xs text-slate-600">Latest payment {paymentDateLabel(last.paidAt)} · {last.paymentMethod} · Paid by {last.payerName || "payer not recorded"}</p> : null}
+                </li>;
+              })}
+            </ul> : <p className="text-sm text-slate-600">No active parties with a recorded $50 deposit in this selection.</p>}
           </section>
 
           <section className="mt-5 rounded-2xl border border-white/60 bg-slate-100/95 p-3 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-5 print:hidden">

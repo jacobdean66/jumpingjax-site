@@ -13,11 +13,18 @@ function harness(legacy: Row[] = []) {
     facility_bookings: [{ id: bookingId, total: 149.8, email: "customer@example.com" }],
     bookings: [{ id: "123", total: 100, customer_email: "customer@example.com" }],
     facility_party_payments: [...legacy],
-    booking_payment_entries: [],
+    booking_payment_entries: legacy.map(row=>({id:row.id,booking_kind:"facility",booking_id:row.booking_id,amount_cents:Number(row.amount)*100,status:"posted",payment_purpose:"deposit"})),
   };
   const writes: { table: string; row: Row }[] = [];
   const emails: Row[] = [];
   const db = {
+    async rpc(_name: string, {p_payment:p}: {p_payment:Row}) {
+      const existing=tables.booking_payment_entries.find(r=>r.request_id===p.request_id);
+      if(existing) return {data:{outcome:"duplicate",id:existing.id},error:null};
+      if(p.payment_purpose==="deposit" && tables.booking_payment_entries.some(r=>r.booking_id===p.booking_id && r.payment_purpose==="deposit")) return {data:{outcome:"deposit_exists"},error:null};
+      const row={id:"new-entry",...p,status:"posted"}; tables.booking_payment_entries.push(row); writes.push({table:"booking_payment_entries",row});
+      return {data:{outcome:"created",id:row.id},error:null};
+    },
     from(table: string) {
       const filters: [string, unknown][] = [];
       let pending: Row | null = null;
@@ -67,7 +74,7 @@ function harness(legacy: Row[] = []) {
     tables, writes, emails,
     async post(kind = "facility", amount = "50.00") {
       return exports.POST!(new Request("https://example.com/api/payment", {
-        method: "POST", body: JSON.stringify({ amount, paymentMethod: "cash", sendReceipt: true }),
+        method: "POST", body: JSON.stringify({ amount, paymentMethod: "cash", sendReceipt: true, requestId:"11111111-1111-4111-8111-222222222222",payerName:"Actual payer",paidAt:"2026-09-26T12:00:00Z",paymentPurpose:kind === "facility" ? "deposit" : "payment" }),
       }), { params: Promise.resolve({ kind, id: kind === "facility" ? bookingId : "123" }) });
     },
   };
@@ -77,26 +84,27 @@ test("a legacy facility deposit blocks another payment without writing or emaili
   const app = harness([{ id: "legacy", booking_id: bookingId, amount: 50, payment_kind: "deposit", payment_method: "card", paid_at: "2026-09-12T21:36:00Z", recorded_by: "Office" }]);
   const response = await app.post();
   assert.equal(response.status, 409);
-  assert.equal((await response.json()).remainingCents, 9980);
+  assert.match((await response.json()).message, /already recorded/);
   assert.equal(app.writes.length, 0);
   assert.equal(app.emails.length, 0);
 });
 
-test("new facility deposits use the agreement ledger and receipts use posted balances", async () => {
+test("new deposits use the canonical ledger and receipts use posted balances", async () => {
   const app = harness();
   const response = await app.post();
   assert.equal(response.status, 200);
   assert.equal((await response.json()).remainingCents, 9980);
   assert.equal(app.writes.length, 1);
-  assert.equal(app.writes[0].table, "facility_party_payments");
-  assert.equal(app.writes[0].row.amount, 50);
-  assert.equal(app.writes[0].row.payment_kind, "deposit");
-  assert.equal(app.writes[0].row.id, bookingId);
-  assert.equal(app.tables.booking_payment_entries.length, 0);
+  assert.equal(app.writes[0].table, "booking_payment_entries");
+  assert.equal(app.writes[0].row.amount_cents, 5000);
+  assert.equal(app.writes[0].row.payment_purpose, "deposit");
+  assert.equal(app.writes[0].row.booking_id, bookingId);
+  assert.equal(app.tables.booking_payment_entries.length, 1);
   assert.match(String(app.emails[0].text), /Remaining booking balance: \$99\.80/);
-  assert.equal((await app.post()).status, 409);
+  assert.equal((await app.post()).status, 200);
   assert.equal(app.writes.length, 1);
-  assert.equal(app.emails.length, 1);
+  assert.equal(app.emails.length, 2); // Durable sender deduplicates the same stable message key.
+  assert.equal(app.emails[0].messageKey, app.emails[1].messageKey);
 });
 
 test("rental payments retain their ledger and partial-payment balance", async () => {

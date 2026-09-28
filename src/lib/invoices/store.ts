@@ -1,12 +1,9 @@
 import "server-only";
+import { loadBookingPaymentMap } from "@/lib/payments/store";
+import { sumBookingPaymentCents } from "@/lib/payments/booking-payments";
 
 import { estimateRentalLineSubtotal } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import {
-  mergeFacilityAgreementPayments,
-  type BookingPaymentEntry,
-  type FacilityLegacyPayment,
-} from "@/lib/payments/booking-payments";
 import {
   calculateInvoiceTotals,
   money,
@@ -93,38 +90,6 @@ function storedAddonLines(value: unknown): InvoiceLineItem[] {
   });
 }
 
-function bookingPaymentEntryFromRow(row: {
-  id: string;
-  booking_id: string;
-  entry_type: "facility_deposit" | "rental_payment";
-  payment_method: "card" | "cash" | "check" | "other";
-  amount_cents: number;
-  processing_fee_cents: number;
-  processor_reference: string | null;
-  recorded_by: string;
-  receipt_email: string | null;
-  receipt_email_sent_at: string | null;
-  created_at: string;
-}): BookingPaymentEntry {
-  return {
-    id: row.id,
-    bookingKind: "facility",
-    bookingId: String(row.booking_id),
-    entryType: row.entry_type,
-    paymentMethod: row.payment_method,
-    amountCents: Number(row.amount_cents),
-    processingFeeCents: Number(row.processing_fee_cents),
-    processorReference: clean(row.processor_reference),
-    idempotencyKey: null,
-    recordedBy: row.recorded_by,
-    receiptEmail: clean(row.receipt_email),
-    receiptRequestedAt: null,
-    receiptEmailSentAt: row.receipt_email_sent_at,
-    receiptErrorClass: null,
-    createdAt: row.created_at,
-  };
-}
-
 async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | null> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
@@ -179,7 +144,7 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
     deliveryFee: money(data.delivery_fee),
     discount: 0,
     tax: 0,
-    paymentsReceived: 0,
+    paymentsReceived: sumBookingPaymentCents((await loadBookingPaymentMap("rental", [bookingId])).get(bookingId) ?? []) / 100,
     notes: clean(data.setup_notes),
   };
 }
@@ -203,50 +168,7 @@ async function buildFacilityInvoice(bookingId: string): Promise<BookingInvoice |
       unitPrice: money(data.addon_subtotal),
     });
   }
-  const [
-    { data: legacyPaymentRows, error: legacyPaymentError },
-    { data: bookingPaymentRows, error: bookingPaymentError },
-  ] = await Promise.all([
-    supabase
-      .from("facility_party_payments")
-      .select("id,amount,payment_kind,payment_method,paid_at,pos_receipt_number,recorded_by,notes")
-      .eq("booking_id", bookingId),
-    supabase
-      .from("booking_payment_entries")
-      .select("id,booking_id,entry_type,payment_method,amount_cents,processing_fee_cents,processor_reference,recorded_by,receipt_email,receipt_email_sent_at,created_at")
-      .eq("booking_kind", "facility")
-      .eq("booking_id", bookingId),
-  ]);
-  if (legacyPaymentError && legacyPaymentError.code !== "42P01") {
-    throw new Error(legacyPaymentError.message);
-  }
-  if (bookingPaymentError && bookingPaymentError.code !== "42P01") {
-    throw new Error(bookingPaymentError.message);
-  }
-  const paymentsReceived = mergeFacilityAgreementPayments({
-    bookingEntries: ((bookingPaymentRows ?? []) as Parameters<
-      typeof bookingPaymentEntryFromRow
-    >[0][]).map(bookingPaymentEntryFromRow),
-    legacyPayments: ((legacyPaymentRows ?? []) as {
-      id: string;
-      amount: number | string;
-      payment_kind: string;
-      payment_method: string;
-      paid_at: string;
-      pos_receipt_number: string | null;
-      recorded_by: string;
-      notes: string | null;
-    }[]).map((row): FacilityLegacyPayment => ({
-      id: row.id,
-      amount: money(row.amount),
-      paymentKind: row.payment_kind,
-      paymentMethod: row.payment_method,
-      paidAt: row.paid_at,
-      posReceiptNumber: row.pos_receipt_number,
-      recordedBy: row.recorded_by,
-      notes: row.notes,
-    })),
-  }).reduce((sum, payment) => sum + payment.amount, 0);
+  const paymentsReceived = sumBookingPaymentCents((await loadBookingPaymentMap("facility", [bookingId])).get(bookingId) ?? []) / 100;
   const eventDate = clean(data.readable_date) || String(data.start_time).slice(0, 10);
   return {
     kind: "facility",
@@ -303,9 +225,7 @@ export async function loadBookingInvoice(
     ? await buildRentalInvoice(bookingId)
     : await buildFacilityInvoice(bookingId);
   if (!generated) return null;
-  const invoice = normalizeInvoice(data?.payload, generated);
-  if (kind === "facility") invoice.paymentsReceived = generated.paymentsReceived;
-  return invoice;
+  return { ...normalizeInvoice(data?.payload, generated), paymentsReceived: generated.paymentsReceived };
 }
 
 export type StandaloneInvoiceSummary = {
@@ -342,6 +262,9 @@ export async function listStandaloneInvoices(): Promise<StandaloneInvoiceSummary
 
 export async function saveBookingInvoice(invoice: BookingInvoice): Promise<void> {
   const normalized = normalizeInvoice(invoice, invoice);
+  if (normalized.kind !== "standalone") {
+    normalized.paymentsReceived = sumBookingPaymentCents((await loadBookingPaymentMap(normalized.kind, [normalized.bookingId])).get(normalized.bookingId) ?? []) / 100;
+  }
   const totals = calculateInvoiceTotals(normalized);
   const supabase = createServiceRoleClient();
   const { error } = await supabase.from("booking_invoices").upsert(
