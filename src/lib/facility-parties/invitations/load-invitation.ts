@@ -1,3 +1,4 @@
+import { resolveApprovedPrint } from "./approved-print";
 import { isValidBookingId } from "@/lib/admin/booking-edit";
 import {
   buildFacilityWaiverInvitationUrl,
@@ -69,6 +70,13 @@ export async function loadFacilityInvitationView(
     siteUrl: CANONICAL_PRODUCTION_SITE_URL,
     bookingId: data.id,
     partyDate: data.readable_date,
+  });
+
+  snapshot.approvedPrint = resolveApprovedPrint(data.invitation, {
+    bookingId: data.id, childName: data.child_name?.trim() || "Birthday Star",
+    childAge: data.child_age?.trim() || "", customerPhone: data.phone?.trim() || "",
+    dateLabel: data.readable_date?.trim() || "", timeLabel: data.readable_time?.trim() || "",
+    themeText: data.party_theme?.trim() || "", rsvpUrl: waiverUrl,
   });
 
   return {

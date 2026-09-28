@@ -1,3 +1,4 @@
+import { GET as approvedInvitation } from "../approved/route";
 import { notFound } from "next/navigation";
 
 import {
@@ -17,6 +18,11 @@ export async function GET(_request: Request, { params }: Props) {
   const { id } = await params;
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  if (view.snapshot.approvedPrint) {
+    const url = new URL(_request.url);
+    url.searchParams.set("format", "pdf");
+    return approvedInvitation(new Request(url), { params: Promise.resolve({ id }) });
+  }
 
   const content = await buildEditableInvitationPptx({
     snapshot: view.snapshot,

@@ -35,16 +35,17 @@ export function PartyCheckInClient({
   const [lastName, setLastName] = useState("");
   const [search, setSearch] = useState<SearchState>({ status: "idle" });
   const [completeMessage, setCompleteMessage] = useState("");
+  const [atFacility, setAtFacility] = useState(false);
 
   const waiverUrl = useMemo(() => {
     const params = new URLSearchParams({
       source: "facility-party",
       booking: bookingId,
-      arrival: "1",
     });
-    if (partyDate) params.set("date", partyDate);
+    if (atFacility) params.set("arrival", "1");
+    if (party?.date || partyDate) params.set("date", party?.date || partyDate!);
     return `/waiver?${params.toString()}`;
-  }, [bookingId, partyDate]);
+  }, [bookingId, partyDate, party?.date, atFacility]);
 
   const refreshParty = useCallback(async (quiet = false) => {
     try {
@@ -95,6 +96,7 @@ export function PartyCheckInClient({
         cache: "no-store",
         body: JSON.stringify({
           mode: "search",
+          atFacility,
           bookingId,
           partyDate,
           firstName,
@@ -128,7 +130,7 @@ export function PartyCheckInClient({
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({
-          mode: "check-in",
+          mode: atFacility ? "check-in" : "rsvp",
           bookingId,
           partyDate,
           firstName,
@@ -142,7 +144,7 @@ export function PartyCheckInClient({
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.error || "We could not check you in right now.");
       }
-      setCompleteMessage(payload.message || "You are checked in for the party.");
+      setCompleteMessage(payload.message || (atFacility ? "You are checked in for the party." : "You’re on the guest list."));
       setScreen("complete");
       await refreshParty(true);
     } catch (error) {
@@ -171,7 +173,7 @@ export function PartyCheckInClient({
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_48%,#fce7f3_100%)] px-4 py-7 text-slate-950 sm:px-6 sm:py-12">
       <section className="mx-auto w-full max-w-2xl rounded-[2rem] border-2 border-white bg-white/95 p-5 shadow-[0_22px_60px_rgba(15,23,42,0.14)] sm:p-9">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-800">Jumping Jax party check-in</p>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-800">Jumping Jax party RSVP &amp; check-in</p>
         <h1 className="mt-3 text-balance text-4xl font-black tracking-tight sm:text-5xl">
           {party ? `${party.title}'s party` : "Loading party…"}
         </h1>
@@ -183,6 +185,11 @@ export function PartyCheckInClient({
 
         {screen === "choice" ? (
           <section className="mt-8" aria-labelledby="waiver-question">
+            <fieldset className="mb-6 grid gap-3 sm:grid-cols-2">
+              <legend className="mb-3 text-xl font-black">Let the host know</legend>
+              <button type="button" aria-pressed={!atFacility} onClick={() => setAtFacility(false)} className={`rounded-2xl border-2 p-4 text-left font-black ${!atFacility ? "border-cyan-700 bg-cyan-100" : "border-slate-200 bg-white"}`}>I’m coming — RSVP</button>
+              <button type="button" aria-pressed={atFacility} onClick={() => setAtFacility(true)} className={`rounded-2xl border-2 p-4 text-left font-black ${atFacility ? "border-emerald-700 bg-emerald-100" : "border-slate-200 bg-white"}`}>I’m here — check in</button>
+            </fieldset>
             <h2 id="waiver-question" className="text-2xl font-black">Do you already have a valid Jumping Jax waiver?</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <button
@@ -198,7 +205,7 @@ export function PartyCheckInClient({
                 className={`${choiceClass} border-orange-300 bg-orange-50 text-orange-950 hover:border-orange-600 focus-visible:ring-orange-200`}
               >
                 <span className="block text-2xl font-black">No</span>
-                <span className="mt-1 block font-semibold">Sign a waiver, then check in automatically</span>
+                <span className="mt-1 block font-semibold">{atFacility ? "Sign a waiver, then check in automatically" : "Sign a waiver and join the guest list"}</span>
               </Link>
             </div>
           </section>
@@ -257,13 +264,18 @@ export function PartyCheckInClient({
         {screen === "complete" ? (
           <section className="mt-8 rounded-3xl border-2 border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-950" role="status">
             <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-white text-3xl" aria-hidden="true">✓</div>
-            <h2 className="mt-4 text-3xl font-black">You’re checked in!</h2>
+            <h2 className="mt-4 text-3xl font-black">{atFacility ? "You’re checked in!" : "You’re on the guest list!"}</h2>
             <p className="mt-2 font-semibold leading-7">{completeMessage}</p>
-            <button type="button" onClick={() => { resetSearch(); setScreen("choice"); }} className="mt-5 min-h-12 rounded-full bg-slate-950 px-6 font-black text-white">Check in another guest</button>
+            <button type="button" onClick={() => { resetSearch(); setScreen("choice"); }} className="mt-5 min-h-12 rounded-full bg-slate-950 px-6 font-black text-white">{atFacility ? "Check in another guest" : "RSVP for another guest"}</button>
           </section>
         ) : null}
 
-        <section className="mt-8 border-t-2 border-slate-100 pt-7" aria-labelledby="checked-in-heading">
+        <section id="guest-list" className="mt-8 border-t-2 border-slate-100 pt-7" aria-labelledby="checked-in-heading">
+          <div className="mb-6">
+            <h2 className="text-2xl font-black">Who’s coming</h2>
+            <p className="mt-1 font-semibold text-slate-600">{(party?.expectedGuests?.length ?? 0) + (party?.checkedInGuests.length ?? 0)} on the guest list · {party?.checkedInGuests.length ?? 0} checked in</p>
+            {party?.expectedGuests?.length ? <ul className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Expected guests">{party.expectedGuests.map(guest => <li key={guest.id} className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 font-bold">{guest.displayName}<span className="ml-2 text-xs font-semibold text-sky-800">Expected</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-600">No guests are awaiting check-in yet.</p>}
+          </div>
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-800">Live guest list</p>

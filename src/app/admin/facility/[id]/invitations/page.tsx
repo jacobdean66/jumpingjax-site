@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { resolveApprovedPrint } from "@/lib/facility-parties/invitations/approved-print";
 
 import {
   AdminAuthError,
@@ -162,6 +163,11 @@ export default async function FacilityInvitationsPage({
     stored: data.invitation,
     colorHint: `${clean(data.balloon_colors)} ${clean(data.table_cloth_colors)}`,
   });
+  storedSnapshot.approvedPrint = resolveApprovedPrint(data.invitation, {
+    bookingId: data.id, childName: clean(data.child_name) || "Birthday Star", childAge: clean(data.child_age),
+    customerPhone: clean(data.phone), dateLabel: clean(data.readable_date), timeLabel: clean(data.readable_time),
+    themeText: clean(data.party_theme), rsvpUrl: waiverUrl,
+  });
   const agentResult = runInvitationAgent({
     action: layout === "single" ? "view-single" : "view-sheet",
     sourceText: storedSnapshot.sourceText,
@@ -169,6 +175,7 @@ export default async function FacilityInvitationsPage({
     optionIndex: storedSnapshot.optionIndex,
     alternatesUsed: storedSnapshot.alternatesUsed,
     bookingId: data.id,
+    approvedPrint: storedSnapshot.approvedPrint,
   });
 
   return (

@@ -33,13 +33,13 @@ export function InvitationSheet({
   const quantity = dense ? 4 : normalizeInvitationQuantity(invitationQuantity);
   const pageCount = quantity / 4;
   const legal = paperSize === "legal";
-  const portrait = snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars";
+  const portrait = Boolean(snapshot.approvedPrint) || snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars";
   const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
   const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
-  const safeMargin = INVITATION_AGENT_STANDARD.printSafeMarginInches;
+  const safeMargin = snapshot.approvedPrint ? 0.25 : INVITATION_AGENT_STANDARD.printSafeMarginInches;
   const canvasWidth = legal && !portrait ? 12 : pageWidth - safeMargin * 2;
   const canvasHeight = legal && !portrait ? 8 : pageHeight - safeMargin * 2;
-  const bleed = legal ? 0 : 0.125;
+  const bleed = snapshot.approvedPrint || legal ? 0 : 0.125;
 
   return (
     <div
@@ -126,7 +126,7 @@ export function InvitationSheet({
                 <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 border-l border-dashed border-slate-500 print:border-black" />
               </>
             ) : null}
-            <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0">
+            <div className="invitation-print-grid grid h-full w-full grid-cols-2 grid-rows-2 gap-0" style={snapshot.approvedPrint ? { columnGap: "2.4305556%", rowGap: "1.8518519%" } : undefined}>
               {Array.from({ length: 4 }, (_, index) => (
                 <div
                   key={index}

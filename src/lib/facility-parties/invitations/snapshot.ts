@@ -7,10 +7,13 @@ import {
 } from "./match-theme";
 import { getInvitationTheme, type InvitationThemeDefinition } from "./theme-catalog";
 
+import type { ApprovedPrint } from "./approved-print";
+
 export const INVITATION_SNAPSHOT_VERSION = 1 as const;
 
 export type InvitationSnapshot = InvitationMatch & {
   version: typeof INVITATION_SNAPSHOT_VERSION;
+  approvedPrint?: ApprovedPrint;
   sourceText: string;
   optionIndex: number;
   alternatesUsed: number;

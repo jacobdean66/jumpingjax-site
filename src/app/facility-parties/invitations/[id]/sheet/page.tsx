@@ -18,6 +18,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
   const paperSize = resolvedSearch?.paper === "legal" ? "legal" : "letter";
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  const portrait = Boolean(view.snapshot.approvedPrint) || ["princess-royal", "racing-cars"].includes(view.snapshot.themeId);
   const agentResult = runInvitationAgent({
     action: "view-sheet",
     sourceText: view.snapshot.sourceText,
@@ -25,6 +26,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,
     bookingId: view.bookingId,
+    approvedPrint: view.snapshot.approvedPrint,
   });
 
   return (
@@ -35,7 +37,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
             Printable birthday invitations
           </p>
           <p className="mt-1 text-sm font-bold text-slate-700">
-            {paperSize === "legal"
+            {view.snapshot.approvedPrint ? "Approved invitation · Letter portrait · four per sheet" : paperSize === "legal"
               ? "Legal landscape · four exact 4 × 6 invitations"
               : "Letter landscape · fills the full sheet · four 5.5 × 4.25 invitations"}
           </p>
@@ -61,9 +63,9 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
             Download invitations now
           </Link>
           <PrintButton
-            label="Choose printer & print landscape"
+            label={`Choose printer & print ${portrait ? "portrait" : "landscape"}`}
             choosePrinter
-            orientation="landscape"
+            orientation={portrait ? "portrait" : "landscape"}
             invitation={{
               sourceText: agentResult.snapshot.sourceText,
               optionIndex: agentResult.snapshot.optionIndex,
@@ -74,7 +76,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
         </div>
       </div>
       <p className="mb-4 text-sm font-bold text-slate-600 print:hidden">
-        The button opens printer selection first. Choose your printer, keep Landscape selected, then print.
+        The button opens printer selection first. Choose your printer, keep {portrait ? "Portrait" : "Landscape"} selected, then print.
       </p>
       <InvitationSheet
         snapshot={agentResult.snapshot}

@@ -9,6 +9,8 @@ import {
   type InvitationAgentLibraryId,
 } from "./library/registry";
 
+import type { ApprovedPrint } from "./approved-print";
+
 export const INVITATION_AGENT_ACTIONS = [
   "create",
   "alternate",
@@ -47,6 +49,7 @@ export type InvitationAgentInput = {
   alternatesUsed?: number;
   selection?: string;
   bookingId?: string;
+  approvedPrint?: ApprovedPrint;
 };
 
 export type InvitationAgentResult = {
@@ -84,6 +87,8 @@ export function runInvitationAgent(
     input.action === "alternate"
       ? advanceInvitationSnapshot(current)
       : current;
+
+  if (input.approvedPrint?.bookingId === input.bookingId) snapshot.approvedPrint = input.approvedPrint;
 
   return {
     agent: "party-invitation",

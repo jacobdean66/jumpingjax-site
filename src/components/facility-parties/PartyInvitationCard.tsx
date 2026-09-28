@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { approvedPrintUrl } from "@/lib/facility-parties/invitations/approved-print";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import {
   agentPrintArtworkSrc,
@@ -46,6 +47,14 @@ export function PartyInvitationCard({
   sheetReadable = false,
   sheetMode = false,
 }: PartyInvitationCardProps) {
+  if (snapshot.approvedPrint) {
+    const print = snapshot.approvedPrint;
+    return <article data-approved-print-id={print.id} data-theme-id={snapshot.themeId} className={sheetMode ? "h-full w-full" : "mx-auto w-full max-w-xl"}>
+      <a href={print.rsvpUrl} aria-label={`${childName} — RSVP and guest list`} className="block h-full w-full">
+        <img src={approvedPrintUrl(print)} alt={`${childName} is turning ${childAge}. ${dateLabel}, ${timeLabel}. NASCAR invitation with party RSVP QR code.`} className="h-full w-full object-contain" />
+      </a>
+    </article>;
+  }
   compact = compact || previewScale || sheetReadable;
   const composed = composeLibraryInvitation({
     themeId: snapshot.themeId,
