@@ -2,6 +2,8 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { ACTIVE_GIVEAWAY_CAMPAIGN } from "@/lib/giveaway/giveaway-campaigns";
+
 const months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -92,19 +94,14 @@ export function GiveawayNominationForm() {
         </div>
       </fieldset>
 
-      <fieldset className="mt-6">
-        <legend className="font-bold text-slate-800">Choose the party nomination</legend>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="cursor-pointer rounded-2xl border-2 border-pink-200 bg-pink-50 p-4 font-black text-pink-950 has-[:checked]:border-pink-500 has-[:checked]:ring-4 has-[:checked]:ring-pink-100">
-            <input type="radio" name="party_choice" value="september_birthday" required className="mr-3 accent-pink-500" />
-            September birthday party
-          </label>
-          <label className="cursor-pointer rounded-2xl border-2 border-cyan-200 bg-cyan-50 p-4 font-black text-cyan-950 has-[:checked]:border-cyan-500 has-[:checked]:ring-4 has-[:checked]:ring-cyan-100">
-            <input type="radio" name="party_choice" value="back_to_school" required className="mr-3 accent-cyan-500" />
-            Back-to-school party
-          </label>
-        </div>
-      </fieldset>
+      <input type="hidden" name="party_choice" value={ACTIVE_GIVEAWAY_CAMPAIGN} />
+      <section className="mt-6 rounded-2xl border-2 border-orange-200 bg-orange-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-orange-700">October Giveaway</p>
+        <p className="mt-1 font-black text-orange-950">Halloween weekend birthday party</p>
+        <p className="mt-2 text-sm font-semibold text-orange-900">
+          The winning birthday child and guests can wear their own costumes. Costumes are encouraged, not required.
+        </p>
+      </section>
 
       <label className="mt-6 block font-bold text-slate-800">
         Why are you nominating this child?
@@ -129,4 +126,3 @@ export function GiveawayNominationForm() {
     </form>
   );
 }
-

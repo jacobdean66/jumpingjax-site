@@ -134,10 +134,10 @@ export default async function Home() {
               </span>
             </div>
             <h2 className="mt-5 text-balance text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
-              Nominate a child to win a free party!
+              October Giveaway: win a free Halloween weekend party!
             </h2>
             <p className="mt-4 max-w-3xl text-pretty text-base font-semibold leading-7 text-slate-700 sm:text-lg">
-              Help us celebrate a special child with a September birthday or back-to-school party at Jumping Jax.
+              Nominate a birthday child for a Halloween weekend party at Jumping Jax. Guests can wear their own costumes.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link

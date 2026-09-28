@@ -8,6 +8,7 @@ import {
   projectPublicNomineeCards,
   type NominationSubmission,
 } from "@/lib/giveaway/nomination-groups";
+import { giveawayCampaignLabel } from "@/lib/giveaway/giveaway-campaigns";
 import { formatPublicChildDisplayName } from "@/lib/giveaway/public-nominee-display";
 import {
   createServiceRoleClient,
@@ -29,11 +30,6 @@ type PublicCard = {
   childName: string;
   partyChoice: "september_birthday" | "back_to_school" | string;
   nominationCount: number;
-};
-
-const partyLabels: Record<string, string> = {
-  september_birthday: "September birthday party",
-  back_to_school: "Back-to-school party",
 };
 
 async function getNomineeCards(): Promise<{ cards: PublicCard[]; unavailable: boolean }> {
@@ -139,18 +135,18 @@ export default async function NomineesPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {cards.map((card, index) => {
-                const isBirthday = card.partyChoice === "september_birthday";
+                const isOctober = card.partyChoice === "october_halloween";
                 return (
                   <article
                     key={card.groupKey}
                     className={`rounded-[2rem] border-4 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl ${
-                      isBirthday ? "border-pink-200" : "border-cyan-200"
+                      isOctober ? "border-orange-200" : "border-pink-200"
                     }`}
                   >
                     <div
                       aria-hidden="true"
                       className={`flex h-14 w-14 rotate-[-4deg] items-center justify-center rounded-2xl text-xl font-black text-white shadow-md ${
-                        isBirthday ? "bg-pink-500" : "bg-cyan-500"
+                        isOctober ? "bg-orange-500" : "bg-pink-500"
                       }`}
                     >
                       {index + 1}
@@ -160,12 +156,12 @@ export default async function NomineesPage() {
                     </h2>
                     <p
                       className={`mt-3 inline-flex rounded-full px-3 py-2 text-sm font-black ${
-                        isBirthday
-                          ? "bg-pink-100 text-pink-950"
-                          : "bg-cyan-100 text-cyan-950"
+                        isOctober
+                          ? "bg-orange-100 text-orange-950"
+                          : "bg-pink-100 text-pink-950"
                       }`}
                     >
-                      {partyLabels[card.partyChoice] ?? card.partyChoice}
+                      {giveawayCampaignLabel(card.partyChoice)}
                     </p>
                     {card.nominationCount > 1 ? (
                       <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-500">

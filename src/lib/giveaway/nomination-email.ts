@@ -1,6 +1,7 @@
 import { formatPublicChildDisplayName } from "./public-nominee-display";
+import type { GiveawayCampaignChoice } from "./giveaway-campaigns";
 
-export type GiveawayPartyChoice = "september_birthday" | "back_to_school";
+export type GiveawayPartyChoice = GiveawayCampaignChoice;
 
 export type NominationEmailEvent = {
   sourceEventId: string;
@@ -22,6 +23,8 @@ export type GiveawayNominationRow = {
 };
 
 const PARTY_CHOICES: Record<string, GiveawayPartyChoice> = {
+  "October Giveaway": "october_halloween",
+  "Halloween weekend birthday party": "october_halloween",
   "September birthday party": "september_birthday",
   "Back-to-school party": "back_to_school",
 };
@@ -64,4 +67,3 @@ export function parseNominationEmail(event: NominationEmailEvent): GiveawayNomin
     permission_acknowledged: true,
   };
 }
-
