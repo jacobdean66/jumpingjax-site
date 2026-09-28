@@ -2,12 +2,13 @@ import Link from "next/link";
 import { AdminBackButton } from "@/app/admin/AdminBackButton";
 import { AdminTokenGate } from "@/app/admin/AdminTokenGate";
 import { PaymentHub } from "@/components/payments/PaymentHub";
+import { MobilePaymentsSection } from "@/components/payments/MobilePaymentsSection";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams?: Promise<{ token?: string }>;
+  searchParams?: Promise<{ token?: string; mobilePage?: string; page?: string }>;
 };
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
@@ -52,6 +53,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <PaymentHub />
         </section>
+        <MobilePaymentsSection page={Math.max(0, Math.min(10000, Number.parseInt(resolved?.mobilePage ?? "0", 10) || 0))} recentPage={Math.max(0, Number.parseInt(resolved?.page ?? "0", 10) || 0)} />
         <section className="mt-6 border-l-4 border-amber-400 bg-white p-5 text-sm leading-relaxed text-slate-700 shadow-sm">
           <h2 className="font-black text-slate-950">Front-counter recordkeeping</h2>
           <p className="mt-2">
