@@ -45,6 +45,7 @@ export default async function AdminFacilityInvitationPage({
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,
     bookingId: view.bookingId,
+    approvedPrint: view.snapshot.approvedPrint,
   });
 
   return (

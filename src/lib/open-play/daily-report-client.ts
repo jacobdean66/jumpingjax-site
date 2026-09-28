@@ -89,6 +89,8 @@ export function classificationLabel(value: AdmissionClassification | string): st
       return "Playing adult";
     case "watching_adult":
       return "Watching adult";
+    case "party_adult":
+      return "Party adult";
     default:
       return String(value);
   }
@@ -156,6 +158,7 @@ export type ReportSummaryView = {
   childrenAge3OrOlder: number;
   playingAdults: number;
   watchingAdults: number;
+  partyAdults?: number;
   corrections: number;
   voids: number;
   refunds: number;
@@ -176,6 +179,7 @@ export function toReportSummaryView(report: DailyReport): ReportSummaryView {
     childrenAge3OrOlder: report.childrenAge3OrOlder,
     playingAdults: report.playingAdults,
     watchingAdults: report.watchingAdults,
+    partyAdults: report.partyAdults ?? 0,
     corrections: report.corrections,
     voids: report.voids,
     refunds: report.refunds,

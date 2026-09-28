@@ -52,6 +52,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
     optionIndex: view.snapshot.optionIndex,
     alternatesUsed: view.snapshot.alternatesUsed,
     bookingId: view.bookingId,
+    approvedPrint: view.snapshot.approvedPrint,
   });
   const copy = buildInvitationCopy({
     childName: view.childName,
@@ -95,7 +96,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
         </div>
         <p className="mb-4 text-sm font-semibold text-slate-600 print:hidden">
           On a phone, Share invitation opens Messenger and your other sharing apps.
-          The download is an editable PowerPoint file for printing.
+          {view.snapshot.approvedPrint ? "Download your approved four-per-sheet PDF for printing." : "The download is an editable PowerPoint file for printing."}
         </p>
         <div className="mb-4 print:hidden">
           <InvitationShareActions
@@ -103,6 +104,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
             message={`${copy.dateLabel}, ${copy.timeLabel}.`}
           />
         </div>
+        <p className="mb-4 text-center print:hidden"><a href={`${view.waiverUrl}#guest-list`} className="font-bold text-sky-800 underline">RSVP &amp; view this party’s guest list</a></p>
         <PartyInvitationCard
           snapshot={agentResult.snapshot}
           childName={view.childName}

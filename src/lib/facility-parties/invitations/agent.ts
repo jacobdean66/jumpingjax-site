@@ -10,6 +10,8 @@ import {
 } from "./library/registry";
 import type { ConfirmedInvitationTheme } from "./theme-search";
 
+import type { ApprovedPrint } from "./approved-print";
+
 export const INVITATION_AGENT_ACTIONS = [
   "create",
   "alternate",
@@ -50,6 +52,7 @@ export type InvitationAgentInput = {
   bookingId?: string;
   confirmedTheme?: ConfirmedInvitationTheme;
   confirmationToken?: string;
+  approvedPrint?: ApprovedPrint;
 };
 
 export type InvitationAgentResult = {
@@ -88,6 +91,8 @@ export function runInvitationAgent(
     input.action === "alternate"
       ? advanceInvitationSnapshot(current)
       : current;
+
+  if (input.approvedPrint?.bookingId === input.bookingId) snapshot.approvedPrint = input.approvedPrint;
 
   return {
     agent: "party-invitation",

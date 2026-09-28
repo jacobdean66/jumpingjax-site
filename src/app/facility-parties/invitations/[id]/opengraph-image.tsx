@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
+import { GET as savedInvitationImage } from "@/app/api/facility/invitations/[id]/approved/route";
 
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
@@ -16,6 +18,14 @@ export default async function InvitationOpenGraphImage({
 }) {
   const { id } = await params;
   const view = await loadFacilityInvitationView(id);
+
+  if (view?.snapshot.approvedPrint) {
+    const image = await savedInvitationImage(new Request("https://jumpingjaxllc.com/?format=png"), { params: Promise.resolve({ id }) });
+    if (image.ok) {
+      const png = await sharp(Buffer.from(await image.arrayBuffer())).resize(size.width, size.height, { fit: "contain", background: "#ffffff" }).png().toBuffer();
+      return new Response(new Uint8Array(png), { headers: { "content-type": "image/png", "cache-control": "private, no-store" } });
+    }
+  }
 
   if (!view) {
     return new ImageResponse(

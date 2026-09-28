@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PartyGuestList } from "./PartyGuestList";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type {
@@ -35,7 +36,9 @@ export function PartyCheckInClient({
   const [lastName, setLastName] = useState("");
   const [search, setSearch] = useState<SearchState>({ status: "idle" });
   const [completeMessage, setCompleteMessage] = useState("");
-  const [atFacility, setAtFacility] = useState(false);
+  const [arrivalSelected, setAtFacility] = useState(false);
+  const isPartyDay = party?.isPartyDay === true;
+  const atFacility = arrivalSelected && isPartyDay;
 
   const waiverUrl = useMemo(() => {
     const params = new URLSearchParams({
@@ -142,7 +145,7 @@ export function PartyCheckInClient({
         | { ok?: boolean; message?: string; error?: string }
         | null;
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || "We could not check you in right now.");
+        throw new Error(payload?.error || (atFacility ? "We could not check you in right now." : "We could not save your RSVP right now."));
       }
       setCompleteMessage(payload.message || (atFacility ? "You are checked in for the party." : "You’re on the guest list."));
       setScreen("complete");
@@ -153,7 +156,7 @@ export function PartyCheckInClient({
         message:
           error instanceof Error
             ? error.message
-            : "We could not check you in right now.",
+            : atFacility ? "We could not check you in right now." : "We could not save your RSVP right now.",
       });
     }
   }
@@ -162,7 +165,7 @@ export function PartyCheckInClient({
     return (
       <main className="min-h-screen bg-cyan-100 px-4 py-8 text-slate-950 sm:px-6 sm:py-12">
         <section className="mx-auto w-full max-w-xl rounded-[1.75rem] border-2 border-white bg-white/95 px-5 py-8 text-center shadow-[0_18px_48px_rgba(8,145,178,0.16)]">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">Jumping Jax party check-in</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">Jumping Jax party RSVP</p>
           <h1 className="mt-3 text-3xl font-black">Party unavailable</h1>
           <p role="alert" className="mt-3 font-semibold text-slate-600">{partyError}</p>
         </section>
@@ -173,7 +176,7 @@ export function PartyCheckInClient({
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_48%,#fce7f3_100%)] px-4 py-7 text-slate-950 sm:px-6 sm:py-12">
       <section className="mx-auto w-full max-w-2xl rounded-[2rem] border-2 border-white bg-white/95 p-5 shadow-[0_22px_60px_rgba(15,23,42,0.14)] sm:p-9">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-800">Jumping Jax party RSVP &amp; check-in</p>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-800">{isPartyDay ? "Jumping Jax party RSVP & check-in" : "Jumping Jax party RSVP"}</p>
         <h1 className="mt-3 text-balance text-4xl font-black tracking-tight sm:text-5xl">
           {party ? `${party.title}'s party` : "Loading party…"}
         </h1>
@@ -185,11 +188,11 @@ export function PartyCheckInClient({
 
         {screen === "choice" ? (
           <section className="mt-8" aria-labelledby="waiver-question">
-            <fieldset className="mb-6 grid gap-3 sm:grid-cols-2">
+            {isPartyDay ? <fieldset className="mb-6 grid gap-3 sm:grid-cols-2">
               <legend className="mb-3 text-xl font-black">Let the host know</legend>
               <button type="button" aria-pressed={!atFacility} onClick={() => setAtFacility(false)} className={`rounded-2xl border-2 p-4 text-left font-black ${!atFacility ? "border-cyan-700 bg-cyan-100" : "border-slate-200 bg-white"}`}>I’m coming — RSVP</button>
               <button type="button" aria-pressed={atFacility} onClick={() => setAtFacility(true)} className={`rounded-2xl border-2 p-4 text-left font-black ${atFacility ? "border-emerald-700 bg-emerald-100" : "border-slate-200 bg-white"}`}>I’m here — check in</button>
-            </fieldset>
+            </fieldset> : <p className="mb-6 text-lg font-bold text-cyan-900">RSVP to let the host know you’re coming.</p>}
             <h2 id="waiver-question" className="text-2xl font-black">Do you already have a valid Jumping Jax waiver?</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <button
@@ -270,33 +273,7 @@ export function PartyCheckInClient({
           </section>
         ) : null}
 
-        <section id="guest-list" className="mt-8 border-t-2 border-slate-100 pt-7" aria-labelledby="checked-in-heading">
-          <div className="mb-6">
-            <h2 className="text-2xl font-black">Who’s coming</h2>
-            <p className="mt-1 font-semibold text-slate-600">{(party?.expectedGuests?.length ?? 0) + (party?.checkedInGuests.length ?? 0)} on the guest list · {party?.checkedInGuests.length ?? 0} checked in</p>
-            {party?.expectedGuests?.length ? <ul className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Expected guests">{party.expectedGuests.map(guest => <li key={guest.id} className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 font-bold">{guest.displayName}<span className="ml-2 text-xs font-semibold text-sky-800">Expected</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-600">No guests are awaiting check-in yet.</p>}
-          </div>
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-800">Live guest list</p>
-              <h2 id="checked-in-heading" className="mt-1 text-2xl font-black">Who’s checked in</h2>
-            </div>
-            <span className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-cyan-950">{party?.checkedInGuests.length ?? 0} here</span>
-          </div>
-          {party?.checkedInGuests.length ? (
-            <ul className="mt-4 grid gap-2 sm:grid-cols-2" aria-live="polite">
-              {party.checkedInGuests.map((guest) => (
-                <li key={guest.id} className="flex min-h-12 items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 font-black text-cyan-950">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-emerald-600 text-sm text-white" aria-hidden="true">✓</span>
-                  {guest.displayName}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-4 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-5 text-center font-semibold text-slate-600">No guests have checked in yet.</p>
-          )}
-          <p className="mt-3 text-xs font-semibold text-slate-500">The list refreshes automatically. Last names are shortened for privacy.</p>
-        </section>
+        <PartyGuestList party={party} />
       </section>
     </main>
   );

@@ -15,7 +15,7 @@ import { saveGiveawayNomination } from "@/lib/giveaway/nomination-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
-const ENTRY_DEADLINE = new Date("2026-10-25T03:59:00.000Z");
+const ENTRY_DEADLINE = new Date("2026-10-15T13:00:00.000Z");
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
   if (new Date() >= ENTRY_DEADLINE) {
     return NextResponse.json(
-      { error: "Nominations closed October 24, 2026." },
+      { error: "Nominations closed October 15, 2026 at 9:00 a.m. Eastern." },
       { status: 410 },
     );
   }
@@ -131,9 +131,9 @@ export async function POST(request: NextRequest) {
             `Child: ${childName}`,
             `Party choice: ${partyLabel}`,
             "Prize: one public or private party for up to 20 children",
-            "Included: drinks, balloons, plates, cutlery, and themed tablecloths",
-            "Entry deadline: October 24, 2026",
-            "Party date: Halloween weekend, subject to availability",
+            "Included: Halloween candy, drinks, balloons, plates, cutlery, and themed tablecloths",
+            "Entry deadline and winner selection: October 15, 2026 at 9:00 a.m. Eastern",
+            "Party date: any day of Halloween weekend, subject to availability",
             "",
             "One winner will be selected after entries close. A parent or legal guardian must approve the prize before it can be redeemed.",
             "",

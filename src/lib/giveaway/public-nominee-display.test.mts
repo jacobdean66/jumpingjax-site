@@ -34,7 +34,7 @@ test("public nominees page never selects private nomination fields", () => {
   assert.doesNotMatch(page, /nomination_reason|nominator_email|nominator_name/);
 });
 
-test("admin giveaway draw stays owner-authenticated and client-side only", () => {
+test("admin giveaway draw stays owner-authenticated and saves only explicit winner choices", () => {
   const page = readFileSync(
     new URL("../../app/admin/giveaway/page.tsx", import.meta.url),
     "utf8",
@@ -54,7 +54,9 @@ test("admin giveaway draw stays owner-authenticated and client-side only", () =>
 
   assert.match(page, /verifyAdminOwnerAccess/);
   assert.match(client, /pickSecureRandomIndex|secureRandomIndex|crypto\.getRandomValues/);
-  assert.match(client, /does not publish or save a winner/i);
+  assert.match(client, /Random picks are previews/i);
+  assert.match(client, /Mark as winner/i);
+  assert.match(client, /\/api\/admin\/giveaway\/status/);
   assert.match(nav, /role === "owner"[\s\S]*Giveaway Draw/);
   assert.match(home, /auth\.role === "owner"/);
   assert.match(home, /Giveaway Draw/);

@@ -27,8 +27,9 @@ import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
 import { BookingPaymentButton } from "../BookingPaymentButton";
 import {
   formatCents,
-  remainingBookingBalanceCents,
-  sumBookingPaymentCents,
+  paymentStatusLabel,
+  projectBookingPaymentStatus,
+  receiptAuditLabel,
 } from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
@@ -75,8 +76,10 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
 }
 
 function RentalCard({ booking }: { booking: AdminRentalBooking }) {
-  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
-  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  const paymentProjection = projectBookingPaymentStatus(
+    booking.total,
+    booking.paymentEntries,
+  );
   const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
     booking.status,
   );
@@ -105,7 +108,7 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
               bookingId={booking.id}
               kind="rental"
               customerEmail={booking.customerEmail}
-              balanceCents={balanceCents}
+              balanceCents={paymentProjection.balanceCents}
             />
           ) : null}
           {(booking.status === "pending" || booking.status === "approved") && (
@@ -250,10 +253,11 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
             Payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
-            Paid {formatCents(paidCents)}
-            {balanceCents === null
+            {paymentStatusLabel(paymentProjection.status)} | Paid{" "}
+            {formatCents(paymentProjection.paidCents)}
+            {paymentProjection.balanceCents === null
               ? ""
-              : ` | Balance ${formatCents(balanceCents)}`}
+              : ` | Balance ${formatCents(paymentProjection.balanceCents)}`}
           </p>
         </div>
         {booking.paymentEntries.length === 0 ? (
@@ -274,8 +278,8 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
                     : ""}
                 </span>
                 <span className="text-xs font-semibold text-slate-600">
-                  {new Date(entry.createdAt).toLocaleString()} | Receipt{" "}
-                  {entry.receiptEmailSentAt ? "emailed" : "not emailed"}
+                  {new Date(entry.createdAt).toLocaleString()} |{" "}
+                  {receiptAuditLabel(entry)}
                 </span>
               </li>
             ))}

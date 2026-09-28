@@ -170,6 +170,7 @@ async function loadActiveWaiverParticipantMatches(input: {
 
 export async function loadPublicFacilityParty(
   bookingId: string,
+  evaluationAt: Date = new Date(),
 ): Promise<PublicFacilityParty | null> {
   const booking = await loadFacilityBooking(bookingId);
   if (!booking || !bookingAcceptsGuests(booking.status)) return null;
@@ -180,6 +181,7 @@ export async function loadPublicFacilityParty(
     partyLabel: cleanPartyCheckInText(booking.party_label) || "Facility party",
     date: cleanPartyCheckInText(booking.readable_date),
     time: cleanPartyCheckInText(booking.readable_time),
+    isPartyDay: booking.readable_date === businessDayYmdFromInstant(evaluationAt),
     expectedGuests: guests.filter(guest => !guest.checkedInAt).map(guest => ({
       id: guest.id,
       displayName: publicGuestName(guest.firstName, guest.lastName),

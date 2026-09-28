@@ -97,9 +97,9 @@ export function GiveawayNominationForm() {
       <input type="hidden" name="party_choice" value={ACTIVE_GIVEAWAY_CAMPAIGN} />
       <section className="mt-6 rounded-2xl border-2 border-orange-200 bg-orange-50 p-4">
         <p className="text-xs font-black uppercase tracking-wide text-orange-700">October Giveaway</p>
-        <p className="mt-1 font-black text-orange-950">Halloween weekend birthday party</p>
+        <p className="mt-1 font-black text-orange-950">Halloween costume party</p>
         <p className="mt-2 text-sm font-semibold text-orange-900">
-          The winning birthday child and guests can wear their own costumes. Costumes are encouraged, not required.
+          Choose a public or private party on any day of Halloween weekend. Guests wear their own costumes, and Halloween candy is included.
         </p>
       </section>
 

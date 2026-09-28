@@ -1,4 +1,5 @@
 import { approvedArtworkSrc } from "./approved-artwork";
+import { approvedPrintUrl } from "./approved-print";
 import { buildInvitationCopy, type InvitationCopyInput } from "./content";
 import { composeLibraryInvitation } from "./library/compose";
 import type { InvitationSnapshot } from "./snapshot";
@@ -42,6 +43,10 @@ function actionButton(label: string, href: string, color: string): string {
 export function buildFullInvitationEmailHtml(
   input: FullInvitationEmailInput,
 ): string {
+  if (input.snapshot.approvedPrint) {
+    const print = input.snapshot.approvedPrint;
+    return `<div style="max-width:600px;margin:auto;background:white;font-family:Arial,sans-serif"><a href="${escapeHtml(print.rsvpUrl)}"><img src="${escapeHtml(absoluteUrl(input.siteUrl, approvedPrintUrl(print)))}" alt="${escapeHtml(print.childName)} birthday invitation with RSVP QR code" style="display:block;width:100%;height:auto" /></a><p>${actionButton("RSVP & guest list", print.rsvpUrl, "0369a1")}${actionButton("Download four-per-sheet PDF", absoluteUrl(input.siteUrl, approvedPrintUrl(print, "pdf")), "0f172a")}</p></div>`;
+  }
   const composed = composeLibraryInvitation({
     themeId: input.snapshot.themeId,
     optionIndex: input.snapshot.optionIndex,
