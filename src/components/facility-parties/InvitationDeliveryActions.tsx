@@ -32,6 +32,6 @@ export function InvitationDeliveryActions({ bookingId, requestKey }: { bookingId
       {state === "sent" ? "Sent to the email address on your booking." : state === "error" ? "We couldn’t email your link. Please try again, or download your invitation now." : "The download is an editable PowerPoint file with your party’s QR code on every invitation."}
     </p>
     <a href={`/facility-parties/invitations/${encodeURIComponent(bookingId)}`} className="mt-2 inline-block text-sm font-bold text-cyan-200 underline">View and share your invitation</a>
-    <p className="mt-3 text-xs text-slate-300">Your party date is still pending approval from Jumping Jax.</p>
+    <p className="mt-3 text-xs text-slate-300">Your party date is still pending approval from Jumping Jax. Guests can RSVP after your party is approved.</p>
   </section>;
 }

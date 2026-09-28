@@ -14,7 +14,7 @@ test("post-booking invitation email authorizes the booking browser, fixes the re
   process.env.VERCEL_ENV = "preview";
   process.env.VERCEL_BRANCH_URL = "invitation-delivery-test.vercel.app";
   context.after(() => { for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; } });
-  let status = "pending";
+  let status: string | null = "pending";
   let failEmail = false;
   let sent = 0;
   let calls = 0;
@@ -51,8 +51,12 @@ test("post-booking invitation email authorizes the booking browser, fixes the re
   assert.equal(calls, 0);
   assert.equal((await submit({ requestKey: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" })).status, 404);
   assert.equal(sent, 0);
-  status = "cancelled";
-  assert.equal((await submit({ requestKey })).status, 404);
+  for (const inactive of ["cancelled", "canceled", " CANCELED ", "rejected", "denied", "unknown", null]) {
+    status = inactive;
+    assert.equal((await submit({ requestKey })).status, 404);
+    assert.equal(sent, 0, "inactive parties must not send invitation email");
+    assert.equal(stored, null, "inactive parties must not queue durable email");
+  }
   status = "pending";
   assert.equal((await submit({ requestKey })).status, 200);
   assert.equal(sent, 1);
@@ -63,4 +67,9 @@ test("post-booking invitation email authorizes the booking browser, fixes the re
   assert.equal((await submit({ requestKey })).status, 503);
   failEmail = false;
   assert.equal((await submit({ requestKey })).status, 200, "a failed email can be retried without rebooking");
+  for (const active of ["approved", "confirmed", " PENDING "]) {
+    status = active;
+    stored = null;
+    assert.equal((await submit({ requestKey })).status, 200);
+  }
 });

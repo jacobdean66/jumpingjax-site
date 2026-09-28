@@ -4,6 +4,7 @@ import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { facilityInvitationShareUrl } from "@/lib/facility-parties/invitations/snapshot";
+import { invitationBookingStatus } from "@/lib/facility-parties/invitations/booking-status";
 
 export const runtime = "nodejs";
 const inputSchema = z.object({ requestKey: z.string().uuid() }).strict();
@@ -24,7 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select("id,email,status,invitation")
       .eq("id", id).eq("idempotency_key", body.data.requestKey).maybeSingle();
     if (error) throw new Error("Booking lookup unavailable");
-    if (!data || !data.email || !data.invitation || ["rejected", "cancelled"].includes(data.status)) {
+    const status = invitationBookingStatus(data?.status);
+    if (!data || !data.email || !data.invitation || !status) {
       return Response.json({ error: "Invitation not found." }, { status: 404 });
     }
     const invitationUrl = facilityInvitationShareUrl(resolveEmailSiteUrl(), data.id);
@@ -34,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       kind: "facility", bookingId: data.id, purpose: "customer_invitation_link",
       to: data.email,
       subject: "Your Jumping Jax invitation link",
-      text: ["Your Jumping Jax invitations are ready.", "", invitationUrl, "", "Open this link to view, share, print, or download your invitations. Each invitation includes your party’s RSVP and guest-list QR code.", "", data.status === "pending" ? "Your party date is still pending approval from Jumping Jax." : "We look forward to celebrating with you!"].join("\n"),
+      text: ["Your Jumping Jax invitations are ready.", "", invitationUrl, "", "Open this link to view, share, print, or download your invitations. Each invitation includes your party’s RSVP and guest-list QR code.", "", status === "pending" ? "Your party date is still pending approval from Jumping Jax. Guests can RSVP after your party is approved." : "We look forward to celebrating with you!"].join("\n"),
     });
     if (emailError) return Response.json({ error: "We couldn’t email your invitation. Please try again or download it." }, { status: 503 });
     return Response.json({ sent: true }, { headers: { "cache-control": "private, no-store" } });

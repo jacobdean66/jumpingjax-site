@@ -22,12 +22,12 @@ test("the real download route returns a complete QR file or a retryable error wi
   const bookingId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const image = await readFile(new URL("../../../../public/logo.png", import.meta.url));
   let qrAvailable = false;
-  let cancelled = false;
+  let status: string | null = "pending";
   context.mock.method(globalThis, "fetch", async (source: string | URL | Request) => {
     const url = new URL(source instanceof Request ? source.url : source.toString());
     if (url.hostname === "download-test.supabase.co") {
       assert.equal(url.searchParams.get("id"), `eq.${bookingId}`);
-      return Response.json({ id: bookingId, status: cancelled ? "cancelled" : "pending", child_name: "Download Test", child_age: "7", invitation_quantity: 4, party_theme: "Birthday", readable_date: "October 10, 2026", readable_time: "2–4 PM" });
+      return Response.json({ id: bookingId, status, child_name: "Download Test", child_age: "7", invitation_quantity: 4, party_theme: "Birthday", readable_date: "October 10, 2026", readable_time: "2–4 PM" });
     }
     assert.equal(url.hostname, "api.qrserver.com");
     assert.ok(url.searchParams.get("data")?.includes(bookingId));
@@ -48,6 +48,10 @@ test("the real download route returns a complete QR file or a retryable error wi
   const slide = await zip.file("ppt/slides/slide1.xml")!.async("string");
   assert.equal((slide.match(/Party check-in and guest list QR code/g) || []).length, 4);
   assert.match(await zip.file("ppt/slides/_rels/slide1.xml.rels")!.async("string"), new RegExp(bookingId));
-  cancelled = true;
-  assert.equal((await download()).status, 404);
+  for (const inactive of ["cancelled", "canceled", " CANCELED ", "rejected", "denied", "unknown", null]) {
+    status = inactive;
+    const blocked = await download();
+    assert.equal(blocked.status, 404);
+    assert.equal(blocked.headers.get("content-disposition"), null);
+  }
 });
