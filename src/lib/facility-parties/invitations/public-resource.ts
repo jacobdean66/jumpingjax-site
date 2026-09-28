@@ -54,19 +54,35 @@ export async function fetchPublicResource(source: string, kind: "html" | "image"
       const mime = response.headers["content-type"]?.split(";")[0].toLowerCase();
       const encoding = response.headers["content-encoding"];
       if (response.statusCode !== 200 || !mime || !allowed.includes(mime) ||
-        (encoding && encoding !== "identity") || Number(response.headers["content-length"] || 0) > limit) {
-        response.destroy(); reject(new Error("Source response unavailable.")); return;
+        (encoding && encoding !== "identity") || (kind === "image" && Number(response.headers["content-length"] || 0) > limit)) {
+        response.destroy(); reject(new Error("Source response unavailable.", { cause: response.statusCode })); return;
       }
       let size = 0;
+      let settled = false;
       const chunks: Buffer[] = [];
+      const finish = (bytes: Buffer) => {
+        if (settled) return;
+        settled = true; resolve(bytes); response.destroy();
+      };
       response.on("data", (chunk: Buffer) => {
-        size += chunk.length;
-        if (size > limit) { response.destroy(new Error("Source exceeds limit.")); return; }
-        chunks.push(chunk);
+        if (settled) return;
+        if (kind === "html") {
+          const prefix = chunk.subarray(0, limit - size);
+          size += prefix.length; chunks.push(prefix);
+          const bytes = Buffer.concat(chunks);
+          // Latin-1 keeps ASCII tag offsets aligned with the original bytes.
+          const closingHead = /<\/head\s*>/i.exec(bytes.toString("latin1"));
+          if (closingHead) { finish(bytes.subarray(0, closingHead.index + closingHead[0].length)); return; }
+          if (size === limit) finish(bytes);
+        } else {
+          size += chunk.length;
+          if (size > limit) { response.destroy(new Error("Source exceeds limit.")); return; }
+          chunks.push(chunk);
+        }
       });
-      response.on("end", () => resolve(Buffer.concat(chunks)));
-      response.on("aborted", () => reject(new Error("Source response interrupted.")));
-      response.on("error", reject);
+      response.on("end", () => finish(Buffer.concat(chunks)));
+      response.on("aborted", () => { if (!settled) reject(new Error("Source response interrupted.")); });
+      response.on("error", error => { if (!settled) reject(error); });
     });
     request.on("error", reject);
   });

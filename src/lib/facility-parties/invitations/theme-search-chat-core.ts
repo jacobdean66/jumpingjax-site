@@ -10,6 +10,7 @@ export type SearchDependencies = {
   readHtml: (url: string, signal: AbortSignal) => Promise<string>;
   prepareImage: (url: string, signal: AbortSignal) => Promise<string>;
   inspect: (input: SearchInput, images: Evidence[], signal: AbortSignal) => Promise<unknown>;
+  report?: (counts: { citedPages: number; loadedPages: number; declaredImages: number; usableImages: number; candidates: number }) => void;
 };
 
 type ThemeChatCapabilityCode = "protected_gateway_not_configured" | "protected_chat_search_rejected" | "protected_vision_rejected" | "chat_response_incomplete" | "chat_search_citations_missing" | "vision_response_invalid";
@@ -138,8 +139,11 @@ export async function searchThemesWithChat(input: SearchInput, dependencies: Sea
   }
   signal.throwIfAborted();
   const evidence = prepared.flatMap(image => image.status === "fulfilled" && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(image.value.dataUrl) && image.value.dataUrl.length <= 400000 ? [image.value] : []);
-  if (!evidence.length) return { question: clarification, candidates: [] as Candidate[] };
+  const report = (candidates: number) => dependencies.report?.({ citedPages: sources.length, loadedPages: pages.filter(page => page.status === "fulfilled").length, declaredImages: unique.length, usableImages: evidence.length, candidates });
+  if (!evidence.length) { report(0); return { question: clarification, candidates: [] as Candidate[] }; }
   const inspected = await dependencies.inspect(input, evidence, signal);
   signal.throwIfAborted();
-  return inspectedCandidates(inspected, evidence, input);
+  const result = inspectedCandidates(inspected, evidence, input);
+  report(result.candidates.length);
+  return result;
 }

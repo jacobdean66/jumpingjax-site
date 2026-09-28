@@ -150,12 +150,26 @@ test("pins the checked DNS address and refuses redirects, wrong MIME and compres
     } }),
   });
   assert.equal(lookups, 1); assert.match(body.toString(), /head/);
-  for (const options of [{ status: 302 }, { mime: "application/json" }, { encoding: "gzip" }, { length: "99999999" }])
+  for (const options of [{ status: 302 }, { mime: "application/json" }, { encoding: "gzip" }])
     await assert.rejects(fetchPublicResource(movie, "html", AbortSignal.timeout(1000), { resolveHost, httpsGet: mockGet(options) }), /unavailable/);
+  await assert.rejects(fetchPublicResource(picture, "image", AbortSignal.timeout(1000), { resolveHost, httpsGet: mockGet({ mime: "image/jpeg", length: "99999999" }) }), /unavailable/);
+});
+
+test("large HTML pages retain early image metadata and stop at the head without requiring the whole body", async () => {
+  const prefix = `<html><head><meta property="og:image" content="${picture}"></he`;
+  const body = await fetchPublicResource(movie, "html", AbortSignal.timeout(1000), {
+    resolveHost: async () => ["93.184.216.34"],
+    httpsGet: mockGet({ length: "9000000", chunks: [Buffer.from(prefix), Buffer.from("ad><body>ignored"), Buffer.alloc(600000)] }),
+  });
+  assert.deepEqual(declaredImages(body.toString(), movie), [picture]);
+  assert.match(body.toString(), /<\/head>$/);
+  assert.ok(body.length < 200);
 });
 
 test("streaming limits and DNS deadlines prevent unbounded retrieval", async () => {
-  await assert.rejects(fetchPublicResource(movie, "html", AbortSignal.timeout(1000), { resolveHost: async () => ["93.184.216.34"], httpsGet: mockGet({ chunks: [Buffer.alloc(300000), Buffer.alloc(300000)] }) }), /exceeds limit/);
+  const prefix = await fetchPublicResource(movie, "html", AbortSignal.timeout(1000), { resolveHost: async () => ["93.184.216.34"], httpsGet: mockGet({ chunks: [Buffer.alloc(300000), Buffer.alloc(300000)] }) });
+  assert.equal(prefix.length, 512 * 1024);
+  await assert.rejects(fetchPublicResource(picture, "image", AbortSignal.timeout(1000), { resolveHost: async () => ["93.184.216.34"], httpsGet: mockGet({ mime: "image/jpeg", chunks: [Buffer.alloc(2500000), Buffer.alloc(2500000)] }) }), /exceeds limit/);
   const controller = new AbortController();
   const pending = fetchPublicResource(movie, "html", controller.signal, { resolveHost: () => new Promise(() => {}) });
   controller.abort(new Error("deadline"));

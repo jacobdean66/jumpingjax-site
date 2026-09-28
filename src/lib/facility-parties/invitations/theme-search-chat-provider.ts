@@ -24,7 +24,15 @@ export async function searchInvitationThemesWithChat(rawInput: ThemeSearchReques
         }, { signal, timeout: 18000 });
       } catch { throw new ThemeChatCapabilityError("protected_chat_search_rejected"); }
     },
-    readHtml: async (url, signal) => (await fetchPublicResource(url, "html", signal)).toString("utf8"),
+    readHtml: async (url, signal) => {
+      try { return (await fetchPublicResource(url, "html", signal)).toString("utf8"); }
+      catch (error) {
+        // Public source host/status only; never record customer text or provider bodies.
+        console.info("[invitation-theme-source] unavailable", { host: new URL(url).hostname, status: error instanceof Error && typeof error.cause === "number" ? error.cause : undefined });
+        throw error;
+      }
+    },
+    report: counts => console.info("[invitation-theme-search] evidence", counts),
     prepareImage: async (url, signal) => {
       const downloaded = await fetchPublicResource(url, "image", signal);
       const image = sharp(downloaded, { limitInputPixels: 24000000, animated: false });
