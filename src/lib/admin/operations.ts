@@ -1,13 +1,14 @@
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
-  invitationDeliveryPreferenceLabel,
+  formatInvitationDeliveryPreferences,
   invitationTemplateLabel,
-  normalizeInvitationDeliveryPreference,
+  normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
   type FacilityInvitationDeliveryPreference,
   type FacilityInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import type { BookingPaymentEntry } from "@/lib/payments/booking-payments";
 import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
@@ -95,6 +96,38 @@ type FacilityRow = {
   total: number | string | null;
 };
 
+type BookingPaymentRow = {
+  id: string;
+  booking_kind: "rental" | "facility";
+  booking_id: string;
+  entry_type: "facility_deposit" | "facility_balance" | "rental_payment";
+  payment_method: "card" | "cash" | "check" | "other";
+  amount_cents: number;
+  processing_fee_cents: number;
+  processor_reference: string | null;
+  recorded_by: string;
+  receipt_email: string | null;
+  receipt_email_sent_at: string | null;
+  created_at: string;
+};
+
+function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
+  return {
+    id: row.id,
+    bookingKind: row.booking_kind,
+    bookingId: row.booking_id,
+    entryType: row.entry_type,
+    paymentMethod: row.payment_method,
+    amountCents: Number(row.amount_cents),
+    processingFeeCents: Number(row.processing_fee_cents),
+    processorReference: clean(row.processor_reference),
+    recordedBy: row.recorded_by,
+    receiptEmail: clean(row.receipt_email),
+    receiptEmailSentAt: clean(row.receipt_email_sent_at),
+    createdAt: row.created_at,
+  };
+}
+
 export type AdminRentalBooking = {
   id: string;
   createdAt: string | null;
@@ -123,6 +156,7 @@ export type AdminRentalBooking = {
   paymentConfirmedAt: string | null;
   paymentConfirmedBy: string | null;
   paymentConfirmationNotes: string | null;
+  paymentEntries: BookingPaymentEntry[];
   googleCalendarEventId: string | null;
   googleCalendarSecondaryEventId: string | null;
   googleFoamCalendarEventId: string | null;
@@ -156,7 +190,7 @@ export type AdminFacilityBooking = {
   childGender: string | null;
   childAge: string | null;
   partyTheme: string | null;
-  invitationDeliveryPreference: FacilityInvitationDeliveryPreference;
+  invitationDeliveryPreference: FacilityInvitationDeliveryPreference[];
   invitationDeliveryLabel: string;
   invitationTemplateId: FacilityInvitationTemplateId;
   invitationTemplateLabel: string;
@@ -177,6 +211,7 @@ export type AdminFacilityBooking = {
   subtotal: number | null;
   tax: number | null;
   total: number | null;
+  paymentEntries: BookingPaymentEntry[];
   calendarStatus: string | null;
   calendarNeedsRepair: boolean;
   safeWorkflowErrorClass: string | null;
@@ -279,6 +314,7 @@ export async function loadAdminRentalBookings(input: {
 
   const ids = rows.map((row) => row.id);
   const itemMap = new Map<string, RentalItemRow[]>();
+  const paymentMap = new Map<string, BookingPaymentEntry[]>();
 
   if (ids.length > 0) {
     const { data: itemRows, error: itemError } = await supabase
@@ -290,6 +326,17 @@ export async function loadAdminRentalBookings(input: {
     for (const item of (itemRows ?? []) as RentalItemRow[]) {
       const key = String(item.booking_id);
       itemMap.set(key, [...(itemMap.get(key) ?? []), item]);
+    }
+    const { data: paymentRows, error: paymentError } = await supabase
+      .from("booking_payment_entries")
+      .select("id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at")
+      .eq("booking_kind", "rental")
+      .in("booking_id", ids.map(String))
+      .order("created_at", { ascending: false });
+    if (paymentError) throw new Error(paymentError.message);
+    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
+      const key = String(payment.booking_id);
+      paymentMap.set(key, [...(paymentMap.get(key) ?? []), paymentEntryFromRow(payment)]);
     }
   }
 
@@ -335,6 +382,7 @@ export async function loadAdminRentalBookings(input: {
       paymentConfirmedAt: clean(row.payment_confirmed_at),
       paymentConfirmedBy: clean(row.payment_confirmed_by),
       paymentConfirmationNotes: clean(row.payment_confirmation_notes),
+      paymentEntries: paymentMap.get(String(row.id)) ?? [],
       googleCalendarEventId: clean(row.google_calendar_event_id),
       googleCalendarSecondaryEventId: clean(
         row.google_calendar_secondary_event_id,
@@ -375,11 +423,23 @@ export async function loadAdminFacilityBookings(input: {
 
   const rows = (data ?? []) as FacilityRow[];
   const bookingIds = rows.map((row) => row.id);
+  const paymentMap = new Map<string, BookingPaymentEntry[]>();
   const workflowByBookingId = new Map<
     string,
     { calendar_status: string | null; last_error_class: string | null }
   >();
   if (bookingIds.length > 0) {
+    const { data: paymentRows, error: paymentError } = await supabase
+      .from("booking_payment_entries")
+      .select("id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at")
+      .eq("booking_kind", "facility")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false });
+    if (paymentError) throw new Error(paymentError.message);
+    for (const payment of (paymentRows ?? []) as BookingPaymentRow[]) {
+      const key = String(payment.booking_id);
+      paymentMap.set(key, [...(paymentMap.get(key) ?? []), paymentEntryFromRow(payment)]);
+    }
     const { data: workflows, error: workflowError } = await supabase
       .from("booking_integration_workflows")
       .select("booking_id, calendar_status, last_error_class")
@@ -406,8 +466,9 @@ export async function loadAdminFacilityBookings(input: {
     const calendarStatus = workflow?.calendar_status ?? null;
     const status = clean(row.status) ?? "pending";
     const needsRepair = status === "confirmed" && calendarStatus === "failed";
-    const invitationDeliveryPreference =
-      normalizeInvitationDeliveryPreference(row.invitation_delivery_preference);
+    const invitationDeliveryPreference = normalizeInvitationDeliveryPreferences(
+      row.invitation_delivery_preference,
+    );
     const invitationTemplateId = normalizeInvitationTemplateId(
       row.invitation_template_id,
     );
@@ -429,7 +490,7 @@ export async function loadAdminFacilityBookings(input: {
       childAge: clean(row.child_age),
       partyTheme: clean(row.party_theme),
       invitationDeliveryPreference,
-      invitationDeliveryLabel: invitationDeliveryPreferenceLabel(
+      invitationDeliveryLabel: formatInvitationDeliveryPreferences(
         invitationDeliveryPreference,
       ),
       invitationTemplateId,
@@ -453,6 +514,7 @@ export async function loadAdminFacilityBookings(input: {
       subtotal: moneyNumber(row.subtotal),
       tax: moneyNumber(row.tax),
       total: moneyNumber(row.total),
+      paymentEntries: paymentMap.get(String(row.id)) ?? [],
       calendarStatus,
       calendarNeedsRepair: needsRepair,
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,

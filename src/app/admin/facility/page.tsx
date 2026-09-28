@@ -24,6 +24,8 @@ import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { FacilityCancellationButton } from "./FacilityCancellationButton";
 import { FacilityEditButton } from "./FacilityEditButton";
 import { FacilityRestoreButton } from "./FacilityRestoreButton";
+import { BookingPaymentButton } from "../BookingPaymentButton";
+import { formatCents, remainingBookingBalanceCents, sumBookingPaymentCents } from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +81,26 @@ function partyTimeLabel(booking: AdminFacilityBooking): string {
     .join(" - ") || "Time not set";
 }
 
+function PaymentLedger({ booking }: { booking: AdminFacilityBooking }) {
+  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
+  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  return (
+    <section className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black uppercase tracking-wide text-emerald-900">Payment record</h3>
+          <p className="mt-1 text-sm font-bold text-emerald-950">Paid: {formatCents(paidCents)}{balanceCents !== null ? ` | Remaining: ${formatCents(balanceCents)}` : ""}</p>
+        </div>
+      </div>
+      {booking.paymentEntries.length > 0 ? (
+        <ul className="mt-3 divide-y divide-emerald-200 text-sm text-emerald-950">
+          {booking.paymentEntries.map((entry) => <li key={entry.id} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2"><span className="font-bold">{formatCents(entry.amountCents)} {entry.entryType === "facility_deposit" ? "deposit" : "balance"} by {entry.paymentMethod}</span><span className="text-xs font-semibold">{new Date(entry.createdAt).toLocaleString()}{entry.receiptEmailSentAt ? " | receipt emailed" : entry.receiptEmail ? " | receipt email needs attention" : ""}</span></li>)}
+        </ul>
+      ) : <p className="mt-3 text-sm font-semibold text-emerald-900">No payment has been recorded for this party.</p>}
+    </section>
+  );
+}
+
 function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const partyTime = partyTimeLabel(booking);
   const kidCount = kidCountForBooking(booking);
@@ -101,6 +123,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
+          <BookingPaymentButton bookingId={booking.id} kind="facility" customerEmail={booking.email} balanceCents={remainingBookingBalanceCents(booking.total, sumBookingPaymentCents(booking.paymentEntries))} />
           {(booking.status === "pending" || booking.status === "confirmed") && (
             <>
               <FacilityEditButton booking={booking} />
@@ -274,6 +297,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <Detail label="Total" value={formatMoney(booking.total)} />
         </section>
       </div>
+      <PaymentLedger booking={booking} />
     </article>
   );
 }
