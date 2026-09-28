@@ -81,7 +81,22 @@ export async function searchInvitationThemes(input: ThemeSearchRequest) {
     max_output_tokens: 2400,
     store: false,
   };
-  const response = await client.responses.create(params);
+  const response = await client.responses.create(params).catch((error: unknown) => {
+    // Log a bounded category, never a provider response body or request headers.
+    if (error instanceof OpenAI.APIError && error.status === 400) {
+      const message = error.message.toLowerCase();
+      if (/messages/.test(message) && /required|missing|array|provide/.test(message)) {
+        throw new Error("The configured AI gateway requires chat messages and does not accept Responses image search.");
+      }
+      if (/model/.test(message) && /not found|not exist|not supported|unsupported|invalid|not allowed/.test(message)) {
+        throw new Error("The configured AI gateway does not support the invitation search model.");
+      }
+      if (/search_content_types|image_settings|web_search_call.results/.test(message)) {
+        throw new Error("The configured AI gateway does not support image search fields.");
+      }
+    }
+    throw error;
+  });
   if (response.status !== "completed") throw new Error("Theme search did not complete.");
   return parseThemeSearchResponse(response);
 }
