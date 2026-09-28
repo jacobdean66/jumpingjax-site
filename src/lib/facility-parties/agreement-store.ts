@@ -99,9 +99,12 @@ function bookingPaymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry
     amountCents: Number(row.amount_cents),
     processingFeeCents: Number(row.processing_fee_cents),
     processorReference: clean(row.processor_reference),
+    idempotencyKey: null,
     recordedBy: row.recorded_by,
     receiptEmail: clean(row.receipt_email),
+    receiptRequestedAt: null,
     receiptEmailSentAt: row.receipt_email_sent_at,
+    receiptErrorClass: null,
     createdAt: row.created_at,
   };
 }

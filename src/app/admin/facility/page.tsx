@@ -32,8 +32,9 @@ import { FacilityAgreementPanel } from "./FacilityAgreementPanel";
 import { BookingPaymentButton } from "../BookingPaymentButton";
 import {
   formatCents,
-  remainingBookingBalanceCents,
-  sumBookingPaymentCents,
+  paymentStatusLabel,
+  projectBookingPaymentStatus,
+  receiptAuditLabel,
 } from "@/lib/payments/booking-payments";
 
 export const dynamic = "force-dynamic";
@@ -114,8 +115,10 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
   const canCheckIn = ["approved", "confirmed"].includes(
     booking.status.trim().toLowerCase(),
   );
-  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
-  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
+  const paymentProjection = projectBookingPaymentStatus(
+    booking.total,
+    booking.paymentEntries,
+  );
   const canCollectPayment = !["cancelled", "canceled", "rejected"].includes(
     booking.status,
   );
@@ -141,7 +144,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
               bookingId={booking.id}
               kind="facility"
               customerEmail={booking.email}
-              balanceCents={balanceCents}
+              balanceCents={paymentProjection.balanceCents}
               depositRecorded={booking.paymentEntries.some((entry) => entry.entryType === "facility_deposit")}
             />
           ) : null}
@@ -364,10 +367,11 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             Payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
-            Paid {formatCents(paidCents)}
-            {balanceCents === null
+            {paymentStatusLabel(paymentProjection.status)} | Paid{" "}
+            {formatCents(paymentProjection.paidCents)}
+            {paymentProjection.balanceCents === null
               ? ""
-              : ` | Balance ${formatCents(balanceCents)}`}
+              : ` | Balance ${formatCents(paymentProjection.balanceCents)}`}
           </p>
         </div>
         {booking.paymentEntries.length === 0 ? (
@@ -389,7 +393,9 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
                 </span>
                 <span className="text-xs font-semibold text-slate-600">
                   {new Date(entry.createdAt).toLocaleString()}
-                  {!entry.id.startsWith("facility-party-payment:") ? ` | Receipt ${entry.receiptEmailSentAt ? "emailed" : "not emailed"}` : ""}
+                  {!entry.id.startsWith("facility-party-payment:")
+                    ? ` | ${receiptAuditLabel(entry)}`
+                    : ""}
                 </span>
               </li>
             ))}

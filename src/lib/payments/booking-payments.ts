@@ -14,9 +14,12 @@ export type BookingPaymentEntry = {
   amountCents: number;
   processingFeeCents: number;
   processorReference: string | null;
+  idempotencyKey: string | null;
   recordedBy: string;
   receiptEmail: string | null;
+  receiptRequestedAt: string | null;
   receiptEmailSentAt: string | null;
+  receiptErrorClass: string | null;
   createdAt: string;
 };
 
@@ -33,6 +36,21 @@ export type FacilityLegacyPayment = {
 
 export const CARD_PROCESSING_RATE = 0.03;
 export const FACILITY_DEPOSIT_CENTS = 5_000;
+export const BOOKING_PAYMENT_IDEMPOTENCY_PREFIX = "booking-payment";
+
+export type BookingPaymentStatus =
+  | "unknown_total"
+  | "unpaid"
+  | "partial"
+  | "paid"
+  | "overpaid";
+
+export type BookingPaymentProjection = {
+  totalCents: number | null;
+  paidCents: number;
+  balanceCents: number | null;
+  status: BookingPaymentStatus;
+};
 
 export function processingFeeCents(
   amountCents: number,
@@ -134,9 +152,12 @@ function bookingEntryFromLegacyFacilityPayment(
     amountCents: legacyPaymentAmountCents(payment),
     processingFeeCents: 0,
     processorReference: payment.posReceiptNumber,
+    idempotencyKey: null,
     recordedBy: payment.recordedBy,
     receiptEmail: null,
+    receiptRequestedAt: null,
     receiptEmailSentAt: null,
+    receiptErrorClass: null,
     createdAt: payment.paidAt,
   };
 }
@@ -186,6 +207,60 @@ export function remainingBookingBalanceCents(
   return Math.max(0, Math.round(total * 100) - paidCents);
 }
 
+export function projectBookingPaymentStatus(
+  total: number | null,
+  entries: readonly Pick<BookingPaymentEntry, "amountCents">[],
+): BookingPaymentProjection {
+  const paidCents = sumBookingPaymentCents(entries);
+  const totalCents =
+    total === null || !Number.isFinite(total) ? null : Math.round(total * 100);
+  if (totalCents === null) {
+    return {
+      totalCents,
+      paidCents,
+      balanceCents: null,
+      status: paidCents > 0 ? "partial" : "unknown_total",
+    };
+  }
+  const balanceCents = Math.max(0, totalCents - paidCents);
+  const status: BookingPaymentStatus =
+    paidCents <= 0
+      ? "unpaid"
+      : paidCents < totalCents
+        ? "partial"
+        : paidCents === totalCents
+          ? "paid"
+          : "overpaid";
+  return { totalCents, paidCents, balanceCents, status };
+}
+
+export function paymentStatusLabel(status: BookingPaymentStatus): string {
+  switch (status) {
+    case "unknown_total":
+      return "Total not set";
+    case "unpaid":
+      return "Unpaid";
+    case "partial":
+      return "Partially paid";
+    case "paid":
+      return "Paid in full";
+    case "overpaid":
+      return "Overpaid";
+  }
+}
+
+export function receiptAuditLabel(
+  entry: Pick<
+    BookingPaymentEntry,
+    "receiptRequestedAt" | "receiptEmailSentAt" | "receiptErrorClass"
+  >,
+): string {
+  if (entry.receiptEmailSentAt) return "receipt emailed";
+  if (entry.receiptErrorClass) return `receipt failed (${entry.receiptErrorClass})`;
+  if (entry.receiptRequestedAt) return "receipt queued";
+  return "receipt not requested";
+}
+
 export function formatCents(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -199,4 +274,18 @@ export function dollarsToCents(value: unknown): number | null {
   if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
   const cents = Math.round(Number(text) * 100);
   return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
+}
+
+export function normalizeBookingPaymentIdempotencyKey(
+  value: unknown,
+  bookingId?: string,
+): string | null {
+  if (typeof value !== "string") return null;
+  const key = value.trim();
+  if (!key.startsWith(`${BOOKING_PAYMENT_IDEMPOTENCY_PREFIX}:`)) return null;
+  const [, keyBookingId, nonce] = key.split(":");
+  if (!keyBookingId || !nonce || (bookingId && keyBookingId !== bookingId)) {
+    return null;
+  }
+  return /^[a-zA-Z0-9:._-]{20,160}$/.test(key) ? key : null;
 }

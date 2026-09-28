@@ -114,9 +114,12 @@ type BookingPaymentRow = {
   amount_cents: number;
   processing_fee_cents: number;
   processor_reference: string | null;
+  idempotency_key: string | null;
   recorded_by: string;
   receipt_email: string | null;
+  receipt_requested_at: string | null;
   receipt_email_sent_at: string | null;
+  receipt_error_class: string | null;
   created_at: string;
 };
 
@@ -130,9 +133,12 @@ function paymentEntryFromRow(row: BookingPaymentRow): BookingPaymentEntry {
     amountCents: Number(row.amount_cents),
     processingFeeCents: Number(row.processing_fee_cents),
     processorReference: clean(row.processor_reference),
+    idempotencyKey: clean(row.idempotency_key),
     recordedBy: row.recorded_by,
     receiptEmail: clean(row.receipt_email),
+    receiptRequestedAt: row.receipt_requested_at,
     receiptEmailSentAt: row.receipt_email_sent_at,
+    receiptErrorClass: clean(row.receipt_error_class),
     createdAt: row.created_at,
   };
 }
@@ -346,7 +352,7 @@ export async function loadAdminRentalBookings(input: {
     const { data: paymentRows, error: paymentError } = await supabase
       .from("booking_payment_entries")
       .select(
-        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
+        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, idempotency_key, recorded_by, receipt_email, receipt_requested_at, receipt_email_sent_at, receipt_error_class, created_at",
       )
       .eq("booking_kind", "rental")
       .in("booking_id", ids.map(String))
@@ -451,7 +457,7 @@ export async function loadAdminFacilityBookings(input: {
     const { data: paymentRows, error: paymentError } = await supabase
       .from("booking_payment_entries")
       .select(
-        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, recorded_by, receipt_email, receipt_email_sent_at, created_at",
+        "id, booking_kind, booking_id, entry_type, payment_method, amount_cents, processing_fee_cents, processor_reference, idempotency_key, recorded_by, receipt_email, receipt_requested_at, receipt_email_sent_at, receipt_error_class, created_at",
       )
       .eq("booking_kind", "facility")
       .in("booking_id", bookingIds)

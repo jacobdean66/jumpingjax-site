@@ -8,6 +8,8 @@ import {
   dollarsToCents,
   formatCents,
   mergeFacilityPaymentEntries,
+  normalizeBookingPaymentIdempotencyKey,
+  projectBookingPaymentStatus,
   processingFeeCents,
   remainingBookingBalanceCents,
   sumBookingPaymentCents,
@@ -65,9 +67,12 @@ function bookingPaymentEntryFromRow(
     amountCents: Number(row.amount_cents),
     processingFeeCents: Number(row.processing_fee_cents),
     processorReference: clean(row.processor_reference),
+    idempotencyKey: null,
     recordedBy: row.recorded_by,
     receiptEmail: clean(row.receipt_email),
+    receiptRequestedAt: null,
     receiptEmailSentAt: row.receipt_email_sent_at,
+    receiptErrorClass: null,
     createdAt: row.created_at,
   };
 }
@@ -109,14 +114,21 @@ export async function POST(
     ? (method as BookingPaymentMethod)
     : null;
   const amountCents = dollarsToCents(body?.amount);
+  const idempotencyKey = normalizeBookingPaymentIdempotencyKey(
+    body?.idempotencyKey,
+    id,
+  );
   const reference =
     typeof body?.reference === "string"
       ? body.reference.trim().slice(0, 120) || null
       : null;
   const sendReceipt = body?.sendReceipt === true;
-  if (!paymentMethod || !amountCents) {
+  if (!paymentMethod || !amountCents || !idempotencyKey) {
     return NextResponse.json(
-      { ok: false, message: "Enter a valid payment amount and method." },
+      {
+        ok: false,
+        message: "Enter a valid payment amount and method, then try again.",
+      },
       { status: 400 },
     );
   }
@@ -157,6 +169,10 @@ export async function POST(
   const customerEmail =
     (kind === "facility" ? booking.email : booking.customer_email)?.trim() ||
     null;
+  const validReceiptEmail =
+    sendReceipt && customerEmail && validEmail(customerEmail)
+      ? customerEmail
+      : null;
   const total = Number(booking.total);
   const bookingTotal = Number.isFinite(total) ? total : null;
   let existingFacilityEntries: BookingPaymentEntry[] = [];
@@ -260,14 +276,35 @@ export async function POST(
       amount_cents: amountCents,
       processing_fee_cents: feeCents,
       processor_reference: reference,
+      idempotency_key: idempotencyKey,
       recorded_by: auth.identity.name,
-      receipt_email:
-        sendReceipt && customerEmail && validEmail(customerEmail)
-          ? customerEmail
-          : null,
+      receipt_email: validReceiptEmail,
+      receipt_requested_at: validReceiptEmail ? new Date().toISOString() : null,
     });
   const { data: entry, error: insertError } = await paymentInsert.select("id")
     .single<{ id: string }>();
+  if (insertError?.code === "23505" && kind === "rental") {
+    const { data: duplicateEntries } = await supabase
+      .from("booking_payment_entries")
+      .select("amount_cents")
+      .eq("booking_kind", kind)
+      .eq("booking_id", id);
+    const projection = projectBookingPaymentStatus(
+      bookingTotal,
+      (duplicateEntries ?? []).map((row) => ({
+        amountCents: Number(row.amount_cents),
+      })),
+    );
+    return NextResponse.json({
+      ok: true,
+      duplicate: true,
+      receiptSent: false,
+      paidCents: projection.paidCents,
+      remainingCents: projection.balanceCents,
+      status: projection.status,
+      message: "This payment was already recorded.",
+    });
+  }
   if (insertError || !entry) {
     return NextResponse.json(
       { ok: false, message: insertError?.code === "23505" ? "This facility deposit is already recorded for the booking." : "Payment could not be recorded." },
@@ -287,13 +324,14 @@ export async function POST(
   const paidCents = kind === "facility"
     ? sumBookingPaymentCents(existingFacilityEntries) + amountCents
     : sumBookingPaymentCents((entries ?? []).map((row) => ({ amountCents: Number(row.amount_cents) })));
-  const remainingCents = remainingBookingBalanceCents(
+  const projection = projectBookingPaymentStatus(
     bookingTotal,
-    paidCents,
+    [{ amountCents: paidCents }],
   );
+  const remainingCents = projection.balanceCents;
 
   let receiptSent = false;
-  if (sendReceipt && customerEmail && validEmail(customerEmail)) {
+  if (validReceiptEmail) {
     const paymentLabel =
       kind === "facility" ? "facility party deposit" : "rental payment";
     const chargeLine =
@@ -310,15 +348,22 @@ export async function POST(
       kind,
       bookingId: id,
       purpose: "payment_receipt",
-      to: customerEmail,
+      to: validReceiptEmail,
       subject: `Jumping Jax payment receipt - booking #${id}`,
       text: `Hello ${booking.customer_name?.trim() || "there"},\n\nWe recorded your ${paymentLabel} for booking #${id}.\n\nPayment applied to your booking: ${formatCents(amountCents)}${chargeLine}${balanceLine}\nPayment method: ${paymentMethod}${reference ? `\nReference: ${reference}` : ""}\n\nThank you,\nJumping Jax`,
     });
     receiptSent = !receipt.error;
-    if (receiptSent && kind === "rental") {
+    if (kind === "rental") {
       await supabase
         .from("booking_payment_entries")
-        .update({ receipt_email_sent_at: new Date().toISOString() })
+        .update(
+          receiptSent
+            ? {
+                receipt_email_sent_at: new Date().toISOString(),
+                receipt_error_class: null,
+              }
+            : { receipt_error_class: receipt.error?.code ?? "email_failed" },
+        )
         .eq("id", entry.id);
     }
   }
@@ -330,6 +375,7 @@ export async function POST(
     receiptSent,
     paidCents,
     remainingCents,
+    status: projection.status,
     message: receiptSent
       ? "Payment recorded and receipt emailed."
       : sendReceipt

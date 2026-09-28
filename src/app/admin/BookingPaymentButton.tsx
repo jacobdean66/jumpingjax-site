@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CreditCard, Mail, X } from "lucide-react";
 
 import {
+  BOOKING_PAYMENT_IDEMPOTENCY_PREFIX,
   FACILITY_DEPOSIT_CENTS,
   formatCents,
   processingFeeCents,
@@ -34,6 +35,13 @@ function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+function newPaymentIdempotencyKey(bookingId: string): string {
+  const random =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${BOOKING_PAYMENT_IDEMPOTENCY_PREFIX}:${bookingId}:${random}`;
+}
+
 export function BookingPaymentButton({
   bookingId,
   kind,
@@ -51,6 +59,9 @@ export function BookingPaymentButton({
   const [method, setMethod] = useState<BookingPaymentMethod>("card");
   const [reference, setReference] = useState("");
   const [sendReceipt, setSendReceipt] = useState(Boolean(customerEmail));
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    newPaymentIdempotencyKey(bookingId),
+  );
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -79,6 +90,7 @@ export function BookingPaymentButton({
             paymentMethod: method,
             reference,
             sendReceipt,
+            idempotencyKey,
           }),
         },
       );
@@ -90,6 +102,7 @@ export function BookingPaymentButton({
         throw new Error(result?.message || "Payment could not be recorded.");
       }
       setNotice(result.message || "Payment recorded.");
+      setIdempotencyKey(newPaymentIdempotencyKey(bookingId));
       window.setTimeout(() => window.location.reload(), 700);
     } catch (error) {
       setNotice(
