@@ -22,7 +22,7 @@ export async function searchInvitationThemesWithChat(rawInput: ThemeSearchReques
           messages: [{ role: "system", content: SEARCH_INSTRUCTIONS }, { role: "user", content: JSON.stringify(context) }],
           max_completion_tokens: 1600, store: false,
         }, { signal, timeout: 18000 });
-      } catch { throw new ThemeChatCapabilityError("protected_chat_search_rejected"); }
+      } catch (error) { throw new ThemeChatCapabilityError("protected_chat_search_rejected", error); }
     },
     readHtml: async (url, signal) => {
       try { return (await fetchPublicResource(url, "html", signal)).toString("utf8"); }
@@ -54,7 +54,7 @@ export async function searchInvitationThemesWithChat(rawInput: ThemeSearchReques
           messages: [{ role: "system", content: VISION_INSTRUCTIONS }, { role: "user", content }],
           max_completion_tokens: 2400, store: false,
         }, { signal, timeout: 18000 });
-      } catch { throw new ThemeChatCapabilityError("protected_vision_rejected"); }
+      } catch (error) { throw new ThemeChatCapabilityError("protected_vision_rejected", error); }
     },
   });
   return { question: result.question, candidates: result.candidates.map(candidate => themeCandidateSchema.parse(candidate)) };
