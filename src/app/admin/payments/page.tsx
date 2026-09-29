@@ -3,6 +3,7 @@ import { AdminBackButton } from "@/app/admin/AdminBackButton";
 import { AdminTokenGate } from "@/app/admin/AdminTokenGate";
 import { PaymentHub } from "@/components/payments/PaymentHub";
 import { MobilePaymentsSection } from "@/components/payments/MobilePaymentsSection";
+import { SwipeSimpleCsvImport } from "@/components/payments/SwipeSimpleCsvImport";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadRecentPayments } from "@/lib/payments/store";
 import { formatCents, paymentDateLabel } from "@/lib/payments/booking-payments";
@@ -34,8 +35,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   const page = Math.max(0, Math.min(10000, Number.parseInt(resolved?.page ?? "0", 10) || 0));
   const recent = await loadRecentPayments(page);
   const {data: unlinked, error: reviewError} = await createServiceRoleClient().from("swipesimple_transaction_imports")
-    .select("transaction_id,transaction_number,amount_cents,payer_name,paid_at,review_note")
-    .is("payment_entry_id",null).order("paid_at",{ascending:false}).limit(100);
+    .select("transaction_id,transaction_number,amount_cents,payer_name,paid_at,review_note,invoice_number,reference")
+    .is("payment_entry_id",null).ilike("result","approved").ilike("transaction_type","sale")
+    .order("paid_at",{ascending:false}).limit(100);
   return (
     <main className="min-h-screen bg-[#eef3f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-5xl">
@@ -61,6 +63,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <PaymentHub />
         </section>
+        {auth.role === "owner" ? <SwipeSimpleCsvImport /> : null}
         <MobilePaymentsSection page={Math.max(0, Math.min(10000, Number.parseInt(resolved?.mobilePage ?? "0", 10) || 0))} recentPage={page} />
         <section className="mt-6 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-black">Recent Purchases</h2>
@@ -77,7 +80,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         <section className="mt-6 rounded-md border border-amber-300 bg-white p-5">
           <h2 className="text-xl font-black">Payments needing a party match</h2>
           <p className="mt-2 text-sm">These processor receipts have not been credited to a booking. Verify the invoice number or customer contact details before recording a payment from the correct party card. An amount or name alone does not establish a match.</p>
-          {reviewError ? <p className="mt-3">Review history is unavailable. Please retry.</p> : <ul className="mt-3 divide-y">{unlinked?.map(row=><li className="py-3 text-sm" key={row.transaction_id}><strong>{row.payer_name || "Payer unavailable"}</strong> · {formatCents(row.amount_cents)} charged · {paymentDateLabel(row.paid_at)}<br/><a className="text-blue-800 underline" href={`https://swipesimple.com/transactions/${encodeURIComponent(row.transaction_id)}`} target="_blank" rel="noreferrer">Receipt {row.transaction_number}</a>{row.review_note ? <p>{row.review_note}</p> : null}</li>)}</ul>}
+          {reviewError ? <p className="mt-3">Review history is unavailable. Please retry.</p> : <ul className="mt-3 divide-y">{unlinked?.map(row=><li className="py-3 text-sm" key={row.transaction_id}><strong>{row.payer_name || "Payer unavailable"}</strong> · {formatCents(row.amount_cents)} charged · {paymentDateLabel(row.paid_at)}<br/><a className="text-blue-800 underline" href={`https://swipesimple.com/transactions/${encodeURIComponent(row.transaction_id)}`} target="_blank" rel="noreferrer">Receipt {row.transaction_number}</a>{row.invoice_number ? ` · Invoice ${row.invoice_number}` : ""}{row.reference ? ` · ${row.reference}` : ""}{row.review_note ? <p>{row.review_note}</p> : null}</li>)}</ul>}
           {!reviewError && !unlinked?.length ? <p className="mt-3">No imported receipts awaiting a match.</p> : null}
         </section>
         <section className="mt-6 border-l-4 border-amber-400 bg-white p-5 text-sm leading-relaxed text-slate-700 shadow-sm">
@@ -86,7 +89,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
             SwipeSimple records every swipe, tap, keyed sale, cash sale, refund,
             and adjustment. Use Transaction History or Daily Reports for the live
             official total. The Jumping Jax site cannot automatically read those
-            transactions until SwipeSimple grants API or webhook access.
+            transactions. Since SwipeSimple does not provide this account an API,
+            export Transaction History as CSV and upload it above to reconcile the
+            processor report with booking payments.
           </p>
         </section>
       </div>
