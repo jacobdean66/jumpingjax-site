@@ -58,7 +58,7 @@ export function MobilePaymentForm() {
       <p className="text-sm text-slate-700">Use the approved SwipeSimple receipt. Saving here records an existing payment; it does not charge the card.</p>
       <fieldset disabled={busy} className="mt-4 grid gap-4 sm:grid-cols-2 disabled:opacity-60">
         <legend className="sr-only">Mobile payment receipt</legend>
-        <label className="grid gap-1 text-sm font-bold">SwipeSimple transaction number<input name="reference" required maxLength={120} pattern="[A-Za-z0-9-]+" className={inputClass} autoComplete="off" /><span className="text-xs font-normal text-slate-600">Use the full transaction number, not the booking reference.</span></label>
+        <label className="grid gap-1 text-sm font-bold">SwipeSimple transaction number<input name="reference" required maxLength={120} pattern={"[A-Za-z0-9\\-]+"} className={inputClass} autoComplete="off" /><span className="text-xs font-normal text-slate-600">Use the full transaction number, not the booking reference.</span></label>
         <label className="grid gap-1 text-sm font-bold">Who paid?<input name="payerName" required maxLength={160} className={inputClass} /></label>
         <label className="grid gap-1 text-sm font-bold">Amount before card fee ($)<input required inputMode="decimal" pattern="[0-9]+([.][0-9]{1,2})?" value={amount} onChange={e => setAmount(e.target.value)} className={inputClass} /></label>
         <label className="grid gap-1 text-sm font-bold">Card fee shown on receipt ($)<input required inputMode="decimal" pattern="[0-9]+([.][0-9]{1,2})?" value={fee} onChange={e => setFee(e.target.value)} className={inputClass} /><span className="text-xs font-normal text-slate-600">Enter 0 if no fee was charged.</span></label>
