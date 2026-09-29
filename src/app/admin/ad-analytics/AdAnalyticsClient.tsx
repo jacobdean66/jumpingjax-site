@@ -43,7 +43,15 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
+function AdDetail({
+  ad,
+  currency,
+  canManageAds,
+}: {
+  ad: MetaAdRow;
+  currency: string;
+  canManageAds: boolean;
+}) {
   const router = useRouter();
   const [statusOverride, setStatusOverride] = useState<{
     adId: string;
@@ -55,7 +63,9 @@ function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
       : ad.effectiveStatus;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canStop = !["PAUSED", "DELETED", "ARCHIVED", "COMPLETED"].includes(status);
+  const canStop =
+    canManageAds &&
+    !["PAUSED", "DELETED", "ARCHIVED", "COMPLETED"].includes(status);
 
   async function stopAd() {
     setPending(true);
@@ -99,7 +109,13 @@ function AdDetail({ ad, currency }: { ad: MetaAdRow; currency: string }) {
             disabled={!canStop || pending}
             className="inline-flex min-h-8 items-center justify-center rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-white"
           >
-            {pending ? "Stopping..." : canStop ? "Stop" : "Stopped"}
+            {pending
+              ? "Stopping..."
+              : !canManageAds
+                ? "Read only"
+                : canStop
+                  ? "Stop"
+                  : "Stopped"}
           </button>
         </div>
       </div>
@@ -182,9 +198,11 @@ function Metric({ label, value }: { label: string; value: string }) {
 function AdSetBlock({
   adset,
   currency,
+  canManageAds,
 }: {
   adset: MetaAdSetRow;
   currency: string;
+  canManageAds: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -224,7 +242,14 @@ function AdSetBlock({
           {adset.ads.length === 0 ? (
             <p className="text-sm text-slate-500">No ads in this ad set.</p>
           ) : (
-            adset.ads.map((ad) => <AdDetail key={ad.id} ad={ad} currency={currency} />)
+            adset.ads.map((ad) => (
+              <AdDetail
+                key={ad.id}
+                ad={ad}
+                currency={currency}
+                canManageAds={canManageAds}
+              />
+            ))
           )}
         </div>
       ) : null}
@@ -235,9 +260,11 @@ function AdSetBlock({
 function CampaignBlock({
   campaign,
   currency,
+  canManageAds,
 }: {
   campaign: MetaCampaignRow;
   currency: string;
+  canManageAds: boolean;
 }) {
   const [open, setOpen] = useState(true);
   return (
@@ -271,7 +298,12 @@ function CampaignBlock({
             <p className="text-sm text-slate-500">No ad sets matched.</p>
           ) : (
             campaign.adsets.map((adset) => (
-              <AdSetBlock key={adset.id} adset={adset} currency={currency} />
+              <AdSetBlock
+                key={adset.id}
+                adset={adset}
+                currency={currency}
+                canManageAds={canManageAds}
+              />
             ))
           )}
         </div>
@@ -514,6 +546,7 @@ export function AdAnalyticsClient({
               key={campaign.id}
               campaign={campaign}
               currency={currency}
+              canManageAds={initial.connection.hasAdsManagement === true}
             />
           ))
         )}

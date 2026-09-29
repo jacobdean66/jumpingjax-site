@@ -145,7 +145,7 @@ export async function POST(request: Request) {
   if (!permission.ok) {
     return noStoreJson({ error: permission.error.message }, 403);
   }
-  if (!permission.hasRequiredScopes) {
+  if (!permission.hasAdsManagement) {
     const missing = sanitizedError(
       "permission_missing",
       "Reconnect Meta for Analytics to grant ads_management before stopping ads.",

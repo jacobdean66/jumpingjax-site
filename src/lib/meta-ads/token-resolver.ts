@@ -1,7 +1,7 @@
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "../supabase/admin";
 import {
   META_AD_ANALYTICS_OAUTH_TARGET_ID,
-  intentRequestsAnalyticsScopes,
+  intentRequestsAdsRead,
   isSocialOAuthConnectConfigured,
   resolveSocialOAuthRuntimeConfig,
 } from "../social-posts/oauth/social-oauth-config";
@@ -20,8 +20,8 @@ export type MetaAdsTokenResolution = Readonly<
 
 /**
  * Resolve a Meta user access token from the latest connected analytics OAuth session.
- * Requires an intent that requested ads_read + ads_management + business_management.
- * Ignores awaiting_callback rows and older read-only analytics sessions.
+ * Requires an intent that requested ads_read. Management permissions are optional
+ * and are checked separately before a mutating action such as pausing an ad.
  */
 export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolution> {
   const config = resolveSocialOAuthRuntimeConfig();
@@ -91,7 +91,7 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
       .eq("intent_id", intentId)
       .maybeSingle();
     const scopes = (intent?.scopes as string[] | null) ?? [];
-    if (!intentRequestsAnalyticsScopes(scopes)) {
+    if (!intentRequestsAdsRead(scopes)) {
       sawIncompleteScopeSession = true;
       continue;
     }
@@ -132,8 +132,8 @@ export async function resolveMetaAdsAccessToken(): Promise<MetaAdsTokenResolutio
     error: sanitizedError(
       "permission_missing",
       sawIncompleteScopeSession
-        ? "Connected Meta session is missing ads_read, ads_management, or business_management. Reconnect Meta for Analytics."
-        : "Connected Meta session is missing required analytics permissions. Reconnect Meta for Analytics.",
+        ? "Connected Meta session is missing ads_read. Reconnect Meta for Analytics."
+        : "Connected Meta session is missing the analytics read permission. Reconnect Meta for Analytics.",
       "permission_blocked",
     ),
   };

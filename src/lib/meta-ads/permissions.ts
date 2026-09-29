@@ -2,7 +2,6 @@ import {
   META_ADS_BUSINESS_SCOPE,
   META_ADS_MANAGEMENT_SCOPE,
   META_ADS_REQUIRED_SCOPE,
-  META_ADS_REQUIRED_SCOPES,
 } from "./config";
 import { metaAdsGraphGet, type MetaAdsHttpResult } from "./http-client";
 import { sanitizedError } from "./errors";
@@ -77,7 +76,7 @@ export async function checkMetaAdsReadPermission(input: {
     hasAdsRead,
     hasAdsManagement,
     hasBusinessManagement,
-    hasRequiredScopes: hasAdsRead && hasAdsManagement && hasBusinessManagement,
+    hasRequiredScopes: hasAdsRead,
     granted,
   };
 }
@@ -85,7 +84,7 @@ export async function checkMetaAdsReadPermission(input: {
 export function missingAdsReadError() {
   return sanitizedError(
     "permission_missing",
-    `This Meta connection is missing required analytics permissions (${META_ADS_REQUIRED_SCOPES.join(", ")}). Reconnect Meta for Analytics.`,
+    `This Meta connection is missing the required analytics permission (${META_ADS_REQUIRED_SCOPE}). Reconnect Meta for Analytics.`,
     "permission_blocked",
   );
 }

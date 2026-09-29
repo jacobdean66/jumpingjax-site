@@ -113,19 +113,21 @@ test("callback route clears purpose cookie and never forwards code/state", () =>
   assert.doesNotMatch(route, /searchParams\.set\("state"/);
 });
 
-test("ad analytics page exposes connect/reconnect and accurate scope copy", () => {
+test("ad analytics page explains read reporting and managed stop controls", () => {
   const page = read("src/app/admin/ad-analytics/page.tsx");
   assert.match(page, /Connect Meta for Analytics/);
   assert.match(page, /Reconnect Meta for Analytics/);
-  assert.match(page, /business_management/);
+  assert.match(page, /ads_read/);
+  assert.match(page, /ads_management/);
   assert.match(page, /\/api\/admin\/ad-analytics\/oauth\/connect/);
-  assert.doesNotMatch(page, /ads_read<\/code> only/);
   assert.doesNotMatch(page, /Publication execution → Meta OAuth/);
 });
 
-test("token resolver requires full analytics scope contract", () => {
+test("token resolver permits read-only analytics sessions", () => {
   const resolver = read("src/lib/meta-ads/token-resolver.ts");
-  assert.match(resolver, /intentRequestsAnalyticsScopes/);
-  assert.match(resolver, /business_management/);
-  assert.match(resolver, /ads_management/);
+  assert.match(resolver, /intentRequestsAdsRead/);
+  assert.doesNotMatch(resolver, /intentRequestsAnalyticsScopes/);
+
+  const route = read("src/app/api/admin/ad-analytics/route.ts");
+  assert.match(route, /permission\.hasAdsManagement/);
 });

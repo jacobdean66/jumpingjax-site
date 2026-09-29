@@ -103,8 +103,6 @@ export default async function AdminAdAnalyticsPage({
           dashboard.freshness === "misconfigured" ||
           dashboard.connection.hasRequiredScopes === false ||
           dashboard.connection.hasAdsRead === false ||
-          dashboard.connection.hasAdsManagement === false ||
-          dashboard.connection.hasBusinessManagement === false ||
           !dashboard.connection.hasConnectedSession) && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <form action="/api/admin/ad-analytics/oauth/connect" method="post">
@@ -118,9 +116,9 @@ export default async function AdminAdAnalyticsPage({
               </button>
             </form>
             <p className="text-sm font-semibold">
-              Requests <code>ads_read</code>, <code>ads_management</code>, and{" "}
-              <code>business_management</code> so owners can view analytics and
-              stop individual ads. Does not request publishing permissions.
+              Requests <code>ads_read</code> for reporting and{" "}
+              <code>ads_management</code> for Stop controls. Does not request
+              publishing permissions.
             </p>
           </div>
         )}
