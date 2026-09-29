@@ -1,12 +1,14 @@
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { validateOwnerPost, privateJson } from "@/lib/security/request-guard";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { isGiveawayDrawMonth } from "@/lib/giveaway/giveaway-campaigns";
 
 type StatusRequest = {
   action?: "winner" | "free_pass_redeemed" | "party_prize_redeemed";
   groupKey?: string;
   childName?: string;
   value?: boolean;
+  drawMonth?: string;
 };
 
 function cleanText(value: unknown, maxLength: number) {
@@ -23,8 +25,9 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as StatusRequest | null;
   const groupKey = cleanText(body?.groupKey, 300);
   const childName = cleanText(body?.childName, 200);
-  if (!body?.action || !groupKey || !childName) {
-    return privateJson({ ok: false, error: "Invalid giveaway status request." }, 400);
+  const drawMonth = body?.drawMonth;
+  if (!body?.action || !groupKey || !childName || !isGiveawayDrawMonth(drawMonth)) {
+    return privateJson({ ok: false, error: "Invalid giveaway status request. Refresh the page and select a month." }, 400);
   }
 
   const db = createServiceRoleClient();
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
       p_group_key: groupKey,
       p_child_name: childName,
       p_updated_by: auth.identity.id,
+      p_draw_month: drawMonth,
     });
     if (error) {
       console.error("[giveaway] winner update failed", { code: error.code });
@@ -47,6 +51,7 @@ export async function POST(request: Request) {
       p_child_name: childName,
       p_redeemed: body.value,
       p_updated_by: auth.identity.id,
+      p_draw_month: drawMonth,
     });
     if (error) {
       console.error("[giveaway] free pass update failed", { code: error.code });
@@ -61,6 +66,7 @@ export async function POST(request: Request) {
       p_child_name: childName,
       p_redeemed: body.value,
       p_updated_by: auth.identity.id,
+      p_draw_month: drawMonth,
     });
     if (error) {
       console.error("[giveaway] party prize update failed", { code: error.code });

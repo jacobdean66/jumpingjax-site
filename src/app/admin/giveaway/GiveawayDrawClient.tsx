@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { pickSecureRandomIndex } from "@/lib/giveaway/public-nominee-display";
+import { ACTIVE_GIVEAWAY_MONTH } from "@/lib/giveaway/giveaway-campaigns";
 
 export type GiveawayDrawSubmission = {
   id: string;
@@ -24,6 +25,73 @@ export type GiveawayDrawGroup = {
   submissions: GiveawayDrawSubmission[];
 };
 
+export type GiveawayDrawMonth = {
+  monthKey: string;
+  label: string;
+  submissionCount: number;
+  groups: GiveawayDrawGroup[];
+};
+
+export function GiveawayDrawClient({ months }: { months: GiveawayDrawMonth[] }) {
+  const [selectedMonth, setSelectedMonth] = useState<string>(ACTIVE_GIVEAWAY_MONTH);
+
+  return (
+    <div className="mt-8">
+      <section aria-labelledby="giveaway-months-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 id="giveaway-months-heading" className="text-xl font-black text-slate-950">Giveaway months</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-600">
+          Choose a month to view its nominees, run its draw, and track its prizes.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {months.map((month) => (
+            <button
+              key={month.monthKey}
+              id={`month-button-${month.monthKey}`}
+              type="button"
+              aria-pressed={selectedMonth === month.monthKey}
+              aria-controls={`month-panel-${month.monthKey}`}
+              onClick={() => setSelectedMonth(month.monthKey)}
+              className={`rounded-xl border-2 p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${
+                selectedMonth === month.monthKey
+                  ? "border-sky-600 bg-sky-50 text-sky-950"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-slate-50"
+              }`}
+            >
+              <span className="block text-sm font-black">{month.label}</span>
+              <span className="mt-1 block text-xs font-semibold">
+                {month.groups.length} {month.groups.length === 1 ? "nominee" : "nominees"}
+                {month.monthKey === ACTIVE_GIVEAWAY_MONTH ? " · Active" : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {months.map((month) => (
+        <section
+          key={month.monthKey}
+          id={`month-panel-${month.monthKey}`}
+          aria-labelledby={`month-button-${month.monthKey}`}
+          hidden={selectedMonth !== month.monthKey}
+          className="mt-6"
+        >
+          <h2 className="text-2xl font-black text-slate-950">{month.label} Giveaway</h2>
+          {month.groups.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-black text-slate-950">No nominees for {month.label} yet</h3>
+              <p className="mt-2 text-sm font-semibold text-slate-600">
+                Nominations for this giveaway will appear here when they arrive.
+              </p>
+            </div>
+          ) : (
+            <GiveawayDrawPanel month={month} />
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function formatSubmittedAt(value: string) {
   if (!value) return "Unknown time";
   const date = new Date(value);
@@ -35,21 +103,16 @@ function formatSubmittedAt(value: string) {
   });
 }
 
-export function GiveawayDrawClient({
-  groups,
-  submissionCount,
-  uniqueChildCount,
-}: {
-  groups: GiveawayDrawGroup[];
-  submissionCount: number;
-  uniqueChildCount: number;
-}) {
+function GiveawayDrawPanel({ month }: { month: GiveawayDrawMonth }) {
+  const { groups, submissionCount } = month;
+  const uniqueChildCount = groups.length;
   const [eligibleKeys, setEligibleKeys] = useState(
     () => new Set(groups.map((group) => group.groupKey)),
   );
   const [winnerKey, setWinnerKey] = useState<string | null>(
     () => groups.find((group) => group.isWinner)?.groupKey ?? null,
   );
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [redeemedKeys, setRedeemedKeys] = useState(
     () => new Set(groups.filter((group) => group.freePassRedeemed).map((group) => group.groupKey)),
   );
@@ -63,10 +126,10 @@ export function GiveawayDrawClient({
     () => groups.filter((group) => eligibleKeys.has(group.groupKey)),
     [eligibleKeys, groups],
   );
-  const winner = groups.find((group) => group.groupKey === winnerKey) ?? null;
+  const winner = groups.find((group) => group.groupKey === (previewKey ?? winnerKey)) ?? null;
 
   function toggleGroup(groupKey: string) {
-    setWinnerKey(null);
+    setPreviewKey(null);
     setEligibleKeys((current) => {
       const next = new Set(current);
       if (next.has(groupKey)) next.delete(groupKey);
@@ -77,7 +140,7 @@ export function GiveawayDrawClient({
 
   function drawWinner() {
     if (eligibleGroups.length === 0) return;
-    setWinnerKey(eligibleGroups[pickSecureRandomIndex(eligibleGroups.length)].groupKey);
+    setPreviewKey(eligibleGroups[pickSecureRandomIndex(eligibleGroups.length)].groupKey);
   }
 
   async function saveStatus(
@@ -91,13 +154,14 @@ export function GiveawayDrawClient({
       const response = await fetch("/api/admin/giveaway/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, groupKey: group.groupKey, childName: group.childName, value }),
+        body: JSON.stringify({ action, drawMonth: month.monthKey, groupKey: group.groupKey, childName: group.childName, value }),
       });
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(result?.error || "The giveaway status could not be saved.");
 
       if (action === "winner") {
         setWinnerKey(group.groupKey);
+        setPreviewKey(null);
         setRedeemedKeys((current) => {
           const next = new Set(current);
           next.delete(group.groupKey);
@@ -141,7 +205,7 @@ export function GiveawayDrawClient({
             <button
               type="button"
               onClick={() => {
-                setWinnerKey(null);
+                setPreviewKey(null);
                 setEligibleKeys(new Set(groups.map((group) => group.groupKey)));
               }}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
@@ -151,7 +215,7 @@ export function GiveawayDrawClient({
             <button
               type="button"
               onClick={() => {
-                setWinnerKey(null);
+                setPreviewKey(null);
                 setEligibleKeys(new Set());
               }}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
@@ -217,7 +281,7 @@ export function GiveawayDrawClient({
                           <input
                             type="checkbox"
                             checked={partyRedeemedKeys.has(group.groupKey)}
-                            disabled={savingKey === group.groupKey}
+                            disabled={savingKey !== null}
                             onChange={(event) =>
                               saveStatus(group, "party_prize_redeemed", event.target.checked)
                             }
@@ -237,7 +301,7 @@ export function GiveawayDrawClient({
                         <input
                           type="checkbox"
                           checked={redeemedKeys.has(group.groupKey)}
-                          disabled={savingKey === group.groupKey}
+                          disabled={savingKey !== null}
                           onChange={(event) => saveStatus(group, "free_pass_redeemed", event.target.checked)}
                           className="h-5 w-5 accent-emerald-600"
                         />
@@ -249,7 +313,7 @@ export function GiveawayDrawClient({
                     {winnerKey !== group.groupKey ? (
                       <button
                         type="button"
-                        disabled={savingKey === group.groupKey}
+                        disabled={savingKey !== null}
                         onClick={() => saveStatus(group, "winner")}
                         className="rounded-full border border-yellow-400 bg-yellow-50 px-3 py-2 text-xs font-black text-amber-900 hover:bg-yellow-100 disabled:opacity-50"
                       >
@@ -289,6 +353,7 @@ export function GiveawayDrawClient({
         <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-xl">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">Winner picker</p>
           <h2 className="mt-3 text-2xl font-black">Random draw</h2>
+          <p className="mt-2 text-sm font-black text-sky-200">{month.label} only</p>
           <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-300">
             Every checked child has exactly the same chance. Duplicate nominations do not create extra odds.
           </p>
@@ -307,9 +372,21 @@ export function GiveawayDrawClient({
 
         {winner ? (
           <div className="mt-4 rounded-3xl border-4 border-yellow-300 bg-white p-6 shadow-xl" aria-live="assertive">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-orange-600">Selected child</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-orange-600">
+              {previewKey ? "Draw preview" : "Saved winner"}
+            </p>
             <h2 className="mt-3 text-3xl font-black text-slate-950">{winner.childName}</h2>
             <p className="mt-2 text-sm font-bold text-slate-500">{winner.partyChoice}</p>
+            {previewKey && previewKey !== winnerKey ? (
+              <button
+                type="button"
+                disabled={savingKey !== null}
+                onClick={() => saveStatus(winner, "winner")}
+                className="mt-4 rounded-full border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-black text-amber-900 hover:bg-yellow-100 disabled:opacity-50"
+              >
+                {savingKey === winner.groupKey ? "Saving…" : "Save as this month’s winner"}
+              </button>
+            ) : null}
             <p className="mt-2 text-xs font-semibold text-slate-500">
               {winner.nominationCount} nomination {winner.nominationCount === 1 ? "story" : "stories"}
             </p>

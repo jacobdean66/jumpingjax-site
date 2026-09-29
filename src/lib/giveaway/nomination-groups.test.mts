@@ -144,7 +144,7 @@ test("admin and public pages load grouped nominations helpers", () => {
     "utf8",
   );
 
-  assert.match(adminPage, /groupNominationsByChild/);
+  assert.match(adminPage, /groupNominationsByDrawMonth/);
   assert.match(adminClient, /nominationCount/);
   assert.match(publicPage, /groupNominationsByChild|projectPublicNomineeCards/);
   assert.doesNotMatch(publicPage, /nomination_reason|nominator_email|nominator_name/);

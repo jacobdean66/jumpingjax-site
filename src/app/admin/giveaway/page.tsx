@@ -1,10 +1,9 @@
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
-import { GiveawayDrawClient, type GiveawayDrawGroup } from "./GiveawayDrawClient";
+import { GiveawayDrawClient, type GiveawayDrawMonth } from "./GiveawayDrawClient";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
-import { giveawayCampaignLabel } from "@/lib/giveaway/giveaway-campaigns";
+import { groupNominationsByDrawMonth } from "@/lib/giveaway/monthly-draws";
 import {
   excludeSyntheticNominations,
-  groupNominationsByChild,
   type NominationSubmission,
 } from "@/lib/giveaway/nomination-groups";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -13,10 +12,7 @@ import { listFixtureNominations } from "@/lib/giveaway/nomination-store";
 
 export const dynamic = "force-dynamic";
 
-async function loadGroups(): Promise<{
-  groups: GiveawayDrawGroup[];
-  submissionCount: number;
-}> {
+async function loadMonths(): Promise<GiveawayDrawMonth[]> {
   let submissions: NominationSubmission[];
 
   if (isLocalAgentPreviewEnabled()) {
@@ -25,7 +21,7 @@ async function loadGroups(): Promise<{
       childName: row.child_name,
       birthMonth: row.child_birth_month,
       birthDay: row.child_birth_day,
-      partyChoice: giveawayCampaignLabel(row.party_choice),
+      partyChoice: row.party_choice,
       reason: row.nomination_reason,
       nominatorName: row.nominator_name,
       nominatorEmail: row.nominator_email,
@@ -48,7 +44,7 @@ async function loadGroups(): Promise<{
         childName: String(row.child_name),
         birthMonth: Number(row.child_birth_month),
         birthDay: Number(row.child_birth_day),
-        partyChoice: giveawayCampaignLabel(String(row.party_choice)),
+        partyChoice: String(row.party_choice),
         reason: String(row.nomination_reason),
         nominatorName: String(row.nominator_name),
         nominatorEmail: String(row.nominator_email),
@@ -57,7 +53,7 @@ async function loadGroups(): Promise<{
     );
   }
 
-  const grouped = groupNominationsByChild(submissions);
+  const months = groupNominationsByDrawMonth(submissions);
   const statusByKey = new Map<
     string,
     { isWinner: boolean; freePassRedeemed: boolean; partyPrizeRedeemed: boolean }
@@ -66,12 +62,13 @@ async function loadGroups(): Promise<{
   if (!isLocalAgentPreviewEnabled()) {
     const { data: statuses, error: statusError } = await createServiceRoleClient()
       .from("giveaway_nominee_status")
-      .select("group_key, is_winner, free_pass_redeemed, party_prize_redeemed");
+      .select("draw_month, group_key, is_winner, free_pass_redeemed, party_prize_redeemed");
     if (statusError) {
       console.error("[giveaway] nominee status list failed", { code: statusError.code });
+      throw statusError;
     } else {
       for (const status of statuses ?? []) {
-        statusByKey.set(String(status.group_key), {
+        statusByKey.set(`${status.draw_month}:${status.group_key}`, {
           isWinner: Boolean(status.is_winner),
           freePassRedeemed: Boolean(status.free_pass_redeemed),
           partyPrizeRedeemed: Boolean(status.party_prize_redeemed),
@@ -80,39 +77,37 @@ async function loadGroups(): Promise<{
     }
   }
 
-  const groups = grouped.map((group) => ({
-    groupKey: group.groupKey,
-    childName: group.childName,
-    birthday: `${String(group.birthMonth).padStart(2, "0")}/${String(group.birthDay).padStart(2, "0")}`,
-    partyChoice: group.partyChoice,
-    nominationCount: group.nominationCount,
-    isWinner: statusByKey.get(group.groupKey)?.isWinner ?? false,
-    freePassRedeemed: statusByKey.get(group.groupKey)?.freePassRedeemed ?? false,
-    partyPrizeRedeemed: statusByKey.get(group.groupKey)?.partyPrizeRedeemed ?? false,
-    submissions: group.submissions.map((submission) => ({
-      id: submission.id,
-      reason: submission.reason,
-      nominatorName: submission.nominatorName,
-      nominatorEmail: submission.nominatorEmail ?? "",
-      createdAt: submission.createdAt ?? "",
+  return months.map((month) => ({
+    ...month,
+    groups: month.groups.map((group) => ({
+      groupKey: group.groupKey,
+      childName: group.childName,
+      birthday: `${String(group.birthMonth).padStart(2, "0")}/${String(group.birthDay).padStart(2, "0")}`,
+      partyChoice: group.partyChoice,
+      nominationCount: group.nominationCount,
+      isWinner: statusByKey.get(`${month.monthKey}:${group.groupKey}`)?.isWinner ?? false,
+      freePassRedeemed: statusByKey.get(`${month.monthKey}:${group.groupKey}`)?.freePassRedeemed ?? false,
+      partyPrizeRedeemed: statusByKey.get(`${month.monthKey}:${group.groupKey}`)?.partyPrizeRedeemed ?? false,
+      submissions: group.submissions.map((submission) => ({
+        id: submission.id,
+        reason: submission.reason,
+        nominatorName: submission.nominatorName,
+        nominatorEmail: submission.nominatorEmail ?? "",
+        createdAt: submission.createdAt ?? "",
+      })),
     })),
   }));
-
-  return { groups, submissionCount: submissions.length };
 }
 
 export default async function GiveawayAdminPage() {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
-  let groups: GiveawayDrawGroup[] = [];
-  let submissionCount = 0;
+  let months: GiveawayDrawMonth[] = [];
   let loadFailed = false;
 
   try {
-    const loaded = await loadGroups();
-    groups = loaded.groups;
-    submissionCount = loaded.submissionCount;
+    months = await loadMonths();
   } catch (error) {
     console.error("[giveaway] admin nominee list failed", error);
     loadFailed = true;
@@ -137,17 +132,8 @@ export default async function GiveawayAdminPage() {
           <h2 className="text-xl font-black text-slate-950">The nominees could not be loaded</h2>
           <p className="mt-2 text-sm font-semibold text-slate-600">Please refresh the page and try again.</p>
         </section>
-      ) : groups.length === 0 ? (
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-black text-slate-950">No nominees yet</h2>
-          <p className="mt-2 text-sm font-semibold text-slate-600">The drawing tool will appear after the first nomination arrives.</p>
-        </section>
       ) : (
-        <GiveawayDrawClient
-          groups={groups}
-          submissionCount={submissionCount}
-          uniqueChildCount={groups.length}
-        />
+        <GiveawayDrawClient months={months} />
       )}
     </AdminShell>
   );
