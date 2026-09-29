@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AdultCheckInControls } from "@/components/open-play/AdultCheckInControls";
+import { ADMISSION_PRICES_CENTS } from "@/lib/open-play/pricing";
 import {
   buildLegacyCheckInBody,
   buildVisitCreateBody,
@@ -218,7 +219,7 @@ export function DailyReportActivity({ report }: Props) {
         ? {
             ...current,
             adultMode: mode,
-            priceOverrideCents: mode === "playing" ? 700 : null,
+            priceOverrideCents: mode === "playing" ? ADMISSION_PRICES_CENTS.playing_adult : null,
             paymentMethod: null,
             paymentConfirmed: false,
             birthdayPartyId: null,
@@ -334,7 +335,7 @@ export function DailyReportActivity({ report }: Props) {
         ? "free_pass"
         : draftPaymentOption;
       const amountCents = adult
-        ? draftAdultMode === "playing" ? 700 : 0
+        ? draftAdultMode === "playing" ? ADMISSION_PRICES_CENTS.playing_adult : 0
         : paymentOption === "free_pass"
           ? 0
           : Math.round(Number(draftAmount) * 100);
@@ -574,7 +575,7 @@ export function DailyReportActivity({ report }: Props) {
                             }}
                             className={draftAdultMode === mode ? "min-h-12 rounded-xl border-2 border-sky-600 bg-sky-50 px-3 text-sm font-black capitalize text-sky-950" : "min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-sm font-black capitalize text-slate-800"}
                           >
-                            {mode === "watching" ? "Watching — free" : "Playing — $7"}
+                          {mode === "watching" ? "Watching — free" : `Playing — ${formatCents(ADMISSION_PRICES_CENTS.playing_adult)}`}
                           </button>
                         ))}
                       </div>

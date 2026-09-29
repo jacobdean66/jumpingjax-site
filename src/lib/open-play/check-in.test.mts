@@ -51,7 +51,7 @@ test("check-in prices child age 3 or older at $10", () => {
   assert.equal(prepared[0]?.unitPriceCents, 1000);
 });
 
-test("playing adult is $7 and watching adult is free", () => {
+test("playing adult is $10 and watching adult is free", () => {
   const prepared = prepareVisitAttendees({
     visitDateYmd: "2026-08-03",
     participantsById: new Map([
@@ -63,7 +63,7 @@ test("playing adult is $7 and watching adult is free", () => {
       { participantId: "a2", adultMode: "watching" },
     ],
   });
-  assert.equal(prepared[0]?.unitPriceCents, 700);
+  assert.equal(prepared[0]?.unitPriceCents, 1000);
   assert.equal(prepared[1]?.unitPriceCents, 0);
 });
 

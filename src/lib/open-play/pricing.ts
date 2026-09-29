@@ -8,7 +8,7 @@ export const OPEN_PLAY_TIME_ZONE = "America/New_York";
 export const ADMISSION_PRICES_CENTS = {
   child_2_or_under: 700,
   child_3_plus: 1000,
-  playing_adult: 700,
+  playing_adult: 1000,
   watching_adult: 0,
 } as const;
 

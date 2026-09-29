@@ -1,42 +1,16 @@
--- Adult Open Play attendance: watching is free; playing is $10.
--- Keeps classification and the append-only payment ledger in one transaction.
-
-create or replace function public.prevent_open_play_attendee_rewrite()
-returns trigger
-language plpgsql
+-- Update Open Play playing-adult admission from $7 to $10.
+create or replace function public.jj_open_play_unit_price(p_classification text)
+returns integer
+language sql
+immutable
 as $$
-begin
-  if tg_op = 'DELETE' then
-    raise exception 'open_play_visit_attendees cannot be deleted' using errcode = 'P0001';
-  end if;
-  if old.status = 'active' and new.status = 'removed' then
-    if new.visit_id is distinct from old.visit_id
-       or new.participant_id is distinct from old.participant_id
-       or new.waiver_submission_id is distinct from old.waiver_submission_id
-       or new.business_day_ymd is distinct from old.business_day_ymd
-       or new.classification is distinct from old.classification
-       or new.age_years_on_visit is distinct from old.age_years_on_visit
-       or new.unit_price_cents is distinct from old.unit_price_cents
-       or new.created_at is distinct from old.created_at then
-      raise exception 'attendee historical fields are immutable' using errcode = 'P0001';
-    end if;
-    return new;
-  end if;
-  if old.status = 'active' and new.status = 'active'
-     and old.classification in ('playing_adult', 'watching_adult')
-     and new.classification in ('playing_adult', 'watching_adult')
-     and new.unit_price_cents = public.jj_open_play_unit_price(new.classification)
-     and new.visit_id is not distinct from old.visit_id
-     and new.participant_id is not distinct from old.participant_id
-     and new.waiver_submission_id is not distinct from old.waiver_submission_id
-     and new.business_day_ymd is not distinct from old.business_day_ymd
-     and new.age_years_on_visit is not distinct from old.age_years_on_visit
-     and new.created_at is not distinct from old.created_at then
-    return new;
-  end if;
-  raise exception 'open_play_visit_attendees are immutable except approved attendance changes'
-    using errcode = 'P0001';
-end;
+  select case p_classification
+    when 'child_2_or_under' then 700
+    when 'child_3_plus' then 1000
+    when 'playing_adult' then 1000
+    when 'watching_adult' then 0
+    else null
+  end;
 $$;
 
 create or replace function public.update_open_play_adult_attendance_atomic(
@@ -94,7 +68,7 @@ begin
   v_current_method := coalesce(v_current_method, v_original.method, 'cash');
 
   v_target_class := case when p_mode = 'playing' then 'playing_adult' else 'watching_adult' end;
-  v_target_amount := case when p_mode = 'playing' then 1000 else 0 end;
+  v_target_amount := public.jj_open_play_unit_price(v_target_class);
 
   if v_original.id is null and v_target_amount > 0 then
     insert into public.open_play_payment_entries (
@@ -204,7 +178,7 @@ begin
   v_current_method := coalesce(v_current_method, v_original.method, 'cash');
 
   v_target_class := case when p_mode = 'playing' then 'playing_adult' else 'watching_adult' end;
-  v_target_amount := case when p_mode = 'playing' then 1000 else 0 end;
+  v_target_amount := public.jj_open_play_unit_price(v_target_class);
 
   if v_original.id is null and v_target_amount > 0 then
     insert into public.smartwaiver_legacy_payment_entries (
@@ -269,39 +243,7 @@ revoke all on function public.update_legacy_open_play_adult_attendance_atomic(uu
 grant execute on function public.update_legacy_open_play_adult_attendance_atomic(uuid, uuid, text, text, text)
   to service_role;
 
--- Preserve imported parent signers as selectable adult participants.
-alter table public.smartwaiver_legacy_participants
-  drop constraint if exists smartwaiver_legacy_participants_participant_slot_check;
-alter table public.smartwaiver_legacy_participants
-  add constraint smartwaiver_legacy_participants_participant_slot_check
-  check (participant_slot in ('primary', 'signer', 'additional_minor'));
-alter table public.smartwaiver_legacy_participants
-  drop constraint if exists smartwaiver_legacy_participants_slot_chk;
-alter table public.smartwaiver_legacy_participants
-  add constraint smartwaiver_legacy_participants_slot_chk check (
-    (participant_slot in ('primary', 'signer') and minor_index is null)
-    or (participant_slot = 'additional_minor' and minor_index is not null)
-  );
-
-insert into public.smartwaiver_legacy_participants (
-  legacy_waiver_id, waiver_id, participant_slot, minor_index,
-  first_name, last_name, dob, role
-)
-select
-  w.id, w.waiver_id, 'signer', null,
-  w.signer_first_name, w.signer_last_name, w.signer_dob, 'adult_signer'
-from public.smartwaiver_legacy_waivers w
-where w.primary_role = 'child'
-  and nullif(trim(w.signer_first_name), '') is not null
-  and nullif(trim(w.signer_last_name), '') is not null
-  and w.signer_dob is not null
-  and not exists (
-    select 1 from public.smartwaiver_legacy_participants p
-    where p.legacy_waiver_id = w.id and p.participant_slot = 'signer'
-  )
-on conflict do nothing;
-
--- Publish a new immutable legal version with the adult admission disclosure.
+-- Publish a new immutable legal version when the active waiver still mentions the old adult play price.
 do $$
 declare
   v_template public.waiver_templates%rowtype;
@@ -318,9 +260,20 @@ begin
     from public.waiver_template_versions
     where id = v_template.current_version_id;
 
-    if v_current.body_html not ilike '%Watching adults are free; playing adults are $10.%' then
+    if v_current.body_html ilike '%playing adults are $7%' then
+      v_body := replace(
+        replace(v_current.body_html, 'playing adults are $7', 'playing adults are $10'),
+        '$7 playing-adult admission',
+        '$10 playing-adult admission'
+      );
+    elsif v_current.body_html not ilike '%Watching adults are free; playing adults are $10.%' then
       v_body := v_current.body_html ||
         '<section><h2>Open Play Adult Admission</h2><p>Watching adults are free; playing adults are $10. If an adult changes from watching to playing during the same visit, the $10 playing-adult admission must be recorded and paid by cash or card.</p></section>';
+    else
+      v_body := null;
+    end if;
+
+    if v_body is not null and v_body is distinct from v_current.body_html then
       v_new_id := gen_random_uuid();
       insert into public.waiver_template_versions (
         id, template_id, version_number, body_html, body_sha256,
@@ -328,7 +281,7 @@ begin
       ) values (
         v_new_id, v_template.id, v_current.version_number + 1, v_body,
         encode(extensions.digest(convert_to(v_body, 'UTF8'), 'sha256'), 'hex'),
-        now(), 'system:adult-admission-disclosure'
+        now(), 'system:adult-admission-10'
       );
       update public.waiver_templates
       set current_version_id = v_new_id, updated_at = now()

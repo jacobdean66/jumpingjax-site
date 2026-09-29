@@ -83,7 +83,7 @@ as $$
   select case p_classification
     when 'child_2_or_under' then 700
     when 'child_3_plus' then 1000
-    when 'playing_adult' then 700
+    when 'playing_adult' then 1000
     when 'watching_adult' then 0
     else null
   end;

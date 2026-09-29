@@ -101,14 +101,14 @@ test("preview child price is uncertain near age-3 boundary year", () => {
   assert.deepEqual(preview.possiblePricesCents, [700, 1000]);
 });
 
-test("playing adult previews $7 and watching adult is free", () => {
+test("playing adult previews $10 and watching adult is free", () => {
   const playing = previewAdmissionPrice({
     role: "adult_signer",
     birthYear: 1990,
     visitDateYmd: "2026-08-06",
     adultMode: "playing",
   });
-  assert.equal(playing.unitPriceCents, 700);
+  assert.equal(playing.unitPriceCents, 1000);
   const watching = previewAdmissionPrice({
     role: "adult_covered",
     birthYear: 1991,
@@ -275,7 +275,7 @@ test("buildVisitCreateBody omits clientPriceCents when child price uncertain but
   assert.equal(body.visitDate, "2026-08-06");
   assert.equal(body.attendees[0]?.clientPriceCents, null);
   assert.equal(body.attendees[0]?.paymentMethod, "cash");
-  assert.equal(body.attendees[1]?.clientPriceCents, 700);
+  assert.equal(body.attendees[1]?.clientPriceCents, 1000);
   assert.equal(body.attendees[1]?.adultMode, "playing");
   assert.equal(body.attendees[1]?.paymentMethod, "card");
 });
@@ -332,7 +332,7 @@ test("watching adult request clears payment method", () => {
   assert.equal(body.attendees[0]?.clientPriceCents, 0);
 });
 
-test("playing adult requires cash or card confirmation at $7", () => {
+test("playing adult requires cash or card confirmation at $10", () => {
   const playing = {
     ...resultToDraft(adultResult()),
     adultMode: "playing" as const,

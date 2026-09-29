@@ -6,6 +6,7 @@ import {
   type PaymentMethodChoice,
   type SelectedAttendeeDraft,
 } from "@/lib/open-play/check-in-client";
+import { ADMISSION_PRICES_CENTS } from "@/lib/open-play/pricing";
 
 type Props = {
   attendee: SelectedAttendeeDraft;
@@ -29,7 +30,7 @@ export function AdultCheckInControls({
         <div className="mt-2 grid grid-cols-2 gap-2">
           {([
             ["watching", "Watching — free"],
-            ["playing", `Playing — ${formatCents(700)}`],
+            ["playing", `Playing — ${formatCents(ADMISSION_PRICES_CENTS.playing_adult)}`],
           ] as const).map(([mode, label]) => (
             <button
               key={mode}

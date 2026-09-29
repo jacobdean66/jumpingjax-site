@@ -14,8 +14,8 @@ const guest: FacilityAttendanceGuest = {
 const visit: VisitSnapshot = {
   id: "visit", source: "legacy_smartwaiver", businessDayYmd: day, visitDate: day,
   createdAt: "2026-09-27T16:00:00Z", status: "open", notes: null,
-  attendees: [{ id: "attendee", visitId: "visit", participantRecordId: "legacy-person", source: "legacy_smartwaiver", firstName: "Alex", lastName: "Guest", birthDate: "1990-01-01", classification: "playing_adult", unitPriceCents: 700, status: "active" }],
-  payments: [{ id: "charge", visitId: "visit", attendeeId: "attendee", entryType: "charge", method: "cash", amountCents: 700, relatedEntryId: null, reason: null, createdByStaffId: "staff", createdAt: "2026-09-27T16:00:00Z" }],
+  attendees: [{ id: "attendee", visitId: "visit", participantRecordId: "legacy-person", source: "legacy_smartwaiver", firstName: "Alex", lastName: "Guest", birthDate: "1990-01-01", classification: "playing_adult", unitPriceCents: 1000, status: "active" }],
+  payments: [{ id: "charge", visitId: "visit", attendeeId: "attendee", entryType: "charge", method: "cash", amountCents: 1000, relatedEntryId: null, reason: null, createdByStaffId: "staff", createdAt: "2026-09-27T16:00:00Z" }],
 };
 
 test("party-only attendance includes adults and children without charges or editable ledger visits", () => {
@@ -38,7 +38,7 @@ test("native party guests already checked in through legacy waivers count once a
   assert.equal(report.totalAttendance, 1);
   assert.equal(report.facilityAttendance?.length, 0);
   assert.equal(report.paidAttendance, 1);
-  assert.equal(report.cashTotalCents, 700);
+  assert.equal(report.cashTotalCents, 1000);
   assert.deepEqual(report.visits, original.visits);
 });
 

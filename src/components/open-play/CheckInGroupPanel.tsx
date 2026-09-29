@@ -9,6 +9,7 @@ import {
   type PaymentMethodChoice,
   type SelectedAttendeeDraft,
 } from "@/lib/open-play/check-in-client";
+import { ADMISSION_PRICES_CENTS } from "@/lib/open-play/pricing";
 
 type Props = {
   attendees: SelectedAttendeeDraft[];
@@ -141,7 +142,7 @@ export function CheckInGroupPanel({
                         }
                       />
                       <span className="text-sm font-bold text-slate-800">
-                        Playing adult — {formatCents(700)}
+                        Playing adult — {formatCents(ADMISSION_PRICES_CENTS.playing_adult)}
                       </span>
                     </label>
                     <label

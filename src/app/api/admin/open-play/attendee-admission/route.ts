@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { rateLimit } from "@/lib/rate-limit";
 import { requireStaffAuth, publicSafeError } from "@/lib/open-play/staff-auth";
+import { ADMISSION_PRICES_CENTS } from "@/lib/open-play/pricing";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -58,10 +59,11 @@ export async function PATCH(req: Request) {
     adultMode &&
     ((adultMode === "watching" && (amountCents !== 0 || paymentOption !== "free_pass")) ||
       (adultMode === "playing" &&
-        (amountCents !== 700 || (paymentOption !== "cash" && paymentOption !== "card"))))
+        (amountCents !== ADMISSION_PRICES_CENTS.playing_adult ||
+          (paymentOption !== "cash" && paymentOption !== "card"))))
   ) {
     return NextResponse.json(
-      { ok: false, error: "Watching adults are free; playing adults are $7 paid by cash or card." },
+      { ok: false, error: "Watching adults are free; playing adults are $10 paid by cash or card." },
       { status: 400 },
     );
   }

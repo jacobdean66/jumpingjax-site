@@ -36,10 +36,10 @@ test("child age 3 is $10", () => {
   assert.equal(result.unitPriceCents, 1000);
 });
 
-test("playing adult is $7", () => {
+test("playing adult is $10", () => {
   const result = classifyAdultAdmission("playing", "1990-05-01", "2026-08-03");
   assert.equal(result.classification, "playing_adult");
-  assert.equal(result.unitPriceCents, 700);
+  assert.equal(result.unitPriceCents, 1000);
 });
 
 test("watching adult is free", () => {
