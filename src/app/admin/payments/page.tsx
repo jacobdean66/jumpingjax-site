@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminBackButton } from "@/app/admin/AdminBackButton";
 import { AdminTokenGate } from "@/app/admin/AdminTokenGate";
 import { PaymentHub } from "@/components/payments/PaymentHub";
+import { MobilePaymentsSection } from "@/components/payments/MobilePaymentsSection";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadRecentPayments } from "@/lib/payments/store";
 import { formatCents, paymentDateLabel } from "@/lib/payments/booking-payments";
@@ -10,7 +11,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams?: Promise<{ token?: string; page?: string }>;
+  searchParams?: Promise<{ token?: string; mobilePage?: string; page?: string }>;
 };
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
@@ -60,6 +61,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <PaymentHub />
         </section>
+        <MobilePaymentsSection page={Math.max(0, Math.min(10000, Number.parseInt(resolved?.mobilePage ?? "0", 10) || 0))} recentPage={page} />
         <section className="mt-6 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-black">Recent Purchases</h2>
           <p className="mt-2 text-sm text-slate-600">Recorded booking payments, including deposits. The payer and booking customer can be different people. Card fees are separate from the amount credited to the booking.</p>
