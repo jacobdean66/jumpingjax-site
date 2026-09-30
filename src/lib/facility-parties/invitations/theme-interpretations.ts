@@ -13,6 +13,9 @@ export function themeInterpretations(input: ThemeSearchRequest): string[] {
 }
 
 export function themeCatalogQuery(input: ThemeSearchRequest): string {
-  return normalizeThemeLabel([input.query, ...input.refinements].join(' '))
-    .split(' ').filter(word => !['the','a','an','from','characters','character','please','picture','of'].includes(word)).join(' ');
+  // The explicit UI choice names the franchise; descriptive UI words must not
+  // exclude approved artwork whose publisher calls the movie an animated film.
+  const parts = [input.query, ...input.refinements].map(value => value === 'KPop Demon Hunters animated movie characters' ? 'KPop Demon Hunters' : value);
+  return [...new Set(normalizeThemeLabel(parts.join(' ')).split(' '))]
+    .filter(word => !['the','a','an','from','characters','character','please','picture','of'].includes(word)).join(' ');
 }
