@@ -105,6 +105,7 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
       if (!response.ok || !body.ok) throw new Error(body.message || "Could not save invoice.");
       if (body.invoice) setInvoice(body.invoice);
       setMessage("Invoice saved.");
+      router.refresh();
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save invoice.");
@@ -126,6 +127,7 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
       const body = await response.json() as { ok?: boolean; message?: string };
       if (!response.ok || !body.ok) throw new Error(body.message || "Could not email invoice.");
       setMessage(body.message || "Invoice emailed.");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not email invoice.");
     } finally {

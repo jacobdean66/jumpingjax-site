@@ -25,6 +25,7 @@ export default async function StandaloneInvoicesPage() {
         <AdminNav token="" role={auth.role} active="invoices" />
       </AdminHeader>
 
+      <div className="mt-6"><Link href="/admin/invoices/history" className="inline-flex rounded-full bg-indigo-600 px-5 py-3 text-sm font-black text-white">View invoice history</Link></div>
       <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-indigo-700">Standalone invoice</p>
