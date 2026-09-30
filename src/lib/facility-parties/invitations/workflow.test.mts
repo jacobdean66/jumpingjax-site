@@ -19,6 +19,8 @@ test('broad K-pop has distinct explicit interpretations; publisher images supple
   assert.deepEqual(themeInterpretations({query:'K-pop',refinements:[],rejected:[]}), ['General K-pop music party','KPop Demon Hunters animated movie characters']);
   assert.equal(themeInterpretations({query:'KPop Demon Hunters characters',refinements:[],rejected:[]}).length,0);
   assert.equal(themeCatalogQuery({query:'KPop Demon Hunters characters',refinements:[],rejected:[]}), 'kpop demon hunters');
+  assert.equal(themeCatalogQuery({query:'K-pop',refinements:['KPop Demon Hunters animated movie characters'],rejected:[]}), 'kpop demon hunters');
+  assert.equal(themeCatalogQuery({query:'K-pop',refinements:['KPop Demon Hunters animated movie characters','Rumi'],rejected:[]}), 'kpop demon hunters rumi');
   assert.deepEqual(sourceImages('<script type="application/ld+json">{"@type":"Movie","image":"/characters.png"}</script><img alt="KPop Demon Hunters movie characters" src="/cast.png">','https://example.com/movie'),['https://example.com/characters.png','https://example.com/cast.png']);
   assert.deepEqual(sourceImages('<img alt="Characters at a party" src="https://127.0.0.1/secret">','https://example.com'),[]);
 });

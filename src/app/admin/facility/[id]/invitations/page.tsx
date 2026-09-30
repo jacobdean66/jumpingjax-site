@@ -163,7 +163,7 @@ export default async function FacilityInvitationsPage({
     stored: data.invitation,
     colorHint: `${clean(data.balloon_colors)} ${clean(data.table_cloth_colors)}`,
   });
-  storedSnapshot.approvedPrint = resolveApprovedPrint(data.invitation, {
+  storedSnapshot.approvedPrint = storedSnapshot.confirmedTheme ? undefined : resolveApprovedPrint(data.invitation, {
     bookingId: data.id, childName: clean(data.child_name) || "Birthday Star", childAge: clean(data.child_age),
     customerPhone: clean(data.phone), dateLabel: clean(data.readable_date), timeLabel: clean(data.readable_time),
     themeText: clean(data.party_theme), rsvpUrl: waiverUrl,
@@ -282,7 +282,7 @@ export default async function FacilityInvitationsPage({
             <span className="block text-xs font-black uppercase text-slate-500">
               Design
             </span>
-            {invitationTemplateLabel(templateId)}
+            {storedSnapshot.confirmedTheme ? ['Spotlight', 'Portrait', 'Banner'][storedSnapshot.optionIndex % 3] : invitationTemplateLabel(templateId)}
           </p>
           <p>
             <span className="block text-xs font-black uppercase text-slate-500">

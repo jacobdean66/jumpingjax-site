@@ -31,3 +31,13 @@ The test suite includes actual-handler booking insertion/readback boundaries, si
 QR and guest-list links remain booking-specific. Pending bookings may prepare invitations; guest registration requires staff approval. Cancellation disables public invitation delivery. Never use an ordinary live booking API call for a test unless its owner/customer notifications are intended. A transactional RPC probe or a clearly marked disposable record created without notification side effects can verify persistence safely.
 
 The temporary `/invitation-demo-kpop` page is absent from the deployed source. It is not workflow evidence.
+
+## Deployed verification, September 30, 2026
+
+PR #122 deployed via main commit `d21ad33`. A catalog-miss production search for `KPop Demon Hunters characters` returned two verified Netflix-source candidates, including Rumi. Bare K-pop returned the two explicit interpretations. The browser clarification flow separately returned three real candidates, and its visible confirmation control saved the verified Sony-source trio.
+
+The Rumi selection produced a signed token accepted by the live agent endpoint for all three layouts. Repeat explicit search reused the approved catalog image. An isolated historical disposable booking was inserted through the real atomic RPC without invoking notification workflows; querying the row proved the matching `confirmedTheme.imagePath` was saved. Public and staff views reopened it with the same image. Spotlight, Portrait and Banner were visually checked at 390-pixel width without clipping or horizontal overflow. The four-up print sheet and sharing PNG were inspected. The actual production editable endpoint returned HTTP 200 and four exact SHA-matching PNG embeddings. No customer or owner email was sent during this safe-equivalent test; email HTML and delivery behavior were covered by tests.
+
+The temporary mock URL returned HTTP 404. The original repair passed 50 distinct focused/output tests (39 plus 14 with three shared), ESLint, TypeScript, local production build and all Vercel deployment checks. Safe production event records separately showed search, candidates, confirmation and composition. The disposable row is cancelled after verification, preserving its audit data and removing public access.
+
+The live review also corrected the staff design label to use the saved layout index, and normalizes the explicit movie interpretation before catalog lookup so publisher wording does not cause an unnecessary provider call. Arbitrary customer refinements are retained.
