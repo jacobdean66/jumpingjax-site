@@ -179,6 +179,7 @@ export function AdminNav({
   // rental tools only so Rentals is not duplicated in the nav.
   const rentalSubnav = [
     { label: "Invoices", href: `/admin/invoices${query}` },
+    { label: "Invoice history", href: `/admin/invoices/history${query}` },
     { label: "Inventory", href: `/admin/inventory${query}` },
     { label: "Damage log", href: `/admin/damage-log${query}` },
     role === "owner"
