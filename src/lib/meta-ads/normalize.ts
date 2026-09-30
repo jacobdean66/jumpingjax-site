@@ -206,16 +206,10 @@ export function normalizeInsightsRow(
     extractActionCount(row.actions, "link_click");
   const landingPageViews = extractActionCount(row.actions, "landing_page_view");
 
-  const ctrReported = parseNumericString(row.ctr);
-  // Meta CTR often arrives already as a percentage number (e.g. 1.23 meaning 1.23%).
-  const ctr =
-    ctrReported !== null
-      ? numberMetric(ctrReported / 100)
-      : safeDivide(linkClicks, impressions);
-
-  const cpcReported = parseNumericString(row.cpc);
-  const cpc =
-    cpcReported !== null ? numberMetric(cpcReported) : safeDivide(spend, linkClicks);
+  // These dashboard metrics describe link clicks. Meta's ctr/cpc fields
+  // describe all clicks, so substituting them would change the denominator.
+  const ctr = safeDivide(linkClicks, impressions);
+  const cpc = safeDivide(spend, linkClicks);
 
   const cpmReported = parseNumericString(row.cpm);
   const cpm =

@@ -12,6 +12,8 @@ import {
   normalizeInsightsRow,
   safeDivide,
   zeroInsights,
+  formatMetricMoney,
+  formatMetricRate,
 } from "./normalize";
 import { recomputeDerivedFromCounts } from "./dashboard-service";
 
@@ -107,6 +109,15 @@ test("safeDivide and recomputeDerivedFromCounts avoid divide-by-zero", () => {
   assert.equal(derived.ctr.kind, "unavailable");
   assert.equal(derived.cpc.kind, "unavailable");
   assert.equal(derived.costPerLandingPageView.kind, "unavailable");
+});
+
+test("link CTR and CPC never substitute Meta all-click metrics", () => {
+  const actual = normalizeInsightsRow({ spend: "4.77", impressions: "924", clicks: "154", inline_link_clicks: "74", ctr: "16.666667", cpc: "0.030974" });
+  assert.equal(formatMetricRate(actual.ctr, true), "8.01%");
+  assert.equal(formatMetricMoney(actual.cpc), "$0.06");
+  const missingLinks = normalizeInsightsRow({ spend: "4.77", impressions: "924", ctr: "16.666667", cpc: "0.030974" });
+  assert.equal(missingLinks.ctr.kind, "unavailable");
+  assert.equal(missingLinks.cpc.kind, "unavailable");
 });
 
 test("normalizeActionResults prefers readable labels", () => {

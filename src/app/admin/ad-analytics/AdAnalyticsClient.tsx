@@ -128,7 +128,7 @@ function AdDetail({
         <Metric label="Spend" value={money(ad.insights.spend, currency)} />
         <Metric label="LP views" value={formatMetricCount(ad.insights.landingPageViews)} />
         <Metric label="Link clicks" value={formatMetricCount(ad.insights.linkClicks)} />
-        <Metric label="CTR" value={formatMetricRate(ad.insights.ctr, true)} />
+        <Metric label="Link CTR" value={formatMetricRate(ad.insights.ctr, true)} />
       </div>
       <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold">
         {ad.creative.destinationUrl ? (
@@ -290,7 +290,7 @@ function CampaignBlock({
         <Metric label="Impressions" value={formatMetricCount(campaign.insights.impressions)} />
         <Metric label="Link clicks" value={formatMetricCount(campaign.insights.linkClicks)} />
         <Metric label="LP views" value={formatMetricCount(campaign.insights.landingPageViews)} />
-        <Metric label="CTR" value={formatMetricRate(campaign.insights.ctr, true)} />
+        <Metric label="Link CTR" value={formatMetricRate(campaign.insights.ctr, true)} />
       </div>
       {open ? (
         <div className="mt-4 space-y-3">
@@ -387,7 +387,7 @@ export function AdAnalyticsClient({
             </h2>
           </div>
           <p className="text-xs font-semibold text-slate-600">
-            Same Indiana date range as the Meta totals below
+            Selected dates in America/Indiana/Indianapolis; Meta totals use the ad account timezone
           </p>
         </div>
 
@@ -472,12 +472,12 @@ export function AdAnalyticsClient({
         <SummaryCard
           label="Link clicks"
           value={formatMetricCount(initial.totals.linkClicks)}
-          hint={`CPC ${money(initial.totals.cpc, currency)}`}
+          hint={`Link CPC ${money(initial.totals.cpc, currency)}`}
         />
         <SummaryCard
           label="Impressions / reach"
           value={`${formatMetricCount(initial.totals.impressions)} / ${formatMetricCount(initial.totals.reach)}`}
-          hint={`Freq ${formatMetricDecimal(initial.totals.frequency)} · CTR ${formatMetricRate(initial.totals.ctr, true)} · CPM ${money(initial.totals.cpm, currency)}`}
+          hint={`Freq ${formatMetricDecimal(initial.totals.frequency)} · Link CTR ${formatMetricRate(initial.totals.ctr, true)} · CPM ${money(initial.totals.cpm, currency)}`}
         />
       </section>
 

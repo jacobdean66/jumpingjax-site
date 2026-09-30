@@ -3,6 +3,7 @@ import "server-only";
 import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { isSocialOAuthConnectConfigured } from "@/lib/social-posts/oauth/social-oauth-config";
+import { describeMetaOperationalReadiness } from "@/lib/social-posts/oauth/social-meta-operational-readiness";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 import type { DashboardServiceCoverage, DashboardServiceState } from "./service-coverage";
@@ -34,7 +35,7 @@ export async function loadDashboardServiceCoverage(input: {
     return { count: result.count ?? null, ok: !result.error };
   };
 
-  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings] = await Promise.all([
+  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings, metaBindings, metaSchedules, metaTargets] = await Promise.all([
     probe("bookings"),
     probe("facility_bookings"),
     probe("waiver_submissions"),
@@ -45,16 +46,26 @@ export async function loadDashboardServiceCoverage(input: {
     probe("air_hockey_players"),
     probe("giveaway_nominations"),
     probe("social_posts"),
-    probe("social_oauth_sessions"),
+    db.from("social_oauth_sessions").select("session_id, publication_target_id, provider, lifecycle_state").eq("provider", "meta").eq("lifecycle_state", "connected").order("updated_at", { ascending: false }),
     probe("driver_closeout_reports"),
     db.storage.from("site-settings").list("", { limit: 1, search: "public-settings.json" }).then((result) => ({ count: result.data?.length ?? null, ok: !result.error })),
+    db.from("social_meta_publication_target_bindings").select("publication_target_id, oauth_session_id, asset_kind, binding_state").eq("binding_state", "active"),
+    db.from("social_meta_scheduled_publications").select("schedule_id", { count: "exact", head: true }),
+    db.from("social_publication_targets").select("publication_target_id").eq("platform", "facebook").eq("enabled", true),
   ]);
 
   const calendarConfigured = Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim() && process.env.GOOGLE_REFRESH_TOKEN?.trim());
   const emailConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
   const answering = getAnsweringMachineReadiness();
   const nomination = getNominationAgentReadiness();
-  const metaConfigured = isSocialOAuthConnectConfigured();
+  const meta = describeMetaOperationalReadiness({
+    configured: isSocialOAuthConnectConfigured(),
+    postsReadable: socialPosts.ok,
+    sessions: oauthSessions.error ? null : oauthSessions.data,
+    bindings: metaBindings.error ? null : metaBindings.data,
+    schedulerReadable: !metaSchedules.error,
+    enabledFacebookTargetIds: metaTargets.error ? null : (metaTargets.data ?? []).map((target) => target.publication_target_id),
+  });
   const securityHealthy = input.security.length > 0 && input.security.every((service) => service.state === "healthy");
   const managerStale = (input.dashboard?.queue.stale ?? 0) > 0;
 
@@ -70,9 +81,9 @@ export async function loadDashboardServiceCoverage(input: {
     row({ key: "invoices", name: "Invoices", href: "/admin/invoices", state: stateFromProbe(invoices), summary: invoices.ok ? "Invoice storage is readable." : "Invoice storage could not be read.", source: "database", recordCount: invoices.count, blocker: invoices.ok ? null : "Restore invoice storage access." }, checkedAt),
     row({ key: "payments", name: "Payments", href: "/admin/payments", state: "degraded", summary: "SwipeSimple payment links and reports are available, but live transactions are not readable in this dashboard.", source: "provider", recordCount: null, blocker: "SwipeSimple must grant API or webhook access before transaction health can be verified here." }, checkedAt),
     row({ key: "email", name: "Booking Email", href: "/admin/rentals", state: emailConfigured ? "connected" : "setup_required", summary: emailConfigured ? "Resend delivery credentials are present." : "Resend delivery credentials are missing.", source: "provider", recordCount: null, blocker: emailConfigured ? null : "Configure the existing Resend API credential." }, checkedAt),
-    row({ key: "social", name: "Social Posts", href: "/admin/social-posts", state: !socialPosts.ok ? "unavailable" : metaConfigured && (oauthSessions.count ?? 0) > 0 ? "connected" : "degraded", summary: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "Draft storage and the Meta OAuth connection are present." : "Draft storage is available; Meta publishing or analytics connection is incomplete.", source: "provider", recordCount: socialPosts.count, blocker: metaConfigured && (oauthSessions.count ?? 0) > 0 ? null : "Complete or refresh the existing Meta OAuth connection." }, checkedAt),
+    row({ key: "social", name: "Social Posts", href: "/admin/social-posts", ...meta.social, source: "provider", recordCount: socialPosts.count }, checkedAt),
     row({ key: "ai-ads", name: "AI Ads", href: "/admin/ai-ads", state: "degraded", summary: "The creation and review workspace is available; no independent live generation-provider probe is registered.", source: "application", recordCount: null, blocker: "Add a bounded read-only provider health check for the configured generation path." }, checkedAt),
-    row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", state: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "connected" : "setup_required", summary: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "Meta OAuth configuration and a stored session are present." : "Meta ad analytics is not fully connected.", source: "provider", recordCount: oauthSessions.count, blocker: metaConfigured && (oauthSessions.count ?? 0) > 0 ? null : "Connect Meta OAuth with the required ads read scopes." }, checkedAt),
+    row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", ...meta.analytics, source: "provider", recordCount: meta.analyticsSessionCount }, checkedAt),
     row({ key: "campaigns", name: "Campaign Hub", href: "/admin/campaigns", state: stateFromProbe(campaigns), summary: campaigns.ok ? "Campaign event storage is readable." : "Campaign event storage could not be read.", source: "database", recordCount: campaigns.count, blocker: campaigns.ok ? null : "Apply or repair the campaign event storage migration." }, checkedAt),
     row({ key: "air-hockey", name: "Air Hockey", href: "/admin/air-hockey", state: stateFromProbe(airHockey), summary: airHockey.ok ? "Tournament player storage is readable." : "Tournament player storage could not be read.", source: "database", recordCount: airHockey.count, blocker: airHockey.ok ? null : "Apply or repair the Air Hockey storage migration." }, checkedAt),
     row({ key: "giveaway", name: "Giveaway and Nomination", href: "/admin/giveaway", state: !nominations.ok ? "unavailable" : nomination.enabled && nomination.configured ? "connected" : "setup_required", summary: nomination.enabled && nomination.configured ? "Nomination storage and signed inbound processing are ready." : "Giveaway storage is readable; production nomination email ingestion is disabled.", source: "provider", recordCount: nominations.count, blocker: nomination.enabled && nomination.configured ? null : `Complete nomination inbound setup${nomination.missing.length ? `: ${nomination.missing.join(", ")}` : " and enable it"}.` }, checkedAt),
