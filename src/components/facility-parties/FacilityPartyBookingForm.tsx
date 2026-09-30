@@ -53,7 +53,6 @@ import { formatMinutesLabel, getLocalDayOfWeek } from "@/lib/facility-parties/ti
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
 import {
   invitationSnapshotFromChoice,
-  remainingInvitationAlternates,
 } from "@/lib/facility-parties/invitations/snapshot";
 import {
   mapFacilityAvailabilityRowToBlock,
@@ -276,6 +275,7 @@ export function FacilityPartyBookingForm({
   const askInvitationAgent = async (
     action: InvitationAgentAction,
     selection = "",
+    optionIndex = invitationSnapshot.optionIndex,
   ) => {
     if (!themeDesignMatches(themeDesign, partyTheme)) return null;
     const requestSequence = ++invitationRequestSequence.current;
@@ -285,7 +285,7 @@ export function FacilityPartyBookingForm({
         action,
         sourceText: partyTheme,
         colorHint: invitationColorHint,
-        optionIndex: invitationSnapshot.optionIndex,
+        optionIndex,
         alternatesUsed: invitationSnapshot.alternatesUsed,
         selection,
         confirmationToken: themeDesign.confirmationToken,
@@ -1236,37 +1236,12 @@ export function FacilityPartyBookingForm({
                             compact
                           />
                         </div>
-                        <p className="text-sm font-semibold text-slate-300">
-                          Change the theme above to search again. You can also try up to three other layouts using your confirmed picture.
-                        </p>
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                          {invitationSnapshot.alternatesLocked
-                            ? "No more invitation styles left"
-                            : `${remainingInvitationAlternates(invitationSnapshot)} of 3 other styles left`}
-                        </p>
-                        <button
-                          type="button"
-                          disabled={invitationSnapshot.alternatesLocked || invitationAgentState === "working"}
-                          onClick={async () => {
-                            const designed = await askInvitationAgent("alternate");
-                            if (!designed) return;
-                            const next = designed;
-                            setInvitationOverride({
-                              sourceText: next.sourceText,
-                              optionIndex: next.optionIndex,
-                              alternatesUsed: next.alternatesUsed,
-                            });
-                          }}
-                          className="w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-200"
-                        >
-                          I don&apos;t like this — show another
-                        </button>
-                        {invitationSnapshot.alternatesLocked ? (
-                          <p className="text-sm font-semibold text-slate-200">
-                            This is the last invitation style we can show. It
-                            will be saved with your booking.
-                          </p>
-                        ) : null}
+                        <p className="text-sm font-semibold text-slate-300">Choose a layout. Each uses your confirmed picture.</p>
+                        <div className="grid grid-cols-3 gap-2" aria-label="Invitation layout choices">
+                          {['Spotlight', 'Portrait', 'Banner'].map((label, index) => <button key={label} type="button" aria-pressed={invitationSnapshot.optionIndex % 3 === index}
+                            disabled={invitationAgentState === 'working'} onClick={() => void askInvitationAgent('choose-template', label, index)}
+                            className={`rounded-xl border px-2 py-3 text-sm font-bold ${invitationSnapshot.optionIndex % 3 === index ? 'border-cyan-300 bg-cyan-300 text-slate-950' : 'border-white/30 text-white'}`}>{label}</button>)}
+                        </div>
                         <div className="grid gap-3">
                           <p className="text-sm text-cyan-100">After you submit your booking, choose to email your invitation link or download the file.</p>
                             <label className="block rounded-xl border border-white/10 bg-[#071326]/55 p-3">

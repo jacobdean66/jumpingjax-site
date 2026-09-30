@@ -3,6 +3,7 @@ import {
   runInvitationAgent,
 } from "@/lib/facility-parties/invitations/agent";
 import { recordInvitationAgentRun } from "@/lib/agent-manager/invitation-run";
+import { composeInvitationWorkflow } from "@/lib/facility-parties/invitations/workflow";
 import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
 
 export async function POST(request: Request) {
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Search for your theme and confirm the right picture first.", code: "theme_confirmation_required" }, { status: 409 });
   }
 
-  const result = runInvitationAgent({
+  const compose = confirmedTheme ? composeInvitationWorkflow : runInvitationAgent;
+  const result = await compose({
     action: body.action,
     sourceText,
     confirmedTheme: confirmedTheme ?? undefined,
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
     bookingId: typeof body.bookingId === "string" ? body.bookingId.slice(0, 100) : "",
   });
 
-  await recordInvitationAgentRun(result).catch(() => undefined);
+  if (!confirmedTheme) await recordInvitationAgentRun(result).catch(() => undefined);
 
   return Response.json(result, {
     headers: { "cache-control": "no-store" },

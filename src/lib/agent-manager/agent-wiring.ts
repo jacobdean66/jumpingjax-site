@@ -60,9 +60,9 @@ export function buildAgentWiring(input: {
     {
       key: "party-invitation",
       state: "connected",
-      handler: "Deterministic invitation theme and renderer",
+      handler: "Character search workflow and deterministic layout composer",
       trigger: "Invitation builder actions",
-      summary: "Runs inside the invitation workflow; it does not create or alter a booking.",
+      summary: "Looks up artwork, confirms and saves pictures, composes layouts, and verifies booking storage. Success requires a saved confirmed booking.",
       supervisorDispatch: false,
       canPause: false,
     },

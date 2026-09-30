@@ -73,7 +73,7 @@ export async function loadFacilityInvitationView(
     partyDate: data.readable_date,
   });
 
-  snapshot.approvedPrint = resolveApprovedPrint(data.invitation, {
+  snapshot.approvedPrint = snapshot.confirmedTheme ? undefined : resolveApprovedPrint(data.invitation, {
     bookingId: data.id, childName: data.child_name?.trim() || "Birthday Star",
     childAge: data.child_age?.trim() || "", customerPhone: data.phone?.trim() || "",
     dateLabel: data.readable_date?.trim() || "", timeLabel: data.readable_time?.trim() || "",
