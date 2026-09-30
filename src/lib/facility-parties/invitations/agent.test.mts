@@ -31,7 +31,7 @@ test("invitation specialist has all three asset libraries attached", () => {
     ["approved-artwork", "fluent-emoji", "kenney-cc0"],
   );
   assert.equal(result.agent, "party-invitation");
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "layout_composed");
 });
 
 test("Curious George safely selects the jungle animal composition instead of birthday fallback", () => {

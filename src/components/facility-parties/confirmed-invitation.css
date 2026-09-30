@@ -1,0 +1,51 @@
+.confirmed-invitation-frame { container-type:inline-size; width:100%; height:100%; color:#172033; }
+.confirmed-invitation-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; padding:24px; background:#fffef8; border:1px solid #dbe1ec; border-radius:18px; overflow:hidden; }
+.confirmed-invitation-heading { min-width:0; align-self:center; }
+.confirmed-invitation-logo { width:100px; max-width:60%; height:auto; margin-bottom:14px; }
+.confirmed-invitation-eyebrow { text-transform:uppercase; letter-spacing:.1em; font-size:12px; font-weight:800; }
+.confirmed-invitation-heading h2 { font-size:clamp(24px,6cqw,40px); font-weight:900; line-height:1.08; overflow-wrap:anywhere; margin:8px 0; }
+.confirmed-invitation-age { font-size:clamp(16px,3.8cqw,24px); font-weight:800; color:#75508e; }
+.confirmed-invitation-artwork { min-width:0; display:grid; place-items:center; background:#fff; border-radius:14px; }
+.confirmed-invitation-artwork img { width:100%; height:100%; max-height:280px; object-fit:contain; }
+.confirmed-invitation-artwork [role=alert] { padding:12px; color:#9f1239; font-size:14px; }
+.confirmed-invitation-footer { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:16px; border-top:1px solid #dbe1ec; padding-top:16px; }
+.confirmed-invitation-details { min-width:0; font-size:clamp(14px,3cqw,18px); line-height:1.4; overflow-wrap:anywhere; }
+.confirmed-invitation-venue { margin-top:8px; }
+.confirmed-invitation-qr { flex:0 0 88px; text-align:center; font-size:10px; font-weight:700; }
+.confirmed-invitation-qrImage { width:88px; height:88px; background:white; }
+.confirmed-invitation-portrait { background:#f4edff; border-top:8px solid #75508e; }
+.confirmed-invitation-portrait .confirmed-invitation-artwork { grid-row:1; grid-column:1; }
+.confirmed-invitation-portrait .confirmed-invitation-heading { grid-row:1; grid-column:2; }
+.confirmed-invitation-banner { grid-template-columns:1fr; background:#edf8fc; border-top:8px solid #14738b; }
+.confirmed-invitation-banner .confirmed-invitation-heading { text-align:center; }
+.confirmed-invitation-banner .confirmed-invitation-logo { margin:0 auto 12px; }
+.confirmed-invitation-banner .confirmed-invitation-artwork { grid-row:2; max-height:240px; }
+.confirmed-invitation-banner .confirmed-invitation-artwork img { max-height:240px; }
+.confirmed-invitation-sheet { height:100%; border-radius:0; border:0; gap:2cqw; padding:3cqw; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; }
+.confirmed-invitation-sheet .confirmed-invitation-heading h2 { font-size:5.5cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-eyebrow { font-size:2.1cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-age { font-size:3cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-logo { width:18cqw; margin-bottom:2cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-artwork img { max-height:30cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-footer { gap:2cqw; padding-top:2cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-details { font-size:2.7cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-venue { margin-top:1cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-qr { flex-basis:15cqw; font-size:1.9cqw; }
+.confirmed-invitation-sheet .confirmed-invitation-qrImage { width:15cqw; height:15cqw; }
+.confirmed-invitation-sheet.confirmed-invitation-banner { grid-template-columns:minmax(0,1fr) minmax(0,1fr); border-top:1cqw solid #14738b; }
+.confirmed-invitation-sheet.confirmed-invitation-banner .confirmed-invitation-heading { text-align:left; }
+.confirmed-invitation-sheet.confirmed-invitation-banner .confirmed-invitation-artwork { grid-row:1; grid-column:2; }
+.confirmed-invitation-sheet.confirmed-invitation-banner .confirmed-invitation-logo { margin:0 0 2cqw; }
+@container (max-width:420px) {
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) { grid-template-columns:1fr; padding:20px; gap:16px; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-heading { grid-row:auto; grid-column:auto; text-align:center; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-logo { margin:0 auto 12px; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-artwork { grid-row:auto; grid-column:auto; max-height:240px; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-artwork img { max-height:240px; }
+  .confirmed-invitation-portrait:not(.confirmed-invitation-sheet) .confirmed-invitation-artwork { grid-row:1; }
+  .confirmed-invitation-portrait:not(.confirmed-invitation-sheet) .confirmed-invitation-heading { grid-row:2; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-footer { gap:10px; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-qr { flex-basis:72px; }
+  .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-qrImage { width:72px; height:72px; }
+}
+@media print { .confirmed-invitation-card { box-shadow:none; border-radius:0; break-inside:avoid; } }

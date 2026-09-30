@@ -21,6 +21,7 @@ export function publicHttpsUrl(value: string): boolean {
 }
 
 const httpsUrl = z.string().max(4096).refine(publicHttpsUrl);
+export const themeImagePathSchema = z.string().regex(/^\/api\/facility\/invitations\/artwork\/[a-f0-9]{64}$/);
 
 export const themeCandidateSchema = z.object({
   id: z.string().min(1).max(80),
@@ -28,6 +29,10 @@ export const themeCandidateSchema = z.object({
   description: z.string().trim().min(1).max(500),
   imageUrl: httpsUrl,
   sourceUrl: httpsUrl,
+  franchise: z.string().trim().min(1).max(160).optional(),
+  aliases: z.array(z.string().trim().min(1).max(160)).max(12).optional(),
+  imagePath: themeImagePathSchema.optional(),
+  catalogAssetId: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 });
 export type ThemeCandidate = z.infer<typeof themeCandidateSchema>;
 export type ThemeSearchCandidate = ThemeCandidate & { selectionToken: string };
@@ -35,13 +40,14 @@ export type ThemeSearchResult = {
   status: "needs_confirmation";
   question: string;
   candidates: ThemeSearchCandidate[];
+  interpretations?: string[];
 };
 
 export const confirmedThemeSchema = z.object({
   ...themeCandidateSchema.shape,
   originalQuery: z.string().min(1).max(160),
   // A permanent first-party path, never a customer-supplied remote image.
-  imagePath: z.string().regex(/^\/api\/facility\/invitations\/artwork\/[a-f0-9]{64}$/),
+  imagePath: themeImagePathSchema,
   confirmedAt: z.string().datetime(),
 });
 export type ConfirmedInvitationTheme = z.infer<typeof confirmedThemeSchema>;

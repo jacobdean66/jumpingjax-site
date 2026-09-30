@@ -57,7 +57,7 @@ export type InvitationAgentInput = {
 
 export type InvitationAgentResult = {
   agent: "party-invitation";
-  status: "completed";
+  status: "layout_composed";
   action: InvitationAgentAction;
   snapshot: InvitationSnapshot;
   attachedLibraries: typeof INVITATION_AGENT_LIBRARIES;
@@ -96,7 +96,7 @@ export function runInvitationAgent(
 
   return {
     agent: "party-invitation",
-    status: "completed",
+    status: "layout_composed",
     action: input.action,
     snapshot,
     attachedLibraries: INVITATION_AGENT_LIBRARIES,

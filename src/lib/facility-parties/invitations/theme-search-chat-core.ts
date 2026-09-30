@@ -3,7 +3,7 @@ import { publicHttps } from "./public-resource";
 import { safeProviderFailure, type ProviderFailure } from "./provider-failure";
 
 export type SearchInput = { query: string; refinements: string[]; rejected: string[] };
-export type Candidate = { id: string; label: string; description: string; imageUrl: string; sourceUrl: string };
+export type Candidate = { id: string; label: string; description: string; imageUrl: string; sourceUrl: string; franchise?: string; aliases?: string[] };
 type Citation = { url: string; title: string };
 export type Evidence = { id: string; imageUrl: string; sourceUrl: string; sourceTitle: string; dataUrl: string };
 export type SearchDependencies = {
@@ -14,7 +14,7 @@ export type SearchDependencies = {
   report?: (counts: { citedPages: number; loadedPages: number; declaredImages: number; usableImages: number; candidates: number }) => void;
 };
 
-type ThemeChatCapabilityCode = "protected_gateway_not_configured" | "protected_chat_search_rejected" | "protected_vision_rejected" | "chat_response_incomplete" | "chat_search_citations_missing" | "vision_response_invalid";
+export type ThemeChatCapabilityCode = "protected_gateway_not_configured" | "protected_chat_search_rejected" | "protected_vision_rejected" | "chat_response_incomplete" | "chat_search_citations_missing" | "vision_response_invalid" | "source_images_unavailable" | "search_deadline_exceeded";
 export class ThemeChatCapabilityError extends Error {
   code: ThemeChatCapabilityCode;
   status?: number;
@@ -97,6 +97,37 @@ export function declaredImages(html: string, source: string): string[] {
   return [...images];
 }
 
+/** Structured publisher images and descriptive inline images supplement social metadata.
+ * Every URL still passes public-host validation, a bounded download and vision checks. */
+export function sourceImages(html: string, source: string): string[] {
+  const urls = new Set(declaredImages(html, source));
+  if (Buffer.byteLength(html) > 512 * 1024 || !publicHttps(source)) return [...urls];
+  function add(value: unknown) {
+    if (typeof value !== 'string' || value.length > 4096 || urls.size >= 2) return;
+    try { const url = new URL(decode(value), source); if (publicHttps(url.href)) urls.add(url.href); } catch { /* Invalid publisher URL. */ }
+  }
+  function visit(value: unknown, depth = 0) {
+    if (depth > 8 || !value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.slice(0, 12).forEach(item => visit(item, depth + 1)); return; }
+    const row = value as Record<string, unknown>;
+    if (row['@type'] === 'ImageObject') { add(row.contentUrl); add(row.url); }
+    if (typeof row.image === 'string') add(row.image);
+    else visit(row.image, depth + 1);
+    visit(row['@graph'], depth + 1);
+  }
+  for (const script of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { visit(JSON.parse(script[1])); } catch { /* Malformed structured data is ignored. */ }
+  }
+  const body = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  for (const image of body.matchAll(/<img\b[^>]{0,8000}>/gi)) {
+    const alt = /\balt=["']([^"']+)["']/i.exec(image[0])?.[1];
+    if (!alt || alt.length < 12 || /logo|icon|avatar|tracking|pixel/i.test(alt)) continue;
+    add(/\bsrc=["']([^"']+)["']/i.exec(image[0])?.[1]);
+    if (urls.size >= 2) break;
+  }
+  return [...urls];
+}
+
 const clarification = "I couldn’t verify a suitable picture yet. Which show, character, group, or distinctive detail should I look for?";
 
 function inspectedCandidates(response: unknown, evidence: Evidence[], input: SearchInput): { question: string; candidates: Candidate[] } {
@@ -118,17 +149,20 @@ function inspectedCandidates(response: unknown, evidence: Evidence[], input: Sea
     if (!image || !label || !description || seen.has(image.imageUrl) || rejected.has(label.toLowerCase()) ||
       match?.identity_matches !== true || match.child_appropriate !== true || match.suitable_artwork !== true) continue;
     seen.add(image.imageUrl);
-    candidates.push({ id: image.id, label, description, imageUrl: image.imageUrl, sourceUrl: image.sourceUrl });
+    candidates.push({ id: image.id, label, description, imageUrl: image.imageUrl, sourceUrl: image.sourceUrl,
+      franchise: text(match.franchise, 160) ?? label,
+      aliases: Array.isArray(match.aliases) ? match.aliases.map(value => text(value,160)).filter((value): value is string => Boolean(value)).slice(0,12) : [],
+    });
     if (candidates.length === 4) break;
   }
   return { question: candidates.length ? text(answer.question, 400) ?? "Which picture matches the theme you want?" : clarification, candidates };
 }
 
-export async function searchThemesWithChat(input: SearchInput, dependencies: SearchDependencies, signal = AbortSignal.timeout(54000)) {
+export async function searchThemesWithChat(input: SearchInput, dependencies: SearchDependencies, signal = AbortSignal.timeout(80000)) {
   const sources = citedSources(await dependencies.search(input, signal));
   signal.throwIfAborted();
   const pages = await Promise.allSettled(sources.map(async source => ({
-    source, urls: declaredImages(await dependencies.readHtml(source.url, signal), source.url),
+    source, urls: sourceImages(await dependencies.readHtml(source.url, signal), source.url),
   })));
   signal.throwIfAborted();
   const references = pages.flatMap(page => page.status === "fulfilled" ? page.value.urls.map(imageUrl => ({ ...page.value.source, imageUrl })) : []);

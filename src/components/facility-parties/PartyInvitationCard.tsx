@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { ConfirmedInvitationCard } from "./ConfirmedInvitationCard";
 import { approvedPrintUrl } from "@/lib/facility-parties/invitations/approved-print";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import {
@@ -7,7 +8,6 @@ import {
 } from "@/lib/facility-parties/invitations/approved-artwork";
 import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
-import { pickReadableTextColor } from "@/lib/facility-parties/invitations/contrast";
 import { buildQrCodeImageUrl } from "@/lib/facility-parties/invitations";
 import { InvitationQr } from "./InvitationQr";
 import {
@@ -51,7 +51,7 @@ export function PartyInvitationCard({
   sheetMode = false,
 }: PartyInvitationCardProps) {
   const qrUrl = waiverUrl ? buildQrCodeImageUrl(waiverUrl, 300) : suppliedQrUrl;
-  if (snapshot.approvedPrint) {
+  if (snapshot.approvedPrint && !snapshot.confirmedTheme) {
     const print = snapshot.approvedPrint;
     return <article data-approved-print-id={print.id} data-theme-id={snapshot.themeId} className={sheetMode ? "h-full w-full" : "mx-auto w-full max-w-xl"}>
       <a href={print.rsvpUrl} aria-label={`${childName} — RSVP and guest list`} className="block h-full w-full">
@@ -92,15 +92,9 @@ export function PartyInvitationCard({
   const headline = invitationCopy.headline;
 
   if (snapshot.confirmedTheme) {
-    return (
-      <div className={sheetMode ? "h-full w-full" : "aspect-[3/2] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"} data-confirmed-theme-id={snapshot.confirmedTheme.id}>
-        <InkSaverSheetInvitation snapshot={snapshot} themeId={composed.themeId} layout={layout}
-          displayName={displayName} childAge={childAge} customerPhone={invitationCopy.customerPhone}
-          venueLine={invitationCopy.venueLine} dateLabel={invitationCopy.dateLabel} timeLabel={invitationCopy.timeLabel}
-          qrUrl={qrUrl} waiverUrl={waiverUrl} artworkSrc={snapshot.confirmedTheme.imagePath}
-          agentArtwork accent={pickReadableTextColor("#fffef8", palette.accent)} />
-      </div>
-    );
+    return <ConfirmedInvitationCard key={snapshot.confirmedTheme.imagePath} snapshot={snapshot} childName={displayName} childAge={childAge}
+      customerPhone={invitationCopy.customerPhone} dateLabel={invitationCopy.dateLabel} timeLabel={invitationCopy.timeLabel}
+      qrUrl={qrUrl} waiverUrl={waiverUrl} sheetMode={sheetMode} />;
   }
 
   if (composed.themeId === "princess-royal") {

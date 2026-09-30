@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
+import { GET as confirmedArtwork } from "@/app/api/facility/invitations/artwork/[id]/route";
 import { GET as savedInvitationImage } from "@/app/api/facility/invitations/[id]/approved/route";
 
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
@@ -50,6 +51,24 @@ export default async function InvitationOpenGraphImage({
     timeLabel: view.timeLabel,
     themeText: view.snapshot.sourceText,
   });
+
+  if (view.snapshot.confirmedTheme) {
+    const imageId = view.snapshot.confirmedTheme.imagePath.split('/').pop()!;
+    const response = await confirmedArtwork(new Request('https://jumpingjaxllc.com' + view.snapshot.confirmedTheme.imagePath), { params: Promise.resolve({ id: imageId }) });
+    if (!response.ok) throw new Error('Confirmed invitation picture unavailable');
+    const png = Buffer.from(await response.arrayBuffer()).toString('base64');
+    return new ImageResponse(<div style={{ display:'flex',width:'100%',height:'100%',background:'#f4edff',color:'#172033',padding:48,gap:40,alignItems:'center',flexDirection:view.snapshot.optionIndex % 3 === 1 ? 'row-reverse' : 'row' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={'data:image/png;base64,'+png} alt={view.snapshot.confirmedTheme.label} width={450} height={480} style={{objectFit:'contain'}} />
+      <div style={{display:'flex',flexDirection:'column',flex:1,fontSize:25,gap:14}}>
+        <div style={{fontSize:20,color:'#75508e'}}>YOU’RE INVITED</div>
+        <div style={{fontSize:52,fontWeight:900}}>{copy.headline}</div>
+        <div>{copy.dateLabel}</div><div>{copy.timeLabel}</div><div>{copy.venueLine}</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={view.qrUrl} alt="RSVP & guest list" width={120} height={120} />
+      </div>
+    </div>, size);
+  }
 
   return new ImageResponse(
     <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", overflow: "hidden", background: composed.palette.background, color: "white" }}>

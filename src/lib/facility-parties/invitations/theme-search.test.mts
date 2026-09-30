@@ -125,10 +125,10 @@ test("confirmed artwork survives alternates, JSON storage, reload, agent renderi
   }
 });
 
-test("changing a saved theme removes the old confirmed picture", () => {
+test("changing a saved confirmed theme fails visibly instead of substituting generic artwork", () => {
   const theme: ConfirmedInvitationTheme = { ...movie, originalQuery: "Kpop", imagePath, confirmedAt: new Date().toISOString() };
   const stored = invitationSnapshotFromChoice(movie.label, 0, 0, "", theme);
-  assert.equal(resolveInvitationSnapshot({ partyTheme: "Dinosaur", stored }).confirmedTheme, undefined);
+  assert.throws(() => resolveInvitationSnapshot({ partyTheme: "Dinosaur", stored }), /confirmed invitation picture needs attention/);
 });
 
 test("editable download embeds the saved confirmed image and refuses a replacement when storage fails", async (context) => {
