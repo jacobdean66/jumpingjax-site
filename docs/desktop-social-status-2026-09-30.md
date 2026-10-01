@@ -30,3 +30,11 @@ Publishing remains incomplete: no active Page binding or vaulted Page token was 
 ## Local verification
 
 Expanded focused suite: 38/38 passed, including 23 additional assertions inside the publication target persistence/store scripts. Full TypeScript check passed (`tsc --noEmit --incremental false`). `git diff --check` passed. No production build was run. Focused lint and pushed commit are recorded in the worker result to the coordinator.
+
+## October 1 resumption
+
+Fresh remote fetch confirmed main still `79bc7fc44d15019f93dfa8903e072847356295c1`. All unfinished work was preserved. The target descriptor repair now correctly retains links and hashtags in the already implemented Page feed text path; it still permits zero image/video attachments and does not grant publishing authority. A mocked transport assertion proves the existing link and hashtag payload survives.
+
+Fresh checks: 28/28 focused Node tests passed, with 23 additional assertions inside the persistence/store scripts. Full TypeScript (4 GiB heap), targeted ESLint for changed application files, and diff whitespace checks passed. Initial sandbox `tsx` execution failed before tests at `uv_os_get_passwd`; an elevated rerun passed. The 1 GiB TypeScript run exhausted its heap; the 4 GiB run passed. No production build or live mutation was performed.
+
+September 30 reporting numbers above remain dated evidence, not an October 1 refresh. Publication, scheduling, ad-pause and phone-side acceptance remain open. The giveaway schema described in the coordinator's historical report should be checked as `giveaway_email_outbox`; `giveaway_monthly_communications` is the migration description, not the table name.

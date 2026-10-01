@@ -21,6 +21,8 @@ test("production bootstrap shape is rejected and the guarded repair satisfies th
   assert.deepEqual(repaired.capabilities, ["caption_text"]);
   assert.equal(repaired.media_constraints.maxImageCount, 0);
   assert.equal(repaired.media_constraints.maxVideoCount, 0);
+  assert.equal(repaired.copy_constraints.supportsLinks, true);
+  assert.equal(repaired.copy_constraints.supportsHashtags, true);
   assert.match(sql, /where publication_target_id = 'd9be61cc-137d-4f47-87c9-43023bc58c85'/);
   assert.match(sql, /and external_target_id = 'pending-meta-page-bootstrap'/);
   assert.match(sql, /and capabilities = '\["organic_publish"\]'::jsonb/);

@@ -13,8 +13,8 @@ set capabilities = '["caption_text"]'::jsonb,
     }'::jsonb,
     copy_constraints = '{
       "maxCaptionCharacters": 2200,
-      "supportsHashtags": false,
-      "supportsLinks": false
+      "supportsHashtags": true,
+      "supportsLinks": true
     }'::jsonb,
     updated_at = now()
 where publication_target_id = 'd9be61cc-137d-4f47-87c9-43023bc58c85'::uuid
@@ -28,3 +28,4 @@ where publication_target_id = 'd9be61cc-137d-4f47-87c9-43023bc58c85'::uuid
 
 -- The existing descriptor requires at least one supported media type. The zero
 -- media counts and caption_text-only capability do not enable image/video posts.
+-- Links and hashtags stay available in the already implemented Page feed text path.
