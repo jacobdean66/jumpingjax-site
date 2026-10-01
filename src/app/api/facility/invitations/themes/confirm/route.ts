@@ -1,6 +1,5 @@
-import { confirmInvitationTheme } from "@/lib/facility-parties/invitations/theme-search-service";
+import { confirmInvitationWorkflow } from "@/lib/facility-parties/invitations/workflow";
 import { themeConfirmationRequestSchema } from "@/lib/facility-parties/invitations/theme-search";
-import { persistThemeArtwork } from "@/lib/facility-parties/invitations/theme-artwork-store";
 import { readThemeSelection } from "@/lib/facility-parties/invitations/theme-token";
 import { invitationThemeSearchLimit } from "@/lib/facility-parties/invitations/theme-search-limit";
 
@@ -12,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const limited = await invitationThemeSearchLimit(request);
     if (limited) return limited;
-    return Response.json(await confirmInvitationTheme(body.data, { persist: persistThemeArtwork }), { headers: { "cache-control": "no-store" } });
+    return Response.json(await confirmInvitationWorkflow(body.data), { headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({ error: "That picture couldn’t be saved for your invitation. Please try again or choose another match." }, { status: 503 });
   }

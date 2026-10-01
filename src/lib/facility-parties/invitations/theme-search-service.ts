@@ -3,7 +3,7 @@ import { assertThemeSigningConfigured, readThemeSelection, signConfirmedTheme, s
 
 export type ThemeSearchDependencies = {
   search: (input: ThemeSearchRequest) => Promise<{ question: string; candidates: ThemeCandidate[] }>;
-  persist: (url: string) => Promise<string>;
+  persist: (url: string, candidate: ThemeCandidate) => Promise<string>;
 };
 
 /** Search never composes or saves an invitation. Only an explicit, signed selection does. */
@@ -22,7 +22,7 @@ export async function confirmInvitationTheme(body: unknown, dependencies: Pick<T
   const input = themeConfirmationRequestSchema.parse(body);
   const selection = readThemeSelection(input.selectionToken);
   if (!selection) throw new Error("This search has expired. Please search for your theme again.");
-  const imagePath = await dependencies.persist(selection.candidate.imageUrl);
+  const imagePath = await dependencies.persist(selection.candidate.imageUrl, selection.candidate);
   const theme = confirmedThemeSchema.parse({
     ...selection.candidate,
     originalQuery: selection.query,

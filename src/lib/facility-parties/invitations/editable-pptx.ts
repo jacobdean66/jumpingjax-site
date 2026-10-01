@@ -57,6 +57,24 @@ async function imageDataUri(url: string | undefined): Promise<string | null> {
   }
 }
 
+function addConfirmedInvitation(pptx: PptxGenJS, slide: PptxGenJS.Slide, input: EditableInvitationPptxInput, x:number, y:number, artwork:string, qr:string|null) {
+  const variant=input.snapshot.optionIndex%3;
+  const background=['FFFEF8','F4EDFF','EDF8FC'][variant];
+  const accent=variant===2?'14738B':'75508E';
+  slide.addShape(pptx.ShapeType.rect,{x,y,w:INVITE_WIDTH,h:INVITE_HEIGHT,line:{color:background,transparency:100},fill:{color:background}});
+  const copy=buildInvitationCopy({childName:input.childName,childAge:input.childAge,customerPhone:input.customerPhone,dateLabel:input.dateLabel,timeLabel:input.timeLabel,themeText:input.snapshot.sourceText});
+  const textX=x+(variant===1?3.0:0.3);
+  slide.addImage({path:publicAssetPath('/logo.png'),x:textX,y:y+0.18,w:0.95,h:0.43,sizing:{type:'contain',w:0.95,h:0.43}});
+  slide.addText(copy.childName,{x:variant===2?x+1.4:textX,y:y+0.7*(variant===2?0.4:1),w:variant===2?3.75:2.2,h:0.75,fontSize:23,bold:true,fontFace:'Aptos Display',color:'172033',fit:'shrink',margin:0,align:variant===2?'center':'left'});
+  slide.addText(input.childAge.trim()?'IS TURNING '+input.childAge.trim()+'!':'BIRTHDAY CELEBRATION',{x:variant===2?x+1.4:textX,y:y+(variant===2?0.97:1.5),w:variant===2?3.75:2.2,h:0.3,fontSize:13,bold:true,fontFace:'Aptos',color:accent,fit:'shrink',margin:0,align:variant===2?'center':'left'});
+  const imageX=x+(variant===1?0.25:variant===2?0.3:2.85), imageY=y+(variant===2?1.35:0.18), imageW=variant===2?4.9:2.35, imageH=variant===2?1.5:2.2;
+  slide.addImage({data:artwork,altText:input.snapshot.confirmedTheme?.label,x:imageX,y:imageY,w:imageW,h:imageH,sizing:{type:'contain',w:imageW,h:imageH}});
+  const footerY=y+(variant===2?3.0:2.6);
+  slide.addText(copy.dateLabel+'\n'+copy.timeLabel,{x:x+0.3,y:footerY,w:3.7,h:0.48,fontSize:variant===2?10:12,bold:true,color:'172033',fit:'shrink',margin:0});
+  slide.addText(FACILITY_INVITATION_VENUE.name+' • '+FACILITY_INVITATION_VENUE.address+(copy.customerPhone?'\nParty contact: '+copy.customerPhone:''),{x:x+0.3,y:footerY+0.5,w:3.7,h:variant===2?0.54:0.8,fontSize:10.5,color:'172033',fit:'shrink',margin:0});
+  if(qr){slide.addImage({data:qr,altText:'Party RSVP and guest list',x:x+4.2,y:y+3.02,w:0.9,h:0.9,...(input.waiverUrl?{hyperlink:{url:input.waiverUrl.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}}:{})});slide.addText('RSVP & guest list',{x:x+4.05,y:y+3.95,w:1.2,h:0.17,fontSize:7.5,align:'center',margin:0,color:'172033'});}
+}
+
 function addInvitation(
   pptx: PptxGenJS,
   slide: PptxGenJS.Slide,
@@ -66,6 +84,10 @@ function addInvitation(
   qrData: string | null,
   confirmedArtworkData: string | null,
 ) {
+  if (input.snapshot.confirmedTheme && confirmedArtworkData) {
+    addConfirmedInvitation(pptx, slide, input, x, y, confirmedArtworkData, qrData);
+    return;
+  }
   const composed = composeLibraryInvitation({
     themeId: input.snapshot.themeId,
     optionIndex: input.snapshot.optionIndex,

@@ -41,9 +41,11 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
     return readThemeResponse(response);
   }
 
-  async function search() {
+  async function search(interpretation?: string) {
     const ticket = ++sequence.current;
-    const nextDetails = detail.trim() ? [...refinements, detail.trim()].slice(-6) : refinements;
+    const extra = interpretation || detail.trim();
+    const nextDetails = extra ? [...refinements, extra].slice(-6) : refinements;
+    setRefinements(nextDetails); setDetail("");
     setBusy("search"); setError(null); setSelected(null); setResult(null);
     try {
       const data: ThemeSearchResult = await request("search", { query, refinements: nextDetails, rejected });
@@ -90,11 +92,15 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
         {error ? <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p> : null}
         {result ? <p className="mt-4 font-bold text-white">{selected ? "Is this the right character or theme?" : result.candidates.length ? "Which picture matches the theme you want? Select a picture to check it, or add details below." : result.question}</p> : null}
       </div>
+      {result?.interpretations?.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {result.interpretations.map(interpretation => <button type="button" key={interpretation}
+          className={button} disabled={Boolean(busy)} onClick={() => void search(interpretation)}>{interpretation}</button>)}
+      </div> : null}
       <div className={`mt-3 grid gap-3 ${selected ? "" : "sm:grid-cols-2"}`}>
         {shown.map(candidate => (
           <div key={candidate.id} className="overflow-hidden rounded-xl border border-white/20 bg-white text-slate-950">
             <button type="button" disabled={Boolean(busy) || broken.includes(candidate.id) || !loaded.includes(candidate.id)} className="w-full text-left disabled:cursor-not-allowed" onClick={() => { setSelected(candidate); setError(null); }} aria-label={`Check ${candidate.label}`}>
-              <img src={candidate.imageUrl} alt={candidate.label} referrerPolicy="no-referrer" className="h-52 w-full bg-slate-50 object-contain" onLoad={() => setLoaded(previous => previous.includes(candidate.id) ? previous : [...previous, candidate.id])} onError={() => setBroken(previous => previous.includes(candidate.id) ? previous : [...previous, candidate.id])} />
+              <img src={candidate.imagePath ?? candidate.imageUrl} alt={candidate.label} referrerPolicy="no-referrer" className="h-52 w-full bg-slate-50 object-contain" onLoad={() => setLoaded(previous => previous.includes(candidate.id) ? previous : [...previous, candidate.id])} onError={() => setBroken(previous => previous.includes(candidate.id) ? previous : [...previous, candidate.id])} />
               <span className="block px-3 pt-3 font-bold">{candidate.label}</span>
               <span className="block px-3 pb-3 text-sm">{candidate.description}</span>
             </button>

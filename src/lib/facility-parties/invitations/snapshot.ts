@@ -117,6 +117,18 @@ export function resolveInvitationSnapshot(input: {
   stored?: unknown;
   colorHint?: string | null;
 }): InvitationSnapshot {
+  const storedTheme = input.stored && typeof input.stored === 'object' && 'confirmedTheme' in input.stored
+    ? (input.stored as { confirmedTheme: unknown }).confirmedTheme : undefined;
+  if (storedTheme !== undefined) {
+    const parsed = confirmedThemeSchema.safeParse(storedTheme);
+    if (!parsed.success || parsed.data.label !== (input.partyTheme ?? '').trim()) {
+      throw new Error('The confirmed invitation picture needs attention. Please confirm the theme again; your saved selection has been preserved.');
+    }
+  }
+  if (storedTheme !== undefined) {
+    const saved = input.stored as Partial<InvitationSnapshot>;
+    return invitationSnapshotFromChoice(confirmedThemeSchema.parse(storedTheme).label, saved.optionIndex, saved.alternatesUsed, input.colorHint || saved.colorHint || '', confirmedThemeSchema.parse(storedTheme));
+  }
   const source = (input.partyTheme ?? "").trim();
   const colorHint = (input.colorHint ?? "").trim();
   if (isInvitationSnapshot(input.stored) && input.stored.sourceText === source) {

@@ -32,7 +32,7 @@ async function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T
   });
 }
 
-type FetchDependencies = { resolveHost?: (host: string) => Promise<string[]>; httpsGet?: typeof get };
+type FetchDependencies = { resolveHost?: (host: string) => Promise<string[]>; httpsGet?: typeof get; maxRedirects?: number; readBody?: boolean };
 
 /** No redirects, private DNS results, credentials, compression or unbounded reads. */
 export async function fetchPublicResource(source: string, kind: "html" | "image", outerSignal: AbortSignal,
@@ -51,6 +51,11 @@ export async function fetchPublicResource(source: string, kind: "html" | "image"
       lookup: (_host, _options, callback) => callback(null, addresses[0], 4),
       headers: { Accept: allowed.join(","), "Accept-Encoding": "identity", "User-Agent": "JumpingJax-Invitation-Designer/1.0" },
     }, response => {
+      if ([301,302,303,307,308].includes(response.statusCode ?? 0) && response.headers.location && (dependencies.maxRedirects ?? 0) > 0) {
+        response.destroy();
+        void fetchPublicResource(new URL(response.headers.location, url).href, kind, outerSignal, { ...dependencies, maxRedirects: (dependencies.maxRedirects ?? 0) - 1 }).then(resolve, reject);
+        return;
+      }
       const mime = response.headers["content-type"]?.split(";")[0].toLowerCase();
       const encoding = response.headers["content-encoding"];
       if (response.statusCode !== 200 || !mime || !allowed.includes(mime) ||
@@ -72,7 +77,7 @@ export async function fetchPublicResource(source: string, kind: "html" | "image"
           const bytes = Buffer.concat(chunks);
           // Latin-1 keeps ASCII tag offsets aligned with the original bytes.
           const closingHead = /<\/head\s*>/i.exec(bytes.toString("latin1"));
-          if (closingHead) { finish(bytes.subarray(0, closingHead.index + closingHead[0].length)); return; }
+          if (closingHead && !dependencies.readBody) { finish(bytes.subarray(0, closingHead.index + closingHead[0].length)); return; }
           if (size === limit) finish(bytes);
         } else {
           size += chunk.length;

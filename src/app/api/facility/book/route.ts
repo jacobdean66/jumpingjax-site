@@ -55,6 +55,7 @@ import {
 } from "@/lib/facility-parties/invitations/snapshot";
 import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
 import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
+import { assertConfirmedArtworkAvailable, verifyBookedInvitation } from "@/lib/facility-parties/invitations/booking-evidence";
 import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
@@ -304,6 +305,7 @@ export async function POST(req: NextRequest) {
         .from("facility_bookings")
         .select("id,party_kind,room,start_time,end_time")
         .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
+        .or(`idempotency_key.is.null,idempotency_key.neq.${JSON.stringify(idempotency_key.trim())}`)
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso);
 
@@ -362,6 +364,7 @@ export async function POST(req: NextRequest) {
         .from("facility_bookings")
         .select("id")
         .in("status", [...FACILITY_AVAILABILITY_BLOCKING_STATUSES])
+        .or(`idempotency_key.is.null,idempotency_key.neq.${JSON.stringify(idempotency_key.trim())}`)
         .lt("start_time", bufferedEndIso)
         .gt("end_time", bufferedStartIso)
         .limit(1);
@@ -386,8 +389,12 @@ export async function POST(req: NextRequest) {
       invitation_option_index,
       invitation_alternates_used,
       `${String(balloon_colors ?? "")} ${String(table_cloth_colors ?? "")}`,
-      invitationCreationPreference === "create" ? confirmedInvitationTheme ?? undefined : undefined,
+      confirmedInvitationTheme ?? undefined,
     );
+    if (confirmedInvitationTheme) {
+      try { await assertConfirmedArtworkAvailable(supabase, confirmedInvitationTheme); }
+      catch { return NextResponse.json({ error: 'Your confirmed picture is temporarily unavailable. Your booking details have been kept. Please retry.', code: 'theme_artwork_unavailable' }, { status: 503 }); }
+    }
     const bookingData = {
           party_kind,
           room,
@@ -445,7 +452,6 @@ export async function POST(req: NextRequest) {
       }
       console.error("[facility] atomic booking RPC failed", {
         code: error.code,
-        details: error.details,
       });
       return NextResponse.json(
         { error: "Unable to save facility booking" },
@@ -458,6 +464,9 @@ export async function POST(req: NextRequest) {
         { error: "Unable to save facility booking" },
         { status: 503 },
       );
+    }
+    if (confirmedInvitationTheme && !await verifyBookedInvitation(supabase, bookingId, confirmedInvitationTheme, invitationSnapshot.optionIndex)) {
+      return NextResponse.json({ error: 'Your booking was saved, but its invitation could not be verified. Keep this page open and retry the same request.', code: 'invitation_verification_pending', bookingId }, { status: 503 });
     }
     const { error: invitationUpdateError } = await supabase
       .from("facility_bookings")

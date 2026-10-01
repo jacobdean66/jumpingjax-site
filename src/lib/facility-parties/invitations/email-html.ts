@@ -43,7 +43,7 @@ function actionButton(label: string, href: string, color: string): string {
 export function buildFullInvitationEmailHtml(
   input: FullInvitationEmailInput,
 ): string {
-  if (input.snapshot.approvedPrint) {
+  if (input.snapshot.approvedPrint && !input.snapshot.confirmedTheme) {
     const print = input.snapshot.approvedPrint;
     return `<div style="max-width:600px;margin:auto;background:white;font-family:Arial,sans-serif"><a href="${escapeHtml(print.rsvpUrl)}"><img src="${escapeHtml(absoluteUrl(input.siteUrl, approvedPrintUrl(print)))}" alt="${escapeHtml(print.childName)} birthday invitation with RSVP QR code" style="display:block;width:100%;height:auto" /></a><p>${actionButton("RSVP & guest list", print.rsvpUrl, "0369a1")}${actionButton("Download four-per-sheet PDF", absoluteUrl(input.siteUrl, approvedPrintUrl(print, "pdf")), "0f172a")}</p></div>`;
   }
@@ -80,12 +80,15 @@ export function buildFullInvitationEmailHtml(
     : `background:linear-gradient(145deg,${palette.background},${palette.backgroundAlt});`;
 
   if (input.snapshot.confirmedTheme) {
+    const layout = ['spotlight','portrait','banner'][input.snapshot.optionIndex % 3];
+    const colors = ['#eef2ff','#fff1f2','#ecfeff'];
+    const headline = `<div style="font-size:13px;font-weight:bold;letter-spacing:2px">YOU’RE INVITED</div><h1 style="font-size:30px;margin:12px 0">${escapeHtml(copy.headline)}</h1>`;
     return `<!doctype html><html lang="en"><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
-      <table role="presentation" width="100%" style="max-width:680px;background:#fff;border-radius:20px" cellpadding="0" cellspacing="0">
+      <table role="presentation" width="100%" data-confirmed-layout="${layout}" style="max-width:680px;background:${colors[input.snapshot.optionIndex % 3]};border-radius:20px" cellpadding="0" cellspacing="0">
+      ${layout === "banner" ? `<tr><td style="padding:24px 28px 0">${headline}</td></tr>` : ""}
       <tr><td align="center" style="padding:20px"><img src="${escapeHtml(artworkUrl)}" alt="${escapeHtml(input.snapshot.confirmedTheme.label)}" width="360" style="display:block;max-width:100%;height:auto;max-height:380px;object-fit:contain" /></td></tr>
-      <tr><td style="padding:10px 28px 24px"><div style="font-size:13px;font-weight:bold;letter-spacing:2px">YOU’RE INVITED</div>
-      <h1 style="font-size:30px;margin:12px 0">${escapeHtml(copy.headline)}</h1>
+      <tr><td style="padding:10px 28px 24px;${layout === "portrait" ? "text-align:center" : ""}">${layout !== "banner" ? headline : ""}
       <p style="font-size:17px;line-height:1.5">${escapeHtml(copy.dateLabel)}<br>${escapeHtml(copy.timeLabel)}<br>${escapeHtml(copy.venueLine)}${copy.customerPhone ? `<br>Party contact: ${escapeHtml(copy.customerPhone)}` : ""}</p>
       ${qrSection}
       ${actionButton("Open & share invitation", invitationUrl, "#0369a1")}${actionButton("Print 4 per page", printableUrl, "#047857")}${actionButton("Party check-in & waiver", waiverUrl, "#0369a1")}

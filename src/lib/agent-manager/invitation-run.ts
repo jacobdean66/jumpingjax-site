@@ -1,38 +1,42 @@
-import { createServiceRoleClient } from "@/lib/supabase/admin";
-import type { InvitationAgentResult } from "@/lib/facility-parties/invitations/agent";
+import { createServiceRoleClient } from '@/lib/supabase/admin';
+import type { InvitationAgentResult } from '@/lib/facility-parties/invitations/agent';
 
-/** Best-effort operational proof that an invitation UI action invoked the specialist. */
-export async function recordInvitationAgentRun(
-  result: InvitationAgentResult,
-): Promise<void> {
-  const db = createServiceRoleClient();
-  const { data: agent, error } = await db
-    .from("agents")
-    .select("id")
-    .eq("key", "party-invitation")
-    .maybeSingle<{ id: string }>();
-  if (error || !agent) return;
-
-  const now = new Date().toISOString();
-  await Promise.all([
-    db
-      .from("agents")
-      .update({
-        status: "idle",
-        last_activity_at: now,
-        last_success_at: now,
-        updated_at: now,
-      })
-      .eq("id", agent.id),
-    db.from("agent_events").insert({
-      agent_id: agent.id,
-      event_type: `invitation.${result.action}`,
-      summary: `Invitation ${result.action} completed with ${result.snapshot.confirmedTheme?.label ?? result.snapshot.themeId}`,
-      metadata: {
-        theme_id: result.snapshot.themeId,
-        confirmed_theme_id: result.snapshot.confirmedTheme?.id ?? null,
-        libraries: result.usedLibraries,
-      },
-    }),
-  ]);
+export type InvitationWorkflowEvent = 'search_started' | 'candidates_found' | 'clarification_required' | 'confirmation_saved' | 'invitation_composed' | 'booking_verified' | 'failed' | 'layout_viewed';
+export type InvitationEventEvidence = {
+  operationId?: string; candidateCount?: number; catalogHits?: number; imageId?: string;
+  stage?: 'search' | 'confirmation' | 'composition' | 'booking';
+  category?: string; status?: number; providerType?: string; elapsedMs?: number;
+};
+/** Logs contain bounded operational data only, never customer text or provider bodies. */
+export async function recordInvitationEvent(event: InvitationWorkflowEvent, evidence: InvitationEventEvidence = {}): Promise<void> {
+  const safe = {
+    operation_id: evidence.operationId && /^[a-f0-9-]{36}$/.test(evidence.operationId) ? evidence.operationId : undefined,
+    candidate_count: evidence.candidateCount === undefined ? undefined : Math.max(0, Math.min(8, evidence.candidateCount)),
+    catalog_hits: evidence.catalogHits === undefined ? undefined : Math.max(0, Math.min(8, evidence.catalogHits)),
+    image_id: evidence.imageId && /^[a-f0-9]{64}$/.test(evidence.imageId) ? evidence.imageId : undefined,
+    stage: evidence.stage,
+    category: evidence.category && /^[a-z_]{1,64}$/.test(evidence.category) ? evidence.category : undefined,
+    status: evidence.status && evidence.status >= 400 && evidence.status <= 599 ? evidence.status : undefined,
+    provider_type: ['http','timeout','connection','aborted','unknown'].includes(evidence.providerType ?? '') ? evidence.providerType : undefined,
+    elapsed_ms: evidence.elapsedMs === undefined ? undefined : Math.min(120000, Math.max(0, Math.round(evidence.elapsedMs))),
+  };
+  console.info('[invitation-workflow]', { event, ...safe });
+  try {
+    const db = createServiceRoleClient();
+    const { data: agent } = await db.from('agents').select('id').eq('key', 'party-invitation').maybeSingle<{ id: string }>();
+    if (!agent) return;
+    const { error } = await db.from('agent_events').insert({ agent_id: agent.id,
+      event_type: 'invitation.' + event, summary: 'Invitation workflow: ' + event.replaceAll('_', ' '), metadata: safe });
+    if (error) throw new Error('event_write_failed');
+    const now = new Date().toISOString();
+    await db.from('agents').update({ last_activity_at: now, updated_at: now,
+      ...(event === 'booking_verified' ? { last_success_at: now } : {}) }).eq('id', agent.id);
+  } catch { console.warn('[invitation-workflow] evidence_store_unavailable'); }
+}
+/** Layout activity does not prove that a character booking was saved. */
+export async function recordInvitationAgentRun(result: InvitationAgentResult): Promise<void> {
+  const composed = result.snapshot.confirmedTheme && ['create','alternate','choose-template'].includes(result.action);
+  await recordInvitationEvent(composed ? 'invitation_composed' : 'layout_viewed', {
+    stage: 'composition', imageId: result.snapshot.confirmedTheme?.imagePath.split('/').pop(),
+  });
 }
