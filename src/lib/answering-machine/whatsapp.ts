@@ -25,6 +25,30 @@ export function hasAnsweringMachineCallbackAuthorization(request: Request, secre
 
 type UnknownRecord = Record<string, unknown>;
 
+function record(value: unknown): UnknownRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as UnknownRecord : null;
+}
+
+/** A valid Meta signature identifies the app, not the intended WABA or number. */
+export function selectWhatsAppWebhookAccount(value: unknown, wabaId: string, phoneNumberId: string) {
+  const root = record(value);
+  if (root?.object !== "whatsapp_business_account" || !wabaId || !phoneNumberId) return null;
+  const entries = Array.isArray(root.entry) ? root.entry : [];
+  const selected = entries.flatMap((item) => {
+    const entry = record(item);
+    if (entry?.id !== wabaId || !Array.isArray(entry.changes)) return [];
+    const changes = entry.changes.filter((item) => {
+      const change = record(item);
+      const body = record(change?.value);
+      return (change?.field === "calls" || change?.field === "messages")
+        && body?.messaging_product === "whatsapp"
+        && record(body.metadata)?.phone_number_id === phoneNumberId;
+    });
+    return changes.length ? [{ ...entry, changes }] : [];
+  });
+  return selected.length ? { ...root, entry: selected } : null;
+}
+
 export function extractWhatsAppCallSignals(value: unknown): AnsweringMachineIngest[] {
   if (!value || typeof value !== "object") return [];
   const entries = Array.isArray((value as UnknownRecord).entry) ? (value as UnknownRecord).entry as unknown[] : [];
@@ -44,8 +68,10 @@ export function extractWhatsAppCallSignals(value: unknown): AnsweringMachineInge
       for (const callValue of calls) {
         if (!callValue || typeof callValue !== "object") continue;
         const call = callValue as UnknownRecord;
-        if (typeof call.id !== "string" || typeof call.from !== "string") continue;
+        if (typeof call.id !== "string" || !call.id.startsWith("wacid.") || call.id.length > 240
+          || typeof call.from !== "string" || !call.from || call.from.length > 240) continue;
         const event = typeof call.event === "string" ? call.event.toLowerCase() : "connect";
+        if (event !== "connect" && event !== "terminate") continue;
         const timestamp = typeof call.timestamp === "string" ? call.timestamp : "unknown";
         const status = event === "terminate" ? "processing" : event === "connect" ? "in_progress" : "received";
         signals.push({
@@ -62,6 +88,7 @@ export function extractWhatsAppCallSignals(value: unknown): AnsweringMachineInge
           rentalItems: [],
           agentSummary: "",
         });
+        if (signals.length === 10) return signals;
       }
     }
   }
@@ -93,18 +120,20 @@ export function extractWhatsAppVoicemails(value: unknown): AnsweringMachineVoice
           : typeof message.from_user_id === "string" ? message.from_user_id : "";
         const mediaId = typeof audio?.id === "string" ? audio.id : "";
         const mimeType = typeof audio?.mime_type === "string" ? audio.mime_type : "";
-        if (message.type !== "audio" || !providerCallId.startsWith("wacid.") || !callerRef
+        if (message.type !== "audio" || !providerCallId.startsWith("wacid.") || providerCallId.length > 240
+          || !callerRef || callerRef.length > 240
           || !mediaId || !mimeType.startsWith("audio/") || mediaId.length > 240 || mimeType.length > 120) continue;
         const timestamp = typeof message.timestamp === "string" ? message.timestamp : "unknown";
         voicemails.push({
-          providerCallId: providerCallId.slice(0, 240),
+          providerCallId,
           sourceEventId: `${providerCallId}:voicemail:${timestamp}`.slice(0, 300),
-          callerRef: callerRef.slice(0, 240),
+          callerRef,
           callerDisplayName: displayName,
           mediaId,
           mimeType,
           sha256: typeof audio?.sha256 === "string" ? audio.sha256.slice(0, 128) : null,
         });
+        if (voicemails.length === 10) return voicemails;
       }
     }
   }

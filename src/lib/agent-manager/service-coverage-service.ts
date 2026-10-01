@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
+import { answeringMachineCoverage } from "@/lib/answering-machine/coverage";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { isSocialOAuthConnectConfigured } from "@/lib/social-posts/oauth/social-oauth-config";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -52,7 +52,7 @@ export async function loadDashboardServiceCoverage(input: {
 
   const calendarConfigured = Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim() && process.env.GOOGLE_REFRESH_TOKEN?.trim());
   const emailConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
-  const answering = getAnsweringMachineReadiness();
+  const answering = answeringMachineCoverage();
   const nomination = getNominationAgentReadiness();
   const metaConfigured = isSocialOAuthConnectConfigured();
   const securityHealthy = input.security.length > 0 && input.security.every((service) => service.state === "healthy");
@@ -76,7 +76,7 @@ export async function loadDashboardServiceCoverage(input: {
     row({ key: "campaigns", name: "Campaign Hub", href: "/admin/campaigns", state: stateFromProbe(campaigns), summary: campaigns.ok ? "Campaign event storage is readable." : "Campaign event storage could not be read.", source: "database", recordCount: campaigns.count, blocker: campaigns.ok ? null : "Apply or repair the campaign event storage migration." }, checkedAt),
     row({ key: "air-hockey", name: "Air Hockey", href: "/admin/air-hockey", state: stateFromProbe(airHockey), summary: airHockey.ok ? "Tournament player storage is readable." : "Tournament player storage could not be read.", source: "database", recordCount: airHockey.count, blocker: airHockey.ok ? null : "Apply or repair the Air Hockey storage migration." }, checkedAt),
     row({ key: "giveaway", name: "Giveaway and Nomination", href: "/admin/giveaway", state: !nominations.ok ? "unavailable" : nomination.enabled && nomination.configured ? "connected" : "setup_required", summary: nomination.enabled && nomination.configured ? "Nomination storage and signed inbound processing are ready." : "Giveaway storage is readable; production nomination email ingestion is disabled.", source: "provider", recordCount: nominations.count, blocker: nomination.enabled && nomination.configured ? null : `Complete nomination inbound setup${nomination.missing.length ? `: ${nomination.missing.join(", ")}` : " and enable it"}.` }, checkedAt),
-    row({ key: "answering-machine", name: "Answering Machine", href: "/admin/answering-machine", state: answering.live ? "connected" : "setup_required", summary: answering.live ? `${answering.status}; ${answering.mode.replaceAll("_", " ")}.` : "The safe simulation works, but live WhatsApp calling is not ready.", source: "provider", recordCount: null, blocker: answering.live ? null : `Configure ${answering.missing.join(", ")} and enable WhatsApp calling.` }, checkedAt),
+    row({ key: "answering-machine", name: "Answering Machine", href: "/admin/answering-machine", ...answering, source: "application", recordCount: null }, checkedAt),
     row({ key: "security", name: "Security", href: "/admin/security", state: securityHealthy ? "connected" : input.security.length ? "degraded" : "unavailable", summary: input.security.length ? input.security.map((service) => `${service.name}: ${service.state}`).join("; ") : "Security providers could not be checked.", source: "provider", recordCount: input.security.length, blocker: securityHealthy ? null : "Review the degraded security provider checks." }, checkedAt),
     row({ key: "site-settings", name: "Website Settings", href: "/admin/site-settings", state: siteSettings.ok ? "connected" : "unavailable", summary: siteSettings.ok ? "Website settings storage is reachable." : "Website settings storage could not be reached.", source: "database", recordCount: siteSettings.count, blocker: siteSettings.ok ? null : "Restore the site-settings storage bucket." }, checkedAt),
   ];

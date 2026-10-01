@@ -94,6 +94,7 @@ test("WhatsApp Calling readiness stays false until every credential and bridge g
   assert.equal(getAnsweringMachineReadiness({ WHATSAPP_CALLING_ENABLED: "1" }).live, false);
   const ready = getAnsweringMachineReadiness({
     WHATSAPP_CALLING_ENABLED: "1",
+    WHATSAPP_ANSWERING_MODE: "interactive_bridge",
     WHATSAPP_VERIFY_TOKEN: "set",
     WHATSAPP_APP_SECRET: "set",
     WHATSAPP_PHONE_NUMBER_ID: "set",
@@ -106,6 +107,7 @@ test("WhatsApp Calling readiness stays false until every credential and bridge g
 
   const readyWithExistingMetaSecret = getAnsweringMachineReadiness({
     WHATSAPP_CALLING_ENABLED: "1",
+    WHATSAPP_ANSWERING_MODE: "interactive_bridge",
     WHATSAPP_VERIFY_TOKEN: "set",
     META_APP_SECRET: "existing-secret",
     WHATSAPP_PHONE_NUMBER_ID: "set",
@@ -126,7 +128,7 @@ test("WhatsApp Calling readiness stays false until every credential and bridge g
     WHATSAPP_GRAPH_API_VERSION: "v25.0",
   });
   assert.equal(nativeVoicemail.live, true);
-  assert.equal(nativeVoicemail.status, "VOICEMAIL READY");
+  assert.equal(nativeVoicemail.status, "ACCEPTANCE REQUIRED");
 });
 
 test("Answering Machine storage is private, audited, approval-gated, and isolated from live booking writes", async () => {
@@ -155,14 +157,17 @@ test("Answering Machine admin and callback routes enforce their separate trust b
   const adminRoute = await readFile(new URL("../../app/api/admin/answering-machine/route.ts", import.meta.url), "utf8");
   const webhook = await readFile(new URL("../../app/api/integrations/whatsapp/calls/route.ts", import.meta.url), "utf8");
   const callback = await readFile(new URL("../../app/api/integrations/whatsapp/answering-machine/callback/route.ts", import.meta.url), "utf8");
+  const webhookRequest = await readFile(new URL("./webhook-request.ts", import.meta.url), "utf8");
   const page = await readFile(new URL("../../app/admin/answering-machine/AnsweringMachineInbox.tsx", import.meta.url), "utf8");
   assert.match(adminRoute, /verifyAdminOwnerAccess/);
   assert.match(adminRoute, /validateOwnerPost/);
-  assert.match(webhook, /verifyMetaWebhookSignature/);
-  assert.match(webhook, /getWhatsAppAppSecret/);
-  assert.match(webhook, /WHATSAPP_CALLING_ENABLED/);
+  assert.match(webhook, /readWhatsAppWebhook/);
+  assert.match(webhookRequest, /verifyMetaWebhookSignature/);
+  assert.match(webhookRequest, /getWhatsAppAppSecret/);
+  assert.match(webhookRequest, /getAnsweringMachineReadiness/);
   assert.match(webhook, /ANSWERING_MACHINE_MEDIA_BRIDGE_URL/);
   assert.match(callback, /hasAnsweringMachineCallbackAuthorization/);
+  assert.match(callback, /!readiness.live \|\| readiness.mode !== "interactive_bridge"/);
   assert.match(page, /Call transcript/);
   assert.match(page, /Create booking request/);
   assert.match(page, /Rental \/ foam party/);
