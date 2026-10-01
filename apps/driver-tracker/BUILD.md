@@ -1,5 +1,26 @@
 # Build And Release Notes
 
+## Next Laptop Step
+
+Phone packaging is waiting for Expo sign-in. On the laptop, open a terminal in
+`apps/driver-tracker` and run `npx eas-cli login`, then `npx eas-cli whoami`.
+After sign-in, create the Android preview APK with
+`npx eas-cli build --platform android --profile preview`.
+An iPhone preview additionally needs Apple signing access and a registered device.
+
+## Real Phone Acceptance
+
+Record the phone model, OS version, build ID, and the test's start/end times.
+Sign in, grant foreground/background location, and open the embedded Driver App.
+Move outdoors while the app is open, then while another app is open, then with the
+screen locked for at least ten minutes. For each phase, confirm fresh GPS points
+and changing coordinates on the owner Driver Locations screen. Record GPS capture
+and server receipt timestamps, rather than accepting the app's status text alone.
+Briefly lose network access and confirm updates resume when connectivity returns.
+Sign out and confirm tracking stops and the server session is marked signed out.
+Repeat separately on each supported Android/iPhone model. Browser tracking does
+not satisfy native background acceptance.
+
 ## No-Money Work
 
 These can be done before any Apple or Google payment:

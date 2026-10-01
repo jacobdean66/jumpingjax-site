@@ -98,7 +98,10 @@ async function postLocation(location: Location.LocationObject): Promise<Location
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   if (error) return;
   const taskData = data as LocationTaskData | undefined;
-  const latest = taskData?.locations?.[0];
+  const latest = taskData?.locations?.reduce<Location.LocationObject | undefined>(
+    (newest, location) => !newest || location.timestamp > newest.timestamp ? location : newest,
+    undefined,
+  );
   if (latest) {
     await postLocation(latest);
   }

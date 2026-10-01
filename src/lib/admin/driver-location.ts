@@ -146,12 +146,6 @@ function parseCapturedAt(value: unknown, now = new Date()): string | null {
   return captured.toISOString();
 }
 
-function validCapturedAt(value: string | null | undefined): string {
-  if (!value) return new Date().toISOString();
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-}
-
 export function validateDriverLocationInput(input: DriverLocationInput, now = new Date()) {
   const driverId = input.driverId.trim().slice(0, MAX_DRIVER_ID_LENGTH);
   const driverName = input.driverName
@@ -361,13 +355,15 @@ export async function saveDriverLocationPoint(input: {
 
   const latitude = finiteNumber(input.location.latitude);
   const longitude = finiteNumber(input.location.longitude);
+  const capturedAt = parseCapturedAt(input.location.capturedAt ?? undefined);
   if (
     latitude === null ||
     longitude === null ||
     latitude < -90 ||
     latitude > 90 ||
     longitude < -180 ||
-    longitude > 180
+    longitude > 180 ||
+    !capturedAt
   ) {
     return { ok: false, reason: "invalid_location" };
   }
@@ -380,12 +376,12 @@ export async function saveDriverLocationPoint(input: {
     driver_name: session.driver_name,
     latitude,
     longitude,
-    accuracy_meters: finiteNumber(input.location.accuracyMeters),
+    accuracy_meters: optionalNonNegative(input.location.accuracyMeters),
     altitude_meters: finiteNumber(input.location.altitudeMeters),
-    heading_degrees: finiteNumber(input.location.headingDegrees),
-    speed_meters_per_second: finiteNumber(input.location.speedMetersPerSecond),
+    heading_degrees: optionalHeading(input.location.headingDegrees),
+    speed_meters_per_second: optionalNonNegative(input.location.speedMetersPerSecond),
     battery_level: finiteNumber(input.location.batteryLevel),
-    captured_at: validCapturedAt(input.location.capturedAt),
+    captured_at: capturedAt,
   });
 
   if (point.error) {
