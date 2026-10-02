@@ -1,3 +1,7 @@
+import { RentalAgreementPanel } from "./RentalAgreementPanel";
+import { RentalAgreementTemplateEditor } from "./RentalAgreementTemplateEditor";
+import { loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
+import type { RentalAgreement } from "@/lib/rental-agreements/types";
 import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
@@ -75,7 +79,7 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
   return `/api/rentals/confirm?id=${encodeURIComponent(id)}&action=${action}`;
 }
 
-function RentalCard({ booking }: { booking: AdminRentalBooking }) {
+function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agreements: (RentalAgreement & { path: string })[] }) {
   const paymentProjection = projectBookingPaymentStatus(
     booking.total,
     booking.paymentEntries,
@@ -286,6 +290,7 @@ function RentalCard({ booking }: { booking: AdminRentalBooking }) {
           </ul>
         )}
       </section>
+      <RentalAgreementPanel bookingId={booking.id} customerName={booking.customerName} customerEmail={booking.customerEmail} history={agreements} editable={booking.status === "pending" || booking.status === "approved"} />
     </article>
   );
 }
@@ -312,6 +317,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
       status: "all",
     }),
   ]);
+  const agreementMap = await loadAgreementHistory(bookings.map(b => b.id));
   const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
   const pendingApprovalEndpoints = bookings
     .filter((booking) => booking.status === "pending")
@@ -346,6 +352,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         <PrintButton label="Print booking sheets" />
       </div>
 
+      {auth.role === "owner" ? <RentalAgreementTemplateEditor /> : null}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:hidden">
         <StatTile
           label="Waiting approval"
@@ -379,7 +386,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
           </div>
         ) : (
           bookings.map((booking) => (
-            <RentalCard key={booking.id} booking={booking} />
+            <RentalCard key={booking.id} booking={booking} agreements={(agreementMap.get(booking.id) ?? []).map(a => ({ ...a, path: customerAgreementPath(a.id) }))} />
           ))
         )}
       </div>

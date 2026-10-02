@@ -4,6 +4,7 @@ import {
 } from "@/lib/bookings/unavailableDates";
 import { parseYMD } from "@/lib/mockBooking";
 import { createServiceRoleClient, isSupabaseServiceConfigured } from "./admin";
+import type { RentalAgreementSnapshot } from "@/lib/rental-agreements/types";
 
 export function rentalDateRangesOverlap(
   existingStartYmd: string,
@@ -29,6 +30,7 @@ function formatRentalUnavailableMessage(unavailableNames: string[]): string {
 }
 
 export type CreateBookingInput = {
+  agreement?: { id: string; tokenHash: string; snapshot: RentalAgreementSnapshot; templateVersion: number; signerName: string; ipHmac: string | null; userAgent: string | null };
   idempotencyKey: string;
   rental_items: { rental_item: string; rental_name?: string }[];
   customerName: string;
@@ -155,10 +157,12 @@ export async function insertPendingBooking(
     }));
     // Use the versioned RPC so an old SQL snippet cannot silently replace the
     // production booking implementation again.
-    const { data, error } = await supabase.rpc("create_rental_booking_atomic_v2", {
+    const rpcName = input.agreement ? "create_rental_booking_with_agreement_atomic" : "create_rental_booking_atomic_v2";
+    const { data, error } = await supabase.rpc(rpcName, {
       p_booking: bookingData,
       p_items: rentalItemRows,
       p_idempotency_key: input.idempotencyKey.trim(),
+      ...(input.agreement ? { p_agreement: input.agreement } : {}),
     });
 
     if (error) {
