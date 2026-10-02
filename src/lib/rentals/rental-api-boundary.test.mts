@@ -5,7 +5,7 @@ import test from "node:test";
 const bookingRoute = readFileSync(
   new URL("../../app/api/book/route.ts", import.meta.url),
   "utf8",
-);
+) + readFileSync(new URL("../rental-agreements/prepare-booking.ts", import.meta.url), "utf8");
 const availabilityRoute = readFileSync(
   new URL("../../app/api/unavailable-dates/route.ts", import.meta.url),
   "utf8",
