@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { grantGuestListAccess, hasGuestListAccess } from "@/lib/facility-parties/guest-list-access";
 
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
       new URL(req.url).searchParams.get("bookingId"),
       64,
     );
-    const party = await loadPublicFacilityParty(bookingId);
+    const party = await loadPublicFacilityParty(bookingId, new Date(), hasGuestListAccess(req, bookingId));
     if (!party) return publicSafeError("not_found", 404, "Party not found.");
     return NextResponse.json(
       { ok: true, party },
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         checkedIn: "guest" in result && Boolean(result.guest.checkedInAt),
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
       },
       { status: 201, headers: { "Cache-Control": "private, no-store" } },
     );
+    return "guest" in result ? grantGuestListAccess(response, bookingId) : response;
   } catch {
     return publicSafeError("database", 503);
   }
