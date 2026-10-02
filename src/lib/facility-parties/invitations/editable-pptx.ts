@@ -59,7 +59,7 @@ async function imageDataUri(url: string | undefined): Promise<string | null> {
 
 function addConfirmedInvitation(pptx: PptxGenJS, slide: PptxGenJS.Slide, input: EditableInvitationPptxInput, x:number, y:number, artwork:string, qr:string|null) {
   const variant=input.snapshot.optionIndex%3;
-  const background=['FFFEF8','F4EDFF','EDF8FC'][variant];
+  const background='FFFFFF';
   const accent=variant===2?'14738B':'75508E';
   slide.addShape(pptx.ShapeType.rect,{x,y,w:INVITE_WIDTH,h:INVITE_HEIGHT,line:{color:background,transparency:100},fill:{color:background}});
   const copy=buildInvitationCopy({childName:input.childName,childAge:input.childAge,customerPhone:input.customerPhone,dateLabel:input.dateLabel,timeLabel:input.timeLabel,themeText:input.snapshot.sourceText});
