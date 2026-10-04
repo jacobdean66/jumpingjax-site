@@ -9,6 +9,14 @@ Create the Android preview APK with
 `npx eas-cli build --platform android --profile preview`.
 An iPhone preview additionally needs Apple signing access and a registered device.
 
+For the first iPhone build, run `npx eas-cli device:create`, select Website,
+and open the registration link on the test iPhone. Complete Apple sign-in in the
+terminal if requested. Then run
+`npx eas-cli build --platform ios --profile preview` interactively to create the
+distribution certificate/provisioning profile. Enter account credentials only in
+the sign-in flow, never in chat or repository files. After signing is configured,
+subsequent builds may use `--non-interactive`.
+
 ## Real Phone Acceptance
 
 Record the phone model, OS version, build ID, and the test's start/end times.
