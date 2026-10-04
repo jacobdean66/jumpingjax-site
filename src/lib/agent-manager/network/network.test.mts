@@ -18,7 +18,7 @@ const booking = { services: [{ kind: "rental", date: "2026-12-05", startMinutes:
 const dependencies = {
   ...adapterDependencies,
   availability: async () => [],
-  social: async () => ({ outcome: "Prepared for owner review.", relatedAction: { kind: "social_post" as const, label: "Review post", href: "/admin/social-posts/new" } }),
+  social: async () => ({ outcome: "Prepared for owner review.", relatedAction: { kind: "new_social_draft" as const, label: "Review post", href: "/admin/social-posts/new" } }),
 };
 function taskFor(recipient: NetworkAgentKey, skill: NetworkSkill, input: Record<string, unknown>, changes: Partial<NetworkTask> = {}): NetworkTask {
   return { id: randomUUID(), context_id: randomUUID(), sender_key: "supervisor", recipient_key: recipient, skill, input, fingerprint: taskFingerprint(recipient, skill, input), request_id: randomUUID(), parent_task_id: null, hop: 0, actor_id: actor, job_id: randomUUID(), status: "working", result: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...changes };
