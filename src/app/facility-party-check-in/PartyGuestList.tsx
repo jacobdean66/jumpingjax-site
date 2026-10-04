@@ -1,6 +1,12 @@
 import type { PublicFacilityParty } from "@/lib/facility-parties/check-in";
 
 export function PartyGuestList({ party }: { party: PublicFacilityParty | null }) {
+  if (!party?.guestListVisible) return (
+    <section id="guest-list" className="mt-8 border-t-2 border-slate-100 pt-7">
+      <h2 className="text-2xl font-black">Who’s coming</h2>
+      <p className="mt-3 text-sm text-slate-600">RSVP above to see who’s coming. Only first names and last initials are shown. If you already replied on another device, RSVP again here to view the list.</p>
+    </section>
+  );
   const guests = [...(party?.expectedGuests ?? []), ...(party?.checkedInGuests ?? [])]
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
   const checkedIn = party?.checkedInGuests ?? [];

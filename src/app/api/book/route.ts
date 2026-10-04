@@ -1,15 +1,14 @@
+import { prepareRentalBooking } from "@/lib/rental-agreements/prepare-booking";
+import { loadAgreementTemplate, loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
+import { buildRentalAgreementSnapshot } from "@/lib/rental-agreements/snapshot";
+import { validSignerName } from "@/lib/rental-agreements/types";
+import { agreementToken, hashToken, verifyPreviewToken } from "@/lib/rental-agreements/security";
+import { hmacIpAddress } from "@/lib/waivers/tokens";
 import { after, NextResponse } from "next/server";
 import {
   buildRentalListWithPrices,
-  estimateCartGrandTotal,
-  estimateCartRentalSubtotal,
-  estimateMileageFee,
-  estimateRentalDeliveryFee,
   formatDeliveryFeeLines,
   formatEstimatedTotalLine,
-  normalizeDistanceMiles,
-  resolveNewFoamDurationLabel,
-  resolveNewRentalDuration,
 } from "@/lib/rentals/rental-pricing-text";
 import {
   rentalConfirmLink,
@@ -19,7 +18,6 @@ import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import { rateLimit } from "@/lib/rate-limit";
 import { insertPendingBooking } from "@/lib/supabase/booking-data";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import {
   initializeBookingWorkflow,
   recordWorkflowOutcome,
@@ -29,16 +27,6 @@ import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
 import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 export const dynamic = "force-dynamic";
-
-function isValidYmd(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function isValidClockTime(value: string): boolean {
-  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
 
 export async function POST(req: Request) {
   const limited = rateLimit(req, {
@@ -63,230 +51,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const { rental_items } = body;
-
-  const rental_item =
-    typeof body.rental_item === "string" && body.rental_item.trim()
-      ? body.rental_item.trim()
-      : null;
-
-  const requestedRentalItems =
-    Array.isArray(rental_items) && rental_items.length > 0
-      ? rental_items
-      : rental_item
-        ? [{ rental_item, rental_name: rental_item }]
-        : [];
-
-  if (requestedRentalItems.length > 20) {
-    return NextResponse.json({ error: "Too many rental items" }, { status: 400 });
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid booking request." }, { status: 400 });
+  const prepared = await prepareRentalBooking(body);
+  if (prepared instanceof Response) return prepared;
+  const { input, lineItems, notes } = prepared;
+  const { customerName, email: customerEmail, phone: customerPhone, eventDateYmd, durationLabel, spanDays, foamDurationLabel, eventAddress, event_start_time: eventStartTime, requested_delivery_window: requestedDeliveryWindow, setup_location: setupLocation, setup_surface: setupSurface, setup_access: setupAccess, setup_notes: setupNotes, payment_method: paymentMethod, total, delivery_fee: deliveryFee, mileage_fee: mileageFee, distance_miles: distanceMiles } = input;
+  if (body.agreement_acknowledged !== true || !validSignerName(body.agreement_signer_name)) {
+    return NextResponse.json({ ok: false, error: "Review the rental agreement, check the acknowledgment, and type your full legal name to sign." }, { status: 400 });
   }
-
-  const normalizedRentalItems = (
-    await Promise.all(
-      requestedRentalItems.map(async (item) => {
-        if (!item || typeof item !== "object") return null;
-        const slug = (item as { rental_item?: unknown }).rental_item;
-        if (typeof slug !== "string") return null;
-        const rental = await getWebsiteRentalBySlug(slug.trim());
-        return rental
-          ? {
-              rental_item: rental.slug,
-              rental_name: rental.title,
-              starting_price: rental.startingPrice,
-            }
-          : null;
-      }),
-    )
-  ).filter(
-    (
-      item,
-    ): item is {
-      rental_item: string;
-      rental_name: string;
-      starting_price: number;
-    } => item !== null,
-  );
-
-  if (
-    normalizedRentalItems.length === 0 ||
-    normalizedRentalItems.length !== requestedRentalItems.length ||
-    new Set(normalizedRentalItems.map((item) => item.rental_item)).size !==
-      normalizedRentalItems.length
-  ) {
-    return new Response(
-      JSON.stringify({ error: "rental_items is required" }),
-      { status: 400 },
-    );
+  const template = await loadAgreementTemplate();
+  const snapshot = buildRentalAgreementSnapshot(input, template);
+  if (!verifyPreviewToken(body.agreement_preview_token, snapshot)) {
+    return NextResponse.json({ ok: false, error: "Your booking details or agreement have changed. Review the agreement again before signing.", agreementRefreshRequired: true }, { status: 409 });
   }
-
-  const requestedDeliveryWindow =
-    typeof body.requested_delivery_window === "string" &&
-    body.requested_delivery_window.trim()
-      ? body.requested_delivery_window.trim()
-      : null;
-  const eventStartTime =
-    typeof body.event_start_time === "string" && body.event_start_time.trim()
-      ? body.event_start_time.trim()
-      : null;
-
-  if (!requestedDeliveryWindow || !eventStartTime) {
-    return new Response(
-      JSON.stringify({
-        error: "requested_delivery_window and event_start_time are required",
-      }),
-      { status: 400 },
-    );
-  }
-  if (requestedDeliveryWindow.length > 100 || !isValidClockTime(eventStartTime)) {
-    return NextResponse.json({ error: "Invalid delivery or event time" }, { status: 400 });
-  }
-
-  const customerName =
-    typeof body.customer_name === "string" && body.customer_name.trim()
-      ? body.customer_name.trim()
-      : "Guest";
-  const customerEmail =
-    typeof body.customer_email === "string" && body.customer_email.trim()
-      ? body.customer_email.trim()
-      : "";
-  const idempotencyKey =
-    typeof body.idempotency_key === "string" ? body.idempotency_key.trim() : "";
-  const customerPhone =
-    typeof body.customer_phone === "string" ? body.customer_phone.trim() : "";
-  const eventDateYmd =
-    typeof body.event_date === "string" && body.event_date.trim()
-      ? body.event_date.trim()
-      : "";
-  if (
-    !isValidYmd(eventDateYmd) ||
-    !idempotencyKey ||
-    idempotencyKey.length > 128 ||
-    !customerName || customerName === "Guest" || customerName.length > 120 ||
-    !customerPhone || customerPhone.length > 40 ||
-    !customerEmail || customerEmail.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
-  ) {
-    return NextResponse.json(
-      { error: "A valid event date, email, and request key are required" },
-      { status: 400 },
-    );
-  }
-  const requestedDurationLabel =
-    typeof body.duration === "string" ? body.duration.trim() : "";
-  const requestedFoamDurationLabel =
-    typeof body.foam_duration === "string" ? body.foam_duration.trim() : "";
-  const lineItems = normalizedRentalItems as {
-    rental_item?: string;
-    rental_name?: string;
-  }[];
-  const resolvedDuration = resolveNewRentalDuration(
-    lineItems,
-    requestedDurationLabel,
-  );
-  const durationLabel = resolvedDuration.label;
-  const spanDays = resolvedDuration.spanDays;
-  const foamDurationLabel = resolveNewFoamDurationLabel(
-    lineItems,
-    requestedFoamDurationLabel || requestedDurationLabel,
-    durationLabel,
-  );
-  const eventAddress =
-    typeof body.event_address === "string" ? body.event_address.trim() : "";
-  const distanceMiles = normalizeDistanceMiles(body.distance_miles);
-  const mileageFee = estimateMileageFee(distanceMiles);
-  const deliveryFee = estimateRentalDeliveryFee(distanceMiles);
-  const setupLocation =
-    typeof body.setup_location === "string" && body.setup_location.trim()
-      ? body.setup_location.trim()
-      : eventAddress;
-  const setupSurface =
-    typeof body.setup_surface === "string" ? body.setup_surface.trim() : "";
-  const setupAccess =
-    typeof body.setup_access === "string" ? body.setup_access.trim() : "";
-  const setupNotes =
-    typeof body.setup_notes === "string" ? body.setup_notes.trim() : "";
-  const electricityDistance =
-    typeof body.electricity_distance === "string"
-      ? body.electricity_distance.trim()
-      : "";
-  const waterDistance =
-    typeof body.water_distance === "string" ? body.water_distance.trim() : "";
-  const setupNoteLines = [
-    electricityDistance
-      ? `Electricity distance: ${electricityDistance}`
-      : null,
-    waterDistance ? `Water distance: ${waterDistance}` : null,
-    ...setupNotes.split(/\r?\n/).map((line) => line.trim()),
-  ].filter((line): line is string => Boolean(line));
-  const savedSetupNotes = Array.from(new Set(setupNoteLines)).join("\n");
-  const paymentMethod =
-    typeof body.payment_method === "string" ? body.payment_method.trim() : "";
-  if (
-    !eventAddress || eventAddress.length > 500 ||
-    !setupSurface || setupSurface.length > 120 ||
-    !setupAccess || setupAccess.length > 500 ||
-    !paymentMethod || paymentMethod.length > 80 ||
-    savedSetupNotes.length > 2000 ||
-    (distanceMiles != null && distanceMiles > 500)
-  ) {
-    return new Response(
-      JSON.stringify({
-        error:
-          "event_address, setup_surface, setup_access, and payment_method are required",
-      }),
-      { status: 400 },
-    );
-  }
-  const notes =
-    typeof body.notes === "string" && body.notes.trim()
-      ? body.notes.trim()
-      : "";
-  const subtotal = estimateCartRentalSubtotal(
-    lineItems,
-    durationLabel,
-    spanDays,
-    foamDurationLabel,
-  );
-  const total = estimateCartGrandTotal(
-    lineItems,
-    durationLabel,
-    spanDays,
-    deliveryFee,
-    foamDurationLabel,
-  );
-
-  if (subtotal == null || total == null) {
-    console.error("[api/book] catalog price missing after rental validation");
-    return NextResponse.json(
-      { error: "A rental price is unavailable. Please refresh and try again." },
-      { status: 503 },
-    );
-  }
-
-  const result = await insertPendingBooking({
-    idempotencyKey,
-    rental_items: normalizedRentalItems,
-    customerName,
-    email: customerEmail || "unknown@example.com",
-    phone: customerPhone,
-    eventDateYmd,
-    durationLabel,
-    foamDurationLabel,
-    spanDays,
-    eventAddress,
-    event_start_time: eventStartTime,
-    requested_delivery_window: requestedDeliveryWindow,
-    distance_miles: distanceMiles,
-    delivery_fee: deliveryFee,
-    mileage_fee: mileageFee,
-    setup_location: setupLocation,
-    setup_surface: setupSurface,
-    setup_access: setupAccess,
-    setup_notes: savedSetupNotes,
-    payment_method: paymentMethod,
-    subtotal,
-    total,
-  });
+  const agreementId = crypto.randomUUID();
+  const token = agreementToken(agreementId);
+  const result = await insertPendingBooking({ ...input, agreement: { id: agreementId, tokenHash: hashToken(token), snapshot, templateVersion: template.version, signerName: body.agreement_signer_name.trim(), ipHmac: hmacIpAddress(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()), userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null } });
 
   if (!result.ok) {
     const error = result.message ?? result.code ?? result;
@@ -322,6 +102,8 @@ export async function POST(req: Request) {
     }),
   );
 
+  const savedAgreement = (await loadAgreementHistory([result.id])).get(result.id)?.[0];
+  const signedAgreementPath = savedAgreement ? customerAgreementPath(savedAgreement.id) : null;
   const facilityOwnerEmails = getFacilityOwnerEmails();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
@@ -350,7 +132,7 @@ export async function POST(req: Request) {
   const deliveryFeeLines = formatDeliveryFeeLines({
     deliveryFee,
     mileageFee,
-    distanceMiles,
+    distanceMiles: distanceMiles ?? null,
   });
 
   let emailsSent = false;
@@ -395,6 +177,7 @@ export async function POST(req: Request) {
             ...deliveryFeeLines,
             estimatedTotalLine,
             "Final quote will be confirmed by Jumping Jax.",
+            signedAgreementPath ? `Your signed rental agreement: ${new URL(signedAgreementPath, resolveRentalEmailSiteUrl(req.url)).toString()}` : null,
           ]
             .filter((line): line is string => line !== null)
             .join("\n"),
@@ -535,5 +318,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, id: result.id, emailsSent });
+  return NextResponse.json({ ok: true, id: result.id, emailsSent, signedAgreementPath });
 }

@@ -21,7 +21,7 @@ test("facility admin query filters by canonical start_time", () => {
 test("rental pending insert delegates parent and child writes to one atomic RPC", () => {
   const source = read("../supabase/booking-data.ts");
 
-  assert.match(source, /\.rpc\("create_rental_booking_atomic_v2"/);
+  assert.match(source, /input\.agreement \? "create_rental_booking_with_agreement_atomic" : "create_rental_booking_atomic_v2"/);
   assert.doesNotMatch(source, /\.from\("bookings"\)\s*\.insert/);
 });
 

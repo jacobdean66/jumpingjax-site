@@ -73,6 +73,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
       </div>
       <p className="mb-4 text-sm font-bold text-slate-600 print:hidden">
         The button opens printer selection first. Choose your printer, keep {portrait ? "Portrait" : "Landscape"} selected, then print.
+        {view.snapshot.confirmedTheme ? " White backgrounds save ink while keeping your character picture and RSVP QR code." : ""}
       </p>
       <InvitationSheet
         snapshot={agentResult.snapshot}
