@@ -2,9 +2,10 @@
 
 ## Next Laptop Step
 
-Phone packaging is waiting for Expo sign-in. On the laptop, open a terminal in
-`apps/driver-tracker` and run `npx eas-cli login`, then `npx eas-cli whoami`.
-After sign-in, create the Android preview APK with
+The app is linked to the Expo project `@jacobdean1166/jumpingjax-driver-tracker`.
+On a new laptop session, open a terminal in `apps/driver-tracker` and use
+`npx eas-cli whoami` to check sign-in (`npx eas-cli login` if needed).
+Create the Android preview APK with
 `npx eas-cli build --platform android --profile preview`.
 An iPhone preview additionally needs Apple signing access and a registered device.
 
