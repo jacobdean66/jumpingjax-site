@@ -35,6 +35,7 @@ export function SiteChrome() {
 
   if (
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/rental-agreement/") ||
     pathname.startsWith("/check-in") ||
     pathname.startsWith("/waiver") ||
     pathname.startsWith("/driver") ||

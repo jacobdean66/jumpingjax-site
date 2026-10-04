@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { grantGuestListAccess } from "@/lib/facility-parties/guest-list-access";
 
 import { rateLimit } from "@/lib/rate-limit";
 import { cleanPartyCheckInText, normalizePartyDate } from "@/lib/facility-parties/check-in";
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     if (!result.ok) {
       return publicSafeError(result.code, result.code === "not_found" ? 404 : 400, result.message);
     }
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         partyDate: result.partyDate,
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
+    return result.guests.length ? grantGuestListAccess(response, bookingId) : response;
   } catch {
     return publicSafeError("database", 503);
   }

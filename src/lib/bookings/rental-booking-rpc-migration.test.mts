@@ -15,7 +15,7 @@ const bookingData = readFileSync(
 );
 
 test("rental bookings use the drift-resistant versioned RPC", () => {
-  assert.match(bookingData, /\.rpc\("create_rental_booking_atomic_v2"/);
+  assert.match(bookingData, /input\.agreement \? "create_rental_booking_with_agreement_atomic" : "create_rental_booking_atomic_v2"/);
   assert.doesNotMatch(bookingData, /\.rpc\("create_rental_booking_atomic"/);
 });
 

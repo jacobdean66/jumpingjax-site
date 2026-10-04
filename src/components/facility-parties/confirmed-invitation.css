@@ -48,4 +48,7 @@
   .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-qr { flex-basis:72px; }
   .confirmed-invitation-card:not(.confirmed-invitation-sheet) .confirmed-invitation-qrImage { width:72px; height:72px; }
 }
-@media print { .confirmed-invitation-card { box-shadow:none; border-radius:0; break-inside:avoid; } }
+.confirmed-invitation-card.confirmed-invitation-sheet { background:#fff; border-top:0; }
+@media print {
+  .confirmed-invitation-card { background:#fff; border-top:0; box-shadow:none; border-radius:0; break-inside:avoid; }
+}

@@ -148,11 +148,16 @@ test("editable download embeds the saved confirmed image and refuses a replaceme
   try {
     const theme: ConfirmedInvitationTheme = { ...movie, originalQuery: "Kpop", imagePath, confirmedAt: new Date().toISOString() };
     const input = { snapshot: invitationSnapshotFromChoice(movie.label, 0, 0, "", theme), ...details, invitationQuantity: 4 };
-    const pptx = await buildEditableInvitationPptx(input);
-    const archive = await JSZip.loadAsync(pptx);
-    const pictures = await Promise.all(Object.keys(archive.files).filter(name => /^ppt\/media\//.test(name) && !archive.files[name].dir).map(name => archive.file(name)!.async("nodebuffer")));
-    assert.ok(pictures.some(picture => picture.equals(bytes)), "The PowerPoint must contain the exact saved picture");
-    assert.equal(requested.length, 1);
+    for (const optionIndex of [0, 1, 2]) {
+      const pptx = await buildEditableInvitationPptx({ ...input, snapshot: { ...input.snapshot, optionIndex } });
+      const archive = await JSZip.loadAsync(pptx);
+      const pictures = await Promise.all(Object.keys(archive.files).filter(name => /^ppt\/media\//.test(name) && !archive.files[name].dir).map(name => archive.file(name)!.async("nodebuffer")));
+      assert.ok(pictures.some(picture => picture.equals(bytes)), "The PowerPoint must contain the exact saved picture");
+      const slide = await archive.file("ppt/slides/slide1.xml")!.async("text");
+      assert.doesNotMatch(slide, /val="(?:FFFEF8|F4EDFF|EDF8FC)"/, "All confirmed layouts print with white backgrounds");
+      assert.equal((slide.match(/Birthday Test/g) ?? []).length, 4);
+    }
+    assert.equal(requested.length, 3);
     fail = true;
     await assert.rejects(buildEditableInvitationPptx(input), /confirmed theme picture could not be loaded/);
   } finally {

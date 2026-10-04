@@ -55,7 +55,8 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     throw new Error(`Unexpected request: ${url.pathname}`);
   });
   const post = (mode: string) => POST(new Request("https://example.com/api/facility-party/check-in", { method: "POST", body: JSON.stringify({ mode, bookingId: partyA, firstName: "Ava", lastName: "Smith", participantId, partyDate: "wrong stale date" }) }));
-  const list = async (id: string) => (await GET(new Request(`https://example.com/api/facility-party/check-in?bookingId=${id}`))).json();
+  let cookie = "";
+  const list = async (id: string, access = cookie) => (await GET(new Request(`https://example.com/api/facility-party/check-in?bookingId=${id}`, { headers: { cookie: access } }))).json();
   try {
     for (const [instant, isPartyDay] of [
       ["2027-02-14T04:59:59Z", false],
@@ -73,11 +74,20 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
       assert.equal(qrTarget, view.waiverUrl);
       assert.equal(new URL(qrTarget).searchParams.get("booking"), id);
     }
-    const rsvp = await (await post("rsvp")).json();
+    assert.equal((await list(partyA)).party.guestListVisible, false);
+    assert.equal((await post("search")).headers.get("set-cookie"), null);
+    const rsvpResponse = await post("rsvp");
+    cookie = rsvpResponse.headers.get("set-cookie")!.split(";")[0];
+    const rsvp = await rsvpResponse.json();
     assert.equal(rsvp.registered, true);
     assert.equal(rsvp.checkedIn, false);
     assert.equal(rsvp.partyDate, "2027-02-14");
     assert.equal((await list(partyA)).party.expectedGuests[0].displayName, "Ava S.");
+    const anonymous = (await list(partyA, "")).party;
+    assert.equal(anonymous.guestListVisible, false);
+    assert.deepEqual(anonymous.expectedGuests, []);
+    assert.equal((await list(partyB)).party.guestListVisible, false, "Access is party-specific");
+    assert.doesNotMatch(renderToStaticMarkup(React.createElement(PartyGuestList, { party: anonymous })), /Ava/);
     assert.equal((await list(partyB)).party.expectedGuests.length, 0);
     await post("rsvp");
     assert.equal(guests.size, 1, "Repeated RSVP must not duplicate the guest");
@@ -96,7 +106,10 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     assert.doesNotMatch(JSON.stringify(arrived), /2018-01-02|Smith|submission|waiver_participant/);
     guests.clear();
     const complete = (atFacility: boolean) => completeWaiver(new Request("https://example.com/api/facility-party/check-in/complete", { method: "POST", body: JSON.stringify({ bookingId: partyA, publicToken: "test-waiver-token-longer-than-32-characters", atFacility, partyDate: "wrong stale date" }) }));
-    const signed = await (await complete(false)).json();
+    cookie = "";
+    const signedResponse = await complete(false);
+    cookie = signedResponse.headers.get("set-cookie")!.split(";")[0];
+    const signed = await signedResponse.json();
     assert.match(signed.message, /on the guest list/);
     assert.equal(signed.partyDate, "2027-02-14");
     assert.equal((await list(partyA)).party.expectedGuests.length, 1);
@@ -107,7 +120,9 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     assert.equal((await list(partyB)).party.checkedInGuests.length, 0);
     expiredWaiver = true;
     const before = writes;
-    assert.equal((await complete(false)).status, 404);
+    const failed = await complete(false);
+    assert.equal(failed.status, 404);
+    assert.equal(failed.headers.get("set-cookie"), null);
     assert.equal(writes, before);
     rejected = true;
     assert.equal((await post("rsvp")).status, 404);

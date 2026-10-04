@@ -115,7 +115,8 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     throw new Error(`Unexpected request: ${url.pathname}`);
   });
   const post = (mode: string) => POST(new Request("https://example.com/api/facility-party/check-in", { method: "POST", body: JSON.stringify({ mode, bookingId: partyA, firstName: "Ava", lastName: "Smith", participantId, partyDate: "wrong stale date" }) }));
-  const list = async (id: string) => (await GET(new Request(`https://example.com/api/facility-party/check-in?bookingId=${id}`))).json();
+  let cookie = "";
+  const list = async (id: string) => (await GET(new Request(`https://example.com/api/facility-party/check-in?bookingId=${id}`, { headers: { cookie } }))).json();
   try {
     for (const id of [partyA, partyB]) {
       const view = await loadFacilityInvitationView(id);
@@ -124,7 +125,9 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
       assert.equal(qrTarget, view.waiverUrl);
       assert.equal(new URL(qrTarget).searchParams.get("booking"), id);
     }
-    const rsvp = await (await post("rsvp")).json();
+    const rsvpResponse = await post("rsvp");
+    cookie = rsvpResponse.headers.get("set-cookie")!.split(";")[0];
+    const rsvp = await rsvpResponse.json();
     assert.equal(rsvp.registered, true);
     assert.equal(rsvp.checkedIn, false);
     assert.equal(rsvp.partyDate, "2027-02-14");
@@ -140,7 +143,9 @@ test("QR destination, RSVP, arrival and public guest list remain scoped to the s
     assert.doesNotMatch(JSON.stringify(arrived), /2018-01-02|Smith|submission|waiver_participant/);
     guests.clear();
     const complete = (atFacility: boolean) => completeWaiver(new Request("https://example.com/api/facility-party/check-in/complete", { method: "POST", body: JSON.stringify({ bookingId: partyA, publicToken: "test-waiver-token-longer-than-32-characters", atFacility, partyDate: "wrong stale date" }) }));
-    const signed = await (await complete(false)).json();
+    const signedResponse = await complete(false);
+    cookie = signedResponse.headers.get("set-cookie")!.split(";")[0];
+    const signed = await signedResponse.json();
     assert.match(signed.message, /on the guest list/);
     assert.equal(signed.partyDate, "2027-02-14");
     assert.equal((await list(partyA)).party.expectedGuests.length, 1);
