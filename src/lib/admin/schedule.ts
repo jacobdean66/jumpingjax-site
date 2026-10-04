@@ -1,3 +1,4 @@
+import { rentalReservedDates } from "@/lib/rentals/rental-period";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { RENTAL_OPERATIONAL_STATUSES } from "@/lib/bookings/rental-lifecycle";
 import {
@@ -49,6 +50,7 @@ type RentalRow = {
   rental_name: string | null;
   event_address: string | null;
   event_date: string;
+  span_days?: number | null;
   event_start_time: string | null;
   requested_delivery_window: string | null;
   delivery_time: string | null;
@@ -325,7 +327,7 @@ export function rentalRowsToEvents(
   rows: readonly RentalRow[],
   itemsByBookingId: ReadonlyMap<string, RentalItemRow[]> = new Map(),
 ): CalendarEvent[] {
-  return rows.map((row) => {
+  return rows.flatMap((row) => {
     const bookingId = String(row.id);
     const date = String(row.event_date).slice(0, 10);
     const time =
@@ -339,14 +341,15 @@ export function rentalRowsToEvents(
         rental_name: row.rental_name ?? row.rental_item,
       },
     ];
-    const rawItems = itemsByBookingId.get(bookingId) ?? fallbackItems;
+    const loadedItems = itemsByBookingId.get(bookingId) ?? [];
+    const rawItems = loadedItems.some(item => item.rental_item === row.rental_item) ? loadedItems : [...fallbackItems, ...loadedItems];
     const products = aggregateScheduleProducts(rawItems);
     const type = classifyRentalScheduleType(products);
     const title =
       products.length > 0
         ? products.map(formatProductLabel).join(", ")
         : clean(row.rental_name) ?? clean(row.rental_item) ?? "Rental";
-    return {
+    const event: CalendarEvent = {
       id: `rental-${row.id}`,
       bookingId,
       type,
@@ -383,6 +386,13 @@ export function rentalRowsToEvents(
         { label: "Status", value: clean(row.status) },
       ],
     };
+    const dates = rentalReservedDates(date, row.span_days ?? 1);
+    return dates.map((reservedDate, index) => ({ ...event,
+      id: index === 0 ? event.id : event.id + "-" + reservedDate,
+      date: reservedDate,
+      displayTime: index === 0 ? event.displayTime : "Reserved — day " + (index + 1),
+      details: [...event.details, { label: "Reserved period", value: date + " through " + dates.at(-1) + " (" + dates.length + " days)" }],
+    }));
   });
 }
 
@@ -454,9 +464,8 @@ export async function loadScheduleEvents(input: {
     supabase
       .from("bookings")
       .select(
-        "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_address, event_date, event_start_time, requested_delivery_window, delivery_time, setup_location, setup_surface, setup_access, setup_notes, payment_method, total",
+        "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_address, event_date, span_days, event_start_time, requested_delivery_window, delivery_time, setup_location, setup_surface, setup_access, setup_notes, payment_method, total",
       )
-      .gte("event_date", input.from)
       .lte("event_date", input.to)
       .in("status", [...RENTAL_OPERATIONAL_STATUSES, "cancelled", "canceled"])
       .order("event_date", { ascending: true })
@@ -492,7 +501,7 @@ export async function loadScheduleEvents(input: {
   }
 
   return sortScheduleEvents([
-    ...rentalRowsToEvents(rentalRows, itemsByBookingId),
+    ...rentalRowsToEvents(rentalRows, itemsByBookingId).filter(event => event.date >= input.from && event.date <= input.to),
     ...facilityRowsToEvents((facility.data ?? []) as FacilityRow[]),
   ]);
 }

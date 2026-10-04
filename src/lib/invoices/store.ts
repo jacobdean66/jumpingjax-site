@@ -1,4 +1,5 @@
 import "server-only";
+import { rentalDatePlusDays, rentalExtraTotal, type RentalDayCharge } from "@/lib/rentals/rental-period";
 import { loadBookingPaymentMap } from "@/lib/payments/store";
 import { sumBookingPaymentCents } from "@/lib/payments/booking-payments";
 
@@ -94,7 +95,7 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select("id,customer_name,customer_email,customer_phone,rental_item,rental_name,event_date,event_start_time,duration,foam_duration,span_days,event_address,requested_delivery_window,delivery_time,delivery_fee,subtotal,total,setup_location,setup_surface,setup_access,setup_notes")
+    .select("id,customer_name,customer_email,customer_phone,rental_item,rental_name,event_date,event_start_time,duration,foam_duration,span_days,rental_day_charges,event_address,requested_delivery_window,delivery_time,delivery_fee,mileage_fee,subtotal,total,setup_location,setup_surface,setup_access,setup_notes")
     .eq("id", bookingId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -106,14 +107,16 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
     .eq("booking_id", bookingId);
   if (itemError) throw new Error(itemError.message);
   const items = ((itemRows ?? []) as { rental_item: string; rental_name: string | null }[]);
-  const effectiveItems = items.length > 0
+  const effectiveItems = items.some(item => item.rental_item === data.rental_item)
     ? items
-    : [{ rental_item: String(data.rental_item), rental_name: data.rental_name as string | null }];
+    : [{ rental_item: String(data.rental_item), rental_name: data.rental_name as string | null }, ...items];
+  const dayCharges = (data.rental_day_charges ?? []) as RentalDayCharge[];
   const eventDate = String(data.event_date).slice(0, 10);
   const eventTime = clean(data.event_start_time);
   const deliveryWindow = clean(data.requested_delivery_window) || clean(data.delivery_time);
   const eventAddress = clean(data.event_address);
   const details = [
+    `Reserved: ${eventDate} through ${rentalDatePlusDays(eventDate, Number(data.span_days ?? 1) - 1)} (${data.span_days ?? 1} days)`,
     eventTime ? `Event time: ${eventTime}` : "",
     deliveryWindow ? `Delivery window: ${deliveryWindow}` : "",
     clean(data.setup_location) ? `Setup location: ${clean(data.setup_location)}` : "",
@@ -134,14 +137,15 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
     eventDate,
     eventAddress,
     eventDetails: details,
-    lineItems: rentalLines({
+    lineItems: [...rentalLines({
       items: effectiveItems,
       duration: clean(data.duration) || "One Day",
       foamDuration: clean(data.foam_duration),
-      spanDays: Math.max(1, money(data.span_days) || 1),
-      storedSubtotal: money(data.subtotal),
-    }),
-    deliveryFee: money(data.delivery_fee),
+      spanDays: data.rental_day_charges === null ? Math.max(1, money(data.span_days) || 1) : 1,
+      storedSubtotal: money(data.subtotal) - rentalExtraTotal(dayCharges),
+    }), ...dayCharges.map(day => ({ id: `rental-extra-day-${day.day}`,
+      description: `Day ${day.day} (${rentalDatePlusDays(eventDate, day.day - 1)}) — ${day.choice}`, quantity: 1, unitPrice: day.amount }))],
+    deliveryFee: money(data.delivery_fee) + money(data.mileage_fee),
     discount: 0,
     tax: 0,
     paymentsReceived: sumBookingPaymentCents((await loadBookingPaymentMap("rental", [bookingId])).get(bookingId) ?? []) / 100,
@@ -225,7 +229,14 @@ export async function loadBookingInvoice(
     ? await buildRentalInvoice(bookingId)
     : await buildFacilityInvoice(bookingId);
   if (!generated) return null;
-  return { ...normalizeInvoice(data?.payload, generated), paymentsReceived: generated.paymentsReceived };
+  const invoice = normalizeInvoice(data?.payload, generated);
+  if (kind === "rental") {
+    // Reservation dates always follow the booking; retain custom invoice prose.
+    const reserved = generated.eventDetails.split("\n")[0];
+    invoice.eventDate = generated.eventDate;
+    invoice.eventDetails = [reserved, ...invoice.eventDetails.split("\n").filter(line => !line.startsWith("Reserved:"))].join("\n");
+  }
+  return { ...invoice, paymentsReceived: generated.paymentsReceived };
 }
 
 export type StandaloneInvoiceSummary = {

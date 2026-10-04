@@ -1,3 +1,4 @@
+import { rentalDatePlusDays } from "@/lib/rentals/rental-period";
 import { RentalAgreementPanel } from "./RentalAgreementPanel";
 import { RentalAgreementTemplateEditor } from "./RentalAgreementTemplateEditor";
 import { loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
@@ -201,7 +202,8 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
               booking.foamDuration !== booking.duration && (
                 <Detail label="Foam time" value={booking.foamDuration} />
               )}
-            <Detail label="Span" value={`${booking.spanDays} day(s)`} />
+            <Detail label="Reserved period" value={              `${booking.eventDate} through ${rentalDatePlusDays(booking.eventDate, booking.spanDays - 1)} (${booking.spanDays} days)`} />
+            {booking.dayCharges?.map(day => <Detail key={day.day} label={`Day ${day.day}`} value={day.choice === "free" ? "Free ($0.00)" : `Charge ${day.amount.toFixed(2)}`} />)}
             <Detail
               label="Delivery window"
               value={booking.requestedDeliveryWindow ?? "Not set"}
