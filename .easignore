@@ -2,13 +2,14 @@
 # Keep website code, recovery copies, and local artifacts out of its upload.
 /*
 !/.easignore
-!/apps/
+!/apps
 /apps/*
-!/apps/driver-tracker/
-/apps/driver-tracker/node_modules/
-/apps/driver-tracker/.expo/
-/apps/driver-tracker/android/
-/apps/driver-tracker/ios/
+!/apps/driver-tracker
+!/apps/driver-tracker/**
+/apps/driver-tracker/node_modules
+/apps/driver-tracker/.expo
+/apps/driver-tracker/android
+/apps/driver-tracker/ios
 .env*
 *.pem
 *.tsbuildinfo
