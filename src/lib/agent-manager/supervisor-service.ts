@@ -13,6 +13,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { buildAgentWiring } from "./agent-wiring";
 import { loadDashboardServiceCoverage } from "./service-coverage-service";
 import { prepareSupervisorHandoff } from "./supervisor-handoff";
+import { supervisorNetworkRequest } from "./network/supervisor-routing";
 import { enqueueJob, loadDashboard, setAgentPaused, setEmergencyStop } from "./service";
 import {
   buildSupervisorIssues,
@@ -216,7 +217,13 @@ export async function runSupervisorConversation(message: string, actorId: string
   if (claimError || !claimed) throw new Error("This Permanent Agent request is already processing.");
 
   try {
-    const handoff = await prepareSupervisorHandoff(message);
+    const networkRequest = supervisorNetworkRequest(message);
+    let handoff;
+    if (networkRequest) {
+      const { submitNetworkTask } = await import("./network/service");
+      const task = await submitNetworkTask({ ...networkRequest, requestId: clientRequestId, sender: "supervisor", actorId, title: "Supervisor handoff" });
+      handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
+    } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);
     const reply = buildSupervisorReply(message, snapshot, actionOutcome);
