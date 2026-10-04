@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadDriverMobileLocationSnapshots } from "@/lib/admin/driver-location";
+import { loadDriverLocationSnapshots } from "@/lib/admin/driver-location";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,6 @@ export async function GET() {
     );
   }
 
-  const locations = await loadDriverMobileLocationSnapshots();
+  const locations = await loadDriverLocationSnapshots();
   return NextResponse.json({ ok: true, locations });
 }

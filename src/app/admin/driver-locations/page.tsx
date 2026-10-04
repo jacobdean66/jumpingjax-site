@@ -5,7 +5,7 @@ import {
   AdminShell,
 } from "@/app/admin/_components";
 import { DriverLocationsClient } from "./DriverLocationsClient";
-import { loadDriverMobileLocationSnapshots } from "@/lib/admin/driver-location";
+import { loadDriverLocationSnapshots } from "@/lib/admin/driver-location";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +16,15 @@ export default async function AdminDriverLocationsPage() {
     return <AdminAuthError reason={auth.reason} />;
   }
 
-  const locations = await loadDriverMobileLocationSnapshots();
+  const locations = await loadDriverLocationSnapshots();
 
   return (
     <AdminShell>
       <AdminHeader eyebrow="Driver tracking" title="Driver locations">
         <p className="max-w-xl text-sm font-bold leading-relaxed text-slate-600">
-          Live-ish driver tracking from the native Driver App. Locations are active
-          while a driver is signed in and the phone allows background location.
+          Latest locations shared from the Driver App website and installed phone app.
+          Browser sharing requires the driver page to stay open. The installed app
+          supports background location when the phone permits it.
         </p>
       </AdminHeader>
       <AdminNav active="driver-locations" role={auth.role} token="" />
