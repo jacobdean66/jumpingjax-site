@@ -4,7 +4,7 @@ import * as Device from "expo-device";
 import * as Location from "expo-location";
 import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 const LOCATION_TASK = "jumpingjax-driver-location-task";
@@ -142,6 +142,14 @@ async function stopTracking() {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <DriverTrackerApp />
+    </SafeAreaProvider>
+  );
+}
+
+function DriverTrackerApp() {
   const [apiBaseUrl, setApiBaseUrl] = useState(defaultApiBaseUrl());
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -155,6 +163,26 @@ export default function App() {
   const deviceLabel = useMemo(() => {
     const model = Device.modelName || Device.deviceName || "Driver phone";
     return `${model} (${Platform.OS})`;
+  }, []);
+
+  const sendCurrentCheckIn = useCallback(async () => {
+    try {
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const result = await postLocation(current);
+      if (result.ok) {
+        setLastSentAt(new Date(result.receivedAt).toLocaleTimeString());
+        setTrackingOk(true);
+        setStatus("Signed in. Location tracking is active.");
+      } else {
+        setTrackingOk(false);
+        setStatus(result.error);
+      }
+    } catch (error) {
+      setTrackingOk(false);
+      setStatus(error instanceof Error ? error.message : "Unable to get a location check-in.");
+    }
   }, []);
 
   useEffect(() => {
@@ -171,15 +199,13 @@ export default function App() {
       if (storedName && token) {
         setDriverName(storedName);
         setSessionToken(token);
-        await startTracking()
-          .then(() => {
-            setTrackingOk(true);
-            setStatus("Signed in. Location tracking is active.");
-          })
-          .catch(() => {
-            setTrackingOk(false);
-            setStatus("Signed in, but location tracking needs permission.");
-          });
+        try {
+          await startTracking();
+          await sendCurrentCheckIn();
+        } catch {
+          setTrackingOk(false);
+          setStatus("Signed in, but location tracking needs permission.");
+        }
       } else {
         setStatus("Sign in to start tracking.");
       }
@@ -189,30 +215,17 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [sendCurrentCheckIn]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", async (state) => {
       if (state === "active" && (await SecureStore.getItemAsync(TOKEN_KEY))) {
-        const current = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        }).catch(() => null);
-        if (current) {
-          const result = await postLocation(current);
-          if (result.ok) {
-            setLastSentAt(new Date(result.receivedAt).toLocaleTimeString());
-            setTrackingOk(true);
-            setStatus("Signed in. Location tracking is active.");
-          } else {
-            setTrackingOk(false);
-            setStatus(result.error);
-          }
-        }
+        await sendCurrentCheckIn();
       }
     });
 
     return () => sub.remove();
-  }, []);
+  }, [sendCurrentCheckIn]);
 
   async function handleSignIn() {
     setBusy(true);
@@ -256,24 +269,13 @@ export default function App() {
         SecureStore.setItemAsync(DRIVER_NAME_KEY, result.driver.name),
       ]);
 
-      await startTracking();
-      const current = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const postResult = await postLocation(current);
-
       setDriverName(result.driver.name);
       setSessionToken(result.sessionToken);
       setPassword("");
-      if (postResult.ok) {
-        setLastSentAt(new Date(postResult.receivedAt).toLocaleTimeString());
-        setTrackingOk(true);
-        setStatus("Signed in. Location tracking is active.");
-      } else {
-        setTrackingOk(false);
-        setStatus(postResult.error);
-      }
+      await startTracking();
+      await sendCurrentCheckIn();
     } catch (error) {
+      setTrackingOk(false);
       setStatus(error instanceof Error ? error.message : "Unable to start tracking.");
     } finally {
       setBusy(false);
