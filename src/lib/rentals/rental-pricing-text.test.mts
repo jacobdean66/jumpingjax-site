@@ -7,6 +7,7 @@ import {
   FOAM_DURATION_OPTIONS,
   MOCK_DURATION_OPTIONS,
   ONE_DAY_RENTAL_DURATION,
+  UV_GLOW_FOAM_DURATION_OPTIONS,
   rangeHasBlocked,
 } from "../mockBooking";
 import {
@@ -15,6 +16,7 @@ import {
   estimateCartGrandTotal,
   estimateCartRentalSubtotal,
   estimateRentalLineSubtotal,
+  foamDurationOptionsForCart,
   foamDurationLabelForBooking,
   resolveNewFoamDurationLabel,
   resolveNewRentalDuration,
@@ -25,8 +27,14 @@ import {
 } from "../facility-parties/pricing";
 import { PRIVATE_DURATION_OPTIONS } from "../facility-parties/constants";
 
-const standardRentals = RENTALS.filter((rental) => rental.slug !== "foam-party");
+const standardRentals = RENTALS.filter(
+  (rental) =>
+    rental.slug !== "foam-party" && rental.slug !== "uv-glow-foam-party",
+);
 const foamRental = RENTALS.find((rental) => rental.slug === "foam-party")!;
+const uvGlowFoamRental = RENTALS.find(
+  (rental) => rental.slug === "uv-glow-foam-party",
+)!;
 const first = standardRentals[0]!;
 const second = standardRentals[1]!;
 const cart = [
@@ -181,6 +189,56 @@ test("foam-only carts still use booking duration as foam time", () => {
     foamDurationLabelForBooking(foamOnlyCart, "2 hours", null),
     "2 hours",
   );
+});
+
+test("UV Glow foam party uses owner-confirmed package prices", () => {
+  const uvGlowCart = [
+    {
+      rental_item: uvGlowFoamRental.slug,
+      rental_name: uvGlowFoamRental.title,
+      starting_price: uvGlowFoamRental.startingPrice,
+    },
+  ];
+  const twoHour = UV_GLOW_FOAM_DURATION_OPTIONS.find(
+    (option) => option.label === "2 hours",
+  )!;
+
+  assert.equal(uvGlowFoamRental.startingPrice, 300);
+  assert.deepEqual(
+    foamDurationOptionsForCart(uvGlowCart),
+    UV_GLOW_FOAM_DURATION_OPTIONS,
+  );
+  assert.equal(
+    estimateRentalLineSubtotal(uvGlowCart[0]!, "30 minutes", 1, "30 minutes"),
+    300,
+  );
+  assert.equal(
+    estimateRentalLineSubtotal(uvGlowCart[0]!, "1 hour", 1, "1 hour"),
+    450,
+  );
+  assert.equal(
+    estimateRentalLineSubtotal(
+      uvGlowCart[0]!,
+      twoHour.label,
+      twoHour.spanDays,
+      twoHour.label,
+    ),
+    725,
+  );
+});
+
+test("UV Glow duration and totals survive mixed carts and catalog pricing", () => {
+  const glow = { rental_item: uvGlowFoamRental.slug };
+  const mixed = [glow, { rental_item: first.slug }];
+  assert.deepEqual(resolveNewRentalDuration([glow], "2 hours"), {
+    label: "2 hours", spanDays: 1,
+  });
+  assert.equal(resolveNewRentalDuration(mixed, "2 hours").label, "One Day");
+  assert.equal(resolveNewFoamDurationLabel(mixed, "2 hours", "One Day"), "2 hours");
+  assert.equal(foamDurationLabelForBooking(mixed, "One Day", "2 hours"), "2 hours");
+  assert.equal(estimateRentalLineSubtotal(glow, "One Day", 1, "2 hours"), 725);
+  assert.equal(estimateCartRentalSubtotal(mixed, "One Day", 1, "2 hours"), 725 + first.startingPrice);
+  assert.equal(estimateRentalLineSubtotal({ rental_item: foamRental.slug }, "2 hours", 1, "2 hours"), 450);
 });
 
 test("facility-party duration and pricing defaults remain unchanged", () => {

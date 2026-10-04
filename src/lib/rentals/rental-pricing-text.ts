@@ -4,10 +4,13 @@ import {
   MOCK_DURATION_OPTIONS,
   MOCK_SERVICE_FEE,
   ONE_DAY_RENTAL_DURATION,
+  UV_GLOW_FOAM_DURATION_OPTIONS,
   estimateRentalSubtotal,
+  type DurationOption,
 } from "@/lib/mockBooking";
 
 export const FOAM_PARTY_RENTAL_ITEM = "foam-party";
+export const UV_GLOW_FOAM_PARTY_RENTAL_ITEM = "uv-glow-foam-party";
 export const JUMPING_JAX_FACILITY_ADDRESS =
   "559 Beaudrot Rd, Greenwood, SC";
 export const RENTAL_DELIVERY_BASE_FEE = MOCK_SERVICE_FEE;
@@ -22,6 +25,11 @@ export type RentalLineInput = {
   rental_name?: string;
   starting_price?: number;
 };
+
+const FOAM_PARTY_RENTAL_ITEMS = new Set([
+  FOAM_PARTY_RENTAL_ITEM,
+  UV_GLOW_FOAM_PARTY_RENTAL_ITEM,
+]);
 
 // Kept only for rendering/recalculating historical rows. New bookings are
 // canonicalized to the selectable One Day option before pricing or storage.
@@ -54,7 +62,7 @@ function standardDurationMultiplier(
 }
 
 export function isFoamPartyRentalItem(slug: string | null | undefined): boolean {
-  return slug?.trim() === FOAM_PARTY_RENTAL_ITEM;
+  return FOAM_PARTY_RENTAL_ITEMS.has(slug?.trim() ?? "");
 }
 
 export function cartContainsFoamParty(items: RentalLineInput[]): boolean {
@@ -65,13 +73,33 @@ export function cartContainsStandardRental(items: RentalLineInput[]): boolean {
   return items.some((item) => !isFoamPartyRentalItem(item.rental_item));
 }
 
+function foamDurationOptionsForRentalItem(
+  slug: string | null | undefined,
+): DurationOption[] {
+  return slug?.trim() === UV_GLOW_FOAM_PARTY_RENTAL_ITEM
+    ? UV_GLOW_FOAM_DURATION_OPTIONS
+    : FOAM_DURATION_OPTIONS;
+}
+
+export function foamDurationOptionsForCart(
+  items: RentalLineInput[],
+): DurationOption[] {
+  return items.some(
+    (item) => item.rental_item?.trim() === UV_GLOW_FOAM_PARTY_RENTAL_ITEM,
+  )
+    ? UV_GLOW_FOAM_DURATION_OPTIONS
+    : FOAM_DURATION_OPTIONS;
+}
+
 export function resolveFoamDurationOption(
   requestedFoamDurationLabel: string | null | undefined,
+  rentalItem?: string | null,
 ) {
   const label = requestedFoamDurationLabel?.trim() ?? "";
+  const options = foamDurationOptionsForRentalItem(rentalItem);
   return (
-    FOAM_DURATION_OPTIONS.find((option) => option.label === label) ??
-    FOAM_DURATION_OPTIONS[0]!
+    options.find((option) => option.label === label) ??
+    options[0]!
   );
 }
 
@@ -91,7 +119,10 @@ export function resolveNewRentalDuration(
     };
   }
 
-  const resolved = resolveFoamDurationOption(requestedDurationLabel);
+  const resolved = resolveFoamDurationOption(
+    requestedDurationLabel,
+    items[0]?.rental_item,
+  );
   return { label: resolved.label, spanDays: resolved.spanDays };
 }
 
@@ -108,12 +139,20 @@ export function resolveNewFoamDurationLabel(
     return null;
   }
 
+  const primaryFoamItem = items.find((item) =>
+    isFoamPartyRentalItem(item.rental_item),
+  )?.rental_item;
+
   if (cartContainsStandardRental(items)) {
-    return resolveFoamDurationOption(requestedFoamDurationLabel).label;
+    return resolveFoamDurationOption(
+      requestedFoamDurationLabel,
+      primaryFoamItem,
+    ).label;
   }
 
   return resolveFoamDurationOption(
     requestedFoamDurationLabel?.trim() || bookingDurationLabel,
+    primaryFoamItem,
   ).label;
 }
 
@@ -128,15 +167,19 @@ export function foamDurationLabelForBooking(
   }
 
   const storedFoam = foamDurationLabel?.trim() ?? "";
+  const primaryFoamItem = items.find((item) =>
+    isFoamPartyRentalItem(item.rental_item),
+  )?.rental_item;
   if (storedFoam) {
-    return resolveFoamDurationOption(storedFoam).label;
+    return resolveFoamDurationOption(storedFoam, primaryFoamItem).label;
   }
 
   const bookingLabel = bookingDurationLabel?.trim() ?? "";
-  const fromBooking = FOAM_DURATION_OPTIONS.find(
+  const options = foamDurationOptionsForRentalItem(primaryFoamItem);
+  const fromBooking = options.find(
     (option) => option.label === bookingLabel,
   );
-  return fromBooking?.label ?? FOAM_DURATION_OPTIONS[0]!.label;
+  return fromBooking?.label ?? options[0]!.label;
 }
 
 export function formatUsd(amount: number): string {
@@ -158,8 +201,9 @@ function durationMultiplierForRentalItem(
 ): number {
   if (isFoamPartyRentalItem(slug)) {
     const foamLabel = (foamDurationLabel ?? durationLabel).trim();
-    const foamByLabel = FOAM_DURATION_OPTIONS.find((d) => d.label === foamLabel);
-    return foamByLabel?.priceMultiplier ?? FOAM_DURATION_OPTIONS[0]!.priceMultiplier;
+    const options = foamDurationOptionsForRentalItem(slug);
+    const foamByLabel = options.find((d) => d.label === foamLabel);
+    return foamByLabel?.priceMultiplier ?? options[0]!.priceMultiplier;
   }
 
   return standardDurationMultiplier(durationLabel.trim(), spanDays);

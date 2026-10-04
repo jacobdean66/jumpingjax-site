@@ -22,6 +22,7 @@ import {
   estimateCartRentalSubtotal,
   estimateMileageFee,
   estimateRentalDeliveryFee,
+  foamDurationOptionsForCart,
   isFoamPartyRentalItem,
   normalizeDistanceMiles,
 } from "@/lib/rentals/rental-pricing-text";
@@ -425,8 +426,9 @@ export function RentalBookingPanel({
   const hasFoamParty = cartContainsFoamParty(selectedRentalItems);
   const hasStandardRental = cartContainsStandardRental(selectedRentalItems);
   const isMixedFoamCart = hasFoamParty && hasStandardRental;
+  const foamDurationOptions = foamDurationOptionsForCart(selectedRentalItems);
   const durationOptions = isFoamOnlyCart
-    ? FOAM_DURATION_OPTIONS
+    ? foamDurationOptions
     : MOCK_DURATION_OPTIONS;
 
   const selectedDurationId = durationOptions.some(
@@ -435,11 +437,11 @@ export function RentalBookingPanel({
     ? durationId
     : durationOptions[0]!.id;
 
-  const selectedFoamDurationId = FOAM_DURATION_OPTIONS.some(
+  const selectedFoamDurationId = foamDurationOptions.some(
     (option) => option.id === foamDurationId,
   )
     ? foamDurationId
-    : FOAM_DURATION_OPTIONS[0]!.id;
+    : foamDurationOptions[0]!.id;
 
   const displayCartItems = useMemo((): RentalCartItem[] => {
     if (rentalCartItems.length > 0) {
@@ -540,9 +542,9 @@ export function RentalBookingPanel({
   const foamDuration = useMemo(
     () =>
       hasFoamParty
-        ? FOAM_DURATION_OPTIONS.find((d) => d.id === selectedFoamDurationId)
+        ? foamDurationOptions.find((d) => d.id === selectedFoamDurationId)
         : undefined,
-    [hasFoamParty, selectedFoamDurationId],
+    [hasFoamParty, foamDurationOptions, selectedFoamDurationId],
   );
 
   const effectiveFoamDurationLabel = isFoamOnlyCart
@@ -1043,7 +1045,7 @@ export function RentalBookingPanel({
                           Foam time
                         </p>
                         <DurationSelector
-                          options={FOAM_DURATION_OPTIONS}
+                          options={foamDurationOptions}
                           value={selectedFoamDurationId}
                           onChange={setFoamDurationId}
                         />
