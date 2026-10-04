@@ -33,6 +33,7 @@
   ],
   "exclude": [
     "node_modules",
+    "apps/driver-tracker",
     "**/*.test.mts",
     "_website-recovery-vault",
     "outputs",

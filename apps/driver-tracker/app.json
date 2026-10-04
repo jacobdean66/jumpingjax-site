@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Jumping Jax Driver",
+    "slug": "jumpingjax-driver-tracker",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "jumpingjaxdriver",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.jumpingjax.driver",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Jumping Jax uses your location while you are signed in so dispatch can follow delivery progress.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Jumping Jax uses your location in the background while you are signed in for delivery routing and customer ETA updates."
+      }
+    },
+    "android": {
+      "package": "com.jumpingjax.driver",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Jumping Jax uses your location while you are signed in for delivery routing and customer ETA updates.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://jumpingjax-site.vercel.app",
+      "eas": {
+        "projectId": "0843e44c-5448-42a0-a7e6-75107de55dde"
+      }
+    },
+    "owner": "jacobdean1166"
+  }
+}
