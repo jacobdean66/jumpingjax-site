@@ -1,6 +1,7 @@
 import type { MetaAdsResolvedDateRange } from "./dates";
 import { toMetaDatePresetParam } from "./dates";
-import { metaAdsGraphGetAllPages, metaAdsGraphPost } from "./http-client";
+import { metaAdsGraphGet, metaAdsGraphGetAllPages, metaAdsGraphPost } from "./http-client";
+import { sanitizedError } from "./errors";
 import {
   emptyInsights,
   extractDestinationUrl,
@@ -520,6 +521,19 @@ export async function pauseMetaAd(input: {
 
   if (!result.ok) return result;
 
+  if (result.data.success !== true) {
+    return { ok: false, error: sanitizedError("provider_error", "Meta did not acknowledge the pause. Refresh before trying again.", "unavailable") };
+  }
+  const verification = await metaAdsGraphGet<{ id?: string; status?: string }>({
+    path: adId,
+    accessToken: input.accessToken,
+    fetchImpl: input.fetchImpl,
+    searchParams: { fields: "id,status" },
+  });
+  if (!verification.ok) return verification;
+  if (verification.data.id !== adId || verification.data.status !== "PAUSED") {
+    return { ok: false, error: sanitizedError("provider_error", "The pause was sent, but Meta has not confirmed PAUSED. Refresh and check Ads Manager before trying again.", "unavailable") };
+  }
   return { ok: true, adId };
 }
 

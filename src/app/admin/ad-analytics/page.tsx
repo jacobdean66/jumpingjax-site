@@ -87,8 +87,10 @@ export default async function AdminAdAnalyticsPage({
         <p>
           Data status: <span className="font-black uppercase">{dashboard.freshness.replaceAll("_", " ")}</span>
           {" · "}
-          Last refreshed {new Date(dashboard.generatedAt).toLocaleString()}
+          Last fetched {new Date(dashboard.generatedAt).toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" })}
         </p>
+        <p className="mt-1">Meta can revise recent results. Fetch time does not mean delivery or attribution data is final.</p>
+        <p className="mt-1">Stop permission: {dashboard.connection.hasAdsManagement === true ? "granted" : "not granted"}. Controls pause one ad at a time and confirm its status with Meta.</p>
         {dashboard.message ? <p className="mt-1">{dashboard.message}</p> : null}
         {dashboard.errors.length > 0 ? (
           <ul className="mt-2 list-disc space-y-1 pl-5">

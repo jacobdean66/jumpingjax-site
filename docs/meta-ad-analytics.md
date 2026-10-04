@@ -1,6 +1,6 @@
 # Meta Ad Analytics (owner dashboard)
 
-Read-only Meta Marketing API reporting for Jumping Jax paid ads.
+Meta Marketing API reporting and owner-triggered individual-ad pause controls for Jumping Jax paid ads.
 
 ## Route
 
@@ -13,14 +13,14 @@ Read-only Meta Marketing API reporting for Jumping Jax paid ads.
 Required Meta permissions for analytics:
 
 - `ads_read` (read-only ad reporting)
-- `business_management` (Business Manager ad-account discovery)
+- Account visibility for the connected Meta user (discovery uses `/me/adaccounts`).
 
 Not required for analytics:
 
 - `ads_management`
 - Page/Instagram publishing scopes (`pages_manage_posts`, `instagram_content_publish`, etc.)
 
-Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. That flow requests `ads_read` and `business_management` only and stores an analytics-purpose session (`ad-analytics` target id). Older `ads_read`-only sessions require reconnect. Publication OAuth on Publication execution remains separate and still uses publishing scopes.
+Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. The flow requests `ads_read`, `ads_management` and `business_management` and stores an analytics-purpose session (`ad-analytics` target id). Existing `ads_read` sessions can report without management access. Stop controls require a live granted `ads_management` permission; the API checks it separately. Publication OAuth remains separate.
 
 Also confirm in Meta Developer / Business settings:
 
@@ -45,7 +45,7 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 - Server module: `src/lib/meta-ads`
 - Marketing API version: `v25.0` (separate from organic Graph OAuth `v21.0`)
 - Token loading: latest connected analytics session (`publication_target_id = ad-analytics` with intent scopes including `ads_read`) → encrypted vault decrypt
-- Live reads only for v1 (no paid-ad persistence tables; does not touch `social_publication_metric_*`)
+- Live reads with no paid-ad persistence tables; owner-only `POST /api/admin/ad-analytics` accepts `pause_ad` for an individual ad.
 - Account discovery: `GET /me/adaccounts` (dynamic; not hard-coded to the giveaway account)
 
 ## Production verification checklist
@@ -58,11 +58,18 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
    - Ad set `120248537170770208`
    - Ad `120248537170760208`
 5. Date presets and status filters work.
-6. Manual refresh (reload / reset) updates “Last refreshed”.
+6. Manual refresh updates “Last fetched” in Eastern time. This is the request time, not proof that Meta attribution is final.
 7. No access tokens appear in HTML, network JSON, or logs.
 
 ## Explicit non-goals
 
-- No creating, pausing, editing, or deleting ads/campaigns/budgets
+- No creating, deleting, resuming or editing budgets; no global Stop all.
 - No production migration for this feature
 - No automatic OAuth reconnect
+
+## Metrics and pause verification
+
+- Link CTR = link clicks / impressions; cost per link click = spend / link clicks. Meta's all-click CTR/CPC fields must not override these calculations. Missing or zero denominators show unavailable.
+- Compare the same account, currency, calendar dates, attribution settings and filters with Ads Manager. Account totals cover the whole account; status filters restrict the hierarchy, not account totals.
+- A pause must receive `success: true`, then read the same ad's `status` back as `PAUSED`. Failed or unconfirmed reads are reported as errors, never success. The client also validates the returned ID/status.
+- The separate Aperture site is a demo and must never be used to stop live spending.

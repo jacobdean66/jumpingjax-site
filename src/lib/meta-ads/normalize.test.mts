@@ -109,6 +109,15 @@ test("safeDivide and recomputeDerivedFromCounts avoid divide-by-zero", () => {
   assert.equal(derived.costPerLandingPageView.kind, "unavailable");
 });
 
+test("link CTR and CPC do not inherit Meta all-click rates", () => {
+  const row = normalizeInsightsRow({ spend: "7.68", impressions: "1597", inline_link_clicks: "111", clicks: "232", ctr: "14.53", cpc: "0.03" });
+  assert.deepEqual(row.ctr, { kind: "number", value: 111 / 1597 });
+  assert.deepEqual(row.cpc, { kind: "number", value: 7.68 / 111 });
+  const missing = normalizeInsightsRow({ spend: "7.68", impressions: "1597", ctr: "14.53", cpc: "0.03" });
+  assert.equal(missing.ctr.kind, "unavailable");
+  assert.equal(missing.cpc.kind, "unavailable");
+});
+
 test("normalizeActionResults prefers readable labels", () => {
   const results = normalizeActionResults(
     [{ action_type: "landing_page_view", value: "4" }],

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchAdHierarchyWithInsights } from "./marketing-api";
+import { fetchAdHierarchyWithInsights, pauseMetaAd } from "./marketing-api";
 import type { MetaAdsResolvedDateRange } from "./dates";
 
 const range: MetaAdsResolvedDateRange = {
@@ -47,4 +47,27 @@ test("hierarchy requests omit Meta's fragile effective-status parameter", async 
   assert.equal(requestFor("campaigns").searchParams.has("effective_status"), false);
   assert.equal(requestFor("adsets").searchParams.has("effective_status"), false);
   assert.equal(requestFor("ads").searchParams.has("effective_status"), false);
+});
+
+test("pause requires acknowledgment and a matching PAUSED status from Meta", async () => {
+  for (const [ack, readBack, expected] of [
+    [true, { id: "1234567", status: "PAUSED" }, true],
+    [false, { id: "1234567", status: "PAUSED" }, false],
+    [true, { id: "1234567", status: "ACTIVE" }, false],
+    [true, { id: "7654321", status: "PAUSED" }, false],
+  ] as const) {
+    const methods: string[] = [];
+    const result = await pauseMetaAd({ adId: "1234567", accessToken: "test-token-not-real", fetchImpl: async (_url, options) => {
+      methods.push(options?.method ?? "GET");
+      return Response.json(options?.method === "POST" ? { success: ack } : readBack);
+    } });
+    assert.equal(result.ok, expected);
+    assert.deepEqual(methods, ack ? ["POST", "GET"] : ["POST"]);
+  }
+});
+
+test("pause verification read failure cannot be reported as success", async () => {
+  const result = await pauseMetaAd({ adId: "1234567", accessToken: "test-token-not-real", fetchImpl: async (_url, options) =>
+    options?.method === "POST" ? Response.json({ success: true }) : Response.json({ error: { code: 200, message: "Denied" } }, { status: 403 }) });
+  assert.equal(result.ok, false);
 });
