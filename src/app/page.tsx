@@ -186,6 +186,15 @@ export default async function Home() {
           </div>
 
           <div className="rounded-3xl border-2 border-white bg-white/80 p-5 shadow-[0_14px_36px_rgba(6,182,212,0.16)] sm:p-6">
+            <div className="relative mb-6 aspect-[383/361] w-full overflow-hidden rounded-2xl border-2 border-cyan-100 bg-white shadow-[0_10px_24px_rgba(6,182,212,0.14)]">
+              <Image
+                src="/marketing/intercession-weeks-2026.jpg"
+                alt="Jumping Jax intercession weeks hours and free treat schedule for September 28 through October 9, 2026"
+                fill
+                sizes="(max-width: 1024px) 92vw, 28rem"
+                className="object-cover"
+              />
+            </div>
             <h3 className="text-2xl font-black">Open Play Hours</h3>
             <div className="mt-5 grid gap-3 text-base font-semibold text-slate-800">
               {settings.businessHours.map((row) => (

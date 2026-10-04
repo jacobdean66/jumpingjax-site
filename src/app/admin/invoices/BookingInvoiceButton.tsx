@@ -16,6 +16,7 @@ type Props = {
   bookingId: string;
   initialInvoice?: BookingInvoice;
   label?: string;
+  variant?: "default" | "customer-card";
 };
 
 const inputClass =
@@ -28,7 +29,7 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
-export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = "Invoice" }: Props) {
+export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = "Invoice", variant = "default" }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [invoice, setInvoice] = useState<BookingInvoice | null>(initialInvoice ?? null);
@@ -105,6 +106,7 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
       if (!response.ok || !body.ok) throw new Error(body.message || "Could not save invoice.");
       if (body.invoice) setInvoice(body.invoice);
       setMessage("Invoice saved.");
+      router.refresh();
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save invoice.");
@@ -126,6 +128,7 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
       const body = await response.json() as { ok?: boolean; message?: string };
       if (!response.ok || !body.ok) throw new Error(body.message || "Could not email invoice.");
       setMessage(body.message || "Invoice emailed.");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not email invoice.");
     } finally {
@@ -160,9 +163,12 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
       <button
         type="button"
         onClick={openInvoice}
-        className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-xs font-black text-white hover:bg-indigo-700"
+        aria-label={variant === "customer-card" ? `Open invoice for ${label}` : undefined}
+        className={variant === "customer-card"
+          ? "flex aspect-square w-full items-center justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center text-lg font-black text-slate-950 shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 sm:text-xl"
+          : "inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-xs font-black text-white hover:bg-indigo-700"}
       >
-        <ReceiptText className="h-4 w-4" aria-hidden="true" /> {label}
+        {variant === "customer-card" ? <span className="min-w-0 break-words [overflow-wrap:anywhere]">{label}</span> : <><ReceiptText className="h-4 w-4" aria-hidden="true" /> {label}</>}
       </button>
 
       {open ? (

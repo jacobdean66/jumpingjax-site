@@ -764,6 +764,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 2200,
     "format": "png"
   },
+  "/marketing/intercession-weeks-2026.jpg": {
+    "width": 383,
+    "height": 361,
+    "format": "jpeg"
+  },
   "/marketing/jumping-jax-facility-empty-v2.png": {
     "width": 1448,
     "height": 1086,

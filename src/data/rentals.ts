@@ -371,6 +371,28 @@ const FOAM_PARTY_RENTALS: Rental[] = [
       "Clear path for delivery and enough open space for guests to move safely.",
     ],
   },
+  {
+    id: "foam-parties/uv-glow-foam-party",
+    slug: "uv-glow-foam-party",
+    categoryId: "foam-parties",
+    title: "Foam Party - UV Glow",
+    shortDescription:
+      "Glow-in-the-dark foam party packages with 30-minute, 1-hour, and additional-hour pricing.",
+    description:
+      "Book a Jumping Jax UV Glow foam party for a bright glow-in-the-dark party setup. Packages start at $300 for 30 minutes, $450 for 1 hour, and $275 per additional hour after the first hour.",
+    startingPrice: 300,
+    imageSrc: "/inflatables/foam-parties/foam-parties.jpg",
+    imageAlt: "Jumping Jax UV glow foam party setup",
+    ageRecommendation:
+      "All ages with adult supervision; guests should expect wet, slippery foam play in a glow-party environment.",
+    setupRequirements: [
+      "Recommended foam play area is about 30 ft x 30 ft, with safe drainage and permission for foam/water use.",
+      "Best experienced after dark or in a dim covered area where UV glow effects are visible.",
+      "Foam party space must be completely cleared before setup: no toys, sticks, rocks, yard debris, trash, or dog poop. Guests will be rolling, sliding, and playing in this area.",
+      "Standard 120V outlet within 50 ft and access to a water source or hose reach.",
+      "Clear path for delivery and enough open space for guests to move safely.",
+    ],
+  },
 ];
 
 const ACCESSORY_RENTALS: Rental[] = [
