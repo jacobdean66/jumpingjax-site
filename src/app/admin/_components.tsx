@@ -84,6 +84,7 @@ export function AdminNav({
     | "deliveries"
     | "end-of-day"
     | "driver"
+    | "driver-locations"
     | "ai-ads"
     | "inventory"
     | "site-settings"
@@ -166,6 +167,13 @@ export function AdminNav({
       ? { id: "answering-machine" as const, label: "Answering Machine", href: `/admin/answering-machine${query}` }
       : null,
     { id: "driver" as const, label: "Driver App", href: `/driver${query}` },
+    role === "owner"
+      ? {
+          id: "driver-locations" as const,
+          label: "Driver Locations",
+          href: `/admin/driver-locations${query}`,
+        }
+      : null,
     role === "owner"
       ? {
           id: "site-settings" as const,
