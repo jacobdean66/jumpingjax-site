@@ -10,6 +10,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jumpingjax.driver",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "location"
         ],
