@@ -157,10 +157,10 @@ export function DriverLocationsClient({
         {locations.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <h2 className="text-xl font-black text-slate-950">
-              No driver tracking sessions yet.
+              No shared driver locations yet.
             </h2>
             <p className="mt-2 text-sm font-semibold text-slate-600">
-              Sessions will appear here after a driver signs into the native Driver App.
+              Locations appear after a driver shares location on the website or signs into the installed Driver App.
             </p>
           </div>
         ) : (

@@ -483,3 +483,53 @@ export async function loadDriverMobileLocationSnapshots(
     };
   });
 }
+
+export function combineDriverLocationSnapshots(
+  mobile: DriverMobileLocationSnapshot[],
+  browser: DriverLocationSnapshot[],
+  now = Date.now(),
+): DriverMobileLocationSnapshot[] {
+  const latest = new Map<string, DriverLocationSnapshot>();
+  for (const location of browser) {
+    const key = JSON.stringify([location.driverId, location.truck, location.workDate]);
+    const previous = latest.get(key);
+    if (!previous || Date.parse(location.createdAt) > Date.parse(previous.createdAt)) {
+      latest.set(key, location);
+    }
+  }
+  const browserLocations: DriverMobileLocationSnapshot[] = [...latest.values()].map((location) => ({
+    sessionId: `browser:${location.id}`,
+    driverId: location.driverId,
+    driverName: location.driverName,
+    deviceLabel: ["Browser", location.truck === "truck-1" ? "Trailer 1" : location.truck === "truck-2" ? "Trailer 2" : null, location.workDate].filter(Boolean).join(" · "),
+    startedAt: location.createdAt,
+    lastSeenAt: location.createdAt,
+    signedOutAt: null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    accuracyMeters: location.accuracyMeters,
+    speedMetersPerSecond: location.speedMetersPerSecond,
+    batteryLevel: null,
+    capturedAt: location.capturedAt,
+    receivedAt: location.createdAt,
+    status: mobileSnapshotStatus({ signedOutAt: null, receivedAt: location.capturedAt, now }),
+  }));
+  return [...mobile, ...browserLocations].sort((a, b) =>
+    Date.parse(b.receivedAt || b.startedAt) - Date.parse(a.receivedAt || a.startedAt),
+  );
+}
+
+export async function loadDriverLocationSnapshots(): Promise<DriverMobileLocationSnapshot[]> {
+  const supabase = createServiceRoleClient();
+  const [mobile, browserResult] = await Promise.all([
+    loadDriverMobileLocationSnapshots(),
+    supabase.from("driver_location_snapshots")
+      .select("id, driver_id, driver_name, truck, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at")
+      .gte("created_at", new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(200)
+      .returns<DriverLocationRow[]>(),
+  ]);
+  if (browserResult.error) throw new Error(browserResult.error.message);
+  return combineDriverLocationSnapshots(mobile, (browserResult.data ?? []).map(rowToSnapshot));
+}
