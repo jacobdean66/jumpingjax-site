@@ -21,7 +21,7 @@ test('broad K-pop has distinct explicit interpretations; publisher images supple
   assert.equal(themeCatalogQuery({query:'KPop Demon Hunters characters',refinements:[],rejected:[]}), 'kpop demon hunters');
   assert.equal(themeCatalogQuery({query:'K-pop',refinements:['KPop Demon Hunters animated movie characters'],rejected:[]}), 'kpop demon hunters');
   assert.equal(themeCatalogQuery({query:'K-pop',refinements:['KPop Demon Hunters animated movie characters','Rumi'],rejected:[]}), 'kpop demon hunters rumi');
-  assert.deepEqual(sourceImages('<script type="application/ld+json">{"@type":"Movie","image":"/characters.png"}</script><img alt="KPop Demon Hunters movie characters" src="/cast.png">','https://example.com/movie'),['https://example.com/characters.png','https://example.com/cast.png']);
+  assert.deepEqual(sourceImages('<script type="application/ld+json">{"@type":"Movie","image":"/characters.png"}</script><img alt="KPop Demon Hunters movie characters" src="/cast.png">','https://example.com/movie'),['https://example.com/cast.png','https://example.com/characters.png']);
   assert.deepEqual(sourceImages('<img alt="Characters at a party" src="https://127.0.0.1/secret">','https://example.com'),[]);
 });
 
@@ -29,9 +29,27 @@ test('transient 429 retries once with bounded delay; quota and authentication fa
   let calls=0;const busy=Object.assign(new Error('Do not log this provider body'),{status:429,headers:new Headers({'retry-after':'1'})});
   const result=await withThemeProviderRetry(async()=>{if(++calls===1)throw busy;return 'verified';},AbortSignal.timeout(5000),'search',async ms=>{assert.equal(ms,1000);});
   assert.equal(result,'verified');assert.equal(calls,2);
-  for(const error of [Object.assign(new Error('secret'),{status:401}), Object.assign(new Error('secret'),{status:429,headers:new Headers({'retry-after':'60'})})]) {
+  for(const error of [Object.assign(new Error('secret'),{status:401}), Object.assign(new Error('secret'),{status:429,type:'insufficient_quota'}), Object.assign(new Error('secret'),{status:429,headers:new Headers({'retry-after':'120'})})]) {
     calls=0;await assert.rejects(withThemeProviderRetry(async()=>{calls++;throw error;},AbortSignal.timeout(5000),'search',async()=>{}));assert.equal(calls,1);
   }
+});
+
+test('search rate limits wait for the real provider window, including wrapped quota errors', async () => {
+  for (const [headers, expected] of [[new Headers(),30000],[new Headers({'retry-after':'30'}),30000],[new Headers({'retry-after':'60'}),60000]] as const) {
+    let calls=0;
+    const result=await withThemeProviderRetry(async()=>{if(++calls===1)throw Object.assign(new Error('private'),{status:429,headers});return 'ok';},AbortSignal.timeout(1000),'search',async delay=>{assert.equal(delay,expected);});
+    assert.equal(result,'ok'); assert.equal(calls,2);
+  }
+  let calls=0;
+  await assert.rejects(withThemeProviderRetry(async()=>{calls++;throw Object.assign(new Error('private'),{status:429,providerErrorType:'insufficient_quota'});},AbortSignal.timeout(1000),'search',async()=>{}));
+  assert.equal(calls,1);
+});
+
+test('publisher logos and small metadata previews cannot hide real inline character images', () => {
+  const page='<head><meta property="og:image" content="/logo.png"></head><img alt="Menu navigation badge" src="/badges.svg"><img alt="Sheriff Woody character image" src="/woody.jpg"><img alt="Buzz Lightyear character image" src="/buzz.jpg">';
+  assert.deepEqual(sourceImages(page,'https://example.com/movie'),['https://example.com/woody.jpg','https://example.com/buzz.jpg']);
+  assert.deepEqual(sourceImages('<meta property="og:image" content="/logo.png"><img alt="" data-src="/character_head.jpg" data-image-dimensions="1500x897">','https://example.com/movie'),['https://example.com/character_head.jpg','https://example.com/logo.png']);
+  assert.deepEqual(sourceImages('<img alt="" data-src="https://127.0.0.1/private" width="1500" height="897">','https://example.com/movie'),[]);
 });
 
 test('catalog lookup, explicit confirmation, three layouts and actual booking readback preserve frozen artwork', async context => {

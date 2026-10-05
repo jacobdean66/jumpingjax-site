@@ -1,4 +1,5 @@
 import path from "node:path";
+import { assertInvitationArtwork } from "./artwork-policy";
 
 import PptxGenJS from "pptxgenjs";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
@@ -245,6 +246,7 @@ function addInvitation(
 export async function buildEditableInvitationPptx(
   input: EditableInvitationPptxInput,
 ): Promise<Uint8Array> {
+  assertInvitationArtwork(input.snapshot);
   const quantity = normalizeInvitationQuantity(input.invitationQuantity);
   const qrUrl = input.waiverUrl ? buildQrCodeImageUrl(input.waiverUrl, 300) : input.qrUrl;
   const qrData = await imageDataUri(qrUrl);

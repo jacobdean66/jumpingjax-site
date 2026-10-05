@@ -6,6 +6,7 @@ import { GET as savedInvitationImage } from "@/app/api/facility/invitations/[id]
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
 
 export const runtime = "nodejs";
 export const alt = "Jumping Jax birthday invitation";
@@ -28,10 +29,10 @@ export default async function InvitationOpenGraphImage({
     }
   }
 
-  if (!view) {
+  if (!view || invitationNeedsArtworkConfirmation(view.snapshot)) {
     return new ImageResponse(
       <div style={{ display: "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", background: "#071326", color: "white", fontSize: 64, fontWeight: 900 }}>
-        Jumping Jax birthday invitation
+        {view ? "Invitation picture needs confirmation" : "Jumping Jax birthday invitation"}
       </div>,
       size,
     );

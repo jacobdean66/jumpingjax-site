@@ -4,6 +4,7 @@ import {
   editableInvitationFileName,
 } from "@/lib/facility-parties/invitations/editable-pptx";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
+import { InvitationArtworkRequiredError } from "@/lib/facility-parties/invitations/artwork-policy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,7 +47,8 @@ export async function GET(_request: Request, { params }: Props) {
         "x-content-type-options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof InvitationArtworkRequiredError) return Response.json({ error: error.message, code: error.code }, { status: 409, headers: { "cache-control": "private, no-store" } });
     return Response.json({ error: "We couldn’t prepare your invitation. Please try downloading again." }, {
       status: 503,
       headers: { "cache-control": "private, no-store" },
