@@ -466,9 +466,9 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
 
   const today = facilityAdminDay();
   const singleDay = resolved?.day ? normalizeYmd(resolved.day) : "";
-  const view = resolved?.view === "past" || (!resolved?.view && singleDay && singleDay < today) ? "past" : "upcoming";
   const from = singleDay ? singleDay : resolved?.from ? normalizeYmd(resolved.from) : "";
   const to = singleDay ? singleDay : resolved?.to ? normalizeYmd(resolved.to) : "";
+  const view = resolved?.view === "past" || (!resolved?.view && to && to < today) ? "past" : "upcoming";
   const search = resolved?.q?.trim() ?? "";
   const status = normalizeStatus(resolved?.status);
   const kind = resolved?.kind === "private" ? "private" : "all";
