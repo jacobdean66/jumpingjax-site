@@ -31,7 +31,8 @@ Reproduce the metadata-only audit with `scripts/meta-release-preflight.sql`. Do 
 - Focused Node suite passed on October 5, including scheduler errors, publish payload, permissions, metric normalization, webhook/media boundaries, supervisor readiness, and paused/disabled/emergency-stop social controls.
 - Disposable PGlite checks passed: seven WhatsApp ingestion scenarios and six scheduler scenarios, with zero production writes from the test harnesses.
 - Production unauthenticated checks before application release: cron, schedule, and analytics return 401; WhatsApp intake returns disabled/503. These are access-boundary checks, not authenticated workflow acceptance.
-- Production build and focused lint: pending at this checkpoint.
+- Focused ESLint passed. Local Next build was stopped because the laptop had approximately 424 MB free RAM; the immutable Vercel preview build remains required before merge.
+- A production empty-queue claim probe returned zero rows inside a rolled-back transaction with a queue lock and empty-table guard. No schedule state was retained.
 
 ## Current connection blockers
 
