@@ -13,7 +13,7 @@ export async function superviseThemeSearch<T>(
   const recovery = new Promise<T>((resolve) => {
     review = setTimeout(() => {
       options.onReview?.();
-      void recover(controller.signal).then(result => { if (result !== null) resolve(result); }).catch(() => {});
+      void recover(controller.signal).then(result => { if (result !== null) { resolve(result); controller.abort('saved_artwork_recovery'); } }).catch(() => {});
     }, options.reviewMs ?? SEARCH_REVIEW_MS);
   });
   const timeout = new Promise<never>((_resolve, reject) => {

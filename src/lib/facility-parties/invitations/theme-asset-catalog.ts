@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { LIBRARY_CATALOG_REVISION } from './local-theme';
 import { createServiceRoleClient } from '@/lib/supabase/admin';
 import { invitationArtworkBucket } from './artwork-bucket';
 import { persistThemeArtwork } from './theme-artwork-store';
@@ -40,7 +41,7 @@ export async function stageCatalogTheme(candidate: ThemeCandidate): Promise<Them
     franchise: candidate.franchise ?? candidate.label, description: candidate.description,
     storage_bucket: bucket, storage_path: storagePath,
     source_url: candidate.sourceUrl, source_image_url: candidate.imageUrl,
-    provenance: { method: 'protected-provider-search', version: 1 },
+    provenance: { method: candidate.sourceUrl.startsWith(`https://github.com/microsoft/fluentui-emoji/blob/${LIBRARY_CATALOG_REVISION}/`) ? 'licensed-repository-catalog' : candidate.sourceUrl.startsWith('https://en.wikipedia.org/wiki/') ? 'team-directory-selection' : 'protected-provider-search', version: 2 },
     approval_status: 'pending',
   }, { onConflict: 'id', ignoreDuplicates: true });
   if (error) throw new Error('theme_catalog_write_failed');

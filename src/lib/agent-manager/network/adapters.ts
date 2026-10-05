@@ -7,6 +7,7 @@ import { identifyWaiverTriageIssues } from "../waiver-triage";
 import { getNominationAgentReadiness } from "../nomination-readiness";
 import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
 import { loadSecurityDashboard } from "@/lib/security/dashboard-service";
+import { invitationCatalogStatus } from "@/lib/facility-parties/invitations/local-theme";
 import { INVITATION_THEMES } from "@/lib/facility-parties/invitations/theme-catalog";
 import { prepareSupervisorHandoff } from "../supervisor-handoff";
 import { collectSupervisorSnapshot } from "../supervisor-service";
@@ -68,7 +69,7 @@ export function createAgentAdapters(deps = adapterDependencies): AgentAdapter[] 
       case "workflow_review": return completed("Existing booking workflow failures reviewed.", await deps.bookingWorkflows());
       case "waiver_review": return completed("Completed waiver signature and document integrity reviewed.", await deps.waiverIntegrity());
       case "nomination_readiness": { const r = deps.nomination(); return completed("Nomination configuration checked; email receipt acceptance is separate.", { status: r.status, enabled: r.enabled, configured: r.configured, missing: r.missing }); }
-      case "invitation_themes": return { ...completed("Existing invitation themes found.", { themes: deps.themes() }), links: [{ label: "Open facility invitations", href: "/admin/facility" }] };
+      case "invitation_themes": return { ...completed("Invitation layouts, searchable artwork catalog and team directory found.", { themes: deps.themes(), artworkCatalog: invitationCatalogStatus() }), links: [{ label: "Open facility invitations", href: "/admin/facility" }] };
       case "social_handoff": {
         if (task.recipient_key !== "social") return { delegate: { recipient: "social", skill: "social_handoff", input }, summary: "Requested the existing Social Posts review workflow." };
         const handoff = await deps.social(String(input.message));

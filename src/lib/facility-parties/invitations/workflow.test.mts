@@ -95,7 +95,7 @@ test('catalog lookup, explicit confirmation, three layouts and actual booking re
   await book(new NextRequest('https://example.com/api/facility/book',{method:'POST',headers:{'x-forwarded-for':'workflow-test'},body:JSON.stringify(body)}));
   assert.equal(insertCount,1);assert.equal(booking.invitation.confirmedTheme.imagePath,confirmed.theme.imagePath);assert.equal(booking.invitation.optionIndex,2);assert.ok(events.includes('invitation.booking_verified'));
   corrupt=true;const response=await book(new NextRequest('https://example.com/api/facility/book',{method:'POST',headers:{'x-forwarded-for':'workflow-test'},body:JSON.stringify(body)}));assert.equal(response.status,503);assert.equal((await response.json()).code,'invitation_verification_pending');
-  for(const name of ['search_started','candidates_found','confirmation_saved','invitation_composed','failed'])assert.ok(events.includes('invitation.'+name),name);
+  for(const name of ['search_started','catalog_checked','candidates_found','confirmation_saved','invitation_composed','failed'])assert.ok(events.includes('invitation.'+name),name);
   assert.deepEqual(supervision.map(job=>job.stage),['search','search','confirmation','booking','booking']);
   assert.equal(new Set(supervision.map(job=>job.operationId)).size,supervision.length);
   const savedBooking=supervision.find(job=>job.stage==='booking')!;

@@ -2,13 +2,15 @@ import { createServiceRoleClient } from '@/lib/supabase/admin';
 import type { InvitationAgentResult } from '@/lib/facility-parties/invitations/agent';
 import { INVITATION_SUPERVISION_JOB_TYPE } from './invitation-supervisor';
 
-export type InvitationWorkflowEvent = 'operation_started' | 'search_started' | 'search_recovery_started' | 'candidates_found' | 'clarification_required' | 'confirmation_saved' | 'invitation_composed' | 'booking_verified' | 'failed' | 'layout_viewed';
+export type InvitationWorkflowEvent = 'operation_started' | 'search_started' | 'search_recovery_started' | 'catalog_checked' | 'candidates_found' | 'clarification_required' | 'confirmation_saved' | 'invitation_composed' | 'booking_verified' | 'failed' | 'layout_viewed';
 export type InvitationEventEvidence = {
   operationId?: string; candidateCount?: number; catalogHits?: number; imageId?: string;
   stage?: 'search' | 'confirmation' | 'composition' | 'booking';
   category?: string; status?: number; providerType?: string; elapsedMs?: number;
   bookingId?: string; themeId?: string; optionIndex?: number;
   providerErrorType?: string;
+  catalogRevision?: string; libraryIds?: string[]; searchPath?: string;
+  searchInput?: { query: string; refinements: string[]; rejected: string[] };
 };
 /** Logs contain bounded operational data only, never customer text or provider bodies. */
 export async function recordInvitationEvent(event: InvitationWorkflowEvent, evidence: InvitationEventEvidence = {}): Promise<void> {
@@ -22,6 +24,9 @@ export async function recordInvitationEvent(event: InvitationWorkflowEvent, evid
     status: evidence.status && evidence.status >= 400 && evidence.status <= 599 ? evidence.status : undefined,
     provider_type: ['http','timeout','connection','aborted','unknown'].includes(evidence.providerType ?? '') ? evidence.providerType : undefined,
     provider_error_type: ['invalid_request_error','authentication_error','permission_error','rate_limit_error','insufficient_quota','server_error','api_error'].includes(evidence.providerErrorType ?? '') ? evidence.providerErrorType : undefined,
+    catalog_revision: evidence.catalogRevision && /^[a-f0-9]{40}$/.test(evidence.catalogRevision) ? evidence.catalogRevision : undefined,
+    library_ids: evidence.libraryIds?.filter(id => /^fluent-[a-f0-9]{24}$/.test(id)).slice(0,4),
+    search_path: ['library','saved_catalog','team_directory','protected_provider'].includes(evidence.searchPath ?? '') ? evidence.searchPath : undefined,
     elapsed_ms: evidence.elapsedMs === undefined ? undefined : Math.min(120000, Math.max(0, Math.round(evidence.elapsedMs))),
   };
   console.info('[invitation-workflow]', { event, ...safe });
@@ -39,6 +44,7 @@ export async function recordInvitationEvent(event: InvitationWorkflowEvent, evid
         p_source: 'invitation.lifecycle', p_priority: 100, p_approval_required: false,
         p_idempotency_key: `invitation-supervise:${safe.operation_id}`,
         p_payload: { operationId: safe.operation_id, stage: safe.stage, startedAt: now, aiInvocations: 0,
+          ...(event === 'search_started' && evidence.searchInput && safe.catalog_revision ? { catalogContractVersion: 2, catalogRevision: safe.catalog_revision, searchInput: evidence.searchInput } : {}),
           ...(evidence.bookingId && /^[a-f0-9-]{36}$/.test(evidence.bookingId) ? { bookingId: evidence.bookingId } : {}),
           ...(typeof evidence.themeId === 'string' && evidence.themeId.length > 0 && evidence.themeId.length <= 80 ? { themeId: evidence.themeId } : {}),
           ...(Number.isInteger(evidence.optionIndex) && evidence.optionIndex! >= 0 && evidence.optionIndex! <= 2 ? { optionIndex: evidence.optionIndex } : {}) },

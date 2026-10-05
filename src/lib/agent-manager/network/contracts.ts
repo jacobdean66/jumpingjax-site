@@ -26,7 +26,7 @@ export const AGENT_DIRECTORY: AgentDefinition[] = [
   define("availability", "Schedule Review Agent", "Runs the existing composite conflict planner. Review is not a reservation or final inventory guarantee.", ["availability_review"], "booking"),
   define("waiver", "Waiver Agent", "Reviews signature/document metadata without participant details.", ["waiver_review"]),
   define("nomination", "Nomination Agent", "Reports readiness of the existing signed email intake.", ["nomination_readiness"]),
-  define("party-invitation", "Party / Invitation Agent", "Lists existing invitation themes; artwork selection and saving use the invitation builder.", ["invitation_themes"]),
+  define("party-invitation", "Party / Invitation Agent", "Reports invitation layouts, the indexed licensed artwork repository, team search and supervisor acceptance rules; selection and saving use the invitation builder.", ["invitation_themes"]),
   define("social", "Social Agent", "Finds an existing draft or prepares the owner-review workflow.", ["social_handoff"]),
   define("coding", "Coding Agent", "Reads deployed evidence; repairs use the reviewed workflow.", ["code_review"]),
   define("health-security", "Health / Security Agent", "Reads existing security provider evidence.", ["security_review"]),

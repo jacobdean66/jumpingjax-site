@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-20",
-  "runtime": "All invitation assets are served from /invitation-library on this site. No remote asset URLs are used at runtime.",
+  "updated": "2026-10-05",
+  "runtime": "Existing copied artwork is local. The indexed Fluent Emoji repository is read on demand at a pinned commit; matched PNGs are frozen as first-party artwork before selection. Team-directory pictures require explicit confirmation.",
   "sources": [
     {
       "id": "fluent-emoji",
@@ -8,7 +8,8 @@
       "url": "https://github.com/microsoft/fluentui-emoji",
       "license": "MIT",
       "licenseFile": "FLUENT-EMOJI-MIT.txt",
-      "notes": "3D PNG files only; no full repository clone."
+      "notes": "Copied local subset plus a checked-in searchable index of eligible 3D PNGs. No full repository clone.",
+      "indexedCommit": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc"
     },
     {
       "id": "kenney-pixel-platformer",

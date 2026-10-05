@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/facility/invitations/themes/*": ["./public/invitation-library/themes/sports/*.png"],
+    "/api/facility/invitations/themes/*": ["./public/invitation-library/**/*.png"],
   },
   allowedDevOrigins: ["192.168.7.161"],
   images: {
