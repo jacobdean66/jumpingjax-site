@@ -4,7 +4,7 @@ import { z } from "zod";
 import { resolveOpenAIClientOptions, resolveProtectedOpenAIConfig } from "@/lib/security/protected-openai-config";
 import { searchInvitationThemesWithChat } from "./theme-search-chat-provider";
 import { publicHttpsUrl, themeCandidateSchema, type ThemeCandidate, type ThemeSearchRequest } from "./theme-search";
-import { INVITATION_ARTWORK_RULE } from "./artwork-policy";
+import { INVITATION_ARTWORK_RULE, uncertainInvitationIdentity } from "./artwork-policy";
 
 const answerSchema = z.object({
   question: z.string().trim().min(1).max(400),
@@ -44,7 +44,7 @@ export function parseThemeSearchResponse(response: { output: unknown[]; output_t
   const seen = new Set<string>();
   for (const candidate of answer.candidates) {
     const reference = found.get(candidate.image_url);
-    if (!reference || seen.has(reference.image_url)) continue;
+    if (!reference || uncertainInvitationIdentity(candidate.label,candidate.description) || seen.has(reference.image_url)) continue;
     seen.add(reference.image_url);
     candidates.push(themeCandidateSchema.parse({
       id: createHash("sha256").update(`${candidate.label}\n${reference.image_url}`).digest("hex"),

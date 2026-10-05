@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { publicHttps } from "./public-resource";
 import { safeProviderFailure, type ProviderFailure } from "./provider-failure";
+import { uncertainInvitationIdentity } from "./artwork-policy";
 
 export type SearchInput = { query: string; refinements: string[]; rejected: string[] };
 export type Candidate = { id: string; label: string; description: string; imageUrl: string; sourceUrl: string; franchise?: string; aliases?: string[] };
@@ -166,7 +167,7 @@ function inspectedCandidates(response: unknown, evidence: Evidence[], input: Sea
     const label = text(match?.label, 160);
     const description = text(match?.description, 500);
     const image = typeof match?.image_id === "string" ? byId.get(match.image_id) : undefined;
-    if (!image || !label || !description || seen.has(image.imageUrl) || rejected.has(label.toLowerCase()) ||
+    if (!image || !label || !description || uncertainInvitationIdentity(label,description) || seen.has(image.imageUrl) || rejected.has(label.toLowerCase()) ||
       match?.identity_matches !== true || match.child_appropriate !== true || match.suitable_artwork !== true) continue;
     seen.add(image.imageUrl);
     candidates.push({ id: image.id, label, description, imageUrl: image.imageUrl, sourceUrl: image.sourceUrl,

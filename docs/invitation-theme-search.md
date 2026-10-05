@@ -14,6 +14,8 @@ Search, download or storage failures preserve customer input. They cannot create
 
 Publisher body images are prioritized before OG/JSON-LD site logos and tiny social avatars. This matters for Disney/Pixar pages: the former reader consumed its two image slots on a 200px preview or a logo and never reached Woody or Buzz farther down the page. Inline sources with publisher-declared dimensions and lazy-loaded image attributes are supported. All URLs still undergo public-address validation, bounded download/decoding, and protected identity verification before becoming candidates.
 
+A positive vision flag cannot override uncertain identification text such as “resembles,” “look-alike,” or “could be.” Such matches are rejected before selection. Exact stylized character artwork is still allowed; the rule concerns identity confidence, not drawing style. The permanent rule is included in both search and vision instructions on every provider request.
+
 Transient provider 429s allow one bounded retry using `Retry-After` up to 60 seconds, or 30 seconds without a hint. Quota and authentication errors do not retry. The complete search deadline is 150 seconds within the 180-second route budget. Only safe error categories reach operational logs; provider bodies, credentials, and customer details do not.
 
 ## Production diagnosis, September 29, 2026
