@@ -12,6 +12,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 import { buildAgentWiring } from "./agent-wiring";
 import { loadDashboardServiceCoverage } from "./service-coverage-service";
+import { loadBookingWorkflowHealth } from "./booking-workflow-health-service";
 import { prepareSupervisorHandoff } from "./supervisor-handoff";
 import { supervisorNetworkRequest } from "./network/supervisor-routing";
 import { enqueueJob, loadDashboard, setAgentPaused, setEmergencyStop } from "./service";
@@ -64,7 +65,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
     loadDashboard().then((value) => ({ value, error: null })).catch(() => ({ value: null, error: "Agent Manager status could not be checked." })),
     loadSecurityDashboard(actorId).then((value) => ({ value, error: null })).catch(() => ({ value: null, error: "Code and security status could not be checked." })),
     Promise.all(PROBE_PATHS.map((path) => probeWebsite(path, fetchImpl))),
-    db.from("booking_integration_workflows").select("*", { count: "exact", head: true }).or("operator_required.eq.true,initial_customer_email_status.eq.failed,owner_notification_status.eq.failed,decision_email_status.eq.failed,calendar_status.eq.failed"),
+    loadBookingWorkflowHealth().then((health) => ({ count: health.current.length, historicalCount: health.historicalCount, error: null })).catch(() => ({ count: null, historicalCount: null, error: { message: "Booking workflow health could not be checked." } })),
     db.from("bookings").select("*", { count: "exact", head: true }).in("status", ["pending", "approved", "blocked"]),
     db.from("facility_bookings").select("*", { count: "exact", head: true }).in("status", ["pending", "confirmed"]),
     db.from("composite_booking_intents").select("*", { count: "exact", head: true }).in("status", ["pending_owner_approval", "projection_staged"]),
@@ -102,6 +103,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
     },
     bookings: {
       workflowIssues: countOrNull(workflowIssues, "Booking integration workflows", dataErrors),
+      historicalWorkflowIssues: workflowIssues.historicalCount,
       activeRentals: countOrNull(activeRentals, "Active rental bookings", dataErrors),
       activeFacilityParties: countOrNull(activeFacilities, "Active facility parties", dataErrors),
       pendingCompositeIntents: countOrNull(pendingIntents, "Pending coordinated booking intents", dataErrors),

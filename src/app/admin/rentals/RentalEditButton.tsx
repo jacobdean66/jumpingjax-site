@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
+import { RentalPeriodFields } from "./RentalPeriodFields";
 import type { AdminRentalBooking } from "@/lib/admin/operations";
 
 type Props = {
@@ -49,7 +50,9 @@ export function RentalEditButton({ booking }: Props) {
     setWarning(false);
 
     const form = new FormData(event.currentTarget);
+    const period = form.get("rentalPeriod");
     const payload = {
+      ...(typeof period === "string" ? JSON.parse(period) : {}),
       customerName: String(form.get("customerName") ?? ""),
       customerEmail: String(form.get("customerEmail") ?? ""),
       customerPhone: String(form.get("customerPhone") ?? ""),
@@ -179,15 +182,7 @@ export function RentalEditButton({ booking }: Props) {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Event date">
-                <input
-                  name="eventDate"
-                  type="date"
-                  required
-                  defaultValue={booking.eventDate}
-                  className={inputClass}
-                />
-              </Field>
+              <RentalPeriodFields booking={booking} />
               <Field label="Party start (HH:MM)">
                 <input
                   name="eventStartTime"

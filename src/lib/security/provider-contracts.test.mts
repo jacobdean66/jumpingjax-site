@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { pollAikidoScanStatus, requestAikidoScan } from "./aikido-client.ts";
+import { runAithuraHealthCheck } from "./aithura-client.ts";
 import { resolveOpenAIClientOptions, resolveProtectedOpenAIConfig } from "./protected-openai-config.ts";
 
 const MANAGED_KEYS = [
@@ -10,6 +11,7 @@ const MANAGED_KEYS = [
   "AITHURA_PROVIDER",
   "OPENAI_BASE_URL",
   "OPENAI_API_KEY",
+  "OPENAI_MODEL",
   "ALLOW_DIRECT_OPENAI",
   "AIKIDO_CI_SECRET",
   "AIKIDO_REPOSITORY_ID",
@@ -53,6 +55,25 @@ test("official AITHURA route pins the provider header", async () => {
     const config = resolveProtectedOpenAIConfig();
     assert.equal(config?.route, "aithura");
     assert.deepEqual(config?.defaultHeaders, { "x-aithura-provider": "openai" });
+  });
+});
+
+test("the protected health test gives GPT-5 Mini bounded reasoning headroom and requires actual OK output", async () => {
+  await withEnv({ OPENAI_BASE_URL: "https://jhrlymlxhiuzlsowixxp.supabase.co/functions/v1/aithura-chat-proxy", OPENAI_API_KEY: "fixture-key", OPENAI_MODEL: "gpt-5-mini" }, async () => {
+    let calls = 0;
+    const result = await runAithuraHealthCheck(new Date("2026-10-05T12:00:00Z"), async (url, init) => {
+      calls += 1;
+      assert.match(String(url), /aithura-chat-proxy\/chat\/completions$/);
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, "gpt-5-mini");
+      assert.equal(body.reasoning_effort, "minimal");
+      assert.equal(body.max_completion_tokens, 128);
+      return new Response(JSON.stringify({ id: "fixture", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }] }), { headers: { "Content-Type": "application/json" } });
+    });
+    assert.equal(calls, 1);
+    assert.equal(result.healthy, true);
+    const incomplete = await runAithuraHealthCheck(new Date(), async () => new Response(JSON.stringify({ id: "fixture", choices: [{ message: { content: null }, finish_reason: "length" }] }), { headers: { "Content-Type": "application/json" } }));
+    assert.equal(incomplete.healthy, false);
   });
 });
 

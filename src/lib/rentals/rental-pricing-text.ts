@@ -1,3 +1,4 @@
+import { rentalDatePlusDays } from "./rental-period";
 import { getRentalBySlug } from "@/data/rentals";
 import {
   FOAM_DURATION_OPTIONS,
@@ -446,10 +447,5 @@ export function rentalCalendarDateTimes(
     : "09:00";
   const start = `${eventDateYmd}T${timePart}:00`;
 
-  const [y, m, d] = eventDateYmd.split("-").map(Number);
-  const endDate = new Date(y, m - 1, d, 12, 0, 0, 0);
-  endDate.setDate(endDate.getDate() + Math.max(1, spanDays));
-  const endYmd = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
-
-  return { start, end: `${endYmd}T${timePart}:00` };
+  return { start, end: `${rentalDatePlusDays(eventDateYmd, Math.max(1, spanDays))}T00:00:00` };
 }

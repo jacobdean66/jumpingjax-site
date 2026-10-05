@@ -1,4 +1,5 @@
-import { enumerateRange, parseYMD, toYMD } from "@/lib/mockBooking";
+import { rentalReservedDates } from "@/lib/rentals/rental-period";
+import { parseYMD, toYMD } from "@/lib/mockBooking";
 
 export type BookingSpanRow = {
   event_date: string;
@@ -47,15 +48,10 @@ export function unavailableYmdsFromBookings(
   winEnd: Date,
 ): string[] {
   const set = new Set<string>();
+  const start = toYMD(winStart), end = toYMD(winEnd);
   for (const row of rows) {
-    if (!bookingOverlapsWindow(row.event_date, row.span_days, winStart, winEnd)) {
-      continue;
-    }
-    for (const ymd of enumerateRange(row.event_date, row.span_days)) {
-      const d = ymdToStart(ymd);
-      if (d >= startOfDay(winStart) && d <= startOfDay(winEnd)) {
-        set.add(ymd);
-      }
+    for (const ymd of rentalReservedDates(row.event_date, Number(row.span_days) || 1)) {
+      if (ymd >= start && ymd <= end) set.add(ymd);
     }
   }
   return [...set].sort();
@@ -65,7 +61,8 @@ export function defaultAvailabilityWindow(monthsAhead: number): {
   winStart: Date;
   winEnd: Date;
 } {
-  const winStart = startOfDay(new Date());
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const winStart = ymdToStart(today);
   const winEnd = new Date(winStart);
   winEnd.setMonth(winEnd.getMonth() + monthsAhead);
   winEnd.setDate(winEnd.getDate() - 1);

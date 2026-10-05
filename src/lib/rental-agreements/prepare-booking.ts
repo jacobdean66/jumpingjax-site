@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { estimateCartGrandTotal, estimateCartRentalSubtotal, estimateMileageFee, estimateRentalDeliveryFee, normalizeDistanceMiles, resolveNewFoamDurationLabel, resolveNewRentalDuration } from "@/lib/rentals/rental-pricing-text";
 import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import type { CreateBookingInput } from "@/lib/supabase/booking-data";
+import { SECOND_DAY_QUOTE_NOTE } from "@/lib/rentals/second-day-quote";
+import { cartContainsStandardRental } from "@/lib/rentals/rental-pricing-text";
 import { calculateInflatableDiscount, isInflatablePromotionCategory, promotionDescription, INFLATABLE_PROMOTION_CODE } from "@/lib/rentals/ad-promotion";
 function isValidYmd(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -165,6 +167,9 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
   const waterDistance =
     typeof body.water_distance === "string" ? body.water_distance.trim() : "";
   const setupNoteLines = [
+    body.second_day_quote_requested === true && cartContainsStandardRental(lineItems)
+      ? SECOND_DAY_QUOTE_NOTE
+      : null,
     electricityDistance
       ? `Electricity distance: ${electricityDistance}`
       : null,
