@@ -25,6 +25,7 @@ type Props = {
   selectionMessage?: string;
   selectionMessageTone?: "info" | "warn" | "ok";
   distanceMiles?: string;
+  promotionDiscount?: number;
 };
 
 export function BookingSummary({
@@ -36,6 +37,7 @@ export function BookingSummary({
   selectionMessage,
   selectionMessageTone = "info",
   distanceMiles,
+  promotionDiscount = 0,
 }: Props) {
   const durationLabel = duration?.label ?? "";
   const spanDays = duration?.spanDays ?? 1;
@@ -132,6 +134,10 @@ export function BookingSummary({
             {deliveryFee != null ? `$${deliveryFee}` : "—"}
           </dd>
         </div>
+        {promotionDiscount > 0 && <div className="flex justify-between gap-3 border-b border-white/10 pb-3 text-emerald-200">
+          <dt>Google Ads offer · 15% off eligible inflatables</dt>
+          <dd className="font-bold">−${promotionDiscount.toFixed(2)}</dd>
+        </div>}
         {showPrices && (
           <div className="flex justify-between gap-3 border-b border-white/10 pb-3 text-xs">
             <dt className="text-slate-500">
@@ -150,7 +156,7 @@ export function BookingSummary({
             Estimated total (tax included)
           </dt>
           <dd className="text-xl font-black tabular-nums text-cyan-300">
-            {total != null ? `$${total}` : "—"}
+            {total != null ? `$${(total - promotionDiscount).toFixed(2)}` : "—"}
           </dd>
         </div>
       </dl>

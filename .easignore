@@ -1,0 +1,15 @@
+# EAS builds only the standalone native Driver Tracker in this repository.
+# Keep website code, recovery copies, and local artifacts out of its upload.
+/*
+!/.easignore
+!/apps
+/apps/*
+!/apps/driver-tracker
+!/apps/driver-tracker/**
+/apps/driver-tracker/node_modules
+/apps/driver-tracker/.expo
+/apps/driver-tracker/android
+/apps/driver-tracker/ios
+.env*
+*.pem
+*.tsbuildinfo

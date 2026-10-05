@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
 import {
   CATEGORY_IDS,
-  RENTALS,
   rentalDetailPath,
 } from "@/data/rentals";
 import { absoluteSeoUrl } from "@/lib/seo/site-url";
+import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
+export const dynamic = "force-dynamic";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const rentals = await loadWebsiteRentals();
   const staticRoutes = [
     "/",
     "/rentals",
@@ -15,12 +17,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/contact",
     "/ads",
     ...CATEGORY_IDS.map((category) => `/rentals/${category}`),
-    ...RENTALS.map((rental) => rentalDetailPath(rental)),
+    ...rentals.map((rental) => rentalDetailPath(rental)),
   ];
 
   return staticRoutes.map((route) => ({
     url: absoluteSeoUrl(route),
-    lastModified: now,
     changeFrequency:
       route === "/" || route === "/rentals" ? "weekly" : "monthly",
     priority:

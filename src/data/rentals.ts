@@ -381,8 +381,8 @@ const FOAM_PARTY_RENTALS: Rental[] = [
     description:
       "Book a Jumping Jax UV Glow foam party for a bright glow-in-the-dark party setup. Packages start at $300 for 30 minutes, $450 for 1 hour, and $275 per additional hour after the first hour.",
     startingPrice: 300,
-    imageSrc: "/inflatables/foam-parties/foam-parties.jpg",
-    imageAlt: "Jumping Jax UV glow foam party setup",
+    imageSrc: "/inflatables/foam-parties/uv-glow-foam-party.png",
+    imageAlt: "UV Glow foam party: $300 for 30 minutes, $450 for 1 hour, $275 per additional hour",
     ageRecommendation:
       "All ages with adult supervision; guests should expect wet, slippery foam play in a glow-party environment.",
     setupRequirements: [

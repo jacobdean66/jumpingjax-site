@@ -54,7 +54,7 @@ export type SupervisorSnapshot = {
 export type SupervisorRelatedAction = {
   label: string;
   href: string;
-  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center";
+  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center" | "agent_network";
 };
 
 export type SupervisorControl =
