@@ -5,17 +5,14 @@ import { RentalBookingSquare } from "./RentalBookingSquare";
 import { RentalAgreementBatch } from "./RentalAgreementBatch";
 import { cityFromAddress, productSummary } from "@/lib/admin/delivery-planner-workspace";
 import { agreementState, agreementStateLabel, canRequestAgreement } from "@/lib/rental-agreements/workflow";
+import { resolveRentalDashboardDates } from "@/lib/admin/rental-dashboard-view";
 import { loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
 import type { RentalAgreement } from "@/lib/rental-agreements/types";
 import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
-  defaultFromYmd,
-  defaultToYmd,
   loadAdminRentalBookings,
   normalizeStatus,
-  normalizeYmd,
-  todayYmd,
   type AdminRentalBooking,
 } from "@/lib/admin/operations";
 import {
@@ -23,7 +20,6 @@ import {
   AdminHeader,
   AdminNav,
   AdminShell,
-  FilterForm,
   StatusBadge,
 } from "../_components";
 import { PrintButton } from "../PrintButton";
@@ -51,6 +47,7 @@ type Props = {
     status?: string;
     q?: string;
     agreement?: string;
+    view?: string;
   }>;
 };
 
@@ -308,22 +305,12 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
   const auth = await verifyAdminAccess(token);
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
-  const from = resolved?.from ? normalizeYmd(resolved.from) : defaultFromYmd();
-  const to = normalizeYmd(resolved?.to) || defaultToYmd(from);
+  const dates = resolveRentalDashboardDates(resolved ?? {});
+  const from = dates.from ?? "";
+  const effectiveTo = dates.to ?? "";
   const status = normalizeStatus(resolved?.status);
-  const effectiveTo = resolved?.to ? to : defaultToYmd(from);
-  const [{ bookings: loadedBookings }, { summary }] = await Promise.all([
-    loadAdminRentalBookings({
-      from,
-      to: effectiveTo,
-      status,
-    }),
-    loadAdminRentalBookings({
-      from,
-      to: effectiveTo,
-      status: "all",
-    }),
-  ]);
+  const { bookings: viewBookings, summary } = await loadAdminRentalBookings({ dashboardDates: dates, status: "all" });
+  const loadedBookings = status === "all" ? viewBookings : viewBookings.filter(booking => booking.status === status);
   const agreementMap = await loadAgreementHistory(loadedBookings.map(b => b.id));
   const search = resolved?.q?.trim().toLowerCase() ?? "";
   const agreementFilter = resolved?.agreement === "unsigned" ? "unsigned" : resolved?.agreement === "attention" ? "attention" : "all";
@@ -334,13 +321,14 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
     if (agreementFilter === "attention" && !["missing", "superseded", "failed", "review"].includes(state)) return false;
     return !search || [b.id,b.customerName,b.customerEmail,b.customerPhone,b.eventAddress,...b.items.map(i => i.rental_name)].filter(Boolean).join(" ").toLowerCase().includes(search);
   });
-  const formatDate = (ymd: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" }).format(new Date(`${ymd}T12:00:00Z`));
-  const today = todayYmd(), weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const formatDate = (ymd: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", ...(dates.view === "past" || ymd.slice(0, 4) !== dates.today.slice(0, 4) ? { year: "numeric" as const } : {}) }).format(new Date(`${ymd}T12:00:00Z`));
+  const today = dates.today, weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
   const weekendFrom = rentalDatePlusDays(today, weekday === 0 ? -2 : weekday === 6 ? -1 : (5 - weekday + 7) % 7);
   const weekendTo = rentalDatePlusDays(weekendFrom, 2);
-  const weekendQuery = new URLSearchParams({ from: weekendFrom, to: weekendTo, status: "all", ...(token ? { token } : {}) });
+  const weekendQuery = new URLSearchParams({ view: "current", from: weekendFrom, to: weekendTo, status: "all", ...(token ? { token } : {}) });
   const unsignedCount = loadedBookings.filter(b => canRequestAgreement(b.status, agreementMap.get(b.id)?.[0])).length;
-  const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
+  const baseQuery = new URLSearchParams({ view: dates.view, ...(from ? { from } : {}), ...(effectiveTo ? { to: effectiveTo } : {}), ...(token ? { token } : {}) }).toString();
+  const viewQuery = (view: "current" | "past") => new URLSearchParams({ view, status, ...(resolved?.q ? { q: resolved.q } : {}), ...(token ? { token } : {}) }).toString();
   const pendingApprovalEndpoints = bookings
     .filter((booking) => booking.status === "pending")
     .map((booking) => actionHref(booking.id, "confirm"));
@@ -348,15 +336,19 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
   return (
     <AdminShell>
       <AdminHeader eyebrow="Rental Admin" title="Rental Dashboard">
-        <FilterForm
-          key={`${from}-${effectiveTo}-${status}`}
-          token={token}
-          from={from}
-          to={effectiveTo}
-          status={status}
-        />
+        <form action="/admin/rentals" key={`${dates.view}-${from}-${effectiveTo}-${status}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] print:hidden">
+          <input type="hidden" name="view" value={dates.view} /><input type="hidden" name="token" value={token} />
+          <label className="text-sm font-bold text-slate-700">From<input type="date" name="from" defaultValue={from} className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950" /><span className="mt-1 block text-xs font-normal text-slate-500">{dates.view === "past" ? "Leave blank for all past rentals" : "Leave blank for today onward"}</span></label>
+          <label className="text-sm font-bold text-slate-700">To<input type="date" name="to" defaultValue={effectiveTo} max={dates.view === "past" ? rentalDatePlusDays(today, -1) : undefined} className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950" /><span className="mt-1 block text-xs font-normal text-slate-500">Leave blank for all {dates.view === "past" ? "past" : "upcoming"} dates</span></label>
+          <label className="text-sm font-bold text-slate-700">Status<select name="status" defaultValue={status} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-950"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="cancelled">Cancelled</option></select></label>
+          <button className="min-h-11 self-center rounded-full bg-sky-500 px-5 py-3 text-sm font-black text-white">Load</button>
+        </form>
       </AdminHeader>
       <AdminNav token={token} role={auth.role} active="rentals" />
+      <nav className="mt-5 flex flex-wrap gap-2 print:hidden" aria-label="Rental date views">
+        <Link href={`/admin/rentals?${viewQuery("current")}`} aria-current={dates.view === "current" ? "page" : undefined} className={`min-h-11 rounded-xl px-5 py-3 text-sm font-bold ${dates.view === "current" ? "bg-slate-950 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Current & upcoming rentals</Link>
+        <Link href={`/admin/rentals?${viewQuery("past")}`} aria-current={dates.view === "past" ? "page" : undefined} className={`min-h-11 rounded-xl px-5 py-3 text-sm font-bold ${dates.view === "past" ? "bg-slate-950 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Past rentals</Link>
+      </nav>
 
       <div className="mt-5 flex flex-wrap gap-2 print:hidden">
         <Link href={`/admin/rentals?${weekendQuery}`} className="rounded-full bg-cyan-800 px-4 py-2 text-sm font-black text-white hover:bg-cyan-900">This weekend · {formatDate(weekendFrom)}–{formatDate(weekendTo)}</Link>
@@ -381,17 +373,17 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
         <Link className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 font-semibold text-amber-950" href={`/admin/rentals?${baseQuery}&status=${status}&agreement=unsigned`}>Unsigned agreements <span className="ml-1 font-black">{unsignedCount}</span></Link>
       </div>
       <form action="/admin/rentals" className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto_auto] print:hidden">
-        <input type="hidden" name="token" value={token} /><input type="hidden" name="from" value={from} /><input type="hidden" name="to" value={effectiveTo} /><input type="hidden" name="status" value={status} />
+        <input type="hidden" name="view" value={dates.view} /><input type="hidden" name="token" value={token} /><input type="hidden" name="from" value={from} /><input type="hidden" name="to" value={effectiveTo} /><input type="hidden" name="status" value={status} />
         <label className="text-xs font-bold text-slate-600">Find a rental<input type="search" name="q" defaultValue={resolved?.q ?? ""} placeholder="Customer, rental, city, phone or booking #" className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base font-normal text-slate-950" /></label>
         <label className="text-xs font-bold text-slate-600">Agreement status<select name="agreement" defaultValue={agreementFilter} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal text-slate-950"><option value="all">All agreements</option><option value="unsigned">Unsigned active rentals</option><option value="attention">Needs attention</option></select></label>
         <button className="min-h-11 self-end rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">Apply</button>
       </form>
       <RentalAgreementBatch bookings={bookings.map(b => ({ id: b.id, customerName: b.customerName, customerEmail: b.customerEmail, eventDate: b.eventDate, rentalNames: productSummary(b.items.map(i => i.rental_name)), city: cityFromAddress(b.eventAddress), status: b.status, agreement: agreementMap.get(b.id)?.[0] }))} />
-      <p className="mt-5 text-sm font-semibold text-slate-600 print:hidden">{bookings.length} rentals shown · Click a square to expand all booking details.</p>
+      <p className="mt-5 text-sm font-semibold text-slate-600 print:hidden">{bookings.length} {dates.view === "past" ? "past rentals · Most recent first" : "current & upcoming rentals · Nearest dates first"} · Click a square to expand all booking details.</p>
       <div className="mt-3 grid items-start gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 print:hidden">
         {bookings.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-lg font-bold">No rentals found.</p>
+            <p className="text-lg font-bold">No {dates.view === "past" ? "past" : "current or upcoming"} rentals found.</p>
             <p className="mt-2 text-sm text-slate-600">
               Adjust the date range or status filter.
             </p>
