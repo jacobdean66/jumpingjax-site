@@ -2,6 +2,7 @@
   "name": "jumpingjax-site",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "assets:metadata": "node scripts/generate-public-asset-metadata.mjs",
     "prebuild": "node scripts/generate-public-asset-metadata.mjs",
