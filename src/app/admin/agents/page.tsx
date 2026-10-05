@@ -16,6 +16,7 @@ import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
 import { CodingDiagnosisClient } from "./CodingDiagnosisClient";
 import { SupervisorChat } from "./SupervisorChat";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
+import { AgentWorkspace } from "./AgentWorkspace";
 import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
 import { conversationId } from "@/lib/agent-manager/network/http";
 
@@ -51,12 +52,17 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <AdminNav token="" role={auth.role} active="agents" compact />
       </AdminHeader>
       <p className="mt-4 max-w-3xl text-sm font-semibold text-slate-600">
-        Durable, event-driven operations. Models run only for future jobs that explicitly select a model worker; the health demonstration is deterministic.
+        Talk to your permanent agent, manage specialists, and follow their saved conversations.
       </p>
-      {dashboard && !dashboard.demoMode ? (
+      <AgentWorkspace initialConversation={Boolean(initialContextId)} supervisor={dashboard && !dashboard.demoMode ? (
         <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
-      ) : null}
-      <AgentNetworkPanel initial={network} initialContextId={initialContextId} />
+      ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
+      conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} />}
+      tools={<>
+      <p className="mt-5 text-sm font-semibold text-slate-600">Run specialist reviews here. Expand setup details and test tools when you need them.</p>
+      <CodingDiagnosisClient />
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-black">Nomination setup</summary>
       <section className="mt-7 rounded-3xl border border-sky-200 bg-sky-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -86,6 +92,9 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
           </p>
         ) : null}
       </section>
+      </details>
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-black">Booking reviews and checks</summary>
       <section className="mt-7 rounded-3xl border border-violet-200 bg-violet-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -123,6 +132,9 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <BookingTriageClient />
         <BookingTriageReviewClient />
       </section>
+      </details>
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-black">Waiver integrity review</summary>
       <section className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -161,10 +173,14 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         </div>
         <WaiverTriageClient />
       </section>
-      <CodingDiagnosisClient />
+      </details>
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-black">Workflow test tools</summary>
       <TriggerProofClient />
       <NominationProofClient />
-      {dashboard ? (
+      </details>
+      </>}
+      controls={dashboard ? (
         <>
           {dashboard.demoMode ? (
             <div className="mt-7 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm font-bold text-violet-950">
@@ -181,7 +197,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
           <h2 className="text-xl font-black">Database migration required</h2>
           <p className="mt-2 text-sm font-semibold">The Agent Manager migration has not been applied in this environment. No production migration is performed by this build.</p>
         </section>
-      )}
+      )} />
     </AdminShell>
   );
 }

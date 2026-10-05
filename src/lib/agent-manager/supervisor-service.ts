@@ -261,7 +261,7 @@ export async function loadSupervisorConversation(limit = 12) {
     .order("created_at", { ascending: false })
     .limit(bounded);
   if (error) throw new Error("Permanent Agent conversation history is unavailable.");
-  return (data ?? []).reverse().map((job) => supervisorJobMessage(job as Pick<AgentJob, "payload" | "result_summary" | "created_at" | "id">)).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  return (data ?? []).map((job) => supervisorJobMessage(job as Pick<AgentJob, "payload" | "result_summary" | "created_at" | "id">)).filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
 export async function runSupervisorWatch(actorId = "system:vercel-cron") {
