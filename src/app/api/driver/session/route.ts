@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
   createDriverSessionValue,
   DRIVER_SESSION_COOKIE,
   verifyDriverLogin,
+  verifyDriverAccess,
 } from "@/lib/admin/driver-auth";
 import { verifyAdminLogin } from "@/lib/admin/delivery-auth";
 import { verifyAdminStaffLogin } from "@/lib/admin/staff-users";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { DRIVER_MOBILE_SESSION_COOKIE } from "@/lib/admin/driver-trip-context";
 
 export async function POST(req: Request) {
   let body: { username?: unknown; password?: unknown };
@@ -61,7 +65,16 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
+  const auth = await verifyDriverAccess();
+  const sessionId = (await cookies()).get(DRIVER_MOBILE_SESSION_COOKIE)?.value;
+  if (auth.ok && sessionId) {
+    const { error } = await createServiceRoleClient().from("driver_location_sessions")
+      .update({ signed_out_at: new Date().toISOString(), sign_out_reason: "driver-web-sign-out" })
+      .eq("id", sessionId).eq("driver_id", auth.identity.id).is("signed_out_at", null);
+    if (error) return NextResponse.json({ ok: false, error: "Sign-out could not be completed. Try again." }, { status: 500 });
+  }
   const response = NextResponse.json({ ok: true });
+  response.cookies.set(DRIVER_MOBILE_SESSION_COOKIE, "", { path: "/", maxAge: 0 });
   response.cookies.set({
     name: DRIVER_SESSION_COOKIE,
     value: "",
