@@ -390,7 +390,7 @@ export function AdAnalyticsClient({
             </h2>
           </div>
           <p className="text-xs font-semibold text-slate-600">
-            Same Indiana date range as the Meta totals below
+            Selected dates in America/Indiana/Indianapolis; Meta totals use the ad account timezone
           </p>
         </div>
 
@@ -475,7 +475,11 @@ export function AdAnalyticsClient({
         <SummaryCard
           label="Link clicks"
           value={formatMetricCount(initial.totals.linkClicks)}
+<<<<<<< HEAD
           hint={`Cost / link click ${money(initial.totals.cpc, currency)}`}
+=======
+          hint={`Link CPC ${money(initial.totals.cpc, currency)}`}
+>>>>>>> origin/desktop/social-readiness
         />
         <SummaryCard
           label="Impressions / reach"

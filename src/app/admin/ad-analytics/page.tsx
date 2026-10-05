@@ -81,7 +81,7 @@ export default async function AdminAdAnalyticsPage({
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
         Meta paid-ad performance for every authorized Jumping Jax ad account.
-        Dates use Indiana local calendar days. Totals refresh on each load;
+        Date presets use America/Indiana/Indianapolis. Meta reports use the selected account timezone shown below. Totals refresh on each load;
         owner-triggered Stop buttons pause individual Meta ads.
       </p>
 

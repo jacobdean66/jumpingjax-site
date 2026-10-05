@@ -9,12 +9,16 @@ test("publishMetaPageFeedPost uses bearer auth and returns external id", async (
   const result = await publishMetaPageFeedPost({
     pageId: "111",
     pageAccessToken: "page-secret",
-    message: "Hello",
+    message: "Hello #JumpingJax",
+    link: "https://jumpingjaxllc.com/",
     fetchImpl: async (_url, init) => {
       method = String(init?.method);
       authHeader = String(
         init?.headers && (init.headers as Record<string, string>).Authorization,
       );
+      const body = new URLSearchParams(String(init?.body));
+      assert.equal(body.get("message"), "Hello #JumpingJax");
+      assert.equal(body.get("link"), "https://jumpingjaxllc.com/");
       assert.equal(
         String(init?.body ?? "").includes("page-secret"),
         false,
