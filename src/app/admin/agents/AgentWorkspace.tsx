@@ -20,12 +20,9 @@ export function AgentWorkspace({ supervisor, controls, conversations, tools, ini
       if (tabs.some((tab) => tab.id === id)) setActive(id as TabId);
     };
     sync();
-    const openConversation = () => setActive("agent-conversations");
     window.addEventListener("hashchange", sync);
-    window.addEventListener("agent-manager:select-agent", openConversation);
     return () => {
       window.removeEventListener("hashchange", sync);
-      window.removeEventListener("agent-manager:select-agent", openConversation);
     };
   }, []);
   const panels = { supervisor, "agent-controls": controls, "agent-conversations": conversations, "agent-tools": tools };

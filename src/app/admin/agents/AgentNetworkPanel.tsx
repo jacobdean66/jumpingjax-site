@@ -1,4 +1,5 @@
 "use client";
+import { formatAgentTime } from "./time";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { skills, type NetworkAgentKey, type NetworkSkill, type NetworkTask, type NetworkMessage, type NetworkContext } from "@/lib/agent-manager/network/contracts";
 import type { NetworkOverview } from "@/lib/agent-manager/network/service";
@@ -14,10 +15,10 @@ async function api(path: string, body?: unknown) {
   if (!response.ok || !data.ok) throw new Error(data.error ?? "Agent network unavailable.");
   return data;
 }
-export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial: NetworkOverview | null; initialContextId?: string }) {
+export function AgentNetworkPanel({ initial, initialContextId = "", initialRecipient }: { initial: NetworkOverview | null; initialContextId?: string; initialRecipient?: NetworkAgentKey }) {
   const [overview, setOverview] = useState(initial);
-  const [recipient, setRecipient] = useState<NetworkAgentKey>("booking");
-  const [skill, setSkill] = useState<NetworkSkill>("workflow_review");
+  const [recipient, setRecipient] = useState<NetworkAgentKey>(initialRecipient ?? "booking");
+  const [skill, setSkill] = useState<NetworkSkill>(() => initialRecipient ? initial?.directory.find((agent) => agent.key === initialRecipient)?.skills.find((item) => item !== "directory") ?? "directory" : "workflow_review");
   const [selectedId, setSelectedId] = useState(initialContextId);
   const [savedConversation, setConversation] = useState<Conversation | null>(null);
   const conversation = savedConversation?.context.id === selectedId ? savedConversation : null;
@@ -76,17 +77,6 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
     setRecipient(agent.key);
     setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
   }
-  useEffect(() => {
-    const select = (event: Event) => {
-      const agent = overview?.directory.find((item) => item.key === (event as CustomEvent<unknown>).detail);
-      if (!agent) return;
-      setRecipient(agent.key);
-      setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
-      selectConversation("");
-    };
-    window.addEventListener("agent-manager:select-agent", select);
-    return () => window.removeEventListener("agent-manager:select-agent", select);
-  }, [overview]);
   async function submit() {
     setBusy(true); setError("");
     try {
@@ -153,7 +143,7 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
           <button className="rounded-xl bg-indigo-800 px-4 py-2 font-bold text-white disabled:opacity-50" disabled={busy || !selected?.available}>Queue request</button>
           {!selected?.available && <p className="text-sm font-bold text-amber-900">Requests are unavailable: this agent is {selected?.status ?? "not registered"}. Review its controls in Agents &amp; activity.</p>}
           <button type="button" className="ml-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => selectConversation("")}>New conversation</button>
-          <label className="block text-sm font-bold">Conversation<select className={field} value={selectedId} onChange={(e) => selectConversation(e.target.value)}><option value="">New conversation</option>{!overview.contexts.some((c) => c.id === selectedId) && selectedId && <option value={selectedId}>Current conversation</option>}{overview.contexts.map((c) => <option key={c.id} value={c.id}>{c.title} · {new Date(c.created_at).toLocaleString()}</option>)}</select></label>
+          <label className="block text-sm font-bold">Conversation<select className={field} value={selectedId} onChange={(e) => selectConversation(e.target.value)}><option value="">New conversation</option>{!overview.contexts.some((c) => c.id === selectedId) && selectedId && <option value={selectedId}>Current conversation</option>}{overview.contexts.map((c) => <option key={c.id} value={c.id}>{c.title} · {formatAgentTime(c.created_at)}</option>)}</select></label>
         </form>
         <div className="rounded-2xl bg-white p-4">
           <div className="flex justify-between gap-2"><h3 className="font-black">Saved handoffs and replies</h3>{conversation?.tasks.some(active) && <button disabled={busy} className="text-sm font-bold text-red-800" onClick={() => void cancel()}>Cancel conversation</button>}</div>

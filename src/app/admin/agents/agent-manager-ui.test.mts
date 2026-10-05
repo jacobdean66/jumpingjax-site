@@ -4,7 +4,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SupervisorChat } from "./SupervisorChat";
 import { AgentWorkspace } from "./AgentWorkspace";
-import { agentWorkspaceHref } from "./navigation";
+import { agentConversationHref, agentWorkspaceHref, supervisorIssueAction } from "./navigation";
+import { AgentNetworkPanel } from "./AgentNetworkPanel";
+import { formatAgentTime } from "./time";
+import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
 
 test("saved permanent-agent chats render newest first without mutating history", () => {
   const messages = [
@@ -36,4 +39,32 @@ test("specialist workspace actions lead to existing owner workflows", () => {
   assert.equal(agentWorkspaceHref("receptionist"), "/admin/answering-machine");
   assert.equal(agentWorkspaceHref("image-director"), "/admin/social-posts");
   assert.equal(agentWorkspaceHref("unknown"), undefined);
+});
+
+test("agent card links open a request with the selected specialist and capability", () => {
+  assert.equal(agentConversationHref("waiver"), "/admin/agents?agent=waiver#agent-conversations");
+  assert.equal(agentConversationHref("supervisor"), "/admin/agents#supervisor");
+  const initial = { directory: AGENT_DIRECTORY.map((agent) => ({ ...agent, available: true, status: "adapter ready" })), contexts: [], activeTasks: 0, emergencyStop: false };
+  const html = renderToStaticMarkup(createElement(AgentNetworkPanel, { initial, initialRecipient: "waiver" }));
+  assert.match(html, /Ask Waiver Agent/);
+  assert.match(html, /value="waiver" selected=""/);
+  assert.match(html, /value="waiver_review" selected=""/);
+  assert.doesNotMatch(html, /Rental item references/);
+});
+
+test("service issues open the matching service rather than generic website settings", () => {
+  const services = [
+    { key: "ads", name: "Ad Analytics", href: "/admin/ad-analytics" },
+    { key: "calls", name: "Answering Machine", href: "/admin/answering-machine" },
+  ];
+  assert.deepEqual(supervisorIssueAction({ code: "service:ads:setup-required", area: "website" }, services), { href: "/admin/ad-analytics", label: "Open Ad Analytics" });
+  assert.equal(supervisorIssueAction({ code: "service:calls:setup-required", area: "website" }, services).href, "/admin/answering-machine");
+  assert.equal(supervisorIssueAction({ code: "agents:nomination:setup-required", area: "agents" }, services).href, "/admin/giveaway");
+  assert.equal(supervisorIssueAction({ code: "agents:stale-jobs", area: "agents" }, services).href, "#agent-controls");
+});
+
+
+test("agent timestamps show the business timezone on both server and client", () => {
+  assert.equal(formatAgentTime("2026-10-04T12:00:00Z"), "10/4/2026, 8:00:00 AM");
+  assert.equal(formatAgentTime("2026-01-04T12:00:00Z"), "1/4/2026, 7:00:00 AM");
 });
