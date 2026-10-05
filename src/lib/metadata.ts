@@ -326,7 +326,8 @@ export const generateItemListSchema = (
       position: index + 1,
       url: absoluteSeoUrl(item.path),
       item: {
-        "@type": item.image ? "Product" : "Thing",
+        // Lists link to detail pages; only detail pages describe priced Products.
+        "@type": "Thing",
         name: item.name,
         url: absoluteSeoUrl(item.path),
         image: item.image ? getOgImageUrl(item.image) : undefined,
@@ -355,12 +356,11 @@ export const generateProductSchema = (
     category,
     url: path ? absoluteSeoUrl(path) : undefined,
     image: image ? getOgImageUrl(image) : undefined,
-    offers: price
+    offers: typeof price === "number" && Number.isFinite(price) && price >= 0
       ? {
           "@type": "Offer",
           priceCurrency: "USD",
           price: price.toString(),
-          availability: "https://schema.org/InStock",
           url: path ? absoluteSeoUrl(path) : undefined,
           seller: {
             "@id": `${getSeoBaseUrl()}/#business`,
@@ -380,6 +380,6 @@ export const generateProductSchema = (
  */
 export const createJsonLdScript = (data: unknown) => {
   return {
-    __html: JSON.stringify(data),
+    __html: JSON.stringify(data).replace(/</g, "\\u003c"),
   };
 };

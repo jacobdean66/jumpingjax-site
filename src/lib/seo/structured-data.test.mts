@@ -45,10 +45,17 @@ test("structured data uses canonical Jumping Jax URLs", () => {
     ],
   );
   assert.equal(itemList.itemListElement[0]?.position, 1);
+  assert.equal(itemList.itemListElement[0]?.item["@type"], "Thing");
   assert.equal(
     itemList.itemListElement[0]?.url,
     "https://jumpingjaxllc.com/rentals/water-slides/18-ft-basic-waterslide",
   );
+});
+
+test("JSON-LD escapes markup so rental text cannot terminate its script", () => {
+  const serialized = createJsonLdScript({ name: "</script><script>unexpected</script>" }).__html;
+  assert.doesNotMatch(serialized, /<\/script>/);
+  assert.equal(JSON.parse(serialized).name, "</script><script>unexpected</script>");
 });
 
 test("rental product JSON-LD exposes offer and seller data", () => {

@@ -30,6 +30,7 @@ function formatRentalUnavailableMessage(unavailableNames: string[]): string {
 }
 
 export type CreateBookingInput = {
+  promotion?: { code: string; discount: number };
   agreement?: { id: string; tokenHash: string; snapshot: RentalAgreementSnapshot; templateVersion: number; signerName: string; ipHmac: string | null; userAgent: string | null };
   idempotencyKey: string;
   rental_items: { rental_item: string; rental_name?: string }[];

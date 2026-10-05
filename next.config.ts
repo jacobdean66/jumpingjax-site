@@ -57,6 +57,16 @@ const nextConfig: NextConfig = {
         destination: "/rentals/water-slides",
         statusCode: 301,
       },
+      ...["bounce-houses", "combos", "inflatable-games", "obstacle-courses", "slides", "water-slides", "foam-parties", "yard-games", "accessories"].map((category) => ({
+        source: `/category/${category}/:path*`,
+        destination: `/rentals/${category}`,
+        permanent: true,
+      })),
+      {
+        source: "/pages/obstacle-course-rentals-in-ware-shoals-sc",
+        destination: "/rentals/obstacle-courses",
+        permanent: true,
+      },
     ];
   },
 };

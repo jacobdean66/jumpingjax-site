@@ -15,6 +15,7 @@ import {
   isCategoryId,
 } from "@/data/rentals";
 import { isFoamPartyRentalItem } from "@/lib/rentals/rental-pricing-text";
+import { isInflatablePromotionCategory } from "@/lib/rentals/ad-promotion";
 import {
   getWebsiteRentalInCategory,
   loadWebsiteRentals,
@@ -195,6 +196,7 @@ export default async function RentalDetailPage({ params }: Props) {
             catalogPrices={Object.fromEntries(
               websiteRentals.map((item) => [item.slug, item.startingPrice]),
             )}
+            promotionEligibleSlugs={websiteRentals.filter(item => isInflatablePromotionCategory(item.categoryId)).map(item => item.slug)}
             initialUnavailableYmds={initialUnavailableYmds}
             availabilityLoadError={availabilityLoadError}
           />

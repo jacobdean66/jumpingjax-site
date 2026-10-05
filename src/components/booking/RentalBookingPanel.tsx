@@ -33,12 +33,15 @@ import { CustomerForm, type CustomerFields } from "./CustomerForm";
 import { DurationSelector } from "./DurationSelector";
 import { StickyReserveBar } from "./StickyReserveBar";
 import { trackLead } from "@/lib/analytics/client";
+import { calculateInflatableDiscount, DEFAULT_PROMOTION_SLUGS } from "@/lib/rentals/ad-promotion";
+import { useRentalPromotion } from "./RentalPromotion";
 
 export type RentalBookingPanelProps = {
   rental_item: string;
   rentalTitle: string;
   startingPrice: number;
   catalogPrices: Record<string, number>;
+  promotionEligibleSlugs?: string[];
   initialUnavailableYmds: string[];
   availabilityLoadError: "not_configured" | "read_failed" | null;
 };
@@ -336,9 +339,11 @@ export function RentalBookingPanel({
   rentalTitle,
   startingPrice,
   catalogPrices,
+  promotionEligibleSlugs = DEFAULT_PROMOTION_SLUGS,
   initialUnavailableYmds,
   availabilityLoadError,
 }: RentalBookingPanelProps) {
+  const promotionCode = useRentalPromotion();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
 
@@ -610,7 +615,7 @@ export function RentalBookingPanel({
     ? estimateMileageFee(distanceMiles)
     : null;
 
-  const subtotal =
+  const undiscountedSubtotal =
     selectionValid && duration
       ? estimateCartRentalSubtotal(
           selectedRentalItems,
@@ -619,7 +624,11 @@ export function RentalBookingPanel({
           effectiveFoamDurationLabel,
         )
       : null;
-  const totalAmount =
+  const promotionDiscount = selectionValid && duration
+    ? calculateInflatableDiscount(promotionCode, selectedRentalItems, promotionEligibleSlugs, duration.label, duration.spanDays, effectiveFoamDurationLabel)
+    : 0;
+  const subtotal = undiscountedSubtotal == null ? null : Math.round((undiscountedSubtotal - promotionDiscount) * 100) / 100;
+  const undiscountedTotal =
     selectionValid && duration
       ? estimateCartGrandTotal(
           selectedRentalItems,
@@ -630,6 +639,7 @@ export function RentalBookingPanel({
         )
       : null;
 
+  const totalAmount = undiscountedTotal == null ? null : Math.round((undiscountedTotal - promotionDiscount) * 100) / 100;
   const totalDisplay =
     totalAmount !== null ? `$${totalAmount}` : null;
 
@@ -644,6 +654,7 @@ export function RentalBookingPanel({
         : undefined;
 
   const bookingPayload = {
+          promotion_code: promotionCode,
           customer_name: customer.customerName,
           customer_phone: customer.customerPhone,
           customer_email: customer.customerEmail,
@@ -1071,6 +1082,7 @@ export function RentalBookingPanel({
                   selectionMessage={selectionMessage}
                   selectionMessageTone={selectionMessageTone}
                   distanceMiles={customer.distanceMiles}
+                  promotionDiscount={promotionDiscount}
                 />
                 <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">

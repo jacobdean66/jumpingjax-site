@@ -13,6 +13,7 @@ export function buildRentalAgreementSnapshot(input: CreateBookingInput, template
     setupLocation: input.setup_location, setupSurface: input.setup_surface, setupAccess: input.setup_access, setupNotes: input.setup_notes,
     paymentMethod: input.payment_method, subtotal: input.subtotal, deliveryFee: input.delivery_fee, total: input.total,
     paidTotal: 0, balanceDue: input.total, pricingLabel: "Estimated quote — booking and final delivery plan require Jumping Jax confirmation.",
-    title: template.title, terms: template.terms, templateVersion: template.version, additionalTerms: "",
+    title: template.title, terms: template.terms, templateVersion: template.version,
+    additionalTerms: input.promotion ? `Google Ads offer ${input.promotion.code}: 15% off eligible inflatable rentals. Discount: $${input.promotion.discount.toFixed(2)}. Delivery and other services excluded.` : "",
   };
 }

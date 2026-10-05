@@ -7,6 +7,7 @@ import {
   generateOrganizationSchema,
 } from "@/lib/metadata";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { GOOGLE_ADS_TAG_ID } from "@/lib/analytics/google-ads";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID =
@@ -107,8 +108,9 @@ export default function RootLayout({
             __html: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-if (!window.location.pathname.startsWith('/rental-agreement/')) {
+if (!['/admin', '/api', '/rental-agreement', '/logistics'].some(path => window.location.pathname === path || window.location.pathname.startsWith(path + '/'))) {
   gtag('config', '${GA_MEASUREMENT_ID}');
+  gtag('config', '${GOOGLE_ADS_TAG_ID}');
 }`,
           }}
         />

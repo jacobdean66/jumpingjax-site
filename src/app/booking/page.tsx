@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
 import { BookingPageClient } from "@/components/booking/BookingPageClient";
+import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Book an Inflatable Rental in Greenwood, SC",
@@ -18,6 +21,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function BookingPage() {
-  return <BookingPageClient />;
+export default async function BookingPage() {
+  return <BookingPageClient rentals={await loadWebsiteRentals()} />;
 }

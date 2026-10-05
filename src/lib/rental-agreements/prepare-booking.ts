@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { estimateCartGrandTotal, estimateCartRentalSubtotal, estimateMileageFee, estimateRentalDeliveryFee, normalizeDistanceMiles, resolveNewFoamDurationLabel, resolveNewRentalDuration } from "@/lib/rentals/rental-pricing-text";
 import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import type { CreateBookingInput } from "@/lib/supabase/booking-data";
+import { calculateInflatableDiscount, isInflatablePromotionCategory, promotionDescription, INFLATABLE_PROMOTION_CODE } from "@/lib/rentals/ad-promotion";
 function isValidYmd(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -43,6 +44,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
               rental_item: rental.slug,
               rental_name: rental.title,
               starting_price: rental.startingPrice,
+              promotion_eligible: isInflatablePromotionCategory(rental.categoryId),
             }
           : null;
       }),
@@ -54,6 +56,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
       rental_item: string;
       rental_name: string;
       starting_price: number;
+      promotion_eligible: boolean;
     } => item !== null,
   );
 
@@ -191,13 +194,13 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     typeof body.notes === "string" && body.notes.trim()
       ? body.notes.trim()
       : "";
-  const subtotal = estimateCartRentalSubtotal(
+  const undiscountedSubtotal = estimateCartRentalSubtotal(
     lineItems,
     durationLabel,
     spanDays,
     foamDurationLabel,
   );
-  const total = estimateCartGrandTotal(
+  const undiscountedTotal = estimateCartGrandTotal(
     lineItems,
     durationLabel,
     spanDays,
@@ -205,7 +208,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     foamDurationLabel,
   );
 
-  if (subtotal == null || total == null) {
+  if (undiscountedSubtotal == null || undiscountedTotal == null) {
     console.error("[api/book] catalog price missing after rental validation");
     return NextResponse.json(
       { error: "A rental price is unavailable. Please refresh and try again." },
@@ -213,7 +216,20 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     );
   }
 
+  // Recompute from the server catalog; never accept client totals or percentages.
+  const promotionDiscount = calculateInflatableDiscount(body.promotion_code, normalizedRentalItems,
+    normalizedRentalItems.filter(item => item.promotion_eligible).map(item => item.rental_item),
+    durationLabel, spanDays, foamDurationLabel);
+  const subtotal = Math.round((undiscountedSubtotal - promotionDiscount) * 100) / 100;
+  const total = Math.round((undiscountedTotal - promotionDiscount) * 100) / 100;
+  const promotion = promotionDiscount > 0 ? { code: INFLATABLE_PROMOTION_CODE, discount: promotionDiscount } : undefined;
+  const finalSetupNotes = [savedSetupNotes, promotion ? promotionDescription(promotionDiscount) : ""].filter(Boolean).join("\n");
+  if (finalSetupNotes.length > 2000) {
+    return NextResponse.json({ error: "Please shorten the setup notes so the discount details can be included." }, { status: 400 });
+  }
+
   return { input: {
+    promotion,
     idempotencyKey,
     rental_items: normalizedRentalItems,
     customerName,
@@ -232,7 +248,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     setup_location: setupLocation,
     setup_surface: setupSurface,
     setup_access: setupAccess,
-    setup_notes: savedSetupNotes,
+    setup_notes: finalSetupNotes,
     payment_method: paymentMethod,
     subtotal,
     total,
