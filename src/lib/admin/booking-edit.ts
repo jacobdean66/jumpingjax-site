@@ -2,6 +2,7 @@ import {
   normalizeRentalStatus,
   rentalAppearsInActiveSchedule,
 } from "@/lib/bookings/rental-lifecycle";
+import { parseRentalPeriod, type RentalDayCharge } from "@/lib/rentals/rental-period";
 import {
   normalizeInvitationDeliveryPreferences,
   normalizeInvitationTemplateId,
@@ -86,6 +87,9 @@ function optionalTrimmed(
 }
 
 export type RentalEditInput = {
+  spanDays?: number;
+  dayCharges?: RentalDayCharge[];
+  expectedPeriod?: Record<string, unknown>;
   customerName: string;
   customerEmail: string | null;
   customerPhone: string | null;
@@ -144,6 +148,15 @@ export function parseRentalEditInput(
     return { ok: false, error: "Invalid request body." };
   }
   const raw = body as Record<string, unknown>;
+  let period: Pick<RentalEditInput, "spanDays" | "dayCharges" | "expectedPeriod"> = {};
+  if (raw.spanDays !== undefined || raw.dayCharges !== undefined) {
+    const parsedPeriod = parseRentalPeriod(raw);
+    if (!parsedPeriod.ok) return parsedPeriod;
+    if (!raw.expectedPeriod || typeof raw.expectedPeriod !== "object" || Array.isArray(raw.expectedPeriod)) {
+      return { ok: false, error: "Refresh the rental before changing its period or price." };
+    }
+    period = { spanDays: parsedPeriod.spanDays, dayCharges: parsedPeriod.dayCharges, expectedPeriod: raw.expectedPeriod as Record<string, unknown> };
+  }
 
   const customerName = requiredTrimmed(raw.customerName, "Customer name", 120);
   if (!customerName.ok) return customerName;
@@ -213,6 +226,7 @@ export function parseRentalEditInput(
     ok: true,
     value: {
       customerName: customerName.value,
+      ...period,
       customerEmail: customerEmail.value,
       customerPhone: customerPhone.value,
       eventDate: eventDate.value,

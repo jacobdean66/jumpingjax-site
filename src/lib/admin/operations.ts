@@ -1,3 +1,4 @@
+import type { RentalDayCharge } from "@/lib/rentals/rental-period";
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
   type AdminAgreementSummary,
@@ -20,7 +21,7 @@ import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
 const RENTAL_SELECT =
-  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
+  "id, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, rental_day_charges, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, payment_confirmed_at, payment_confirmed_by, payment_confirmation_notes, status, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 const FACILITY_SELECT =
   "id, created_at, status, room, start_time, end_time, party_kind, customer_name, email, phone, notes, readable_date, readable_time, party_label, addon_selections, google_calendar_event_id, google_calendar_secondary_event_id, parent_name, child_name, child_gender, child_age, party_theme, invitation_delivery_preference, invitation_template_id, balloon_colors, table_cloth_colors, drink_choice, payment_method, deposit_acknowledged, facility_package_price, addon_subtotal, subtotal, tax, total";
@@ -36,6 +37,7 @@ type RentalRow = {
   duration: string | null;
   foam_duration: string | null;
   span_days: number | null;
+  rental_day_charges: RentalDayCharge[] | null;
   event_address: string | null;
   delivery_time: string | null;
   event_start_time: string | null;
@@ -117,6 +119,7 @@ export type AdminRentalBooking = {
   duration: string | null;
   foamDuration: string | null;
   spanDays: number;
+  dayCharges?: RentalDayCharge[] | null;
   distanceMiles: number | null;
   deliveryFee: number | null;
   mileageFee: number | null;
@@ -318,7 +321,8 @@ export async function loadAdminRentalBookings(input: {
         rental_name: row.rental_name ?? row.rental_item,
       },
     ];
-    const rawItems = itemMap.get(String(row.id)) ?? fallback;
+    const loadedItems = itemMap.get(String(row.id)) ?? [];
+    const rawItems = loadedItems.some(item => item.rental_item === row.rental_item) ? loadedItems : [...fallback, ...loadedItems];
     const eventAddress = clean(row.event_address);
     return {
       id: String(row.id),
@@ -339,6 +343,7 @@ export async function loadAdminRentalBookings(input: {
         typeof row.span_days === "number" && row.span_days >= 1
           ? row.span_days
           : 1,
+      dayCharges: row.rental_day_charges ?? null,
       distanceMiles: moneyNumber(row.distance_miles),
       deliveryFee: moneyNumber(row.delivery_fee),
       mileageFee: moneyNumber(row.mileage_fee),

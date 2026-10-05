@@ -202,8 +202,12 @@ await test("multi-product booking is not duplicated into multiple calendar event
   ]);
   const events = rentalRowsToEvents([rental(42)], items);
   assert.equal(events.length, 1);
-  assert.equal(events[0]?.products.length, 3);
+  // The booking's primary item remains reserved even when child rows list only additions.
+  assert.equal(events[0]?.products.length, 4);
+  assert.ok(events[0]?.products.some(item => item.rentalItem === "rental-item-42"));
   assert.equal(events[0]?.id, "rental-42");
+  const withPrimaryInChildren = rentalRowsToEvents([{...rental(42), rental_item: "a", rental_name: "18 Ft Slide"}], items);
+  assert.equal(withPrimaryInChildren[0]?.products.length, 3);
 });
 
 await test("compact calendar components wire day blocks and booking tiles", () => {

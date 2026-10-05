@@ -8,11 +8,7 @@ import {
   rentalBookingIsEditable,
 } from "@/lib/admin/booking-edit";
 import { verifyAdminAccess } from "@/lib/admin/session";
-import {
-  planRentalReschedule,
-  type RentalConflictCandidate,
-} from "@/lib/bookings/rental-reschedule-validation";
-import { RENTAL_INVENTORY_BLOCKING_STATUSES } from "@/lib/bookings/rental-lifecycle";
+import { rentalReservedDates } from "@/lib/rentals/rental-period";
 import {
   summarizeGoogleCalendarError,
   syncGoogleCalendarDestinations,
@@ -29,7 +25,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 const RENTAL_EDIT_SELECT =
-  "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
+  "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, rental_day_charges, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 type RentalEditRow = {
   id: number | string;
@@ -67,56 +63,6 @@ type RentalItemRow = {
   rental_item: string;
   rental_name: string | null;
 };
-
-async function loadConflictCandidates(
-  supabase: ReturnType<typeof createServiceRoleClient>,
-  bookingId: string,
-): Promise<RentalConflictCandidate[]> {
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("id, status, event_date, span_days, rental_item")
-    .in("status", [...RENTAL_INVENTORY_BLOCKING_STATUSES])
-    .neq("id", bookingId);
-
-  if (error) throw new Error(error.message);
-
-  const rows = (data ?? []) as {
-    id: number | string;
-    status: string;
-    event_date: string;
-    span_days: number | null;
-    rental_item: string;
-  }[];
-
-  const ids = rows.map((row) => row.id);
-  const itemMap = new Map<string, string[]>();
-
-  if (ids.length > 0) {
-    const { data: itemRows, error: itemError } = await supabase
-      .from("booking_rental_items")
-      .select("booking_id, rental_item")
-      .in("booking_id", ids);
-    if (itemError) throw new Error(itemError.message);
-    for (const item of (itemRows ?? []) as {
-      booking_id: number | string;
-      rental_item: string;
-    }[]) {
-      const key = String(item.booking_id);
-      itemMap.set(key, [...(itemMap.get(key) ?? []), item.rental_item]);
-    }
-  }
-
-  return rows.map((row) => ({
-    id: String(row.id),
-    status: row.status,
-    eventDate: String(row.event_date).slice(0, 10),
-    spanDays:
-      typeof row.span_days === "number" && row.span_days >= 1
-        ? row.span_days
-        : 1,
-    rentalItems: itemMap.get(String(row.id)) ?? [row.rental_item],
-  }));
-}
 
 async function syncApprovedRentalCalendar(input: {
   supabase: ReturnType<typeof createServiceRoleClient>;
@@ -367,7 +313,7 @@ export async function PATCH(
     );
   }
 
-  const items: RentalItemRow[] =
+  const loadedItems: RentalItemRow[] =
     ((itemRows ?? []) as RentalItemRow[]).length > 0
       ? ((itemRows ?? []) as RentalItemRow[])
       : [
@@ -378,67 +324,30 @@ export async function PATCH(
           },
         ];
 
-  const spanDays =
-    typeof existing.span_days === "number" && existing.span_days >= 1
-      ? existing.span_days
-      : 1;
+  const items = loadedItems.some(item => item.rental_item === existing.rental_item) ? loadedItems :
+    [...loadedItems, { booking_id: existing.id, rental_item: existing.rental_item, rental_name: existing.rental_name }];
   const currentEventDate = String(existing.event_date).slice(0, 10);
-
-  if (parsed.value.eventDate !== currentEventDate) {
-    try {
-      const candidates = await loadConflictCandidates(supabase, id);
-      const plan = planRentalReschedule(
-        {
-          id,
-          status: existing.status,
-          eventDate: currentEventDate,
-          spanDays,
-          rentalItems: items.map((item) => item.rental_item),
-        },
-        {
-          bookingId: id,
-          eventDate: parsed.value.eventDate,
-          spanDays,
-          rentalItems: items.map((item) => item.rental_item),
-        },
-        candidates,
-      );
-      if (!plan.ok) {
-        const conflict = plan.conflicts[0];
-        return NextResponse.json(
-          {
-            ok: false,
-            message: conflict
-              ? `That date conflicts with another booking for ${conflict.rentalItems.join(", ")} on ${conflict.eventDate}.`
-              : "That date is unavailable for one or more rental items.",
-          },
-          { status: 409 },
-        );
-      }
-    } catch (error) {
-      console.error("[api/admin/rentals/edit] conflict check failed", error);
-      return NextResponse.json(
-        { ok: false, message: "Could not verify rental availability." },
-        { status: 503 },
-      );
-    }
-  }
-
-  const { data: updated, error: updateError } = await supabase
-    .from("bookings")
-    .update(buildRentalEditUpdate(parsed.value))
-    .eq("id", id)
-    .in("status", ["pending", "approved"])
-    .select(RENTAL_EDIT_SELECT)
-    .maybeSingle<RentalEditRow>();
-
+  const { data, error: updateError } = await supabase.rpc("edit_rental_booking_atomic", {
+    p_id: id,
+    p_update: buildRentalEditUpdate(parsed.value),
+    p_period: parsed.value.spanDays === undefined ? null : {
+      spanDays: parsed.value.spanDays, dayCharges: parsed.value.dayCharges,
+    },
+    p_expected: parsed.value.expectedPeriod ?? null,
+  });
   if (updateError) {
-    console.error("[api/admin/rentals/edit] update failed", updateError.code);
-    return NextResponse.json(
-      { ok: false, message: "The rental could not be updated." },
-      { status: 503 },
-    );
+    const conflict = updateError.message.includes("booking_conflict");
+    const stale = updateError.message.includes("rental_edit_stale");
+    const retry = ["40001", "40P01"].includes(updateError.code);
+    return NextResponse.json({ ok: false, message: conflict
+      ? (updateError.details || "An item is already reserved during this period.")
+      : stale ? "This rental's dates or pricing changed. Refresh and reopen it before saving."
+      : retry ? "Another reservation changed at the same time. Refresh and try again."
+      : updateError.message.includes("rental_price_needs_review") ? "This booking's stored price needs review before changing its rental period."
+      : "The rental could not be updated. No changes were saved." },
+      { status: conflict || stale || retry || updateError.message.includes("rental_not_editable") ? 409 : 503 });
   }
+  const updated = data as RentalEditRow | null;
 
   if (!updated) {
     return NextResponse.json(
@@ -462,11 +371,12 @@ export async function PATCH(
   after(() =>
     runRoutePlannerAgent({
       bookingId: id,
-      eventDates: [currentEventDate, parsed.value.eventDate],
+      eventDates: [...new Set([...rentalReservedDates(currentEventDate, existing.span_days ?? 1), ...rentalReservedDates(updated.event_date, updated.span_days ?? 1)])],
       trigger: "rental.edited",
     }),
   );
 
+  revalidatePath("/admin");
   revalidatePath("/admin/rentals");
   revalidatePath("/admin/schedule");
   revalidatePath("/admin/deliveries");
