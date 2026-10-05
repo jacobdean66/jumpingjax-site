@@ -6,6 +6,9 @@ type Conversation = { context: NetworkContext; tasks: NetworkTask[]; messages: N
 const active = (task: NetworkTask) => ["queued", "working", "waiting"].includes(task.status);
 async function api(path: string, body?: unknown) {
   const response = await fetch(path, { cache: "no-store", ...(body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}) });
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new Error("Agent connections are temporarily unavailable. Reload this page and try again.");
+  }
   const data = await response.json();
   if (!response.ok || !data.ok) throw new Error(data.error ?? "Agent network unavailable.");
   return data;

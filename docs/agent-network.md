@@ -86,6 +86,8 @@ They require the existing agent-manager schema and enqueue/claim/recovery RPCs. 
 
 Deploy the application after verifying both migrations. No new model credentials, callback URLs, providers, or cron jobs are required. If storage is missing, the panel displays an activation message and existing manager workflows remain available.
 
+Merge the verified application changes into `main` before completing production activation. A deployment from `main` replaces the previous production release; deploying this feature only from a separate branch leaves its API absent from subsequent main-branch releases. Verify the current production alias after deployment, then queue Discover agents through an authenticated owner session and confirm its saved reply.
+
 The ledger limits a context to 24 tasks and delegation to four hops. Repeated ancestor capabilities are stopped. Request IDs are deduplicated atomically; altered payloads cannot reuse an ID. Worker starts, handoffs, and results require a live matching lease. Exhausted queue attempts are reconciled to terminal conversation replies.
 
 ## Verification
@@ -93,3 +95,5 @@ The ledger limits a context to 24 tasks and delegation to four hops. Repeated an
 Run npm run test:agent-network, npm run test:agent-manager, TypeScript, focused ESLint, and the production build. The network suite executes the real SQL against isolated PostgreSQL (PGlite), including migration compilation, restart persistence, three-agent delegation, duplicate delivery, crash replay, exhausted leases, cancellation, privacy roles, budgets, and the official A2A transport.
 
 Production acceptance should use the directory capability first: it needs no customer data, business action, model invocation, or provider spend. Real voice and generation acceptance remain separate checks for their existing workflows.
+
+Run `npm run test:agent-network:production` against the current production alias before owner acceptance. This credential-free check requires all network, A2A, cancellation, and cron-worker routes to exist and return private JSON authorization errors. It detects an older release returning HTML or a missing route; it does not claim authenticated task processing has passed.
