@@ -33,6 +33,7 @@ export type SupervisorSnapshot = {
   };
   bookings: {
     workflowIssues: number | null;
+    historicalWorkflowIssues?: number | null;
     activeRentals: number | null;
     activeFacilityParties: number | null;
     pendingCompositeIntents: number | null;
@@ -177,9 +178,9 @@ export function buildSupervisorIssues(snapshot: Omit<SupervisorSnapshot, "issues
   if (snapshot.agents.approvalsWaiting > 0) issues.push({ code: "agents:approvals", area: "agents", severity: "info", summary: `${snapshot.agents.approvalsWaiting} owner approval${snapshot.agents.approvalsWaiting === 1 ? " is" : "s are"} waiting.` });
   for (const wiring of snapshot.wiring) {
     if (wiring.state === "not_connected") issues.push({ code: `agents:${wiring.key}:not-connected`, area: "agents", severity: "warning", summary: `${wiring.key === "coding" ? "Coding Agent" : wiring.key} is not connected to a working handler.` });
-    if (wiring.state === "setup_required") issues.push({ code: `agents:${wiring.key}:setup-required`, area: "agents", severity: "warning", summary: `${wiring.key === "nomination" ? "Nomination Agent" : wiring.key} still requires its production connection.` });
+    if (wiring.state === "setup_required" && !(wiring.key === "nomination" && snapshot.services.some((service) => service.key === "giveaway" && ["setup_required", "unavailable"].includes(service.state)))) issues.push({ code: `agents:${wiring.key}:setup-required`, area: "agents", severity: "warning", summary: `${wiring.key === "nomination" ? "Nomination Agent" : wiring.key} still requires its production connection.` });
   }
-  if ((snapshot.bookings.workflowIssues ?? 0) > 0) issues.push({ code: "bookings:workflow", area: "bookings", severity: "warning", summary: `${snapshot.bookings.workflowIssues} booking integration workflow${snapshot.bookings.workflowIssues === 1 ? " needs" : "s need"} review.` });
+  if ((snapshot.bookings.workflowIssues ?? 0) > 0) issues.push({ code: "bookings:workflow", area: "bookings", severity: "warning", summary: `${snapshot.bookings.workflowIssues} ${snapshot.bookings.historicalWorkflowIssues !== undefined ? "current " : ""}booking integration workflow${snapshot.bookings.workflowIssues === 1 ? " needs" : "s need"} review.${snapshot.bookings.historicalWorkflowIssues ? ` ${snapshot.bookings.historicalWorkflowIssues} historical or cancelled workflows are retained separately.` : ""}` });
   if ((snapshot.answeringMachine.failedCalls ?? 0) > 0) issues.push({ code: "answering-machine:failed", area: "answering_machine", severity: "warning", summary: `${snapshot.answeringMachine.failedCalls} answering-machine call${snapshot.answeringMachine.failedCalls === 1 ? " has" : "s have"} failed.` });
   if ((snapshot.answeringMachine.pendingReview ?? 0) > 0) issues.push({ code: "answering-machine:review", area: "answering_machine", severity: "info", summary: `${snapshot.answeringMachine.pendingReview} captured call${snapshot.answeringMachine.pendingReview === 1 ? " is" : "s are"} waiting for owner review.` });
   if (!snapshot.answeringMachine.live) issues.push({ code: "answering-machine:setup", area: "answering_machine", severity: "info", summary: "WhatsApp calling remains safely disabled until its provider connection is complete." });

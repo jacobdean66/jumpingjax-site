@@ -8,6 +8,7 @@ import {
   planBookingTriageBatch,
 } from "./booking-triage";
 import { assertAgentDispatchAllowed, enqueueJob, runOne } from "./service";
+import { loadBookingWorkflowHealth } from "./booking-workflow-health-service";
 
 const MAX_TRIAGE_JOBS = 10;
 const MAX_SCAN_WORKFLOWS = 100;
@@ -17,13 +18,8 @@ const KEY_QUERY_CHUNK = 25;
 export async function scanBookingWorkflowsForTriage(actorId: string) {
   await assertAgentDispatchAllowed("booking");
   const db = createServiceRoleClient();
-  const { data, error } = await db
-    .from("booking_integration_workflows")
-    .select("booking_kind,booking_id,initial_customer_email_status,owner_notification_status,decision_email_status,calendar_status,operator_required,updated_at")
-    .or("operator_required.eq.true,initial_customer_email_status.eq.failed,owner_notification_status.eq.failed,decision_email_status.eq.failed,calendar_status.eq.failed")
-    .order("updated_at", { ascending: false })
-    .limit(MAX_SCAN_WORKFLOWS);
-  if (error) throw new Error("Booking workflow triage scan is unavailable");
+  const health = await loadBookingWorkflowHealth();
+  const data = health.current.slice(0, MAX_SCAN_WORKFLOWS);
 
   const issues = (data ?? []).flatMap((row) => identifyBookingTriageIssues(row)).slice(0, MAX_SCAN_ISSUES);
   const keys = [...new Set(issues.map(bookingTriageIdempotencyKey))];
@@ -68,6 +64,7 @@ export async function scanBookingWorkflowsForTriage(actorId: string) {
     created,
     reused,
     remainingUntriaged: batch.remainingUntriaged,
+    historicalWorkflows: health.historicalCount,
     aiInvocations: 0,
   };
 }

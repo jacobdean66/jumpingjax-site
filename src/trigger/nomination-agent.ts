@@ -1,6 +1,7 @@
 import { logger, task } from "@trigger.dev/sdk";
+import { checkNominationCallback } from "@/lib/agent-manager/nomination-connection";
 
-import { parseNominationEmail, type NominationEmailEvent } from "@/lib/giveaway/nomination-email";
+import { parseNominationEmail, type NominationEmailEvent, type GiveawayPartyChoice } from "@/lib/giveaway/nomination-email";
 
 export type NominationAgentPayload = {
   event: NominationEmailEvent;
@@ -15,7 +16,7 @@ export type NominationAgentOutput = {
   sourceEventId: string;
   nominationId: string;
   nominee: string;
-  partyChoice: "september_birthday" | "back_to_school";
+  partyChoice: GiveawayPartyChoice;
   stored: true;
   created: boolean;
   attempt: number;
@@ -35,7 +36,13 @@ export const nominationAgentTask = task({
     factor: 2,
     randomize: false,
   },
-  run: async (payload: NominationAgentPayload, { ctx }) => {
+  run: async (payload: NominationAgentPayload | { mode: "connection_check" }, { ctx }) => {
+    if (payload.mode === "connection_check") {
+      return checkNominationCallback({
+        appUrl: process.env.AGENT_MANAGER_APP_URL,
+        callbackSecret: process.env.AGENT_MANAGER_CALLBACK_SECRET,
+      });
+    }
     let callback: URL;
     let authorization: string | null = null;
 

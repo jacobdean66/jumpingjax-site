@@ -17,7 +17,15 @@ await db.exec("insert into bookings values ('rental-1','confirmed'),('rental-2',
 const base = { request_id: crypto.randomUUID(), processor_reference: "Mobile-100", payer_name: "Receipt payer", paid_at: "2026-09-01T14:10:00Z", amount_cents: 5000, processing_fee_cents: 150, recorded_by: "Test staff", payment_purpose: "payment" };
 const record = async p => (await db.query("select record_mobile_payment($1) result", [p])).rows[0].result;
 const booking = async p => (await db.query("select record_booking_payment_v2($1) result", [{ ...p, payment_method: "card" }])).rows[0].result;
-const count = async table => (await db.query(`select count(*)::int n from ${table}`)).rows[0].n;
+const countQueries = {
+  mobile_payment_receipts: "select count(*)::int n from mobile_payment_receipts",
+  booking_payment_entries: "select count(*)::int n from booking_payment_entries",
+};
+const count = async table => {
+  if (!Object.hasOwn(countQueries, table)) throw new Error("Unsupported count table");
+  return (await db.query(countQueries[table])).rows[0].n;
+};
+await assert.rejects(() => count("mobile_payment_receipts; drop table bookings; --"), /Unsupported count table/);
 
 assert.equal((await record(base)).outcome, "created");
 assert.equal((await record(base)).outcome, "duplicate");

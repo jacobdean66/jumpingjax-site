@@ -5,6 +5,7 @@ import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-read
 import { isSocialOAuthConnectConfigured } from "@/lib/social-posts/oauth/social-oauth-config";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
+import { loadMetaAnalyticsReadiness } from "./meta-analytics-readiness";
 import type { DashboardServiceCoverage, DashboardServiceState } from "./service-coverage";
 import type { AgentDashboard } from "./types";
 
@@ -34,7 +35,7 @@ export async function loadDashboardServiceCoverage(input: {
     return { count: result.count ?? null, ok: !result.error };
   };
 
-  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings] = await Promise.all([
+  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings, analytics] = await Promise.all([
     probe("bookings"),
     probe("facility_bookings"),
     probe("waiver_submissions"),
@@ -45,9 +46,10 @@ export async function loadDashboardServiceCoverage(input: {
     probe("air_hockey_players"),
     probe("giveaway_nominations"),
     probe("social_posts"),
-    probe("social_oauth_sessions"),
+    db.from("social_oauth_sessions").select("session_id", { count: "exact", head: true }).eq("provider", "meta").eq("lifecycle_state", "connected").neq("publication_target_id", "ad-analytics").then((result) => ({ count: result.count ?? null, ok: !result.error })),
     probe("driver_closeout_reports"),
     db.storage.from("site-settings").list("", { limit: 1, search: "public-settings.json" }).then((result) => ({ count: result.data?.length ?? null, ok: !result.error })),
+    loadMetaAnalyticsReadiness().catch(() => ({ state: "unavailable" as const, summary: "Meta analytics readiness could not be checked.", blocker: "Refresh the existing Meta connection check." })),
   ]);
 
   const calendarConfigured = Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim() && process.env.GOOGLE_REFRESH_TOKEN?.trim());
@@ -72,7 +74,7 @@ export async function loadDashboardServiceCoverage(input: {
     row({ key: "email", name: "Booking Email", href: "/admin/rentals", state: emailConfigured ? "connected" : "setup_required", summary: emailConfigured ? "Resend delivery credentials are present." : "Resend delivery credentials are missing.", source: "provider", recordCount: null, blocker: emailConfigured ? null : "Configure the existing Resend API credential." }, checkedAt),
     row({ key: "social", name: "Social Posts", href: "/admin/social-posts", state: !socialPosts.ok ? "unavailable" : metaConfigured && (oauthSessions.count ?? 0) > 0 ? "connected" : "degraded", summary: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "Draft storage and the Meta OAuth connection are present." : "Draft storage is available; Meta publishing or analytics connection is incomplete.", source: "provider", recordCount: socialPosts.count, blocker: metaConfigured && (oauthSessions.count ?? 0) > 0 ? null : "Complete or refresh the existing Meta OAuth connection." }, checkedAt),
     row({ key: "ai-ads", name: "AI Ads", href: "/admin/ai-ads", state: "degraded", summary: "The creation and review workspace is available; no independent live generation-provider probe is registered.", source: "application", recordCount: null, blocker: "Add a bounded read-only provider health check for the configured generation path." }, checkedAt),
-    row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", state: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "connected" : "setup_required", summary: metaConfigured && (oauthSessions.count ?? 0) > 0 ? "Meta OAuth configuration and a stored session are present." : "Meta ad analytics is not fully connected.", source: "provider", recordCount: oauthSessions.count, blocker: metaConfigured && (oauthSessions.count ?? 0) > 0 ? null : "Connect Meta OAuth with the required ads read scopes." }, checkedAt),
+    row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", ...analytics, source: "provider", recordCount: analytics.state === "connected" ? 1 : null }, checkedAt),
     row({ key: "campaigns", name: "Campaign Hub", href: "/admin/campaigns", state: stateFromProbe(campaigns), summary: campaigns.ok ? "Campaign event storage is readable." : "Campaign event storage could not be read.", source: "database", recordCount: campaigns.count, blocker: campaigns.ok ? null : "Apply or repair the campaign event storage migration." }, checkedAt),
     row({ key: "air-hockey", name: "Air Hockey", href: "/admin/air-hockey", state: stateFromProbe(airHockey), summary: airHockey.ok ? "Tournament player storage is readable." : "Tournament player storage could not be read.", source: "database", recordCount: airHockey.count, blocker: airHockey.ok ? null : "Apply or repair the Air Hockey storage migration." }, checkedAt),
     row({ key: "giveaway", name: "Giveaway and Nomination", href: "/admin/giveaway", state: !nominations.ok ? "unavailable" : nomination.enabled && nomination.configured ? "connected" : "setup_required", summary: nomination.enabled && nomination.configured ? "Nomination storage and signed inbound processing are ready." : "Giveaway storage is readable; production nomination email ingestion is disabled.", source: "provider", recordCount: nominations.count, blocker: nomination.enabled && nomination.configured ? null : `Complete nomination inbound setup${nomination.missing.length ? `: ${nomination.missing.join(", ")}` : " and enable it"}.` }, checkedAt),
