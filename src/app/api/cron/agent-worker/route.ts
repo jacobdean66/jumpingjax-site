@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const processed: string[] = [];
+    const startedAt = Date.now();
     for (let index = 0; index < 8; index += 1) {
+      // Leave room for a 40-second network adapter and recording its result.
+      if (index > 0 && Date.now() - startedAt >= 15_000) break;
       const job = await runOne(`cron:${crypto.randomUUID()}`);
       if (!job) break;
       processed.push(job.id);

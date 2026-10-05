@@ -1,3 +1,4 @@
+import { AGENT_DIRECTORY } from "./network/contracts";
 export type AgentConnectionState =
   | "connected"
   | "staged"
@@ -93,5 +94,10 @@ export function buildAgentWiring(input: {
       supervisorDispatch: true,
       canPause: false,
     },
+    ...AGENT_DIRECTORY.filter((a) => !["supervisor", "booking", "waiver", "nomination", "party-invitation", "social", "coding", "health-security"].includes(a.key)).map((a): AgentWiring => ({
+      key: a.key, state: "read_only", handler: "Durable agent capability adapter",
+      trigger: "Owner request or trusted server handoff",
+      summary: a.description, supervisorDispatch: true, canPause: true,
+    })),
   ];
 }

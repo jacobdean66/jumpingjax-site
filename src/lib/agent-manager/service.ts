@@ -5,7 +5,7 @@ import type { AgentDashboard, AgentJob } from "./types";
 
 const SAFE_JOB_TYPES = new Set(["system.health_check"]);
 const APPROVAL_ACTIONS = new Set(["production.deploy", "database.destructive", "schema.production", "credentials.change", "provider.paid_enable", "billing.change", "message.bulk", "git.destructive", "git.merge_protected"]);
-const PAUSEABLE_AGENT_KEYS = new Set(["booking", "waiver", "social", "nomination", "coding"]);
+const PAUSEABLE_AGENT_KEYS = new Set(["booking", "waiver", "social", "nomination", "coding", "availability", "answering-machine", "receptionist", "campaign-strategist", "creative-director", "independent-reviewer", "social-strategy-copy", "image-director", "video-director"]);
 
 export function requiresApproval(jobType: string) { return APPROVAL_ACTIONS.has(jobType); }
 export function isSafeManualJob(jobType: string) { return SAFE_JOB_TYPES.has(jobType); }
@@ -25,10 +25,17 @@ export async function enqueueJob(input: { agentKey: string; jobType: string; sou
 export async function runOne(workerId: string): Promise<AgentJob | null> {
   const db = createServiceRoleClient();
   await db.rpc("recover_expired_agent_jobs");
+  // The additive network migration may not yet be active during staged rollout.
+  const reconciliation = await db.rpc("reconcile_agent_network_tasks");
+  if (reconciliation.error && !["42883", "PGRST202"].includes(reconciliation.error.code)) throw new Error("Agent conversation recovery unavailable.");
   const { data, error } = await db.rpc("claim_agent_job", { p_worker_id: workerId, p_lease_seconds: 90 });
   if (error) throw new Error(`Unable to claim job: ${error.message}`);
   const job = data as AgentJob | null;
   if (!job) return null;
+  if (job.job_type === "agent.network.dispatch") {
+    const { runNetworkJob } = await import("./network/service");
+    return runNetworkJob(job, workerId);
+  }
   const worker = selectWorker(job, configuredDeterministicWorkers());
   const result = worker ? await worker.execute(job, AbortSignal.timeout(job.timeout_seconds * 1000)) : { ok: false as const, summary: "No configured worker supports this job type", transient: false };
   const finished = new Date().toISOString();

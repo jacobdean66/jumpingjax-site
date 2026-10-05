@@ -15,10 +15,13 @@ import { WaiverTriageClient } from "./WaiverTriageClient";
 import { CompositeBookingProofClient } from "./CompositeBookingProofClient";
 import { CodingDiagnosisClient } from "./CodingDiagnosisClient";
 import { SupervisorChat } from "./SupervisorChat";
+import { AgentNetworkPanel } from "./AgentNetworkPanel";
+import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
+import { conversationId } from "@/lib/agent-manager/network/http";
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentsPage() {
+export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ conversation?: string }> }) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
@@ -27,6 +30,9 @@ export default async function AgentsPage() {
   let supervisorSnapshot: Awaited<ReturnType<typeof collectSupervisorSnapshot>> | null = null;
   const nominationReadiness = getNominationAgentReadiness();
   const nextSpecialist = getNextSpecialistReadiness();
+  const network = await loadNetworkOverview().catch(() => null);
+  const requestedContext = (await searchParams).conversation;
+  const initialContextId = conversationId.safeParse(requestedContext).success ? requestedContext : undefined;
   try {
     dashboard = await loadDashboard();
   } catch {
@@ -50,6 +56,7 @@ export default async function AgentsPage() {
       {dashboard && !dashboard.demoMode ? (
         <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
       ) : null}
+      <AgentNetworkPanel initial={network} initialContextId={initialContextId} />
       <section className="mt-7 rounded-3xl border border-sky-200 bg-sky-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

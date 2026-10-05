@@ -6,7 +6,7 @@ import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-ma
 
 type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
 
-const STARTERS = ["Check the whole website", "Check bookings and calendars", "Check agent connections", "Check code and security"];
+const STARTERS = ["Check the whole website", "Check bookings and calendars", "Check agent connections", "Check code and security", "Ask Waiver Agent to review waiver integrity", "Ask Booking Agent to review booking workflows"];
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(initialMessages);
