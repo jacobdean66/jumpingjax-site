@@ -59,12 +59,17 @@ test('catalog lookup, explicit confirmation, three layouts and actual booking re
   const bytes=await readFile('public/invitation-library/themes/princess-royal/princess.png');
   const hash=createHash('sha256').update(bytes).digest('hex');const id='b'.repeat(64);
   const asset={id,label:'KPop Demon Hunters',normalized_label:'kpop demon hunters',aliases:['kpop demon hunters'],franchise:'KPop Demon Hunters',description:'Movie character artwork test fixture',source_url:'https://example.com/movie',source_image_url:'https://example.com/movie.png',storage_path:hash+'.png',approval_status:'approved'};
-  const events:string[]=[];let booking: { invitation: { confirmedTheme: { imagePath: string }; optionIndex: number } };let corrupt=false;let insertCount=0;
+  const events:string[]=[], supervision:Array<Record<string,unknown>>=[];let booking: { invitation: { confirmedTheme: { imagePath: string }; optionIndex: number } };let corrupt=false;let insertCount=0;
   context.mock.method(globalThis,'fetch',async(source:string|Request,init?:RequestInit)=>{
     const request=new Request(source,init),url=new URL(request.url);assert.equal(url.hostname,'workflow-test.supabase.co','No external provider or email traffic on catalog hits');
     if(url.pathname.endsWith('public-settings.json'))return Response.json({});
     if(url.pathname==='/rest/v1/agents')return request.method==='GET'?Response.json({id:'11111111-1111-4111-8111-111111111111'}):new Response(null,{status:204});
     if(url.pathname==='/rest/v1/agent_events'){events.push((await request.json()).event_type);return new Response(null,{status:201});}
+    if(url.pathname==='/rest/v1/rpc/enqueue_agent_job'){
+      const queued=await request.json();assert.equal(queued.p_job_type,'invitation.supervise');assert.equal(queued.p_agent_key,'party-invitation');
+      assert.equal(queued.p_idempotency_key,`invitation-supervise:${queued.p_payload.operationId}`);assert.equal(queued.p_payload.aiInvocations,0);
+      supervision.push(queued.p_payload);return Response.json({id:'33333333-3333-4333-8333-333333333333',status:'queued'});
+    }
     if(url.pathname==='/rest/v1/rpc/search_invitation_theme_assets')return Response.json([asset]);
     if(url.pathname==='/rest/v1/invitation_theme_assets')return Response.json(request.method==='PATCH'?{id}:asset);
     if(url.pathname.includes('/storage/v1/object/invitation-theme-artwork/'))return new Response(bytes,{headers:{'content-type':'image/png'}});
@@ -91,4 +96,8 @@ test('catalog lookup, explicit confirmation, three layouts and actual booking re
   assert.equal(insertCount,1);assert.equal(booking.invitation.confirmedTheme.imagePath,confirmed.theme.imagePath);assert.equal(booking.invitation.optionIndex,2);assert.ok(events.includes('invitation.booking_verified'));
   corrupt=true;const response=await book(new NextRequest('https://example.com/api/facility/book',{method:'POST',headers:{'x-forwarded-for':'workflow-test'},body:JSON.stringify(body)}));assert.equal(response.status,503);assert.equal((await response.json()).code,'invitation_verification_pending');
   for(const name of ['search_started','candidates_found','confirmation_saved','invitation_composed','failed'])assert.ok(events.includes('invitation.'+name),name);
+  assert.deepEqual(supervision.map(job=>job.stage),['search','search','confirmation','booking','booking']);
+  assert.equal(new Set(supervision.map(job=>job.operationId)).size,supervision.length);
+  const savedBooking=supervision.find(job=>job.stage==='booking')!;
+  assert.equal(savedBooking.bookingId,'22222222-2222-4222-8222-222222222222');assert.equal(savedBooking.themeId,confirmed.theme.id);assert.equal(savedBooking.optionIndex,2);
 });
