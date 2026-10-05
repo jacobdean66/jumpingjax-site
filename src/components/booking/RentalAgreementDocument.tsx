@@ -1,4 +1,5 @@
 import type { RentalAgreementSnapshot } from "@/lib/rental-agreements/types";
+import { rentalDatePlusDays } from "@/lib/rentals/rental-period";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 function Detail({ label, value }: { label: string; value: string }) {
@@ -19,6 +20,8 @@ export function RentalAgreementDocument({ snapshot: s, version, signedName, sign
       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
         <Detail label="Customer" value={s.customerName} /><Detail label="Contact" value={`${s.email}\n${s.phone}`} />
         <Detail label="Equipment" value={s.items.map(i => i.rental_name).join("\n")} /><Detail label="Event date" value={s.eventDate} />
+        <Detail label="Reserved dates" value={`${s.eventDate} through ${rentalDatePlusDays(s.eventDate, s.spanDays - 1)} (${s.spanDays} ${s.spanDays === 1 ? "day" : "days"})`} />
+        {s.dayCharges?.map(day => <Detail key={day.day} label={`Day ${day.day} · ${rentalDatePlusDays(s.eventDate, day.day - 1)}`} value={day.choice === "free" ? "Free ($0.00)" : `Agreed charge: ${money(day.amount)}`} />)}
         <Detail label="Rental duration" value={`${s.duration}${s.foamDuration && s.foamDuration !== s.duration ? ` · Foam time: ${s.foamDuration}` : ""}`} />
         <Detail label="Event start time" value={s.eventStartTime} />
         <Detail label="Event address" value={s.eventAddress} /><Detail label="Requested delivery" value={s.deliveryWindow} />

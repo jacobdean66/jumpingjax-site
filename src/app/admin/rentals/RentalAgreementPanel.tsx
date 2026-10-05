@@ -24,7 +24,7 @@ export function RentalAgreementPanel({ bookingId, customerName, customerEmail, h
   const requestId = useRef<string | null>(null), paperRequestId = useRef<string | null>(null);
   const endpoint = `/api/admin/rentals/${encodeURIComponent(bookingId)}/agreement`;
   const currentUnsigned = latest?.status === "awaiting_signature", needsPreparation = !latest || latest.status === "superseded";
-  const sharePath = preparedPath ?? (latest?.status !== "superseded" ? latest?.path : null);
+  const sharePath = latest ? latest.status !== "superseded" ? latest.path : null : preparedPath;
   function notify(text: string, failed = false) { setMessage(text); setError(failed); }
   async function act(action: string, agreementId?: string): Promise<{ path?: string; agreementId?: string; skipped?: boolean } | null> {
     setWorking(true); notify(""); requestId.current ??= crypto.randomUUID();
@@ -50,7 +50,7 @@ export function RentalAgreementPanel({ bookingId, customerName, customerEmail, h
   }
   async function copyLink() {
     let path = sharePath;
-    if (!path) path = (await act("prepare"))?.path;
+    if (!path) path = (await act("prepare"))?.path ?? null;
     if (!path) return;
     const url = new URL(path, window.location.origin).toString(); setCopiedLink(url);
     try { await navigator.clipboard.writeText(url); notify("Agreement link copied. Share it directly with this customer."); }
@@ -62,6 +62,7 @@ export function RentalAgreementPanel({ bookingId, customerName, customerEmail, h
     setWorking(true); notify(""); paperRequestId.current ??= crypto.randomUUID();
     const form = new FormData();
     form.set("file", file); form.set("agreementId", latest.id); form.set("requestId", paperRequestId.current); form.set("name", paperName); form.set("signedOn", signedOn);
+    form.set("verified", "true");
     try {
       const res = await fetch(`${endpoint}/paper`, { method: "POST", body: form }), data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "The signed copy could not be recorded.");

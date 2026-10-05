@@ -62,6 +62,8 @@ export async function loadBookingAgreementContext(id: string) {
   snapshot.paidTotal = payment.paidCents / 100;
   snapshot.balanceDue = payment.balanceCents == null ? 0 : payment.balanceCents / 100;
   snapshot.bookingState = state;
+  snapshot.dayCharges = row.rental_day_charges ?? null;
+  if (snapshot.dayCharges !== null) snapshot.duration = `${snapshot.spanDays} ${snapshot.spanDays === 1 ? "day" : "days"}`;
   if (row.total == null) snapshot.pricingLabel = "Quote is not set. Contact Jumping Jax for pricing before payment.";
   return { snapshot, history: history.get(id) ?? [], status: row.status, customerEmail: row.customer_email as string };
 }

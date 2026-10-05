@@ -10,6 +10,7 @@ export type RentalAgreementSnapshot = {
   paymentMethod: string; subtotal: number; deliveryFee: number; total: number;
   paidTotal: number; balanceDue: number; pricingLabel: string;
   title: string; terms: string; templateVersion: number; additionalTerms: string;
+  dayCharges?: { day: 2 | 3; choice: "charge" | "free"; amount: number }[] | null;
   bookingState?: Record<string, unknown>;
 };
 

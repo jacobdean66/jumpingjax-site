@@ -1,6 +1,10 @@
 import { rentalDatePlusDays } from "@/lib/rentals/rental-period";
 import { RentalAgreementPanel } from "./RentalAgreementPanel";
 import { RentalAgreementTemplateEditor } from "./RentalAgreementTemplateEditor";
+import { RentalBookingSquare } from "./RentalBookingSquare";
+import { RentalAgreementBatch } from "./RentalAgreementBatch";
+import { cityFromAddress, productSummary } from "@/lib/admin/delivery-planner-workspace";
+import { agreementState, agreementStateLabel, canRequestAgreement } from "@/lib/rental-agreements/workflow";
 import { loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
 import type { RentalAgreement } from "@/lib/rental-agreements/types";
 import Link from "next/link";
@@ -11,6 +15,7 @@ import {
   loadAdminRentalBookings,
   normalizeStatus,
   normalizeYmd,
+  todayYmd,
   type AdminRentalBooking,
 } from "@/lib/admin/operations";
 import {
@@ -19,7 +24,6 @@ import {
   AdminNav,
   AdminShell,
   FilterForm,
-  StatTile,
   StatusBadge,
 } from "../_components";
 import { PrintButton } from "../PrintButton";
@@ -45,6 +49,8 @@ type Props = {
     from?: string;
     to?: string;
     status?: string;
+    q?: string;
+    agreement?: string;
   }>;
 };
 
@@ -90,8 +96,7 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
   );
   return (
     <article
-      id={`booking-${booking.id}`}
-      className="compact-print-card scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:break-inside-avoid print:border-slate-900 print:shadow-none"
+      className="compact-print-card bg-white p-4 sm:p-5 print:break-inside-avoid print:border print:border-slate-900"
     >
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -181,6 +186,7 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
         </div>
       </div>
 
+      <RentalAgreementPanel bookingId={booking.id} customerName={booking.customerName} customerEmail={booking.customerEmail} history={agreements} editable={booking.status === "pending" || booking.status === "approved"} />
       <div className="compact-print-columns mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <h3 className="text-sm font-black uppercase tracking-wide text-sky-700">
@@ -225,8 +231,8 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
             Customer and Setup
           </h3>
           <div className="compact-print-detail-grid mt-3 grid gap-3">
-            <Detail label="Phone" value={booking.customerPhone ?? "Not set"} />
-            <Detail label="Email" value={booking.customerEmail ?? "Not set"} />
+            <Detail label="Phone" value={booking.customerPhone ? <a href={`tel:${booking.customerPhone}`} className="text-cyan-900 underline">{booking.customerPhone}</a> : "Not set"} />
+            <Detail label="Email" value={booking.customerEmail ? <a href={`mailto:${booking.customerEmail}`} className="break-all text-cyan-900 underline">{booking.customerEmail}</a> : "Not set"} />
             <Detail label="Address" value={booking.eventAddress ?? "Not set"} />
             <Detail
               label="Distance"
@@ -292,7 +298,6 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
           </ul>
         )}
       </section>
-      <RentalAgreementPanel bookingId={booking.id} customerName={booking.customerName} customerEmail={booking.customerEmail} history={agreements} editable={booking.status === "pending" || booking.status === "approved"} />
     </article>
   );
 }
@@ -307,7 +312,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
   const to = normalizeYmd(resolved?.to) || defaultToYmd(from);
   const status = normalizeStatus(resolved?.status);
   const effectiveTo = resolved?.to ? to : defaultToYmd(from);
-  const [{ bookings }, { summary }] = await Promise.all([
+  const [{ bookings: loadedBookings }, { summary }] = await Promise.all([
     loadAdminRentalBookings({
       from,
       to: effectiveTo,
@@ -319,7 +324,22 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
       status: "all",
     }),
   ]);
-  const agreementMap = await loadAgreementHistory(bookings.map(b => b.id));
+  const agreementMap = await loadAgreementHistory(loadedBookings.map(b => b.id));
+  const search = resolved?.q?.trim().toLowerCase() ?? "";
+  const agreementFilter = resolved?.agreement === "unsigned" ? "unsigned" : resolved?.agreement === "attention" ? "attention" : "all";
+  const bookings = loadedBookings.filter(b => {
+    const agreement = agreementMap.get(b.id)?.[0];
+    const state = agreementState(b.customerName, agreement);
+    if (agreementFilter === "unsigned" && !canRequestAgreement(b.status, agreement)) return false;
+    if (agreementFilter === "attention" && !["missing", "superseded", "failed", "review"].includes(state)) return false;
+    return !search || [b.id,b.customerName,b.customerEmail,b.customerPhone,b.eventAddress,...b.items.map(i => i.rental_name)].filter(Boolean).join(" ").toLowerCase().includes(search);
+  });
+  const formatDate = (ymd: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" }).format(new Date(`${ymd}T12:00:00Z`));
+  const today = todayYmd(), weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const weekendFrom = rentalDatePlusDays(today, weekday === 0 ? -2 : weekday === 6 ? -1 : (5 - weekday + 7) % 7);
+  const weekendTo = rentalDatePlusDays(weekendFrom, 2);
+  const weekendQuery = new URLSearchParams({ from: weekendFrom, to: weekendTo, status: "all", ...(token ? { token } : {}) });
+  const unsignedCount = loadedBookings.filter(b => canRequestAgreement(b.status, agreementMap.get(b.id)?.[0])).length;
   const baseQuery = `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
   const pendingApprovalEndpoints = bookings
     .filter((booking) => booking.status === "pending")
@@ -339,6 +359,7 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
       <AdminNav token={token} role={auth.role} active="rentals" />
 
       <div className="mt-5 flex flex-wrap gap-2 print:hidden">
+        <Link href={`/admin/rentals?${weekendQuery}`} className="rounded-full bg-cyan-800 px-4 py-2 text-sm font-black text-white hover:bg-cyan-900">This weekend · {formatDate(weekendFrom)}–{formatDate(weekendTo)}</Link>
         <Link
           href="/admin/deliveries"
           className="rounded-full bg-amber-300 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-200"
@@ -355,43 +376,37 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
       </div>
 
       {auth.role === "owner" ? <RentalAgreementTemplateEditor /> : null}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:hidden">
-        <StatTile
-          label="Waiting approval"
-          value={summary.pending ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=pending`}
-        />
-        <StatTile
-          label="Approved rentals"
-          value={summary.approved ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=approved`}
-        />
-        <StatTile
-          label="Rejected rentals"
-          value={summary.rejected ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=rejected`}
-        />
-        <StatTile
-          label="Cancelled rentals"
-          value={summary.cancelled ?? 0}
-          href={`/admin/rentals?${baseQuery}&status=cancelled`}
-        />
+      <div className="mt-4 flex flex-wrap gap-2 text-sm print:hidden">
+        {[{ label: "Waiting approval", count: summary.pending ?? 0, status: "pending" }, { label: "Approved", count: summary.approved ?? 0, status: "approved" }, { label: "Rejected", count: summary.rejected ?? 0, status: "rejected" }, { label: "Cancelled", count: summary.cancelled ?? 0, status: "cancelled" }].map(item => <Link key={item.status} className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 hover:border-cyan-500" href={`/admin/rentals?${baseQuery}&status=${item.status}`}>{item.label} <span className="ml-1 font-black text-slate-950">{item.count}</span></Link>)}
+        <Link className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 font-semibold text-amber-950" href={`/admin/rentals?${baseQuery}&status=${status}&agreement=unsigned`}>Unsigned agreements <span className="ml-1 font-black">{unsignedCount}</span></Link>
       </div>
-
-      <div className="mt-8 grid gap-5">
+      <form action="/admin/rentals" className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto_auto] print:hidden">
+        <input type="hidden" name="token" value={token} /><input type="hidden" name="from" value={from} /><input type="hidden" name="to" value={effectiveTo} /><input type="hidden" name="status" value={status} />
+        <label className="text-xs font-bold text-slate-600">Find a rental<input type="search" name="q" defaultValue={resolved?.q ?? ""} placeholder="Customer, rental, city, phone or booking #" className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base font-normal text-slate-950" /></label>
+        <label className="text-xs font-bold text-slate-600">Agreement status<select name="agreement" defaultValue={agreementFilter} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-normal text-slate-950"><option value="all">All agreements</option><option value="unsigned">Unsigned active rentals</option><option value="attention">Needs attention</option></select></label>
+        <button className="min-h-11 self-end rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">Apply</button>
+      </form>
+      <RentalAgreementBatch bookings={bookings.map(b => ({ id: b.id, customerName: b.customerName, customerEmail: b.customerEmail, eventDate: b.eventDate, rentalNames: productSummary(b.items.map(i => i.rental_name)), city: cityFromAddress(b.eventAddress), status: b.status, agreement: agreementMap.get(b.id)?.[0] }))} />
+      <p className="mt-5 text-sm font-semibold text-slate-600 print:hidden">{bookings.length} rentals shown · Click a square to expand all booking details.</p>
+      <div className="mt-3 grid items-start gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 print:hidden">
         {bookings.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-lg font-bold">No rentals found.</p>
             <p className="mt-2 text-sm text-slate-600">
               Adjust the date range or status filter.
             </p>
           </div>
         ) : (
-          bookings.map((booking) => (
-            <RentalCard key={booking.id} booking={booking} agreements={(agreementMap.get(booking.id) ?? []).map(a => ({ ...a, path: customerAgreementPath(a.id) }))} />
-          ))
+          bookings.map((booking) => {
+            const state = agreementState(booking.customerName, agreementMap.get(booking.id)?.[0]);
+            const tone = state === "signed" ? "bg-emerald-100 text-emerald-900" : state === "failed" ? "bg-rose-100 text-rose-900" : state === "awaiting" ? "bg-sky-100 text-sky-900" : "bg-amber-100 text-amber-950";
+            return <RentalBookingSquare key={booking.id} id={booking.id} rentalNames={productSummary(booking.items.map(i => i.rental_name))} city={cityFromAddress(booking.eventAddress)} date={booking.spanDays > 1 ? `${formatDate(booking.eventDate)}–${formatDate(rentalDatePlusDays(booking.eventDate, booking.spanDays - 1))}` : formatDate(booking.eventDate)} customerName={booking.customerName} bookingStatus={<StatusBadge status={booking.status} />} agreementLabel={agreementStateLabel[state]} agreementTone={tone}>
+              <RentalCard booking={booking} agreements={(agreementMap.get(booking.id) ?? []).map(a => ({ ...a, path: customerAgreementPath(a.id) }))} />
+            </RentalBookingSquare>;
+          })
         )}
       </div>
+      <div className="hidden print:grid print:gap-4">{bookings.map(booking => <RentalCard key={booking.id} booking={booking} agreements={[]} />)}</div>
     </AdminShell>
   );
 }

@@ -1,4 +1,17 @@
 -- Prepare old bookings without replacing a current agreement, and retain paper evidence privately.
+-- Include agreed daily charges in the state checked when preparing/signing a version.
+-- Null retains the state shape of existing one-day agreements.
+create or replace function public.rental_agreement_booking_state(p_booking public.bookings) returns jsonb
+language sql stable set search_path = public, pg_temp as $$
+  select jsonb_object_agg(key,value) || case when p_booking.rental_day_charges is null then '{}'::jsonb
+    else jsonb_build_object('rental_day_charges',p_booking.rental_day_charges) end
+  from jsonb_each(to_jsonb(p_booking))
+  where key = any(array['customer_name','customer_email','customer_phone','rental_item','rental_name',
+    'event_date','duration','foam_duration','span_days','event_address','delivery_time','event_start_time',
+    'requested_delivery_window','delivery_fee','mileage_fee','setup_location','setup_surface','setup_access',
+    'setup_notes','payment_method','subtotal','total']);
+$$;
+
 alter table public.rental_agreements
   add column signature_method text not null default 'electronic' check (signature_method in ('electronic', 'paper')),
   add column paper_copy_path text,
@@ -13,6 +26,10 @@ alter table public.rental_agreements
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('rental-agreement-paper', 'rental-agreement-paper', false, 4194304, array['application/pdf','image/jpeg','image/png'])
 on conflict (id) do nothing;
+-- Keep paper records private even if a broader storage policy is introduced later.
+create policy rental_agreement_paper_service_only on storage.objects as restrictive
+for all to anon, authenticated using (bucket_id <> 'rental-agreement-paper')
+with check (bucket_id <> 'rental-agreement-paper');
 
 create function public.protect_rental_agreement_paper() returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin

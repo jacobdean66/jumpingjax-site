@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "Invalid upload." }, { status: 400 }); }
   const file = form.get("file"), agreementId = form.get("agreementId"), requestId = form.get("requestId"), name = form.get("name"), signedOn = form.get("signedOn");
   if (!(file instanceof File) || !file.size || file.size > 4 * 1024 * 1024 || typeof agreementId !== "string" || !uuid.test(agreementId)
-    || typeof requestId !== "string" || !uuid.test(requestId) || !validSignerName(name) || typeof signedOn !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(signedOn)) {
+    || typeof requestId !== "string" || !uuid.test(requestId) || !validSignerName(name) || typeof signedOn !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(signedOn) || form.get("verified") !== "true") {
     return NextResponse.json({ error: "Enter the signer’s name, signature date, and a signed PDF, JPG or PNG smaller than 4 MB." }, { status: 400 });
   }
   const bytes = Buffer.from(await file.arrayBuffer());
