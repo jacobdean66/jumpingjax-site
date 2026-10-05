@@ -61,9 +61,9 @@ export function buildAgentWiring(input: {
     {
       key: "party-invitation",
       state: "connected",
-      handler: "Character search workflow and deterministic layout composer",
-      trigger: "Invitation builder actions",
-      summary: "Looks up artwork, confirms and saves pictures, composes layouts, and verifies booking storage. Success requires a saved confirmed booking.",
+      handler: "Invitation workflow with deterministic supervisor verification",
+      trigger: "Invitation activity queues supervision; existing worker checks every five minutes",
+      summary: "Tracks search, confirmation, composition and saved-booking checks. The supervisor independently rechecks approved artwork and booking persistence; no additional AI generation or customer messages.",
       supervisorDispatch: false,
       canPause: false,
     },

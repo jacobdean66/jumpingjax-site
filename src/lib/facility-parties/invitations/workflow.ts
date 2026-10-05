@@ -51,6 +51,9 @@ export async function searchInvitationWorkflow(body: unknown, options: { provide
 
 export async function confirmInvitationWorkflow(body: unknown) {
   const operationId = randomUUID(), started = Date.now();
+  if (body && typeof body === 'object' && 'confirmed' in body && body.confirmed === true) {
+    await recordInvitationEvent('operation_started', { operationId, stage: 'confirmation' });
+  }
   try {
     const design = await confirmInvitationTheme(body, { persist: (_url, candidate) => approveCatalogTheme(candidate) });
     await recordInvitationEvent('confirmation_saved', { operationId, stage: 'confirmation', imageId: design.theme.imagePath.split('/').pop() });
@@ -62,7 +65,11 @@ export async function confirmInvitationWorkflow(body: unknown) {
 
 export async function composeInvitationWorkflow(input: InvitationAgentInput) {
   if (!input.confirmedTheme) throw new Error('theme_confirmation_required');
-  const result = runInvitationAgent(input);
-  await recordInvitationEvent('invitation_composed', { stage: 'composition', imageId: result.snapshot.confirmedTheme?.imagePath.split('/').pop() });
-  return result;
+  const operationId = randomUUID(), started = Date.now();
+  await recordInvitationEvent('operation_started', { operationId, stage: 'composition' });
+  try {
+    const result = runInvitationAgent(input);
+    await recordInvitationEvent('invitation_composed', { operationId, stage: 'composition', imageId: result.snapshot.confirmedTheme?.imagePath.split('/').pop() });
+    return result;
+  } catch (error) { await failure(error, 'composition', operationId, started); throw error; }
 }

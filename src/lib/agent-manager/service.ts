@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { configuredDeterministicWorkers, selectWorker } from "./worker";
+import { INVITATION_SUPERVISION_JOB_TYPE } from "./invitation-supervisor";
 import type { AgentDashboard, AgentJob } from "./types";
 
 const SAFE_JOB_TYPES = new Set(["system.health_check"]);
@@ -44,7 +45,16 @@ export async function runOne(workerId: string): Promise<AgentJob | null> {
   const nextRetry = retry ? new Date(Date.now() + Math.min(300_000, 5_000 * 2 ** job.attempt_count)).toISOString() : null;
   const { data: updated, error: updateError } = await db.from("agent_jobs").update({ status, result_summary: result.ok ? result.summary : null, error_summary: result.ok ? null : result.summary, completed_at: retry ? null : finished, next_retry_at: nextRetry, claimed_by: null, lease_expires_at: null, updated_at: finished }).eq("id", job.id).eq("claimed_by", workerId).select("*").single();
   if (updateError) throw new Error(`Unable to finish job: ${updateError.message}`);
-  await db.from("agents").update({ status: result.ok ? "idle" : retry ? "idle" : "error", current_job_id: null, last_activity_at: finished, ...(result.ok ? { last_success_at: finished } : {}), updated_at: finished }).eq("id", job.agent_id);
+  const invitationReview = job.job_type === INVITATION_SUPERVISION_JOB_TYPE;
+  let pendingInvitation: { id: string } | null = null;
+  if (invitationReview && result.ok) {
+    const pending = await db.from("agent_jobs").select("id").eq("agent_id", job.agent_id)
+      .eq("job_type", INVITATION_SUPERVISION_JOB_TYPE).neq("id", job.id)
+      .in("status", ["queued", "claimed", "running"]).order("created_at", { ascending: true }).limit(1).maybeSingle();
+    if (pending.error) throw new Error("Invitation supervision activity unavailable.");
+    pendingInvitation = pending.data;
+  }
+  await db.from("agents").update({ status: result.ok ? pendingInvitation ? "working" : "idle" : retry ? invitationReview ? "working" : "idle" : "error", current_job_id: pendingInvitation?.id ?? null, last_activity_at: finished, ...(result.ok && (!invitationReview || job.payload.stage === "booking") ? { last_success_at: finished } : {}), updated_at: finished }).eq("id", job.agent_id);
   await db.from("agent_events").insert({ agent_id: job.agent_id, job_id: job.id, event_type: result.ok ? "job.succeeded" : retry ? "job.retry_scheduled" : "job.failed", summary: result.summary });
   return updated as AgentJob;
 }
