@@ -12,6 +12,7 @@ import {
 import { createServiceRoleClient } from "../../supabase/admin";
 import { resolveActiveBoundMetaPageForPublicationTarget } from "./social-meta-asset-binding-service";
 import { publishOrganicMetaPagePost } from "./social-meta-page-publish-service";
+import { metaSchedulerFailure } from "./social-meta-scheduler-errors";
 
 export type MetaScheduledPublicationState =
   | "pending"
@@ -190,11 +191,7 @@ export async function scheduleMetaOrganicPublication(input: {
     });
     return { ok: true, schedule };
   } catch (error) {
-    return {
-      ok: false,
-      code: "schedule_store_failed",
-      message: error instanceof Error ? error.message : "Scheduled publication could not be stored.",
-    };
+    return { ok: false, ...metaSchedulerFailure(error) };
   }
 }
 
@@ -277,7 +274,7 @@ function createSupabaseScheduledPublicationStore(): ScheduledPublicationStore {
         p_scheduled_for: input.scheduledFor,
         p_created_by_actor: input.createdByActor,
       });
-      if (error) throw new Error(error.message);
+      if (error) throw error;
       const row = (data as ScheduledPublicationRow[] | null)?.[0];
       if (!row) throw new Error("Scheduled publication store returned no record.");
       return mapRow(row);
@@ -287,7 +284,7 @@ function createSupabaseScheduledPublicationStore(): ScheduledPublicationStore {
       const { data, error } = await client.rpc("claim_due_social_meta_scheduled_publications", {
         p_limit: limit,
       });
-      if (error) throw new Error(error.message);
+      if (error) throw error;
       return ((data ?? []) as ScheduledPublicationRow[]).map(mapRow);
     },
     async complete(input) {
@@ -299,7 +296,7 @@ function createSupabaseScheduledPublicationStore(): ScheduledPublicationStore {
         p_result_code: input.resultCode,
         p_result_message: input.resultMessage,
       });
-      if (error) throw new Error(error.message);
+      if (error) throw error;
     },
   };
 }

@@ -6,6 +6,7 @@ Meta Marketing API reporting and owner-triggered individual-ad pause controls fo
 
 - Page: `/admin/ad-analytics` (owner-only, inherits admin `noindex`)
 - API: `GET /api/admin/ad-analytics` (owner-only, `Cache-Control: private, no-store`)
+- Pause API: `POST /api/admin/ad-analytics` with `action: pause_ad` and `adId` (owner-only, fresh permission check)
 - Admin home card: **Ad Analytics**
 
 ## Permissions
@@ -17,7 +18,7 @@ Required Meta permissions for analytics:
 
 Not required for analytics:
 
-- `ads_management`
+- `ads_management` is optional for reading but required before the existing Stop control can pause an ad.
 - Page/Instagram publishing scopes (`pages_manage_posts`, `instagram_content_publish`, etc.)
 
 Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. The flow requests `ads_read`, `ads_management` and `business_management` and stores an analytics-purpose session (`ad-analytics` target id). Existing `ads_read` sessions can report without management access. Stop controls require a live granted `ads_management` permission; the API checks it separately. Publication OAuth remains separate.
@@ -26,7 +27,7 @@ Also confirm in Meta Developer / Business settings:
 
 1. App has Marketing API access for the Jumping Jax Business Portfolio.
 2. The connected user can see ad account `1711925889991527` (and any future accounts).
-3. Facebook Page `Jumping Jax LLC` remains bound as today.
+3. Facebook publishing has its own connected publication session, Page discovery, and active Page binding. Analytics success does not verify that setup.
 
 ## Environment variables
 
@@ -47,6 +48,8 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 - Token loading: latest connected analytics session (`publication_target_id = ad-analytics` with intent scopes including `ads_read`) → encrypted vault decrypt
 - Live reads with no paid-ad persistence tables; owner-only `POST /api/admin/ad-analytics` accepts `pause_ad` for an individual ad.
 - Account discovery: `GET /me/adaccounts` (dynamic; not hard-coded to the giveaway account)
+- Link CTR = link clicks / impressions; link CPC = spend / link clicks. Meta's all-click `ctr` / `cpc` fields are not substituted into these link metrics.
+- Date presets and site funnel dates use `America/Indiana/Indianapolis`; Meta reports use the selected ad account timezone shown in the dashboard.
 
 ## Production verification checklist
 
@@ -60,6 +63,8 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 5. Date presets and status filters work.
 6. Manual refresh updates “Last fetched” in Eastern time. This is the request time, not proof that Meta attribution is final.
 7. No access tokens appear in HTML, network JSON, or logs.
+8. Record `ads_read` and `ads_management` separately. A failed permission endpoint read stays an unavailable/rate-limited/expired state, not a claim that consent was declined.
+9. Only test Pause when the owner explicitly authorizes that exact ad change; reporting acceptance does not authorize or prove Pause acceptance.
 
 ## Explicit non-goals
 

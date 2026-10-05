@@ -12,7 +12,7 @@ type Readiness = {
   enabled: boolean;
   configured: boolean;
   live: boolean;
-  status: "CALL READY" | "VOICEMAIL READY" | "SETUP REQUIRED";
+  status: "ACCEPTANCE REQUIRED" | "SETUP REQUIRED";
   missing: readonly string[];
   captureRules: { facilityParty: string[]; rental: string[] };
 };
@@ -334,7 +334,7 @@ export function AnsweringMachineInbox({ initialCalls, rentalOptions, readiness, 
 
   return (
     <>
-      <section className={`mt-7 rounded-3xl border p-5 ${readiness.live ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+      <section className="mt-7 rounded-3xl border border-amber-200 bg-amber-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-slate-600">Phone connection</p>
@@ -343,13 +343,13 @@ export function AnsweringMachineInbox({ initialCalls, rentalOptions, readiness, 
               Facility parties capture the event date and start time. Rentals—including foam parties—capture the rental selection and event date.
             </p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-black text-white ${readiness.live ? "bg-emerald-700" : "bg-amber-700"}`}>{readiness.status}</span>
+          <span className="rounded-full bg-amber-700 px-3 py-1 text-xs font-black text-white">{readiness.status}</span>
         </div>
-        {!readiness.live ? (
-          <p className="mt-4 rounded-2xl bg-white p-3 text-sm font-bold text-amber-950">
-            The review inbox is prepared, but WhatsApp stays disabled until Meta credentials and the selected voice mode are connected.
-          </p>
-        ) : null}
+        <p className="mt-4 rounded-2xl bg-white p-3 text-sm font-bold text-amber-950">
+          {readiness.live
+            ? "Webhook intake is enabled. Configuration alone does not verify the Meta connection. Confirm a controlled WhatsApp call, recording playback, and owner review before relying on this service."
+            : "The review inbox is prepared, but WhatsApp stays disabled until Meta credentials and the selected voice mode are configured and intake is enabled."}
+        </p>
       </section>
 
       <section className="mt-7">

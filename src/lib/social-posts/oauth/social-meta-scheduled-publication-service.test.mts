@@ -105,6 +105,8 @@ function configure(input: {
   authorization?: SocialExecutionAuthorizationRecord;
   jobs?: MetaScheduledPublication[];
   publishResult?: Record<string, unknown>;
+  createError?: unknown;
+  claimError?: unknown;
 } = {}) {
   const created: MetaScheduledPublication[] = [];
   const completed: Record<string, unknown>[] = [];
@@ -159,6 +161,7 @@ function configure(input: {
     },
     store: {
       async create(values) {
+        if (input.createError) throw input.createError;
         const record = scheduleRecord({
           socialPostId: values.socialPostId,
           publicationTargetId: values.publicationTargetId,
@@ -171,6 +174,7 @@ function configure(input: {
         return record;
       },
       async claimDue() {
+        if (input.claimError) throw input.claimError;
         return jobs;
       },
       async complete(values) {
@@ -247,4 +251,23 @@ test("uncertain Meta completion stops the schedule for manual review", async () 
   assert.equal(state.completed[0]?.state, "recovery_required");
 });
 
-configureMetaScheduledPublicationTestDependencies(null);
+test("missing scheduler schema returns a specific sanitized setup failure without publishing", async () => {
+  const state = configure({ createError: { code: "PGRST202", message: "private database detail secret=fixture" } });
+  const result = await scheduleMetaOrganicPublication({ socialPostId: POST_ID, publicationTargetId: TARGET_ID, pageId: "page-1", authorizationId: AUTHORIZATION.authorizationId, scheduledFor: "2026-10-01T12:00:00.000Z", adminActorId: "owner" });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.code, "scheduler_schema_unavailable");
+    assert.match(result.message, /20260925130000/);
+    assert.doesNotMatch(result.message, /secret=fixture/);
+  }
+  assert.equal(state.getPublishCalls(), 0);
+});
+
+test("failed scheduler storage never returns database details", async () => {
+  configure({ createError: new Error("postgres password=fixture") });
+  const result = await scheduleMetaOrganicPublication({ socialPostId: POST_ID, publicationTargetId: TARGET_ID, pageId: "page-1", authorizationId: AUTHORIZATION.authorizationId, scheduledFor: "2026-10-01T12:00:00.000Z", adminActorId: "owner" });
+  assert.equal(result.ok, false);
+  assert.doesNotMatch(JSON.stringify(result), /password=fixture/);
+});
+
+test.afterEach(() => configureMetaScheduledPublicationTestDependencies(null));

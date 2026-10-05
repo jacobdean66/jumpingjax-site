@@ -3022,6 +3022,16 @@ export default async function AdminPublicationExecutionPage({
             </div>
           ) : null}
 
+          {!enabledTargetsResult.ok ? (
+            <div role="alert" className="mt-4 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-950">
+              Facebook publication targets could not be loaded ({enabledTargetsResult.error.code}).
+              {enabledTargetsResult.error.validationErrors?.length
+                ? ` Repair target fields: ${[...new Set(enabledTargetsResult.error.validationErrors.map((error) => error.path))].join(", ")}.`
+                : " Check publication target storage access."}
+              {" "}This does not mean no targets exist.
+            </div>
+          ) : null}
+
           {auth.role !== "owner" ? (
             <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
               Signed in as {auth.role}. Connect / Discover / Bind / Refresh require the owner account.
@@ -3050,7 +3060,7 @@ export default async function AdminPublicationExecutionPage({
                 className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold"
               >
                 {enabledPublicationTargets.length === 0 && !metaTargetId ? (
-                  <option value="">No enabled Facebook targets</option>
+                  <option value="">{enabledTargetsResult.ok ? "No enabled Facebook targets" : "Facebook targets unavailable"}</option>
                 ) : null}
                 {metaTargetId &&
                 !enabledPublicationTargets.some((target) => target.targetId === metaTargetId) ? (

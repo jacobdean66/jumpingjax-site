@@ -42,24 +42,15 @@ export async function checkMetaAdsReadPermission(input: {
     });
 
   if (!result.ok) {
-    // Fall back: treat permission endpoint failure as unknown → caller may probe adaccounts.
-    if (result.error.code === "permission_missing" || result.error.code === "token_expired") {
-      return {
-        ok: false,
-        hasAdsRead: false,
-        hasAdsManagement: false,
-        hasBusinessManagement: false,
-        hasRequiredScopes: false,
-        error: result.error,
-      };
-    }
+    // A failed read is not evidence that the owner declined a permission.
+    // Preserve rate-limit/network/provider failures and fail closed for ad writes.
     return {
-      ok: true,
+      ok: false,
       hasAdsRead: false,
       hasAdsManagement: false,
       hasBusinessManagement: false,
       hasRequiredScopes: false,
-      granted: [],
+      error: result.error,
     };
   }
 

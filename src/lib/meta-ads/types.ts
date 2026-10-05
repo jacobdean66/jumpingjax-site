@@ -150,12 +150,12 @@ export type MetaAdsDashboardViewModel = Readonly<{
 
 export const META_ADS_METRIC_GLOSSARY = [
   {
-    term: "CTR",
+    term: "Link CTR",
     meaning:
       "Click-through rate: link clicks divided by impressions, shown as a percentage.",
   },
   {
-    term: "CPC",
+    term: "Link CPC",
     meaning: "Cost per click: spend divided by link clicks when clicks exist.",
   },
   {

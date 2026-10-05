@@ -390,7 +390,7 @@ export function AdAnalyticsClient({
             </h2>
           </div>
           <p className="text-xs font-semibold text-slate-600">
-            Same Indiana date range as the Meta totals below
+            Selected dates in America/Indiana/Indianapolis; Meta totals use the ad account timezone
           </p>
         </div>
 
