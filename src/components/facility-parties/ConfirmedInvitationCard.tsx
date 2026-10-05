@@ -28,7 +28,7 @@ export function ConfirmedInvitationCard({ snapshot, childName, childAge, custome
           <p className={styles.venue}><strong>{FACILITY_INVITATION_VENUE.name}</strong><br />{FACILITY_INVITATION_VENUE.address}</p>
           {customerPhone ? <p>Party contact: {customerPhone}</p> : null}
         </div>
-        {qrUrl ? <div className={styles.qr}><InvitationQr src={qrUrl} href={waiverUrl} className={styles.qrImage} /><p>RSVP &amp; guest list</p></div> : null}
+        {qrUrl ? <div className={styles.qr}><InvitationQr src={qrUrl} href={waiverUrl} className={styles.qrImage} /><p>Scan to check in as soon as you know you’re coming.</p></div> : null}
       </footer>
     </div>
   </article>;

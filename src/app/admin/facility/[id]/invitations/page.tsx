@@ -23,7 +23,7 @@ import {
 } from "@/lib/facility-parties/invitations";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
 import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
-import { InvitationArtworkRequired } from "@/components/facility-parties/InvitationArtworkRequired";
+import { AdminInvitationEditor } from "@/components/facility-parties/AdminInvitationEditor";
 import { buildInvitationEmailDraft } from "@/lib/facility-parties/invitations/content";
 import {
   facilityInvitationShareUrl,
@@ -181,7 +181,8 @@ export default async function FacilityInvitationsPage({
     approvedPrint: storedSnapshot.approvedPrint,
   });
 
-  if (invitationNeedsArtworkConfirmation(agentResult.snapshot)) return <AdminShell><AdminHeader eyebrow="Facility Invitations" title="Invitation picture needs confirmation" /><AdminNav token="" role={auth.role} active="facility" /><InvitationArtworkRequired themeText={agentResult.snapshot.sourceText} bookingId={data.id} /></AdminShell>;
+  const editor = <AdminInvitationEditor bookingId={data.id} themeText={clean(data.party_theme)} childName={clean(data.child_name) || "Birthday Star"} childAge={clean(data.child_age)} customerPhone={clean(data.phone)} dateLabel={clean(data.readable_date)} timeLabel={clean(data.readable_time)} waiverUrl={waiverUrl} />;
+  if (invitationNeedsArtworkConfirmation(agentResult.snapshot)) return <AdminShell><AdminHeader eyebrow="Facility Invitations" title={`${clean(data.child_name) || "Birthday"} invitations`} /><AdminNav token="" role={auth.role} active="facility" />{editor}<Link href={`/admin/facility#booking-${encodeURIComponent(data.id)}`} className="font-bold text-sky-700 underline">Back to party</Link></AdminShell>;
 
   return (
     <AdminShell>
@@ -252,6 +253,8 @@ export default async function FacilityInvitationsPage({
         </div>
       </AdminHeader>
       <AdminNav token="" role={auth.role} active="facility" />
+
+      {editor}
 
       <style>{`
         @media print {
