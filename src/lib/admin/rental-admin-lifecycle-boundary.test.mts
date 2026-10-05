@@ -54,7 +54,8 @@ test("existing approval and rejection transitions remain intact", () => {
 
 test("Cancelled tab exposes original details and restore action", () => {
   const page = source("../../app/admin/rentals/page.tsx");
-  assert.match(page, /status=cancelled/);
+  assert.match(page, /status:\s*"cancelled"/);
+  assert.match(page, /status=\$\{item.status\}/);
   assert.match(page, /RentalRestoreButton/);
   for (const label of ["Address", "Subtotal", "Total"]) {
     assert.match(page, new RegExp(`label="${label}"`));

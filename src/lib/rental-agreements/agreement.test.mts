@@ -49,5 +49,7 @@ test("dashboard mutations require authentication and template editing requires o
   const admin = readFileSync(new URL("../../app/api/admin/rentals/[id]/agreement/route.ts",import.meta.url),"utf8");
   const templateRoute = readFileSync(new URL("../../app/api/admin/rental-agreement-template/route.ts",import.meta.url),"utf8");
   assert.match(admin,/verifyAdminAccess/); assert.match(admin,/\.eq\("booking_id", id\)|loadAgreementById\(id,/);
-  assert.match(templateRoute,/verifyAdminOwnerAccess/); assert.match(admin,/sendDurableBookingEmail/);
+  const delivery = readFileSync(new URL("./delivery.ts",import.meta.url),"utf8");
+  assert.match(templateRoute,/verifyAdminOwnerAccess/); assert.match(admin,/emailRentalAgreement/);
+  assert.match(delivery,/sendDurableBookingEmail/);
 });

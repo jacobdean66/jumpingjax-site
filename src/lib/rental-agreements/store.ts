@@ -13,7 +13,7 @@ export async function loadAgreementTemplate(): Promise<RentalAgreementTemplate> 
 }
 export function customerAgreementPath(id: string) { return `/rental-agreement/${agreementToken(id)}`; }
 
-const SELECT = "id,booking_id,version,status,snapshot,created_at,signed_at,signer_legal_name,acknowledged,email_status,last_emailed_at,reviewed_by,reviewed_at";
+const SELECT = "id,booking_id,version,status,snapshot,created_at,signed_at,signer_legal_name,acknowledged,email_status,last_emailed_at,reviewed_by,reviewed_at,signature_method,paper_copy_path,paper_signed_on,paper_recorded_by,paper_recorded_at";
 export async function loadAgreementHistory(ids: string[]) {
   const map = new Map<string, RentalAgreement[]>();
   if (!ids.length) return map;
@@ -62,6 +62,8 @@ export async function loadBookingAgreementContext(id: string) {
   snapshot.paidTotal = payment.paidCents / 100;
   snapshot.balanceDue = payment.balanceCents == null ? 0 : payment.balanceCents / 100;
   snapshot.bookingState = state;
+  snapshot.dayCharges = row.rental_day_charges ?? null;
+  if (snapshot.dayCharges !== null) snapshot.duration = `${snapshot.spanDays} ${snapshot.spanDays === 1 ? "day" : "days"}`;
   if (row.total == null) snapshot.pricingLabel = "Quote is not set. Contact Jumping Jax for pricing before payment.";
   return { snapshot, history: history.get(id) ?? [], status: row.status, customerEmail: row.customer_email as string };
 }
