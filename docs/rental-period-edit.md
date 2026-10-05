@@ -11,6 +11,12 @@ rejected. Historical bookings with no daily breakdown retain their agreed price;
 the editor explains this before enabling new duration/charge choices. No current
 extra-day tariff exists, so staff enter the agreed extra-day amount explicitly.
 
+Public checkout offers a second-day quote request. It tells customers staff will
+call with discounted pricing based on weekend availability, without promising a
+free day. The request is saved in the rental card's setup notes and agreement
+snapshot. Checkout still prices and reserves one day; staff add the second day
+and its agreed charge in the rental card after the customer confirms the quote.
+
 Migration `20261004180000_rental_period_edit.sql` must precede the application
 deployment. Its reservation guard serializes booking/item mutations, including
 existing checkout RPCs, direct admin writes and restores. A guard-row update also

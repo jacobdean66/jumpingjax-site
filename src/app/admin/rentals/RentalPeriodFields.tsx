@@ -26,6 +26,7 @@ export function RentalPeriodFields({ booking }: { booking: AdminRentalBooking })
 
   return <fieldset className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4 sm:col-span-2">
     <legend className="px-1 text-sm font-black text-sky-900">Rental dates and charges</legend>
+    <p className="text-sm">After calling the customer, choose the rental length and enter the agreed extra-day charge below. Extra days are not automatically free; choose Free only when you have agreed to waive that day&apos;s charge.</p>
     <label className="block text-sm font-bold">Start date
       <input name="eventDate" type="date" required value={date} onChange={event => setDate(event.target.value)} className={inputClass} />
     </label>

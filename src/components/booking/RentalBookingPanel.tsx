@@ -350,6 +350,7 @@ export function RentalBookingPanel({
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(ONE_DAY_RENTAL_DURATION.id);
+  const [secondDayQuoteRequested, setSecondDayQuoteRequested] = useState(false);
   const [foamDurationId, setFoamDurationId] = useState(
     FOAM_DURATION_OPTIONS[0]!.id,
   );
@@ -670,6 +671,7 @@ export function RentalBookingPanel({
           setup_surface: customer.setupSurface,
           setup_access: customer.setupAccess,
           setup_notes: customer.setupNotes,
+          second_day_quote_requested: !isFoamOnlyCart && secondDayQuoteRequested,
           payment_method: customer.paymentMethod,
           duration: duration?.label ?? "",
           foam_duration: effectiveFoamDurationLabel ?? "",
@@ -1050,9 +1052,15 @@ export function RentalBookingPanel({
                         onChange={setDurationId}
                       />
                     ) : (
-                      <p className="rounded-2xl border border-cyan-300/40 bg-cyan-400/10 px-4 py-4 text-sm font-bold text-cyan-50">
-                        Rental duration: {ONE_DAY_RENTAL_DURATION.label}
-                      </p>
+                      <div className="space-y-3 rounded-2xl border border-cyan-300/40 bg-cyan-400/10 px-4 py-4 text-sm text-cyan-50">
+                        <p className="font-bold">Rental duration: {ONE_DAY_RENTAL_DURATION.label}</p>
+                        <p>Need a second day? We&apos;ll call you with a discounted quote based on how busy the weekend is. Extra days are not automatically free.</p>
+                        <label className="flex cursor-pointer items-start gap-3 font-bold">
+                          <input type="checkbox" checked={secondDayQuoteRequested} onChange={event => setSecondDayQuoteRequested(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-cyan-400" />
+                          Request a discounted quote for a second day
+                        </label>
+                        {secondDayQuoteRequested && <p role="status">Your current estimate covers one day. The second day is priced and reserved after you confirm the quote.</p>}
+                      </div>
                     )}
                     {isMixedFoamCart && (
                       <div>
@@ -1084,6 +1092,7 @@ export function RentalBookingPanel({
                   distanceMiles={customer.distanceMiles}
                   promotionDiscount={promotionDiscount}
                 />
+                {!isFoamOnlyCart && secondDayQuoteRequested && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">Second-day quote requested. We&apos;ll call you with discounted pricing. The second day is not included in this estimate.</p>}
                 <CustomerForm value={customer} onChange={setCustomer} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
                   <label className="mb-5 block">
