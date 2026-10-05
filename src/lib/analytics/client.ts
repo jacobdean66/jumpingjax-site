@@ -1,5 +1,7 @@
 "use client";
 
+import { GOOGLE_ADS_RENTAL_DESTINATION } from "./google-ads";
+
 type AnalyticsValue = string | number | boolean | null | undefined;
 
 type AnalyticsWindow = Window & {
@@ -28,4 +30,12 @@ export function trackLead(
     currency: "USD",
     ...parameters,
   });
+  // Count only a successfully persisted rental request, with its ID for deduplication.
+  // A quote is a lead, so do not report its estimated total as paid revenue.
+  if (leadType === "rental_request" && typeof parameters.transaction_id === "string" && parameters.transaction_id) {
+    trackAnalyticsEvent("conversion", {
+      send_to: GOOGLE_ADS_RENTAL_DESTINATION,
+      transaction_id: parameters.transaction_id,
+    });
+  }
 }

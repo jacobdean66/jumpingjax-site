@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { CATEGORY_COPY, getRentalBySlug, RENTALS } from "@/data/rentals";
+import { CATEGORY_COPY, type Rental } from "@/data/rentals";
+import { isInflatablePromotionCategory } from "@/lib/rentals/ad-promotion";
 import { useBookingStore } from "@/store/bookingStore";
 import { RentalBookingPanel } from "./RentalBookingPanel";
 
-export function BookingPageClient() {
+export function BookingPageClient({ rentals }: { rentals: Rental[] }) {
   const rentalId = useBookingStore((s) => s.rentalId);
 
   const rental = useMemo(
-    () => (rentalId ? getRentalBySlug(rentalId) : undefined),
-    [rentalId],
+    () => rentals.find(item => item.slug === rentalId),
+    [rentalId, rentals],
   );
 
   if (!rentalId?.trim() || !rental) {
@@ -63,8 +64,9 @@ export function BookingPageClient() {
             rentalTitle={rental.title}
             startingPrice={rental.startingPrice}
             catalogPrices={Object.fromEntries(
-              RENTALS.map((item) => [item.slug, item.startingPrice]),
+              rentals.map((item) => [item.slug, item.startingPrice]),
             )}
+            promotionEligibleSlugs={rentals.filter(item => isInflatablePromotionCategory(item.categoryId)).map(item => item.slug)}
             initialUnavailableYmds={[]}
             availabilityLoadError={null}
           />

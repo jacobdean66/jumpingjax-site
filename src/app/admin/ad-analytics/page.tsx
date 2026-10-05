@@ -74,6 +74,11 @@ export default async function AdminAdAnalyticsPage({
         <AdminNav token="" role={auth.role} active="ad-analytics" />
       </AdminHeader>
 
+      <nav aria-label="Advertising channels" className="mt-5 flex gap-3 text-sm font-bold">
+        <span className="rounded-full bg-slate-950 px-4 py-2 text-white">Meta Ads</span>
+        <Link href="/admin/ad-analytics/google" className="rounded-full border border-slate-300 px-4 py-2">Google Ads &amp; SEO</Link>
+      </nav>
+
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
         Meta paid-ad performance for every authorized Jumping Jax ad account.
         Dates use Indiana local calendar days. Totals refresh on each load;
