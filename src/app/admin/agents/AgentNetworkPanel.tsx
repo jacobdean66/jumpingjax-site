@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { skills, type NetworkAgentKey, type NetworkSkill, type NetworkTask, type NetworkMessage, type NetworkContext } from "@/lib/agent-manager/network/contracts";
 import type { NetworkOverview } from "@/lib/agent-manager/network/service";
+import { agentWorkspaceHref } from "./navigation";
 type Conversation = { context: NetworkContext; tasks: NetworkTask[]; messages: NetworkMessage[] };
 const active = (task: NetworkTask) => ["queued", "working", "waiting"].includes(task.status);
 async function api(path: string, body?: unknown) {
@@ -32,6 +33,7 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ signature: string; requestId: string } | null>(null);
+  const requestRef = useRef<HTMLFormElement>(null);
   const selected = overview?.directory.find((agent) => agent.key === recipient);
   const refresh = useCallback(async () => {
     const data = await api("/api/admin/agents/network");
@@ -68,6 +70,23 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
     if (id) url.searchParams.set("conversation", id); else url.searchParams.delete("conversation");
     window.history.replaceState(null, "", url);
   }
+  function chooseAgent(key: NetworkAgentKey) {
+    const agent = overview?.directory.find((item) => item.key === key);
+    if (!agent) return;
+    setRecipient(agent.key);
+    setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
+  }
+  useEffect(() => {
+    const select = (event: Event) => {
+      const agent = overview?.directory.find((item) => item.key === (event as CustomEvent<unknown>).detail);
+      if (!agent) return;
+      setRecipient(agent.key);
+      setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
+      selectConversation("");
+    };
+    window.addEventListener("agent-manager:select-agent", select);
+    return () => window.removeEventListener("agent-manager:select-agent", select);
+  }, [overview]);
   async function submit() {
     setBusy(true); setError("");
     try {
@@ -98,21 +117,27 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
     finally { setBusy(false); }
   }
   const field = "w-full rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-900";
-  return <section id="agent-conversations" className="mt-7 rounded-3xl border border-indigo-200 bg-indigo-50 p-5" aria-label="Agent conversations">
+  return <section className="mt-7 rounded-3xl border border-indigo-200 bg-indigo-50 p-5" aria-label="Agent conversations">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-2xl font-black">Agent conversations</h2><p className="mt-1 text-sm text-slate-700">Ask a specialist, follow its handoffs, and keep the reply here. Queued requests run on the existing worker schedule.</p></div>
       <button className="rounded-xl bg-white px-3 py-2 text-sm font-bold" onClick={() => refresh().catch(() => setError("Network unavailable. Apply its migration before activation."))}>Refresh agents</button>
     </div>
     {!overview ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm">Agent network storage is unavailable. Its database migration must be applied before activation.</p> : <>
       <p className="mt-3 text-sm font-bold">{overview.emergencyStop ? "Emergency stop is active." : overview.activeTasks + " active requests"}</p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {overview.directory.map((agent) => <button key={agent.key} className={`rounded-xl border p-3 text-left ${agent.key === recipient ? "border-indigo-500 bg-white" : "border-slate-200 bg-white/70"}`} onClick={() => { setRecipient(agent.key); setSkill(agent.skills.find((s) => s !== "directory") ?? "directory"); }}>
+      <details className="mt-4 rounded-2xl border border-indigo-200 bg-white/60 p-3">
+      <summary className="cursor-pointer text-sm font-black">Browse all {overview.directory.length} agents</summary>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {overview.directory.map((agent) => <button type="button" key={agent.key} aria-pressed={agent.key === recipient} className={`rounded-xl border p-3 text-left hover:border-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-600 ${agent.key === recipient ? "border-indigo-500 bg-white" : "border-slate-200 bg-white/70"}`} onClick={() => { chooseAgent(agent.key); requestRef.current?.scrollIntoView({ block: "center" }); requestRef.current?.querySelector<HTMLSelectElement>("select")?.focus(); }}>
           <span className="block text-sm font-black">{agent.name}</span><span className="block text-xs font-bold text-indigo-800">{agent.status}</span><span className="mt-1 block text-xs text-slate-600">{agent.description}</span>
         </button>)}
       </div>
+      </details>
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <form className="space-y-3 rounded-2xl bg-white p-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <form ref={requestRef} className="space-y-3 rounded-2xl bg-white p-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
           <h3 className="font-black">Ask {selected?.name}</h3>
+          <label className="block text-sm font-bold">Agent<select className={field} value={recipient} onChange={(e) => chooseAgent(e.target.value as NetworkAgentKey)}>{overview.directory.map((agent) => <option key={agent.key} value={agent.key}>{agent.name} · {agent.status}</option>)}</select></label>
+          <p className="text-sm text-slate-600">{selected?.description}</p>
+          {agentWorkspaceHref(recipient) && <a href={agentWorkspaceHref(recipient)} className="inline-flex text-sm font-bold text-indigo-800 underline">Open {selected?.name} workspace →</a>}
           <label className="block text-sm font-bold">Capability<select className={field} value={skill} onChange={(e) => setSkill(e.target.value as NetworkSkill)}>{selected?.skills.map((s) => <option key={s} value={s}>{skills[s].name}</option>)}</select></label>
           {skill === "social_handoff" && <label className="block text-sm font-bold">Post request<textarea className={field} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={800} required placeholder="Describe the post to prepare for review" /></label>}
           {(skill === "booking_review" || skill === "availability_review") && <div className="grid grid-cols-2 gap-3">
@@ -126,6 +151,8 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
           </div>}
           <p className="text-xs text-slate-600">Use operational details only. Booking, publishing, and customer contact keep their existing approval steps.</p>
           <button className="rounded-xl bg-indigo-800 px-4 py-2 font-bold text-white disabled:opacity-50" disabled={busy || !selected?.available}>Queue request</button>
+          {!selected?.available && <p className="text-sm font-bold text-amber-900">Requests are unavailable: this agent is {selected?.status ?? "not registered"}. Review its controls in Agents &amp; activity.</p>}
+          <button type="button" className="ml-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => selectConversation("")}>New conversation</button>
           <label className="block text-sm font-bold">Conversation<select className={field} value={selectedId} onChange={(e) => selectConversation(e.target.value)}><option value="">New conversation</option>{!overview.contexts.some((c) => c.id === selectedId) && selectedId && <option value={selectedId}>Current conversation</option>}{overview.contexts.map((c) => <option key={c.id} value={c.id}>{c.title} · {new Date(c.created_at).toLocaleString()}</option>)}</select></label>
         </form>
         <div className="rounded-2xl bg-white p-4">
