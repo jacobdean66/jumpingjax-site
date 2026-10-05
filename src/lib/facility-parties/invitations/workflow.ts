@@ -10,13 +10,14 @@ import { runInvitationAgent, type InvitationAgentInput } from './agent';
 import { themeSearchRequestSchema } from './theme-search';
 import { ThemeChatCapabilityError } from './theme-search-chat-core';
 import { safeProviderFailure } from './provider-failure';
+import { assertInvitationArtwork } from './artwork-policy';
 
 const categories = new Set(['theme_catalog_lookup_failed', 'theme_catalog_write_failed', 'theme_catalog_confirmation_failed', 'theme_artwork_missing', 'theme_artwork_invalid']);
 async function failure(error: unknown, stage: 'search' | 'confirmation' | 'composition', operationId: string, started: number) {
   const provider = safeProviderFailure(error);
   await recordInvitationEvent('failed', { operationId, stage, elapsedMs: Date.now() - started,
     category: error instanceof ThemeChatCapabilityError ? error.code : error instanceof Error && categories.has(error.message) ? error.message : 'workflow_failed',
-    status: provider.status, providerType: error instanceof ThemeChatCapabilityError ? error.providerType : provider.providerType });
+    status: provider.status, providerType: error instanceof ThemeChatCapabilityError ? error.providerType : provider.providerType, providerErrorType: provider.providerErrorType });
 }
 
 /** The server workflow owns lookup, verification, frozen artwork, confirmation and composition. */
@@ -69,6 +70,7 @@ export async function composeInvitationWorkflow(input: InvitationAgentInput) {
   await recordInvitationEvent('operation_started', { operationId, stage: 'composition' });
   try {
     const result = runInvitationAgent(input);
+    assertInvitationArtwork(result.snapshot);
     await recordInvitationEvent('invitation_composed', { operationId, stage: 'composition', imageId: result.snapshot.confirmedTheme?.imagePath.split('/').pop() });
     return result;
   } catch (error) { await failure(error, 'composition', operationId, started); throw error; }

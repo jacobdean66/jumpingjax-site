@@ -16,6 +16,7 @@ export async function forwardWhatsAppCallToMediaBridge(input: {
     body: input.rawBody,
     signal: AbortSignal.timeout(8_000),
     cache: "no-store",
+    redirect: "error",
   });
   if (!response.ok) throw new Error("Media bridge rejected call event.");
 }

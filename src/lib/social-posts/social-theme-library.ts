@@ -42,6 +42,7 @@ export function resolveSocialThemeLibraryContext(
   if (!theme) return null;
 
   const invitation = runInvitationAgent({ action: "view-single", sourceText: theme });
+  if (invitation.status === "needs_theme_confirmation") return null;
   const snapshot = invitation.snapshot;
   const composition = composeLibraryInvitation({
     themeId: snapshot.themeId,

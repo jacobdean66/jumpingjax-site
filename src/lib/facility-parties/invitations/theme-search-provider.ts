@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resolveOpenAIClientOptions, resolveProtectedOpenAIConfig } from "@/lib/security/protected-openai-config";
 import { searchInvitationThemesWithChat } from "./theme-search-chat-provider";
 import { publicHttpsUrl, themeCandidateSchema, type ThemeCandidate, type ThemeSearchRequest } from "./theme-search";
+import { INVITATION_ARTWORK_RULE } from "./artwork-policy";
 
 const answerSchema = z.object({
   question: z.string().trim().min(1).max(400),
@@ -77,7 +78,7 @@ export async function searchInvitationThemes(input: ThemeSearchRequest) {
   // This model is configurable independently: the deployment must support image search.
   const params: OpenAI.Responses.ResponseCreateParamsNonStreaming & { max_tool_calls: number } = {
     model: process.env.INVITATION_THEME_SEARCH_MODEL?.trim() || "gpt-6-astra",
-    instructions: THEME_SEARCH_INSTRUCTIONS,
+    instructions: `${THEME_SEARCH_INSTRUCTIONS}\n${INVITATION_ARTWORK_RULE}`,
     input: JSON.stringify(input),
     reasoning: { effort: "low" },
     tools: [imageSearch],

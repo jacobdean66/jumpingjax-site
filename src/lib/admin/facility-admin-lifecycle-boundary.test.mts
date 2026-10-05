@@ -28,13 +28,13 @@ test("facility dashboard shows Edit and Cancel only through the shared upcoming 
 
 test("facility dashboard supports a single-day search and per-party pending decisions", () => {
   const page = source("../../app/admin/facility/page.tsx");
-  const components = source("../../app/admin/_components.tsx");
+  const filters = source("../../app/admin/facility/FacilityDashboardFilters.tsx");
 
   assert.match(page, /resolved\?\.day/);
   assert.match(page, /singleDay\s*\?\s*singleDay/);
-  assert.match(page, /singleDay=\{singleDay\}/);
-  assert.match(components, /name="day"/);
-  assert.match(components, /Overrides the range when selected/);
+  assert.match(page, /const to = singleDay \? singleDay/);
+  assert.match(filters, /type="date" name="from"/);
+  assert.match(filters, /type="date" name="to"/);
   assert.match(page, /Pending approval/);
   assert.match(page, /label="Approve party"/);
   assert.match(page, /label="Reject party"/);

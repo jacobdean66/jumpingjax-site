@@ -17,6 +17,8 @@ import {
 } from "@/lib/facility-parties/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
+import { facilityDashboardBounds, matchesFacilityPartySearch, type FacilityPartyView } from "./facility-dashboard";
+import { rentalDashboardQueryBounds, rentalMatchesDashboardDates, type RentalDashboardDates } from "./rental-dashboard-view";
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
@@ -270,18 +272,21 @@ function mapsUrl(address: string | null): string | null {
 }
 
 export async function loadAdminRentalBookings(input: {
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
   status: string;
+  dashboardDates?: RentalDashboardDates;
 }): Promise<{ bookings: AdminRentalBooking[]; summary: AdminStatusSummary }> {
   const supabase = createServiceRoleClient();
+  const bounds = input.dashboardDates ? rentalDashboardQueryBounds(input.dashboardDates) : { from: input.from, to: input.to, ascending: true };
   let query = supabase
     .from("bookings")
     .select(RENTAL_SELECT)
-    .gte("event_date", input.from)
-    .lte("event_date", input.to)
-    .order("event_date", { ascending: true })
-    .order("event_start_time", { ascending: true, nullsFirst: false });
+    .order("event_date", { ascending: bounds.ascending })
+    .order("event_start_time", { ascending: bounds.ascending, nullsFirst: false });
+
+  if (bounds.from) query = query.gte("event_date", bounds.from);
+  if (bounds.to) query = query.lte("event_date", bounds.to);
 
   if (input.status !== "all") {
     query = query.eq("status", input.status);
@@ -290,7 +295,7 @@ export async function loadAdminRentalBookings(input: {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const rows = ((data ?? []) as RentalRow[]).map((row) => ({
+  const rows = ((data ?? []) as RentalRow[]).filter(row => !input.dashboardDates || rentalMatchesDashboardDates(row.event_date, row.span_days, input.dashboardDates)).map((row) => ({
     ...row,
     status: clean(row.status) ?? "pending",
   }));
@@ -375,42 +380,62 @@ export async function loadAdminRentalBookings(input: {
 }
 
 export async function loadAdminFacilityBookings(input: {
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
   status: string;
+  view?: FacilityPartyView;
+  today?: string;
+  search?: string;
 }): Promise<{ bookings: AdminFacilityBooking[]; summary: AdminStatusSummary }> {
   const supabase = createServiceRoleClient();
-  const bounds = facilityAdminUtcBoundsForYmdRange(input);
+  const bounds = input.view && input.today
+    ? facilityDashboardBounds({ ...input, view: input.view, today: input.today })
+    : facilityAdminUtcBoundsForYmdRange({ from: input.from ?? defaultFromYmd(), to: input.to ?? defaultToYmd(input.from ?? defaultFromYmd()) });
   let query = supabase
     .from("facility_bookings")
     .select(FACILITY_SELECT)
-    .gte("start_time", bounds.start)
-    .lt("start_time", bounds.endExclusive)
-    .order("start_time", { ascending: true })
-    .order("created_at", { ascending: false });
+    .order("start_time", { ascending: input.view !== "past" })
+    .order("id", { ascending: true });
+
+  if (bounds.start) query = query.gte("start_time", bounds.start);
+  if (bounds.endExclusive) query = query.lt("start_time", bounds.endExclusive);
 
   if (input.status !== "all") {
     query = query.eq("status", input.status);
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const rows = (data ?? []) as FacilityRow[];
+  const rows: FacilityRow[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await query.range(offset, offset + 499);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as FacilityRow[];
+    rows.push(...page.filter((row) => matchesFacilityPartySearch({
+      childName: row.child_name, parentName: row.parent_name, customerName: row.customer_name,
+      phone: row.phone, startTime: row.start_time, readableDate: row.readable_date,
+    }, input.search ?? "")));
+    if (page.length < 500) break;
+  }
   const bookingIds = rows.map((row) => row.id);
-  const { agreementMap, paymentMap } =
-    await loadAgreementHistoryForBookings(bookingIds);
-  const bookingPaymentMap = await loadBookingPaymentMap("facility", bookingIds);
+  const agreementMap = new Map<string, AdminAgreementSummary[]>();
+  const paymentMap = new Map<string, AgreementPayment[]>();
+  const bookingPaymentMap = new Map<string, BookingPaymentEntry[]>();
   const workflowByBookingId = new Map<
     string,
     { calendar_status: string | null; last_error_class: string | null }
   >();
-  if (bookingIds.length > 0) {
+  for (let offset = 0; offset < bookingIds.length; offset += 100) {
+    const batchIds = bookingIds.slice(offset, offset + 100);
+    const [history, payments] = await Promise.all([
+      loadAgreementHistoryForBookings(batchIds), loadBookingPaymentMap("facility", batchIds),
+    ]);
+    for (const [id, items] of history.agreementMap) agreementMap.set(id, items);
+    for (const [id, items] of history.paymentMap) paymentMap.set(id, items);
+    for (const [id, items] of payments) bookingPaymentMap.set(id, items);
     const { data: workflows, error: workflowError } = await supabase
       .from("booking_integration_workflows")
       .select("booking_id, calendar_status, last_error_class")
       .eq("booking_kind", "facility")
-      .in("booking_id", bookingIds);
+      .in("booking_id", batchIds);
     if (workflowError) {
       console.error("[admin/facility] workflow load failed", {
         code: workflowError.code,

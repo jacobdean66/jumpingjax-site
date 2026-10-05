@@ -33,7 +33,7 @@ test("every rental card, including foam bookings, exposes invoice creation", () 
   assert.ok(cardStart >= 0 && pageStart > cardStart, "RentalCard should exist");
   assert.match(card, /<BookingInvoiceButton kind="rental" bookingId=\{booking\.id\} \/>/);
   assert.match(card, /booking\.foamDuration/);
-  assert.match(page, /bookings\.map\(\(booking\) => \(/);
+  assert.match(page, /bookings\.map\(\(booking\) => [({]/);
   assert.match(page, /<RentalCard key=\{booking\.id\} booking=\{booking\} agreements=/);
 });
 

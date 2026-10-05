@@ -6,6 +6,8 @@ import { InvitationDownloadButton } from "@/components/facility-parties/Invitati
 import { PrintButton } from "@/app/admin/PrintButton";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
+import { InvitationArtworkRequired } from "@/components/facility-parties/InvitationArtworkRequired";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function FacilityInvitationSheetPage({ params, searchParams
   const paperSize = resolvedSearch?.paper === "legal" ? "legal" : "letter";
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  if (invitationNeedsArtworkConfirmation(view.snapshot)) return <main className="min-h-screen bg-white px-4 py-6"><InvitationArtworkRequired themeText={view.snapshot.sourceText} /></main>;
   const portrait = Boolean(view.snapshot.approvedPrint) || (!view.snapshot.confirmedTheme && ["princess-royal", "racing-cars"].includes(view.snapshot.themeId));
   const agentResult = runInvitationAgent({
     action: "view-sheet",

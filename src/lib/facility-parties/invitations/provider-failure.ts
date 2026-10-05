@@ -29,7 +29,7 @@ export function safeProviderFailure(error: unknown): ProviderFailure {
     : name === "APIConnectionError" ? "connection"
     : name === "APIUserAbortError" || errorName === "AbortError" ? "aborted"
     : "unknown";
-  const rawType = field(error, "type");
+  const rawType = field(error, "type") ?? field(error, "providerErrorType") ?? field(field(error, "error"), "type");
   const providerErrorType = typeof rawType === "string" && acceptedErrorTypes.has(rawType as NonNullable<ProviderFailure["providerErrorType"]>)
     ? rawType as NonNullable<ProviderFailure["providerErrorType"]> : undefined;
   return { ...(status !== undefined ? { status } : {}), providerType, ...(providerErrorType ? { providerErrorType } : {}) };

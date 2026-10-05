@@ -1,10 +1,9 @@
 import { ingestAnsweringMachineCall, ingestAnsweringMachineVoicemail } from "@/lib/answering-machine/service";
 import { forwardWhatsAppCallToMediaBridge } from "@/lib/answering-machine/media-bridge";
-import { getWhatsAppAppSecret } from "@/lib/answering-machine/readiness";
+import { readWhatsAppWebhook } from "@/lib/answering-machine/webhook-request";
 import {
   extractWhatsAppCallSignals,
   extractWhatsAppVoicemails,
-  verifyMetaWebhookSignature,
   verifyWebhookChallenge,
 } from "@/lib/answering-machine/whatsapp";
 
@@ -24,20 +23,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (process.env.WHATSAPP_CALLING_ENABLED !== "1") {
-    return Response.json({ ok: false, error: "WhatsApp calling is disabled." }, { status: 503 });
-  }
-  const appSecret = getWhatsAppAppSecret();
-  const rawBody = await request.text();
-  if (!verifyMetaWebhookSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
-    return Response.json({ ok: false, error: "Invalid WhatsApp signature." }, { status: 401 });
-  }
-  let payload: unknown;
-  try {
-    payload = JSON.parse(rawBody) as unknown;
-  } catch {
-    return Response.json({ ok: false, error: "Invalid WhatsApp payload." }, { status: 400 });
-  }
+  const result = await readWhatsAppWebhook(request);
+  if ("error" in result) return Response.json({ ok: false, error: result.error }, { status: result.status });
+  const { payload } = result;
   const signals = extractWhatsAppCallSignals(payload);
   const voicemails = extractWhatsAppVoicemails(payload);
   if (signals.length === 0 && voicemails.length === 0) return Response.json({ ok: true, accepted: 0 });
@@ -45,7 +33,7 @@ export async function POST(request: Request) {
   try {
     for (const signal of signals) await ingestAnsweringMachineCall(signal);
     for (const voicemail of voicemails) await ingestAnsweringMachineVoicemail(voicemail);
-    if (process.env.WHATSAPP_ANSWERING_MODE === "native_voicemail") {
+    if (result.mode === "native_voicemail") {
       return Response.json({ ok: true, accepted: signals.length + voicemails.length });
     }
     const bridgeUrl = process.env.ANSWERING_MACHINE_MEDIA_BRIDGE_URL?.trim();
@@ -53,7 +41,8 @@ export async function POST(request: Request) {
     if (!bridgeUrl || !bridgeSecret || !bridgeUrl.startsWith("https://")) {
       return Response.json({ ok: false, error: "WhatsApp media bridge is not configured." }, { status: 503 });
     }
-    await forwardWhatsAppCallToMediaBridge({ bridgeUrl, bridgeSecret, rawBody });
+    // Forward only this number's selected events, never another account in a signed batch.
+    await forwardWhatsAppCallToMediaBridge({ bridgeUrl, bridgeSecret, rawBody: JSON.stringify(payload) });
     return Response.json({ ok: true, accepted: signals.length + voicemails.length });
   } catch {
     return Response.json({ ok: false, error: "WhatsApp call could not be handed off safely." }, { status: 503 });

@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { ConfirmedInvitationCard } from "./ConfirmedInvitationCard";
+import { InvitationArtworkRequired } from "./InvitationArtworkRequired";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
 import { approvedPrintUrl } from "@/lib/facility-parties/invitations/approved-print";
 import { composeLibraryInvitation } from "@/lib/facility-parties/invitations/library/compose";
 import {
@@ -50,6 +52,7 @@ export function PartyInvitationCard({
   sheetReadable = false,
   sheetMode = false,
 }: PartyInvitationCardProps) {
+  if (invitationNeedsArtworkConfirmation(snapshot)) return <InvitationArtworkRequired themeText={snapshot.sourceText} />;
   const qrUrl = waiverUrl ? buildQrCodeImageUrl(waiverUrl, 300) : suppliedQrUrl;
   if (snapshot.approvedPrint && !snapshot.confirmedTheme) {
     const print = snapshot.approvedPrint;

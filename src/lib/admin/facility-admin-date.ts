@@ -1,5 +1,18 @@
 const ADMIN_TIME_ZONE = "America/New_York";
 
+export function facilityAdminDay(value = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: ADMIN_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function facilityAdminNextMidnight(value = new Date()): string {
+  const today = facilityAdminDay(value);
+  return facilityAdminUtcBoundsForYmdRange({ from: today, to: today }).endExclusive;
+}
+
 function getTimeZoneOffsetMs(value: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: ADMIN_TIME_ZONE,

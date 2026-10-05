@@ -2,8 +2,6 @@ import Link from "next/link";
 
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
-  defaultFromYmd,
-  defaultToYmd,
   loadAdminFacilityBookings,
   normalizeStatus,
   normalizeYmd,
@@ -14,7 +12,6 @@ import {
   AdminHeader,
   AdminNav,
   AdminShell,
-  FilterForm,
   StatTile,
   StatusBadge,
 } from "../_components";
@@ -41,6 +38,10 @@ import {
   projectBookingPaymentStatus,
 } from "@/lib/payments/booking-payments";
 
+import { facilityAdminDay } from "@/lib/admin/facility-admin-date";
+import { FacilityDayRefresh } from "./FacilityDayRefresh";
+import { FacilityDashboardFilters } from "./FacilityDashboardFilters";
+
 export const dynamic = "force-dynamic";
 
 type Props = {
@@ -52,6 +53,8 @@ type Props = {
     status?: string;
     kind?: string;
     deposit?: string;
+    view?: string;
+    q?: string;
   }>;
 };
 
@@ -433,50 +436,20 @@ function FacilityExpandableCard({
 }: {
   booking: AdminFacilityBooking;
 }) {
-  const kidCount = kidCountForBooking(booking);
   const depositStatus = facilityDepositStatus(booking.paymentEntries);
-  const paidCents = sumBookingPaymentCents(booking.paymentEntries);
-  const balanceCents = remainingBookingBalanceCents(booking.total, paidCents);
   return (
     <details
       id={`booking-${booking.id}`}
       className="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-pink-300 hover:shadow-lg open:col-span-full open:translate-y-0 open:border-pink-300 open:shadow-xl"
     >
-      <summary className="flex min-h-52 cursor-pointer list-none flex-col rounded-2xl p-5 transition hover:bg-pink-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-inset group-open:aspect-auto group-open:min-h-0 group-open:rounded-b-none group-open:border-b group-open:border-slate-200 group-open:bg-slate-50 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <StatusBadge status={booking.status} />
-          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 group-open:bg-white">
-            <span className="group-open:hidden">View details</span>
-            <span className="hidden group-open:inline">Hide details</span>
-          </span>
-        </div>
-        <div className="mt-5">
-          <p className={`mb-3 rounded-lg px-3 py-2 text-sm font-black ${depositStatus === "paid" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-            {depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Needs verification" : "No deposit recorded"}
-            <span className="mt-1 block text-xs font-semibold">Paid {formatCents(paidCents)}{balanceCents === null ? "" : ` · Balance ${formatCents(balanceCents)}`}</span>
-          </p>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">
-            {booking.readableDate ?? "Date not set"}
-          </p>
-          <p className="mt-1 text-xl font-black leading-tight text-slate-950">
-            {booking.readableTime ?? "Time not set"}
-          </p>
-        </div>
-        <div className="mt-auto pt-6">
-          <p className="text-lg font-black leading-tight text-slate-950">
-            {booking.childName ?? "Child not set"}
-          </p>
-          <p className="mt-1 truncate text-sm font-semibold text-slate-600">
-            {booking.customerName}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-3 text-xs font-bold text-slate-500">
-            <span>{booking.partyLabel ?? "Facility party"}</span>
-            <span>{roomLabel(booking.room)}</span>
-            <span>
-              {kidCount === null ? "Kids not set" : `${kidCount} kids`}
-            </span>
-          </div>
-        </div>
+      <summary className="flex min-h-28 cursor-pointer list-none flex-col gap-2 rounded-xl p-3 transition hover:bg-pink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-inset group-open:aspect-auto group-open:border-b group-open:border-slate-200 group-open:bg-slate-50 [&::-webkit-details-marker]:hidden">
+        <p className="break-words text-sm font-black text-slate-950">{booking.childName ?? booking.customerName}</p>
+        <p className="text-xs font-semibold text-slate-600">
+          {new Date(booking.startTime).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}
+        </p>
+        <p className={`text-xs font-black ${depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
+          {depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
+        </p>
       </summary>
       <div className="bg-slate-100 p-3 sm:p-5">
         <FacilityCard booking={booking} />
@@ -491,47 +464,28 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   const auth = await verifyAdminAccess(token);
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
+  const today = facilityAdminDay();
   const singleDay = resolved?.day ? normalizeYmd(resolved.day) : "";
-  const from = singleDay
-    ? singleDay
-    : resolved?.from
-      ? normalizeYmd(resolved.from)
-      : defaultFromYmd();
-  const to = normalizeYmd(resolved?.to);
-  const effectiveTo = singleDay
-    ? singleDay
-    : resolved?.to
-      ? to
-      : defaultToYmd(from);
+  const from = singleDay ? singleDay : resolved?.from ? normalizeYmd(resolved.from) : "";
+  const to = singleDay ? singleDay : resolved?.to ? normalizeYmd(resolved.to) : "";
+  const view = resolved?.view === "past" || (!resolved?.view && to && to < today) ? "past" : "upcoming";
+  const search = resolved?.q?.trim() ?? "";
   const status = normalizeStatus(resolved?.status);
   const kind = resolved?.kind === "private" ? "private" : "all";
-  const [{ bookings }, allFacility] = await Promise.all([
-    loadAdminFacilityBookings({
-      from,
-      to: effectiveTo,
-      status,
-    }),
-    loadAdminFacilityBookings({
-      from,
-      to: effectiveTo,
-      status: "all",
-    }),
-  ]);
+  const allFacility = await loadAdminFacilityBookings({ from, to, status: "all", view, today, search });
+  const bookings = allFacility.bookings.filter((booking) => status === "all" || booking.status === status);
   const scopedBookings =
     kind === "private"
       ? bookings.filter((booking) => booking.partyKind === "private")
       : bookings;
   const depositFilter = ["paid", "unrecorded", "review"].includes(resolved?.deposit ?? "") ? resolved!.deposit! : "all";
   const displayedBookings = scopedBookings.filter(b => depositFilter === "all" || facilityDepositStatus(b.paymentEntries) === depositFilter);
-  const paidDepositBookings = scopedBookings.filter(b => facilityDepositStatus(b.paymentEntries) === "paid" && !["cancelled", "canceled", "rejected"].includes(b.status));
-  const baseQuery = singleDay
-    ? `token=${encodeURIComponent(token)}&day=${encodeURIComponent(singleDay)}`
-    : `token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(effectiveTo)}`;
+  const baseQuery = new URLSearchParams({ ...(token ? { token } : {}), view, from, to, q: search }).toString();
   const privateCount = allFacility.bookings.filter(
     (booking) => booking.partyKind === "private",
   ).length;
   const pendingApprovalEndpoints = displayedBookings
-    .filter((booking) => booking.status === "pending")
+    .filter((booking) => view === "upcoming" && booking.status === "pending")
     .map((booking) => actionHref(booking.id, "confirm"));
   const pageBackgroundStyle = {
     backgroundColor: "#334155",
@@ -546,26 +500,16 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
   return (
     <AdminShell>
       <BookingCardAnchor />
+      <FacilityDayRefresh today={today} />
       <div
         className="relative overflow-x-hidden rounded-3xl p-3 sm:p-5"
         style={pageBackgroundStyle}
       >
         <div className="relative z-10">
           <section className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-6 print:border-0 print:p-0 print:shadow-none">
-            <AdminHeader
-              eyebrow="Facility Admin"
-              title="Facility Party Dashboard"
-            >
-              <FilterForm
-                key={`${from}-${effectiveTo}-${singleDay}-${status}-${kind}`}
-                token={token}
-                from={from}
-                to={effectiveTo}
-                status={status}
-                singleDay={singleDay}
-              />
-            </AdminHeader>
+            <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard" />
             <AdminNav token={token} role={auth.role} active="facility" />
+            <FacilityDashboardFilters token={token} view={view} today={today} from={from} to={to} status={status} kind={kind} search={search} deposit={depositFilter} />
 
             <div className="mt-5 flex flex-wrap gap-2 print:hidden">
               {pendingApprovalEndpoints.length > 0 ? (
@@ -607,33 +551,11 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             </div>
           </section>
 
-          <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5 text-slate-950 print:hidden">
-            <h2 className="text-xl font-black text-emerald-900">Deposits Paid <span className="text-base">({paidDepositBookings.length})</span></h2>
-            <p className="mt-1 text-sm text-slate-600">Recorded payments for active parties in the selected date range. Select a customer to open their card.</p>
-            <nav aria-label="Deposit status" className="my-4 flex flex-wrap gap-2">
-              {([['all','All parties'],['paid','Deposits paid'],['unrecorded','No deposit recorded'],['review','Needs verification']] as const).map(([value,label]) => (
-                <Link key={value} aria-current={depositFilter === value ? "page" : undefined} href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}&deposit=${value}`} className={`rounded-full border px-4 py-2 text-sm font-bold ${depositFilter === value ? "bg-emerald-800 text-white" : "bg-white text-slate-800"}`}>{label}</Link>
-              ))}
-            </nav>
-            {paidDepositBookings.length ? <ul className="divide-y divide-emerald-100">
-              {paidDepositBookings.map(b => {
-                const paid = sumBookingPaymentCents(b.paymentEntries);
-                const last = b.paymentEntries.find(e => e.status === "posted");
-                const balance = remainingBookingBalanceCents(b.total, paid);
-                return <li key={b.id} className="py-3 text-sm">
-                  <a className="font-black text-emerald-900 underline" href={`/admin/facility?${baseQuery}&status=${status}&kind=${kind}#booking-${b.id}`}>{b.customerName} · {b.childName || "Birthday child not set"}</a>
-                  <p className="mt-1">Party {b.readableDate} · Paid {formatCents(paid)}{balance === null ? "" : ` · Balance ${formatCents(balance)}`}</p>
-                  {last ? <p className="mt-1 text-xs text-slate-600">Latest payment {paymentDateLabel(last.paidAt)} · {last.paymentMethod} · Paid by {last.payerName || "payer not recorded"}</p> : null}
-                </li>;
-              })}
-            </ul> : <p className="text-sm text-slate-600">No active parties with a recorded $50 deposit in this selection.</p>}
-          </section>
-
           <section className="mt-5 rounded-2xl border border-white/60 bg-slate-100/95 p-3 shadow-xl shadow-slate-950/20 backdrop-blur-sm sm:p-5 print:hidden">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-2 px-1">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-pink-700">
-                  Party schedule
+                  {view === "past" ? "Past parties" : "Today & future parties"}
                 </p>
                 <h2 className="mt-1 text-2xl font-black text-slate-950">
                   {displayedBookings.length}{" "}
@@ -645,14 +567,14 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {displayedBookings.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                   <p className="text-lg font-bold">
                     No facility parties found.
                   </p>
                   <p className="mt-2 text-sm text-slate-600">
-                    Adjust the date range or status filter.
+                    Try another name, phone number, date range, or status.
                   </p>
                 </div>
               ) : (

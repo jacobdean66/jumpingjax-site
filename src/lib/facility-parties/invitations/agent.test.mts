@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { INVITATION_ARTWORK_RULE } from "./artwork-policy.ts";
 
 import {
   INVITATION_AGENT_ACTIONS,
@@ -11,6 +12,7 @@ test("approved invitation standard stays attached to the customer-requested them
   assert.deepEqual(INVITATION_AGENT_STANDARD, {
     version: "light-ink-full-page-borderless-v3",
     themeSource: "customer-party-theme",
+    artworkRule: INVITATION_ARTWORK_RULE,
     defaultPrintPaper: "letter",
     exactFourBySixPaper: "legal",
     cardsPerSheet: 4,
@@ -31,10 +33,10 @@ test("invitation specialist has all three asset libraries attached", () => {
     ["approved-artwork", "fluent-emoji", "kenney-cc0"],
   );
   assert.equal(result.agent, "party-invitation");
-  assert.equal(result.status, "layout_composed");
+  assert.equal(result.status, "needs_theme_confirmation");
 });
 
-test("Curious George safely selects the jungle animal composition instead of birthday fallback", () => {
+test("Curious George requires a verified picture instead of generic jungle artwork", () => {
   const result = runInvitationAgent({
     action: "create",
     sourceText: "Curious George",
@@ -42,7 +44,8 @@ test("Curious George safely selects the jungle animal composition instead of bir
 
   assert.equal(result.snapshot.themeId, "safari-animals");
   assert.equal(result.snapshot.matchKind, "exact");
-  assert.deepEqual(result.usedLibraries, ["fluent-emoji", "kenney-cc0"]);
+  assert.equal(result.status, "needs_theme_confirmation");
+  assert.deepEqual(result.usedLibraries, []);
 });
 
 test("alternate invitation actions advance one stable design", () => {

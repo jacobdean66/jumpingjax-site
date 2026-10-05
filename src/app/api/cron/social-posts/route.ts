@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { runDueMetaOrganicPublications } from "@/lib/social-posts/oauth/social-meta-scheduled-publication-service";
+import { metaSchedulerFailure } from "@/lib/social-posts/oauth/social-meta-scheduler-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,17 @@ async function handle(req: NextRequest) {
   }
 
   const requestedLimit = Number(req.nextUrl.searchParams.get("limit") ?? "10");
-  const result = await runDueMetaOrganicPublications({
-    limit: Number.isFinite(requestedLimit) ? requestedLimit : 10,
-  });
-  return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "private, no-store" } });
+  try {
+    const result = await runDueMetaOrganicPublications({
+      limit: Number.isFinite(requestedLimit) ? requestedLimit : 10,
+    });
+    return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return NextResponse.json({ ok: false, ...metaSchedulerFailure(error) }, {
+      status: 503,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
 }
 
 export async function GET(req: NextRequest) {

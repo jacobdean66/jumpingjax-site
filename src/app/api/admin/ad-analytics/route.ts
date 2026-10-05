@@ -143,7 +143,9 @@ export async function POST(request: Request) {
     accessToken: tokenResult.accessToken,
   });
   if (!permission.ok) {
-    return noStoreJson({ error: permission.error.message }, 403);
+    const status = permission.error.code === "token_expired" ? 401
+      : permission.error.code === "permission_missing" ? 403 : 503;
+    return noStoreJson({ error: permission.error.message, code: permission.error.code }, status);
   }
   if (!permission.hasAdsManagement) {
     const missing = sanitizedError(

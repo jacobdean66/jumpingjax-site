@@ -8,6 +8,7 @@ export type InvitationEventEvidence = {
   stage?: 'search' | 'confirmation' | 'composition' | 'booking';
   category?: string; status?: number; providerType?: string; elapsedMs?: number;
   bookingId?: string; themeId?: string; optionIndex?: number;
+  providerErrorType?: string;
 };
 /** Logs contain bounded operational data only, never customer text or provider bodies. */
 export async function recordInvitationEvent(event: InvitationWorkflowEvent, evidence: InvitationEventEvidence = {}): Promise<void> {
@@ -20,6 +21,7 @@ export async function recordInvitationEvent(event: InvitationWorkflowEvent, evid
     category: evidence.category && /^[a-z_]{1,64}$/.test(evidence.category) ? evidence.category : undefined,
     status: evidence.status && evidence.status >= 400 && evidence.status <= 599 ? evidence.status : undefined,
     provider_type: ['http','timeout','connection','aborted','unknown'].includes(evidence.providerType ?? '') ? evidence.providerType : undefined,
+    provider_error_type: ['invalid_request_error','authentication_error','permission_error','rate_limit_error','insufficient_quota','server_error','api_error'].includes(evidence.providerErrorType ?? '') ? evidence.providerErrorType : undefined,
     elapsed_ms: evidence.elapsedMs === undefined ? undefined : Math.min(120000, Math.max(0, Math.round(evidence.elapsedMs))),
   };
   console.info('[invitation-workflow]', { event, ...safe });
@@ -50,6 +52,10 @@ export async function recordInvitationEvent(event: InvitationWorkflowEvent, evid
 }
 /** Layout activity does not prove that a character booking was saved. */
 export async function recordInvitationAgentRun(result: InvitationAgentResult): Promise<void> {
+  if (result.status === 'needs_theme_confirmation') {
+    await recordInvitationEvent('clarification_required', { stage: 'composition', category: 'theme_confirmation_required' });
+    return;
+  }
   const composed = result.snapshot.confirmedTheme && ['create','alternate','choose-template'].includes(result.action);
   await recordInvitationEvent(composed ? 'invitation_composed' : 'layout_viewed', {
     stage: 'composition', imageId: result.snapshot.confirmedTheme?.imagePath.split('/').pop(),

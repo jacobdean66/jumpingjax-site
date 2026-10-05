@@ -17,6 +17,8 @@ import {
 } from "@/lib/facility-parties/invitations/snapshot";
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
+import { InvitationArtworkRequired } from "@/components/facility-parties/InvitationArtworkRequired";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,7 @@ export default async function AdminFacilityInvitationPage({
 
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  if (invitationNeedsArtworkConfirmation(view.snapshot)) return <AdminShell><AdminHeader eyebrow="Facility Admin" title="Invitation picture needs confirmation" /><AdminNav token={token} role={auth.role} active="facility" /><InvitationArtworkRequired themeText={view.snapshot.sourceText} bookingId={view.bookingId} /></AdminShell>;
   const sheet = resolved?.sheet === "1";
   const agentResult = runInvitationAgent({
     action: sheet ? "view-sheet" : "view-single",
