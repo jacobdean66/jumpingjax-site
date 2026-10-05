@@ -24,6 +24,7 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
   const [loaded, setLoaded] = useState<string[]>([]);
   const [broken, setBroken] = useState<string[]>([]);
   const [busy, setBusy] = useState<"search" | "confirm" | null>(null);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef<AbortController | null>(null);
   const sequence = useRef(0);
@@ -34,11 +35,20 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
-    const response = await fetch(`/api/facility/invitations/themes/${path}`, {
+    setSlow(false);
+    const review = setTimeout(() => { if (!controller.signal.aborted) setSlow(true); }, 10000);
+    let timedOut = false;
+    const deadline = setTimeout(() => { timedOut = true; controller.abort(); }, 50000);
+    try {
+      const response = await fetch(`/api/facility/invitations/themes/${path}`, {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(body), signal: controller.signal,
     });
-    return readThemeResponse(response);
+      return await readThemeResponse(response);
+    } catch (cause) {
+      if (timedOut) throw new Error("The search took too long and was stopped. Your theme details are kept. Please retry or add a specific detail.");
+      throw cause;
+    } finally { clearTimeout(review); clearTimeout(deadline); }
   }
 
   async function search(interpretation?: string) {
@@ -88,7 +98,8 @@ export function InvitationThemeSearch({ query, design, onConfirmed, onClear }: {
       <p className="text-sm text-slate-200">Find a show, character, movie, game, team, or any party theme. Check the picture before we make your invitations.</p>
       {!result && !selected ? <button type="button" className={`${button} mt-3`} disabled={Boolean(busy) || query.trim().length < 2} onClick={() => void search()}>Search themes and characters</button> : null}
       <div aria-live="polite">
-        {busy ? <p className="mt-3 text-sm font-bold text-cyan-100">{busy === "search" ? "Finding matching themes and pictures…" : "Saving your chosen picture and making your invitation…"}</p> : null}
+        {busy ? <p className="mt-3 text-sm font-bold text-cyan-100">{busy === "search" ? slow ? "This search is taking longer. The supervisor is checking saved artwork; the search will stop if it cannot finish." : "Finding matching themes and pictures…" : "Saving your chosen picture and making your invitation…"}</p> : null}
+        {busy ? <button type="button" className="mt-2 text-sm font-bold text-cyan-200 underline" onClick={() => { sequence.current += 1; pending.current?.abort(); setBusy(null); setSlow(false); }}>Cancel {busy === "search" ? "search" : "confirmation"}</button> : null}
         {error ? <p role="alert" className="mt-3 text-sm text-rose-200">{error}</p> : null}
         {result ? <p className="mt-4 font-bold text-white">{selected ? "Is this the right character or theme?" : result.candidates.length ? "Which picture matches the theme you want? Select a picture to check it, or add details below." : result.question}</p> : null}
       </div>

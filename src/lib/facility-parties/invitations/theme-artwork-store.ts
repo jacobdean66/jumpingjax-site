@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { resolve4 } from "node:dns/promises";
 import { get } from "node:https";
 import sharp from "sharp";
+import { readLocalThemeArtwork } from "./local-theme";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { publicHttpsUrl } from "./theme-search";
 import { invitationArtworkBucket } from "./artwork-bucket";
@@ -54,10 +55,11 @@ export async function downloadThemeImage(source: string): Promise<Buffer> {
 }
 
 export async function persistThemeArtwork(source: string): Promise<string> {
-  const downloaded = await downloadThemeImage(source);
+  const local = await readLocalThemeArtwork(source);
+  const downloaded = local ?? await downloadThemeImage(source);
   const image = sharp(downloaded, { limitInputPixels: 24_000_000, animated: false });
   const metadata = await image.metadata();
-  if ((metadata.width ?? 0) < 240 || (metadata.height ?? 0) < 240) throw new Error("This picture is too small for an invitation. Please choose another match.");
+  if (!local && ((metadata.width ?? 0) < 240 || (metadata.height ?? 0) < 240)) throw new Error("This picture is too small for an invitation. Please choose another match.");
   const bytes = await image.rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
   const id = createHash("sha256").update(bytes).digest("hex");
   const db = createServiceRoleClient();

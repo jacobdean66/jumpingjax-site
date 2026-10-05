@@ -60,11 +60,11 @@ export function parseThemeSearchResponse(response: { output: unknown[]; output_t
   };
 }
 
-export async function searchInvitationThemes(input: ThemeSearchRequest) {
+export async function searchInvitationThemes(input: ThemeSearchRequest, signal?: AbortSignal) {
   // The hosted Sentinel gateway documents Chat Completions. Choose that
   // protected contract up front instead of retrying unsupported Responses calls.
   if (resolveProtectedOpenAIConfig()?.route === "sentinel_proxy") {
-    return searchInvitationThemesWithChat(input);
+    return searchInvitationThemesWithChat(input, signal);
   }
   const options = resolveOpenAIClientOptions();
   if (!options) throw new Error("Theme search is not configured.");
@@ -88,7 +88,7 @@ export async function searchInvitationThemes(input: ThemeSearchRequest) {
     max_output_tokens: 2400,
     store: false,
   };
-  const response = await client.responses.create(params).catch((error: unknown) => {
+  const response = await client.responses.create(params, { signal }).catch((error: unknown) => {
     // Log a bounded category, never a provider response body or request headers.
     if (error instanceof OpenAI.APIError && error.status === 400) {
       const message = error.message.toLowerCase();

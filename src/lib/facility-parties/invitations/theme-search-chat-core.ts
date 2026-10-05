@@ -187,7 +187,7 @@ export async function searchThemesWithChat(input: SearchInput, dependencies: Sea
   })));
   signal.throwIfAborted();
   const references = pages.flatMap(page => page.status === "fulfilled" ? page.value.urls.map(imageUrl => ({ ...page.value.source, imageUrl })) : []);
-  const unique = references.filter((image, index) => references.findIndex(other => other.imageUrl === image.imageUrl) === index);
+  const unique = references.filter((image, index) => references.findIndex(other => other.imageUrl === image.imageUrl) === index).slice(0, 8);
   const prepared: PromiseSettledResult<Evidence>[] = [];
   // Decode at most two images at once; eight full-resolution decodes can exhaust
   // serverless memory even when each individual image is within its pixel limit.
