@@ -197,13 +197,13 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
             ))}
           </ul>
           <div className="compact-print-detail-grid mt-4 grid gap-3 sm:grid-cols-2">
-            <Detail label="Duration" value={booking.duration ?? "Standard"} />
+            <Detail label="Duration" value={booking.dayCharges === null ? booking.duration ?? "Standard" : `${booking.spanDays} ${booking.spanDays === 1 ? "day" : "days"}`} />
             {booking.foamDuration &&
               booking.foamDuration !== booking.duration && (
                 <Detail label="Foam time" value={booking.foamDuration} />
               )}
             <Detail label="Reserved period" value={              `${booking.eventDate} through ${rentalDatePlusDays(booking.eventDate, booking.spanDays - 1)} (${booking.spanDays} days)`} />
-            {booking.dayCharges?.map(day => <Detail key={day.day} label={`Day ${day.day}`} value={day.choice === "free" ? "Free ($0.00)" : `Charge ${day.amount.toFixed(2)}`} />)}
+            {booking.dayCharges?.map(day => <Detail key={day.day} label={`Day ${day.day}`} value={day.choice === "free" ? "Free ($0.00)" : `Charge $${day.amount.toFixed(2)}`} />)}
             <Detail
               label="Delivery window"
               value={booking.requestedDeliveryWindow ?? "Not set"}

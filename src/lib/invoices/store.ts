@@ -1,4 +1,5 @@
 import "server-only";
+import { reconcileRentalLines } from "./rental-lines";
 import { rentalDatePlusDays, rentalExtraTotal, type RentalDayCharge } from "@/lib/rentals/rental-period";
 import { loadBookingPaymentMap } from "@/lib/payments/store";
 import { sumBookingPaymentCents } from "@/lib/payments/booking-payments";
@@ -61,16 +62,7 @@ function rentalLines(input: {
   // Historical bookings keep the charged rental subtotal as the source of
   // truth. Catalog prices can change, so absorb any difference into the final
   // booking line while preserving an editable price for every item.
-  if (input.storedSubtotal > 0 && lines.length > 0) {
-    const estimatedSubtotal = money(
-      lines.reduce((sum, line) => sum + line.unitPrice, 0),
-    );
-    const finalLine = lines[lines.length - 1]!;
-    finalLine.unitPrice = Math.max(
-      0,
-      money(finalLine.unitPrice + input.storedSubtotal - estimatedSubtotal),
-    );
-  }
+  reconcileRentalLines(lines, Math.max(0, input.storedSubtotal));
 
   return lines;
 }

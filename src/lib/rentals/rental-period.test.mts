@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { reconcileRentalLines } from "../invoices/rental-lines";
 import { parseRentalPeriod, rentalDatePlusDays, rentalExtraTotal, rentalReservedDates } from "./rental-period";
 import { unavailableYmdsFromBookings } from "../bookings/unavailableDates";
 import { rentalRowsToEvents } from "../admin/schedule";
 import { rentalCalendarDateTimes } from "./rental-pricing-text";
 import { parseRentalEditInput } from "../admin/booking-edit";
+
+test("historical multi-item invoice prices retain the agreed base subtotal", () => {
+  for (const subtotal of [0, 100, 300, 475, 500.25]) {
+    const lines = reconcileRentalLines([{id:"primary",description:"Slide",quantity:1,unitPrice:325}, {id:"extra",description:"Castle",quantity:1,unitPrice:150}],subtotal);
+    assert.equal(lines.reduce((sum, line) => sum + line.unitPrice,0),subtotal);
+    assert.ok(lines.every(line => line.unitPrice >= 0));
+  }
+});
 
 test("every free/charged combination reserves the identical full period", () => {
   for (const span of [1,2,3]) for(let mask=0;mask < 2 ** (span-1);mask++) {
