@@ -154,6 +154,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 2100,
     "format": "jpeg"
   },
+  "/inflatables/foam-parties/uv-glow-foam-party.png": {
+    "width": 1254,
+    "height": 1254,
+    "format": "png"
+  },
   "/inflatables/inflatable-games/4-in-1-sports-game.webp": {
     "width": 600,
     "height": 585,

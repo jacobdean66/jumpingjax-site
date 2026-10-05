@@ -71,7 +71,7 @@ export const UV_GLOW_FOAM_DURATION_OPTIONS: DurationOption[] = [
   {
     id: "uv-glow-foam-120",
     label: "2 hours",
-    hint: "$725 UV glow foam party",
+    hint: "$275 per additional hour after the first hour",
     spanDays: 1,
     priceMultiplier: 725 / 300,
   },
