@@ -18,10 +18,13 @@ export async function POST(req: Request) {
     speedMetersPerSecond?: unknown;
     batteryLevel?: unknown;
     capturedAt?: unknown;
+    vehicle?: unknown;
+    trailer?: unknown;
   };
 
   try {
     body = await req.json();
+    if (!body || typeof body !== "object") throw new Error("Invalid body");
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
@@ -30,6 +33,8 @@ export async function POST(req: Request) {
     token: bearerToken(req),
     location: {
       latitude: body.latitude,
+      vehicle: body.vehicle,
+      trailer: body.trailer,
       longitude: body.longitude,
       accuracyMeters: body.accuracyMeters,
       altitudeMeters: body.altitudeMeters,

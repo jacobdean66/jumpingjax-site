@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 type LocationBody =
   | {
       truck?: unknown;
+      vehicle?: unknown;
       workDate?: unknown;
       latitude?: unknown;
       longitude?: unknown;
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     driverId: auth.identity.id,
     driverName: auth.identity.name,
     truck: typeof body?.truck === "string" ? body.truck : null,
+    vehicle: typeof body?.vehicle === "string" ? body.vehicle : null,
     workDate: typeof body?.workDate === "string" ? body.workDate : null,
     latitude: body?.latitude,
     longitude: body?.longitude,

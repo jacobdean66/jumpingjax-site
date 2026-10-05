@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DriverMobileLocationSnapshot } from "@/lib/admin/driver-location";
+import { equipmentLabel } from "@/lib/admin/driver-trip-context";
 
 type ApiResponse =
   | { ok: true; locations: DriverMobileLocationSnapshot[] }
@@ -187,6 +188,7 @@ export function DriverLocationsClient({
                       {location.deviceLabel ?? "Driver phone"} · started{" "}
                       {formatTime(location.startedAt)}
                     </p>
+                    <p className="mt-1 text-sm font-black text-sky-800">{equipmentLabel(location.vehicle ?? null, location.trailer ?? null)}</p>
                   </div>
                   {href ? (
                     <a

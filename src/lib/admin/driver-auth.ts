@@ -20,7 +20,7 @@ function normalizeDriverName(value: string | null | undefined): string {
   return value?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
 }
 
-function driverId(name: string): string {
+export function driverId(name: string): string {
   return `driver:${normalizeDriverName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 

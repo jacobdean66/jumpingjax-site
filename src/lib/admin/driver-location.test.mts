@@ -29,6 +29,11 @@ test("owner location feed includes the latest browser point and preserves native
   assert.equal(browser?.status, "active");
   assert.match(browser?.deviceLabel ?? "", /Browser.*Trailer 1/);
   assert.equal(combineDriverLocationSnapshots([], [latest], Date.parse("2026-10-04T20:10:00.000Z"))[0].status, "stale");
+  const switched = { ...latest, id: "switched", vehicle: "ford", truck: "truck-2", capturedAt: "2026-10-04T20:04:00.000Z" };
+  const current = combineDriverLocationSnapshots([], [older, latest, switched]);
+  assert.equal(current.length, 1);
+  assert.equal(current[0].vehicle, "ford");
+  assert.equal(current[0].trailer, "truck-2");
 });
 
 function read(relativePath: string): string {

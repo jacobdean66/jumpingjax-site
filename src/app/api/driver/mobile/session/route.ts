@@ -5,6 +5,7 @@ import {
   loadActiveDriverMobileSession,
 } from "@/lib/admin/driver-location";
 import { createDriverSessionValue, DRIVER_SESSION_COOKIE } from "@/lib/admin/driver-auth";
+import { DRIVER_MOBILE_SESSION_COOKIE } from "@/lib/admin/driver-trip-context";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export async function DELETE(req: Request) {
     path: "/",
     maxAge: 0,
   });
+  response.cookies.set(DRIVER_MOBILE_SESSION_COOKIE, "", { path: "/", maxAge: 0 });
   return response;
 }
 
@@ -91,6 +93,9 @@ export async function GET(req: Request) {
   }
 
   const response = NextResponse.redirect(new URL("/driver", req.url), 303);
+  response.cookies.set(DRIVER_MOBILE_SESSION_COOKIE, session.id, {
+    httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 12 * 60 * 60,
+  });
   response.cookies.set({
     name: DRIVER_SESSION_COOKIE,
     value: webSessionValue,

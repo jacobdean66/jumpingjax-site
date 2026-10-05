@@ -14,6 +14,11 @@ export function DriverLogoutButton() {
             window.localStorage.removeItem(key);
           }
         }
+        const bridge = (window as Window & { ReactNativeWebView?: { postMessage: (message: string) => void } }).ReactNativeWebView;
+        if (bridge) {
+          bridge.postMessage(JSON.stringify({ type: "JAX_SIGN_OUT" }));
+          return;
+        }
         await fetch("/api/driver/session", { method: "DELETE" });
         router.push("/driver");
         router.refresh();
