@@ -12,8 +12,6 @@ import {
   normalizeInsightsRow,
   safeDivide,
   zeroInsights,
-  formatMetricMoney,
-  formatMetricRate,
 } from "./normalize";
 import { recomputeDerivedFromCounts } from "./dashboard-service";
 

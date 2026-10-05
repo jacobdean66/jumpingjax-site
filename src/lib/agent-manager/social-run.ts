@@ -38,14 +38,14 @@ export async function beginSocialAgentStage(input: {
   actorId: string;
   payload?: Record<string, unknown>;
 }): Promise<AgentJob> {
+  // A draft request must never enable an agent or erase its paused state.
+  await assertAgentDispatchAllowed("social");
   const db = createServiceRoleClient();
   const now = new Date().toISOString();
   const { error: configureError } = await db
     .from("agents")
     .update({
       agent_type: "application",
-      enabled: true,
-      status: "idle",
       capabilities: [...SOCIAL_AGENT_CAPABILITIES],
       updated_at: now,
     })
@@ -81,7 +81,9 @@ export async function beginSocialAgentStage(input: {
         last_activity_at: now,
         updated_at: now,
       })
-      .eq("id", job.agent_id),
+      .eq("id", job.agent_id)
+      .eq("enabled", true)
+      .eq("paused", false),
     db.from("agent_events").insert({
       agent_id: job.agent_id,
       job_id: job.id,
@@ -128,7 +130,9 @@ export async function finishSocialAgentStage(input: {
         ...(input.ok ? { last_success_at: now } : {}),
         updated_at: now,
       })
-      .eq("id", input.job.agent_id),
+      .eq("id", input.job.agent_id)
+      .eq("enabled", true)
+      .eq("paused", false),
     db.from("agent_events").insert({
       agent_id: input.job.agent_id,
       job_id: input.job.id,
