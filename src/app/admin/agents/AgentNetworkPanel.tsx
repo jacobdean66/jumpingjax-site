@@ -14,10 +14,10 @@ async function api(path: string, body?: unknown) {
   if (!response.ok || !data.ok) throw new Error(data.error ?? "Agent network unavailable.");
   return data;
 }
-export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial: NetworkOverview | null; initialContextId?: string }) {
+export function AgentNetworkPanel({ initial, initialContextId = "", initialRecipient }: { initial: NetworkOverview | null; initialContextId?: string; initialRecipient?: NetworkAgentKey }) {
   const [overview, setOverview] = useState(initial);
-  const [recipient, setRecipient] = useState<NetworkAgentKey>("booking");
-  const [skill, setSkill] = useState<NetworkSkill>("workflow_review");
+  const [recipient, setRecipient] = useState<NetworkAgentKey>(initialRecipient ?? "booking");
+  const [skill, setSkill] = useState<NetworkSkill>(() => initialRecipient ? initial?.directory.find((agent) => agent.key === initialRecipient)?.skills.find((item) => item !== "directory") ?? "directory" : "workflow_review");
   const [selectedId, setSelectedId] = useState(initialContextId);
   const [savedConversation, setConversation] = useState<Conversation | null>(null);
   const conversation = savedConversation?.context.id === selectedId ? savedConversation : null;
@@ -76,17 +76,6 @@ export function AgentNetworkPanel({ initial, initialContextId = "" }: { initial:
     setRecipient(agent.key);
     setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
   }
-  useEffect(() => {
-    const select = (event: Event) => {
-      const agent = overview?.directory.find((item) => item.key === (event as CustomEvent<unknown>).detail);
-      if (!agent) return;
-      setRecipient(agent.key);
-      setSkill(agent.skills.find((item) => item !== "directory") ?? "directory");
-      selectConversation("");
-    };
-    window.addEventListener("agent-manager:select-agent", select);
-    return () => window.removeEventListener("agent-manager:select-agent", select);
-  }, [overview]);
   async function submit() {
     setBusy(true); setError("");
     try {

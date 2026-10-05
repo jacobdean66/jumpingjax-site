@@ -3,6 +3,7 @@
 import { FormEvent, useRef, useState } from "react";
 
 import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
+import { supervisorIssueAction } from "./navigation";
 
 type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
 
@@ -74,7 +75,10 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       {issueFilter && <div id="supervisor-issues" className="mt-4 rounded-2xl border border-slate-600 bg-slate-900 p-4">
         <h3 className="text-sm font-black">{issueFilter === "critical" ? "Critical issues" : "Warnings"}</h3>
         {snapshot?.issues.some((issue) => issue.severity === issueFilter) ? <ul className="mt-2 space-y-2">
-          {snapshot.issues.filter((issue) => issue.severity === issueFilter).map((issue) => <li key={issue.code} className="text-sm text-slate-200"><p>{issue.summary}</p><a className="mt-1 inline-block font-bold text-sky-300 underline" href={{ website: "/admin/site-settings", bookings: "/admin/rentals", rentals: "/admin/rentals", agents: "#agent-controls", answering_machine: "/admin/answering-machine", security: "/admin/security" }[issue.area]}>Open {issue.area.replaceAll("_", " ")} →</a></li>)}
+          {snapshot.issues.filter((issue) => issue.severity === issueFilter).map((issue) => {
+            const action = supervisorIssueAction(issue, snapshot.services);
+            return <li key={issue.code} className="text-sm text-slate-200"><p>{issue.summary}</p><a className="mt-1 inline-block font-bold text-sky-300 underline" href={action.href}>{action.label} →</a></li>;
+          })}
         </ul> : <p className="mt-2 text-sm text-slate-300">No {issueFilter} issues in the latest check.</p>}
       </div>}
 
