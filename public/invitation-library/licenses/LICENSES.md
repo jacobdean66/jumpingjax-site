@@ -1,6 +1,6 @@
 # Invitation asset licenses
 
-This folder is a small, locally hosted invitation library. Invitations never load these files from third-party websites at runtime.
+This folder contains the locally hosted subset of the invitation library. The search service also indexes pinned Microsoft Fluent Emoji artwork and downloads matching assets on demand into first-party storage. Team directory pictures retain their source links and are not covered by the Fluent or Kenney licenses below.
 
 ## Microsoft Fluent Emoji
 

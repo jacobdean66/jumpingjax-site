@@ -61,6 +61,7 @@ test('soccer search stages local artwork and returns a signed choice without an 
   context.mock.method(globalThis, 'fetch', async (source: string | Request, init?: RequestInit) => {
     const request = new Request(source, init), url = new URL(request.url);
     assert.equal(url.hostname, 'soccer-test.supabase.co', 'No provider or external picture calls');
+    if (url.pathname === '/rest/v1/rpc/search_invitation_theme_assets') return Response.json([]);
     if (url.pathname === '/rest/v1/agents') return Response.json(null);
     if (url.pathname.startsWith('/storage/v1/object/')) { uploads++; return Response.json({ Key: 'test-picture' }); }
     if (url.pathname === '/rest/v1/invitation_theme_assets') { writes++; return new Response(null, { status: 201 }); }

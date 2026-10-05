@@ -1,4 +1,6 @@
 import { superviseThemeSearch } from "@/lib/facility-parties/invitations/search-watchdog";
+import { randomUUID } from "node:crypto";
+import { localThemeCandidates } from "@/lib/facility-parties/invitations/local-theme";
 import { recordInvitationEvent } from "@/lib/agent-manager/invitation-run";
 import { performThemeSearch } from "@/lib/facility-parties/invitations/theme-search-service";
 import { findCatalogThemes } from "@/lib/facility-parties/invitations/theme-asset-catalog";
@@ -16,18 +18,22 @@ export async function POST(request: Request) {
   try {
     const limited = await invitationThemeSearchLimit(request);
     if (limited) return limited;
+    const operationId = randomUUID();
     const result = await superviseThemeSearch(
-      signal => searchInvitationWorkflow(body.data, { signal }),
+      signal => searchInvitationWorkflow(body.data, { signal, operationId }),
       async signal => {
         signal.throwIfAborted();
-        const candidates = await findCatalogThemes(body.data);
+        const library = localThemeCandidates(body.data);
+        const saved = await findCatalogThemes(body.data);
+        const candidates = library.length ? saved.filter(candidate => library.some(asset => asset.sourceUrl === candidate.sourceUrl || asset.imageUrl === candidate.imageUrl)) : saved;
         signal.throwIfAborted();
         if (!candidates.length) return null;
+        await recordInvitationEvent("candidates_found", { operationId, stage: "search", candidateCount: candidates.length, searchPath: library.length ? "library" : "saved_catalog" });
         return performThemeSearch(body.data, { search: async () => ({ question: "The supervisor found saved artwork. Which picture matches your party?", candidates }) });
       },
       { onReview: () => {
         console.info("[invitation-theme-supervisor] recovery_started", { elapsedMs: 10000, additionalAiCalls: 0 });
-        void recordInvitationEvent("search_recovery_started", { stage: "search", elapsedMs: 10000 });
+        void recordInvitationEvent("search_recovery_started", { operationId, stage: "search", elapsedMs: 10000 });
       } },
     );
     return Response.json(result, { headers: { "cache-control": "no-store" } });
