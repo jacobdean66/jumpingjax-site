@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { createHash } from "node:crypto";
 import {
   createAdminSessionValue,
   type AdminDeliveryAuthResult,
@@ -21,7 +22,11 @@ function normalizeDriverName(value: string | null | undefined): string {
 }
 
 export function driverId(name: string): string {
-  return `driver:${normalizeDriverName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const normalized = normalizeDriverName(name);
+  const slug = normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // Keep existing simple-name IDs, while distinguishing punctuation and Unicode names.
+  if (/^[a-z0-9]+(?: [a-z0-9]+)*$/.test(normalized)) return `driver:${slug}`;
+  return `driver:${slug.slice(0, 60) || "person"}-${createHash("sha256").update(normalized).digest("hex")}`;
 }
 
 export async function loadKnownDriverNames(): Promise<string[]> {

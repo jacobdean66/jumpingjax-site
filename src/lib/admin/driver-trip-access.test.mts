@@ -10,10 +10,11 @@ const { workUnitAsyncStorage } = require("next/dist/server/app-render/work-unit-
 const { workAsyncStorage } = require("next/dist/server/app-render/work-async-storage.external");
 const { RequestCookies } = require("next/dist/compiled/@edge-runtime/cookies");
 const { createAdminSessionValue, ADMIN_SESSION_COOKIE } = await import("./delivery-auth");
-const { DRIVER_SESSION_COOKIE } = await import("./driver-auth");
+const { DRIVER_SESSION_COOKIE, driverId } = await import("./driver-auth");
 const { DRIVER_MOBILE_SESSION_COOKIE } = await import("./driver-trip-context");
 const { GET: history } = await import("../../app/api/admin/driver-locations/history/route");
 const { POST: equipment } = await import("../../app/api/driver/trip-context/route");
+const { DELETE: webSignOut } = await import("../../app/api/driver/session/route");
 const { saveDriverLocationPoint } = await import("./driver-location");
 const previousSecret = process.env.ADMIN_SESSION_SECRET;
 const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,6 +28,7 @@ const driver = createAdminSessionValue({ id: "driver:test", username: "Test Driv
 const sessionId = "11111111-1111-4111-8111-111111111111";
 let updates = 0;
 let selectedAt = "2000-01-01T00:00:00.000Z";
+let signedOut = false;
 let savedPoint: Record<string, unknown> | null = null;
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input));
@@ -42,12 +44,14 @@ globalThis.fetch = async (input, init) => {
       if (url.searchParams.get("id") !== `eq.${sessionId}`) return Response.json([]);
       assert.equal(url.searchParams.get("signed_out_at"), "is.null");
       updates++;
-      selectedAt = JSON.parse(String(init.body)).equipment_selected_at;
+      const body = JSON.parse(String(init.body));
+      if (body.signed_out_at) signedOut = true;
+      else selectedAt = body.equipment_selected_at;
       return Response.json([{ id: sessionId }]);
     }
     return new Response(null, { status: 204 });
   }
-  return Response.json([{ id: sessionId, driver_id: "driver:test", driver_name: "Test Driver", signed_out_at: null, vehicle: "ford", trailer: "truck-2", equipment_selected_at: selectedAt }]);
+  return Response.json(signedOut ? [] : [{ id: sessionId, driver_id: "driver:test", driver_name: "Test Driver", signed_out_at: null, vehicle: "ford", trailer: "truck-2", equipment_selected_at: selectedAt }]);
 };
 after(() => {
   globalThis.fetch = previousFetch;
@@ -62,6 +66,14 @@ function context<T>(values: Record<string, string | null>, callback: () => T): T
 function request(body: unknown, origin = "https://app.test") {
   return new Request("https://app.test/api/driver/trip-context", { method: "POST", headers: { "Content-Type": "application/json", origin }, body: JSON.stringify(body) });
 }
+test("future drivers with punctuation or Unicode names have distinct, stable identities", () => {
+  const names = ["Anne-Marie", "Anne Marie", "driver.one", "driver_one", "José", "Jose", "司机"];
+  const ids = names.map(driverId);
+  assert.equal(new Set(ids).size, names.length);
+  assert.equal(driverId(" Amanda "), "driver:amanda");
+  assert.equal(driverId("ANNE-MARIE"), driverId("Anne-Marie"));
+  assert.ok(ids.every((id) => id.length <= 160));
+});
 test("route history denies anonymous users and driver accounts, including driver cookies", async () => {
   for (const cookies of [{}, { [DRIVER_SESSION_COOKIE]: driver }, { [ADMIN_SESSION_COOKIE]: driver }]) {
     const response = await context(cookies, () => history(new Request("https://app.test/api/admin/driver-locations/history")));
@@ -103,4 +115,18 @@ test("delayed legacy samples from before a truck selection remain unlabelled", a
   assert.equal(result.ok, true);
   assert.equal(savedPoint?.vehicle, null);
   assert.equal(savedPoint?.trailer, null);
+});
+test("website sign-out revokes its phone session so an older app cannot keep recording", async () => {
+  await context({}, () => webSignOut());
+  assert.equal(signedOut, false);
+  await context({ [DRIVER_SESSION_COOKIE]: driver, [DRIVER_MOBILE_SESSION_COOKIE]: "22222222-2222-4222-8222-222222222222" }, () => webSignOut());
+  assert.equal(signedOut, false);
+  const response = await context({ [DRIVER_SESSION_COOKIE]: driver, [DRIVER_MOBILE_SESSION_COOKIE]: sessionId }, () => webSignOut());
+  assert.equal(response.status, 200);
+  assert.equal(signedOut, true);
+  assert.ok(response.headers.get("set-cookie")?.includes(DRIVER_MOBILE_SESSION_COOKIE));
+  const previousPoint = savedPoint;
+  const result = await saveDriverLocationPoint({ token: "synthetic-token", location: { latitude: 34, longitude: -82 } });
+  assert.deepEqual(result, { ok: false, reason: "invalid_session" });
+  assert.equal(savedPoint, previousPoint);
 });
