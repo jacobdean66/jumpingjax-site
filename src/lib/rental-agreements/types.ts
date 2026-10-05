@@ -19,6 +19,9 @@ export type RentalAgreement = {
   signer_legal_name: string | null; acknowledged: boolean;
   email_status: "not_sent" | "sent" | "failed"; last_emailed_at: string | null;
   reviewed_by: string | null; reviewed_at: string | null;
+  signature_method?: "electronic" | "paper";
+  paper_copy_path?: string | null; paper_signed_on?: string | null;
+  paper_recorded_by?: string | null; paper_recorded_at?: string | null;
 };
 
 export function normalizeSignerName(name: string): string {

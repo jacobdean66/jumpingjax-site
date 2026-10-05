@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { isValidBookingId } from "@/lib/admin/booking-edit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
-import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
+import { AgreementActionError, emailRentalAgreement, prepareRentalAgreement } from "@/lib/rental-agreements/delivery";
+import { normalizeAgreementEmail, validAgreementEmail } from "@/lib/rental-agreements/workflow";
 import { agreementToken, hashToken } from "@/lib/rental-agreements/security";
 import { loadBookingAgreementContext, loadAgreementById, customerAgreementPath } from "@/lib/rental-agreements/store";
 import { rateLimit } from "@/lib/rate-limit";
@@ -30,6 +30,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   catch { return NextResponse.json({ error: "Invalid agreement request." }, { status: 400 }); }
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const db = createServiceRoleClient();
+  if (body?.action === "prepare" || body?.action === "prepare_send") {
+    if (!uuid.test(body.requestId ?? "")) return NextResponse.json({ error: "Reload before preparing the agreement." }, { status: 400 });
+    if (body.action === "prepare_send" && typeof body.expectedEmail !== "string") return NextResponse.json({ error: "Review the recipient before sending." }, { status: 400 });
+    try {
+      if (body.action === "prepare_send") {
+        const context = await loadBookingAgreementContext(id);
+        if (!context || !validAgreementEmail(context.customerEmail) || normalizeAgreementEmail(context.customerEmail) !== normalizeAgreementEmail(body.expectedEmail)) {
+          throw new AgreementActionError("The customer email is missing or changed. Reload and review the recipient before sending.");
+        }
+      }
+      const prepared = await prepareRentalAgreement(id, body.requestId, auth.identity.name);
+      if (body.action === "prepare" || prepared.alreadySigned) {
+        revalidatePath("/admin/rentals");
+        return NextResponse.json({ ok: true, agreementId: prepared.agreement.id, path: prepared.path, skipped: prepared.alreadySigned,
+          message: prepared.alreadySigned ? "This rental is already signed. No signing request was sent." : "Agreement ready. You can print it or share the signing link." });
+      }
+      const result = await emailRentalAgreement({ bookingId: id, agreementId: prepared.agreement.id, requestId: body.requestId, signedCopy: false, expectedEmail: body.expectedEmail, requestUrl: req.url });
+      revalidatePath("/admin/rentals");
+      return NextResponse.json(result, { status: result.ok ? 200 : 503 });
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "The agreement could not be prepared." }, { status: error instanceof AgreementActionError ? error.status : 500 });
+    }
+  }
   if (body?.action === "create") {
     if (!uuid.test(body.requestId ?? "") || typeof body.terms !== "string" || body.terms.trim().length < 20 || body.terms.length > 20000 || typeof body.additionalTerms !== "string" || body.additionalTerms.length > 10000) return NextResponse.json({ error: "Enter valid agreement terms." }, { status: 400 });
     const context = await loadBookingAgreementContext(id);
@@ -53,16 +76,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!signedCopy && body.action !== "email_signing") return NextResponse.json({ error: "Invalid action." }, { status: 400 });
   if ((signedCopy && !agreement.signed_at) || (!signedCopy && agreement.status !== "awaiting_signature")) return NextResponse.json({ error: "Choose a signed agreement or a current agreement awaiting signature." }, { status: 409 });
   if (!uuid.test(body.requestId ?? "")) return NextResponse.json({ error: "Reload before sending." }, { status: 400 });
-  const { data: booking } = await db.from("bookings").select("customer_email,customer_name").eq("id", id).single();
-  if (!booking?.customer_email) return NextResponse.json({ error: "Add a customer email first." }, { status: 409 });
-  const url = new URL(customerAgreementPath(agreement.id), resolveRentalEmailSiteUrl(req.url)).toString();
-  const { error } = await sendDurableBookingEmail({ supabase: db, kind: "rental", bookingId: id,
-    purpose: signedCopy ? "rental_signed_agreement" : "rental_agreement_signature",
-    messageKey: `rental-${id}-agreement-${agreement.id}-${body.action}-${body.requestId}`,
-    to: booking.customer_email, subject: signedCopy ? "Your signed Jumping Jax rental agreement" : "Sign your Jumping Jax rental agreement",
-    text: [`Hi ${booking.customer_name},`, "", signedCopy ? "Here is your signed rental agreement." : "Please review the rental details and safety rules, check the acknowledgment, and type your full legal name to sign.", `Booking reference: ${id}`, `Agreement version: ${agreement.version}`, agreement.signed_at ? `Signed by: ${agreement.signer_legal_name}` : "", agreement.status === "superseded" ? "This is a previous agreement version retained for your records." : "", "", url, "", "You can view, print, or save a PDF using this link.", "Jumping Jax · 864-933-1420"].filter(Boolean).join("\n"),
-  });
-  await db.from("rental_agreements").update({ email_status: error ? "failed" : "sent", last_emailed_at: new Date().toISOString() }).eq("id", agreement.id);
-  revalidatePath("/admin/rentals");
-  return NextResponse.json({ ok: !error, message: error ? "The agreement is saved, but email failed. Retry to send the same copy." : `Agreement emailed to ${booking.customer_email}.` }, { status: error ? 503 : 200 });
+  if (typeof body.expectedEmail !== "string") return NextResponse.json({ error: "Review the recipient before sending." }, { status: 400 });
+  try {
+    const result = await emailRentalAgreement({ bookingId: id, agreementId: agreement.id, requestId: body.requestId, signedCopy, expectedEmail: body.expectedEmail, requestUrl: req.url });
+    revalidatePath("/admin/rentals");
+    return NextResponse.json(result, { status: result.ok ? 200 : 503 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Email could not be sent." }, { status: error instanceof AgreementActionError ? error.status : 500 });
+  }
 }

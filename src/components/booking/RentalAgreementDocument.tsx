@@ -4,8 +4,9 @@ const money = (value: number) => new Intl.NumberFormat("en-US", { style: "curren
 function Detail({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-900">{value || "Not specified"}</dd></div>;
 }
-export function RentalAgreementDocument({ snapshot: s, version, signedName, signedAt, bookingId }: {
+export function RentalAgreementDocument({ snapshot: s, version, signedName, signedAt, bookingId, signatureMethod, paperSignedOn }: {
   snapshot: RentalAgreementSnapshot; version?: number; signedName?: string | null; signedAt?: string | null; bookingId?: string;
+  signatureMethod?: "electronic" | "paper"; paperSignedOn?: string | null;
 }) {
   return <article className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm sm:p-8 print:border-0 print:p-0 print:shadow-none">
     <header className="border-b border-slate-200 pb-5">
@@ -38,10 +39,10 @@ export function RentalAgreementDocument({ snapshot: s, version, signedName, sign
       <div className="mt-3 space-y-4 text-sm leading-relaxed text-slate-700">{s.terms.split(/\n\s*\n/).map((paragraph, i) => <p key={i} className="whitespace-pre-wrap print:break-inside-avoid">{paragraph}</p>)}</div>
       {s.additionalTerms ? <div className="mt-5 rounded-xl border border-cyan-200 bg-cyan-50 p-4"><h4 className="font-black">Terms specific to this rental</h4><p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{s.additionalTerms}</p></div> : null}
     </section>
-    {signedAt && signedName ? <section className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-black">Electronic signature</h3>
+    {signedAt && signedName ? <section className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-black">{signatureMethod === "paper" ? "Paper signature on file" : "Electronic signature"}</h3>
       <p className="mt-3 text-2xl font-semibold italic">{signedName}</p>
-      <p className="mt-2 text-sm text-slate-600">Signed {new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(signedAt))} (Eastern time)</p>
-      <p className="mt-2 text-xs text-slate-600">The signer acknowledged the rental terms and safety rules and submitted this typed name as their electronic signature.</p>
-    </section> : null}
+      <p className="mt-2 text-sm text-slate-600">{signatureMethod === "paper" ? `Paper signed ${paperSignedOn} · Recorded ` : "Signed "}{new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(signedAt))} (Eastern time)</p>
+      <p className="mt-2 text-xs text-slate-600">{signatureMethod === "paper" ? "Staff recorded this signature from the uploaded signed paper agreement. Retain the original signed scan with this record." : "The signer acknowledged the rental terms and safety rules and submitted this typed name as their electronic signature."}</p>
+    </section> : <section className="mt-6 break-inside-avoid border-t border-slate-200 pt-5"><h3 className="font-black">Paper signature</h3><p className="mt-2 text-sm text-slate-700">I have reviewed and agree to the rental details, terms and safety rules shown in this agreement.</p><div className="mt-6 grid gap-8 sm:grid-cols-2"><p className="border-t border-slate-500 pt-2 text-sm">Printed full name</p><p className="border-t border-slate-500 pt-2 text-sm">Signature</p><p className="border-t border-slate-500 pt-2 text-sm">Date signed</p></div></section>}
   </article>;
 }
