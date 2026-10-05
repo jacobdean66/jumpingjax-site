@@ -8,7 +8,13 @@ The Party / Invitation workflow owns catalog lookup, protected live search, expl
 4. Only the explicit Yes confirmation approves the catalog entry. Verify PNG bytes against the stored hash, issue a signed confirmation token, and compose Spotlight, Portrait and Banner with the same image. Customers can switch layouts without another search.
 5. Booking verifies that the image exists, passes `confirmedTheme` into the atomic insert, then queries the resulting booking row. Only a matching stored image and layout produces `booking_verified`. Rendering, email HTML, print sheets, share previews and editable PowerPoint use the saved picture after tokens expire.
 
-Search, download or storage failures preserve customer input and show an error. They cannot create a generic substitute for a confirmed character. Legacy generic invitations and explicit office-generic requests remain supported.
+Search, download or storage failures preserve customer input. They cannot create a generic substitute for any requested character, whether the booking is new or old, saved or missing its invitation snapshot. The runtime `artwork-policy.ts` gate blocks unverified themed cards, sheets, email HTML, downloads, staff views, and share previews, and records `clarification_required` rather than a successful layout. Explicit office-generic requests and deliberately neutral birthday previews remain supported.
+
+## October 5 repair
+
+Publisher body images are prioritized before OG/JSON-LD site logos and tiny social avatars. This matters for Disney/Pixar pages: the former reader consumed its two image slots on a 200px preview or a logo and never reached Woody or Buzz farther down the page. Inline sources with publisher-declared dimensions and lazy-loaded image attributes are supported. All URLs still undergo public-address validation, bounded download/decoding, and protected identity verification before becoming candidates.
+
+Transient provider 429s allow one bounded retry using `Retry-After` up to 60 seconds, or 30 seconds without a hint. Quota and authentication errors do not retry. The complete search deadline is 150 seconds within the 180-second route budget. Only safe error categories reach operational logs; provider bodies, credentials, and customer details do not.
 
 ## Production diagnosis, September 29, 2026
 

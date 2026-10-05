@@ -2,6 +2,7 @@ import { getInvitationLibraryTheme } from "./library/themes";
 
 /** Artwork that Jumping Jax has explicitly approved for invitation use. */
 export const APPROVED_INVITATION_ARTWORK: Readonly<Record<string, string>> = {
+  princess: "/invitations/approved/princess/royal-portrait-v1.png",
   transformers: "/invitations/approved/transforming-robots/print-light-v1.png",
   transformer: "/invitations/approved/transforming-robots/print-light-v1.png",
   camouflage: "/invitations/approved/camouflage/print-light-v1.png",
@@ -27,11 +28,13 @@ function sourceArtwork(
   artwork: Readonly<Record<string, string>>,
   sourceText: string,
 ): string | null {
-  const normalizedSource = sourceText.toLowerCase();
-  const sourceKey = Object.keys(artwork).find((key) =>
-    normalizedSource.includes(key),
-  );
+  const normalizedSource = sourceText.toLowerCase().trim().replace(/\s+/g, " ").replace(/(?:\s+(?:birthday|party|theme|themed))+$/, "");
+  const sourceKey = Object.keys(artwork).find((key) => normalizedSource === key);
   return sourceKey ? artwork[sourceKey] : null;
+}
+
+export function approvedSourceArtworkSrc(sourceText: string): string | null {
+  return sourceArtwork(APPROVED_INVITATION_ARTWORK, sourceText);
 }
 
 export function approvedArtworkSrc(

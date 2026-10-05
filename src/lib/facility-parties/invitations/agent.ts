@@ -11,6 +11,7 @@ import {
 import type { ConfirmedInvitationTheme } from "./theme-search";
 
 import type { ApprovedPrint } from "./approved-print";
+import { INVITATION_ARTWORK_RULE, invitationNeedsArtworkConfirmation } from "./artwork-policy";
 
 export const INVITATION_AGENT_ACTIONS = [
   "create",
@@ -31,6 +32,7 @@ export const INVITATION_AGENT_ACTIONS = [
 export const INVITATION_AGENT_STANDARD = {
   version: "light-ink-full-page-borderless-v3",
   themeSource: "customer-party-theme",
+  artworkRule: INVITATION_ARTWORK_RULE,
   defaultPrintPaper: "letter",
   exactFourBySixPaper: "legal",
   cardsPerSheet: 4,
@@ -57,7 +59,7 @@ export type InvitationAgentInput = {
 
 export type InvitationAgentResult = {
   agent: "party-invitation";
-  status: "layout_composed";
+  status: "layout_composed" | "needs_theme_confirmation";
   action: InvitationAgentAction;
   snapshot: InvitationSnapshot;
   attachedLibraries: typeof INVITATION_AGENT_LIBRARIES;
@@ -72,8 +74,8 @@ export function isInvitationAgentAction(
 
 /**
  * Compose a stable snapshot for every renderer, preserving confirmed artwork.
- * Legacy saved invitations continue to resolve from the local theme libraries;
- * new customer selections are verified by the API before reaching this helper.
+ * Layout matching never proves artwork relevance. Unverified legacy themes
+ * remain pending instead of borrowing a generic library picture.
  */
 export function runInvitationAgent(
   input: InvitationAgentInput,
@@ -93,13 +95,14 @@ export function runInvitationAgent(
       : current;
 
   if (input.approvedPrint?.bookingId === input.bookingId) snapshot.approvedPrint = input.approvedPrint;
+  const needsConfirmation = invitationNeedsArtworkConfirmation(snapshot);
 
   return {
     agent: "party-invitation",
-    status: "layout_composed",
+    status: needsConfirmation ? "needs_theme_confirmation" : "layout_composed",
     action: input.action,
     snapshot,
     attachedLibraries: INVITATION_AGENT_LIBRARIES,
-    usedLibraries: snapshot.confirmedTheme ? [] : invitationLibrariesForTheme(snapshot.themeId),
+    usedLibraries: needsConfirmation || snapshot.confirmedTheme ? [] : invitationLibrariesForTheme(snapshot.themeId),
   };
 }

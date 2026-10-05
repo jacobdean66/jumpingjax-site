@@ -246,7 +246,7 @@ test("Transformers test sheets use the full-cell transforming-robots artwork", (
   );
 });
 
-test("racing cars sheets use matching wording and four full-bleed portrait cards", () => {
+test("Cars movie requests require confirmed Pixar characters instead of generic racing cars", () => {
   const carsSnapshot = buildInvitationSnapshot("Cars movie theme");
   const html = renderToStaticMarkup(
     createElement(InvitationSheet, {
@@ -256,14 +256,9 @@ test("racing cars sheets use matching wording and four full-bleed portrait cards
     }),
   );
 
-  assert.match(html, /data-print-layout="letter-portrait-full-page"/);
-  assert.match(html, /data-invitation-format="4.25x5.5-portrait"/);
-  assert.equal(countMatches(html, 'data-layout="racing-portrait"'), 4);
-  assert.equal(countMatches(html, "You&#x27;re invited to a high-octane celebration"), 4);
-  assert.equal(countMatches(html, "Race on over"), 4);
-  assert.equal(countMatches(html, 'src="\/invitations\/approved\/racing-cars\/storybook-portrait-v1.png"'), 4);
-  assert.equal(countMatches(html, "864-933-1420"), 4);
-  assert.equal(countMatches(html, "Party contact: 864-555-0100"), 4);
+  assert.match(html, /data-invitation-artwork="needs-confirmation"/);
+  assert.match(html, /Cars movie theme/);
+  assert.doesNotMatch(html, /<img|data-print-page=|storybook-portrait-v1\.png/);
 });
 
 test("admin print container removes dashboard padding around Letter sheets", () => {

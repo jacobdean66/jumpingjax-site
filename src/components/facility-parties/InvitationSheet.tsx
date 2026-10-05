@@ -1,4 +1,6 @@
 import { PartyInvitationCard } from "@/components/facility-parties/PartyInvitationCard";
+import { InvitationArtworkRequired } from "./InvitationArtworkRequired";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
 import { normalizeInvitationQuantity } from "@/lib/facility-parties/invitations";
 import { INVITATION_AGENT_STANDARD } from "@/lib/facility-parties/invitations/agent";
 import type { InvitationSnapshot } from "@/lib/facility-parties/invitations/snapshot";
@@ -30,6 +32,7 @@ export function InvitationSheet({
   paperSize?: InvitationSheetPaper;
   dense?: boolean;
 }) {
+  if (invitationNeedsArtworkConfirmation(snapshot)) return <InvitationArtworkRequired themeText={snapshot.sourceText} />;
   const quantity = dense ? 4 : normalizeInvitationQuantity(invitationQuantity);
   const pageCount = quantity / 4;
   const legal = paperSize === "legal";

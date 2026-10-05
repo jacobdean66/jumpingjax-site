@@ -12,6 +12,8 @@ import {
 import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { invitationBookingStatus } from "./booking-status";
+import { invitationNeedsArtworkConfirmation } from "./artwork-policy";
+import { recordInvitationEvent } from "@/lib/agent-manager/invitation-run";
 
 export type FacilityInvitationView = {
   bookingId: string;
@@ -79,6 +81,8 @@ export async function loadFacilityInvitationView(
     dateLabel: data.readable_date?.trim() || "", timeLabel: data.readable_time?.trim() || "",
     themeText: data.party_theme?.trim() || "", rsvpUrl: waiverUrl,
   });
+
+  if (invitationNeedsArtworkConfirmation(snapshot)) await recordInvitationEvent("clarification_required", { stage: "booking", category: "theme_confirmation_required" });
 
   return {
     bookingId: data.id,

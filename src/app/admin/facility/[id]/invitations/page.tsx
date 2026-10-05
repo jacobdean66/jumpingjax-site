@@ -22,6 +22,8 @@ import {
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
+import { InvitationArtworkRequired } from "@/components/facility-parties/InvitationArtworkRequired";
 import { buildInvitationEmailDraft } from "@/lib/facility-parties/invitations/content";
 import {
   facilityInvitationShareUrl,
@@ -178,6 +180,8 @@ export default async function FacilityInvitationsPage({
     bookingId: data.id,
     approvedPrint: storedSnapshot.approvedPrint,
   });
+
+  if (invitationNeedsArtworkConfirmation(agentResult.snapshot)) return <AdminShell><AdminHeader eyebrow="Facility Invitations" title="Invitation picture needs confirmation" /><AdminNav token="" role={auth.role} active="facility" /><InvitationArtworkRequired themeText={agentResult.snapshot.sourceText} bookingId={data.id} /></AdminShell>;
 
   return (
     <AdminShell>

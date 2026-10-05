@@ -100,8 +100,10 @@ export function declaredImages(html: string, source: string): string[] {
 /** Structured publisher images and descriptive inline images supplement social metadata.
  * Every URL still passes public-host validation, a bounded download and vision checks. */
 export function sourceImages(html: string, source: string): string[] {
-  const urls = new Set(declaredImages(html, source));
-  if (Buffer.byteLength(html) > 512 * 1024 || !publicHttps(source)) return [...urls];
+  if (Buffer.byteLength(html) > 512 * 1024 || !publicHttps(source)) return [];
+  // Publisher OG tags frequently point to a 200px avatar or a site logo. They
+  // must not occupy both download slots before actual character art is read.
+  const urls = new Set<string>();
   function add(value: unknown) {
     if (typeof value !== 'string' || value.length > 4096 || urls.size >= 2) return;
     try { const url = new URL(decode(value), source); if (publicHttps(url.href)) urls.add(url.href); } catch { /* Invalid publisher URL. */ }
@@ -118,13 +120,31 @@ export function sourceImages(html: string, source: string): string[] {
   for (const script of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
     try { visit(JSON.parse(script[1])); } catch { /* Malformed structured data is ignored. */ }
   }
+  const structured = [...urls];
+  urls.clear();
   const body = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
-  for (const image of body.matchAll(/<img\b[^>]{0,8000}>/gi)) {
-    const alt = /\balt=["']([^"']+)["']/i.exec(image[0])?.[1];
-    if (!alt || alt.length < 12 || /logo|icon|avatar|tracking|pixel/i.test(alt)) continue;
-    add(/\bsrc=["']([^"']+)["']/i.exec(image[0])?.[1]);
+  const inline = [...body.matchAll(/<img\b[^>]{0,8000}>/gi)].flatMap(image => {
+    const attrs = new Map<string, string>();
+    for (const part of image[0].slice(4, -1).matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+      const name = part[1].toLowerCase();
+      if (!attrs.has(name)) attrs.set(name, decode(part[2] ?? part[3] ?? ""));
+    }
+    const src = attrs.get('src') ?? attrs.get('data-src');
+    const alt = attrs.get('alt') ?? '';
+    if (!src || /logo|icon|avatar|tracking|pixel|spacer|badge|pattern/i.test(`${alt} ${src}`) || /\.svg(?:[?#]|$)/i.test(src)) return [];
+    const dimensions = attrs.get('data-image-dimensions')?.split('x').map(Number);
+    const width = Number(attrs.get('width') ?? dimensions?.[0]);
+    const height = Number(attrs.get('height') ?? dimensions?.[1]);
+    if (alt.trim().length < 12 && !(width >= 240 && height >= 240)) return [];
+    const character = /character|cast|key.?art|hero/i.test(`${alt} ${src}`);
+    return [{ src, rank: character ? 0 : 1 }];
+  }).sort((a,b) => a.rank-b.rank);
+  for (const image of inline) {
+    add(image.src);
     if (urls.size >= 2) break;
   }
+  for (const image of structured) add(image);
+  for (const image of declaredImages(html, source)) add(image);
   return [...urls];
 }
 
@@ -158,7 +178,7 @@ function inspectedCandidates(response: unknown, evidence: Evidence[], input: Sea
   return { question: candidates.length ? text(answer.question, 400) ?? "Which picture matches the theme you want?" : clarification, candidates };
 }
 
-export async function searchThemesWithChat(input: SearchInput, dependencies: SearchDependencies, signal = AbortSignal.timeout(80000)) {
+export async function searchThemesWithChat(input: SearchInput, dependencies: SearchDependencies, signal = AbortSignal.timeout(150000)) {
   const sources = citedSources(await dependencies.search(input, signal));
   signal.throwIfAborted();
   const pages = await Promise.allSettled(sources.map(async source => ({

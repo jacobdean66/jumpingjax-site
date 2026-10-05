@@ -10,6 +10,8 @@ import { facilityInvitationSheetPath } from "@/lib/facility-parties/invitations/
 import { loadFacilityInvitationView } from "@/lib/facility-parties/invitations/load-invitation";
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
 import { buildInvitationCopy } from "@/lib/facility-parties/invitations/content";
+import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
+import { InvitationArtworkRequired } from "@/components/facility-parties/InvitationArtworkRequired";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,7 @@ export default async function FacilityInvitationSharePage({ params }: Props) {
   const { id } = await params;
   const view = await loadFacilityInvitationView(id);
   if (!view) notFound();
+  if (invitationNeedsArtworkConfirmation(view.snapshot)) return <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950"><InvitationArtworkRequired themeText={view.snapshot.sourceText} /><p className="mt-4 text-center"><a href={view.waiverUrl} className="font-bold text-sky-800 underline">RSVP for this party</a></p></main>;
   const agentResult = runInvitationAgent({
     action: "view-single",
     sourceText: view.snapshot.sourceText,

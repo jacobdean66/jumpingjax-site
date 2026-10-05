@@ -31,10 +31,10 @@ function assertQrTargets(html: string, count: number, expected: string) {
   }
 }
 
-test("every legacy/confirmed layout and every printed card uses its own party QR, overriding stale supplied images", () => {
+test("every approved/confirmed layout and every printed card uses its own party QR, overriding stale supplied images", () => {
   for (const label of ["Princess", "Cars", "Dinosaur", "Sonic", confirmed.label]) {
     for (let option = 0; option < 4; option += 1) {
-      const snapshot = invitationSnapshotFromChoice(label, option, option, "", label === confirmed.label ? confirmed : undefined);
+      const snapshot = invitationSnapshotFromChoice(label, option, option, "", label === "Sonic" ? undefined : { ...confirmed, label });
       const props = { snapshot, ...details, waiverUrl, qrUrl: "https://wrong.example.com/qr.png" };
       const card = renderToStaticMarkup(React.createElement(PartyInvitationCard, props));
       assertQrTargets(card, 1, waiverUrl);

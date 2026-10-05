@@ -6,7 +6,7 @@ import { buildFullInvitationEmailHtml } from "./email-html.ts";
 
 test("full invitation email includes the themed invitation and forwarding actions", () => {
   const html = buildFullInvitationEmailHtml({
-    snapshot: buildInvitationSnapshot("Frozen princess"),
+    snapshot: buildInvitationSnapshot("Sonic"),
     siteUrl: "https://jumpingjaxllc.com",
     plainText: "Your booking is confirmed.",
     childName: "Emma",
@@ -14,7 +14,7 @@ test("full invitation email includes the themed invitation and forwarding action
     customerPhone: "864-555-0100",
     dateLabel: "Saturday, August 22, 2026",
     timeLabel: "2:00 PM - 3:30 PM",
-    themeText: "Frozen princess",
+    themeText: "Sonic",
     invitationUrl: "/facility-parties/invitations/booking-123",
     printableUrl: "/facility-parties/invitations/booking-123/sheet",
     waiverUrl: "/facility-party-check-in?booking=booking-123",
@@ -29,20 +29,20 @@ test("full invitation email includes the themed invitation and forwarding action
   assert.match(html, /Open &amp; share invitation/);
   assert.match(html, /Print 4 per page/);
   assert.match(html, /Party check-in &amp; waiver/);
-  assert.match(html, /https:\/\/jumpingjaxllc\.com\/invitation-library\/themes\/princess-royal\/princess\.png/);
+  assert.match(html, /https:\/\/jumpingjaxllc\.com\/invitations\/approved\/sonic\/card\.png/);
   assert.match(html, /Forward this email/);
 });
 
 test("full invitation email escapes customer-provided text", () => {
   const html = buildFullInvitationEmailHtml({
-    snapshot: buildInvitationSnapshot("Princess"),
+    snapshot: buildInvitationSnapshot("Sonic"),
     siteUrl: "https://jumpingjaxllc.com",
     plainText: "Saved <safely>",
     childName: "<Emma>",
     childAge: "7",
     dateLabel: "Saturday",
     timeLabel: "2 PM",
-    themeText: "Princess",
+    themeText: "Sonic",
   });
 
   assert.doesNotMatch(html, /<Emma>/);
