@@ -6,6 +6,7 @@ import {
   verifyAdminSessionValue,
 } from "./delivery-auth";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { resolveDriverLoginName, type DriverLoginAccount } from "./driver-login-policy";
 
 export const DRIVER_SESSION_COOKIE = "jumpingjax-driver-session";
 export const DRIVER_SHARED_PASSWORD = "password";
@@ -54,15 +55,20 @@ export async function verifyDriverLogin(input: {
   username: string | null | undefined;
   password: string | null | undefined;
 }): Promise<AdminDeliveryAuthResult> {
-  const cleanUsername = normalizeDriverName(input.username);
-  const cleanPassword = input.password?.trim();
-  if (!cleanUsername || cleanPassword !== DRIVER_SHARED_PASSWORD) {
-    return { ok: false, reason: "invalid_token" };
-  }
-
-  const driverName = (await loadKnownDriverNames()).find(
-    (name) => normalizeDriverName(name) === cleanUsername,
-  );
+  const driverName = await resolveDriverLoginName(input, {
+    sharedPassword: DRIVER_SHARED_PASSWORD,
+    findAccount: async (username) => {
+      const { data, error } = await createServiceRoleClient()
+        .from("driver_login_accounts")
+        .select("username, display_name, password_hash, password_salt, is_active")
+        .eq("username", username)
+        .maybeSingle<DriverLoginAccount>();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    findLegacyDriverName: async (username) =>
+      (await loadKnownDriverNames()).find((name) => normalizeDriverName(name) === username) ?? null,
+  });
 
   if (!driverName) {
     return { ok: false, reason: "invalid_token" };
