@@ -85,6 +85,12 @@ test("coverage questions list connected and blocked dashboard services directly"
   assert.match(reply, /Payments \(degraded\)/);
 });
 
+test("nomination setup is reported once while its detailed missing configuration remains visible", () => {
+  const value = snapshot({ wiring: buildAgentWiring({ nominationReady: false }), services: [{ key: "giveaway", name: "Giveaway and Nomination", href: "/admin/giveaway", state: "setup_required", summary: "Inbound disabled.", checkedAt: "2026-10-05T12:00:00Z", source: "provider", recordCount: 1, blocker: "Configure signed nomination email intake." }] });
+  assert.equal(value.issues.filter((issue) => issue.code.includes("nomination") || issue.code.includes("giveaway")).length, 1);
+  assert.match(value.issues[0].summary, /signed nomination email intake/);
+});
+
 test("website, booking, and security failures become owner-visible issues", () => {
   const value = snapshot({
     website: [{ path: "/booking", ok: false, status: 500, latencyMs: 12 }],

@@ -37,7 +37,7 @@ export function getAithuraStatus(now = new Date()): SecurityServiceSnapshot {
   };
 }
 
-export async function runAithuraHealthCheck(now = new Date()): Promise<AithuraHealthResult> {
+export async function runAithuraHealthCheck(now = new Date(), fetchImpl: typeof fetch = fetch): Promise<AithuraHealthResult> {
   const config = resolveProtectedOpenAIConfig();
   if (!config) {
     return { healthy: false, checkedAt: now.toISOString(), message: "AITHURA routing is not configured." };
@@ -50,11 +50,14 @@ export async function runAithuraHealthCheck(now = new Date()): Promise<AithuraHe
       defaultHeaders: config.defaultHeaders,
       timeout: 12_000,
       maxRetries: 0,
+      fetch: fetchImpl,
     });
+    const model = process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
     const response = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL?.trim() || "gpt-5-mini",
+      model,
       messages: [{ role: "user", content: "Reply with OK only." }],
-      max_completion_tokens: 8,
+      max_completion_tokens: 128,
+      ...(/^gpt-5(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$/.test(model) ? { reasoning_effort: "minimal" as const } : {}),
     });
     const completed = response.choices[0]?.message.content?.trim().toUpperCase() === "OK";
     return {
