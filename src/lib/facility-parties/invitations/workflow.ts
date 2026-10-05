@@ -1,5 +1,6 @@
 import { billableModelProtectionBlock } from '@/lib/social-posts/agents/agent-protection-mode';
 import { randomUUID } from 'node:crypto';
+import { localThemeCandidate } from './local-theme';
 import { recordInvitationEvent } from '@/lib/agent-manager/invitation-run';
 import { findCatalogThemes, stageCatalogTheme, approveCatalogTheme } from './theme-asset-catalog';
 import { searchInvitationThemes } from './theme-search-provider';
@@ -21,7 +22,7 @@ async function failure(error: unknown, stage: 'search' | 'confirmation' | 'compo
 }
 
 /** The server workflow owns lookup, verification, frozen artwork, confirmation and composition. */
-export async function searchInvitationWorkflow(body: unknown, options: { providerProbe?: boolean } = {}) {
+export async function searchInvitationWorkflow(body: unknown, options: { providerProbe?: boolean; signal?: AbortSignal } = {}) {
   const input = themeSearchRequestSchema.parse(body);
   assertThemeSigningConfigured();
   const operationId = randomUUID(), started = Date.now();
@@ -34,14 +35,17 @@ export async function searchInvitationWorkflow(body: unknown, options: { provide
     }
     let catalogHits = 0;
     const result = await performThemeSearch(input, { search: async context => {
+      options.signal?.throwIfAborted();
+      const local = options.providerProbe ? null : localThemeCandidate(context);
+      if (local) return { question: "Is this the right picture for your party?", candidates: [await stageCatalogTheme(local)] };
       const cached = options.providerProbe ? [] : await findCatalogThemes(context);
       catalogHits = cached.length;
       if (cached.length) return { question: 'Which picture matches your theme?', candidates: cached };
       if (await billableModelProtectionBlock()) throw new Error('theme_provider_protection_unavailable');
-      const discovered = await searchInvitationThemes(context);
+      const discovered = await searchInvitationThemes(context, options.signal);
       const candidates = [];
       // Bound image decodes/uploads. A failed save is visible, never substituted.
-      for (const candidate of discovered.candidates) candidates.push(await stageCatalogTheme(candidate));
+      for (const candidate of discovered.candidates) { options.signal?.throwIfAborted(); candidates.push(await stageCatalogTheme(candidate)); }
       return { ...discovered, candidates };
     } });
     await recordInvitationEvent(result.candidates.length ? 'candidates_found' : 'clarification_required', {

@@ -2,7 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin';
 import type { InvitationAgentResult } from '@/lib/facility-parties/invitations/agent';
 import { INVITATION_SUPERVISION_JOB_TYPE } from './invitation-supervisor';
 
-export type InvitationWorkflowEvent = 'operation_started' | 'search_started' | 'candidates_found' | 'clarification_required' | 'confirmation_saved' | 'invitation_composed' | 'booking_verified' | 'failed' | 'layout_viewed';
+export type InvitationWorkflowEvent = 'operation_started' | 'search_started' | 'search_recovery_started' | 'candidates_found' | 'clarification_required' | 'confirmation_saved' | 'invitation_composed' | 'booking_verified' | 'failed' | 'layout_viewed';
 export type InvitationEventEvidence = {
   operationId?: string; candidateCount?: number; catalogHits?: number; imageId?: string;
   stage?: 'search' | 'confirmation' | 'composition' | 'booking';
