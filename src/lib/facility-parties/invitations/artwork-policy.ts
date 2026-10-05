@@ -14,7 +14,7 @@ export function uncertainInvitationIdentity(label: string, description: string):
 export function invitationNeedsArtworkConfirmation(snapshot: InvitationSnapshot): boolean {
   if (snapshot.confirmedTheme) {
     const parsed = confirmedThemeSchema.safeParse(snapshot.confirmedTheme);
-    return !parsed.success || parsed.data.label !== snapshot.sourceText.trim();
+    return !parsed.success || parsed.data.label !== snapshot.sourceText.trim() || uncertainInvitationIdentity(parsed.data.label,parsed.data.description);
   }
   if (snapshot.approvedPrint?.themeText === snapshot.sourceText.trim()) return false;
   // An empty builder has no requested theme. It may show a neutral preview.

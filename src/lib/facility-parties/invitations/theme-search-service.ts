@@ -1,5 +1,6 @@
 import { confirmedThemeSchema, themeConfirmationRequestSchema, themeSearchRequestSchema, type ThemeSearchRequest, type ThemeCandidate } from "./theme-search";
 import { assertThemeSigningConfigured, readThemeSelection, signConfirmedTheme, signThemeSelection } from "./theme-token";
+import { uncertainInvitationIdentity } from "./artwork-policy";
 
 export type ThemeSearchDependencies = {
   search: (input: ThemeSearchRequest) => Promise<{ question: string; candidates: ThemeCandidate[] }>;
@@ -22,6 +23,7 @@ export async function confirmInvitationTheme(body: unknown, dependencies: Pick<T
   const input = themeConfirmationRequestSchema.parse(body);
   const selection = readThemeSelection(input.selectionToken);
   if (!selection) throw new Error("This search has expired. Please search for your theme again.");
+  if (uncertainInvitationIdentity(selection.candidate.label,selection.candidate.description)) throw new Error("theme_identity_uncertain");
   const imagePath = await dependencies.persist(selection.candidate.imageUrl, selection.candidate);
   const theme = confirmedThemeSchema.parse({
     ...selection.candidate,

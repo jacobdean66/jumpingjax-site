@@ -12,7 +12,7 @@ import { ThemeChatCapabilityError } from './theme-search-chat-core';
 import { safeProviderFailure } from './provider-failure';
 import { assertInvitationArtwork } from './artwork-policy';
 
-const categories = new Set(['theme_catalog_lookup_failed', 'theme_catalog_write_failed', 'theme_catalog_confirmation_failed', 'theme_artwork_missing', 'theme_artwork_invalid']);
+const categories = new Set(['theme_catalog_lookup_failed', 'theme_catalog_write_failed', 'theme_catalog_confirmation_failed', 'theme_artwork_missing', 'theme_artwork_invalid', 'theme_identity_uncertain']);
 async function failure(error: unknown, stage: 'search' | 'confirmation' | 'composition', operationId: string, started: number) {
   const provider = safeProviderFailure(error);
   await recordInvitationEvent('failed', { operationId, stage, elapsedMs: Date.now() - started,

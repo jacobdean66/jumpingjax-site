@@ -97,6 +97,13 @@ test("Responses image search cannot pass an uncertain look-alike as a character 
   assert.deepEqual(result.candidates,[]);
 });
 
+test("a previously signed uncertain selection cannot be confirmed after the identity repair", async () => {
+  const selectionToken=signThemeSelection("Halo",{...movie,label:"Master Chief",description:"Resembles Master Chief"});
+  let saved=false;
+  await assert.rejects(confirmInvitationTheme({selectionToken,confirmed:true},{persist:async()=>{saved=true;return imagePath;}}),/theme_identity_uncertain/);
+  assert.equal(saved,false);
+});
+
 test("expired, edited and cross-purpose tokens cannot confirm a theme", () => {
   const token = signThemeSelection("Kpop", movie, 100);
   assert.ok(readThemeSelection(token, 101));
