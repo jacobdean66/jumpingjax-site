@@ -3,13 +3,18 @@ import { confirmedThemeSchema } from "./theme-search";
 import type { InvitationSnapshot } from "./snapshot";
 
 /** Persistent agent rule; all renderers and delivery paths enforce it. */
-export const INVITATION_ARTWORK_RULE = "Depict the customer's requested character, franchise, and version. Designs may vary. Never substitute generic library artwork for an unverified theme; require a matching picture instead.";
+export const INVITATION_ARTWORK_RULE = "Depict the customer's requested character, franchise, and version. Designs may vary. Reject uncertain identities and approximate look-alikes instead of labeling them as the requested character. Never substitute generic library artwork for an unverified theme; require a matching picture instead.";
 export const INVITATION_ARTWORK_REQUIRED = "The picture for this theme needs confirmation. Search for the requested character or theme and select a matching picture before printing or sending the invitation.";
+
+/** A positive model flag cannot override its own uncertain identification. */
+export function uncertainInvitationIdentity(label: string, description: string): boolean {
+  return /\b(?:resembles|look[- ]alike|might be|could be|possibly|probably)\b/i.test(`${label} ${description}`);
+}
 
 export function invitationNeedsArtworkConfirmation(snapshot: InvitationSnapshot): boolean {
   if (snapshot.confirmedTheme) {
     const parsed = confirmedThemeSchema.safeParse(snapshot.confirmedTheme);
-    return !parsed.success || parsed.data.label !== snapshot.sourceText.trim();
+    return !parsed.success || parsed.data.label !== snapshot.sourceText.trim() || uncertainInvitationIdentity(parsed.data.label,parsed.data.description);
   }
   if (snapshot.approvedPrint?.themeText === snapshot.sourceText.trim()) return false;
   // An empty builder has no requested theme. It may show a neutral preview.

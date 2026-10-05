@@ -55,3 +55,10 @@ test("approved local character art requires a whole-theme match, not a substring
   for (const label of ["Sonic", "Sonic party", "Minecraft", "Transformers", "camouflage"]) assert.equal(invitationNeedsArtworkConfirmation(invitationSnapshotFromChoice(label)), false, label);
   assert.equal(invitationNeedsArtworkConfirmation(invitationSnapshotFromChoice("")), false);
 });
+
+test("saved confirmation does not override an uncertain character identity", () => {
+  const theme={id:"verified",label:"Halo Master Chief",description:"Resembles Master Chief",originalQuery:"Halo",imageUrl:"https://example.com/halo.png",sourceUrl:"https://example.com/halo",imagePath:`/api/facility/invitations/artwork/${"a".repeat(64)}`,confirmedAt:"2026-10-05T12:00:00.000Z"};
+  const stored=invitationSnapshotFromChoice(theme.label,0,0,"",theme);
+  assert.equal(invitationNeedsArtworkConfirmation(resolveInvitationSnapshot({partyTheme:theme.label,stored})),true);
+  assert.equal(runInvitationAgent({action:"view-single",sourceText:theme.label,confirmedTheme:theme}).status,"needs_theme_confirmation");
+});

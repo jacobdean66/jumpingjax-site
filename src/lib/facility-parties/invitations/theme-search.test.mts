@@ -92,6 +92,18 @@ test("only explicit confirmation saves the selected picture; failed saves cannot
   assert.equal(themeDesignMatches(design, "Kpop"), false);
 });
 
+test("Responses image search cannot pass an uncertain look-alike as a character choice", () => {
+  const result=parseThemeSearchResponse({output:[{type:"web_search_call",results:[{type:"image_result",image_url:movie.imageUrl,source_website_url:movie.sourceUrl}]}],output_text:JSON.stringify({question:"Is this correct?",candidates:[{label:"Master Chief",description:"Resembles the requested Halo character",image_url:movie.imageUrl}]})});
+  assert.deepEqual(result.candidates,[]);
+});
+
+test("a previously signed uncertain selection cannot be confirmed after the identity repair", async () => {
+  const selectionToken=signThemeSelection("Halo",{...movie,label:"Master Chief",description:"Resembles Master Chief"});
+  let saved=false;
+  await assert.rejects(confirmInvitationTheme({selectionToken,confirmed:true},{persist:async()=>{saved=true;return imagePath;}}),/theme_identity_uncertain/);
+  assert.equal(saved,false);
+});
+
 test("expired, edited and cross-purpose tokens cannot confirm a theme", () => {
   const token = signThemeSelection("Kpop", movie, 100);
   assert.ok(readThemeSelection(token, 101));

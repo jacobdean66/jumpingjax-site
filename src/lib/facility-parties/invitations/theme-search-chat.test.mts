@@ -82,6 +82,13 @@ test("unknown image ids and failing identity/appropriateness checks never become
   }
 });
 
+test("uncertain character look-alikes are rejected even when vision sets a positive identity flag", async () => {
+  for (const description of ["Resembles Master Chief but is a generic armored soldier", "A look-alike character", "This could be Master Chief", "Possibly the character the customer requested"]) {
+    const result=await searchThemesWithChat({query:"Halo Master Chief",refinements:[],rejected:[]},dependencies({inspect:async(_context,images)=>completion(JSON.stringify({matches:[{...match(images[0],"Master Chief / Spartan soldier"),description}]}))}));
+    assert.equal(result.candidates.length,0);
+  }
+});
+
 test("inaccessible pages, broken images and invalid image data ask for clarification, never generic art", async () => {
   for (const overrides of [
     { readHtml: async () => { throw new Error("unavailable"); } },

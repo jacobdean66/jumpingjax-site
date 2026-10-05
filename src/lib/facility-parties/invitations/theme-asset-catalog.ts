@@ -4,6 +4,7 @@ import { invitationArtworkBucket } from './artwork-bucket';
 import { persistThemeArtwork } from './theme-artwork-store';
 import { normalizeThemeLabel, themeCatalogQuery } from './theme-interpretations';
 import { themeCandidateSchema, type ThemeCandidate, type ThemeSearchRequest } from './theme-search';
+import { uncertainInvitationIdentity } from './artwork-policy';
 
 type AssetRow = {
   id: string; label: string; description: string; storage_path: string;
@@ -23,7 +24,7 @@ export async function findCatalogThemes(input: ThemeSearchRequest): Promise<Them
   });
   if (error) throw new Error('theme_catalog_lookup_failed');
   const rejected = new Set(input.rejected.map(normalizeThemeLabel));
-  return (data as AssetRow[]).filter(row => !rejected.has(normalizeThemeLabel(row.label))).slice(0, 4).map(candidateFromAsset);
+  return (data as AssetRow[]).filter(row => !uncertainInvitationIdentity(row.label,row.description) && !rejected.has(normalizeThemeLabel(row.label))).slice(0, 4).map(candidateFromAsset);
 }
 
 /** Freeze verified pixels before showing them, so confirmation cannot fetch a changed remote image. */
@@ -53,6 +54,7 @@ export async function approveCatalogTheme(candidate: ThemeCandidate): Promise<st
   const { data, error } = await db.from('invitation_theme_assets').select('*')
     .eq('id', staged.catalogAssetId!).eq('storage_bucket', invitationArtworkBucket()).single<AssetRow>();
   if (error || !data || data.approval_status === 'rejected') throw new Error('theme_catalog_confirmation_failed');
+  if (uncertainInvitationIdentity(data.label,data.description)) throw new Error('theme_identity_uncertain');
   const stored = candidateFromAsset(data);
   if (stored.imagePath !== staged.imagePath || stored.label !== staged.label) throw new Error('theme_catalog_confirmation_failed');
   const { data: image, error: imageError } = await db.storage.from(invitationArtworkBucket()).download(data.storage_path);
