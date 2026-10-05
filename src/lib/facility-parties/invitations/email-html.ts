@@ -76,7 +76,7 @@ export function buildFullInvitationEmailHtml(
   const invitationUrl = absoluteUrl(input.siteUrl, input.invitationUrl);
   const printableUrl = absoluteUrl(input.siteUrl, input.printableUrl);
   const waiverUrl = absoluteUrl(input.siteUrl, input.waiverUrl);
-  const qrSection = waiverUrl ? `<div style="padding:16px;text-align:center;background:#ffffff;color:#0f172a;border-radius:12px"><a href="${escapeHtml(waiverUrl)}" style="color:#0369a1"><img data-invitation-qr="true" src="${escapeHtml(buildQrCodeImageUrl(waiverUrl, 300))}" alt="Party check-in and guest list QR code" width="150" height="150" style="display:block;margin:0 auto;background:#ffffff;border:0" /><span style="display:block;margin-top:8px;font:700 13px Arial,sans-serif">Scan or tap for party check-in, waivers &amp; guest list</span></a></div>` : "";
+  const qrSection = waiverUrl ? `<div style="padding:16px;text-align:center;background:#ffffff;color:#0f172a;border-radius:12px"><a href="${escapeHtml(waiverUrl)}" style="color:#0369a1"><img data-invitation-qr="true" src="${escapeHtml(buildQrCodeImageUrl(waiverUrl, 300))}" alt="Party check-in and guest list QR code" width="150" height="150" style="display:block;margin:0 auto;background:#ffffff;border:0" /><span style="display:block;margin-top:8px;font:700 13px Arial,sans-serif">Scan or tap to check in as soon as you know you’re coming.</span></a></div>` : "";
   const backgroundImage = artworkUrl
     ? `background-image:linear-gradient(180deg,rgba(0,0,0,0.06) 0%,rgba(0,0,0,0.18) 42%,rgba(0,0,0,0.94) 100%),url('${escapeHtml(artworkUrl)}');background-position:center;background-size:cover;`
     : `background:linear-gradient(145deg,${palette.background},${palette.backgroundAlt});`;

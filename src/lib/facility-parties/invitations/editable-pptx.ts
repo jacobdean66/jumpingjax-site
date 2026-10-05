@@ -73,7 +73,7 @@ function addConfirmedInvitation(pptx: PptxGenJS, slide: PptxGenJS.Slide, input: 
   const footerY=y+(variant===2?3.0:2.6);
   slide.addText(copy.dateLabel+'\n'+copy.timeLabel,{x:x+0.3,y:footerY,w:3.7,h:0.48,fontSize:variant===2?10:12,bold:true,color:'172033',fit:'shrink',margin:0});
   slide.addText(FACILITY_INVITATION_VENUE.name+' • '+FACILITY_INVITATION_VENUE.address+(copy.customerPhone?'\nParty contact: '+copy.customerPhone:''),{x:x+0.3,y:footerY+0.5,w:3.7,h:variant===2?0.54:0.8,fontSize:10.5,color:'172033',fit:'shrink',margin:0});
-  if(qr){slide.addImage({data:qr,altText:'Party RSVP and guest list',x:x+4.2,y:y+3.02,w:0.9,h:0.9,...(input.waiverUrl?{hyperlink:{url:input.waiverUrl.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}}:{})});slide.addText('RSVP & guest list',{x:x+4.05,y:y+3.95,w:1.2,h:0.17,fontSize:7.5,align:'center',margin:0,color:'172033'});}
+  if(qr){slide.addImage({data:qr,altText:'Party RSVP and guest list',x:x+4.2,y:y+3.02,w:0.9,h:0.9,...(input.waiverUrl?{hyperlink:{url:input.waiverUrl.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}}:{})});slide.addText('Check in as soon as you know you’re coming',{x:x+4.05,y:y+3.95,w:1.2,h:0.35,fontSize:7,align:'center',margin:0,color:'172033'});}
 }
 
 function addInvitation(
@@ -218,7 +218,7 @@ function addInvitation(
   });
 
   if (qrData) {
-    slide.addText("RSVP & guest list", {
+    slide.addText("Check in as soon as you know you’re coming", {
       x: x + 4.04,
       y: y + 2.82,
       w: 1.13,

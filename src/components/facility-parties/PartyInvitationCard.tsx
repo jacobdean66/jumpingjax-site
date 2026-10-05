@@ -310,7 +310,7 @@ function RoyalPrincessInvitation({
         {qrUrl || waiverUrl ? (
           <div className="mt-auto flex items-end justify-center gap-[2%]">
             <p className="max-w-[8rem] text-right text-[clamp(5px,1.65cqw,10px)] font-bold leading-tight uppercase">
-              Scan to RSVP &amp; view guest list
+              Scan to check in as soon as you know you’re coming.
             </p>
             {qrUrl ? (
               <InvitationQr
@@ -407,7 +407,7 @@ function RacingCarsInvitation({
         {qrUrl || waiverUrl ? (
           <div className="mt-auto flex items-end justify-center gap-[2%]">
             <p className="max-w-[8rem] text-right text-[clamp(5px,1.65cqw,10px)] font-black uppercase leading-tight">
-              Scan to RSVP &amp; view guest list
+              Scan to check in as soon as you know you’re coming.
             </p>
             {qrUrl ? (
               <InvitationQr
@@ -833,7 +833,7 @@ function FooterBits({ compact, qrUrl, waiverUrl, tone = "dark", printSafe = fals
   return (
     <div className="flex shrink-0 items-end gap-1.5" data-qr-print-safe={printSafe ? "true" : undefined}>
       <p className={`${printSafe ? "max-w-16" : "max-w-20"} text-right text-[clamp(7px,0.7vw,10px)] font-bold leading-tight ${mutedText}`}>
-        Scan to RSVP &amp; view guest list
+        Scan to check in as soon as you know you’re coming.
       </p>
       {qrUrl ? (
         <InvitationQr
