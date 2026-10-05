@@ -17,6 +17,7 @@ import {
 } from "@/lib/facility-parties/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { facilityAdminUtcBoundsForYmdRange } from "./facility-admin-date";
+import { rentalDashboardQueryBounds, rentalMatchesDashboardDates, type RentalDashboardDates } from "./rental-dashboard-view";
 
 const SHOP_ADDRESS = "559 Beaudrot Rd, Greenwood, SC";
 
@@ -270,18 +271,21 @@ function mapsUrl(address: string | null): string | null {
 }
 
 export async function loadAdminRentalBookings(input: {
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
   status: string;
+  dashboardDates?: RentalDashboardDates;
 }): Promise<{ bookings: AdminRentalBooking[]; summary: AdminStatusSummary }> {
   const supabase = createServiceRoleClient();
+  const bounds = input.dashboardDates ? rentalDashboardQueryBounds(input.dashboardDates) : { from: input.from, to: input.to, ascending: true };
   let query = supabase
     .from("bookings")
     .select(RENTAL_SELECT)
-    .gte("event_date", input.from)
-    .lte("event_date", input.to)
-    .order("event_date", { ascending: true })
-    .order("event_start_time", { ascending: true, nullsFirst: false });
+    .order("event_date", { ascending: bounds.ascending })
+    .order("event_start_time", { ascending: bounds.ascending, nullsFirst: false });
+
+  if (bounds.from) query = query.gte("event_date", bounds.from);
+  if (bounds.to) query = query.lte("event_date", bounds.to);
 
   if (input.status !== "all") {
     query = query.eq("status", input.status);
@@ -290,7 +294,7 @@ export async function loadAdminRentalBookings(input: {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const rows = ((data ?? []) as RentalRow[]).map((row) => ({
+  const rows = ((data ?? []) as RentalRow[]).filter(row => !input.dashboardDates || rentalMatchesDashboardDates(row.event_date, row.span_days, input.dashboardDates)).map((row) => ({
     ...row,
     status: clean(row.status) ?? "pending",
   }));

@@ -5,6 +5,11 @@ reserved dates, customer, booking status, and agreement status. Click its header
 to expand all details; click again to collapse. Opening another square closes
 the previous booking. Existing booking anchors open the correct square.
 
+The default **Current & upcoming rentals** view shows today's reservations,
+in-progress multi-day rentals, and later bookings, nearest dates first. Dates use
+Eastern time. **Past rentals** shows ended reservations in the same squares,
+newest dates first. Blank date inputs show all dates in the selected view.
+
 For a single unsigned rental, use **Prepare & send agreement** or **Send signing
 link**, review the recipient, and send. Missing agreements use the saved template
 and current rental details. Existing unsigned versions are reused. Missing email
