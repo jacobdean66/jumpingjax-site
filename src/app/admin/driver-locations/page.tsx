@@ -4,6 +4,7 @@ import {
   AdminNav,
   AdminShell,
 } from "@/app/admin/_components";
+import Link from "next/link";
 import { DriverLocationsClient } from "./DriverLocationsClient";
 import { loadDriverLocationSnapshots } from "@/lib/admin/driver-location";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
@@ -28,6 +29,7 @@ export default async function AdminDriverLocationsPage() {
         </p>
       </AdminHeader>
       <AdminNav active="driver-locations" role={auth.role} token="" />
+      <Link href="/admin/driver-locations/history" className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-sky-600 px-5 py-3 font-black text-white">Routes &amp; Stops History</Link>
       <DriverLocationsClient initialLocations={locations} />
     </AdminShell>
   );

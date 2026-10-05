@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { DRIVER_MOBILE_SESSION_COOKIE } from "@/lib/admin/driver-trip-context";
 import { verifyDriverAccess } from "@/lib/admin/driver-auth";
 import { AdminBackButton } from "@/app/admin/AdminBackButton";
 import {
@@ -1088,6 +1090,9 @@ export default async function DriverPage({ searchParams }: Props) {
         ) : null}
 
         <DriverLocationTracker
+          key={`${auth.identity.id}:${activeView}:${date}`}
+          driverId={auth.identity.id}
+          nativeTracking={!!(await cookies()).get(DRIVER_MOBILE_SESSION_COOKIE)?.value}
           truck={activeView && activeView !== "unassigned" ? activeView : null}
           workDate={date}
         />
@@ -1167,7 +1172,7 @@ export default async function DriverPage({ searchParams }: Props) {
         <div className="driver-screen-only mt-4 grid gap-5">
           {!activeView ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <h2 className="text-xl font-black">Choose a truck to sign in.</h2>
+              <h2 className="text-xl font-black">Choose a trailer to view its work.</h2>
               <p className="mt-2 text-sm font-semibold text-slate-600">
                 Short Trailer and Long Trailer each show only their own drop-offs,
                 pickups, payment confirmations, status buttons, and checklists.

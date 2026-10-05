@@ -26,6 +26,8 @@ const LOCATION_TASK = "jumpingjax-driver-location-task";
 const TOKEN_KEY = "jumpingjax.driver.sessionToken";
 const DRIVER_NAME_KEY = "jumpingjax.driver.name";
 const API_BASE_URL_KEY = "jumpingjax.driver.apiBaseUrl";
+const TRIP_CONTEXT_KEY = "jumpingjax.driver.tripContexts";
+type TripContext = { vehicle: "dodge" | "ford"; trailer: "truck-1" | "truck-2"; effectiveAt: number };
 
 type LoginResponse =
   | {
@@ -60,6 +62,8 @@ async function postLocation(location: Location.LocationObject): Promise<Location
   if (!token) return { ok: false, error: "No active driver session." };
 
   const batteryLevel = await Battery.getBatteryLevelAsync().catch(() => null);
+  const contexts = JSON.parse(await SecureStore.getItemAsync(TRIP_CONTEXT_KEY) ?? "[]") as TripContext[];
+  const equipment = contexts.filter((context) => context.effectiveAt <= location.timestamp).at(-1);
   const apiBaseUrl = await storedApiBaseUrl();
   const response = await fetch(`${apiBaseUrl}/api/driver/mobile/location`, {
     method: "POST",
@@ -76,6 +80,8 @@ async function postLocation(location: Location.LocationObject): Promise<Location
       speedMetersPerSecond: location.coords.speed,
       batteryLevel,
       capturedAt: new Date(location.timestamp).toISOString(),
+      vehicle: equipment?.vehicle ?? null,
+      trailer: equipment?.trailer ?? null,
     }),
   });
 
@@ -98,12 +104,9 @@ async function postLocation(location: Location.LocationObject): Promise<Location
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   if (error) return;
   const taskData = data as LocationTaskData | undefined;
-  const latest = taskData?.locations?.reduce<Location.LocationObject | undefined>(
-    (newest, location) => !newest || location.timestamp > newest.timestamp ? location : newest,
-    undefined,
-  );
-  if (latest) {
-    await postLocation(latest);
+  // Preserve every supplied sample rather than discarding the route between check-ins.
+  for (const location of [...(taskData?.locations ?? [])].sort((a, b) => a.timestamp - b.timestamp)) {
+    await postLocation(location);
   }
 });
 
@@ -122,7 +125,7 @@ async function startTracking() {
   await Location.startLocationUpdatesAsync(LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
     activityType: Location.ActivityType.AutomotiveNavigation,
-    distanceInterval: 50,
+    distanceInterval: 10,
     timeInterval: 30000,
     pausesUpdatesAutomatically: false,
     showsBackgroundLocationIndicator: true,
@@ -159,6 +162,7 @@ function DriverTrackerApp() {
   const [busy, setBusy] = useState(false);
   const [lastSentAt, setLastSentAt] = useState<string | null>(null);
   const [trackingOk, setTrackingOk] = useState(false);
+  const [equipmentLabel, setEquipmentLabel] = useState<string | null>(null);
 
   const deviceLabel = useMemo(() => {
     const model = Device.modelName || Device.deviceName || "Driver phone";
@@ -188,15 +192,20 @@ function DriverTrackerApp() {
   useEffect(() => {
     let mounted = true;
     async function restore() {
-      const [storedUrl, storedName, token] = await Promise.all([
+      const [storedUrl, storedName, token, contexts] = await Promise.all([
         SecureStore.getItemAsync(API_BASE_URL_KEY),
         SecureStore.getItemAsync(DRIVER_NAME_KEY),
         SecureStore.getItemAsync(TOKEN_KEY),
+        SecureStore.getItemAsync(TRIP_CONTEXT_KEY),
       ]);
 
       if (!mounted) return;
       if (storedUrl) setApiBaseUrl(storedUrl);
       if (storedName && token) {
+        try {
+          const latest = (JSON.parse(contexts ?? "[]") as TripContext[]).at(-1);
+          if (latest) setEquipmentLabel(`${latest.vehicle === "dodge" ? "Dodge" : "Ford"} · ${latest.trailer === "truck-1" ? "Short Trailer" : "Long Trailer"}`);
+        } catch { /* Require a fresh truck selection if the saved selection is invalid. */ }
         setDriverName(storedName);
         setSessionToken(token);
         try {
@@ -267,11 +276,13 @@ function DriverTrackerApp() {
         SecureStore.setItemAsync(API_BASE_URL_KEY, cleanApiBaseUrl),
         SecureStore.setItemAsync(TOKEN_KEY, result.sessionToken),
         SecureStore.setItemAsync(DRIVER_NAME_KEY, result.driver.name),
+        SecureStore.setItemAsync(TRIP_CONTEXT_KEY, "[]"),
       ]);
 
       setDriverName(result.driver.name);
       setSessionToken(result.sessionToken);
       setPassword("");
+      setEquipmentLabel(null);
       await startTracking();
       await sendCurrentCheckIn();
     } catch (error) {
@@ -299,10 +310,12 @@ function DriverTrackerApp() {
       await Promise.all([
         SecureStore.deleteItemAsync(TOKEN_KEY),
         SecureStore.deleteItemAsync(DRIVER_NAME_KEY),
+        SecureStore.deleteItemAsync(TRIP_CONTEXT_KEY),
       ]);
 
       setDriverName(null);
       setSessionToken(null);
+      setEquipmentLabel(null);
       setLastSentAt(null);
       setTrackingOk(false);
       setStatus("Signed out. Location tracking is off.");
@@ -324,6 +337,7 @@ function DriverTrackerApp() {
               {driverName} · {trackingOk ? "tracking active" : "tracking needs attention"}
               {lastSentAt ? ` · ${lastSentAt}` : ""}
             </Text>
+            <Text style={styles.appHeaderMeta}>{equipmentLabel ?? "Choose your truck and trailer below"}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [
@@ -342,6 +356,19 @@ function DriverTrackerApp() {
           </View>
         ) : null}
         <WebView
+          onMessage={async (event) => {
+            try {
+              if (new URL(event.nativeEvent.url).origin !== new URL(apiBaseUrl).origin) return;
+              const body = JSON.parse(event.nativeEvent.data);
+              if (body.type === "JAX_SIGN_OUT") { await handleSignOut(); return; }
+              if (body.type !== "JAX_TRIP_CONTEXT" || !["dodge", "ford"].includes(body.vehicle) || !["truck-1", "truck-2"].includes(body.trailer)) return;
+              const contexts = JSON.parse(await SecureStore.getItemAsync(TRIP_CONTEXT_KEY) ?? "[]") as TripContext[];
+              const next: TripContext = { vehicle: body.vehicle, trailer: body.trailer, effectiveAt: Date.now() };
+              await SecureStore.setItemAsync(TRIP_CONTEXT_KEY, JSON.stringify([...contexts, next].slice(-16)));
+              setEquipmentLabel(`${next.vehicle === "dodge" ? "Dodge" : "Ford"} · ${next.trailer === "truck-1" ? "Short Trailer" : "Long Trailer"}`);
+              await sendCurrentCheckIn();
+            } catch { setStatus("Truck selection could not sync. Save it again."); }
+          }}
           source={{ uri: driverUrl }}
           startInLoadingState
           renderLoading={() => (

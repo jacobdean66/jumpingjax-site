@@ -2,11 +2,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isYmd } from "./delivery-planner-dates";
 import { verifyDriverLogin } from "./driver-auth";
+import { isDriverVehicle, isDriverTrailer } from "./driver-trip-context";
 
 export type DriverLocationInput = {
   driverId: string;
   driverName: string;
   truck?: string | null;
+  vehicle?: string | null;
   workDate?: string | null;
   latitude: unknown;
   longitude: unknown;
@@ -22,6 +24,7 @@ export type DriverLocationSnapshot = {
   driverId: string;
   driverName: string;
   truck: string | null;
+  vehicle?: string | null;
   workDate: string | null;
   latitude: number;
   longitude: number;
@@ -37,6 +40,7 @@ type DriverLocationRow = {
   driver_id: string;
   driver_name: string;
   truck: string | null;
+  vehicle?: string | null;
   work_date: string | null;
   latitude: number;
   longitude: number;
@@ -62,6 +66,8 @@ type DriverLocationSessionRow = {
   started_at?: string;
   last_seen_at?: string | null;
   signed_out_at: string | null;
+  vehicle?: string | null;
+  trailer?: string | null;
 };
 
 type DriverLocationPointRow = {
@@ -73,9 +79,13 @@ type DriverLocationPointRow = {
   battery_level: number | null;
   captured_at: string | null;
   received_at: string | null;
+  vehicle?: string | null;
+  trailer?: string | null;
 };
 
 export type DriverMobileLocationInput = {
+  vehicle?: unknown;
+  trailer?: unknown;
   latitude: unknown;
   longitude: unknown;
   accuracyMeters?: unknown;
@@ -87,6 +97,8 @@ export type DriverMobileLocationInput = {
 };
 
 export type DriverMobileLocationSnapshot = {
+  vehicle?: string | null;
+  trailer?: string | null;
   sessionId: string;
   driverId: string;
   driverName: string;
@@ -156,6 +168,7 @@ export function validateDriverLocationInput(input: DriverLocationInput, now = ne
   const longitude = finiteNumber(input.longitude);
   const capturedAt = parseCapturedAt(input.capturedAt, now);
   const truck = input.truck?.trim() || null;
+  const vehicle = input.vehicle?.trim() || null;
   const workDate = input.workDate?.trim() || null;
 
   if (!driverId || !driverName) {
@@ -170,6 +183,7 @@ export function validateDriverLocationInput(input: DriverLocationInput, now = ne
   if (truck !== null && !isDriverLocationTruck(truck)) {
     return { ok: false as const, error: "Truck is invalid." };
   }
+  if (vehicle !== null && !isDriverVehicle(vehicle)) return { ok: false as const, error: "Truck is invalid." };
   if (workDate !== null && !isYmd(workDate)) {
     return { ok: false as const, error: "Work date is invalid." };
   }
@@ -183,6 +197,7 @@ export function validateDriverLocationInput(input: DriverLocationInput, now = ne
       driver_id: driverId,
       driver_name: driverName,
       truck,
+      vehicle,
       work_date: workDate,
       latitude,
       longitude,
@@ -201,6 +216,7 @@ function rowToSnapshot(row: DriverLocationRow): DriverLocationSnapshot {
     driverId: row.driver_id,
     driverName: row.driver_name,
     truck: row.truck,
+    vehicle: row.vehicle ?? null,
     workDate: row.work_date?.slice(0, 10) ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
@@ -221,7 +237,7 @@ export async function saveDriverLocationSnapshot(input: DriverLocationInput) {
     .from("driver_location_snapshots")
     .insert(parsed.value)
     .select(
-      "id, driver_id, driver_name, truck, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at",
+      "id, driver_id, driver_name, truck, vehicle, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at",
     )
     .single<DriverLocationRow>();
 
@@ -242,7 +258,7 @@ export async function loadLatestDriverLocationSnapshots(input: {
   const { data, error } = await supabase
     .from("driver_location_snapshots")
     .select(
-      "id, driver_id, driver_name, truck, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at",
+      "id, driver_id, driver_name, truck, vehicle, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at",
     )
     .in("work_date", dates)
     .gte("created_at", new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString())
@@ -311,7 +327,7 @@ export async function loadActiveDriverMobileSession(
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("driver_location_sessions")
-    .select("id, driver_id, driver_name, signed_out_at")
+    .select("id, driver_id, driver_name, signed_out_at, vehicle, trailer")
     .eq("session_token_hash", hashSessionToken(cleanToken))
     .is("signed_out_at", null)
     .maybeSingle<DriverLocationSessionRow>();
@@ -352,6 +368,10 @@ export async function saveDriverLocationPoint(input: {
 }): Promise<{ ok: true; driverName: string } | { ok: false; reason: string }> {
   const session = await loadActiveDriverMobileSession(input.token);
   if (!session) return { ok: false, reason: "invalid_session" };
+  if ((input.location.vehicle != null && !isDriverVehicle(input.location.vehicle)) ||
+    (input.location.trailer != null && !isDriverTrailer(input.location.trailer))) {
+    return { ok: false, reason: "invalid_location" };
+  }
 
   const latitude = finiteNumber(input.location.latitude);
   const longitude = finiteNumber(input.location.longitude);
@@ -374,6 +394,8 @@ export async function saveDriverLocationPoint(input: {
     session_id: session.id,
     driver_id: session.driver_id,
     driver_name: session.driver_name,
+    vehicle: input.location.vehicle === undefined ? session.vehicle ?? null : input.location.vehicle,
+    trailer: input.location.trailer === undefined ? session.trailer ?? null : input.location.trailer,
     latitude,
     longitude,
     accuracy_meters: optionalNonNegative(input.location.accuracyMeters),
@@ -420,7 +442,7 @@ export async function loadDriverMobileLocationSnapshots(
   const sessionResult = await supabase
     .from("driver_location_sessions")
     .select(
-      "id, driver_id, driver_name, device_label, started_at, last_seen_at, signed_out_at",
+      "id, driver_id, driver_name, device_label, started_at, last_seen_at, signed_out_at, vehicle, trailer",
     )
     .order("last_seen_at", { ascending: false, nullsFirst: false })
     .order("started_at", { ascending: false })
@@ -436,25 +458,15 @@ export async function loadDriverMobileLocationSnapshots(
   const pointsBySession = new Map<string, DriverLocationPointRow>();
 
   if (sessionIds.length > 0) {
-    const pointResult = await supabase
-      .from("driver_location_points")
-      .select(
-        "session_id, latitude, longitude, accuracy_meters, speed_meters_per_second, battery_level, captured_at, received_at",
-      )
-      .in("session_id", sessionIds)
-      .order("received_at", { ascending: false })
-      .limit(sessionIds.length * 5)
-      .returns<DriverLocationPointRow[]>();
-
-    if (pointResult.error) {
-      throw new Error(pointResult.error.message);
-    }
-
-    for (const point of pointResult.data ?? []) {
-      if (!pointsBySession.has(point.session_id)) {
-        pointsBySession.set(point.session_id, point);
-      }
-    }
+    // Each driver gets their own latest sample; one busy phone cannot crowd out another.
+    await Promise.all(sessionIds.map(async (id) => {
+      const { data, error } = await supabase.from("driver_location_points")
+        .select("session_id, latitude, longitude, accuracy_meters, speed_meters_per_second, battery_level, captured_at, received_at, vehicle, trailer")
+        .eq("session_id", id).order("captured_at", { ascending: false }).limit(1)
+        .returns<DriverLocationPointRow[]>();
+      if (error) throw new Error(error.message);
+      if (data?.[0]) pointsBySession.set(id, data[0]);
+    }));
   }
 
   const now = Date.now();
@@ -464,6 +476,8 @@ export async function loadDriverMobileLocationSnapshots(
       sessionId: session.id,
       driverId: session.driver_id,
       driverName: session.driver_name,
+      vehicle: session.vehicle ?? point?.vehicle ?? null,
+      trailer: session.trailer ?? point?.trailer ?? null,
       deviceLabel: session.device_label ?? null,
       startedAt: session.started_at ?? "",
       lastSeenAt: session.last_seen_at ?? null,
@@ -477,7 +491,7 @@ export async function loadDriverMobileLocationSnapshots(
       receivedAt: point?.received_at ?? null,
       status: mobileSnapshotStatus({
         signedOutAt: session.signed_out_at,
-        receivedAt: point?.received_at ?? null,
+        receivedAt: point?.captured_at ?? point?.received_at ?? null,
         now,
       }),
     };
@@ -491,9 +505,9 @@ export function combineDriverLocationSnapshots(
 ): DriverMobileLocationSnapshot[] {
   const latest = new Map<string, DriverLocationSnapshot>();
   for (const location of browser) {
-    const key = JSON.stringify([location.driverId, location.truck, location.workDate]);
+    const key = location.driverId;
     const previous = latest.get(key);
-    if (!previous || Date.parse(location.createdAt) > Date.parse(previous.createdAt)) {
+    if (!previous || Date.parse(location.capturedAt) > Date.parse(previous.capturedAt)) {
       latest.set(key, location);
     }
   }
@@ -501,6 +515,8 @@ export function combineDriverLocationSnapshots(
     sessionId: `browser:${location.id}`,
     driverId: location.driverId,
     driverName: location.driverName,
+    vehicle: location.vehicle ?? null,
+    trailer: location.truck,
     deviceLabel: ["Browser", location.truck === "truck-1" ? "Trailer 1" : location.truck === "truck-2" ? "Trailer 2" : null, location.workDate].filter(Boolean).join(" · "),
     startedAt: location.createdAt,
     lastSeenAt: location.createdAt,
@@ -524,7 +540,7 @@ export async function loadDriverLocationSnapshots(): Promise<DriverMobileLocatio
   const [mobile, browserResult] = await Promise.all([
     loadDriverMobileLocationSnapshots(),
     supabase.from("driver_location_snapshots")
-      .select("id, driver_id, driver_name, truck, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at")
+      .select("id, driver_id, driver_name, truck, vehicle, work_date, latitude, longitude, accuracy_meters, speed_meters_per_second, heading_degrees, captured_at, created_at")
       .gte("created_at", new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(200)
