@@ -26,6 +26,7 @@ const owner = createAdminSessionValue({ id: "owner", username: "owner", name: "T
 const driver = createAdminSessionValue({ id: "driver:test", username: "Test Driver", name: "Test Driver", role: "employee" });
 const sessionId = "11111111-1111-4111-8111-111111111111";
 let updates = 0;
+let selectedAt = "2000-01-01T00:00:00.000Z";
 let savedPoint: Record<string, unknown> | null = null;
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input));
@@ -41,11 +42,12 @@ globalThis.fetch = async (input, init) => {
       if (url.searchParams.get("id") !== `eq.${sessionId}`) return Response.json([]);
       assert.equal(url.searchParams.get("signed_out_at"), "is.null");
       updates++;
+      selectedAt = JSON.parse(String(init.body)).equipment_selected_at;
       return Response.json([{ id: sessionId }]);
     }
     return new Response(null, { status: 204 });
   }
-  return Response.json([{ id: sessionId, driver_id: "driver:test", driver_name: "Test Driver", signed_out_at: null, vehicle: "ford", trailer: "truck-2" }]);
+  return Response.json([{ id: sessionId, driver_id: "driver:test", driver_name: "Test Driver", signed_out_at: null, vehicle: "ford", trailer: "truck-2", equipment_selected_at: selectedAt }]);
 };
 after(() => {
   globalThis.fetch = previousFetch;
@@ -92,6 +94,13 @@ test("older apps inherit selected session equipment; new samples retain their ca
   assert.equal(savedPoint?.vehicle, "dodge");
   assert.equal(savedPoint?.trailer, "truck-1");
   await saveDriverLocationPoint({ token: "synthetic-token", location: { ...location, vehicle: null, trailer: null } });
+  assert.equal(savedPoint?.vehicle, null);
+  assert.equal(savedPoint?.trailer, null);
+});
+test("delayed legacy samples from before a truck selection remain unlabelled", async () => {
+  const beforeSelection = new Date(Date.parse(selectedAt) - 60_000).toISOString();
+  const result = await saveDriverLocationPoint({ token: "synthetic-token", location: { latitude: 34, longitude: -82, capturedAt: beforeSelection } });
+  assert.equal(result.ok, true);
   assert.equal(savedPoint?.vehicle, null);
   assert.equal(savedPoint?.trailer, null);
 });

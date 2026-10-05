@@ -68,6 +68,7 @@ type DriverLocationSessionRow = {
   signed_out_at: string | null;
   vehicle?: string | null;
   trailer?: string | null;
+  equipment_selected_at?: string | null;
 };
 
 type DriverLocationPointRow = {
@@ -327,7 +328,7 @@ export async function loadActiveDriverMobileSession(
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("driver_location_sessions")
-    .select("id, driver_id, driver_name, signed_out_at, vehicle, trailer")
+    .select("id, driver_id, driver_name, signed_out_at, vehicle, trailer, equipment_selected_at")
     .eq("session_token_hash", hashSessionToken(cleanToken))
     .is("signed_out_at", null)
     .maybeSingle<DriverLocationSessionRow>();
@@ -389,13 +390,14 @@ export async function saveDriverLocationPoint(input: {
   }
 
   const now = new Date().toISOString();
+  const equipmentWasSelected = session.equipment_selected_at && Date.parse(capturedAt) >= Date.parse(session.equipment_selected_at);
   const supabase = createServiceRoleClient();
   const point = await supabase.from("driver_location_points").insert({
     session_id: session.id,
     driver_id: session.driver_id,
     driver_name: session.driver_name,
-    vehicle: input.location.vehicle === undefined ? session.vehicle ?? null : input.location.vehicle,
-    trailer: input.location.trailer === undefined ? session.trailer ?? null : input.location.trailer,
+    vehicle: input.location.vehicle === undefined ? (equipmentWasSelected ? session.vehicle ?? null : null) : input.location.vehicle,
+    trailer: input.location.trailer === undefined ? (equipmentWasSelected ? session.trailer ?? null : null) : input.location.trailer,
     latitude,
     longitude,
     accuracy_meters: optionalNonNegative(input.location.accuracyMeters),

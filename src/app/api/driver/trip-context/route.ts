@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const sessionId = (await cookies()).get(DRIVER_MOBILE_SESSION_COOKIE)?.value;
   if (sessionId) {
     const { data, error } = await createServiceRoleClient().from("driver_location_sessions")
-      .update({ vehicle: body.vehicle, trailer: body.trailer })
+      .update({ vehicle: body.vehicle, trailer: body.trailer, equipment_selected_at: new Date().toISOString() })
       .eq("id", sessionId).eq("driver_id", auth.identity.id).is("signed_out_at", null)
       .select("id").maybeSingle();
     if (error) return NextResponse.json({ ok: false, error: "Truck and trailer could not be saved." }, { status: 500 });
