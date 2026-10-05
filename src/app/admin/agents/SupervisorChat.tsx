@@ -1,4 +1,5 @@
 "use client";
+import { formatAgentTime } from "./time";
 
 import { FormEvent, useRef, useState } from "react";
 
@@ -128,7 +129,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         <button disabled={busy || !message.trim()} className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{busy ? "Checking…" : "Send"}</button>
       </form>
 
-      <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first</span></div>
+      <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 max-h-[32rem] space-y-4 overflow-y-auto rounded-2xl bg-white p-4 text-slate-950">
         {busy ? <p role="status" className="text-sm font-bold text-slate-500">Checking the live systems…</p> : null}
         {messages.length === 0 ? (
@@ -137,7 +138,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
           </div>
         ) : messages.map((item) => (
           <article key={item.id} className="space-y-2 border-b border-slate-200 pb-4 last:border-0 last:pb-0">
-            <time suppressHydrationWarning dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{new Date(item.createdAt).toLocaleString()}</time>
+            <time dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{formatAgentTime(item.createdAt)}</time>
             <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
             <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-800">
               <p>{item.reply}</p>
