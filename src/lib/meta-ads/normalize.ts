@@ -206,14 +206,9 @@ export function normalizeInsightsRow(
     extractActionCount(row.actions, "link_click");
   const landingPageViews = extractActionCount(row.actions, "landing_page_view");
 
-<<<<<<< HEAD
   // Meta's ctr/cpc fields describe all clicks, whereas this dashboard labels
   // these metrics as link CTR and cost per link click. Keep the denominator
   // consistent even when Meta supplies its all-click values.
-=======
-  // These dashboard metrics describe link clicks. Meta's ctr/cpc fields
-  // describe all clicks, so substituting them would change the denominator.
->>>>>>> origin/desktop/social-readiness
   const ctr = safeDivide(linkClicks, impressions);
   const cpc = safeDivide(spend, linkClicks);
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAnsweringMachineReadiness } from "@/lib/answering-machine/readiness";
+import { answeringMachineCoverage } from "@/lib/answering-machine/coverage";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
 import { isSocialOAuthConnectConfigured } from "@/lib/social-posts/oauth/social-oauth-config";
 import { describeMetaOperationalReadiness } from "@/lib/social-posts/oauth/social-meta-operational-readiness";
@@ -36,11 +36,7 @@ export async function loadDashboardServiceCoverage(input: {
     return { count: result.count ?? null, ok: !result.error };
   };
 
-<<<<<<< HEAD
-  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings, analytics] = await Promise.all([
-=======
-  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings, metaBindings, metaSchedules, metaTargets] = await Promise.all([
->>>>>>> origin/desktop/social-readiness
+  const [bookings, facilities, waivers, visits, inventory, invoices, campaigns, airHockey, nominations, socialPosts, oauthSessions, driverReports, siteSettings, metaBindings, metaSchedules, metaTargets, analytics] = await Promise.all([
     probe("bookings"),
     probe("facility_bookings"),
     probe("waiver_submissions"),
@@ -51,24 +47,18 @@ export async function loadDashboardServiceCoverage(input: {
     probe("air_hockey_players"),
     probe("giveaway_nominations"),
     probe("social_posts"),
-<<<<<<< HEAD
-    db.from("social_oauth_sessions").select("session_id", { count: "exact", head: true }).eq("provider", "meta").eq("lifecycle_state", "connected").neq("publication_target_id", "ad-analytics").then((result) => ({ count: result.count ?? null, ok: !result.error })),
-    probe("driver_closeout_reports"),
-    db.storage.from("site-settings").list("", { limit: 1, search: "public-settings.json" }).then((result) => ({ count: result.data?.length ?? null, ok: !result.error })),
-    loadMetaAnalyticsReadiness().catch(() => ({ state: "unavailable" as const, summary: "Meta analytics readiness could not be checked.", blocker: "Refresh the existing Meta connection check." })),
-=======
     db.from("social_oauth_sessions").select("session_id, publication_target_id, provider, lifecycle_state").eq("provider", "meta").eq("lifecycle_state", "connected").order("updated_at", { ascending: false }),
     probe("driver_closeout_reports"),
     db.storage.from("site-settings").list("", { limit: 1, search: "public-settings.json" }).then((result) => ({ count: result.data?.length ?? null, ok: !result.error })),
     db.from("social_meta_publication_target_bindings").select("publication_target_id, oauth_session_id, asset_kind, binding_state").eq("binding_state", "active"),
     db.from("social_meta_scheduled_publications").select("schedule_id", { count: "exact", head: true }),
     db.from("social_publication_targets").select("publication_target_id").eq("platform", "facebook").eq("enabled", true),
->>>>>>> origin/desktop/social-readiness
+    loadMetaAnalyticsReadiness().catch(() => ({ state: "unavailable" as const, summary: "Meta analytics readiness could not be checked.", blocker: "Refresh the existing Meta connection check." })),
   ]);
 
   const calendarConfigured = Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim() && process.env.GOOGLE_REFRESH_TOKEN?.trim());
   const emailConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
-  const answering = getAnsweringMachineReadiness();
+  const answering = answeringMachineCoverage();
   const nomination = getNominationAgentReadiness();
   const meta = describeMetaOperationalReadiness({
     configured: isSocialOAuthConnectConfigured(),
@@ -95,15 +85,11 @@ export async function loadDashboardServiceCoverage(input: {
     row({ key: "email", name: "Booking Email", href: "/admin/rentals", state: emailConfigured ? "connected" : "setup_required", summary: emailConfigured ? "Resend delivery credentials are present." : "Resend delivery credentials are missing.", source: "provider", recordCount: null, blocker: emailConfigured ? null : "Configure the existing Resend API credential." }, checkedAt),
     row({ key: "social", name: "Social Posts", href: "/admin/social-posts", ...meta.social, source: "provider", recordCount: socialPosts.count }, checkedAt),
     row({ key: "ai-ads", name: "AI Ads", href: "/admin/ai-ads", state: "degraded", summary: "The creation and review workspace is available; no independent live generation-provider probe is registered.", source: "application", recordCount: null, blocker: "Add a bounded read-only provider health check for the configured generation path." }, checkedAt),
-<<<<<<< HEAD
     row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", ...analytics, source: "provider", recordCount: analytics.state === "connected" ? 1 : null }, checkedAt),
-=======
-    row({ key: "ad-analytics", name: "Ad Analytics", href: "/admin/ad-analytics", ...meta.analytics, source: "provider", recordCount: meta.analyticsSessionCount }, checkedAt),
->>>>>>> origin/desktop/social-readiness
     row({ key: "campaigns", name: "Campaign Hub", href: "/admin/campaigns", state: stateFromProbe(campaigns), summary: campaigns.ok ? "Campaign event storage is readable." : "Campaign event storage could not be read.", source: "database", recordCount: campaigns.count, blocker: campaigns.ok ? null : "Apply or repair the campaign event storage migration." }, checkedAt),
     row({ key: "air-hockey", name: "Air Hockey", href: "/admin/air-hockey", state: stateFromProbe(airHockey), summary: airHockey.ok ? "Tournament player storage is readable." : "Tournament player storage could not be read.", source: "database", recordCount: airHockey.count, blocker: airHockey.ok ? null : "Apply or repair the Air Hockey storage migration." }, checkedAt),
     row({ key: "giveaway", name: "Giveaway and Nomination", href: "/admin/giveaway", state: !nominations.ok ? "unavailable" : nomination.enabled && nomination.configured ? "connected" : "setup_required", summary: nomination.enabled && nomination.configured ? "Nomination storage and signed inbound processing are ready." : "Giveaway storage is readable; production nomination email ingestion is disabled.", source: "provider", recordCount: nominations.count, blocker: nomination.enabled && nomination.configured ? null : `Complete nomination inbound setup${nomination.missing.length ? `: ${nomination.missing.join(", ")}` : " and enable it"}.` }, checkedAt),
-    row({ key: "answering-machine", name: "Answering Machine", href: "/admin/answering-machine", state: answering.live ? "connected" : "setup_required", summary: answering.live ? `${answering.status}; ${answering.mode.replaceAll("_", " ")}.` : "The safe simulation works, but live WhatsApp calling is not ready.", source: "provider", recordCount: null, blocker: answering.live ? null : `Configure ${answering.missing.join(", ")} and enable WhatsApp calling.` }, checkedAt),
+    row({ key: "answering-machine", name: "Answering Machine", href: "/admin/answering-machine", ...answering, source: "application", recordCount: null }, checkedAt),
     row({ key: "security", name: "Security", href: "/admin/security", state: securityHealthy ? "connected" : input.security.length ? "degraded" : "unavailable", summary: input.security.length ? input.security.map((service) => `${service.name}: ${service.state}`).join("; ") : "Security providers could not be checked.", source: "provider", recordCount: input.security.length, blocker: securityHealthy ? null : "Review the degraded security provider checks." }, checkedAt),
     row({ key: "site-settings", name: "Website Settings", href: "/admin/site-settings", state: siteSettings.ok ? "connected" : "unavailable", summary: siteSettings.ok ? "Website settings storage is reachable." : "Website settings storage could not be reached.", source: "database", recordCount: siteSettings.count, blocker: siteSettings.ok ? null : "Restore the site-settings storage bucket." }, checkedAt),
   ];

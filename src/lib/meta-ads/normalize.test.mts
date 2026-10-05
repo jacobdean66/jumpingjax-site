@@ -111,7 +111,6 @@ test("safeDivide and recomputeDerivedFromCounts avoid divide-by-zero", () => {
   assert.equal(derived.costPerLandingPageView.kind, "unavailable");
 });
 
-<<<<<<< HEAD
 test("link CTR and CPC do not inherit Meta all-click rates", () => {
   const row = normalizeInsightsRow({ spend: "7.68", impressions: "1597", inline_link_clicks: "111", clicks: "232", ctr: "14.53", cpc: "0.03" });
   assert.deepEqual(row.ctr, { kind: "number", value: 111 / 1597 });
@@ -119,15 +118,6 @@ test("link CTR and CPC do not inherit Meta all-click rates", () => {
   const missing = normalizeInsightsRow({ spend: "7.68", impressions: "1597", ctr: "14.53", cpc: "0.03" });
   assert.equal(missing.ctr.kind, "unavailable");
   assert.equal(missing.cpc.kind, "unavailable");
-=======
-test("link CTR and CPC never substitute Meta all-click metrics", () => {
-  const actual = normalizeInsightsRow({ spend: "4.77", impressions: "924", clicks: "154", inline_link_clicks: "74", ctr: "16.666667", cpc: "0.030974" });
-  assert.equal(formatMetricRate(actual.ctr, true), "8.01%");
-  assert.equal(formatMetricMoney(actual.cpc), "$0.06");
-  const missingLinks = normalizeInsightsRow({ spend: "4.77", impressions: "924", ctr: "16.666667", cpc: "0.030974" });
-  assert.equal(missingLinks.ctr.kind, "unavailable");
-  assert.equal(missingLinks.cpc.kind, "unavailable");
->>>>>>> origin/desktop/social-readiness
 });
 
 test("normalizeActionResults prefers readable labels", () => {

@@ -475,11 +475,7 @@ export function AdAnalyticsClient({
         <SummaryCard
           label="Link clicks"
           value={formatMetricCount(initial.totals.linkClicks)}
-<<<<<<< HEAD
           hint={`Cost / link click ${money(initial.totals.cpc, currency)}`}
-=======
-          hint={`Link CPC ${money(initial.totals.cpc, currency)}`}
->>>>>>> origin/desktop/social-readiness
         />
         <SummaryCard
           label="Impressions / reach"

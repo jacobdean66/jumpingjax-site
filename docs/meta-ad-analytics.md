@@ -1,10 +1,6 @@
 # Meta Ad Analytics (owner dashboard)
 
-<<<<<<< HEAD
 Meta Marketing API reporting and owner-triggered individual-ad pause controls for Jumping Jax paid ads.
-=======
-Meta Marketing API reporting with an owner-triggered control to pause individual ads.
->>>>>>> origin/desktop/social-readiness
 
 ## Route
 
@@ -18,22 +14,14 @@ Meta Marketing API reporting with an owner-triggered control to pause individual
 Required Meta permissions for analytics:
 
 - `ads_read` (read-only ad reporting)
-<<<<<<< HEAD
 - Account visibility for the connected Meta user (discovery uses `/me/adaccounts`).
-=======
-- `business_management` is requested for Business Manager discovery; the reporting permission gate requires `ads_read`.
->>>>>>> origin/desktop/social-readiness
 
 Not required for analytics:
 
 - `ads_management` is optional for reading but required before the existing Stop control can pause an ad.
 - Page/Instagram publishing scopes (`pages_manage_posts`, `instagram_content_publish`, etc.)
 
-<<<<<<< HEAD
 Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. The flow requests `ads_read`, `ads_management` and `business_management` and stores an analytics-purpose session (`ad-analytics` target id). Existing `ads_read` sessions can report without management access. Stop controls require a live granted `ads_management` permission; the API checks it separately. Publication OAuth remains separate.
-=======
-Use **Connect Meta for Analytics** / **Reconnect Meta for Analytics** on `/admin/ad-analytics`. That flow requests `ads_read`, `ads_management`, and `business_management`, and stores an analytics-purpose session (`ad-analytics` target id). An existing `ads_read` session can still report without `ads_management`; reconnect is required to grant the pause permission. Publication OAuth on Publication execution remains separate and still uses publishing scopes. A stored session alone does not prove current permission or reporting access.
->>>>>>> origin/desktop/social-readiness
 
 Also confirm in Meta Developer / Business settings:
 
@@ -58,11 +46,7 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 - Server module: `src/lib/meta-ads`
 - Marketing API version: `v25.0` (separate from organic Graph OAuth `v21.0`)
 - Token loading: latest connected analytics session (`publication_target_id = ad-analytics` with intent scopes including `ads_read`) → encrypted vault decrypt
-<<<<<<< HEAD
 - Live reads with no paid-ad persistence tables; owner-only `POST /api/admin/ad-analytics` accepts `pause_ad` for an individual ad.
-=======
-- Live reads plus explicit owner-triggered pause (no paid-ad persistence tables; does not touch `social_publication_metric_*`)
->>>>>>> origin/desktop/social-readiness
 - Account discovery: `GET /me/adaccounts` (dynamic; not hard-coded to the giveaway account)
 - Link CTR = link clicks / impressions; link CPC = spend / link clicks. Meta's all-click `ctr` / `cpc` fields are not substituted into these link metrics.
 - Date presets and site funnel dates use `America/Indiana/Indianapolis`; Meta reports use the selected ad account timezone shown in the dashboard.
@@ -84,11 +68,7 @@ Reuses the existing Meta OAuth + vault stack (no new secrets):
 
 ## Explicit non-goals
 
-<<<<<<< HEAD
 - No creating, deleting, resuming or editing budgets; no global Stop all.
-=======
-- No creating, resuming, editing creative/budgets, or deleting ads/campaigns
->>>>>>> origin/desktop/social-readiness
 - No production migration for this feature
 - No automatic OAuth reconnect
 

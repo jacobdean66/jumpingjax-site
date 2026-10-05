@@ -1,0 +1,19 @@
+{
+  "worker": "whatsapp",
+  "branch": "desktop/whatsapp-readiness",
+  "baseCommit": "79bc7fc44d15019f93dfa8903e072847356295c1",
+  "updated": "2026-10-01",
+  "status": "source verified; coordinator preparing isolated push",
+  "productionWrites": 0,
+  "deployed": false,
+  "acceptance": {
+    "source": "2026-10-01: 27 focused tests, 7 executable SQL checks, full TypeScript and focused ESLint passed",
+    "providerSetup": "blocked: Meta login and native voicemail settings unverified",
+    "physicalCall": "not performed",
+    "recordingPlayback": "not performed",
+    "ownerReview": "not performed on an actual call"
+  },
+  "migration": "supabase/migrations/20260930173000_harden_whatsapp_event_ingestion.sql",
+  "migrationApplied": false,
+  "completionNote": "Worker stopped at an account usage limit after validation; coordinator completed the handoff. Provider and physical acceptance remain pending."
+}
