@@ -53,6 +53,13 @@ const primaryBtnClass =
 const secondaryBtnClass =
   "inline-flex min-h-12 w-full items-center justify-center rounded-full border-2 border-cyan-200 bg-cyan-50 px-6 text-base font-bold text-cyan-950 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-300 sm:w-auto";
 
+const privacyLinkLabels: Record<WaiverLanguage, string> = {
+  en: "Privacy policy (opens in a new tab)",
+  es: "Política de privacidad (en inglés; se abre en otra pestaña)",
+  fr: "Politique de confidentialité (en anglais; nouvel onglet)",
+  pt: "Política de privacidade (em inglês; abre em nova aba)",
+};
+
 function ErrorSummary({
   errors,
   titleId,
@@ -799,6 +806,15 @@ export function WaiverFormClient() {
           {t.help}{" "}
           <Link href="/contact" className="font-bold text-cyan-800 underline">
             {t.contact}
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-cyan-800 underline"
+          >
+            {privacyLinkLabels[language]}
           </Link>
         </p>
       </section>
