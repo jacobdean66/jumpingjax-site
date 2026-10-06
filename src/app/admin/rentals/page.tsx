@@ -215,7 +215,13 @@ function RentalCard({ booking, agreements, removalStatus = "unavailable" }: { bo
             <Detail
               label="Calendar"
               value={
-                booking.googleCalendarEventId ||
+                ["cancelled", "canceled"].includes(booking.status)
+                  ? removalStatus === "removed" ? "Removed"
+                    : removalStatus === "pending" ? "Removal pending"
+                    : removalStatus === "access_required" ? "Access needs repair"
+                    : removalStatus === "attention_required" ? "Removal needs attention"
+                    : "Status unavailable"
+                  : booking.googleCalendarEventId ||
                 booking.googleFoamCalendarEventId
                   ? "Created"
                   : "Not created"
