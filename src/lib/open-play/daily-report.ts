@@ -36,7 +36,10 @@ export type VisitAttendeeSnapshot = {
   waiverDetails?: StaffWaiverDetails;
   waiverParticipants?: StaffWaiverParticipant[];
   ageYearsOnVisit?: number;
-  classification: AdmissionClassification | "party_adult";
+  classification: AdmissionClassification | "party_adult" | "admission_pending";
+  deskAttendanceId?: string;
+  checkoutTicketId?: string;
+  checkedOutAt?: string | null;
   facilityParty?: { bookingId: string; label: string };
   checkedInAt?: string;
   unitPriceCents: number;

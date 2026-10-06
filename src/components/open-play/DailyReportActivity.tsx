@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AdultCheckInControls } from "@/components/open-play/AdultCheckInControls";
 import { ADMISSION_PRICES_CENTS } from "@/lib/open-play/pricing";
@@ -112,12 +112,16 @@ function birthdayPartyFromNotes(notes: string | null, fullName: string): string 
 
 export function DailyReportActivity({ report }: Props) {
   const router = useRouter();
+  useEffect(() => {
+    const timer = window.setInterval(() => router.refresh(), 20000);
+    return () => window.clearInterval(timer);
+  }, [router]);
   const visits = sortVisitsForDisplay(report);
   const checkedIn: SelectedCard[] = visits.flatMap((visit) =>
     visit.status === "voided"
       ? []
       : visit.attendees
-          .filter((attendee) => attendee.status === "active")
+          .filter((attendee) => attendee.status === "active" && !attendee.checkedOutAt)
           .map((attendee) => ({
             attendee,
             visitId: visit.visitId,
@@ -428,7 +432,7 @@ export function DailyReportActivity({ report }: Props) {
     : null;
   const canEditProfile =
     (selected?.attendee.source ?? selected?.visitSource) === "legacy_smartwaiver";
-  const canEdit = selected?.attendee.status === "active" && !selected.attendee.facilityParty;
+  const canEdit = selected?.attendee.status === "active" && !selected.attendee.facilityParty && !selected.attendee.deskAttendanceId;
   const selectedIsAdult =
     selectedAdmission?.classification === "playing_adult" ||
     selectedAdmission?.classification === "watching_adult";
@@ -649,7 +653,9 @@ export function DailyReportActivity({ report }: Props) {
                 <div>
                   <dt className="text-xs font-black uppercase tracking-wide text-slate-500">Payment option</dt>
                   <dd className="mt-1 font-black capitalize text-slate-950">
-                    {selected.attendee.facilityParty
+                    {selected.attendee.deskAttendanceId
+                      ? "View payment status on the checkout ticket"
+                      : selected.attendee.facilityParty
                       ? `Birthday party - ${selected.attendee.facilityParty.label} - No admission charge`
                       : selectedAdmission?.classification === "watching_adult"
                       ? "No payment — watching adult"
@@ -744,7 +750,7 @@ export function DailyReportActivity({ report }: Props) {
               </dl>
             )}
 
-            {!editing && selected.attendee.waiverParticipants?.length ? (
+            {!editing && !selected.attendee.deskAttendanceId && selected.attendee.waiverParticipants?.length ? (
               <section className="mt-4 rounded-2xl border border-white/80 bg-white/55 p-4" aria-label="Everyone on this waiver">
                 <h4 className="font-black text-slate-950">Everyone on this waiver</h4>
                 <ul className="mt-3 grid gap-2">
@@ -819,6 +825,7 @@ export function DailyReportActivity({ report }: Props) {
             ) : null}
 
             {saveError ? <p className="mt-4 text-sm font-bold text-rose-700" role="alert">{saveError}</p> : null}
+            {selected.attendee.deskAttendanceId && <a href={`/admin/check-in${selected.attendee.checkoutTicketId ? `?ticket=${selected.attendee.checkoutTicketId}` : ""}`} className="mt-4 flex min-h-12 items-center justify-center rounded-xl bg-cyan-800 px-4 font-black text-white">Open front desk ticket</a>}
             {savedMessage ? <p className="mt-4 text-sm font-bold text-emerald-700" role="status">{savedMessage}</p> : null}
 
             <div className="mt-5 grid grid-cols-2 gap-3">

@@ -9,6 +9,8 @@ import type { AdmissionClassification } from "./pricing";
 import type { PaymentEntry, PaymentMethod } from "./ledger";
 import { includeFacilityAttendance } from "./facility-attendance";
 import { loadFacilityAttendance } from "./facility-attendance-store";
+import { loadDeskState } from "./desk-service";
+import { includeDeskReport } from "./desk-report";
 
 type NameCorrectionRow = {
   participant_id: string;
@@ -24,6 +26,7 @@ type LegacyNameCorrectionRow = {
 
 export async function getOpenPlayDailyReport(
   dateYmd: string,
+  options: { includeDesk?: boolean } = {},
 ): Promise<DailyReport> {
   if (!isYmd(dateYmd)) {
     throw new Error("date must be YYYY-MM-DD");
@@ -441,5 +444,7 @@ export async function getOpenPlayDailyReport(
     });
   }
 
-  return includeFacilityAttendance(buildDailyReport(dateYmd, snapshots), await loadFacilityAttendance(dateYmd));
+  const original = buildDailyReport(dateYmd, snapshots);
+  const report = options.includeDesk === false ? original : includeDeskReport(original, await loadDeskState(dateYmd));
+  return includeFacilityAttendance(report, await loadFacilityAttendance(dateYmd));
 }

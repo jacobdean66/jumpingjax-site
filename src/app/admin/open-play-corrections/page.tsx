@@ -36,6 +36,7 @@ export default async function AdminOpenPlayCorrectionsPage({ searchParams }: Pro
         entries stay visible; adjustments are appended by the server.
       </p>
       <OpenPlayDeskNav active="corrections" showOwnerTools />
+      <p className="mt-3 text-sm font-bold text-cyan-900">For a new checkout-ticket receipt, <a href="/admin/check-in" className="underline">open the ticket at the front desk</a> and choose “Correct a mistaken receipt.” The tools below manage earlier admission ledgers.</p>
       <CorrectionsClient initialDateYmd={initialDateYmd} initialVisitId={initialVisitId} />
     </AdminShell>
   );

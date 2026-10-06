@@ -149,22 +149,12 @@ export async function searchWaiversForStaff(options: {
     throw new WaiverSubmitSafeError();
   }
 
-  // Legacy RPC may be absent before migration; treat as empty rather than failing desk.
-  const legacyRows =
-    legacyRes.error && !legacyRes.error.message?.includes("Could not find the function")
-      ? (() => {
-          if (legacyRes.error.message?.includes("invalid_search_query")) {
-            throw new WaiverSearchValidationError("Search query is invalid");
-          }
-          // Missing relation during pre-migration local runs → empty legacy set.
-          if (
-            /does not exist|schema cache|Could not find/i.test(legacyRes.error.message ?? "")
-          ) {
-            return [] as LegacySearchRpcRow[];
-          }
-          throw new WaiverSubmitSafeError();
-        })()
-      : ((legacyRes.data as LegacySearchRpcRow[] | null) ?? []);
+  // An unavailable imported directory is a lookup failure, never proof of no waiver.
+  if (legacyRes.error) {
+    if (legacyRes.error.message?.includes("invalid_search_query")) throw new WaiverSearchValidationError("Search query is invalid");
+    throw new WaiverSubmitSafeError();
+  }
+  const legacyRows = (legacyRes.data as LegacySearchRpcRow[] | null) ?? [];
 
   const nativeSearchRows = (nativeRes.data as SearchRpcRow[] | null) ?? [];
   const nativeSubmissionIds = [...new Set(nativeSearchRows.map((row) => row.submission_id))];
@@ -431,7 +421,7 @@ export async function searchWaiversForStaff(options: {
   });
 
   const newestFirst = [...nativeResults, ...legacyResults].sort((a, b) =>
-    (b.waiverSignedAt ?? "").localeCompare(a.waiverSignedAt ?? ""),
+    Number(a.expired) - Number(b.expired) || (b.waiverSignedAt ?? "").localeCompare(a.waiverSignedAt ?? ""),
   );
   const uniqueParticipants = new Map<string, StaffSearchResult>();
   for (const result of newestFirst) {

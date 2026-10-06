@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const report = await getOpenPlayDailyReport(date);
+    const report = await getOpenPlayDailyReport(date, { includeDesk: new URL(req.url).searchParams.get("scope") !== "corrections" });
     return NextResponse.json(
       { ok: true, report },
       { headers: { "Cache-Control": "private, no-store" } },

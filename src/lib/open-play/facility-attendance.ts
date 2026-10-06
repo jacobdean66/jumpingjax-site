@@ -32,7 +32,7 @@ export function includeFacilityAttendance(report: DailyReport, guests: FacilityA
   const facilityAttendance: VisitAttendeeSnapshot[] = [];
   let childrenAge2OrYounger = report.childrenAge2OrYounger;
   let childrenAge3OrOlder = report.childrenAge3OrOlder;
-  let partyAdults = 0;
+  let partyAdults = report.partyAdults ?? 0;
   for (const guest of guests) {
     if (!guest.checkedInAt || guest.partyDate !== report.businessDayYmd) continue;
     const identity = nameKey(guest.firstName, guest.lastName, guest.dob);

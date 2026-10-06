@@ -56,7 +56,7 @@ const copy = {
     waiverPrompt: "No waiver yet? Sign one now.",
     signWaiver: "Sign a waiver",
     complete: "You’re checked in!",
-    completeSub: "You’re all set. Please see the front desk if you need help.",
+    completeSub: "Your arrival is saved. Please see the front desk to finish admission and payment for your group.",
     another: "Check in another person",
     changeLanguage: "Change language",
   },

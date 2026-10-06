@@ -162,11 +162,9 @@ test("inactive legacy waiver family members remain ineligible", async () => {
   assert.equal(result?.waiverParticipants?.[0]?.checkInEligible, false);
 });
 
-test("a missing legacy search function does not hide native adults", async () => {
+test("an unavailable imported directory reports a lookup error instead of missing guests", async () => {
   fixture({ native: [participant("Parent", "adult_signer")], legacyUnavailable: true });
-  const results = await search();
-  assert.equal(results.length, 1);
-  assert.equal(results[0]?.source, "native");
+  await assert.rejects(() => search(), /Unable to search waivers/);
 });
 
 test("the newest waiver still wins for the same adult in both sources", async () => {

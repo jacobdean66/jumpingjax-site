@@ -1,7 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isWaiverExpired } from "@/lib/waivers/expiration";
-import { createLegacySmartwaiverCheckIns } from "./legacy-check-in-service";
-import { createOpenPlayVisit } from "./visit-service";
+import { runDeskCommand } from "./desk-service";
 import { loadBirthdayPartiesForDay } from "./birthday-parties";
 import { findAndAddFacilityPartyGuest, setFacilityPartyGuestPresent } from "@/lib/facility-parties/check-in-service";
 import { ageInCompletedYearsOnDate } from "./pricing";
@@ -17,6 +16,8 @@ type NativeRow = {
   last_name: string;
   dob: string;
   role: "child" | "adult_signer" | "adult_covered";
+  original_first_name?: string;
+  original_last_name?: string;
   waiver_submissions:
     | { status: "completed" | "voided"; expires_on: string; signed_at: string }
     | Array<{ status: "completed" | "voided"; expires_on: string; signed_at: string }>
@@ -29,6 +30,8 @@ type LegacyRow = {
   last_name: string;
   dob: string | null;
   role: "child" | "adult_signer" | "adult_covered";
+  original_first_name?: string;
+  original_last_name?: string;
   smartwaiver_legacy_waivers:
     | { activated: boolean; expires_on: string; signed_at: string | null; signed_on_ymd: string | null }
     | Array<{ activated: boolean; expires_on: string; signed_at: string | null; signed_on_ymd: string | null }>
@@ -51,29 +54,25 @@ async function loadPublicWaiverMatches(options: {
   businessDayYmd: string;
 }): Promise<PublicWaiverMatch[]> {
   const supabase = createServiceRoleClient();
-  const first = options.input.firstName.toLowerCase();
-  const last = options.input.lastName.toLowerCase();
-  const [nativeResult, legacyResult] = await Promise.all([
-    supabase
-      .from("waiver_participants")
-      .select("id,first_name,last_name,dob,role,waiver_submissions!inner(status,expires_on,signed_at)")
-      .eq("search_first_name", first)
-      .eq("search_last_name", last)
-      .limit(10),
-    supabase
-      .from("smartwaiver_legacy_participants")
-      .select("id,first_name,last_name,dob,role,smartwaiver_legacy_waivers!inner(activated,expires_on,signed_at,signed_on_ymd)")
-      .eq("search_first_name", first)
-      .eq("search_last_name", last)
-      .limit(10),
+  const normalize = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+  const first = normalize(options.input.firstName);
+  const last = normalize(options.input.lastName);
+  const [nativeRpc, legacyRpc] = await Promise.all([
+    supabase.rpc("search_waiver_participants_for_staff", { p_query: `${first} ${last}`, p_limit: 25 }),
+    supabase.rpc("search_smartwaiver_legacy_participants_for_staff", { p_query: `${first} ${last}`, p_limit: 25 }),
   ]);
-  if (nativeResult.error) throw new Error("Unable to check waiver records");
+  type MatchRow = { participant_id?: string; legacy_participant_id?: string; first_name: string; last_name: string; original_first_name?: string; original_last_name?: string; dob: string; role: NativeRow["role"]; expires_on: string };
+  const nativeResult = { error: nativeRpc.error, data: ((nativeRpc.data ?? []) as MatchRow[]).map(row => ({ ...row, id: row.participant_id!, waiver_submissions: { status: "completed" as const, expires_on: row.expires_on, signed_at: "" } })) };
+  const legacyResult = { error: legacyRpc.error, data: ((legacyRpc.data ?? []) as MatchRow[]).map(row => ({ ...row, id: row.legacy_participant_id!, smartwaiver_legacy_waivers: { activated: true, expires_on: row.expires_on, signed_at: "", signed_on_ymd: "" } })) };
+  const nameMatches = (row: NativeRow | LegacyRow) =>
+    (normalize(row.first_name) === first && normalize(row.last_name) === last) ||
+    (normalize(row.original_first_name ?? row.first_name) === first && normalize(row.original_last_name ?? row.last_name) === last);
+  if (nativeResult.error || legacyResult.error) throw new Error("Unable to check waiver records");
 
   const nativeMatches = ((nativeResult.data ?? []) as NativeRow[]).filter((row) => {
     const waiver = one(row.waiver_submissions);
     return Boolean(
-      row.role === "child" &&
-        waiver?.status === "completed" &&
+      nameMatches(row) && waiver?.status === "completed" &&
         !isWaiverExpired({
           expiresOnYmd: waiver.expires_on,
           evaluationLocalYmd: options.businessDayYmd,
@@ -85,8 +84,7 @@ async function loadPublicWaiverMatches(options: {
     (row) => {
       const waiver = one(row.smartwaiver_legacy_waivers);
       return Boolean(
-        row.role === "child" &&
-          waiver?.activated &&
+        nameMatches(row) && waiver?.activated &&
           !isWaiverExpired({
             expiresOnYmd: waiver.expires_on,
             evaluationLocalYmd: options.businessDayYmd,
@@ -166,27 +164,9 @@ export async function createPublicSelfCheckIn(options: {
   if (options.selection.paymentMethod === "birthday_party" && !birthdayParty) {
     throw new Error("Birthday party is not available today");
   }
-  const attendanceMethod: "cash" | "card" | "free_pass" = birthdayParty
-    ? "free_pass"
-    : options.selection.paymentMethod === "birthday_party"
-      ? "free_pass"
-      : options.selection.paymentMethod;
-  const attendanceNotes = birthdayParty
-    ? `Customer QR self check-in - ${selected.firstName} ${selected.lastName} attending ${birthdayParty.label}`
-    : "Customer QR self check-in - admission pending front desk review";
-
   if (selected.source === "native") {
-    await createOpenPlayVisit({
-      visitDateYmd: options.businessDayYmd,
-      staffId: "customer-self-check-in",
-      notes: attendanceNotes,
-      attendees: [{
-        participantId: selected.participantId,
-        adultMode: null,
-        clientPriceCents: null,
-        overridePriceCents: birthdayParty ? 0 : null,
-        paymentMethod: attendanceMethod,
-      }],
+    await runDeskCommand(options.businessDayYmd, "mark_here", "customer-self-check-in", {
+      source: "native", participantId: selected.participantId,
     });
     if (birthdayParty) {
       try {
@@ -212,18 +192,8 @@ export async function createPublicSelfCheckIn(options: {
     return { needsWaiver: false };
   }
   if (selected.source === "legacy") {
-    await createLegacySmartwaiverCheckIns({
-      visitDateYmd: options.businessDayYmd,
-      staffId: "customer-self-check-in",
-      notes: attendanceNotes,
-      attendees: [{
-        legacyParticipantId: selected.participantId,
-        participantId: "",
-        adultMode: null,
-        clientPriceCents: null,
-        overridePriceCents: birthdayParty ? 0 : null,
-        paymentMethod: attendanceMethod,
-      }],
+    await runDeskCommand(options.businessDayYmd, "mark_here", "customer-self-check-in", {
+      source: "legacy_smartwaiver", participantId: selected.participantId,
     });
     return { needsWaiver: false };
   }
