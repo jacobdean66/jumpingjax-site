@@ -8,7 +8,7 @@ export const PROMOTION_STORAGE_KEY = "jax-inflatables-promotion";
 export const PROMOTION_STORAGE_EVENT = "jax-promotion-change";
 
 export function isInflatablePromotionCategory(category: string): boolean {
-  return ["bounce-houses", "combos", "water-slides", "slides", "obstacle-courses", "inflatable-games"].includes(category);
+  return ["bounce-houses", "combos", "obstacle-courses"].includes(category);
 }
 
 export const DEFAULT_PROMOTION_SLUGS = RENTALS.filter((item) =>

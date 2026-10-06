@@ -110,7 +110,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 if (!['/admin', '/api', '/rental-agreement', '/logistics'].some(path => window.location.pathname === path || window.location.pathname.startsWith(path + '/'))) {
   gtag('config', '${GA_MEASUREMENT_ID}');
-  gtag('config', '${GOOGLE_ADS_TAG_ID}');
+  ${GOOGLE_ADS_TAG_ID ? `gtag('config', '${GOOGLE_ADS_TAG_ID}');` : ""}
 }`,
           }}
         />

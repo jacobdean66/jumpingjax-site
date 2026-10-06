@@ -20,7 +20,7 @@ test("unknown codes cannot choose a percentage or a discount", () => {
   assert.equal(calculateInflatableDiscount("GOOGLE15", cart, ["test"]), 49.95);
 });
 
-test("eligibility excludes non-inflatable services", () => {
-  for (const category of ["bounce-houses", "combos", "water-slides", "slides", "inflatable-games", "obstacle-courses"]) assert.equal(isInflatablePromotionCategory(category), true);
-  for (const category of ["foam-parties", "accessories", "yard-games", "facility-parties", "unknown"]) assert.equal(isInflatablePromotionCategory(category), false);
+test("eligibility follows the approved bounce house, combo, and obstacle course offer", () => {
+  for (const category of ["bounce-houses", "combos", "obstacle-courses"]) assert.equal(isInflatablePromotionCategory(category), true);
+  for (const category of ["water-slides", "slides", "inflatable-games", "foam-parties", "accessories", "yard-games", "facility-parties", "unknown"]) assert.equal(isInflatablePromotionCategory(category), false);
 });
