@@ -24,7 +24,7 @@ export const inflatableCampaignDraft = {
 
 // Manual handoff record. Do not substitute an internal account identifier for a public customer ID.
 export const googleAdsSetupSnapshot = {
-  recordedDate: "October 5, 2026",
+  recordedDate: "October 6, 2026",
   ownerEmail: "karen.mcclain.jumpingjaxllc@gmail.com",
   replacementInternalId: "8586212544",
   publicCustomerId: null as string | null,

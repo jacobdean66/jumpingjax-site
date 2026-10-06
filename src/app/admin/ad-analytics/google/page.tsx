@@ -32,7 +32,7 @@ export default async function GoogleAdsSeoPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-black">Organic search</h2>
         <p className="mt-3 text-sm">Historical Search Console snapshot from October 4, 2026: 152 clicks, 4,290 impressions, 3.5% click rate, average position 8.6 over three months. Most clicks came from brand searches.</p>
-        <p className="mt-3 text-sm">That review reported 53 invalid product snippets. Production checks on October 5 confirm category lists use linked items and priced rental detail pages retain offers. Canonicals, sitemap, and inspected legacy redirects work. Current Search Console indexing and validation results still need verification.</p>
+        <p className="mt-3 text-sm">That review reported 53 invalid product snippets. Production checks on October 6 confirm category lists use linked items and priced rental detail pages retain offers. The promotions hub canonical has also been corrected to /ads. Sitemap pages and inspected legacy redirects work. Current Search Console indexing and validation results still need verification.</p>
         <p className="mt-3 text-sm">The promotion landing page intentionally uses noindex, follow and is excluded from the organic sitemap. Rental pages remain available for indexing. Google must crawl published repairs before its reports update.</p>
         <a className={`${button} mt-4`} href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fjumpingjaxllc.com%2F" target="_blank" rel="noopener noreferrer">Open Search Console</a>
       </section>

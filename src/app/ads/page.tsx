@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Giveaways & Promotions",
   description: "See current Jumping Jax giveaways, promotions, and community campaigns.",
+  alternates: { canonical: "/ads" },
 };
 
 export default function AdsPage() {
