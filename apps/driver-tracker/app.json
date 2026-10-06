@@ -2,7 +2,7 @@
   "expo": {
     "name": "Jumping Jax Driver",
     "slug": "jumpingjax-driver-tracker",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "scheme": "jumpingjaxdriver",
     "userInterfaceStyle": "automatic",
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "versionCode": 2,
+      "versionCode": 3,
       "package": "com.jumpingjax.driver",
       "permissions": [
         "ACCESS_FINE_LOCATION",

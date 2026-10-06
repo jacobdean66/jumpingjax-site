@@ -124,6 +124,7 @@ async function startTracking() {
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
+    mayShowUserSettingsDialog: false,
     activityType: Location.ActivityType.AutomotiveNavigation,
     distanceInterval: 10,
     timeInterval: 30000,
@@ -171,8 +172,14 @@ function DriverTrackerApp() {
 
   const sendCurrentCheckIn = useCallback(async () => {
     try {
+      if (!(await Location.hasServicesEnabledAsync())) {
+        setTrackingOk(false);
+        setStatus("Device location is off. Turn it on in phone settings to resume tracking.");
+        return;
+      }
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
+        mayShowUserSettingsDialog: false,
       });
       const result = await postLocation(current);
       if (result.ok) {
