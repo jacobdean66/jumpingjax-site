@@ -152,7 +152,7 @@ export async function createGoogleCalendarEvent(input: {
   });
 
   try {
-    const event = await calendar.events.insert({ calendarId, requestBody });
+    const event = await calendar.events.insert({ calendarId, requestBody }, { timeout: 15_000, retry: false });
     return event.data.id;
   } catch (error) {
     const status = extractErrorStatus(error);
@@ -160,7 +160,7 @@ export async function createGoogleCalendarEvent(input: {
       const existing = await calendar.events.get({
         calendarId,
         eventId: deterministicEventId,
-      });
+      }, { timeout: 15_000, retry: false });
       return existing.data.id ?? deterministicEventId;
     }
     throw error;
@@ -195,7 +195,7 @@ export async function updateGoogleCalendarEvent(input: {
       calendarId,
       eventId: input.eventId,
       requestBody,
-    });
+    }, { timeout: 15_000, retry: false });
     return event.data.id ?? input.eventId;
   } catch (error) {
     const status = extractErrorStatus(error);

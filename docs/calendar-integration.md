@@ -20,6 +20,32 @@ its authorized redirect URI in the owner vault; it is not generated from
 - Facility confirmation and calendar creation: `src/app/api/facility/confirm/route.ts`
 - Rental calendar description helpers: `src/lib/rentals/rental-pricing-text.ts`
 
+## Rental Cancellation
+
+Cancellation uses `cancel_rental_with_calendar_removal` to commit the cancelled
+booking, cancellation timestamp, and event-removal jobs together. The request
+attempts removal immediately. `/api/cron/rental-calendar-removal` resumes pending
+work every five minutes, protected by `CRON_SECRET`, even after the browser closes.
+Apply `20261006210000_durable_rental_calendar_removal.sql` before deploying this
+application version. The migration queues existing cancelled rentals with known
+event IDs. Verify calendar destinations for legacy records before enabling the
+worker; their original calendar IDs were not previously stored. New projections
+persist destination IDs, and each removal job retains its own event/calendar pair.
+
+Each confirmed deletion clears only its matching booking event ID; the removal
+record keeps the audit history. Temporary errors back off with jitter and stop
+after eight attempts. Access failures and exhausted retries remain visible in the
+Cancelled view. Manual retry runs directly without another confirmation.
+
+A missing event counts as removed only after calendar access has been verified.
+Calendar syncs acquire a five-minute lease; cancellation cleanup and restoration
+wait for active syncs. Late event-ID writes on cancelled bookings enqueue cleanup,
+and job revisions reject stale completion. Restore increments the calendar
+generation so approval uses fresh deterministic IDs rather than deleted IDs.
+
+Verify with:
+`node --import tsx --test src/lib/google/calendar-removal.test.mts src/lib/bookings/rental-calendar-removal.test.mts src/lib/admin/rental-admin-lifecycle-boundary.test.mts`
+
 ## Required Environment Variables
 
 - `GOOGLE_CLIENT_ID`

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 type Props = {
   endpoint: string;
@@ -40,13 +40,16 @@ export function RentalCancellationButton({
 }: Props) {
   const router = useRouter();
   const titleId = useId();
+  const workingRef = useRef(false);
+  const [completed, setCompleted] = useState(false);
   const [open, setOpen] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState(false);
 
   async function confirmCancellation() {
-    if (isWorking) return;
+    if (workingRef.current) return;
+    workingRef.current = true;
     setIsWorking(true);
     setMessage(null);
     setWarning(false);
@@ -62,33 +65,36 @@ export function RentalCancellationButton({
         ? await response.json()
         : {};
 
-      if (!response.ok || result.ok === false) {
-        setMessage(result.message ?? "The rental could not be cancelled.");
+      if (!response.ok || result.ok !== true) {
+        setMessage(result.message ?? (retryCalendarOnly ? "Calendar removal could not be started. Try again." : "The rental could not be cancelled."));
         setWarning(true);
         return;
       }
 
       setMessage(result.message ?? "Rental cancelled.");
       setWarning(result.calendarSyncFailed === true);
+      setCompleted(result.calendarSyncFailed !== true);
       setOpen(false);
       router.refresh();
     } catch {
-      setMessage("Could not reach the server. The rental was not confirmed cancelled.");
+      setMessage(retryCalendarOnly ? "Could not confirm calendar removal. Refresh to check its status." : "Could not confirm cancellation. Refresh to check the rental’s status before trying again.");
       setWarning(true);
     } finally {
+      workingRef.current = false;
       setIsWorking(false);
     }
   }
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
-      <button
+      {!completed ? <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="min-h-11 rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300"
+        disabled={isWorking}
+        onClick={() => retryCalendarOnly ? void confirmCancellation() : setOpen(true)}
+        className="min-h-11 rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-wait disabled:opacity-50"
       >
-        {retryCalendarOnly ? "Retry Calendar removal" : "Cancel rental"}
-      </button>
+        {isWorking ? (retryCalendarOnly ? "Removing calendar events…" : "Cancelling…") : retryCalendarOnly ? "Retry calendar removal" : "Cancel rental"}
+      </button> : null}
 
       {message ? (
         <span
@@ -101,7 +107,7 @@ export function RentalCancellationButton({
         </span>
       ) : null}
 
-      {open ? (
+      {open && !retryCalendarOnly ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-950/60 p-3 sm:items-center sm:p-6"
           role="presentation"
@@ -116,14 +122,10 @@ export function RentalCancellationButton({
             className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
           >
             <h2 id={titleId} className="text-2xl font-black text-slate-950">
-              {retryCalendarOnly
-                ? "Retry Calendar removal?"
-                : "Cancel this rental?"}
+              Cancel {customerName}’s rental?
             </h2>
             <p className="mt-2 text-sm font-semibold text-slate-600">
-              {retryCalendarOnly
-                ? "The rental is already cancelled. This retries removal of its stored Google Calendar event IDs."
-                : "The booking and customer history will be retained. Its inventory and active route work will be released."}
+              This cancels the booking, releases its inventory and active route work, and removes its Google Calendar events. Your booking history will be retained.
             </p>
 
             <dl className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -153,11 +155,6 @@ export function RentalCancellationButton({
               </div>
             </dl>
 
-            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-950">
-              Cancellation reason and audit attribution are not available in
-              the current database schema.
-            </p>
-
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -165,7 +162,7 @@ export function RentalCancellationButton({
                 disabled={isWorking}
                 className="min-h-12 rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-800 disabled:opacity-50"
               >
-                Keep rental
+                Go back
               </button>
               <button
                 type="button"
@@ -173,13 +170,7 @@ export function RentalCancellationButton({
                 disabled={isWorking}
                 className="min-h-12 rounded-xl bg-rose-600 px-4 py-3 font-black text-white hover:bg-rose-700 disabled:cursor-wait disabled:bg-rose-300"
               >
-                {isWorking
-                  ? retryCalendarOnly
-                    ? "Retrying…"
-                    : "Cancelling…"
-                  : retryCalendarOnly
-                    ? "Retry Calendar removal"
-                    : "Confirm cancellation"}
+                {isWorking ? "Cancelling and removing calendar events…" : "Cancel rental"}
               </button>
             </div>
           </section>

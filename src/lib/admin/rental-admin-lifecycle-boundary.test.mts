@@ -25,7 +25,7 @@ test("cancellation preserves Calendar ids and surfaces safe deletion failure", (
   assert.doesNotMatch(route, /google_calendar_event_id\s*=\s*null/);
   assert.match(route, /calendarSyncFailed/);
   assert.match(route, /calendar_projection_failed/);
-  assert.match(route, /retry cancellation from the Cancelled view/);
+  assert.match(route, /processRentalCalendarRemovals/);
 });
 
 test("admin cancellation confirmation contains required booking context", () => {
@@ -40,7 +40,7 @@ test("admin cancellation confirmation contains required booking context", () => 
   ]) {
     assert.match(client, new RegExp(field));
   }
-  assert.match(client, /Confirm cancellation/);
+  assert.match(client, /Cancel rental/);
   assert.match(client, /min-h-12/);
   assert.match(client, /max-h-\[calc\(100dvh/);
 });
