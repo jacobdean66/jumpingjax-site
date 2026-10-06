@@ -15,6 +15,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/rentals",
     "/facility-parties",
     "/contact",
+    "/privacy",
+    "/data-deletion",
     "/ads",
     ...CATEGORY_IDS.map((category) => `/rentals/${category}`),
     ...rentals.map((rental) => rentalDetailPath(rental)),
