@@ -91,6 +91,8 @@ export function classificationLabel(value: AdmissionClassification | string): st
       return "Watching adult";
     case "party_adult":
       return "Party adult";
+    case "admission_pending":
+      return "Admission pending";
     default:
       return String(value);
   }

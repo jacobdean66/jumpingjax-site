@@ -934,7 +934,7 @@ export async function fetchVisitsForBusinessDay(
   dateYmd: string,
   signal?: AbortSignal,
 ): Promise<DailyReport> {
-  const response = await fetch(buildDailyReportUrl(dateYmd), {
+  const response = await fetch(`${buildDailyReportUrl(dateYmd)}&scope=corrections`, {
     method: "GET",
     credentials: "same-origin",
     cache: "no-store",

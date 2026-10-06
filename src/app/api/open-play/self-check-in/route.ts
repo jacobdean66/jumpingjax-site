@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const limited = rateLimit(req, {
     scope: "public-open-play-self-check-in",
-    limit: 12,
+    // Shared facility Wi-Fi and kiosks serve many guests, each using lookup + save.
+    limit: 180,
     windowMs: 15 * 60 * 1000,
   });
   if (limited) return limited;
