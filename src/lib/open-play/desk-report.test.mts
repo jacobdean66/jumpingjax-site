@@ -5,7 +5,7 @@ import { includeDeskReport } from "./desk-report";
 import { allocateTicketPayments, dollarsToCents, personIdentity, ticketTotals, type DeskState } from "./desk";
 
 function fixture(): DeskState {
-  const names = ["Jane Jones", "Evie Minick", "Ava Dean", "John Smith", "Lucy Sluder", "Carstin Brown"];
+  const names = ["Casey QA", "Jamie Quinn", "Riley Parker", "Morgan Lee", "Avery White", "Cameron Green"];
   const people = names.map((name, index) => {
     const [first_name, last_name] = name.split(" "); const dob = index === 5 ? "2024-01-01" : "2018-01-01";
     return { id: `person-${index}`, business_day_ymd: "2026-10-06", source: index < 3 ? "native" as const : "legacy_smartwaiver" as const,
@@ -58,7 +58,7 @@ test("departure changes presence without erasing today's attendance or receipts"
   assert.equal(report.visits.flatMap(visit => visit.attendees).filter(person => !person.checkedOutAt).length, 5);
 });
 test("unknown adult admission blocks ticket payment readiness but not attendance", () => {
-  const state = fixture(); state.people[0].role = "adult_signer" as never;
+  const state = fixture(); state.people[0].role = "adult_signer";
   state.tickets[0].items[0].classification = null; state.tickets[0].items[0].amount_cents = null;
   assert.equal(ticketTotals(state.tickets[0]).ready, false);
   const report = includeDeskReport(empty(), state);

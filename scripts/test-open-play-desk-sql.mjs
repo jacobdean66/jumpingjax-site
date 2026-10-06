@@ -27,7 +27,7 @@ await db.query(`insert into smartwaiver_legacy_waivers values($1,true,'2029-10-0
 const guests=[];
 for(let i=0;i<6;i++){
   const id=crypto.randomUUID(),source=i<3?'native':'legacy_smartwaiver';
-  const first=['Jane','Evie','Ava','John','Lucy','Carstin'][i],last=['Jones','Minick','Dean','Smith','Sluder','Brown'][i];
+  const first=['Casey','Jamie','Riley','Morgan','Avery','Cameron'][i],last=['QA','Quinn','Parker','Lee','White','Green'][i];
   const dob=i===0||i===3?'1990-01-01':i===5?'2024-01-01':'2018-01-01';
   const role=i===0||i===3?'adult_signer':'child';
   if(source==='native') await db.query('insert into waiver_participants values($1,$2,$3,$4,$5,$6)',[id,nativeWaiver,first,last,dob,role]);
@@ -71,17 +71,17 @@ assert.equal((await db.query('select count(*)::int n from open_play_desk_attenda
 await command('mark_here',guests[0]);assert.equal(await count('open_play_desk_attendance'),6);
 await assert.rejects(()=>command('create_ticket',{ticketId},'2026-10-07'),/another day/);
 // Full, first, last and partially typed names find the same waiver group.
-for(const q of ['E','Evie','Minick','Evie Minick','  evie   min  ','2018']){
+for(const q of ['J','Jamie','Quinn','Jamie Quinn','  jamie   qui  ','2018']){
   const found=await db.query('select * from search_waiver_participants_for_staff($1,25)',[q]);
   assert.ok(found.rows.some(row=>row.participant_id===guests[1].participantId),q);
 }
-for(const q of ['Lucy','Sluder','Lucy Sluder','Lucy S'])assert.ok((await db.query('select * from search_smartwaiver_legacy_participants_for_staff($1,25)',[q])).rows.some(row=>row.legacy_participant_id===guests[4].participantId));
-await db.query('insert into waiver_participant_name_corrections values($1,$2,$3,$4,now())',[crypto.randomUUID(),guests[1].participantId,'Evelyn','Minick']);
-for(const q of ['Evie Minick','Evelyn Minick'])assert.ok((await db.query('select * from search_waiver_participants_for_staff($1,25)',[q])).rows.some(row=>row.participant_id===guests[1].participantId));
+for(const q of ['Avery','White','Avery White','Avery W'])assert.ok((await db.query('select * from search_smartwaiver_legacy_participants_for_staff($1,25)',[q])).rows.some(row=>row.legacy_participant_id===guests[4].participantId));
+await db.query('insert into waiver_participant_name_corrections values($1,$2,$3,$4,now())',[crypto.randomUUID(),guests[1].participantId,'James','Quinn']);
+for(const q of ['Jamie Quinn','James Quinn'])assert.ok((await db.query('select * from search_waiver_participants_for_staff($1,25)',[q])).rows.some(row=>row.participant_id===guests[1].participantId));
 await command('mark_here',guests[1]);assert.equal(await count('open_play_desk_attendance'),6);
-assert.equal((await db.query('select first_name from open_play_desk_attendance where participant_id=$1',[guests[1].participantId])).rows[0].first_name,'Evelyn');
+assert.equal((await db.query('select first_name from open_play_desk_attendance where participant_id=$1',[guests[1].participantId])).rows[0].first_name,'James');
 // The same identity on an old and new waiver remains one arrival.
-const duplicate=crypto.randomUUID();await db.query('insert into smartwaiver_legacy_participants values($1,$2,$3,$4,$5,$6,$7)',[duplicate,legacyWaiver,'duplicate','Ava','Dean','2018-01-01','child']);
+const duplicate=crypto.randomUUID();await db.query('insert into smartwaiver_legacy_participants values($1,$2,$3,$4,$5,$6,$7)',[duplicate,legacyWaiver,'duplicate','Riley','Parker','2018-01-01','child']);
 await command('mark_here',{source:'legacy_smartwaiver',participantId:duplicate});assert.equal(await count('open_play_desk_attendance'),6);
 // Invalid add does not leave half a group or change an existing ticket.
 await assert.rejects(()=>command('add',{ticketId:second,source:'native',participantId:crypto.randomUUID()}),/not found/);
