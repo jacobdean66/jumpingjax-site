@@ -56,6 +56,10 @@ export async function POST(
   );
 
   if (error) {
+    if (error.message.includes("calendar_removal_pending")) {
+      return NextResponse.json({ ok: false, message: "Finish removing this rental’s calendar events before restoring it. Check calendar removal in the Cancelled view." },
+        { status: 409, headers: { "Cache-Control": "private, no-store" } });
+    }
     console.error("[api/admin/rentals/restore] atomic restore failed", {
       code: error.code,
       message: error.message,

@@ -71,6 +71,6 @@ test("restore is idempotent and duplicate button presses are disabled", () => {
 
 test("restore requires owner access and does not invoke email or calendar integrations", () => {
   assert.match(route, /verifyAdminOwnerAccess/);
-  assert.doesNotMatch(route, /sendEmail|resend|GoogleCalendar|calendar/i);
+  assert.doesNotMatch(route, /sendEmail\s*\(|resend\.|(?:create|delete|update|sync)GoogleCalendar\w*\s*\(|from ["']@\/lib\/google/i);
   assert.match(route, /restore_cancelled_rental_atomic/);
 });

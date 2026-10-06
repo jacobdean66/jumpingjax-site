@@ -26,6 +26,10 @@ import { PrintButton } from "../PrintButton";
 import { BookingActionButton } from "../BookingActionButton";
 import { BulkBookingActionButton } from "../BulkBookingActionButton";
 import { RentalCancellationButton } from "./RentalCancellationButton";
+import { RentalCalendarRemovalStatus } from "./RentalCalendarRemovalStatus";
+import { RentalCalendarRefresh } from "./RentalCalendarRefresh";
+import { loadRentalRemovalStatuses, type RentalRemovalState } from "@/lib/bookings/rental-calendar-removal";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { RentalEditButton } from "./RentalEditButton";
 import { RentalRestoreButton } from "./RentalRestoreButton";
 import { BookingInvoiceButton } from "../invoices/BookingInvoiceButton";
@@ -83,7 +87,7 @@ function actionHref(id: string, action: "confirm" | "reject" | "cancel") {
   return `/api/rentals/confirm?id=${encodeURIComponent(id)}&action=${action}`;
 }
 
-function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agreements: (RentalAgreement & { path: string })[] }) {
+function RentalCard({ booking, agreements, removalStatus = "unavailable" }: { booking: AdminRentalBooking; agreements: (RentalAgreement & { path: string })[]; removalStatus?: RentalRemovalState }) {
   const paymentProjection = projectBookingPaymentStatus(
     booking.total,
     booking.paymentEntries,
@@ -156,18 +160,15 @@ function RentalCard({ booking, agreements }: { booking: AdminRentalBooking; agre
               itemNames={booking.items.map((item) => item.rental_name)}
             />
           )}
-          {(booking.status === "cancelled" || booking.status === "canceled") &&
-            (booking.googleCalendarEventId ||
-              booking.googleCalendarSecondaryEventId ||
-              booking.googleFoamCalendarEventId) && (
-              <RentalCancellationButton
+          {(booking.status === "cancelled" || booking.status === "canceled") && (
+              <RentalCalendarRemovalStatus
+                status={removalStatus}
                 endpoint={actionHref(booking.id, "cancel")}
                 customerName={booking.customerName}
                 eventDate={booking.eventDate}
                 spanDays={booking.spanDays}
                 itemNames={booking.items.map((item) => item.rental_name)}
                 currentStatus={booking.status}
-                retryCalendarOnly
               />
             )}
           {booking.singleStopMapUrl && (
@@ -332,9 +333,12 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
   const pendingApprovalEndpoints = bookings
     .filter((booking) => booking.status === "pending")
     .map((booking) => actionHref(booking.id, "confirm"));
+  const removalStatuses = await loadRentalRemovalStatuses(createServiceRoleClient(),
+    bookings.filter(booking => ["cancelled", "canceled"].includes(booking.status)).map(booking => booking.id));
 
   return (
     <AdminShell>
+      <RentalCalendarRefresh enabled={[...removalStatuses.values()].includes("pending")} />
       <AdminHeader eyebrow="Rental Admin" title="Rental Dashboard">
         <form action="/admin/rentals" key={`${dates.view}-${from}-${effectiveTo}-${status}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] print:hidden">
           <input type="hidden" name="view" value={dates.view} /><input type="hidden" name="token" value={token} />
@@ -393,12 +397,12 @@ export default async function AdminRentalsPage({ searchParams }: Props) {
             const state = agreementState(booking.customerName, agreementMap.get(booking.id)?.[0]);
             const tone = state === "signed" ? "bg-emerald-100 text-emerald-900" : state === "failed" ? "bg-rose-100 text-rose-900" : state === "awaiting" ? "bg-sky-100 text-sky-900" : "bg-amber-100 text-amber-950";
             return <RentalBookingSquare key={booking.id} id={booking.id} rentalNames={productSummary(booking.items.map(i => i.rental_name))} city={cityFromAddress(booking.eventAddress)} date={booking.spanDays > 1 ? `${formatDate(booking.eventDate)}–${formatDate(rentalDatePlusDays(booking.eventDate, booking.spanDays - 1))}` : formatDate(booking.eventDate)} customerName={booking.customerName} bookingStatus={<StatusBadge status={booking.status} />} agreementLabel={agreementStateLabel[state]} agreementTone={tone}>
-              <RentalCard booking={booking} agreements={(agreementMap.get(booking.id) ?? []).map(a => ({ ...a, path: customerAgreementPath(a.id) }))} />
+              <RentalCard booking={booking} removalStatus={removalStatuses.get(booking.id)} agreements={(agreementMap.get(booking.id) ?? []).map(a => ({ ...a, path: customerAgreementPath(a.id) }))} />
             </RentalBookingSquare>;
           })
         )}
       </div>
-      <div className="hidden print:grid print:gap-4">{bookings.map(booking => <RentalCard key={booking.id} booking={booking} agreements={[]} />)}</div>
+      <div className="hidden print:grid print:gap-4">{bookings.map(booking => <RentalCard key={booking.id} booking={booking} removalStatus={removalStatuses.get(booking.id)} agreements={[]} />)}</div>
     </AdminShell>
   );
 }

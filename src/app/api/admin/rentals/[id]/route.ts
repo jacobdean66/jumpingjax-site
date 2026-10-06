@@ -10,6 +10,7 @@ import {
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { rentalReservedDates } from "@/lib/rentals/rental-period";
 import {
+  getGoogleCalendarDestinations,
   summarizeGoogleCalendarError,
   syncGoogleCalendarDestinations,
   updateGoogleCalendarEvent,
@@ -22,10 +23,11 @@ import {
   rentalCalendarDateTimes,
 } from "@/lib/rentals/rental-pricing-text";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { withRentalCalendarSync } from "@/lib/bookings/rental-calendar-removal";
 import { runRoutePlannerAgent } from "@/lib/admin/route-planner-agent";
 
 const RENTAL_EDIT_SELECT =
-  "id, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, rental_day_charges, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
+  "id, google_calendar_generation, status, customer_name, customer_email, customer_phone, rental_item, rental_name, event_date, duration, foam_duration, span_days, rental_day_charges, event_address, delivery_time, event_start_time, requested_delivery_window, distance_miles, delivery_fee, mileage_fee, setup_location, setup_surface, setup_access, setup_notes, payment_method, subtotal, total, google_calendar_event_id, google_calendar_secondary_event_id, google_foam_calendar_event_id";
 
 type RentalEditRow = {
   id: number | string;
@@ -53,6 +55,7 @@ type RentalEditRow = {
   payment_method: string | null;
   subtotal: number | null;
   total: number | null;
+  google_calendar_generation: number;
   google_calendar_event_id: string | null;
   google_calendar_secondary_event_id: string | null;
   google_foam_calendar_event_id: string | null;
@@ -69,6 +72,7 @@ async function syncApprovedRentalCalendar(input: {
   booking: RentalEditRow;
   items: { rental_item: string; rental_name: string | null }[];
 }): Promise<boolean> {
+  return withRentalCalendarSync(input.supabase, String(input.booking.id), input.booking.google_calendar_generation, true, async () => {
   const spanDays =
     typeof input.booking.span_days === "number" && input.booking.span_days >= 1
       ? input.booking.span_days
@@ -135,7 +139,7 @@ async function syncApprovedRentalCalendar(input: {
         description,
         start,
         end,
-        idempotencyKeyBase: `rental-${input.booking.id}-calendar-v1`,
+        idempotencyKeyBase: `rental-${input.booking.id}-calendar-v1${input.booking.google_calendar_generation ? `-g${input.booking.google_calendar_generation}` : ""}`,
         primaryEventId: input.booking.google_calendar_event_id,
         secondaryEventId: input.booking.google_calendar_secondary_event_id,
       });
@@ -147,6 +151,8 @@ async function syncApprovedRentalCalendar(input: {
       const { error: calendarIdError } = await input.supabase
         .from("bookings")
         .update({
+          google_calendar_id: getGoogleCalendarDestinations().primary,
+          google_calendar_secondary_id: getGoogleCalendarDestinations().secondary,
           google_calendar_event_id:
             sync.primaryEventId ?? input.booking.google_calendar_event_id,
           google_calendar_secondary_event_id:
@@ -220,6 +226,7 @@ async function syncApprovedRentalCalendar(input: {
   }
 
   return ok;
+  });
 }
 
 export async function PATCH(
