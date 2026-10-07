@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { buildHostGuestListUrl, hasHostGuestListAccess } from "./host-guest-list";
+import { GET } from "../../app/api/facility-party/host-guest-list/route";
+import { loadPublicFacilityParty } from "./check-in-service";
+
+test("host email link opens pending and confirmed lists without an RSVP and stays party-specific", async context => {
+  const names = ["INVITATION_THEME_TOKEN_SECRET", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  process.env.INVITATION_THEME_TOKEN_SECRET = "test-host-link-secret";
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://host-list-test.supabase.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only-key";
+  context.after(() => { for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; } });
+  const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const link = new URL(buildHostGuestListUrl("https://example.com", id));
+  const token = link.searchParams.get("token")!;
+  assert.equal(hasHostGuestListAccess(id, token), true);
+  assert.equal(hasHostGuestListAccess(other, token), false);
+  assert.equal(hasHostGuestListAccess(id, token + "tampered"), false);
+  assert.equal(hasHostGuestListAccess(id, ""), false);
+  let status = "pending";
+  let guests: Record<string, unknown>[] = [];
+  let queries = 0;
+  context.mock.method(globalThis, "fetch", async (source: string | Request, init?: RequestInit) => {
+    const req = new Request(source, init);
+    const url = new URL(req.url);
+    assert.equal(url.hostname, "host-list-test.supabase.co", "No real service traffic");
+    assert.equal(req.method, "GET");
+    queries++;
+    if (url.pathname === "/rest/v1/facility_bookings") return Response.json({ id, readable_date:"2027-01-09", readable_time:"10:00 AM", child_name:"", party_label:"Facility party", status });
+    assert.equal(url.pathname, "/rest/v1/facility_party_guests");
+    return Response.json(guests);
+  });
+  const request = (booking = id, proof = token) => new Request(`https://example.com/api/facility-party/host-guest-list?${new URLSearchParams({ booking, token:proof })}`);
+  const emptyResponse = await GET(request());
+  assert.equal(emptyResponse.status, 200, "New hosts can open an empty pending guest list immediately");
+  assert.deepEqual((await emptyResponse.json()).party.expectedGuests, []);
+  guests = [{ id:"guest-a", guest_first_name:"Jane", guest_last_name:"Smith", checked_in_at:null }];
+  for (const current of ["pending", "confirmed"]) {
+    status = current;
+    const response = await GET(request());
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    const { party } = await response.json();
+    assert.equal(party.guestListVisible, true);
+    assert.equal(party.expectedGuests.length, 1);
+    assert.equal(party.expectedGuests[0].displayName, "Jane S.");
+  }
+  guests[0].checked_in_at = "2027-01-09T15:00:00Z";
+  const arrived = (await (await GET(request())).json()).party;
+  assert.equal(arrived.expectedGuests.length, 0);
+  assert.equal(arrived.checkedInGuests[0].displayName, "Jane S.");
+  assert.doesNotMatch(JSON.stringify(arrived), /Smith|guest_dob|waiver_submission/);
+  status = "pending";
+  assert.equal(await loadPublicFacilityParty(id), null, "Public RSVP still rejects pending parties");
+  const before = queries;
+  assert.equal((await GET(request(other))).status, 403);
+  assert.equal((await GET(request(id, ""))).status, 403);
+  assert.equal(queries, before, "Invalid links never read the database");
+  status = "cancelled";
+  assert.equal((await GET(request())).status, 404);
+  const now = Date.now();
+  context.mock.method(Date, "now", () => now + 731 * 86400000);
+  assert.equal(hasHostGuestListAccess(id, token), false);
+});

@@ -172,9 +172,10 @@ export async function loadPublicFacilityParty(
   bookingId: string,
   evaluationAt: Date = new Date(),
   guestListVisible = false,
+  allowPendingHost = false,
 ): Promise<PublicFacilityParty | null> {
   const booking = await loadFacilityBooking(bookingId);
-  if (!booking || !bookingAcceptsGuests(booking.status)) return null;
+  if (!booking || (!bookingAcceptsGuests(booking.status) && !(allowPendingHost && booking.status === "pending"))) return null;
   const guests = guestListVisible ? await loadFacilityPartyGuests(booking.id) : [];
   return {
     id: booking.id,

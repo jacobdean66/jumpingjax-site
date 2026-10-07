@@ -69,7 +69,7 @@ test("contact-only bookings save with blank optional details and preserve suppli
     if (url.pathname === "/rest/v1/rpc/create_facility_booking_atomic") {
       const body = await request.json();
       bookings.push(body.p_booking);
-      return Response.json("isolated-booking");
+      return Response.json("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     }
     if (url.pathname === "/rest/v1/facility_bookings" && request.method === "GET") return Response.json([]);
     if (url.pathname === "/rest/v1/booking_notification_outbox") {
@@ -87,7 +87,7 @@ test("contact-only bookings save with blank optional details and preserve suppli
     for (const [index, details] of cases.entries()) {
       const response = await POST(new NextRequest("https://example.com/api/facility/book", {method:"POST",headers:{"content-type":"application/json","x-forwarded-for":`minimal-${index}`},body:JSON.stringify({...base,...details,idempotency_key:`minimal-${index}`})}));
       assert.equal(response.status,200,JSON.stringify(await response.clone().json()));
-      assert.equal((await response.json()).id,"isolated-booking");
+      assert.equal((await response.json()).id,"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
       const saved = bookings[index];
       assert.equal(saved.customer_name,base.customer_name);
       assert.equal(saved.readable_date,base.booking_date);
@@ -96,6 +96,10 @@ test("contact-only bookings save with blank optional details and preserve suppli
     }
     assert.equal(bookings.length,4);
     assert.equal(notifications.filter(row => row.purpose === "initial_customer_receipt").length,4, "Every saved request gets a receipt even without confirmed theme artwork");
+    for (const receipt of notifications.filter(row => row.purpose === "initial_customer_receipt")) {
+      assert.match(String(receipt.body), /View your party guest list: https:\/\/[^\s]+\/facility-parties\/guest-list\?booking=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&token=/);
+      assert.match(String(receipt.html_body), /href="https:\/\/[^\s]+\/facility-parties\/guest-list\?booking=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&amp;token=/);
+    }
     for(const notification of notifications) assert.doesNotMatch(String(notification.body), /undefined|null/);
     for(const [index, missing] of [{customer_name:""},{phone:""},{email:""},{email:"bad-email"},{booking_date:""}].entries()) {
       const response = await POST(new NextRequest("https://example.com/api/facility/book", {method:"POST",headers:{"x-forwarded-for":`missing-${index}`},body:JSON.stringify({...base,...missing,idempotency_key:`missing-${index}`})}));
