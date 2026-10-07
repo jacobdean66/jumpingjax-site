@@ -57,6 +57,7 @@ import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invi
 import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
 import { assertConfirmedArtworkAvailable, verifyBookedInvitation } from "@/lib/facility-parties/invitations/booking-evidence";
 import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
+import { buildHostGuestListUrl } from "@/lib/facility-parties/host-guest-list";
 
 const FACILITY_BOOKING_HORIZON_ERROR =
   "Facility party requests are available from today through December 31, 2027.";
@@ -584,10 +585,13 @@ export async function POST(req: NextRequest) {
           })
         : ["We can call or email you to finish your party details and invitations."];
 
+      const hostGuestListUrl = buildHostGuestListUrl(siteUrl, bookingId);
       const customerEmailText = [
         `Hi ${bookingContactName},`,
         "",
         "We received your facility booking request. It is waiting for confirmation from Jumping Jax.",
+        `View your party guest list: ${hostGuestListUrl}`,
+        "Keep this host link for yourself. Your guest list is available now, even before you choose invitations. Guests can RSVP once your party is confirmed.",
         "",
         `Party: ${storedPartyLabel}`,
         `Date: ${storedReadableDate}`,
@@ -608,7 +612,7 @@ export async function POST(req: NextRequest) {
       ]
         .filter((line): line is string => line !== null)
         .join("\n");
-      const customerEmailHtml = invitationCreationPreference === "create"
+      const invitationEmailHtml = invitationCreationPreference === "create"
         ? buildFullInvitationEmailHtml({
             snapshot: invitationSnapshot,
             siteUrl,
@@ -624,6 +628,14 @@ export async function POST(req: NextRequest) {
             waiverUrl: waiverInvitationLink,
           })
         : undefined;
+      const safeHostUrl = hostGuestListUrl.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+      const hostEmailSection = `<p style="font-family:Arial,sans-serif"><a href="${safeHostUrl}" style="display:inline-block;padding:12px 18px;background:#0369a1;color:white;border-radius:12px;text-decoration:none;font-weight:bold">View your party guest list</a><br>Keep this host link for yourself. You can view your list before choosing invitations.</p>`;
+      const receiptInvitationHtml = invitationEmailHtml?.replace("Forward this email or use", "Use");
+      const customerEmailHtml = receiptInvitationHtml
+        ? receiptInvitationHtml.includes("</body>")
+          ? receiptInvitationHtml.replace("</body>", `${hostEmailSection}</body>`)
+          : receiptInvitationHtml + hostEmailSection
+        : hostEmailSection + `<div style="font-family:Arial,sans-serif;white-space:pre-line">${customerEmailText.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</div>`;
 
       const { error: customerEmailError } = await sendDurableBookingEmail({
         supabase,
