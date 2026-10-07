@@ -485,30 +485,10 @@ export function FacilityPartyBookingForm({
       setFormError("Add your name, email, and phone so we can follow up.");
       return;
     }
-    if (
-      !parentName.trim() ||
-      !childName.trim() ||
-      !childGender.trim() ||
-      !childAge.trim() ||
-      !partyTheme.trim() ||
-      !balloonColors.trim() ||
-      !tableClothColors.trim() ||
-      !drinkChoice.trim() ||
-      !paymentMethod.trim()
-    ) {
-      setFormError("Add the birthday child, party detail, and payment fields.");
-      return;
-    }
-
     if (invitationCreationPreference === "create" && !themeDesignMatches(themeDesign, partyTheme)) {
       setFormError("Search for your theme and confirm the correct picture before creating invitations.");
       return;
     }
-    if (!invitationCreationPreference) {
-      setFormError("Choose themed invitations or generic invitations from the office.");
-      return;
-    }
-
     const resolvedRoomId =
       partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID;
 
@@ -1026,28 +1006,35 @@ export function FacilityPartyBookingForm({
             </p>
           ) : (
             <div className="space-y-4 rounded-2xl border border-white/10 bg-[#071326]/50 p-4 sm:p-5">
+              <p className="text-sm text-slate-300">
+                After choosing your party date and available time, only your name,
+                email, and phone are required. Leave the other details blank if
+                you are unsure — we can call or email you to finish planning.
+              </p>
               <div className="grid gap-4">
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Parent/Guardian Full Name
+                    Your full name (required)
                   </span>
                   <input
                     type="text"
                     name="parentName"
+                    required
                     autoComplete="name"
                     value={parentName}
                     onChange={(e) => setParentName(e.target.value)}
                     className={inputClassName}
-                    placeholder="Parent or guardian full name"
+                    placeholder="Your full name"
                   />
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Email
+                    Email (required)
                   </span>
                   <input
                     type="email"
                     name="customerEmail"
+                    required
                     autoComplete="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
@@ -1057,11 +1044,12 @@ export function FacilityPartyBookingForm({
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Phone
+                    Phone (required)
                   </span>
                   <input
                     type="tel"
                     name="customerPhone"
+                    required
                     autoComplete="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
@@ -1072,7 +1060,7 @@ export function FacilityPartyBookingForm({
                 <div className="grid gap-4 sm:grid-cols-3">
                   <label className="block sm:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Birthday Child&apos;s Full Name
+                      Birthday Child&apos;s Full Name (optional)
                     </span>
                     <input
                       type="text"
@@ -1085,7 +1073,7 @@ export function FacilityPartyBookingForm({
                   </label>
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Age
+                      Age (optional)
                     </span>
                     <input
                       type="number"
@@ -1101,11 +1089,10 @@ export function FacilityPartyBookingForm({
                 </div>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Child&apos;s gender
+                    Child&apos;s gender (optional)
                   </span>
                   <select
                     name="childGender"
-                    required
                     value={childGender}
                     onChange={(e) => setChildGender(e.target.value)}
                     className={inputClassName}
@@ -1120,7 +1107,7 @@ export function FacilityPartyBookingForm({
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Party theme
+                    Party theme (optional)
                   </span>
                   <input
                     type="text"
@@ -1274,7 +1261,7 @@ export function FacilityPartyBookingForm({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Balloon colors
+                      Balloon colors (optional)
                     </span>
                     <input
                       type="text"
@@ -1287,7 +1274,7 @@ export function FacilityPartyBookingForm({
                   </label>
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Table cloth colors
+                      Table cloth colors (optional)
                     </span>
                     <input
                       type="text"
@@ -1301,11 +1288,10 @@ export function FacilityPartyBookingForm({
                 </div>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Drink choice
+                    Drink choice (optional)
                   </span>
                   <select
                     name="drinkChoice"
-                    required
                     value={drinkChoice}
                     onChange={(e) => setDrinkChoice(e.target.value)}
                     className={inputClassName}
@@ -1320,11 +1306,10 @@ export function FacilityPartyBookingForm({
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    How will you pay?
+                    How will you pay? (optional)
                   </span>
                   <select
                     name="paymentMethod"
-                    required
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className={inputClassName}

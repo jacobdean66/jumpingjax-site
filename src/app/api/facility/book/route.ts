@@ -209,18 +209,13 @@ export async function POST(req: NextRequest) {
       !bookingContactName ||
       !isValidEmail(email) ||
       !isNonEmptyString(phone) ||
-      !isNonEmptyString(child_name) ||
-      !isNonEmptyString(child_gender) ||
-      !isNonEmptyString(child_age) ||
-      !isNonEmptyString(drink_choice) ||
-      !isNonEmptyString(payment_method) ||
       bookingContactName.length > 120 ||
       email.length > 254 ||
       phone.length > 40 ||
       String(notes ?? "").length > 2000
     ) {
       return NextResponse.json(
-        { error: "Missing or invalid customer booking fields" },
+        { error: "Enter your name, a valid email address, and phone number. Keep notes under 2,000 characters." },
         { status: 400 },
       );
     }
@@ -404,9 +399,9 @@ export async function POST(req: NextRequest) {
           email,
           phone,
           parent_name: bookingContactName,
-          child_name: String(child_name).trim(),
-          child_gender: String(child_gender).trim(),
-          child_age: String(child_age).trim(),
+          child_name: String(child_name ?? "").trim(),
+          child_gender: String(child_gender ?? "").trim(),
+          child_age: String(child_age ?? "").trim(),
           party_theme: String(party_theme ?? "").trim(),
           invitation: {
             ...invitationSnapshot,
@@ -415,10 +410,10 @@ export async function POST(req: NextRequest) {
               : {}),
             deliveryPreference: invitationPreference,
           },
-          balloon_colors: String(balloon_colors).trim(),
-          table_cloth_colors: String(table_cloth_colors).trim(),
-          drink_choice: String(drink_choice).trim(),
-          payment_method: String(payment_method).trim(),
+          balloon_colors: String(balloon_colors ?? "").trim(),
+          table_cloth_colors: String(table_cloth_colors ?? "").trim(),
+          drink_choice: String(drink_choice ?? "").trim(),
+          payment_method: String(payment_method ?? "").trim(),
           invitation_delivery_preference: invitationPreferences.join(","),
           invitation_template_id: invitationTemplateId,
           invitation_quantity: invitationQuantity,
@@ -513,17 +508,17 @@ export async function POST(req: NextRequest) {
         `Parent name: ${bookingContactName}`,
         `Email: ${email}`,
         `Phone: ${phone}`,
-        `Child name: ${String(child_name).trim()}`,
-        `Child gender: ${String(child_gender).trim()}`,
-        `Child age: ${String(child_age).trim()}`,
-        `Party theme: ${String(party_theme).trim()}`,
+        `Child name: ${String(child_name ?? "").trim()}`,
+        `Child gender: ${String(child_gender ?? "").trim()}`,
+        `Child age: ${String(child_age ?? "").trim()}`,
+        `Party theme: ${String(party_theme ?? "").trim()}`,
         `Invitations: ${invitationPreferenceLabel}`,
         `Invitation design: ${invitationTemplateName}`,
         `Invitation quantity: ${invitationQuantity}`,
-        `Balloon colors: ${String(balloon_colors).trim()}`,
-        `Table cloth colors: ${String(table_cloth_colors).trim()}`,
-        `Drink choice: ${String(drink_choice).trim()}`,
-        `Payment method: ${String(payment_method).trim()}`,
+        `Balloon colors: ${String(balloon_colors ?? "").trim()}`,
+        `Table cloth colors: ${String(table_cloth_colors ?? "").trim()}`,
+        `Drink choice: ${String(drink_choice ?? "").trim()}`,
+        `Payment method: ${String(payment_method ?? "").trim()}`,
         `Deposit acknowledgement: ${
           deposit_acknowledged === true ? "Checked" : "Not checked"
         }`,
@@ -575,17 +570,19 @@ export async function POST(req: NextRequest) {
       const printableInvitationUrl = siteUrl
         ? facilityInvitationSheetShareUrl(siteUrl, bookingId)
         : "";
-      const invitationEmailSection = buildCustomerInvitationEmailSection({
-        childName: String(child_name).trim(),
-        childAge: String(child_age).trim(),
-        customerPhone: String(phone).trim(),
-        dateLabel: storedReadableDate,
-        timeLabel: storedReadableTime,
-        themeText: String(party_theme ?? "").trim(),
-        invitationUrl,
-        printableUrl: printableInvitationUrl,
-        waiverUrl: waiverInvitationLink,
-      });
+      const invitationEmailSection = invitationCreationPreference === "create"
+        ? buildCustomerInvitationEmailSection({
+            childName: String(child_name ?? "").trim(),
+            childAge: String(child_age ?? "").trim(),
+            customerPhone: String(phone).trim(),
+            dateLabel: storedReadableDate,
+            timeLabel: storedReadableTime,
+            themeText: String(party_theme ?? "").trim(),
+            invitationUrl,
+            printableUrl: printableInvitationUrl,
+            waiverUrl: waiverInvitationLink,
+          })
+        : ["We can call or email you to finish your party details and invitations."];
 
       const customerEmailText = [
         `Hi ${bookingContactName},`,
@@ -598,8 +595,8 @@ export async function POST(req: NextRequest) {
         `Invitations: ${invitationPreferenceLabel}`,
         `Invitation design: ${invitationTemplateName}`,
         `Invitation quantity: ${invitationQuantity}`,
-        `Drink choice: ${String(drink_choice).trim()}`,
-        `Payment method: ${String(payment_method).trim()}`,
+        `Drink choice: ${String(drink_choice ?? "").trim()}`,
+        `Payment method: ${String(payment_method ?? "").trim()}`,
         `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
         "",
         ...invitationEmailSection,
@@ -611,20 +608,22 @@ export async function POST(req: NextRequest) {
       ]
         .filter((line): line is string => line !== null)
         .join("\n");
-      const customerEmailHtml = buildFullInvitationEmailHtml({
-        snapshot: invitationSnapshot,
-        siteUrl,
-        plainText: customerEmailText,
-        childName: String(child_name).trim(),
-        childAge: String(child_age).trim(),
-        customerPhone: String(phone).trim(),
-        dateLabel: storedReadableDate,
-        timeLabel: storedReadableTime,
-        themeText: String(party_theme ?? "").trim(),
-        invitationUrl,
-        printableUrl: printableInvitationUrl,
-        waiverUrl: waiverInvitationLink,
-      });
+      const customerEmailHtml = invitationCreationPreference === "create"
+        ? buildFullInvitationEmailHtml({
+            snapshot: invitationSnapshot,
+            siteUrl,
+            plainText: customerEmailText,
+            childName: String(child_name ?? "").trim(),
+            childAge: String(child_age ?? "").trim(),
+            customerPhone: String(phone).trim(),
+            dateLabel: storedReadableDate,
+            timeLabel: storedReadableTime,
+            themeText: String(party_theme ?? "").trim(),
+            invitationUrl,
+            printableUrl: printableInvitationUrl,
+            waiverUrl: waiverInvitationLink,
+          })
+        : undefined;
 
       const { error: customerEmailError } = await sendDurableBookingEmail({
         supabase,

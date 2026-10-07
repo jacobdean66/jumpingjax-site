@@ -54,9 +54,9 @@ test("rental submenu exposes inventory tools under Rentals without duplicating t
 test("facility name mapping uses one parent contact and one birthday child", () => {
   const form = read("../../components/facility-parties/FacilityPartyBookingForm.tsx");
   const route = read("../../app/api/facility/book/route.ts");
-  assert.equal((form.match(/Parent\/Guardian Full Name/g) ?? []).length, 1);
+  assert.equal((form.match(/Your full name \(required\)/g) ?? []).length, 1);
   assert.equal((form.match(/Birthday Child(?:â€™|'|&apos;)s Full Name/g) ?? []).length, 1);
   assert.match(route, /customer_name: bookingContactName/);
   assert.match(route, /parent_name: bookingContactName/);
-  assert.match(route, /child_name: String\(child_name\)\.trim\(\)/);
+  assert.match(route, /child_name: String\(child_name \?\? ""\)\.trim\(\)/);
 });
