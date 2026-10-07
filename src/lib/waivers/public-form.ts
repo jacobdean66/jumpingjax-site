@@ -4,6 +4,7 @@
  */
 
 import { isYmd } from "@/lib/open-play/pricing";
+import type { TypedAgreement } from "./typed-agreements";
 import {
   WAIVER_LIMITS,
   type ConsentInput,
@@ -14,12 +15,7 @@ import {
 export const SIGNER_PARTICIPANT_TEMP_ID = "signer";
 
 export type WaiverFormStep =
-  | "signer"
-  | "participants"
-  | "legal"
-  | "signature"
-  | "review"
-  | "submit";
+  "signer" | "participants" | "legal" | "signature" | "review" | "submit";
 
 export const WAIVER_FORM_STEPS = [
   "signer",
@@ -38,14 +34,17 @@ export type CoveredParticipantDraft = {
   kind: "child" | "adult";
   /** Required when kind === "child"; references an adult tempId on this waiver. */
   guardianTempId: string | null;
+  adultMode?: "playing" | "watching" | null;
 };
 
 export type SignerFormState = SignerInput & {
   /** Required for the adult_signer participant row. */
   dob: string;
+  adultMode?: "playing" | "watching" | null;
 };
 
 export type WaiverFormState = {
+  agreements?: TypedAgreement[];
   signer: SignerFormState;
   participants: CoveredParticipantDraft[];
   consent: ConsentInput;
@@ -113,6 +112,7 @@ export function createParticipantDraft(
     lastName: partial?.lastName ?? "",
     dob: partial?.dob ?? "",
     kind: partial?.kind ?? "child",
+    ...(partial?.adultMode ? { adultMode: partial.adultMode } : {}),
     guardianTempId:
       partial && Object.prototype.hasOwnProperty.call(partial, "guardianTempId")
         ? (partial.guardianTempId ?? null)
@@ -166,8 +166,20 @@ function requireTrimmed(
 
 export function validateSignerStep(signer: SignerFormState): FieldErrors {
   const errors: FieldErrors = {};
-  requireTrimmed(signer.firstName, "First name", WAIVER_LIMITS.maxNameLength, errors, "firstName");
-  requireTrimmed(signer.lastName, "Last name", WAIVER_LIMITS.maxNameLength, errors, "lastName");
+  requireTrimmed(
+    signer.firstName,
+    "First name",
+    WAIVER_LIMITS.maxNameLength,
+    errors,
+    "firstName",
+  );
+  requireTrimmed(
+    signer.lastName,
+    "Last name",
+    WAIVER_LIMITS.maxNameLength,
+    errors,
+    "lastName",
+  );
   const email = requireTrimmed(
     signer.email,
     "Email",
@@ -178,7 +190,13 @@ export function validateSignerStep(signer: SignerFormState): FieldErrors {
   if (email && !EMAIL_RE.test(email)) {
     errors.email = "Enter a valid email address";
   }
-  requireTrimmed(signer.phone, "Phone", WAIVER_LIMITS.maxPhoneLength, errors, "phone");
+  requireTrimmed(
+    signer.phone,
+    "Phone",
+    WAIVER_LIMITS.maxPhoneLength,
+    errors,
+    "phone",
+  );
   const dob = signer.dob.trim();
   if (!dob) {
     errors.dob = "Date of birth is required";
@@ -197,12 +215,16 @@ export function adultOptionsForGuardian(
   const options: Array<{ tempId: string; label: string }> = [
     {
       tempId: SIGNER_PARTICIPANT_TEMP_ID,
-      label: `${signer.firstName.trim() || "Signer"} ${signer.lastName.trim()}`.trim() || "Signer",
+      label:
+        `${signer.firstName.trim() || "Signer"} ${signer.lastName.trim()}`.trim() ||
+        "Signer",
     },
   ];
   for (const p of participants) {
     if (p.kind !== "adult") continue;
-    const name = `${p.firstName.trim()} ${p.lastName.trim()}`.trim() || "Adult participant";
+    const name =
+      `${p.firstName.trim()} ${p.lastName.trim()}`.trim() ||
+      "Adult participant";
     options.push({ tempId: p.tempId, label: name });
   }
   return options;
@@ -235,8 +257,20 @@ export function validateParticipantsStep(
 
   participants.forEach((p, index) => {
     const prefix = `participants.${index}`;
-    requireTrimmed(p.firstName, "First name", WAIVER_LIMITS.maxNameLength, errors, `${prefix}.firstName`);
-    requireTrimmed(p.lastName, "Last name", WAIVER_LIMITS.maxNameLength, errors, `${prefix}.lastName`);
+    requireTrimmed(
+      p.firstName,
+      "First name",
+      WAIVER_LIMITS.maxNameLength,
+      errors,
+      `${prefix}.firstName`,
+    );
+    requireTrimmed(
+      p.lastName,
+      "Last name",
+      WAIVER_LIMITS.maxNameLength,
+      errors,
+      `${prefix}.lastName`,
+    );
     const dob = p.dob.trim();
     if (!dob) {
       errors[`${prefix}.dob`] = "Date of birth is required";
@@ -309,9 +343,12 @@ export type PublicSubmitParticipant = {
   dob: string;
   role: ParticipantRole;
   guardianTempId?: string | null;
+  adultMode?: "playing" | "watching" | null;
 };
 
 export type PublicSubmitBody = {
+  agreements?: TypedAgreement[];
+  legalBodyHtml?: string;
   templateVersionId: string;
   signer: SignerInput;
   participants: PublicSubmitParticipant[];
@@ -323,8 +360,8 @@ export type PublicSubmitBody = {
 
 /**
  * Builds the exact POST /api/waiver/submit JSON body from form state.
- * Does not include signature image bytes — the reviewed contract accepts
- * signatureContentType only (no public binary upload field).
+ * Group submissions include each adult's typed signature and consents.
+ * Drawn-signature metadata remains supported by the legacy pure helpers.
  */
 export function buildPublicSubmitBody(
   state: WaiverFormState,
@@ -344,6 +381,7 @@ export function buildPublicSubmitBody(
     dob: state.signer.dob.trim(),
     role: "adult_signer",
     guardianTempId: null,
+    ...(state.signer.adultMode ? { adultMode: state.signer.adultMode } : {}),
   };
 
   const others: PublicSubmitParticipant[] = state.participants.map((p) => {
@@ -364,6 +402,7 @@ export function buildPublicSubmitBody(
       dob: p.dob.trim(),
       role: "adult_covered",
       guardianTempId: null,
+      ...(p.adultMode ? { adultMode: p.adultMode } : {}),
     };
   });
 
@@ -377,13 +416,21 @@ export function buildPublicSubmitBody(
       isLegalGuardian: state.consent.isLegalGuardian === true,
     },
     source: "web",
-    signatureContentType: state.signatureContentType || "image/png",
+    ...(state.agreements
+      ? {
+          agreements: state.agreements,
+          legalBodyHtml: state.legalBodyHtml ?? "",
+        }
+      : {}),
+    signatureContentType: state.agreements ? "text/plain" : state.signatureContentType || "image/png",
     idempotencyKey,
   };
 }
 
 /** Stable fingerprint so idempotency key regenerates when the draft changes. */
-export function waiverDraftFingerprint(body: Omit<PublicSubmitBody, "idempotencyKey">): string {
+export function waiverDraftFingerprint(
+  body: Omit<PublicSubmitBody, "idempotencyKey">,
+): string {
   return JSON.stringify(body);
 }
 
@@ -404,7 +451,7 @@ export function canNavigateToStep(
     if (step === "signer") errors = validateSignerStep(state.signer);
     else if (step === "participants") {
       errors = validateParticipantsStep(state.signer, state.participants);
-    }     else if (step === "legal") errors = validateLegalStep(state);
+    } else if (step === "legal") errors = validateLegalStep(state);
     else if (step === "signature") errors = validateSignatureStep(state);
     if (Object.keys(errors).length > 0) {
       return { ok: false, errors, blockedAt: step };

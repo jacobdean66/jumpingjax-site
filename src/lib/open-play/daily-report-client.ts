@@ -150,6 +150,8 @@ export function isZeroDollarActiveDay(report: DailyReport): boolean {
 }
 
 export type ReportSummaryView = {
+  freePassAttendance?: number;
+  freePassTotalCents?: number;
   businessDayYmd: string;
   cashTotalCents: number;
   cardTotalCents: number;
@@ -171,6 +173,7 @@ export type ReportSummaryView = {
 
 export function toReportSummaryView(report: DailyReport): ReportSummaryView {
   return {
+    ...(report.freePassAttendance === undefined ? {} : { freePassAttendance: report.freePassAttendance, freePassTotalCents: report.freePassTotalCents }),
     businessDayYmd: report.businessDayYmd,
     cashTotalCents: report.cashTotalCents,
     cardTotalCents: report.cardTotalCents,

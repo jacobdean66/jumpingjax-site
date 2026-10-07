@@ -61,6 +61,10 @@ export function DailyReportSummary({ summary }: Props) {
           </p>
         </div>
 
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+          <p className="font-bold text-emerald-900">Free-pass attendance: {summary.freePassAttendance ?? 0}</p>
+          <p className="mt-1 text-sm text-emerald-900">Admission covered by passes: {formatCents(summary.freePassTotalCents ?? 0)}</p>
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-3">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
