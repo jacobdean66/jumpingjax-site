@@ -1,5 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { computeExpiresOnYmd, isWaiverExpired } from "./expiration";
+import { validateTypedAgreements, ELECTRONIC_SIGNATURE_NOTICE, AGREEMENT_STATEMENTS } from "./typed-agreements";
+import { businessDayYmdFromInstant } from "../open-play/business-day";
+import { ageInCompletedYearsOnDate } from "../open-play/pricing";
 import {
   buildCanonicalSubmissionPayload,
   validateSubmissionDraft,
@@ -67,15 +70,51 @@ export async function submitWaiver(options: {
   }
 
   const now = options.now ?? new Date();
+  const today = businessDayYmdFromInstant(now);
+  const agreementErrors = validateTypedAgreements(
+    draft.participants,
+    draft.agreements ?? [],
+    today,
+  );
+  if (Object.keys(agreementErrors).length)
+    throw new WaiverSubmitError(
+      "validation",
+      Object.values(agreementErrors)[0],
+    );
+  if (!draft.legalBodyHtml)
+    throw new WaiverSubmitError(
+      "validation",
+      "Read the current waiver before signing.",
+    );
+  for (const p of draft.participants) {
+    if (p.role === "child" && ageInCompletedYearsOnDate(p.dob, today) >= 18)
+      throw new WaiverSubmitError(
+        "validation",
+        "Participants 18 or older must sign as adults.",
+      );
+    if (
+      p.role !== "child" &&
+      p.adultMode !== "playing" &&
+      p.adultMode !== "watching"
+    )
+      throw new WaiverSubmitError(
+        "validation",
+        "Choose watching or playing for every adult.",
+      );
+  }
   const signedAt = now.toISOString();
   const expiresOn = computeExpiresOnYmd(now);
   const tokenExpiresAt = new Date(
     now.getTime() + WAIVER_COMPLETION_TOKEN_TTL_MS,
   ).toISOString();
 
-  const publicToken = deriveCompletionTokenFromIdempotencyKey(draft.idempotencyKey);
+  const publicToken = deriveCompletionTokenFromIdempotencyKey(
+    draft.idempotencyKey,
+  );
   const publicTokenHash = hashPublicToken(publicToken);
-  const requestHash = canonicalRequestHash(buildCanonicalSubmissionPayload(draft));
+  const requestHash = canonicalRequestHash(
+    buildCanonicalSubmissionPayload(draft),
+  );
 
   const payload = {
     idempotency_key: draft.idempotencyKey,
@@ -85,6 +124,9 @@ export async function submitWaiver(options: {
     signed_at: signedAt,
     source: draft.source,
     signature_content_type: draft.signatureContentType,
+    legal_body_html: draft.legalBodyHtml,
+    agreements: draft.agreements,
+    agreement_text: { signatureNotice: ELECTRONIC_SIGNATURE_NOTICE, statements: AGREEMENT_STATEMENTS },
     ip_hmac: hmacIpAddress(options.requestIp),
     user_agent: options.userAgent?.slice(0, 512) ?? null,
     signer: {
@@ -105,11 +147,12 @@ export async function submitWaiver(options: {
       dob: participant.dob,
       role: participant.role,
       guardian_temp_id: participant.guardianTempId ?? null,
+      adult_mode: participant.adultMode ?? null,
     })),
   };
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.rpc("submit_native_waiver_atomic", {
+  const { data, error } = await supabase.rpc("submit_typed_waiver_atomic", {
     p_payload: payload,
   });
 
@@ -150,12 +193,18 @@ export async function submitWaiver(options: {
     case "template_version_not_found":
     case "template_inactive":
     case "template_version_not_current":
-      throw new WaiverSubmitError("template_inactive", "Template is not available for signing");
+    case "legal_text_changed":
+      throw new WaiverSubmitError(
+        "template_inactive",
+        "Template is not available for signing",
+      );
     case "consent_required":
     case "invalid_dob":
     case "future_dob":
     case "invalid_input":
     case "invalid_signature_content_type":
+    case "signature_name_mismatch":
+    case "invalid_participant_age":
     case "signer_participant_mismatch":
     case "child_guardian_missing":
     case "too_many_adults":
@@ -183,9 +232,12 @@ export async function getCompletionByToken(options: {
   if (token.length < 32) return null;
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.rpc("get_waiver_completion_by_token_hash", {
-    p_token_hash: hashPublicToken(token),
-  });
+  const { data, error } = await supabase.rpc(
+    "get_waiver_completion_by_token_hash",
+    {
+      p_token_hash: hashPublicToken(token),
+    },
+  );
   if (error) {
     throw new WaiverSubmitError("database", "Unable to look up completion");
   }
@@ -200,7 +252,10 @@ export async function getCompletionByToken(options: {
   };
 
   if (result.outcome === "token_expired") {
-    throw new WaiverSubmitError("token_expired", "Completion token has expired");
+    throw new WaiverSubmitError(
+      "token_expired",
+      "Completion token has expired",
+    );
   }
   if (result.outcome !== "ok" || !result.submission_id || !result.expires_on) {
     return null;

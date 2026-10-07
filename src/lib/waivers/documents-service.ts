@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { getSignedGroupRecord } from "./group-record";
 import {
   createWaiverDocumentSignedUrl,
   ensureWaiverDocumentsBucket,
@@ -20,6 +21,11 @@ export async function getAuthorizedWaiverDocument(options: {
 }): Promise<DocumentAccessResult | null> {
   const supabase = createServiceRoleClient();
   const expiresInSeconds = options.expiresInSeconds ?? 60;
+  const typedRecord = await getSignedGroupRecord(options.submissionId);
+  if (typedRecord) return {
+    submissionId: options.submissionId, storagePath: `database/${options.submissionId}`, status: "ready", source: "typed",
+    signedUrl: `/api/admin/open-play/documents/${options.submissionId}/record`, expiresInSeconds: 0,
+  };
 
   const { data, error } = await supabase
     .from("waiver_documents")

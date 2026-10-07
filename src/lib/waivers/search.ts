@@ -60,6 +60,8 @@ export type StaffWaiverDetails = {
 };
 
 export type StaffSearchResult = {
+  ageYears?: number;
+  adultMode?: "playing" | "watching" | null;
   /** Native participant id, or empty for legacy-only rows. */
   participantId: string;
   /** Native submission id, or empty for legacy-only rows. */

@@ -4,6 +4,7 @@
  */
 
 import { isYmd } from "@/lib/open-play/pricing";
+import type { TypedAgreement } from "./typed-agreements";
 
 export type ParticipantRole = "child" | "adult_signer" | "adult_covered";
 export type WaiverSource = "web" | "kiosk" | "import";
@@ -34,6 +35,7 @@ export type ParticipantInput = {
   dob: string;
   role: ParticipantRole;
   guardianTempId?: string | null;
+  adultMode?: "playing" | "watching" | null;
 };
 
 export type SignerInput = {
@@ -50,6 +52,8 @@ export type ConsentInput = {
 };
 
 export type SubmissionDraft = {
+  agreements?: TypedAgreement[];
+  legalBodyHtml?: string;
   templateVersionId: string;
   signer: SignerInput;
   participants: ParticipantInput[];
@@ -76,7 +80,9 @@ function requireNonEmpty(value: string, label: string, max = 80): string {
   const trimmed = value.trim();
   if (!trimmed) throw new WaiverValidationError(`${label} is required`);
   if (trimmed.length > max) {
-    throw new WaiverValidationError(`${label} must be ${max} characters or fewer`);
+    throw new WaiverValidationError(
+      `${label} must be ${max} characters or fewer`,
+    );
   }
   return trimmed;
 }
@@ -84,10 +90,14 @@ function requireNonEmpty(value: string, label: string, max = 80): string {
 function requireYmdDob(value: string, todayYmd: string): string {
   const trimmed = value.trim();
   if (!isYmd(trimmed)) {
-    throw new WaiverValidationError("Participant date of birth must be a real YYYY-MM-DD date");
+    throw new WaiverValidationError(
+      "Participant date of birth must be a real YYYY-MM-DD date",
+    );
   }
   if (trimmed > todayYmd) {
-    throw new WaiverValidationError("Participant date of birth cannot be in the future");
+    throw new WaiverValidationError(
+      "Participant date of birth cannot be in the future",
+    );
   }
   return trimmed;
 }
@@ -103,9 +113,9 @@ export function validateSubmissionDraft(
     throw new WaiverValidationError("source must be web, kiosk, or import");
   }
 
-  const contentType = draft.signatureContentType.trim().toLowerCase();
+  const contentType = draft.agreements ? "text/plain" : draft.signatureContentType.trim().toLowerCase();
   if (
-    !(WAIVER_LIMITS.allowedSignatureContentTypes as readonly string[]).includes(
+    !draft.agreements && !(WAIVER_LIMITS.allowedSignatureContentTypes as readonly string[]).includes(
       contentType,
     )
   ) {
@@ -116,7 +126,9 @@ export function validateSubmissionDraft(
     throw new WaiverValidationError("Required consents were not acknowledged");
   }
   if (!draft.consent.isLegalGuardian) {
-    throw new WaiverValidationError("Signer must confirm legal guardian status");
+    throw new WaiverValidationError(
+      "Signer must confirm legal guardian status",
+    );
   }
 
   const idempotencyKey = requireNonEmpty(
@@ -182,7 +194,9 @@ export function validateSubmissionDraft(
       WAIVER_LIMITS.maxTempIdLength,
     );
     if (byTempId.has(tempId)) {
-      throw new WaiverValidationError(`Duplicate participant tempId: ${tempId}`);
+      throw new WaiverValidationError(
+        `Duplicate participant tempId: ${tempId}`,
+      );
     }
     const normalized: ParticipantInput = {
       tempId,
@@ -199,6 +213,7 @@ export function validateSubmissionDraft(
       dob: requireYmdDob(participant.dob, todayYmd),
       role: participant.role,
       guardianTempId: participant.guardianTempId ?? null,
+      ...(participant.adultMode ? { adultMode: participant.adultMode } : {}),
     };
     if (!["child", "adult_signer", "adult_covered"].includes(normalized.role)) {
       throw new WaiverValidationError("Invalid participant role");
@@ -246,7 +261,10 @@ export function validateSubmissionDraft(
       if (!guardian) {
         throw new WaiverValidationError("Child guardian reference is invalid");
       }
-      if (guardian.role !== "adult_signer" && guardian.role !== "adult_covered") {
+      if (
+        guardian.role !== "adult_signer" &&
+        guardian.role !== "adult_covered"
+      ) {
         throw new WaiverValidationError(
           "Child guardian must be an adult on the same submission",
         );
@@ -265,6 +283,9 @@ export function validateSubmissionDraft(
     participants,
     consent: draft.consent,
     source: draft.source,
+    ...(draft.agreements
+      ? { agreements: draft.agreements, legalBodyHtml: draft.legalBodyHtml }
+      : {}),
     signatureContentType: contentType,
     idempotencyKey,
   };
@@ -281,9 +302,13 @@ export function buildCanonicalSubmissionPayload(draft: SubmissionDraft) {
       dob: p.dob,
       role: p.role,
       guardianTempId: p.guardianTempId ?? null,
+      ...(p.adultMode ? { adultMode: p.adultMode } : {}),
     })),
     consent: draft.consent,
     source: draft.source,
+    ...(draft.agreements
+      ? { agreements: draft.agreements, legalBodyHtml: draft.legalBodyHtml }
+      : {}),
     signatureContentType: draft.signatureContentType,
   };
 }

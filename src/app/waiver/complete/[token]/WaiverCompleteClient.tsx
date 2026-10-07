@@ -243,10 +243,11 @@ export function WaiverCompleteClient({
                 </dd>
               </div>
             </dl>
-            <p className="mt-4 text-xs leading-5 text-slate-500">
-              A final signed PDF is not provided on this page. Staff can help if
-              you need a record at the facility.
-            </p>
+            <div className="mt-5 grid gap-3">
+              <a href={`/api/waiver/complete/${encodeURIComponent(token)}/document`} target="_blank" rel="noreferrer" className="rounded-xl bg-cyan-800 px-5 py-3 text-center font-bold text-white">View / print signed waiver</a>
+              <a href={`/api/waiver/complete/${encodeURIComponent(token)}/document?download=1`} className="rounded-xl border-2 border-cyan-200 px-5 py-3 text-center font-bold text-cyan-900">Download completed copy</a>
+              <p className="text-sm leading-6 text-slate-600">Use Print to save a PDF. The download link is available for seven days; staff retain your record.</p>
+            </div>
           </>
         ) : null}
 

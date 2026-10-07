@@ -61,6 +61,8 @@ export type VisitSnapshot = {
 };
 
 export type DailyReport = {
+  freePassAttendance?: number;
+  freePassTotalCents?: number;
   businessDayYmd: string;
   cashTotalCents: number;
   cardTotalCents: number;

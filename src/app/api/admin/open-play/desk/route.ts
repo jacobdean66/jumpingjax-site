@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); }
   catch { return publicSafeError("validation", 400, "Invalid request."); }
-  if (!body || typeof body !== "object" || typeof body.action !== "string" || !["mark_here", "depart", "create_ticket", "add", "edit", "remove", "pay", "payer", "void_payment"].includes(body.action)) {
+  if (!body || typeof body !== "object" || typeof body.action !== "string" || !["mark_here", "depart", "create_ticket", "add", "edit", "remove", "pay", "payer", "void_payment", "complete_checkout"].includes(body.action)) {
     return publicSafeError("validation", 400, "Choose a valid desk action.");
   }
   if (body.action === "void_payment" && auth.auth.role !== "owner") return publicSafeError("forbidden", 403, "Owner access is required to void a saved receipt.");

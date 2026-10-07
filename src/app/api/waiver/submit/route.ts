@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 
 import { rateLimit } from "@/lib/rate-limit";
 import { publicSafeError } from "@/lib/open-play/staff-auth";
-import { BodyTooLargeError, readRequestTextWithLimit } from "@/lib/waivers/read-body";
-import { submitWaiver, WaiverSubmitError } from "@/lib/waivers/submit";
 import {
-  WAIVER_LIMITS,
-  type SubmissionDraft,
-} from "@/lib/waivers/validation";
+  BodyTooLargeError,
+  readRequestTextWithLimit,
+} from "@/lib/waivers/read-body";
+import { submitWaiver, WaiverSubmitError } from "@/lib/waivers/submit";
+import { WAIVER_LIMITS, type SubmissionDraft } from "@/lib/waivers/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,11 @@ export async function POST(req: Request) {
     rawText = await readRequestTextWithLimit(req, WAIVER_LIMITS.maxBodyBytes);
   } catch (error) {
     if (error instanceof BodyTooLargeError) {
-      return publicSafeError("payload_too_large", 413, "Request body is too large");
+      return publicSafeError(
+        "payload_too_large",
+        413,
+        "Request body is too large",
+      );
     }
     return publicSafeError("invalid_body", 400, "Unable to read request body");
   }
@@ -43,15 +47,47 @@ export async function POST(req: Request) {
   } catch {
     return publicSafeError("invalid_json", 400, "Invalid JSON request body");
   }
+  if (!body || typeof body !== "object" || Array.isArray(body))
+    return publicSafeError(
+      "invalid_body",
+      400,
+      "A waiver form object is required",
+    );
 
-  const participantsRaw = Array.isArray(body.participants) ? body.participants : [];
+  const participantsRaw = Array.isArray(body.participants)
+    ? body.participants
+    : [];
   const draft: SubmissionDraft = {
+    legalBodyHtml: asString(body.legalBodyHtml),
+    agreements: (Array.isArray(body.agreements) ? body.agreements : []).map(
+      (item) => {
+        const row = (item ?? {}) as Record<string, unknown>;
+        return {
+          participantTempId: asString(row.participantTempId),
+          firstName: asString(row.firstName),
+          lastName: asString(row.lastName),
+          acknowledgedRisk: asBoolean(row.acknowledgedRisk),
+          acknowledgedTerms: asBoolean(row.acknowledgedTerms),
+          electronicSignature: asBoolean(row.electronicSignature),
+          guardianAuthority: asBoolean(row.guardianAuthority),
+          photoConsent: asBoolean(row.photoConsent),
+        };
+      },
+    ),
     templateVersionId: asString(body.templateVersionId),
     signer: {
-      firstName: asString((body.signer as Record<string, unknown> | undefined)?.firstName),
-      lastName: asString((body.signer as Record<string, unknown> | undefined)?.lastName),
-      email: asString((body.signer as Record<string, unknown> | undefined)?.email),
-      phone: asString((body.signer as Record<string, unknown> | undefined)?.phone),
+      firstName: asString(
+        (body.signer as Record<string, unknown> | undefined)?.firstName,
+      ),
+      lastName: asString(
+        (body.signer as Record<string, unknown> | undefined)?.lastName,
+      ),
+      email: asString(
+        (body.signer as Record<string, unknown> | undefined)?.email,
+      ),
+      phone: asString(
+        (body.signer as Record<string, unknown> | undefined)?.phone,
+      ),
     },
     participants: participantsRaw.map((item, index) => {
       const row = (item ?? {}) as Record<string, unknown>;
@@ -60,8 +96,16 @@ export async function POST(req: Request) {
         firstName: asString(row.firstName),
         lastName: asString(row.lastName),
         dob: asString(row.dob),
-        role: asString(row.role) as SubmissionDraft["participants"][number]["role"],
-        guardianTempId: row.guardianTempId ? asString(row.guardianTempId) : null,
+        role: asString(
+          row.role,
+        ) as SubmissionDraft["participants"][number]["role"],
+        guardianTempId: row.guardianTempId
+          ? asString(row.guardianTempId)
+          : null,
+        adultMode:
+          row.adultMode === "playing" || row.adultMode === "watching"
+            ? row.adultMode
+            : null,
       };
     }),
     consent: {
@@ -69,7 +113,8 @@ export async function POST(req: Request) {
         (body.consent as Record<string, unknown> | undefined)?.acknowledgedRisk,
       ),
       acknowledgedTerms: asBoolean(
-        (body.consent as Record<string, unknown> | undefined)?.acknowledgedTerms,
+        (body.consent as Record<string, unknown> | undefined)
+          ?.acknowledgedTerms,
       ),
       isLegalGuardian: asBoolean(
         (body.consent as Record<string, unknown> | undefined)?.isLegalGuardian,
@@ -118,7 +163,9 @@ export async function POST(req: Request) {
       return publicSafeError(
         error.code,
         statusByCode[error.code] ?? 503,
-        error.code === "validation" ? error.message : "Request could not be completed",
+        error.code === "validation"
+          ? error.message
+          : "Request could not be completed",
       );
     }
     return publicSafeError("database", 503);
