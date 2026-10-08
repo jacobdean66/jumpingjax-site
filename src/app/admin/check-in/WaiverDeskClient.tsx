@@ -27,6 +27,10 @@ const primary =
   "min-h-12 rounded-xl bg-emerald-700 px-5 py-3 font-black text-white disabled:opacity-50";
 const secondary =
   "min-h-11 rounded-xl border-2 border-slate-300 bg-white px-4 py-2 font-bold text-slate-900 disabled:opacity-50";
+const checkoutChoice = (selected: boolean) =>
+  `min-h-12 rounded-xl border-2 px-4 py-3 font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-50 ${selected
+    ? "border-emerald-700 bg-emerald-700 text-white"
+    : "border-slate-300 bg-white text-slate-900"}`;
 const idFor = (g: Guest) =>
   g.source === "legacy_smartwaiver" ? g.legacyParticipantId : g.participantId;
 export function WaiverDeskClient({
@@ -620,25 +624,34 @@ export function WaiverDeskClient({
                     type="button"
                     key={m}
                     disabled={busy || pendingCheckout || due === 0}
-                    aria-pressed={method === m}
-                    className={`${secondary} ${method === m ? "border-emerald-500 bg-emerald-50" : ""}`}
+                    aria-pressed={due > 0 && method === m}
+                    className={checkoutChoice(due > 0 && method === m)}
                     onClick={() => setMethod(m)}
                   >
+                    {due > 0 && method === m && <span aria-hidden="true">✓ </span>}
                     {m === "card" ? "Card" : "Cash"}
                   </button>
                 ))}
                 <button
                   type="button"
                   aria-expanded={showPasses}
+                  aria-controls="checkout-free-passes"
+                  aria-pressed={passes.length > 0}
                   disabled={busy || pendingCheckout}
-                  className={secondary}
+                  className={checkoutChoice(showPasses || passes.length > 0)}
                   onClick={() => setShowPasses((v) => !v)}
                 >
+                  {passes.length > 0 && <span aria-hidden="true">✓ </span>}
                   Free pass
                 </button>
               </div>
+              <p role="status" className="mt-3 font-bold text-emerald-800">
+                {due > 0
+                  ? `Payment: ${method === "card" ? "Card" : method === "cash" ? "Cash" : "Choose cash or card"}${passes.length > 0 ? ` + ${passes.length} free ${passes.length === 1 ? "pass" : "passes"}` : ""}`
+                  : deduction > 0 ? "Free passes cover the balance." : "No payment is due."}
+              </p>
               {showPasses && (
-                <fieldset className="mt-5 space-y-3 rounded-xl border-2 border-emerald-200 p-4">
+                <fieldset id="checkout-free-passes" className="mt-5 space-y-3 rounded-xl border-2 border-emerald-200 p-4">
                   <legend className="px-2 font-black">
                     Assign free passes
                   </legend>
