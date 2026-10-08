@@ -4,14 +4,15 @@ import { useEffect, useState, type ReactNode } from "react";
 
 const tabs = [
   { id: "supervisor", label: "Permanent agent" },
+  { id: "tech-search", label: "Tech Search" },
   { id: "agent-controls", label: "Agents & activity" },
   { id: "agent-conversations", label: "Conversations" },
   { id: "agent-tools", label: "Tools & diagnostics" },
 ] as const;
 type TabId = typeof tabs[number]["id"];
 
-export function AgentWorkspace({ supervisor, controls, conversations, tools, initialConversation = false }: {
-  supervisor: ReactNode; controls: ReactNode; conversations: ReactNode; tools: ReactNode; initialConversation?: boolean;
+export function AgentWorkspace({ supervisor, controls, conversations, tools, techSearch, initialConversation = false }: {
+  supervisor: ReactNode; controls: ReactNode; conversations: ReactNode; tools: ReactNode; techSearch?: ReactNode; initialConversation?: boolean;
 }) {
   const [active, setActive] = useState<TabId>(initialConversation ? "agent-conversations" : "supervisor");
   useEffect(() => {
@@ -25,7 +26,7 @@ export function AgentWorkspace({ supervisor, controls, conversations, tools, ini
       window.removeEventListener("hashchange", sync);
     };
   }, []);
-  const panels = { supervisor, "agent-controls": controls, "agent-conversations": conversations, "agent-tools": tools };
+  const panels = { supervisor, "agent-controls": controls, "agent-conversations": conversations, "agent-tools": tools, "tech-search": techSearch ?? <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-xl font-black">Tech Search</h2><p className="mt-2 text-sm font-semibold text-slate-600">Tech Search is not connected yet. Current troubleshooting checks are in Tools &amp; diagnostics.</p><a className="mt-3 inline-block font-bold underline" href="#agent-tools">Open Tools &amp; diagnostics</a></section> };
   function select(id: TabId) {
     setActive(id);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);

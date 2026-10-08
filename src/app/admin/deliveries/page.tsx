@@ -7,6 +7,7 @@ import {
   todayYmd,
 } from "@/lib/admin/delivery-planner-dates";
 import { RoutePlannerWorkspace } from "./RoutePlannerWorkspace";
+import { AdminNavigation } from "../AdminNavigation";
 
 export const dynamic = "force-dynamic";
 
@@ -102,18 +103,8 @@ export default async function AdminDeliveriesPage({ searchParams }: Props) {
               Route Planner
             </h1>
           </div>
-          <nav className="flex shrink-0 gap-1 text-xs font-black">
-            <Link className="rp-nav-link rounded-lg px-2.5 py-2" href="/admin">
-              Admin Home
-            </Link>
-            <Link className="rp-nav-link-accent hidden rounded-lg px-2.5 py-2 sm:block" href="/admin/schedule">
-              Schedule View
-            </Link>
-            <Link className="rp-nav-link hidden rounded-lg px-2.5 py-2 md:block" href="/admin/ai-ads">
-              AI Ads
-            </Link>
-          </nav>
         </header>
+        <div className="shrink-0"><AdminNavigation role={auth.role} variant="route" /></div>
 
         {deliveriesResult.error && (
           <section className="rp-panel min-h-0 flex-1 rounded-2xl border-2 p-6">

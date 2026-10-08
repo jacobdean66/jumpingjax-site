@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { loadAiAdMemory } from "@/lib/admin/ai-ads";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { AdminNav } from "../_components";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,7 @@ export default async function AdminAiAdsPage() {
             </Link>
           </div>
         </header>
+        <AdminNav token="" role={auth.role} active="ai-ads" />
 
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-2 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">

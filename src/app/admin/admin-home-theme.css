@@ -323,6 +323,10 @@ html:has(.admin-home-theme) body {
 
 /* --- Quick links --- */
 
+/* Front-desk card sizing only; all existing palette values are retained. */
+.admin-home-theme .ah-priority-card { padding: 1rem; }
+.admin-home-theme .ah-priority-card .ah-card-cta { margin-top: 0.75rem; }
+
 .admin-home-theme .ah-chip {
   display: inline-flex;
   min-height: 44px;

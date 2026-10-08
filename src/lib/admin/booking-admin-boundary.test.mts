@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { adminNavigation } from "./navigation";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -30,24 +31,19 @@ test("admin action buttons can call confirmation routes with POST", () => {
   assert.match(read("../../app/api/facility/confirm/route.ts"), /export async function POST/);
 });
 
-test("rental submenu exposes inventory tools under Rentals without duplicating top-level entries", () => {
-  const navigation = `${read("../../app/admin/_components.tsx")}\n${read("../../app/admin/page.tsx")}`;
-  const bookingItems =
-    navigation.match(/const rentalSubnav = \[[\s\S]*?\n  \]/)?.[0] ?? "";
-  const rentalSubmenu =
-    navigation.match(/aria-label="Rentals submenu"[\s\S]*?rentalSubnav\.map/)?.[0] ??
-    "";
-
-  assert.match(navigation, /label: "Rentals"/);
-  assert.match(navigation, /Rentals submenu/);
-  assert.match(bookingItems, /\/admin\/inventory/);
-  assert.match(rentalSubmenu, /rentalSubnav\.map/);
+test("rental and inventory tools stay in Operations while management stays separate", () => {
+  const navigation = adminNavigation("owner");
+  const bookingItems = navigation.groups.find(group => group.label === "Operations")!.items.map(item => item.href);
+  assert.ok(bookingItems.includes("/admin/rentals"));
+  assert.ok(bookingItems.includes("/admin/inventory"));
+  assert.equal(bookingItems.filter(href => href === "/admin/rentals").length, 1);
   for (const route of [
     "/admin/tasks",
     "/admin/staff",
     "/admin/employee-schedule",
   ]) {
-    assert.doesNotMatch(bookingItems, new RegExp(route.replaceAll("/", "\\/")));
+    assert.ok(!bookingItems.includes(route));
+    assert.ok(navigation.groups.find(group => group.label === "Management")!.items.some(item => item.href === route));
   }
 });
 
