@@ -30,14 +30,26 @@ await db.query(
   "insert into waiver_templates(id,slug,title,status) values($1,'jumping-jax-llc-waiver-of-liability','Jumping Jax','active')",
   ["a1111111-1111-4111-8111-111111111111"],
 );
+const oldVersion = crypto.randomUUID();
+await db.query("insert into waiver_template_versions(id,template_id,version_number,body_html,body_sha256) values($1,'a1111111-1111-4111-8111-111111111111',3,'<p>Original signed terms</p>',$2)", [oldVersion,"c".repeat(64)]);
+await db.query("update waiver_templates set current_version_id=$1",[oldVersion]);
+const oldGuests=[];
+for(const signedAt of ['2025-10-07T16:00:00Z','2022-10-07T16:00:00Z']) {
+  const submission=crypto.randomUUID(),guardian=crypto.randomUUID(),child=crypto.randomUUID();
+  await db.query("insert into waiver_submissions(id,public_token_hash,idempotency_key,request_hash,template_id,template_version_id,signer_first_name,signer_last_name,signer_email,signer_phone,signed_at,expires_on,token_expires_at,source) values($1,$2,$3,$2,'a1111111-1111-4111-8111-111111111111',$4,'Prior','Guardian','test@example.invalid','5550000000',$5,jj_expires_on_from_signed_at($5::timestamptz),$5::timestamptz+interval '7 days','web')",[submission,crypto.randomBytes(32).toString('hex'),crypto.randomUUID(),oldVersion,signedAt]);
+  await db.query("insert into waiver_participants(id,submission_id,first_name,last_name,dob,role) values($1,$2,'Prior','Guardian','1990-01-01','adult_signer')",[guardian,submission]);
+  await db.query("insert into waiver_participants(id,submission_id,first_name,last_name,dob,role,guardian_participant_id) values($1,$2,'Existing','Guest','2008-01-01','child',$3)",[child,submission,guardian]);
+  oldGuests.push({submission,guardian,child});
+}
 for (const file of [
   "20261007120000_typed_waiver_groups.sql",
   "20261007123000_desk_checkout_passes.sql",
   "20261007124000_publish_group_waiver_terms.sql",
+  "20261007190000_preserve_existing_waivers.sql",
 ])
   await db.exec(fs.readFileSync("supabase/migrations/" + file, "utf8"));
 const version = (
-  await db.query("select id,body_html from waiver_template_versions")
+  await db.query("select id,body_html from waiver_template_versions where id=(select current_version_id from waiver_templates)")
 ).rows[0];
 const adults = ["Alex", "Morgan", "Taylor"].map((first, i) => ({
   temp_id: "a" + i,
@@ -110,7 +122,7 @@ for (const mutate of [
   const p = structuredClone(payload);
   mutate(p);
   assert.notEqual((await submit(p)).outcome, "created");
-  assert.equal(await count("waiver_submissions"), 0);
+  assert.equal(await count("waiver_submissions"), 2);
 }
 const saved = await submit(payload);
 assert.equal(saved.outcome, "created", JSON.stringify(saved));
@@ -267,7 +279,19 @@ await assert.rejects(
   /permission denied/,
 );
 await db.exec("reset role");
+assert.equal((await db.query("select required_version_id from waiver_templates")).rows[0].required_version_id,null);
+const oldTicket=crypto.randomUUID();
+await cmd('create_ticket',{ticketId:oldTicket});
+// A previously signed minor is now 18; the original waiver's rules still apply.
+await cmd('add',{ticketId:oldTicket,source:'native',participantId:oldGuests[0].child});
+assert.equal((await complete({ticketId:oldTicket,idempotencyKey:crypto.randomUUID(),method:'cash',freePassItemIds:[]})).amountPaidCents,1000);
+await assert.rejects(()=>cmd('mark_here',{source:'native',participantId:oldGuests[1].child}),/expired|current/i);
+await db.query("update waiver_submissions set status='voided' where id=$1",[oldGuests[0].submission]);
+await assert.rejects(()=>cmd('mark_here',{source:'native',participantId:oldGuests[0].guardian}),/Waiver participant was not found/);
+assert.equal((await db.query("select count(*)::int n from open_play_desk_attendance where participant_id=$1",[oldGuests[0].guardian])).rows[0].n,0);
+// Clearing the check-in version gate must not permit new unsigned agreements.
+await assert.rejects(()=>db.query("insert into waiver_submissions(public_token_hash,idempotency_key,request_hash,template_id,template_version_id,signer_first_name,signer_last_name,signer_email,signer_phone,signed_at,expires_on,token_expires_at,source) values($1,$2,$1,'a1111111-1111-4111-8111-111111111111',$3,'New','Signer','test@example.invalid','5550000000','2026-10-07T16:00:00Z','2029-10-07','2026-10-14T16:00:00Z','web')",[crypto.randomBytes(32).toString('hex'),crypto.randomUUID(),version.id]),/typed_adult_agreements_required/);
 console.log(
-  "PASS: typed signatures and guardian links; name/consent/age tamper rollback; native + imported guests share one checkout; $7/$10 recipient passes; cash/card totals; $0 completion; retry protection; immutable evidence and receipts; public access denied.",
+  "PASS: existing signed waivers check in without renewal (including prior minors now 18); expired/voided waivers remain blocked; new typed evidence still required; typed signatures and guardian links; native + imported checkout; $7/$10 passes; receipts and replay protection; public access denied.",
 );
 await db.close();

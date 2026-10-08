@@ -17,28 +17,6 @@ export async function getWaiverGroupForStaff(
     .maybeSingle();
   if (error) throw new Error("Unable to load waiver group");
   if (!s) return null;
-  const { data: template, error: templateError } = await db
-    .from("waiver_templates")
-    .select("required_version_id")
-    .eq("id", s.template_id)
-    .single();
-  if (templateError) throw new Error("Unable to load waiver requirements");
-  let requiresRenewal = false;
-  if (template.required_version_id) {
-    const { data: versions, error: versionError } = await db
-      .from("waiver_template_versions")
-      .select("id,version_number")
-      .in("id", [s.template_version_id, template.required_version_id]);
-    if (versionError) throw new Error("Unable to load waiver versions");
-    const signed = versions?.find(
-      (v) => v.id === s.template_version_id,
-    )?.version_number;
-    const required = versions?.find(
-      (v) => v.id === template.required_version_id,
-    )?.version_number;
-    requiresRenewal =
-      signed === undefined || required === undefined || signed < required;
-  }
   const { data: rows, error: rowError } = await db
     .from("waiver_participants")
     .select("id,first_name,last_name,dob,role,created_at")
@@ -81,13 +59,12 @@ export async function getWaiverGroupForStaff(
           role: p.role,
           expiresOnYmd: s.expires_on,
           expired:
-            requiresRenewal ||
             s.status !== "completed" ||
             isWaiverExpired({
               expiresOnYmd: s.expires_on,
               evaluationLocalYmd: today,
             }) ||
-            (p.role === "child" && age >= 18),
+            (Boolean(agreements?.length) && p.role === "child" && age >= 18),
           signerFirstName: s.signer_first_name,
           signerLastName: s.signer_last_name,
         }),
