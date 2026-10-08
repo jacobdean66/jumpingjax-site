@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
+export function AdminLogoutButton({ compact = false, className }: { compact?: boolean; className?: string }) {
   const router = useRouter();
 
   return (
@@ -13,9 +13,9 @@ export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
         router.push("/admin");
         router.refresh();
       }}
-      className={compact
+      className={className ?? (compact
         ? "inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-[11px] font-bold leading-tight text-slate-700 hover:bg-slate-50"
-        : "inline-flex min-h-8 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] font-bold leading-tight text-slate-700 hover:bg-slate-50"}
+        : "inline-flex min-h-8 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] font-bold leading-tight text-slate-700 hover:bg-slate-50")}
     >
       Log out
     </button>

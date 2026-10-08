@@ -1,4 +1,6 @@
 import SocialPostsNav from "./SocialPostsNav";
+import { AdminNavigation } from "../AdminNavigation";
+import { verifyAdminAccess } from "@/lib/admin/session";
 
 type Props = {
   title: string;
@@ -7,14 +9,15 @@ type Props = {
   singleLineTitle?: boolean;
 };
 
-export default function SocialPostsPageHeader({
+export default async function SocialPostsPageHeader({
   title,
   description,
   query = "",
   singleLineTitle = false,
 }: Props) {
+  const auth = await verifyAdminAccess();
   return (
-    <header className="sp-header">
+    <><header className="sp-header">
       <div>
         <p className="sp-eyebrow">Jumping Jax · AI Marketing</p>
         <h1 className={singleLineTitle ? "sp-title sp-title-single-line" : "sp-title"}>
@@ -23,6 +26,6 @@ export default function SocialPostsPageHeader({
         {description ? <p className="sp-lede">{description}</p> : null}
       </div>
       <SocialPostsNav query={query} />
-    </header>
+    </header>{auth.ok ? <AdminNavigation role={auth.role} variant="social" /> : null}</>
   );
 }

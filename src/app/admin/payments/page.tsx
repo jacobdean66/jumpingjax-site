@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminBackButton } from "@/app/admin/AdminBackButton";
+import { AdminNav } from "@/app/admin/_components";
 import { AdminTokenGate } from "@/app/admin/AdminTokenGate";
 import { PaymentHub } from "@/components/payments/PaymentHub";
 import { MobilePaymentsSection } from "@/components/payments/MobilePaymentsSection";
@@ -41,8 +41,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-[#eef3f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-5xl">
+        <AdminNav token="" role={auth.role} active="payments" />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <AdminBackButton />
           <div className="flex flex-wrap gap-2">
             <Link
               href="https://swipesimple.com/transactions"

@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:front-desk-navigation": "node --import tsx --test src/lib/admin/front-desk-navigation.test.mts src/app/admin/schedule/weekend/weekend-render.test.mts src/app/admin/agents/agent-manager-ui.test.mts src/lib/admin/booking-admin-boundary.test.mts src/lib/invoices/integration-boundary.test.mts",
     "test:agent-warnings": "node --conditions=react-server --import tsx --test src/lib/agent-manager/booking-workflow-health.test.mts src/lib/agent-manager/meta-analytics-readiness.test.mts src/lib/agent-manager/nomination-connection.test.mts && node scripts/test-braces-security.cjs && npm run test:agent-manager && npm run test:agent-manager:coverage && npm run test:agent-network && npm run test:security && node scripts/test-mobile-payments-sql.mjs",
     "test:facility-booking": "node --conditions=react-server --import tsx --test src/lib/facility-parties/pricing-coverage.test.mts src/lib/facility-parties/booking-response.test.mts src/lib/facility-parties/booking-route.test.mts",
     "test:rental-quote": "node --conditions=react-server --import tsx --test src/lib/rental-agreements/second-day-quote.test.mts src/lib/rental-agreements/promotion-booking.test.mts",

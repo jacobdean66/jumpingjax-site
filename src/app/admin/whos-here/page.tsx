@@ -4,7 +4,7 @@ import { DailyReportActivity } from "@/components/open-play/DailyReportActivity"
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import { getOpenPlayDailyReport } from "@/lib/open-play/report-service";
-import { AdminAuthError } from "../_components";
+import { AdminAuthError, AdminNav } from "../_components";
 import { PrintButton } from "../PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,7 @@ export default async function WhosHerePage() {
           </div>
         </div>
 
+        <AdminNav token="" role={auth.role} active="open-play" />
         {report ? (
           <DailyReportActivity report={report} />
         ) : (

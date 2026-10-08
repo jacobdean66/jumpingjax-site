@@ -26,6 +26,7 @@ import {
 
 import { ScheduleBookingDetailsModal } from "./ScheduleBookingDetailsModal";
 import { ScheduleDayBlock } from "./ScheduleDayBlock";
+import { WEEKEND_RENTAL_FILTERS } from "@/lib/admin/weekend";
 
 const FILTER_STORAGE_KEY = "jumpingjax:schedule-filters:v2";
 const SHOW_CANCELLED_STORAGE_KEY = "jumpingjax:schedule-show-cancelled:v1";
@@ -293,6 +294,7 @@ export function ScheduleCalendar({
   weekHref,
   monthHref,
   focusMonth,
+  weekend = false,
 }: {
   days: CalendarDay[];
   events: CalendarEvent[];
@@ -306,27 +308,28 @@ export function ScheduleCalendar({
   weekHref: string;
   monthHref: string;
   focusMonth?: number;
+  weekend?: boolean;
 }) {
   const [filters, setFilters] = useState<ScheduleFilters>(() =>
-    restoreFilters(),
+    weekend ? WEEKEND_RENTAL_FILTERS : restoreFilters(),
   );
   const [showCancelled, setShowCancelled] = useState<boolean>(() =>
-    restoreShowCancelled(),
+    weekend ? false : restoreShowCancelled(),
   );
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [todayYmd] = useState(() => toYmd(new Date()));
   const emailSendingLockRef = useRef(false);
   useEffect(() => {
-    window.sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-  }, [filters]);
+    if (!weekend) window.sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+  }, [filters, weekend]);
 
   useEffect(() => {
-    window.sessionStorage.setItem(
+    if (!weekend) window.sessionStorage.setItem(
       SHOW_CANCELLED_STORAGE_KEY,
       String(showCancelled),
     );
-  }, [showCancelled]);
+  }, [showCancelled, weekend]);
 
   const visibleEvents = useMemo(
     () => filterScheduleEvents(events, filters, showCancelled),
@@ -417,7 +420,7 @@ export function ScheduleCalendar({
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-              {view.toUpperCase()} VIEW - {visibleEvents.length} booking
+              {weekend ? "WEEKEND RENTALS" : `${view.toUpperCase()} VIEW`} - {visibleEvents.length} booking
               {visibleEvents.length === 1 ? "" : "s"}
             </p>
             <h2 className="mt-1 text-3xl font-black">{heading}</h2>
@@ -432,7 +435,7 @@ export function ScheduleCalendar({
             >
               Previous
             </Link>
-            <Link
+            {!weekend ? <><Link
               className={
                 view === "day"
                   ? "rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white"
@@ -462,6 +465,7 @@ export function ScheduleCalendar({
             >
               Month
             </Link>
+            </> : null}
             <Link
               className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black"
               href={nextHref}
@@ -471,13 +475,15 @@ export function ScheduleCalendar({
             <button
               type="button"
               onClick={() => window.print()}
+              disabled={Boolean(error)}
               className="rounded-full bg-amber-300 px-4 py-2 text-sm font-black text-amber-950"
             >
-              Print schedule
+              {weekend ? "Print weekend schedule" : "Print schedule"}
             </button>
           </div>
         </div>
 
+        {weekend ? <p className="mt-3 text-sm font-semibold text-slate-600">Friday-Sunday · Rentals and foam rentals only · Cancelled bookings excluded</p> : <>
         <fieldset
           className={`mt-5 rounded-2xl border p-4 ${
             filters["foam-party"] &&
@@ -629,6 +635,7 @@ export function ScheduleCalendar({
           />
         </fieldset>
 
+        </>}
         {error ? (
           <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4">
             <p className="text-sm font-black text-rose-900">
@@ -645,7 +652,7 @@ export function ScheduleCalendar({
             <p className="text-lg font-black">No booking types selected.</p>
           </div>
         ) : (
-          <div className={calendarGridClass(view)}>
+          <div className={weekend ? "mt-6 grid gap-3 md:grid-cols-3" : calendarGridClass(view)}>
             {days.map((day) => {
               const dayEvents = eventsByDate[day.ymd] ?? [];
               return (
@@ -669,7 +676,7 @@ export function ScheduleCalendar({
           <div>
             <p className="text-sm font-black text-slate-800">Printable schedule preview</p>
             <p className="text-xs font-semibold text-slate-600">
-              Same content used for print and email
+              {weekend ? "Same content used for print" : "Same content used for print and email"}
               {selectedDates.length > 0
                 ? ` (${[...selectedDates].sort().join(", ")})`
                 : " (full current view)"}
@@ -679,12 +686,13 @@ export function ScheduleCalendar({
           <button
             type="button"
             onClick={() => window.print()}
+            disabled={Boolean(error)}
             className="rounded-full bg-amber-300 px-4 py-2 text-sm font-black text-amber-950"
           >
             Print this view
           </button>
         </div>
-        <ScheduleEmailPanel
+        {!weekend ? <ScheduleEmailPanel
           events={printEvents}
           dates={
             selectedDates.length > 0
@@ -693,9 +701,9 @@ export function ScheduleCalendar({
           }
           heading={printHeading}
           sendingLockRef={emailSendingLockRef}
-        />
+        /> : null}
         <div className="schedule-print-preview mt-4 rounded-xl border border-slate-200 bg-white p-3 text-sm">
-          <PrintAgenda
+          {error ? <p role="alert">Schedule unavailable. Retry before using this preview.</p> : <PrintAgenda
             className="block"
             days={agendaDays}
             eventsByDate={eventsByDate}
@@ -703,12 +711,12 @@ export function ScheduleCalendar({
             selectedLabels={selectedLabels}
             visibleCount={printEvents.length}
             noTypesSelected={noTypesSelected}
-          />
+          />}
         </div>
       </section>
 
       <div className="schedule-print-output hidden print:block">
-        <PrintAgenda
+        {error ? <p>Schedule unavailable. This is not a valid schedule.</p> : <PrintAgenda
           className="block"
           days={agendaDays}
           eventsByDate={eventsByDate}
@@ -716,7 +724,7 @@ export function ScheduleCalendar({
           selectedLabels={selectedLabels}
           visibleCount={printEvents.length}
           noTypesSelected={noTypesSelected}
-        />
+        />}
       </div>
 
       <ScheduleBookingDetailsModal

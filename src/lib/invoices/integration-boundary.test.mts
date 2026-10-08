@@ -1,24 +1,19 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { adminNavigation, isAdminNavActive } from "../admin/navigation";
 
 function source(relativePath: string): string {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
 test("the admin has a dedicated invoice page and navigation option", () => {
-  const navigation = source("../../app/admin/_components.tsx");
+  const navigation = adminNavigation("employee");
   const invoicePage = source("../../app/admin/invoices/page.tsx");
-  const topNavigation = navigation.slice(
-    navigation.indexOf("const items ="),
-    navigation.indexOf("const rentalSubnav ="),
-  );
-  const rentalSubnav = navigation.slice(navigation.indexOf("const rentalSubnav ="));
-
-  assert.doesNotMatch(topNavigation, /label: "Invoices"/);
-  assert.match(rentalSubnav, /label: "Invoices"/);
-  assert.match(rentalSubnav, /href: `\/admin\/invoices/);
-  assert.match(navigation, /active === "invoices"/);
+  assert.ok(!navigation.primary.some(item => item.href === "/admin/invoices"));
+  const invoice = navigation.groups.flatMap(group => group.items).find(item => item.href === "/admin/invoices")!;
+  assert.equal(invoice.label, "Invoices");
+  assert.ok(isAdminNavActive(invoice, "/admin/invoices"));
   assert.match(invoicePage, /title="Invoices"/);
   assert.match(invoicePage, /Create new invoice/);
   assert.match(invoicePage, /Saved standalone invoices/);
@@ -34,7 +29,7 @@ test("every rental card, including foam bookings, exposes invoice creation", () 
   assert.match(card, /<BookingInvoiceButton kind="rental" bookingId=\{booking\.id\} \/>/);
   assert.match(card, /booking\.foamDuration/);
   assert.match(page, /bookings\.map\(\(booking\) => [({]/);
-  assert.match(page, /<RentalCard key=\{booking\.id\} booking=\{booking\} agreements=/);
+  assert.match(page, /<RentalCard\b[^>]*\bbooking=\{booking\}[^>]*\bagreements=/);
 });
 
 test("every facility booking card exposes invoice creation", () => {
