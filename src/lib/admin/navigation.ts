@@ -46,6 +46,7 @@ export function adminNavigation(role: AdminRole): { primary: AdminNavItem[]; gro
       { id: "ad-analytics", label: "Ad Analytics", href: "/admin/ad-analytics" },
     ] },
     { label: "Management", items: [
+      { id: "insurance", label: "Insurance & Safety Documents", href: "/admin/insurance" },
       { id: "giveaway", label: "Giveaway Draw", href: "/admin/giveaway" },
       { id: "air-hockey", label: "Air Hockey", href: "/admin/air-hockey" },
       { id: "answering-machine", label: "Call Intake", href: "/admin/answering-machine" },
