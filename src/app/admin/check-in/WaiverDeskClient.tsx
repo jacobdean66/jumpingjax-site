@@ -1,7 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { searchWaivers, formatCents } from "@/lib/open-play/check-in-client";
+import { formatCents } from "@/lib/open-play/check-in-client";
+import {
+  checkoutRequestKey, deskRequest, DeskRequestError, isDeskTicketClosed,
+  parsePendingDeskCheckout, recoverDeskSelection, type PendingDeskCheckout,
+} from "@/lib/open-play/desk-recovery";
 import {
   ticketTotals,
   personIdentity,
@@ -43,6 +47,9 @@ export function WaiverDeskClient({
     [results, setResults] = useState<StaffSearchResult[]>([]),
     [group, setGroup] = useState<Guest[] | null>(null);
   const [loading, setLoading] = useState(false),
+    [groupLoading, setGroupLoading] = useState(false),
+    [recovering, setRecovering] = useState(true),
+    [pendingCheckout, setPendingCheckout] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(
       initial ? "" : "Refresh to load the check-in desk.",
@@ -58,7 +65,9 @@ export function WaiverDeskClient({
   const input = useRef<HTMLInputElement>(null),
     lock = useRef(false),
     createId = useRef<string | null>(null),
-    attempt = useRef<{ key: string; id: string } | null>(null),
+    attempt = useRef<PendingDeskCheckout | null>(null),
+    selectedTicket = useRef<string | null>(null),
+    readVersion = useRef(0),
     groupController = useRef<AbortController | null>(null);
   const storageKey = `jumpingjax:desk-ticket:${day}`;
   const ticket = state.tickets.find((t) => t.id === ticketId) ?? null;
@@ -87,40 +96,69 @@ export function WaiverDeskClient({
       0,
     ) ?? 0;
   const due = Math.max(0, (base?.due ?? 0) - deduction);
+  const chooseTicket = useCallback((id: string | null) => {
+    selectedTicket.current = id;
+    setTicketId(id);
+    setPasses([]);
+    setMethod(null);
+    attempt.current = null;
+    setPendingCheckout(false);
+    try {
+      if (id) window.localStorage.setItem(storageKey, id);
+      else window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(storageKey + ":checkout");
+    } catch { /* Browser storage may be unavailable; keep the selection in memory. */ }
+  }, [storageKey]);
+  const resetCheckout = useCallback(() => {
+    groupController.current?.abort();
+    createId.current = null;
+    chooseTicket(null);
+    setQuery("");
+    setResults([]);
+    setGroup(null);
+    setLoading(false);
+    setGroupLoading(false);
+    setStage("search");
+    setShowPasses(false);
+  }, [chooseTicket]);
   const refresh = useCallback(async () => {
-    const response = await fetch(`/api/admin/open-play/desk?date=${day}`, {
-      cache: "no-store",
-    });
-    const body = await response.json();
-    if (!response.ok || !body.ok)
-      throw new Error(body.error || "Unable to refresh the desk.");
-    setState(body.state as DeskState);
-    return body.state as DeskState;
-  }, [day]);
-  useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    if (saved) void Promise.resolve().then(() => setTicketId(saved));
-    const savedAttempt = window.localStorage.getItem(storageKey + ":checkout");
-    if (savedAttempt)
-      try {
-        const restored = JSON.parse(savedAttempt) as {
-          key: string;
-          id: string;
-          ticketId: string;
-          method: "cash" | "card" | null;
-          passes: string[];
-        };
-        attempt.current = { key: restored.key, id: restored.id };
-        void Promise.resolve().then(() => {
-          setTicketId(restored.ticketId);
-          setMethod(restored.method);
-          setPasses(restored.passes);
-          setShowPasses(restored.passes.length > 0);
-          setStage("checkout");
-        });
-      } catch {
-        window.localStorage.removeItem(storageKey + ":checkout");
+    const version = ++readVersion.current;
+    const body = await deskRequest<{ state: DeskState }>(`/api/admin/open-play/desk?date=${day}`);
+    if (version === readVersion.current) {
+      setState(body.state);
+      setError(current => current === "Refresh to load the check-in desk." || current.startsWith("Live refresh failed.") ? "" : current);
+      const recovered = recoverDeskSelection(body.state, selectedTicket.current, attempt.current);
+      if (recovered.reason === "closed" || recovered.reason === "missing") {
+        resetCheckout();
+        if (recovered.reason === "closed") setError("");
+        setMessage(recovered.reason === "closed"
+          ? "The previous checkout is already saved. Ready for the next customer. View its receipt under Manage saved attendance and receipts."
+          : "The previous ticket is unavailable. Ready for a new checkout; review saved attendance before adding guests.");
       }
+      setRecovering(false);
+    }
+    return body.state;
+  }, [day, resetCheckout]);
+  useEffect(() => {
+    let saved: string | null = null;
+    let restored: PendingDeskCheckout | null = null;
+    try {
+      saved = window.localStorage.getItem(storageKey);
+      restored = parsePendingDeskCheckout(window.localStorage.getItem(storageKey + ":checkout"));
+    } catch { /* Continue when browser storage is unavailable. */ }
+    selectedTicket.current = restored?.ticketId ?? saved;
+    attempt.current = restored;
+    void Promise.resolve().then(() => {
+      setTicketId(selectedTicket.current);
+      setPendingCheckout(!!restored);
+      if (restored) {
+        setMethod(restored.method);
+        setPasses(restored.passes);
+        setShowPasses(restored.passes.length > 0);
+        setStage("checkout");
+      }
+    });
+    void refresh().catch(e => setError(e.message));
     const interval = window.setInterval(() => {
       if (!lock.current)
         void refresh().catch(() =>
@@ -138,8 +176,10 @@ export function WaiverDeskClient({
     const controller = new AbortController();
     if (!query.trim() || stage !== "search") return () => controller.abort();
     const timer = window.setTimeout(() => {
-      setLoading(true);
-      void searchWaivers(query.trim(), controller.signal)
+      void deskRequest<{ results: StaffSearchResult[] }>(
+        `/api/admin/open-play/waivers/search?q=${encodeURIComponent(query.trim())}`,
+        { signal: controller.signal },
+      )
         .then((r) => {
           if (!controller.signal.aborted) {
             setResults(r.results);
@@ -158,27 +198,16 @@ export function WaiverDeskClient({
       controller.abort();
     };
   }, [query, stage]);
-  function chooseTicket(id: string | null) {
-    setTicketId(id);
-    setPasses([]);
-    setMethod(null);
-    attempt.current = null;
-    if (id) window.localStorage.setItem(storageKey, id);
-    else window.localStorage.removeItem(storageKey);
-  }
   async function command(action: string, payload: Record<string, unknown>) {
-    const response = await fetch("/api/admin/open-play/desk", {
+    const body = await deskRequest<{ result: { ticketId?: string; attendanceId?: string } }>("/api/admin/open-play/desk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, date: day, action }),
     });
-    const body = await response.json();
-    if (!response.ok || !body.ok)
-      throw new Error(body.error || "Unable to save. Refresh before retrying.");
-    return body.result as { ticketId?: string; attendanceId?: string };
+    return body.result;
   }
   async function mutate(action: string, payload: Record<string, unknown>) {
-    if (lock.current || readOnly) return;
+    if (lock.current || readOnly || recovering || attempt.current) return;
     lock.current = true;
     setBusy(true);
     setError("");
@@ -210,6 +239,8 @@ export function WaiverDeskClient({
   async function openGroup(result: StaffSearchResult) {
     setError("");
     groupController.current?.abort();
+    setGroup(null);
+    setGroupLoading(false);
     if (result.source === "legacy_smartwaiver") {
       setGroup(
         result.waiverParticipants?.length
@@ -220,28 +251,25 @@ export function WaiverDeskClient({
     }
     const controller = new AbortController();
     groupController.current = controller;
-    setLoading(true);
+    setGroupLoading(true);
     try {
-      const response = await fetch(
+      const body = await deskRequest<{ members: Guest[] }>(
         `/api/admin/open-play/waivers/groups/${encodeURIComponent(result.submissionId)}`,
         { cache: "no-store", signal: controller.signal },
       );
-      const body = await response.json();
-      if (!response.ok || !body.ok)
-        throw new Error(body.error || "Unable to open the group.");
       if (!controller.signal.aborted) {
         setGroup(body.members);
-        setLoading(false);
+        setGroupLoading(false);
       }
     } catch (e) {
       if (!controller.signal.aborted) {
         setError(e instanceof Error ? e.message : "Unable to open the group.");
-        setLoading(false);
+        setGroupLoading(false);
       }
     }
   }
   async function add(g: Guest) {
-    if (lock.current || readOnly || !idFor(g)) return;
+    if (lock.current || readOnly || recovering || attempt.current || !idFor(g)) return;
     if (g.expired || !g.checkInEligible) {
       setError(
         "A current waiver with a date of birth is required before admission.",
@@ -257,7 +285,22 @@ export function WaiverDeskClient({
     setError("");
     setMessage("");
     try {
-      let target = ticketId;
+      const before = await refresh();
+      const identity = g.dobYmd ? personIdentity(g.originalFirstName || g.firstName, g.originalLastName || g.lastName, g.dobYmd) : null;
+      const existingArrival = before.people.find(p =>
+        (p.source === g.source && (p.participant_id ?? p.legacy_participant_id) === idFor(g)) ||
+        (identity && p.identity_key === identity));
+      const existingTicket = before.tickets.find(t => t.items.some(i => i.attendance_id === existingArrival?.id));
+      if (existingTicket) {
+        setMessage(`${g.fullName} already has saved attendance and a checkout ticket. Review it under Manage saved attendance and receipts. Your current checkout is kept.`);
+        return;
+      }
+      let target = selectedTicket.current;
+      const active = before.tickets.find(t => t.id === target);
+      if (active && ticketTotals(active).paid > 0) {
+        setError("This ticket already has a payment. Finish its balance or use Next customer to start another checkout.");
+        return;
+      }
       if (!target) {
         createId.current ??= crypto.randomUUID();
         const made = await command("create_ticket", {
@@ -272,9 +315,13 @@ export function WaiverDeskClient({
         source: g.source,
         participantId: idFor(g),
       });
-      if (saved.ticketId && saved.ticketId !== target)
-        chooseTicket(saved.ticketId);
       let latest = await refresh();
+      // Another desk may have added this guest while the request was in flight.
+      // Never replace the current group with that guest's old receipt.
+      if (saved.ticketId && saved.ticketId !== target) {
+        setMessage(`${g.fullName} is already on another saved ticket. Your current checkout is kept. Review their receipt under Manage saved attendance and receipts.`);
+        return;
+      }
       const arrival = latest.people.find(
         (p) =>
           p.source === g.source &&
@@ -310,28 +357,22 @@ export function WaiverDeskClient({
     }
   }
   async function complete() {
-    if (lock.current || !ticket || !base?.ready || readOnly) return;
+    if (lock.current || !ticket || !base?.ready || readOnly || recovering || isDeskTicketClosed(ticket)) return;
     if (due > 0 && !method) {
       setError("Choose cash or card for the balance.");
       return;
     }
-    const key = JSON.stringify([ticket.id, method, [...passes].sort()]);
+    const key = checkoutRequestKey(ticket.id, method, passes);
     if (attempt.current && attempt.current.key !== key) {
       setError(
         "Refresh and check the previous checkout before changing a retry.",
       );
       return;
     }
-    attempt.current ??= { key, id: crypto.randomUUID() };
-    window.localStorage.setItem(
-      storageKey + ":checkout",
-      JSON.stringify({
-        ...attempt.current,
-        ticketId: ticket.id,
-        method,
-        passes,
-      }),
-    );
+    attempt.current ??= { key, id: crypto.randomUUID(), ticketId: ticket.id, method, passes: [...passes] };
+    setPendingCheckout(true);
+    try { window.localStorage.setItem(storageKey + ":checkout", JSON.stringify(attempt.current)); }
+    catch { /* The server also prevents recording checkout twice for a ticket. */ }
     lock.current = true;
     setBusy(true);
     setError("");
@@ -342,13 +383,7 @@ export function WaiverDeskClient({
         method,
         freePassItemIds: passes,
       });
-      window.localStorage.removeItem(storageKey + ":checkout");
-      chooseTicket(null);
-      setQuery("");
-      setResults([]);
-      setGroup(null);
-      setStage("search");
-      setShowPasses(false);
+      resetCheckout();
       setMessage("Checkout complete. Ready for the next customer.");
       await refresh().catch(() =>
         setError("Checkout is saved. Refresh to reload the latest attendance."),
@@ -356,15 +391,41 @@ export function WaiverDeskClient({
       window.scrollTo({ top: 0 });
       window.setTimeout(() => input.current?.focus(), 50);
     } catch (e) {
+      if (e instanceof DeskRequestError && [400, 401, 403, 429].includes(e.status)) {
+        // These responses reject the command without committing checkout.
+        attempt.current = null;
+        setPendingCheckout(false);
+        try { window.localStorage.removeItem(storageKey + ":checkout"); } catch { /* No storage. */ }
+      }
       setError(
         e instanceof Error
           ? e.message
           : "Unable to complete checkout. Your saved ticket is still here.",
       );
+      await refresh().catch(() => { /* Keep the original error and retry id on uncertain writes. */ });
     } finally {
       lock.current = false;
       setBusy(false);
     }
+  }
+  async function nextCustomer() {
+    if (lock.current || readOnly) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await refresh();
+      if (attempt.current) {
+        setError("The last checkout is still unconfirmed. Retry Complete checkout with the same payment choice before starting the next customer.");
+        return;
+      }
+      resetCheckout();
+      setManage(false);
+      setMessage("Ready for the next customer. Previous attendance and tickets remain saved.");
+      window.scrollTo({ top: 0 });
+      window.setTimeout(() => input.current?.focus(), 50);
+    } catch (e) { setError(e instanceof Error ? e.message : "Refresh before starting the next customer."); }
+    finally { lock.current = false; setBusy(false); }
   }
   const lines = ticket?.items ?? [];
   const completed = (ticket as typeof ticket & { completed_at?: string })
@@ -385,15 +446,17 @@ export function WaiverDeskClient({
           {state.people.filter((p) => !p.checked_out_at).length} guests here
           today
         </p>
-        <button
+        <div className="flex flex-wrap gap-2"><button type="button" className={secondary} disabled={busy || recovering} onClick={() => void nextCustomer()}>Next customer</button><button
           type="button"
           className={secondary}
           disabled={busy}
-          onClick={() => void refresh().catch((e) => setError(e.message))}
+          onClick={() => void refresh().then(() => setError("")).catch((e) => setError(e.message))}
         >
           Refresh
-        </button>
+        </button></div>
       </div>
+      {recovering && <p role="status">Checking saved attendance and checkout…</p>}
+      {pendingCheckout && !recovering && <p role="status" className="rounded-xl bg-amber-50 p-4 font-bold text-amber-900">Checking the last checkout. Use Refresh to look for its receipt, or retry Complete checkout with the same choices.</p>}
       {error && (
         <p
           role="alert"
@@ -418,7 +481,7 @@ export function WaiverDeskClient({
             <>
               <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <label htmlFor="desk-name-search" className="font-black">
-                  Search a customer’s first or last name
+                  Search a customer’s first, last, or full name
                 </label>
                 <input
                   ref={input}
@@ -428,8 +491,12 @@ export function WaiverDeskClient({
                   autoComplete="off"
                   className="mt-3 min-h-12 w-full rounded-xl border-2 border-slate-300 px-4 text-base"
                   onChange={(e) => {
+                    groupController.current?.abort();
                     setQuery(e.target.value);
                     setResults([]);
+                    setGroup(null);
+                    setGroupLoading(false);
+                    setLoading(!!e.target.value.trim());
                     setError("");
                   }}
                 />
@@ -437,6 +504,7 @@ export function WaiverDeskClient({
                   Open a name to view everyone on their original waiver.
                 </p>
               </section>
+              {groupLoading && <p role="status">Opening waiver group…</p>}
               {group && (
                 <section className="rounded-2xl border-2 border-cyan-200 bg-cyan-50 p-4">
                   <h2 className="text-xl font-black">Original waiver group</h2>
@@ -447,6 +515,7 @@ export function WaiverDeskClient({
                   <div className="mt-4 space-y-3">
                     {group.map((g) => {
                       const presence = presenceFor(g),
+                        savedTicket = state.tickets.find(t => t.items.some(i => i.attendance_id === presence?.id)),
                         onTicket =
                           presence &&
                           lines.some((i) => i.attendance_id === presence.id);
@@ -460,6 +529,8 @@ export function WaiverDeskClient({
                             className="min-h-14 flex-1 text-left"
                             disabled={
                               busy ||
+                              recovering || pendingCheckout ||
+                              !!savedTicket ||
                               !!onTicket ||
                               g.expired ||
                               !g.checkInEligible
@@ -470,16 +541,17 @@ export function WaiverDeskClient({
                               {g.fullName}
                             </span>
                             <span className="block text-sm text-slate-600">
-                              {g.role === "child" ? "Child" : "Adult"} · Born{" "}
-                              {g.birthYear}
+                              {g.role === "child" ? "Child" : "Adult"} · {g.birthYear ? `Born ${g.birthYear}` : "Birthdate missing"}
                             </span>
                             <span className="mt-1 block text-sm font-bold text-emerald-800">
                               {onTicket
                                 ? "Here — in current checkout"
+                                : savedTicket ? "Already checked in — view saved ticket"
                                 : g.expired || !g.checkInEligible
                                   ? "New waiver required"
                                   : "Click name to mark Here"}
                             </span>
+                            {(g.expired || !g.checkInEligible) && <span className="mt-1 block text-sm font-semibold text-red-800">{g.expiresOnYmd && g.expiresOnYmd <= day ? `Waiver expired ${g.expiresOnYmd}. Complete a new waiver.` : !g.dobYmd ? "Birthdate missing. Complete a new waiver with a date of birth." : "A current waiver is required before admission."}</span>}
                           </button>
                           <button
                             type="button"
@@ -522,13 +594,13 @@ export function WaiverDeskClient({
                           {r.fullName}
                         </span>
                         <span className="mt-1 block text-sm text-slate-600">
-                          Born {r.birthYear} · View saved group
+                          {r.birthYear ? `Born ${r.birthYear}` : "Birthdate missing"} · View saved group
                         </span>
                       </button>
                     ))}
                   </div>
                 )}
-                {query && !loading && !results.length && (
+                {query && !loading && !error && !results.length && (
                   <p>
                     No matching waiver. Check the spelling or sign a new waiver.
                   </p>
@@ -547,7 +619,7 @@ export function WaiverDeskClient({
                   <button
                     type="button"
                     key={m}
-                    disabled={busy || due === 0}
+                    disabled={busy || pendingCheckout || due === 0}
                     aria-pressed={method === m}
                     className={`${secondary} ${method === m ? "border-emerald-500 bg-emerald-50" : ""}`}
                     onClick={() => setMethod(m)}
@@ -558,7 +630,7 @@ export function WaiverDeskClient({
                 <button
                   type="button"
                   aria-expanded={showPasses}
-                  disabled={busy}
+                  disabled={busy || pendingCheckout}
                   className={secondary}
                   onClick={() => setShowPasses((v) => !v)}
                 >
@@ -584,7 +656,7 @@ export function WaiverDeskClient({
                         <input
                           type="checkbox"
                           className="h-5 w-5 accent-emerald-700"
-                          disabled={busy}
+                          disabled={busy || pendingCheckout}
                           checked={passes.includes(item.id)}
                           onChange={(e) => {
                             const checked = e.target.checked;
@@ -635,7 +707,7 @@ export function WaiverDeskClient({
               <div className="mt-6 grid gap-3">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || pendingCheckout}
                   className={secondary}
                   onClick={() => setStage("search")}
                 >
@@ -645,7 +717,7 @@ export function WaiverDeskClient({
                   type="button"
                   className={primary}
                   disabled={
-                    busy || !base?.ready || !!completed || (due > 0 && !method)
+                    busy || recovering || !base?.ready || !!completed || (due > 0 && !method)
                   }
                   onClick={() => void complete()}
                 >
@@ -674,7 +746,7 @@ export function WaiverDeskClient({
                       <p className="font-black">{displayName(person)}</p>
                       <button
                         type="button"
-                        disabled={busy || !!completed || (base?.paid ?? 0) > 0}
+                        disabled={busy || recovering || pendingCheckout || !!completed || (base?.paid ?? 0) > 0}
                         aria-label={`Remove ${displayName(person)}`}
                         className="font-bold text-red-700"
                         onClick={() =>
@@ -714,7 +786,7 @@ export function WaiverDeskClient({
                                     : "watching_adult")
                                 }
                                 disabled={
-                                  busy || !!completed || (base?.paid ?? 0) > 0
+                                  busy || recovering || pendingCheckout || !!completed || (base?.paid ?? 0) > 0
                                 }
                                 onChange={() =>
                                   void mutate("edit", {
@@ -754,7 +826,7 @@ export function WaiverDeskClient({
               <button
                 type="button"
                 className={`${primary} mt-4 w-full`}
-                disabled={busy || !base?.ready || !!completed}
+                disabled={busy || recovering || !base?.ready || !!completed}
                 onClick={() => {
                   setStage("checkout");
                   setError("");

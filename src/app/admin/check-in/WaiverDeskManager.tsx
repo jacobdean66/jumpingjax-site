@@ -81,7 +81,8 @@ export function WaiverDeskManager({
   const readVersion = useRef(0);
   const paymentAttempt = useRef<{ id: string; key: string } | null>(null);
   const createAttempt = useRef<string | null>(null);
-  const storageKey = `jumpingjax:desk-ticket:${day}`;
+  // Viewing a receipt must never select it as the next customer's checkout.
+  const storageKey = `jumpingjax:desk-manager-ticket:${day}`;
   const ticket = state.tickets.find((ticket) => ticket.id === ticketId) ?? null;
   const totals = ticket ? ticketTotals(ticket) : null;
   const hasUnsavedAdmission =
@@ -121,7 +122,7 @@ export function WaiverDeskManager({
       new URLSearchParams(window.location.search).get("ticket") ??
       window.localStorage.getItem(storageKey);
     void Promise.resolve().then(() => setTicketId(saved));
-    const pending = window.localStorage.getItem(`${storageKey}:payment`);
+    const pending = window.localStorage.getItem(`jumpingjax:desk-ticket:${day}:payment`);
     if (pending) {
       try {
         const attempt = JSON.parse(pending) as { id: string; key: string };
@@ -141,7 +142,7 @@ export function WaiverDeskManager({
           ),
         );
       } catch {
-        window.localStorage.removeItem(`${storageKey}:payment`);
+        window.localStorage.removeItem(`jumpingjax:desk-ticket:${day}:payment`);
       }
     }
     const interval = window.setInterval(() => {
@@ -153,7 +154,7 @@ export function WaiverDeskManager({
         );
     }, 20000);
     return () => window.clearInterval(interval);
-  }, [refresh, storageKey]);
+  }, [day, refresh, storageKey]);
 
   useEffect(() => {
     if (!query.trim()) return;
@@ -344,7 +345,7 @@ export function WaiverDeskManager({
     }
     paymentAttempt.current ??= { id: crypto.randomUUID(), key };
     window.localStorage.setItem(
-      `${storageKey}:payment`,
+      `jumpingjax:desk-ticket:${day}:payment`,
       JSON.stringify(paymentAttempt.current),
     );
     const result = await command(
@@ -360,7 +361,7 @@ export function WaiverDeskManager({
     );
     if (result) {
       paymentAttempt.current = null;
-      window.localStorage.removeItem(`${storageKey}:payment`);
+      window.localStorage.removeItem(`jumpingjax:desk-ticket:${day}:payment`);
       setReceived(false);
       setPaymentAmount("");
       setReference("");
@@ -489,11 +490,11 @@ export function WaiverDeskManager({
       <div className="grid items-start gap-5 lg:grid-cols-2">
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
           <h2 className="text-xl font-black">Find a guest</h2>
-          <label className="block font-bold" htmlFor="desk-name-search">
+          <label className="block font-bold" htmlFor="desk-manager-name-search">
             First name, last name, or full name
           </label>
           <input
-            id="desk-name-search"
+            id="desk-manager-name-search"
             type="search"
             autoComplete="off"
             placeholder="Start with first name, then type their last name"
