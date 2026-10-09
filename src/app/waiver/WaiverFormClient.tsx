@@ -34,6 +34,7 @@ import {
   type WaiverLanguage,
 } from "@/lib/waivers/localization";
 import { groupText, englishTermsHelp } from "@/lib/waivers/group-localization";
+import type { BirthdayPartyOption } from "@/lib/open-play/check-in-client";
 
 const fieldClass =
   "mt-2 min-h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2 text-base text-slate-950 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-100";
@@ -143,10 +144,33 @@ export function WaiverFormClient() {
     lastAdded = useRef<string | null>(null),
     submitLock = useRef(false),
     requestKey = useRef<{ fingerprint: string; key: string } | null>(null);
-  const facilityPartyDate = searchParams.get("date");
+  const [visitType, setVisitType] = useState<"open-play" | "party" | "">("");
+  const [selectedPartyId, setSelectedPartyId] = useState("");
+  const [atFacility, setAtFacility] = useState(false);
+  const [selectedPartyDate, setSelectedPartyDate] = useState(todayYmdAmericaNewYork);
+  const [parties, setParties] = useState<BirthdayPartyOption[]>([]);
+  const [partyError, setPartyError] = useState<string | null>(null);
+  const [partiesLoading, setPartiesLoading] = useState(false);
+  const linkedPartyId = searchParams.get("source") === "facility-party" ? searchParams.get("booking") : null;
+  const partyBookingId = linkedPartyId || selectedPartyId;
+  const facilityPartyDate = linkedPartyId ? searchParams.get("date") : selectedPartyDate;
   const isFacilityPartyWaiver =
-    searchParams.get("source") === "facility-party" &&
-    Boolean(searchParams.get("booking"));
+    Boolean(partyBookingId);
+  useEffect(() => {
+    if (linkedPartyId || visitType !== "party") return;
+    const controller = new AbortController();
+    void fetch(`/api/waiver/parties?date=${encodeURIComponent(selectedPartyDate)}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Birthday parties could not load.");
+        if (!controller.signal.aborted) setParties(payload.parties);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setPartyError(error instanceof Error ? error.message : "Birthday parties could not load.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setPartiesLoading(false); });
+    return () => controller.abort();
+  }, [linkedPartyId, visitType, selectedPartyDate]);
   useEffect(() => {
     const controller = new AbortController();
     void fetchActiveWaiverTemplate({ signal: controller.signal }).then(
@@ -221,6 +245,9 @@ export function WaiverFormClient() {
         ...validateParticipantsStep(state.signer, state.participants),
       },
       today = todayYmdAmericaNewYork();
+    if (!linkedPartyId && !visitType) e.visitType = "Choose open play or a birthday party.";
+    if (!linkedPartyId && visitType === "party" && (!parties.some((p) => p.id === selectedPartyId) || partiesLoading || partyError))
+      e.party = "Choose the birthday party you are attending.";
     if (!state.signer.adultMode)
       e.adultMode = "Choose watching or playing for the signing adult.";
     for (const p of draft.participants) {
@@ -321,9 +348,9 @@ export function WaiverFormClient() {
     const completionParams = new URLSearchParams();
     if (isFacilityPartyWaiver) {
       completionParams.set("source", "facility-party");
-      completionParams.set("booking", searchParams.get("booking") ?? "");
+      completionParams.set("booking", partyBookingId);
       if (facilityPartyDate) completionParams.set("date", facilityPartyDate);
-      if (searchParams.get("arrival") === "1")
+      if (searchParams.get("arrival") === "1" || (!linkedPartyId && atFacility && facilityPartyDate === todayYmdAmericaNewYork()))
         completionParams.set("arrival", "1");
     }
     completionParams.set("lang", language);
@@ -392,6 +419,46 @@ export function WaiverFormClient() {
           )}
           {step === "information" ? (
             <>
+              {!linkedPartyId && (
+                <section className="rounded-2xl border-2 border-cyan-200 p-4 sm:p-5">
+                  <fieldset>
+                    <legend className="text-xl font-black">What are you here for?</legend>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {(["open-play", "party"] as const).map((value) => (
+                        <label key={value} className="flex min-h-14 items-center gap-3 rounded-xl border-2 p-3 font-bold">
+                          <input type="radio" name="visitType" checked={visitType === value}
+                            onChange={() => { setVisitType(value); setSelectedPartyId(""); setPartiesLoading(value === "party"); setPartyError(null); setAtFacility(false); }} />
+                          {value === "party" ? "Birthday party" : "Open play"}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  {visitType === "party" && (
+                    <div className="mt-4 space-y-4">
+                      <label className="block font-bold">Party date
+                        <input type="date" className={fieldClass} value={selectedPartyDate}
+                          onChange={(e) => { setSelectedPartyDate(e.target.value); setSelectedPartyId(""); setParties([]); setPartiesLoading(true); setPartyError(null); setAtFacility(false); }} />
+                      </label>
+                      <label className="block font-bold">Whose birthday party are you attending?
+                        <select className={fieldClass} value={selectedPartyId} disabled={partiesLoading || Boolean(partyError)}
+                          onChange={(e) => setSelectedPartyId(e.target.value)}>
+                          <option value="">Choose a birthday party</option>
+                          {parties.map((party) => <option key={party.id} value={party.id}>{party.label}</option>)}
+                        </select>
+                      </label>
+                      {selectedPartyDate === todayYmdAmericaNewYork() && (
+                        <label className="flex min-h-12 items-center gap-3 font-bold">
+                          <input type="checkbox" checked={atFacility} onChange={(e) => setAtFacility(e.target.checked)} />
+                          We are at Jumping Jax now — check us into this party after signing.
+                        </label>
+                      )}
+                      {partiesLoading && <p role="status">Loading birthday parties…</p>}
+                      {partyError && <p role="alert">{partyError} Change the date to retry, or ask the front desk for the party link.</p>}
+                      {!partiesLoading && !partyError && parties.length === 0 && <p>No birthday parties found for this date. Check the date or ask the front desk for the party link.</p>}
+                    </div>
+                  )}
+                </section>
+              )}
               <section className="rounded-2xl border-2 border-orange-200 bg-orange-50/40 p-4 sm:p-5">
                 <h2 className="text-xl font-black">
                   Signing adult / parent or legal guardian

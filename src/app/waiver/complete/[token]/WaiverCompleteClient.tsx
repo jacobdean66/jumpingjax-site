@@ -87,9 +87,11 @@ export function WaiverCompleteClient({
               | null;
             if (response.ok && payload?.ok && payload.message) {
               partyMessage = payload.message;
+            } else {
+              partyMessage = "Your waiver is saved, but party registration could not finish. Open the party check-in link below to retry, or ask the front desk.";
             }
           } catch {
-            partyMessage = null;
+            partyMessage = "Your waiver is saved, but party registration could not finish. Open the party check-in link below to retry, or ask the front desk.";
           }
         }
         setState({ status: "ok", data: result, partyMessage });
