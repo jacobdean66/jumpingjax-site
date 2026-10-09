@@ -1,0 +1,107 @@
+.admin-navigation.admin-nav-3d {
+  --menu-edge: rgba(15, 23, 42, 0.16);
+  --menu-shadow: rgba(15, 23, 42, 0.22);
+}
+
+.admin-navigation.admin-nav-3d nav a,
+.admin-navigation.admin-nav-3d nav summary,
+.admin-navigation.admin-nav-3d nav button {
+  min-height: 44px;
+  box-shadow: 0 3px 0 var(--menu-edge), 0 5px 10px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.admin-navigation.admin-nav-3d nav a:focus-visible,
+.admin-navigation.admin-nav-3d nav summary:focus-visible,
+.admin-navigation.admin-nav-3d nav button:focus-visible {
+  outline: 3px solid #0ea5e9;
+  outline-offset: 4px;
+}
+
+/* Perspective lives in the transform, so scrolling does not flatten the effect. */
+.admin-navigation.admin-nav-3d .admin-nav-dropdown-panel,
+.admin-navigation.admin-nav-3d .admin-nav-mobile-panel {
+  border-radius: 20px;
+  box-shadow: 0 7px 0 var(--menu-edge), 0 22px 45px -12px var(--menu-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform-origin: top center;
+}
+
+details[open] > .admin-nav-dropdown-panel,
+details[open] > .admin-nav-mobile-panel {
+  animation: admin-menu-unfold 540ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.admin-nav-mobile-row {
+  position: relative;
+}
+
+/* Anchor to the whole navigation row, not the right edge of the Menu button. */
+.admin-nav-mobile-panel {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  z-index: 50;
+  min-width: 0;
+  margin-top: 14px;
+  max-height: min(70dvh, var(--menu-available-height, 70dvh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  scroll-padding-block: 16px;
+}
+
+.admin-nav-mobile-panel .admin-nav-group-panel {
+  max-height: none;
+  overflow: visible;
+}
+
+.admin-nav-mobile-panel > nav:first-child > a {
+  animation: admin-menu-lift-in 460ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.admin-nav-mobile-panel > nav:first-child > a:nth-child(2) { animation-delay: 45ms; }
+.admin-nav-mobile-panel > nav:first-child > a:nth-child(3) { animation-delay: 90ms; }
+.admin-nav-mobile-panel > nav:first-child > a:nth-child(4) { animation-delay: 135ms; }
+
+@keyframes admin-menu-unfold {
+  0% { opacity: 0; transform: perspective(900px) rotateX(-24deg) rotateY(-7deg) translateY(-10px) scale(0.94); }
+  65% { opacity: 1; transform: perspective(900px) rotateX(4deg) rotateY(2deg) translateY(3px) scale(1); }
+  100% { opacity: 1; transform: perspective(900px) rotateX(0) rotateY(0) translateY(0) scale(1); }
+}
+
+@keyframes admin-menu-lift-in {
+  from { opacity: 0; transform: perspective(600px) rotateX(-18deg) translateY(12px); }
+  to { opacity: 1; transform: perspective(600px) rotateX(0) translateY(0); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-navigation.admin-nav-3d nav a:hover,
+  .admin-navigation.admin-nav-3d nav summary:hover,
+  .admin-navigation.admin-nav-3d nav button:hover {
+    transform: perspective(600px) translateY(-3px) rotateX(5deg);
+    box-shadow: 0 6px 0 var(--menu-edge), 0 12px 18px rgba(15, 23, 42, 0.14);
+  }
+}
+
+.admin-navigation.admin-nav-3d nav a:active,
+.admin-navigation.admin-nav-3d nav summary:active,
+.admin-navigation.admin-nav-3d nav button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--menu-edge);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-navigation.admin-nav-3d nav a,
+  .admin-navigation.admin-nav-3d nav summary,
+  .admin-navigation.admin-nav-3d nav button {
+    transition: none;
+    transform: none !important;
+  }
+
+  details[open] > .admin-nav-dropdown-panel,
+  details[open] > .admin-nav-mobile-panel,
+  .admin-nav-mobile-panel > nav:first-child > a {
+    animation: none;
+  }
+}

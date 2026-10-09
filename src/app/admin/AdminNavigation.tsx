@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { adminNavigation, isAdminNavActive, type AdminNavItem } from "@/lib/admin/navigation";
 import type { AdminRole } from "@/lib/admin/delivery-auth";
 import { AdminBackButton } from "./AdminBackButton";
@@ -10,7 +11,40 @@ import { PermanentAgentSummary } from "./PermanentAgentSummary";
 
 export function AdminNavigation({ role, variant = "standard" }: { role: AdminRole; variant?: "standard" | "home" | "route" | "social" }) {
   const pathname = usePathname();
+  const navigationRef = useRef<HTMLDivElement>(null);
   const { primary, groups } = adminNavigation(role);
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    function dismissOutside(event: PointerEvent) {
+      if (event.target instanceof Node && !navigation?.contains(event.target)) {
+        navigation?.querySelectorAll("details[open]").forEach(menu => menu.removeAttribute("open"));
+      }
+    }
+    function sizeMobileMenu() {
+      const menu = navigation?.querySelector<HTMLDetailsElement>(".admin-nav-mobile-menu[open]");
+      const panel = menu?.querySelector<HTMLElement>(".admin-nav-mobile-panel");
+      const row = menu?.parentElement;
+      if (!panel || !row) return;
+      const top = row.getBoundingClientRect().bottom;
+      const viewport = window.visualViewport;
+      const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+      panel.style.setProperty("--menu-available-height", `${Math.max(120, bottom - top - 28)}px`);
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    navigation?.addEventListener("toggle", sizeMobileMenu, true);
+    window.addEventListener("resize", sizeMobileMenu);
+    window.addEventListener("scroll", sizeMobileMenu, { passive: true });
+    window.visualViewport?.addEventListener("resize", sizeMobileMenu);
+    window.visualViewport?.addEventListener("scroll", sizeMobileMenu);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      navigation?.removeEventListener("toggle", sizeMobileMenu, true);
+      window.removeEventListener("resize", sizeMobileMenu);
+      window.removeEventListener("scroll", sizeMobileMenu);
+      window.visualViewport?.removeEventListener("resize", sizeMobileMenu);
+      window.visualViewport?.removeEventListener("scroll", sizeMobileMenu);
+    };
+  }, []);
   function linkClass(active: boolean, id?: string) {
     if (variant === "home") return "ah-nav-link text-xs font-black";
     if (variant === "route") return `${active ? "rp-nav-link-accent" : "rp-nav-link"} rounded-lg px-3 py-2 text-xs font-black`;
@@ -27,7 +61,7 @@ export function AdminNavigation({ role, variant = "standard" }: { role: AdminRol
     return <nav aria-label="Other admin tools" className="mt-2 flex flex-wrap items-start gap-2">
       {groups.map((group, index) => <details key={group.label} className={mobile ? "w-full" : "relative"} name={mobile ? "mobile-admin-navigation-group" : "admin-navigation-group"}>
         <summary className={`${linkClass(group.items.some(item => isAdminNavActive(item, pathname)))} cursor-pointer list-none after:ml-2 after:content-['▾']`}>{group.label}</summary>
-        <div style={variant === "home" ? { background: "var(--ah-panel)" } : undefined} className={`${surface} ${mobile ? "mt-2" : `absolute ${index > 1 ? "right-0" : "left-0"} top-full z-40 mt-1 min-w-52 max-w-[calc(100vw-3rem)]`} grid max-h-[65vh] gap-1 overflow-y-auto p-2`}>
+        <div style={variant === "home" ? { background: "var(--ah-panel)" } : undefined} className={`${surface} admin-nav-group-panel ${mobile ? "mt-2" : `admin-nav-dropdown-panel absolute ${index > 1 ? "right-0" : "left-0"} top-full z-40 mt-3 min-w-52 max-w-[calc(100vw-3rem)]`} grid max-h-[65vh] gap-2 overflow-y-auto p-3`}>
           {group.items.map(renderLink)}
         </div>
       </details>)}
@@ -36,18 +70,23 @@ export function AdminNavigation({ role, variant = "standard" }: { role: AdminRol
       <AdminLogoutButton compact className={variant === "standard" ? undefined : linkClass(false)} />
     </nav>;
   }
-  return <div className="admin-navigation my-3 min-w-0 print:hidden" onKeyDown={event => { if (event.key === "Escape") event.currentTarget.querySelectorAll("details[open]").forEach(menu => menu.removeAttribute("open")); }}>
+  return <div ref={navigationRef} className="admin-navigation admin-nav-3d my-3 min-w-0 print:hidden" onKeyDown={event => {
+    if (event.key !== "Escape") return;
+    const menu = event.currentTarget.querySelector<HTMLDetailsElement>("details[open]");
+    event.currentTarget.querySelectorAll("details[open]").forEach(menu => menu.removeAttribute("open"));
+    menu?.querySelector<HTMLElement>("summary")?.focus();
+  }}>
     <div className="hidden sm:block">
     <nav aria-label="Front desk navigation" className="flex flex-wrap gap-2">
       {primary.map(renderLink)}
     </nav>
     {otherTools()}
     </div>
-    <nav aria-label="Mobile admin navigation" className="flex flex-wrap items-start gap-2 sm:hidden">
+    <nav aria-label="Mobile admin navigation" className="admin-nav-mobile-row flex flex-wrap items-start gap-2 sm:hidden">
       {primary.filter(item => item.id === "home" || item.id === "agents").map(renderLink)}
-      <details className="relative">
+      <details className="admin-nav-mobile-menu">
         <summary className={`${linkClass(false)} cursor-pointer list-none`}>Menu ▾</summary>
-        <div style={variant === "home" ? { background: "var(--ah-panel)" } : undefined} className={`${surface} absolute right-0 top-full z-50 mt-1 max-h-[70vh] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto p-3`}>
+        <div style={variant === "home" ? { background: "var(--ah-panel)" } : undefined} className={`${surface} admin-nav-mobile-panel`}>
           <nav aria-label="Front desk tasks" className="grid gap-2">{primary.filter(item => item.id !== "home" && item.id !== "agents").map(renderLink)}</nav>
           {otherTools(true)}
         </div>
