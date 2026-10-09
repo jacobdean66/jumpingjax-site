@@ -12,6 +12,7 @@ import {
 } from "@/lib/payments/booking-payments";
 import {
   SWIPESIMPLE_FACILITY_DEPOSIT_URL,
+  SWIPESIMPLE_GENERAL_PAYMENT_URL,
   SWIPESIMPLE_RENTAL_PAYMENT_URL,
 } from "@/lib/payments/swipesimple";
 
@@ -46,7 +47,7 @@ export function BookingPaymentButton({
 }: Props) {
 
   const initialCents =
-    kind === "facility"
+    kind === "facility" && !depositRecorded
       ? FACILITY_DEPOSIT_CENTS
       : Math.max(0, balanceCents ?? 0);
   const [open, setOpen] = useState(false);
@@ -57,7 +58,7 @@ export function BookingPaymentButton({
   const [payerName, setPayerName] = useState("");
   const [requestId, setRequestId] = useState("");
   const [paidAt, setPaidAt] = useState("");
-  const [purpose, setPurpose] = useState(kind === "facility" ? "deposit" : "payment");
+  const [purpose, setPurpose] = useState(kind === "facility" ? (depositRecorded ? "balance" : "deposit") : "payment");
   const alreadyRecorded = kind === "facility" && depositRecorded && purpose === "deposit";
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function BookingPaymentButton({
     parsedCents > 0 ? processingFeeCents(parsedCents, method) : 0;
   const paymentLink =
     kind === "facility"
-      ? SWIPESIMPLE_FACILITY_DEPOSIT_URL
+      ? purpose === "deposit" ? SWIPESIMPLE_FACILITY_DEPOSIT_URL : SWIPESIMPLE_GENERAL_PAYMENT_URL
       : SWIPESIMPLE_RENTAL_PAYMENT_URL;
 
   async function recordPayment(event: React.FormEvent<HTMLFormElement>) {
@@ -124,6 +125,21 @@ export function BookingPaymentButton({
         <CreditCard className="h-4 w-4" aria-hidden="true" />
         Payment
       </button>
+      {kind === "facility" && balanceCents !== null && balanceCents > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (!requestId) setRequestId(crypto.randomUUID());
+            setPurpose("balance");
+            setAmount(centsToInput(balanceCents));
+            setNotice(null);
+            setOpen(true);
+          }}
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-emerald-700 px-4 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-50"
+        >
+          Mark as paid
+        </button>
+      ) : null}
       {open ? (
         <div
           className="fixed inset-0 z-50 flex items-end bg-slate-950/60 p-0 sm:items-center sm:justify-center sm:p-6"
@@ -158,9 +174,20 @@ export function BookingPaymentButton({
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
+            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
+              Payment purpose
+              <select value={purpose} onChange={e => {
+                const nextPurpose = e.target.value;
+                setPurpose(nextPurpose);
+                if (kind === "facility" && nextPurpose === "deposit") setAmount(centsToInput(FACILITY_DEPOSIT_CENTS));
+                if (nextPurpose === "balance" && balanceCents !== null) setAmount(centsToInput(balanceCents));
+              }} className="min-h-11 rounded-md border border-slate-300 px-3">
+                <option value="deposit">Deposit</option><option value="payment">Payment</option><option value="balance">Balance</option>
+              </select>
+            </label>
             {alreadyRecorded ? (
               <div role="status" className="mt-4 text-sm font-semibold text-emerald-800">
-                <p>The deposit is already recorded for this booking.</p>
+                <p>The deposit is already recorded for this booking. Choose Payment or Balance to record another payment.</p>
                 {balanceCents !== null ? <p className="mt-2">Current booking balance: {formatCents(balanceCents)}</p> : null}
               </div>
             ) : <>
@@ -168,13 +195,18 @@ export function BookingPaymentButton({
               Complete the payment first, then save it here. This adds it to
               this booking&apos;s balance and receipt history.
             </p>
+            {kind === "facility" && purpose === "balance" ? (
+              <p className="mt-2 text-sm font-semibold text-emerald-800">
+                Record the remaining balance after receiving payment to mark this party as paid in full.
+              </p>
+            ) : null}
             <a
               href={paymentLink}
               target="_blank"
               rel="noreferrer"
               className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-700 px-4 py-2 text-sm font-black text-emerald-800 hover:bg-emerald-50"
             >
-              Open secure {kind === "facility" ? "$50 deposit" : "rental"}{" "}
+              Open secure {kind === "facility" ? purpose === "deposit" ? "$50 deposit" : "payment" : "rental"}{" "}
               checkout
             </a>
             <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -209,12 +241,6 @@ export function BookingPaymentButton({
                 </select>
               </label>
             </div>
-            <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
-              Payment purpose
-              <select value={purpose} onChange={e => setPurpose(e.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">
-                <option value="deposit">Deposit</option><option value="payment">Payment</option><option value="balance">Balance</option>
-              </select>
-            </label>
             <label className="mt-4 grid gap-1 text-sm font-black text-slate-800">
               Who paid?
               <input required value={payerName} onChange={e => setPayerName(e.target.value)} maxLength={160} placeholder={customerName ? `Booking customer: ${customerName}` : "Name on receipt or person who paid"} className="min-h-11 rounded-md border border-slate-300 px-3" />

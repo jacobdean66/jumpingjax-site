@@ -72,21 +72,52 @@ function harness(legacy: Row[] = []) {
   }, console });
   return {
     tables, writes, emails,
-    async post(kind = "facility", amount = "50.00") {
+    async post(kind = "facility", amount = "50.00", overrides: Row = {}) {
       return exports.POST!(new Request("https://example.com/api/payment", {
-        method: "POST", body: JSON.stringify({ amount, paymentMethod: "cash", sendReceipt: true, requestId:"11111111-1111-4111-8111-222222222222",payerName:"Actual payer",paidAt:"2026-09-26T12:00:00Z",paymentPurpose:kind === "facility" ? "deposit" : "payment" }),
+        method: "POST", body: JSON.stringify({ amount, paymentMethod: "cash", sendReceipt: true, requestId:"11111111-1111-4111-8111-222222222222",payerName:"Actual payer",paidAt:"2026-09-26T12:00:00Z",paymentPurpose:kind === "facility" ? "deposit" : "payment", ...overrides }),
       }), { params: Promise.resolve({ kind, id: kind === "facility" ? bookingId : "123" }) });
     },
   };
 }
 
-test("a legacy facility deposit blocks another payment without writing or emailing", async () => {
+test("a legacy facility deposit blocks another deposit without writing or emailing", async () => {
   const app = harness([{ id: "legacy", booking_id: bookingId, amount: 50, payment_kind: "deposit", payment_method: "card", paid_at: "2026-09-12T21:36:00Z", recorded_by: "Office" }]);
   const response = await app.post();
   assert.equal(response.status, 409);
   assert.match((await response.json()).message, /already recorded/);
   assert.equal(app.writes.length, 0);
   assert.equal(app.emails.length, 0);
+});
+
+test("a facility balance payment after a deposit marks the party paid in full", async () => {
+  const app = harness([{ id: "legacy", booking_id: bookingId, amount: 50 }]);
+  const response = await app.post("facility", "99.80", { paymentPurpose: "balance" });
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.paidCents, 14980);
+  assert.equal(result.remainingCents, 0);
+  assert.equal(app.writes[0].row.payment_purpose, "balance");
+  assert.match(String(app.emails[0].text), /Remaining booking balance: \$0\.00/);
+  assert.equal(payments.projectBookingPaymentStatus(149.8, app.tables.booking_payment_entries.map(row => ({ amountCents: Number(row.amount_cents) }))).status, "paid");
+  assert.equal((await app.post("facility", "99.80", { paymentPurpose: "balance" })).status, 200);
+  assert.equal(app.writes.length, 1, "retry does not credit the balance twice");
+});
+
+test("facility full and partial payments are not restricted to the deposit amount", async () => {
+  for (const [amount, purpose, remaining] of [["149.80", "balance", 0], ["25.00", "payment", 12480]] as const) {
+    const app = harness();
+    const response = await app.post("facility", amount, { paymentPurpose: purpose, sendReceipt: false });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).remainingCents, remaining);
+    assert.equal(app.emails.length, 0);
+  }
+});
+
+test("facility deposits still require $50 and card payments still require receipt evidence", async () => {
+  const app = harness();
+  assert.equal((await app.post("facility", "99.80")).status, 400);
+  assert.equal((await app.post("facility", "99.80", { paymentPurpose: "balance", paymentMethod: "card" })).status, 400);
+  assert.equal(app.writes.length, 0);
 });
 
 test("new deposits use the canonical ledger and receipts use posted balances", async () => {

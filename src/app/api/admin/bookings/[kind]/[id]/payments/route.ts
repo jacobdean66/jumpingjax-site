@@ -86,7 +86,7 @@ export async function POST(
       { status: 400 },
     );
   }
-  if (kind === "facility" && amountCents !== FACILITY_DEPOSIT_CENTS) {
+  if (kind === "facility" && purpose === "deposit" && amountCents !== FACILITY_DEPOSIT_CENTS) {
     return NextResponse.json(
       { ok: false, message: "Facility deposits must be recorded as $50.00." },
       { status: 400 },
