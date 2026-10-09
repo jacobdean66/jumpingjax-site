@@ -136,6 +136,9 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={booking.status} />
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${balanceCents === 0 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+              {paymentStatusLabel(paymentProjection.status)}
+            </span>
             <span className="text-xs font-bold text-slate-500">
               #{booking.id}
             </span>
@@ -437,6 +440,8 @@ function FacilityExpandableCard({
   booking: AdminFacilityBooking;
 }) {
   const depositStatus = facilityDepositStatus(booking.paymentEntries);
+  const paymentProjection = projectBookingPaymentStatus(booking.total, booking.paymentEntries);
+  const paidInFull = paymentProjection.status === "paid" || paymentProjection.status === "overpaid";
   return (
     <details
       id={`booking-${booking.id}`}
@@ -447,8 +452,8 @@ function FacilityExpandableCard({
         <p className="text-xs font-semibold text-slate-600">
           {new Date(booking.startTime).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}
         </p>
-        <p className={`text-xs font-black ${depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
-          {depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
+        <p className={`text-xs font-black ${paidInFull || depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
+          {paidInFull ? paymentStatusLabel(paymentProjection.status) : depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
         </p>
       </summary>
       <div className="bg-slate-100 p-3 sm:p-5">
