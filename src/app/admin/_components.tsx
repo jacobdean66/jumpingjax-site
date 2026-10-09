@@ -2,12 +2,13 @@ import Link from "next/link";
 import type { AdminRole } from "@/lib/admin/delivery-auth";
 import { AdminTokenGate } from "./AdminTokenGate";
 import { AdminNavigation } from "./AdminNavigation";
+import { AdminMotionToggle } from "./AdminExperience";
 
 export function AdminShell({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
+    <main className="admin-shell min-h-screen bg-slate-100 text-slate-950">
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {children}
       </section>
@@ -61,7 +62,7 @@ export function AdminHeader({
           {title}
         </h1>
       </div>
-      {children}
+      <div className="flex flex-wrap items-center gap-3"><AdminMotionToggle />{children}</div>
     </div>
   );
 }
@@ -92,7 +93,8 @@ export function StatTile({
     return (
       <Link
         href={href}
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400"
+        data-dashboard-tilt="stat"
+        className="admin-stat-tile rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400"
       >
         {content}
       </Link>
@@ -100,7 +102,7 @@ export function StatTile({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="admin-stat-tile rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       {content}
     </div>
   );
@@ -120,7 +122,7 @@ export function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${tone}`}
+      className={`admin-status-badge inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${tone}`}
     >
       {status}
     </span>
