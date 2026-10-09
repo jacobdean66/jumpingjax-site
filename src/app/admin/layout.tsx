@@ -1,4 +1,6 @@
 import "./admin-navigation.css";
+import "./admin-experience.css";
+import { AdminExperience } from "./AdminExperience";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -19,5 +21,5 @@ export const metadata: Metadata = {
 export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return <AdminExperience>{children}</AdminExperience>;
 }

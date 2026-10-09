@@ -1,0 +1,209 @@
+/* Dashboard surfaces stay native HTML; depth is shared across admin tools. */
+.admin-experience {
+  --jax-surface-shadow: 0 5px 0 rgba(27, 48, 69, .10), 0 16px 32px -18px rgba(15, 23, 42, .30), inset 0 1px 0 rgba(255, 255, 255, .75);
+  min-width: 0;
+}
+
+.admin-experience .admin-shell {
+  background: radial-gradient(ellipse at 0 0, #dcf5ff 0, transparent 45%), radial-gradient(ellipse at 100% 30%, #ede9ff 0, transparent 40%), #eef3f8;
+}
+
+.admin-experience :is(section, article, aside, form, div)[class*="rounded-2xl"],
+.admin-experience :is(section, article, aside, form, div)[class*="rounded-3xl"],
+.admin-experience :is(section, article, aside, form)[class*="rounded-xl"],
+.admin-experience div[class*="rounded-xl"][class*="border"],
+.admin-experience :is(.rp-panel, .sp-panel, .sched-panel),
+.admin-experience .admin-stat-tile {
+  box-shadow: var(--jax-surface-shadow);
+}
+
+.admin-experience :is(button, a[class*="rounded"]):not(:disabled):not(.jax-task-card) {
+  box-shadow: 0 3px 0 rgba(15, 23, 42, .15), 0 6px 12px -8px rgba(15, 23, 42, .35), inset 0 1px 0 rgba(255, 255, 255, .20);
+}
+
+.admin-experience :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  box-shadow: inset 0 2px 4px rgba(15, 23, 42, .08), 0 1px 0 rgba(255, 255, 255, .65);
+}
+
+.admin-experience .admin-status-badge {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), 0 2px 0 rgba(15, 23, 42, .12);
+}
+
+.admin-motion-toggle {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-motion-toggle:focus-visible { outline: 3px solid #38bdf8; outline-offset: 4px; }
+
+.admin-home-theme.jax-dashboard {
+  --ah-bg-gradient: radial-gradient(ellipse at 85% 22%, rgba(29, 129, 154, .12), transparent 40%), radial-gradient(ellipse at 5% 50%, rgba(115, 82, 160, .10), transparent 35%), linear-gradient(150deg, #07131e, #0a1724 50%, #07121c);
+  --ah-muted: #a9bfcf;
+  --ah-ops: #81d6bf;
+  --ah-info: #8dc5ef;
+  --jax-surface-shadow: 0 5px 0 #030b12, 0 22px 36px -15px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(204, 234, 255, .10);
+  padding-bottom: 32px;
+}
+
+.admin-home-theme.jax-dashboard .jax-topbar {
+  position: relative;
+  z-index: 60;
+  border-bottom: 1px solid #274256;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .20), 0 20px 35px -30px #6ac9ff;
+}
+
+.jax-dashboard .jax-brand { display: inline-flex; align-items: center; gap: 12px; }
+.jax-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #06121c;
+  background: linear-gradient(135deg, #c1fff0, #6dc3b1);
+  box-shadow: 3px 4px 0 #36786e, 0 10px 22px #030a12;
+  transform: rotate(-8deg);
+  font-size: 24px;
+}
+.jax-dashboard .admin-motion-toggle { color: #c4dbec; border-color: #335268; background: #112737; }
+.jax-dashboard-content { position: relative; }
+.jax-hero { display: grid; grid-template-columns: .8fr 1.45fr; align-items: center; gap: 24px; margin-block: 12px 24px; }
+.jax-kicker { display: inline-flex; align-items: center; gap: 8px; color: #9ee5d0; font-size: 10px; font-weight: 900; letter-spacing: .15em; }
+.jax-kicker > span { height: 7px; width: 7px; border-radius: 50%; background: #9ee5d0; box-shadow: 0 0 14px #52c7b2; }
+.jax-dashboard .jax-hero-title { margin-top: 16px; font-size: clamp(32px, 4.4vw, 56px); font-weight: 900; line-height: 1.04; letter-spacing: -.04em; text-shadow: 0 3px 0 #344c60, 0 8px 16px rgba(0, 0, 0, .35); }
+.jax-hero-description { margin-top: 18px; max-width: 420px; color: #a9bfcf; font-size: 14px; line-height: 1.6; }
+.jax-command-scene { position: relative; min-width: 0; height: 360px; border: 1px solid #244c62; border-radius: 28px; background: radial-gradient(ellipse at 50% 60%, #12374c, transparent 75%), linear-gradient(155deg, #0c1f30, #071726); box-shadow: 0 8px 0 #020c16, 0 25px 50px -25px #000, inset 0 1px 0 #446b7c; overflow: hidden; }
+.jax-command-scene canvas { touch-action: pan-y; }
+.jax-scene-caption { position: absolute; bottom: 12px; inset-inline: 20px; display: flex; justify-content: space-between; font-size: 8px; font-weight: 900; letter-spacing: .18em; color: #8fb7ca; pointer-events: none; }
+
+/* A real six-face CSS cube, rings, and layered satellites. */
+.jax-scene { position: relative; height: 240px; perspective: 850px; pointer-events: none; isolation: isolate; }
+.jax-scene-floor { position: absolute; width: 85%; height: 100px; left: 7.5%; bottom: 5px; border: 1px solid #284b60; border-radius: 50%; background: radial-gradient(ellipse, rgba(114, 213, 209, .20), transparent 70%); transform: rotateX(65deg); box-shadow: 0 0 55px rgba(47, 157, 202, .08); }
+.jax-orbit { position: absolute; left: 50%; top: 50%; width: 280px; height: 280px; margin: -140px; border: 1px solid #59999a; border-radius: 50%; transform: rotateX(65deg) rotateY(-14deg); box-shadow: 0 0 15px rgba(88, 199, 191, .10); }
+.jax-orbit-two { width: 220px; height: 220px; margin: -110px; border-color: #7885b7; transform: rotateX(15deg) rotateY(65deg) rotateZ(-25deg); }
+.jax-cube-float { position: absolute; left: 50%; top: 50%; width: 104px; height: 104px; margin: -52px; transform-style: preserve-3d; }
+.jax-cube { position: relative; width: 104px; height: 104px; transform-style: preserve-3d; transform: rotateX(-18deg) rotateY(-28deg) rotateZ(-6deg); }
+.jax-cube-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #b8ffea; background: linear-gradient(145deg, #a1f2dd, #61bdaa); color: #08272b; font-size: 32px; font-weight: 950; letter-spacing: -.06em; backface-visibility: hidden; }
+.jax-cube-face span { font-size: 7px; font-weight: 900; letter-spacing: .16em; }
+.jax-cube-front { transform: translateZ(52px); }
+.jax-cube-back { transform: rotateY(180deg) translateZ(52px); }
+.jax-cube-right { transform: rotateY(90deg) translateZ(52px); background: linear-gradient(145deg, #598cce, #2a528c); color: #c3deff; border-color: #82bfff; }
+.jax-cube-left { transform: rotateY(-90deg) translateZ(52px); }
+.jax-cube-top { transform: rotateX(90deg) translateZ(52px); background: #bcfff0; }
+.jax-cube-bottom { transform: rotateX(-90deg) translateZ(52px); }
+.jax-satellite { position: absolute; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; border: 1px solid #486479; background: linear-gradient(135deg, #213e51, #0d2333); box-shadow: 5px 7px 0 #030e19, 0 15px 24px #020b15; transform: rotate(-10deg); }
+.jax-satellite-one { top: 18%; left: 14%; color: #91e8d0; }
+.jax-satellite-two { top: 10%; right: 13%; color: #efd08e; transform: rotate(12deg); }
+.jax-satellite-three { bottom: 12%; left: 22%; color: #e4a9d9; transform: rotate(8deg); }
+.jax-satellite-four { bottom: 18%; right: 11%; color: #8fc9f6; }
+
+.admin-home-theme.jax-dashboard .jax-task-card {
+  --jax-module: #84d9c2;
+  position: relative;
+  padding: 24px;
+  overflow: visible;
+  border-radius: 22px;
+  border-color: color-mix(in srgb, var(--jax-module) 28%, #213546);
+  background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--jax-module) 10%, transparent), transparent 65%), linear-gradient(145deg, #182e40, #0f2130);
+  box-shadow: 0 7px 0 #05101a, 0 8px 0 color-mix(in srgb, var(--jax-module) 32%, #05101a), 0 25px 38px -18px #000, inset 0 1px 0 rgba(213, 241, 255, .12);
+  transform-style: preserve-3d;
+}
+.admin-home-theme.jax-dashboard .jax-task-card[data-color="gold"] { --jax-module: #edc681; }
+.admin-home-theme.jax-dashboard .jax-task-card[data-color="pink"] { --jax-module: #e0a3d3; }
+.admin-home-theme.jax-dashboard .jax-task-card[data-color="blue"] { --jax-module: #87baef; }
+.admin-home-theme.jax-dashboard .jax-task-card::before { height: 1px; left: 24px; right: 24px; background: linear-gradient(90deg, transparent, var(--jax-module), transparent); }
+.jax-task-top { display: flex; align-items: flex-start; justify-content: space-between; transform: translateZ(24px); }
+.jax-task-icon { display: grid; place-items: center; width: 62px; height: 62px; color: var(--jax-module); border: 1px solid color-mix(in srgb, var(--jax-module) 45%, #173344); border-radius: 17px; background: linear-gradient(145deg, color-mix(in srgb, var(--jax-module) 18%, #102234), #0c2030); box-shadow: 4px 5px 0 #04101a, 0 14px 23px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .16); transform: rotate(-7deg) translateZ(12px); }
+.jax-task-number { font-size: 43px; font-weight: 950; letter-spacing: -.06em; line-height: 1; color: color-mix(in srgb, var(--jax-module) 25%, #193044); text-shadow: 0 2px 0 #030c14; }
+.jax-task-copy { flex: 1; margin-top: 22px; transform: translateZ(18px); }
+.jax-dashboard .jax-task-card .ah-card-eyebrow { color: var(--jax-module); letter-spacing: .14em; }
+.jax-dashboard .jax-task-card .ah-card-desc { line-height: 1.65; max-width: 450px; }
+.jax-dashboard .jax-task-card .jax-task-cta { width: 100%; justify-content: space-between; min-height: 44px; margin-top: 22px; border-radius: 12px; border-color: color-mix(in srgb, var(--jax-module) 26%, #183344); background: #0a1b29; color: var(--jax-module); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .3), 0 1px 0 rgba(255, 255, 255, .08); transform: translateZ(26px); }
+.jax-dashboard .jax-task-card:focus-visible { outline: 3px solid #a1e9ff; outline-offset: 6px; }
+.admin-home-theme.jax-dashboard .jax-support-panel,
+.admin-home-theme.jax-dashboard .jax-bookings-panel { box-shadow: var(--jax-surface-shadow); border-radius: 22px; }
+.jax-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.jax-panel-line { height: 1px; flex: 1; background: linear-gradient(90deg, #33516b, transparent); }
+.admin-home-theme.jax-dashboard .jax-support-link { min-height: 62px; border-radius: 14px; justify-content: flex-start; gap: 12px; background: linear-gradient(135deg, #1d3548, #152a3a); box-shadow: 0 4px 0 #030c14, inset 0 1px 0 rgba(255, 255, 255, .1); }
+.jax-support-link svg:first-child { flex-shrink: 0; color: #9cd4dc; }
+.jax-support-link svg:last-child { margin-left: auto; flex-shrink: 0; color: #94b2c9; }
+.jax-schedule-link { display: inline-flex; align-items: center; gap: 4px; color: #b9e0f5; font-size: 11px; font-weight: 800; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
+.admin-home-theme.jax-dashboard .jax-booking-tile { border-radius: 14px; padding: 16px; background: linear-gradient(145deg, #1b3346, #142939); box-shadow: 0 4px 0 #030d16, inset 0 1px 0 rgba(255, 255, 255, .1); }
+.jax-booking-dot { display: inline-block; height: 6px; width: 6px; margin-right: 7px; border-radius: 50%; background: #a3d9e9; }
+.jax-dashboard .ah-focus-scroll { padding: 2px 3px 6px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-experience[data-motion="on"] .admin-stat-tile[href]:hover { transform: perspective(900px) translateY(-4px) rotateX(4deg); }
+  .admin-experience[data-motion="on"] .jax-task-card:hover { border-color: var(--jax-module); transform: perspective(1000px) translateY(-5px) rotateX(4deg) rotateY(-2deg); }
+  .admin-experience[data-motion="on"] .jax-task-card:hover .jax-task-icon { transform: rotate(0) translateZ(24px); transition: transform 250ms ease; }
+  .admin-experience[data-motion="on"] .jax-support-link:hover,
+  .admin-experience[data-motion="on"] .jax-booking-tile:hover { transform: perspective(900px) translateY(-3px) rotateX(3deg); }
+}
+
+.admin-experience[data-motion="on"] button:not(:disabled):active {
+  transform: translateY(2px);
+}
+
+.admin-experience[data-motion="on"] .jax-cube-float { animation: jax-cube-float 8s ease-in-out infinite; }
+.admin-experience[data-motion="on"] .jax-cube { animation: jax-cube-turn 12s ease-in-out infinite; }
+.admin-experience[data-motion="on"] .jax-satellite { animation: jax-satellite-float 6s ease-in-out infinite alternate; }
+.admin-experience[data-motion="on"] .jax-satellite-two { animation-delay: -2s; }
+.admin-experience[data-motion="on"] .jax-satellite-three { animation-delay: -4s; }
+.admin-experience[data-motion="on"] .jax-satellite-four { animation-delay: -1s; }
+@keyframes jax-cube-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes jax-cube-turn { 0%, 100% { transform: rotateX(-18deg) rotateY(-28deg) rotateZ(-6deg); } 50% { transform: rotateX(-12deg) rotateY(-42deg) rotateZ(3deg); } }
+@keyframes jax-satellite-float { from { translate: 0 -4px; } to { translate: 0 5px; } }
+
+@media (min-width: 640px) and (max-width: 900px) {
+  .jax-hero { grid-template-columns: 1fr; }
+  .jax-command-scene { height: 340px; }
+}
+
+.admin-experience[data-motion="off"] *,
+.admin-experience[data-motion="off"] *::before,
+.admin-experience[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+.admin-experience[data-motion="off"] [data-dashboard-tilt],
+.admin-experience[data-motion="off"] .admin-navigation nav :is(a, button, summary) { transform: none !important; }
+
+@media (max-width: 639px) {
+  .jax-hero { grid-template-columns: 1fr; gap: 0; margin-block: 16px 22px; }
+  .jax-hero-description { max-width: 290px; font-size: 13px; }
+  .jax-scene { height: 180px; margin-top: 8px; }
+  .jax-command-scene { height: 270px; margin-top: 20px; }
+  .jax-scene-floor { width: 70%; left: 15%; }
+  .jax-orbit-one { width: 220px; height: 220px; margin: -110px; }
+  .jax-orbit-two { width: 180px; height: 180px; margin: -90px; }
+  .jax-cube-float { scale: .8; }
+  .jax-satellite { width: 38px; height: 38px; border-radius: 11px; }
+  .jax-satellite svg { width: 20px; }
+  .jax-satellite-one { left: 12%; top: 15%; }
+  .jax-satellite-two { right: 12%; top: 7%; }
+  .jax-satellite-three { left: 15%; bottom: 5%; }
+  .jax-satellite-four { right: 12%; bottom: 8%; }
+  .admin-home-theme.jax-dashboard .jax-task-card { padding: 20px; }
+  .jax-task-copy { margin-top: 18px; }
+  .jax-task-number { font-size: 36px; }
+  .jax-task-icon { width: 52px; height: 52px; }
+  .jax-task-grid { gap: 22px; }
+  .jax-panel-heading { flex-wrap: wrap; gap: 0; }
+  .admin-home-theme.jax-dashboard .jax-topbar { padding-bottom: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-experience *, .admin-experience *::before, .admin-experience *::after { animation: none !important; transition: none !important; }
+  .admin-experience [data-dashboard-tilt], .admin-experience .admin-navigation nav :is(a, button, summary) { transform: none !important; }
+}
+
+@media print {
+  .admin-experience { --jax-surface-shadow: none; }
+  .admin-motion-toggle, .jax-scene { display: none !important; }
+  .admin-experience *, .admin-experience *::before, .admin-experience *::after { box-shadow: none !important; text-shadow: none !important; animation: none !important; transform: none !important; }
+}
