@@ -66,6 +66,10 @@ export function WaiverDeskClient({
     [showPasses, setShowPasses] = useState(false),
     [manage, setManage] = useState(false);
   const [nameTarget, setNameTarget] = useState<EditableWaiverName | null>(null);
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [savedCheckoutId, setSavedCheckoutId] = useState<string | null>(null);
+  const feedback = useRef<HTMLDivElement>(null),
+    groupPanel = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null),
     lock = useRef(false),
     createId = useRef<string | null>(null),
@@ -100,6 +104,12 @@ export function WaiverDeskClient({
       0,
     ) ?? 0;
   const due = Math.max(0, (base?.due ?? 0) - deduction);
+  useEffect(() => {
+    if (error || message) feedback.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [error, message]);
+  useEffect(() => {
+    if (group) groupPanel.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [group]);
   const chooseTicket = useCallback((id: string | null) => {
     selectedTicket.current = id;
     setTicketId(id);
@@ -124,6 +134,7 @@ export function WaiverDeskClient({
     setGroupLoading(false);
     setStage("search");
     setShowPasses(false);
+    setSavedCheckoutId(null);
   }, [chooseTicket]);
   const refresh = useCallback(async () => {
     const version = ++readVersion.current;
@@ -274,7 +285,10 @@ export function WaiverDeskClient({
   }
   async function add(g: Guest) {
     if (lock.current || readOnly || recovering || attempt.current || !idFor(g)) return;
+    setMessage("");
+    setSavedCheckoutId(null);
     if (g.expired || !g.checkInEligible) {
+      setGroup([g]);
       setError(
         "A current waiver with a date of birth is required before admission.",
       );
@@ -286,8 +300,8 @@ export function WaiverDeskClient({
     }
     lock.current = true;
     setBusy(true);
+    setAddingKey(g.selectionKey);
     setError("");
-    setMessage("");
     try {
       const before = await refresh();
       const identity = g.dobYmd ? personIdentity(g.originalFirstName || g.firstName, g.originalLastName || g.lastName, g.dobYmd) : null;
@@ -296,7 +310,17 @@ export function WaiverDeskClient({
         (identity && p.identity_key === identity));
       const existingTicket = before.tickets.find(t => t.items.some(i => i.attendance_id === existingArrival?.id));
       if (existingTicket) {
-        setMessage(`${g.fullName} already has saved attendance and a checkout ticket. Review it under Manage saved attendance and receipts. Your current checkout is kept.`);
+        const current = before.tickets.find(t => t.id === selectedTicket.current);
+        if (!isDeskTicketClosed(existingTicket) && (!current?.items.length || current.id === existingTicket.id)) {
+          chooseTicket(existingTicket.id);
+          setMessage(`✓ ${g.fullName} is checked in and in the current checkout. Their saved unpaid ticket is ready.`);
+        } else {
+          setMessage(isDeskTicketClosed(existingTicket)
+            ? `✓ ${g.fullName} is already checked in and their checkout is complete. View their saved receipt below.`
+            : `✓ ${g.fullName} is already checked in on another unpaid ticket. Open their saved checkout below; your current ticket stays saved.`);
+          if (isDeskTicketClosed(existingTicket)) setManage(true);
+          else setSavedCheckoutId(existingTicket.id);
+        }
         return;
       }
       let target = selectedTicket.current;
@@ -328,13 +352,17 @@ export function WaiverDeskClient({
       }
       const arrival = latest.people.find(
         (p) =>
-          p.source === g.source &&
-          (p.participant_id ?? p.legacy_participant_id) === idFor(g),
+          p.id === saved.attendanceId ||
+          (p.source === g.source && (p.participant_id ?? p.legacy_participant_id) === idFor(g)) ||
+          (identity && p.identity_key === identity),
       );
       const added = latest.tickets
         .find((t) => t.id === (saved.ticketId ?? target))
         ?.items.find((i) => i.attendance_id === arrival?.id);
       const mode = "adultMode" in g ? g.adultMode : null;
+      if (!arrival || !added) {
+        throw new Error("Check-in could not be confirmed in checkout. Use Refresh to check the saved ticket before retrying.");
+      }
       if (added && g.role !== "child" && mode && !added.classification) {
         await command("edit", {
           ticketId: saved.ticketId ?? target,
@@ -347,7 +375,7 @@ export function WaiverDeskClient({
         latest = await refresh();
       }
       setMessage(
-        `${g.fullName} marked Here and added to the current checkout.`,
+        `✓ ${g.fullName} checked in and added to the current checkout.`,
       );
     } catch (e) {
       setError(
@@ -358,6 +386,7 @@ export function WaiverDeskClient({
     } finally {
       lock.current = false;
       setBusy(false);
+      setAddingKey(null);
     }
   }
   async function complete() {
@@ -461,6 +490,7 @@ export function WaiverDeskClient({
       </div>
       {recovering && <p role="status">Checking saved attendance and checkout…</p>}
       {pendingCheckout && !recovering && <p role="status" className="rounded-xl bg-amber-50 p-4 font-bold text-amber-900">Checking the last checkout. Use Refresh to look for its receipt, or retry Complete checkout with the same choices.</p>}
+      <div ref={feedback} className="scroll-mt-6">
       {error && (
         <p
           role="alert"
@@ -477,6 +507,17 @@ export function WaiverDeskClient({
           {message}
         </p>
       )}
+      {savedCheckoutId && !pendingCheckout && (
+        <button type="button" className={`${primary} mt-3`} disabled={busy || recovering} onClick={() => {
+          const saved = state.tickets.find(t => t.id === savedCheckoutId);
+          if (!saved || isDeskTicketClosed(saved)) { setError("That checkout is no longer open. Refresh to review its saved receipt."); return; }
+          chooseTicket(savedCheckoutId);
+          setSavedCheckoutId(null);
+          setStage("checkout");
+          setMessage("Saved unpaid checkout opened. Your other ticket remains saved.");
+        }}>Open saved checkout</button>
+      )}
+      </div>
       <div
         className={`grid items-start gap-5 ${lines.length ? "lg:grid-cols-[minmax(0,1fr)_380px]" : ""}`}
       >
@@ -502,15 +543,17 @@ export function WaiverDeskClient({
                     setGroupLoading(false);
                     setLoading(!!e.target.value.trim());
                     setError("");
+                    setMessage("");
+                    setSavedCheckoutId(null);
                   }}
                 />
                 <p className="mt-2 text-sm text-slate-600">
-                  Open a name to view everyone on their original waiver.
+                  Click a name to check that person in and add them to checkout. Use View waiver group to add others on the same waiver.
                 </p>
               </section>
               {groupLoading && <p role="status">Opening waiver group…</p>}
               {group && (
-                <section className="rounded-2xl border-2 border-cyan-200 bg-cyan-50 p-4">
+                <section ref={groupPanel} className="scroll-mt-6 rounded-2xl border-2 border-cyan-200 bg-cyan-50 p-4">
                   <h2 className="text-xl font-black">Original waiver group</h2>
                   <p className="mt-2 text-sm text-slate-600">
                     Click each person who is here. Keep searching to add
@@ -526,7 +569,7 @@ export function WaiverDeskClient({
                       return (
                         <div
                           key={g.selectionKey}
-                          className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                          className={`flex gap-3 rounded-xl border-2 p-3 ${onTicket ? "border-emerald-600 bg-emerald-100" : savedTicket ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}
                         >
                           <button
                             type="button"
@@ -534,7 +577,7 @@ export function WaiverDeskClient({
                             disabled={
                               busy ||
                               recovering || pendingCheckout ||
-                              !!savedTicket ||
+                              (!!savedTicket && isDeskTicketClosed(savedTicket)) ||
                               !!onTicket ||
                               g.expired ||
                               !g.checkInEligible
@@ -549,11 +592,11 @@ export function WaiverDeskClient({
                             </span>
                             <span className="mt-1 block text-sm font-bold text-emerald-800">
                               {onTicket
-                                ? "Here — in current checkout"
-                                : savedTicket ? "Already checked in — view saved ticket"
+                                ? "✓ Checked in — in current checkout"
+                                : savedTicket ? "✓ Already checked in — open saved checkout"
                                 : g.expired || !g.checkInEligible
                                   ? "New waiver required"
-                                  : "Click name to mark Here"}
+                                  : addingKey === g.selectionKey ? "Checking in…" : "Click name to check in"}
                             </span>
                             {(g.expired || !g.checkInEligible) && <span className="mt-1 block text-sm font-semibold text-red-800">{g.expiresOnYmd && g.expiresOnYmd <= day ? `Waiver expired ${g.expiresOnYmd}. Complete a new waiver.` : !g.dobYmd ? "Birthdate missing. Complete a new waiver with a date of birth." : "A current waiver is required before admission."}</span>}
                           </button>
@@ -587,21 +630,33 @@ export function WaiverDeskClient({
                   <p role="status">Loading…</p>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {results.map((r) => (
+                    {results.map((r) => {
+                      const presence = presenceFor(r);
+                      const savedTicket = state.tickets.find(t => t.items.some(i => i.attendance_id === presence?.id));
+                      const onTicket = !!presence && lines.some(i => i.attendance_id === presence.id);
+                      const closed = !!savedTicket && isDeskTicketClosed(savedTicket);
+                      return (
+                      <div key={r.selectionKey} className={`rounded-xl border-2 p-4 ${onTicket ? "border-emerald-600 bg-emerald-100" : savedTicket ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
                       <button
                         type="button"
-                        key={r.selectionKey}
-                        className="min-h-24 rounded-xl border-2 border-slate-200 bg-white p-4 text-left"
-                        onClick={() => void openGroup(r)}
+                        className="min-h-20 w-full text-left disabled:cursor-default"
+                        aria-pressed={!!savedTicket}
+                        disabled={busy || recovering || pendingCheckout || onTicket || closed}
+                        onClick={() => void add(r)}
                       >
                         <span className="block text-lg font-black">
                           {r.fullName}
                         </span>
                         <span className="mt-1 block text-sm text-slate-600">
-                          {r.birthYear ? `Born ${r.birthYear}` : "Birthdate missing"} · View saved group
+                          {r.birthYear ? `Born ${r.birthYear}` : "Birthdate missing"}
+                        </span>
+                        <span className={`mt-2 block font-black ${savedTicket ? "text-emerald-900" : r.expired || !r.checkInEligible ? "text-red-800" : "text-slate-800"}`}>
+                          {onTicket ? "✓ Checked in — in current checkout" : closed ? "✓ Checked in — checkout complete" : savedTicket ? "✓ Checked in — click to reopen unpaid checkout" : addingKey === r.selectionKey ? "Checking in…" : r.expired || !r.checkInEligible ? "New waiver required" : "Click name to check in"}
                         </span>
                       </button>
-                    ))}
+                      <button type="button" className="mt-3 min-h-11 text-sm font-bold underline" disabled={busy || groupLoading} onClick={() => void openGroup(r)}>View waiver group</button>
+                      </div>
+                    ); })}
                   </div>
                 )}
                 {query && !loading && !error && !results.length && (
@@ -743,7 +798,7 @@ export function WaiverDeskClient({
         {ticket && lines.length > 0 && (
           <aside
             aria-label="Current checkout"
-            className="self-start rounded-2xl border-2 border-emerald-300 bg-white p-4 shadow-lg lg:sticky lg:top-6"
+            className="order-first self-start rounded-2xl border-2 border-emerald-300 bg-white p-4 shadow-lg lg:order-last lg:sticky lg:top-6"
           >
             <h2 className="text-xl font-black">
               Current checkout ({lines.length})
