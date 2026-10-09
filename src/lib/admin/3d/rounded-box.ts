@@ -42,4 +42,3 @@ export function roundedBox(
   roundedByKey.set(key, geometry);
   return geometry;
 }
-
