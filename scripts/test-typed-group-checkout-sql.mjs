@@ -19,8 +19,8 @@ create table smartwaiver_legacy_participant_name_corrections(id uuid primary key
 create table smartwaiver_legacy_visits(id uuid primary key,status text);
 create table smartwaiver_legacy_check_ins(id uuid primary key,legacy_participant_id uuid,legacy_waiver_id uuid,legacy_visit_id uuid,business_day_ymd text,status text,created_at timestamptz,staff_id text);
 create table smartwaiver_legacy_payment_entries(legacy_check_in_id uuid,amount_cents int);
-create table facility_bookings(id uuid primary key,start_time timestamptz);
-create table facility_party_guests(booking_id uuid,waiver_participant_id uuid,checked_in_at timestamptz);`);
+create table facility_bookings(id uuid primary key,start_time timestamptz,readable_date text,status text,child_name text);`);
+await db.exec(fs.readFileSync("supabase/migrations/20260819111500_create_facility_party_guests.sql", "utf8"));
 for (const file of [
   "20261006193000_open_play_desk_tickets.sql",
   "20261006201500_keep_existing_checkins_on_desk.sql",
@@ -46,6 +46,7 @@ for (const file of [
   "20261007123000_desk_checkout_passes.sql",
   "20261007124000_publish_group_waiver_terms.sql",
   "20261007190000_preserve_existing_waivers.sql",
+  "20261010110000_desk_birthday_party_checkout.sql",
 ])
   await db.exec(fs.readFileSync("supabase/migrations/" + file, "utf8"));
 const version = (
@@ -294,4 +295,36 @@ await assert.rejects(()=>db.query("insert into waiver_submissions(public_token_h
 console.log(
   "PASS: existing signed waivers check in without renewal (including prior minors now 18); expired/voided waivers remain blocked; new typed evidence still required; typed signatures and guardian links; native + imported checkout; $7/$10 passes; receipts and replay protection; public access denied.",
 );
+// Birthday party checkout includes both waiver sources and a playing adult at $0.
+const party=crypto.randomUUID(),otherParty=crypto.randomUUID(),cancelled=crypto.randomUUID();
+for(const [id,date,status] of [[party,day,'confirmed'],[otherParty,'2026-10-08','confirmed'],[cancelled,day,'cancelled']])
+ await db.query("insert into facility_bookings values($1,'2026-10-07T18:00:00Z',$2,$3,'Birthday Child')",[id,date,status]);
+const partyTicket=crypto.randomUUID(),partyLegacy=crypto.randomUUID();
+await db.query("insert into smartwaiver_legacy_participants values($1,$2,'party-legacy','Party','Legacy','2020-01-01','child')",[partyLegacy,legacyWaiver]);
+await cmd('create_ticket',{ticketId:partyTicket});
+for(const [source,participantId] of [['native',native.find(p=>p.first_name==='Young').id],['native',native.find(p=>p.first_name==='Morgan').id],['legacy_smartwaiver',partyLegacy]])
+ await cmd('add',{ticketId:partyTicket,source,participantId});
+const partyItems=(await db.query('select * from open_play_checkout_items where ticket_id=$1',[partyTicket])).rows;
+for(const i of partyItems.filter(i=>!i.classification)) await cmd('edit',{ticketId:partyTicket,itemId:i.id,classification:'playing_adult',amountCents:1000});
+const partyRequest={ticketId:partyTicket,idempotencyKey:crypto.randomUUID(),method:null,freePassItemIds:[],birthdayPartyId:party};
+const paymentCount=await count('open_play_checkout_payments'),passCount=await count('open_play_checkout_passes');
+for(const birthdayPartyId of [crypto.randomUUID(),otherParty,cancelled])
+ await assert.rejects(()=>complete({...partyRequest,birthdayPartyId}),/available birthday party/);
+await assert.rejects(()=>complete({...partyRequest,method:'cash'}),/admission is free/);
+await assert.rejects(()=>complete({...partyRequest,freePassItemIds:[partyItems[0].id]}),/admission is free/);
+assert.equal(await count('facility_party_guests'),0);
+assert.equal((await db.query('select sum(credited_cents)::int n from open_play_checkout_items where ticket_id=$1',[partyTicket])).rows[0].n,0);
+const partyReceipt=await complete(partyRequest);
+assert.equal(partyReceipt.birthdayPartyId,party);assert.equal(partyReceipt.amountPaidCents,0);assert.equal(partyReceipt.freePassCount,0);
+assert.equal(await count('facility_party_guests'),3);
+assert.equal((await db.query('select count(*)::int n from open_play_desk_attendance where facility_party_booking_id=$1',[party])).rows[0].n,3);
+assert.equal((await db.query('select sum(amount_cents-credited_cents)::int n from open_play_checkout_items where ticket_id=$1',[partyTicket])).rows[0].n,0);
+assert.equal((await db.query('select count(*)::int n from facility_party_guests where checked_in_at is not null')).rows[0].n,3);
+assert.equal((await db.query('select count(*)::int n from facility_party_guests where legacy_participant_id=$1',[partyLegacy])).rows[0].n,1);
+assert.deepEqual(await complete(partyRequest),partyReceipt);
+assert.equal(await count('facility_party_guests'),3);
+await assert.rejects(()=>complete({...partyRequest,birthdayPartyId:cancelled}),/retry changed/);
+assert.equal(await count('open_play_checkout_payments'),paymentCount);
+assert.equal(await count('open_play_checkout_passes'),passCount);
+console.log('PASS: birthday party checkout, native/imported guests, playing adults, zero payment/pass use, invalid-party rollback and duplicate retry protection.');
 await db.close();

@@ -54,8 +54,10 @@ type WaiverParticipantLookup = {
 
 type FacilityPartyGuestRow = {
   id: string;
-  waiver_submission_id: string;
-  waiver_participant_id: string;
+  waiver_submission_id: string | null;
+  waiver_participant_id: string | null;
+  legacy_waiver_id?: string | null;
+  legacy_participant_id?: string | null;
   guest_first_name: string;
   guest_last_name: string;
   guest_dob: string;
@@ -76,8 +78,8 @@ function firstRelated<T>(value: T | T[] | null | undefined): T | null {
 function toGuest(row: FacilityPartyGuestRow): FacilityPartyGuest {
   return {
     id: row.id,
-    participantId: row.waiver_participant_id,
-    submissionId: row.waiver_submission_id,
+    participantId: row.waiver_participant_id ?? row.legacy_participant_id!,
+    submissionId: row.waiver_submission_id ?? row.legacy_waiver_id!,
     firstName: row.guest_first_name,
     lastName: row.guest_last_name,
     dob: row.guest_dob,
@@ -330,7 +332,7 @@ async function upsertPartyGuest(input: {
       { onConflict: "booking_id,waiver_participant_id" },
     )
     .select(
-      "id, waiver_submission_id, waiver_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
+      "id, waiver_submission_id, waiver_participant_id, legacy_waiver_id, legacy_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
     )
     .single<FacilityPartyGuestRow>();
   if (error) throw new Error(error.message);
@@ -462,7 +464,7 @@ export async function loadFacilityPartyGuests(bookingId: string) {
   const { data, error } = await supabase
     .from("facility_party_guests")
     .select(
-      "id, waiver_submission_id, waiver_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
+      "id, waiver_submission_id, waiver_participant_id, legacy_waiver_id, legacy_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
     )
     .eq("booking_id", bookingId)
     .order("guest_last_name", { ascending: true })
@@ -492,7 +494,7 @@ export async function setFacilityPartyGuestPresent(input: {
     .eq("booking_id", input.bookingId)
     .eq("id", input.guestId)
     .select(
-      "id, waiver_submission_id, waiver_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
+      "id, waiver_submission_id, waiver_participant_id, legacy_waiver_id, legacy_participant_id, guest_first_name, guest_last_name, guest_dob, participant_role, signer_first_name, signer_last_name, waiver_expires_on, checked_in_at, checked_in_by, created_at",
     )
     .maybeSingle<FacilityPartyGuestRow>();
   if (error) throw new Error(error.message);

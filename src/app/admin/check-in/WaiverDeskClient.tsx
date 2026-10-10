@@ -65,6 +65,8 @@ export function WaiverDeskClient({
     [passes, setPasses] = useState<string[]>([]),
     [showPasses, setShowPasses] = useState(false),
     [manage, setManage] = useState(false);
+  const [showParty, setShowParty] = useState(false),
+    [birthdayPartyId, setBirthdayPartyId] = useState<string | null>(null);
   const [nameTarget, setNameTarget] = useState<EditableWaiverName | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [savedCheckoutId, setSavedCheckoutId] = useState<string | null>(null);
@@ -103,7 +105,8 @@ export function WaiverDeskClient({
           : 0),
       0,
     ) ?? 0;
-  const due = Math.max(0, (base?.due ?? 0) - deduction);
+  const partyDeduction = showParty && birthdayPartyId ? base?.due ?? 0 : 0;
+  const due = Math.max(0, (base?.due ?? 0) - deduction - partyDeduction);
   useEffect(() => {
     if (error || message) feedback.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [error, message]);
@@ -115,6 +118,8 @@ export function WaiverDeskClient({
     setTicketId(id);
     setPasses([]);
     setMethod(null);
+    setBirthdayPartyId(null);
+    setShowParty(false);
     attempt.current = null;
     setPendingCheckout(false);
     try {
@@ -170,6 +175,8 @@ export function WaiverDeskClient({
         setMethod(restored.method);
         setPasses(restored.passes);
         setShowPasses(restored.passes.length > 0);
+        setBirthdayPartyId(restored.birthdayPartyId ?? null);
+        setShowParty(!!restored.birthdayPartyId);
         setStage("checkout");
       }
     });
@@ -395,14 +402,15 @@ export function WaiverDeskClient({
       setError("Choose cash or card for the balance.");
       return;
     }
-    const key = checkoutRequestKey(ticket.id, method, passes);
+    if (showParty && !birthdayPartyId) { setError("Choose the birthday party for this checkout group."); return; }
+    const key = checkoutRequestKey(ticket.id, method, passes, birthdayPartyId);
     if (attempt.current && attempt.current.key !== key) {
       setError(
         "Refresh and check the previous checkout before changing a retry.",
       );
       return;
     }
-    attempt.current ??= { key, id: crypto.randomUUID(), ticketId: ticket.id, method, passes: [...passes] };
+    attempt.current ??= { key, id: crypto.randomUUID(), ticketId: ticket.id, method, passes: [...passes], birthdayPartyId };
     setPendingCheckout(true);
     try { window.localStorage.setItem(storageKey + ":checkout", JSON.stringify(attempt.current)); }
     catch { /* The server also prevents recording checkout twice for a ticket. */ }
@@ -415,9 +423,10 @@ export function WaiverDeskClient({
         idempotencyKey: attempt.current.id,
         method,
         freePassItemIds: passes,
+        birthdayPartyId,
       });
       resetCheckout();
-      setMessage("Checkout complete. Ready for the next customer.");
+      setMessage(birthdayPartyId ? "Birthday party check-in complete — free play. Ready for the next customer." : "Checkout complete. Ready for the next customer.");
       await refresh().catch(() =>
         setError("Checkout is saved. Refresh to reload the latest attendance."),
       );
@@ -670,18 +679,17 @@ export function WaiverDeskClient({
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h1 className="text-3xl font-black">Checkout</h1>
               <p className="mt-2 text-slate-600">
-                Assign passes to their recipients, then record cash or card
-                collected for the remaining balance.
+                Choose cash, card, free passes, or a birthday party for free play.
               </p>
-              <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {(["card", "cash"] as const).map((m) => (
                   <button
                     type="button"
                     key={m}
-                    disabled={busy || pendingCheckout || due === 0}
+                    disabled={busy || pendingCheckout || (due === 0 && !showParty)}
                     aria-pressed={due > 0 && method === m}
                     className={checkoutChoice(due > 0 && method === m)}
-                    onClick={() => setMethod(m)}
+                    onClick={() => { setShowParty(false); setBirthdayPartyId(null); setMethod(m); }}
                   >
                     {due > 0 && method === m && <span aria-hidden="true">✓ </span>}
                     {m === "card" ? "Card" : "Cash"}
@@ -694,14 +702,31 @@ export function WaiverDeskClient({
                   aria-pressed={passes.length > 0}
                   disabled={busy || pendingCheckout}
                   className={checkoutChoice(showPasses || passes.length > 0)}
-                  onClick={() => setShowPasses((v) => !v)}
+                  onClick={() => { setShowParty(false); setBirthdayPartyId(null); setShowPasses((v) => !v); }}
                 >
                   {passes.length > 0 && <span aria-hidden="true">✓ </span>}
                   Free pass
                 </button>
+                <button type="button" aria-expanded={showParty} aria-controls="checkout-birthday-party" aria-pressed={showParty}
+                  disabled={busy || pendingCheckout || (base?.paid ?? 0) > 0} className={checkoutChoice(showParty)}
+                  onClick={() => { setShowParty(v => !v); setBirthdayPartyId(null); setPasses([]); setShowPasses(false); setMethod(null); }}>
+                  {showParty && <span aria-hidden="true">✓ </span>}Birthday party
+                </button>
               </div>
+              {showParty && <fieldset id="checkout-birthday-party" className="mt-5 rounded-xl border-2 border-emerald-200 p-4">
+                <legend className="px-2 font-black">Birthday party — free play</legend>
+                <label className="block font-bold">Choose birthday party
+                  <select value={birthdayPartyId ?? ""} disabled={busy || pendingCheckout} onChange={e => setBirthdayPartyId(e.target.value || null)}
+                    className="mt-2 min-h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-3 text-slate-900">
+                    <option value="">Select a party</option>
+                    {(state.birthdayParties ?? []).map(party => <option key={party.id} value={party.id}>{party.label}</option>)}
+                  </select>
+                </label>
+                <p className="mt-3 text-sm text-slate-600">Everyone on this checkout will be checked into the selected party. Admission is free and uses no free passes.</p>
+                {!state.birthdayParties?.length && <p className="mt-2 font-bold text-amber-800">No birthday parties are available for this date. Use Refresh to check again.</p>}
+              </fieldset>}
               <p role="status" className="mt-3 font-bold text-emerald-800">
-                {due > 0
+                {showParty ? birthdayPartyId ? "Birthday party — free play. No payment is due." : "Choose a birthday party to apply free play." : due > 0
                   ? `Payment: ${method === "card" ? "Card" : method === "cash" ? "Cash" : "Choose cash or card"}${passes.length > 0 ? ` + ${passes.length} free ${passes.length === 1 ? "pass" : "passes"}` : ""}`
                   : deduction > 0 ? "Free passes cover the balance." : "No payment is due."}
               </p>
@@ -762,6 +787,7 @@ export function WaiverDeskClient({
                   <dt>Free passes</dt>
                   <dd>−{formatCents(deduction)}</dd>
                 </div>
+                {showParty && <div className="flex justify-between text-emerald-800"><dt>Birthday party — free play</dt><dd>−{formatCents(partyDeduction)}</dd></div>}
                 <div className="flex justify-between text-2xl font-black">
                   <dt>Amount due</dt>
                   <dd>{formatCents(due)}</dd>
@@ -785,7 +811,7 @@ export function WaiverDeskClient({
                   type="button"
                   className={primary}
                   disabled={
-                    busy || recovering || !base?.ready || !!completed || (due > 0 && !method)
+                    busy || recovering || !base?.ready || !!completed || (due > 0 && !method) || (showParty && !birthdayPartyId)
                   }
                   onClick={() => void complete()}
                 >

@@ -106,6 +106,10 @@ export function includeDeskReport(
     existing.attendee.deskAttendanceId = person.id;
     existing.attendee.checkoutTicketId = line?.ticket_id;
     existing.attendee.checkedOutAt = person.checked_out_at;
+    if (person.facility_party_booking_id) {
+      existing.attendee.facilityParty = { bookingId: person.facility_party_booking_id, label: "Facility party" };
+      if (person.role !== "child") existing.attendee.classification = "party_adult";
+    }
     existing.attendee.firstName = person.first_name;
     existing.attendee.lastName = person.last_name;
     existing.attendee.fullName = `${person.first_name} ${person.last_name}`;

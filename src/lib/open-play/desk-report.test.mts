@@ -30,6 +30,23 @@ test("six arrivals count before payment, across both waiver sources", () => {
   assert.equal(report.totalAttendance, 6); assert.equal(report.paidAttendance, 0); assert.equal(report.combinedTotalCents, 0);
   assert.equal(ticketTotals(state.tickets[0]).due, 5700);
 });
+
+test("birthday party guests count once with no admission revenue or free passes", () => {
+  const state: DeskState = fixture();
+  for (const person of state.people) person.facility_party_booking_id = "birthday-party";
+  state.people[0].role = "adult_signer";
+  state.tickets[0].items[0].classification = "playing_adult";
+  for (const item of state.tickets[0].items) item.credited_cents = item.amount_cents!;
+  const report = includeDeskReport(empty(), state);
+  assert.equal(report.totalAttendance, 6);
+  assert.equal(report.paidAttendance, 0);
+  assert.equal(report.partyAdults, 1);
+  assert.equal(report.freePassAttendance, 0);
+  assert.equal(report.combinedTotalCents, 0);
+  assert.equal(ticketTotals(state.tickets[0]).due, 0);
+  assert.ok(report.visits.flatMap(visit => visit.attendees).every(person => person.facilityParty?.bookingId === "birthday-party"));
+  assert.equal(includeDeskReport(report, state).totalAttendance, 6);
+});
 test("one shared receipt is allocated once, and split payments reconcile", () => {
   const state = fixture(), ticket = state.tickets[0];
   ticket.payments = [{ id: "cash", ticket_id: "ticket", method: "cash", amount_cents: 2000, reference: "cash receipt", created_at: "2026-10-06T18:05:00Z", created_by_staff_id: "staff" },
