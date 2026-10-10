@@ -952,6 +952,7 @@ export function WaiverDeskClient({
           initial={state}
           isOwner={isOwner}
           readOnly={readOnly}
+          onSaved={() => void refresh().catch(() => setError("Saved. Use Refresh to update the current desk view."))}
         />
       )}
       {nameTarget && (

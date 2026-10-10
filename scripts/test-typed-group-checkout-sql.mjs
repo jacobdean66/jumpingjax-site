@@ -327,4 +327,57 @@ await assert.rejects(()=>complete({...partyRequest,birthdayPartyId:cancelled}),/
 assert.equal(await count('open_play_checkout_payments'),paymentCount);
 assert.equal(await count('open_play_checkout_passes'),passCount);
 console.log('PASS: birthday party checkout, native/imported guests, playing adults, zero payment/pass use, invalid-party rollback and duplicate retry protection.');
+await db.exec(fs.readFileSync('supabase/migrations/20261010150000_desk_checkin_corrections.sql','utf8'));
+const correct = async (p, date=day) => (await db.query('select correct_open_play_desk_checkin($1,$2,$3) result',
+ [date,'qa-staff',JSON.stringify(p)])).rows[0].result;
+const correction = { action:'correct_checkin',attendanceId:legacyPresence.id,method:'cash',amountCents:700,paymentPeriod:'All day',reason:'Wrong payment option' };
+await correct(correction);
+assert.equal((await db.query('select sum(amount_cents)::int n from open_play_checkout_payments where ticket_id=$1',[ticket])).rows[0].n,1700);
+assert.equal((await db.query('select payment_period from open_play_desk_attendance where id=$1',[legacyPresence.id])).rows[0].payment_period,'All day');
+await correct({...correction,method:'card',amountCents:900});
+assert.equal((await db.query('select sum(amount_cents)::int n from open_play_checkout_payments where ticket_id=$1',[ticket])).rows[0].n,1900);
+// Unrelated guest retains their $10 card receipt, and the corrected guest has $9 card.
+assert.deepEqual((await db.query(`select p.method,p.amount_cents from open_play_checkout_payments p where ticket_id=$1 and entry_type='payment'
+ and not exists(select 1 from open_play_checkout_payments v where v.related_payment_id=p.id) order by amount_cents`,[ticket])).rows,
+ [{method:'card',amount_cents:900},{method:'card',amount_cents:1000}]);
+await assert.rejects(()=>correct({...correction,amountCents:50100}),/valid payment/);
+await assert.rejects(()=>correct({...correction,method:'invalid'}),/valid payment/);
+await assert.rejects(()=>correct(correction,'2026-10-08'),/not found/);
+await assert.rejects(()=>correct({...correction,method:'birthday_party',amountCents:0,birthdayPartyId:cancelled}),/available birthday party/);
+await assert.rejects(()=>cmd('edit',{ticketId:ticket,itemId:passItem.id,classification:'child_2_or_under',amountCents:700}),/locked/);
+await assert.rejects(()=>db.query('update open_play_checkout_payments set amount_cents=1'),/immutable/);
+const deletion={action:'delete_checkin',attendanceId:legacyPresence.id,reason:'Duplicate arrival'};
+await correct(deletion); await correct(deletion);
+assert.equal((await db.query('select sum(amount_cents)::int n from open_play_checkout_payments where ticket_id=$1',[ticket])).rows[0].n,1000);
+assert.ok((await db.query('select deleted_at from open_play_desk_attendance where id=$1',[legacyPresence.id])).rows[0].deleted_at);
+assert.equal((await db.query('select count(*)::int n from smartwaiver_legacy_participants where id=$1',[legacyId])).rows[0].n,1);
+// A deleted arrival can be checked in again, with a new ticket and no stale receipt credit.
+const replacement=crypto.randomUUID(); await cmd('create_ticket',{ticketId:replacement});
+const newArrival=await cmd('add',{ticketId:replacement,source:'legacy_smartwaiver',participantId:legacyId});
+assert.equal(newArrival.ticketId,replacement);
+const newPresence=(await db.query('select id from open_play_desk_attendance where legacy_participant_id=$1 and deleted_at is null',[legacyId])).rows[0];
+assert.notEqual(newPresence.id,legacyPresence.id);
+assert.equal((await db.query('select credited_cents from open_play_checkout_items where attendance_id=$1',[newPresence.id])).rows[0].credited_cents,0);
+// Party deletion clears the corresponding birthday roster check-in.
+const partyPresence=(await db.query('select id from open_play_desk_attendance where legacy_participant_id=$1',[partyLegacy])).rows[0];
+await correct({action:'delete_checkin',attendanceId:partyPresence.id,reason:'Wrong party guest'});
+assert.equal((await db.query('select checked_in_at from facility_party_guests where legacy_participant_id=$1',[partyLegacy])).rows[0].checked_in_at,null);
+const nativeParty=(await db.query('select id from open_play_desk_attendance where participant_id=$1',[native.find(p=>p.first_name==='Young').id])).rows[0];
+await correct({action:'correct_checkin',attendanceId:nativeParty.id,method:'cash',amountCents:700,paymentPeriod:'1 hour',reason:'Paid admission instead of party'});
+assert.equal((await db.query('select facility_party_booking_id from open_play_desk_attendance where id=$1',[nativeParty.id])).rows[0].facility_party_booking_id,null);
+await correct({action:'correct_checkin',attendanceId:nativeParty.id,method:'birthday_party',amountCents:0,birthdayPartyId:party,reason:'Restore party admission'});
+assert.equal((await db.query('select facility_party_booking_id from open_play_desk_attendance where id=$1',[nativeParty.id])).rows[0].facility_party_booking_id,party);
+assert.equal((await db.query('select sum(amount_cents)::int n from open_play_checkout_payments where ticket_id=$1',[partyTicket])).rows[0].n,0);
+// A party roster arrival without a checkout ticket can also be deleted.
+const syntheticParticipant=crypto.randomUUID();
+await db.query(`insert into waiver_participants(id,submission_id,first_name,last_name,dob,role,guardian_participant_id)
+ select $1,submission_id,'Roster','Only',dob,role,guardian_participant_id from waiver_participants where id=$2`,[syntheticParticipant,native.find(p=>p.first_name==='Young').id]);
+const syntheticGuest=(await db.query(`insert into facility_party_guests(booking_id,waiver_submission_id,waiver_participant_id,guest_first_name,guest_last_name,
+ guest_dob,participant_role,signer_first_name,signer_last_name,waiver_expires_on,checked_in_at,checked_in_by)
+ select $1,p.submission_id,p.id,p.first_name,p.last_name,p.dob,p.role,s.signer_first_name,s.signer_last_name,s.expires_on,now(),'qa-staff'
+ from waiver_participants p join waiver_submissions s on s.id=p.submission_id where p.id=$2 returning id`,[party,syntheticParticipant])).rows[0];
+await correct({action:'delete_checkin',attendanceId:'facility:'+syntheticGuest.id,reason:'Wrong roster arrival'});
+assert.equal((await db.query('select checked_in_at from facility_party_guests where id=$1',[syntheticGuest.id])).rows[0].checked_in_at,null);
+assert.equal((await db.query("select has_function_privilege('anon','correct_open_play_desk_checkin(text,text,jsonb)','EXECUTE') allowed")).rows[0].allowed,false);
+console.log('PASS: completed payment correction, period storage, shared receipt preservation, validation rollback, historical-date isolation, soft deletion, party deletion, re-check-in and access control.');
 await db.close();

@@ -21,6 +21,7 @@ import {
   type EditableWaiverName,
 } from "@/components/open-play/EditWaiverNameDialog";
 import { classificationLabel } from "@/lib/open-play/daily-report-client";
+import { EditCheckInDialog, checkInPayment } from "./EditCheckInDialog";
 
 type Guest = StaffWaiverParticipant | StaffSearchResult;
 const button =
@@ -44,11 +45,13 @@ export function WaiverDeskManager({
   initial,
   isOwner = false,
   readOnly = false,
+  onSaved,
 }: {
   day: string;
   initial: DeskState | null;
   isOwner?: boolean;
   readOnly?: boolean;
+  onSaved?: () => void;
 }) {
   const [state, setState] = useState<DeskState>(
     initial ?? { people: [], tickets: [] },
@@ -65,6 +68,7 @@ export function WaiverDeskManager({
   const [busy, setBusy] = useState(false);
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [nameTarget, setNameTarget] = useState<EditableWaiverName | null>(null);
+  const [checkInTarget, setCheckInTarget] = useState<{ person: DeskPerson; deleting: boolean } | null>(null);
   const [method, setMethod] = useState<"cash" | "card">("cash");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [reference, setReference] = useState("");
@@ -194,7 +198,7 @@ export function WaiverDeskManager({
     payload: Record<string, unknown>,
     success: string,
   ) {
-    if (readOnly && action !== "void_payment") {
+    if (readOnly && !["void_payment", "correct_checkin", "delete_checkin"].includes(action)) {
       setError(
         "Past attendance and admission are read-only. Open Today's desk to mark arrivals.",
       );
@@ -218,6 +222,7 @@ export function WaiverDeskManager({
           body.error || "Unable to save. Refresh to check the saved state.",
         );
       setMessage(success);
+      onSaved?.();
       try {
         await refresh();
       } catch {
@@ -830,6 +835,7 @@ export function WaiverDeskManager({
               ticket.items.some((item) => item.attendance_id === person.id),
             );
             const total = savedTicket ? ticketTotals(savedTicket) : null;
+            const payment = checkInPayment(person, savedTicket);
             return (
               <li
                 key={person.id}
@@ -848,12 +854,19 @@ export function WaiverDeskManager({
                     ? `Ticket #${savedTicket.id.slice(0, 8)} · ${total!.ready && total!.due === 0 ? "Settled" : "Payment pending"}`
                     : "No checkout ticket yet"}
                 </p>
+                <p className="mt-1 text-sm font-semibold capitalize">{payment.label}{payment.amount > 0 ? ` · ${formatCents(payment.amount)}` : ""}{person.payment_period ? ` · ${person.payment_period}` : ""}</p>
                 {person.waiver_expires_on <= day && (
                   <p className="font-bold text-rose-800">
                     Needs a current waiver
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
+                  {isOwner && <><button className={button} disabled={busy} onClick={() => {
+                    setError(""); setCheckInTarget({ person, deleting: false });
+                  }}>Edit check-in</button>
+                  <button className={`${button} text-rose-800`} disabled={busy} onClick={() => {
+                    setError(""); setCheckInTarget({ person, deleting: true });
+                  }}>Delete check-in</button></>}
                   <button
                     className={button}
                     disabled={busy}
@@ -899,6 +912,12 @@ export function WaiverDeskManager({
           }}
         />
       )}
+      {checkInTarget && <EditCheckInDialog key={checkInTarget.person.id + String(checkInTarget.deleting)}
+        person={checkInTarget.person} deleting={checkInTarget.deleting} parties={state.birthdayParties}
+        ticket={state.tickets.find(t => t.items.some(i => i.attendance_id === checkInTarget.person.id))}
+        busy={busy} error={error} onClose={() => setCheckInTarget(null)}
+        onSave={async values => Boolean(await command(checkInTarget.deleting ? "delete_checkin" : "correct_checkin", values,
+          checkInTarget.deleting ? "Check-in deleted. Attendance and payment totals updated." : "Check-in payment details saved."))} />}
     </div>
   );
 }

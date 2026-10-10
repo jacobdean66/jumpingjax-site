@@ -27,15 +27,27 @@ export function includeDeskReport(
     string,
     { visit: VisitSnapshot; attendee: VisitAttendeeSnapshot }
   >();
+  const deleted = new Set((state.deletedPeople ?? []).map(p => p.identity_key.split("|deleted:")[0]));
+  const corrected = new Set(state.people.filter(p => p.corrected_at).map(p => p.identity_key));
   for (const visit of visits) {
     if (visit.status === "voided") continue;
     for (const attendee of visit.attendees) {
-      if (attendee.status !== "active" || !attendee.birthDate) continue;
-      const key = personIdentity(
+      const sourcePerson = [...state.people, ...(state.deletedPeople ?? [])].find(person =>
+        attendee.participantRecordId && attendee.participantRecordId === (person.participant_id ?? person.legacy_participant_id)
+        && (attendee.source ?? visit.source ?? "native") === person.source);
+      if (!attendee.birthDate && !sourcePerson) continue;
+      const key = sourcePerson?.identity_key.split("|deleted:")[0] ?? personIdentity(
         attendee.originalFirstName || attendee.firstName || "",
         attendee.originalLastName || attendee.lastName || "",
-        attendee.birthDate,
+        attendee.birthDate!,
       );
+      if (deleted.has(key)) {
+        attendee.status = "removed";
+        visit.payments = visit.payments.filter(payment => payment.attendeeId !== attendee.id);
+        continue;
+      }
+      if (corrected.has(key)) visit.payments = visit.payments.filter(payment => payment.attendeeId !== attendee.id);
+      if (attendee.status !== "active") continue;
       if (byIdentity.has(key)) {
         attendee.status = "removed";
         continue;
@@ -104,6 +116,12 @@ export function includeDeskReport(
       byIdentity.set(person.identity_key, existing);
     }
     existing.attendee.deskAttendanceId = person.id;
+    if (person.corrected_at) {
+      // A corrected desk receipt supersedes this person's older admission ledger.
+      existing.visit.payments = existing.visit.payments.filter(payment => payment.attendeeId !== existing!.attendee.id);
+      existing.attendee.unitPriceCents = line?.amount_cents ?? 0;
+      existing.attendee.facilityParty = undefined;
+    }
     existing.attendee.checkoutTicketId = line?.ticket_id;
     existing.attendee.checkedOutAt = person.checked_out_at;
     if (person.facility_party_booking_id) {
