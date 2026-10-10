@@ -90,3 +90,31 @@ test("voiding a group receipt preserves attendance and reverses the ledger once"
   assert.equal(report.combinedTotalCents, 0); assert.equal(report.voids, 1);
   assert.equal(ticketTotals(ticket).due, 5700);
 });
+
+test("correction retains other guests' money and replaces the older ledger once", () => {
+  const state = fixture(), ticket = state.tickets[0], person = state.people[0];
+  person.corrected_at = "2026-10-06T20:00:00Z";
+  ticket.items[0].amount_cents = 700;
+  const original = { id: "old-group", ticket_id: "ticket", method: "card" as const, amount_cents: 5700, reference: "", created_at: person.checked_in_at, created_by_staff_id: "staff" };
+  ticket.payments = [original, { ...original, id: "void-group", amount_cents: -5700, entry_type: "void", related_payment_id: original.id },
+    ...ticket.items.map((item,index) => ({ ...original, id: `replacement-${index}`, item_id: item.id, method: index===0 ? "cash" as const : "card" as const, amount_cents: item.amount_cents! }))];
+  const older = buildDailyReport("2026-10-06", [{ id:"old-visit",visitDate:"2026-10-06",businessDayYmd:"2026-10-06",status:"open",notes:null,createdAt:person.checked_in_at,
+    attendees:[{id:"old-attendee",visitId:"old-visit",firstName:person.first_name,lastName:person.last_name,birthDate:person.dob!,classification:"child_3_plus",unitPriceCents:1000,status:"active"}],
+    payments:[{id:"old-payment",visitId:"old-visit",attendeeId:"old-attendee",entryType:"charge",method:"cash",amountCents:1000,relatedEntryId:null,reason:null,createdByStaffId:"staff",createdAt:person.checked_in_at}] }]);
+  const report = includeDeskReport(older,state);
+  assert.equal(report.totalAttendance,6); assert.equal(report.cashTotalCents,700); assert.equal(report.cardTotalCents,4700);
+  assert.equal(report.combinedTotalCents,5400); assert.equal(ticketTotals(ticket).due,0);
+  assert.equal(allocateTicketPayments(ticket).find(row=>row.item.attendance_id===person.id)?.amount,700);
+});
+
+test("deleted check-in removes old and current admission money without losing group payments", () => {
+  const state = fixture(), person = state.people.shift()!, ticket = state.tickets[0];
+  state.deletedPeople = [{ ...person, deleted_at:"2026-10-06T20:00:00Z",identity_key:person.identity_key+"|deleted:"+person.id }];
+  ticket.items.shift();
+  ticket.payments = ticket.items.map(item=>({id:`replacement-${item.id}`,ticket_id:ticket.id,item_id:item.id,method:"card",amount_cents:item.amount_cents!,reference:"",created_at:person.checked_in_at,created_by_staff_id:"staff"}));
+  const before = buildDailyReport("2026-10-06",[{id:"old-visit",visitDate:"2026-10-06",businessDayYmd:"2026-10-06",status:"open",notes:null,createdAt:person.checked_in_at,
+    attendees:[{id:"old-attendee",visitId:"old-visit",firstName:person.first_name,lastName:person.last_name,birthDate:person.dob!,classification:"child_3_plus",unitPriceCents:1000,status:"removed"}],
+    payments:[{id:"old-payment",visitId:"old-visit",attendeeId:"old-attendee",entryType:"charge",method:"cash",amountCents:1000,relatedEntryId:null,reason:null,createdByStaffId:"staff",createdAt:person.checked_in_at}] }]);
+  const report = includeDeskReport(before,state);
+  assert.equal(report.totalAttendance,5); assert.equal(report.combinedTotalCents,4700); assert.equal(report.cashTotalCents,0);
+});

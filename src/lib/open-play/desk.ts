@@ -16,6 +16,11 @@ export type DeskPerson = {
   checked_out_at: string | null;
   created_by_staff_id: string;
   facility_party_booking_id?: string;
+  deleted_at?: string | null;
+  corrected_at?: string | null;
+  payment_period?: string;
+  corrected_method?: "cash" | "card" | "free_pass" | "birthday_party" | "unpaid" | "no_charge";
+  prior_payment?: { cash: number; card: number };
 };
 export type DeskItem = {
   id: string;
@@ -37,6 +42,7 @@ export type DeskPayment = {
   entry_type?: "payment" | "void";
   related_payment_id?: string | null;
   reason?: string;
+  item_id?: string | null;
 };
 export type DeskTicket = {
   completed_at?: string | null;
@@ -60,6 +66,7 @@ export type DeskState = {
   people: DeskPerson[];
   tickets: DeskTicket[];
   freePasses?: DeskPass[];
+  deletedPeople?: DeskPerson[];
 };
 
 export function dollarsToCents(value: string): number | null {
@@ -108,28 +115,18 @@ export function allocateTicketPayments(ticket: DeskTicket) {
       Math.max(0, (item.amount_cents ?? 0) - item.credited_cents),
     ]),
   );
-  const allocations = new Map<
-    string,
-    Array<{ item: DeskItem; amount: number }>
-  >();
+  // Allocate only current receipts. Historical receipts remain visible for audit,
+  // but a correction must not reallocate a reversed group receipt to other guests.
+  const voided = new Set(ticket.payments.filter(p => p.entry_type === "void").map(p => p.related_payment_id));
   return ticket.payments.flatMap((payment) => {
-    if (payment.entry_type === "void") {
-      return (allocations.get(payment.related_payment_id ?? "") ?? []).map(
-        ({ item, amount }) => {
-          remaining.set(item.id, (remaining.get(item.id) ?? 0) + amount);
-          return { payment, item, amount: -amount };
-        },
-      );
-    }
+    if (payment.entry_type === "void" || voided.has(payment.id)) return [];
     let unallocated = payment.amount_cents;
     return ticket.items.flatMap((item) => {
+      if (payment.item_id && payment.item_id !== item.id) return [];
       const amount = Math.min(unallocated, remaining.get(item.id) ?? 0);
       if (!amount) return [];
       remaining.set(item.id, (remaining.get(item.id) ?? 0) - amount);
       unallocated -= amount;
-      const saved = allocations.get(payment.id) ?? [];
-      saved.push({ item, amount });
-      allocations.set(payment.id, saved);
       return [{ payment, item, amount }];
     });
   });

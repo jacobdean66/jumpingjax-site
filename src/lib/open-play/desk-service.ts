@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { isYmd } from "./pricing";
+import { ageInCompletedYearsOnDate } from "./pricing";
 import type {
   DeskState,
   DeskPerson,
@@ -58,13 +59,46 @@ export async function loadDeskState(day: string): Promise<DeskState> {
         .in("ticket_id", ids)
     : { data: [], error: null };
   if (passResult.error) throw new Error("Unable to load free-pass records");
-  const people = (presence.data ?? []) as DeskPerson[];
+  const allPeople = (presence.data ?? []) as DeskPerson[];
+  const correctionResult = allPeople.length ? await db.from("open_play_desk_checkin_corrections")
+    .select("attendance_id,method,id").in("attendance_id", allPeople.map(p => p.id)).order("id", { ascending: false })
+    : { data: [], error: null };
+  if (correctionResult.error) throw new Error("Unable to load check-in corrections");
+  for (const person of allPeople) {
+    const correction = correctionResult.data?.find(c => c.attendance_id === person.id);
+    if (correction?.method) person.corrected_method = correction.method as DeskPerson["corrected_method"];
+    else if ((passResult.data as DeskPass[] | null)?.some(pass => pass.attendance_id === person.id)) person.corrected_method = "free_pass";
+  }
+  const people = allPeople.filter(person => !person.deleted_at);
   const nativeIds = people.flatMap((person) =>
     person.participant_id ? [person.participant_id] : [],
   );
   const legacyIds = people.flatMap((person) =>
     person.legacy_participant_id ? [person.legacy_participant_id] : [],
   );
+  const priorPayments = await Promise.all([
+    nativeIds.length ? db.from("open_play_visit_attendees")
+      .select("participant_id,open_play_payment_entries(method,amount_cents)")
+      .eq("business_day_ymd", day).eq("status", "active").in("participant_id", nativeIds)
+      : Promise.resolve({ data: [], error: null }),
+    legacyIds.length ? db.from("smartwaiver_legacy_check_ins")
+      .select("legacy_participant_id,smartwaiver_legacy_payment_entries(method,amount_cents)")
+      .eq("business_day_ymd", day).eq("status", "active").in("legacy_participant_id", legacyIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (priorPayments.some(result => result.error)) throw new Error("Unable to load prior check-in payments");
+  type PriorRow = { participant_id?: string; legacy_participant_id?: string;
+    open_play_payment_entries?: { method: "cash" | "card"; amount_cents: number }[];
+    smartwaiver_legacy_payment_entries?: { method: "cash" | "card"; amount_cents: number }[] };
+  for (const person of people.filter(p => !p.corrected_at)) {
+    const rows = priorPayments[person.source === "native" ? 0 : 1].data as PriorRow[];
+    const entries = rows.filter(row => (row.participant_id ?? row.legacy_participant_id) === (person.participant_id ?? person.legacy_participant_id))
+      .flatMap(row => row.open_play_payment_entries ?? row.smartwaiver_legacy_payment_entries ?? []);
+    person.prior_payment = {
+      cash: Math.max(0, entries.filter(e => e.method === "cash").reduce((sum,e) => sum+e.amount_cents,0)),
+      card: Math.max(0, entries.filter(e => e.method === "card").reduce((sum,e) => sum+e.amount_cents,0)),
+    };
+  }
   const correctionResults = await Promise.all([
     nativeIds.length
       ? db
@@ -107,13 +141,13 @@ export async function loadDeskState(day: string): Promise<DeskState> {
     }
   }
   const partyGuests = await loadFacilityAttendance(day);
-  const known = new Set(people.map((person) => person.identity_key));
+  const known = new Set(allPeople.map((person) => person.identity_key));
   for (const guest of partyGuests) {
     const identity = personIdentity(guest.firstName, guest.lastName, guest.dob);
     if (!guest.checkedInAt) continue;
-    const saved = people.find((person) => person.identity_key === identity);
+    const saved = allPeople.find((person) => person.identity_key === identity);
     if (saved) {
-      saved.facility_party_booking_id = guest.bookingId;
+      if (!saved.deleted_at && !saved.corrected_at) saved.facility_party_booking_id = guest.bookingId;
       continue;
     }
     if (known.has(identity)) continue;
@@ -138,12 +172,22 @@ export async function loadDeskState(day: string): Promise<DeskState> {
   }
   return {
     birthdayParties: await loadBirthdayPartiesForDay(day),
-    freePasses: (passResult.data ?? []) as DeskPass[],
+    freePasses: [
+      ...((passResult.data ?? []) as DeskPass[]).filter(pass => {
+        const person = people.find(p => p.id === pass.attendance_id);
+        return person && !person.corrected_at;
+      }),
+      ...people.filter(p => p.corrected_at && p.corrected_method === "free_pass").map(p => ({
+        id: `correction:${p.id}`, ticket_id: "", item_id: "", attendance_id: p.id,
+        amount_cents: p.role === "child" && p.dob && ageInCompletedYearsOnDate(p.dob, day) <= 2 ? 700 : 1000,
+      })),
+    ],
     people,
+    deletedPeople: allPeople.filter(p => p.deleted_at),
     tickets: rows.map((ticket) => ({
       ...ticket,
       items: ((items.data ?? []) as DeskItem[]).filter(
-        (item) => item.ticket_id === ticket.id,
+        (item) => item.ticket_id === ticket.id && !allPeople.find(p => p.id === item.attendance_id)?.deleted_at,
       ),
       payments: ((payments.data ?? []) as DeskPayment[]).filter(
         (payment) => payment.ticket_id === ticket.id,
@@ -162,12 +206,12 @@ export async function runDeskCommand(
 ) {
   if (!isYmd(day)) throw new DeskValidationError("Choose a valid visit date.");
   const { data, error } = await createServiceRoleClient().rpc(
-    action === "complete_checkout"
+    ["correct_checkin", "delete_checkin"].includes(action) ? "correct_open_play_desk_checkin" : action === "complete_checkout"
       ? "complete_open_play_desk_checkout_atomic"
       : "open_play_desk_command",
     {
       p_day: day,
-      ...(action === "complete_checkout" ? {} : { p_action: action }),
+      ...(["complete_checkout", "correct_checkin", "delete_checkin"].includes(action) ? {} : { p_action: action }),
       p_staff: staff,
       p_payload: payload,
     },

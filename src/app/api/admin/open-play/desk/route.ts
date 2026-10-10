@@ -24,13 +24,14 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); }
   catch { return publicSafeError("validation", 400, "Invalid request."); }
-  if (!body || typeof body !== "object" || typeof body.action !== "string" || !["mark_here", "depart", "create_ticket", "add", "edit", "remove", "pay", "payer", "void_payment", "complete_checkout"].includes(body.action)) {
+  if (!body || typeof body !== "object" || typeof body.action !== "string" || !["mark_here", "depart", "create_ticket", "add", "edit", "remove", "pay", "payer", "void_payment", "complete_checkout", "correct_checkin", "delete_checkin"].includes(body.action)) {
     return publicSafeError("validation", 400, "Choose a valid desk action.");
   }
   if (body.action === "void_payment" && auth.auth.role !== "owner") return publicSafeError("forbidden", 403, "Owner access is required to void a saved receipt.");
-  // Mutations are for today's desk. Historical reports remain read-only here.
+  if (["correct_checkin", "delete_checkin"].includes(body.action) && auth.auth.role !== "owner") return publicSafeError("forbidden", 403, "Owner access is required to correct or delete a saved check-in.");
+  // Saved check-in corrections may also apply to a selected historical date.
   const today = businessDayYmdFromInstant(new Date());
-  const day = body.action === "void_payment" && typeof body.date === "string" && isYmd(body.date) ? body.date : today;
+  const day = ["void_payment", "correct_checkin", "delete_checkin"].includes(body.action) && typeof body.date === "string" && isYmd(body.date) && body.date <= today ? body.date : today;
   if (body.date !== day) return publicSafeError("validation", 400, "The business day changed. Refresh before saving.");
   try {
     const result = await runDeskCommand(day, body.action, auth.auth.identity.id, body);
