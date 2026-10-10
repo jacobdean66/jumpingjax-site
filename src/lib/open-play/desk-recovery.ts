@@ -6,14 +6,18 @@ export type PendingDeskCheckout = {
   ticketId: string;
   method: "cash" | "card" | null;
   passes: string[];
+  birthdayPartyId?: string | null;
 };
 
 export function checkoutRequestKey(
   ticketId: string,
   method: PendingDeskCheckout["method"],
   passes: string[],
+  birthdayPartyId?: string | null,
 ) {
-  return JSON.stringify([ticketId, method, [...passes].sort()]);
+  return JSON.stringify(birthdayPartyId
+    ? [ticketId, method, [...passes].sort(), birthdayPartyId]
+    : [ticketId, method, [...passes].sort()]);
 }
 
 export function parsePendingDeskCheckout(raw: string | null): PendingDeskCheckout | null {
@@ -24,7 +28,8 @@ export function parsePendingDeskCheckout(raw: string | null): PendingDeskCheckou
       typeof value.ticketId !== "string" || !value.ticketId ||
       !["cash", "card", null].includes(value.method) ||
       !Array.isArray(value.passes) || !value.passes.every(id => typeof id === "string") ||
-      value.key !== checkoutRequestKey(value.ticketId, value.method, value.passes)) return null;
+      (value.birthdayPartyId != null && (typeof value.birthdayPartyId !== "string" || !value.birthdayPartyId)) ||
+      value.key !== checkoutRequestKey(value.ticketId, value.method, value.passes, value.birthdayPartyId)) return null;
     return value;
   } catch { return null; }
 }

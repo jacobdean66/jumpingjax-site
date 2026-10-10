@@ -59,6 +59,14 @@ test("corrupt or changed checkout retry data is rejected", () => {
     assert.equal(parsePendingDeskCheckout(raw), null);
   }
 });
+
+test("birthday party retries restore the party and reject a changed assignment", () => {
+  const party = { ...pending, method: null, birthdayPartyId: "party-1", key: checkoutRequestKey(pending.ticketId, null, [], "party-1") };
+  assert.deepEqual(parsePendingDeskCheckout(JSON.stringify(party)), party);
+  assert.equal(parsePendingDeskCheckout(JSON.stringify({ ...party, birthdayPartyId: "party-2" })), null);
+  assert.equal(parsePendingDeskCheckout(JSON.stringify({ ...party, birthdayPartyId: 7 })), null);
+  assert.notEqual(checkoutRequestKey(pending.ticketId, null, [], "party-1"), checkoutRequestKey(pending.ticketId, null, [], "party-2"));
+});
 test("request reports rejected validation distinctly from uncertain writes", async () => {
   await assert.rejects(deskRequest("/desk", {}, async () => Response.json({ ok: false, error: "Invalid pass" }, { status: 400 })), error => error instanceof DeskRequestError && error.status === 400 && error.message === "Invalid pass");
   await assert.rejects(deskRequest("/desk", {}, async () => { throw new TypeError("connection lost"); }), error => error instanceof DeskRequestError && error.status === 0 && /check what saved/.test(error.message));

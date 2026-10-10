@@ -56,6 +56,7 @@ export type DeskPass = {
   amount_cents: number;
 };
 export type DeskState = {
+  birthdayParties?: import("./check-in-client").BirthdayPartyOption[];
   people: DeskPerson[];
   tickets: DeskTicket[];
   freePasses?: DeskPass[];

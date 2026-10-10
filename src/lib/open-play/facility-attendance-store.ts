@@ -20,6 +20,7 @@ export async function loadFacilityAttendance(dateYmd: string): Promise<FacilityA
   const { data, error } = await createServiceRoleClient().from("facility_party_guests")
     .select("id,booking_id,waiver_participant_id,guest_first_name,guest_last_name,guest_dob,participant_role,checked_in_at,facility_bookings!inner(child_name,readable_time,party_label,start_time),waiver_submissions(signer_first_name,signer_last_name,signer_email,signer_phone,signed_at,expires_on,status,source)")
     .not("checked_in_at", "is", null)
+    .not("waiver_participant_id", "is", null)
     .gte("facility_bookings.start_time", window.startInclusive.toISOString())
     .lt("facility_bookings.start_time", window.endExclusive.toISOString())
     .order("checked_in_at", { ascending: true });

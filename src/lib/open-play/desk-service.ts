@@ -10,6 +10,7 @@ import type {
 } from "./desk";
 import { personIdentity } from "./desk";
 import { loadFacilityAttendance } from "./facility-attendance-store";
+import { loadBirthdayPartiesForDay } from "./birthday-parties";
 
 export async function loadDeskState(day: string): Promise<DeskState> {
   if (!isYmd(day)) throw new Error("Invalid visit date");
@@ -136,6 +137,7 @@ export async function loadDeskState(day: string): Promise<DeskState> {
     });
   }
   return {
+    birthdayParties: await loadBirthdayPartiesForDay(day),
     freePasses: (passResult.data ?? []) as DeskPass[],
     people,
     tickets: rows.map((ticket) => ({
