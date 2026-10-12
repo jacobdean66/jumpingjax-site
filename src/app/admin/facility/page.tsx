@@ -387,7 +387,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             Deposit &amp; payment record
           </h3>
           <p className="text-sm font-black text-emerald-900">
-            {paymentStatusLabel(paymentProjection.status)} | Paid{" "}
+            {booking.total === 0 ? "Free — no payment due" : paymentStatusLabel(paymentProjection.status)} | Paid{" "}
             {formatCents(paymentProjection.paidCents)}
             {paymentProjection.balanceCents === null
               ? ""
