@@ -191,6 +191,7 @@ export type AdminFacilityBooking = {
   tax: number | null;
   total: number | null;
   calendarStatus: string | null;
+  decisionEmailStatus?: string | null;
   calendarNeedsRepair: boolean;
   safeWorkflowErrorClass: string | null;
   agreementHistory: AdminAgreementSummary[];
@@ -421,7 +422,7 @@ export async function loadAdminFacilityBookings(input: {
   const bookingPaymentMap = new Map<string, BookingPaymentEntry[]>();
   const workflowByBookingId = new Map<
     string,
-    { calendar_status: string | null; last_error_class: string | null }
+    { calendar_status: string | null; decision_email_status: string | null; last_error_class: string | null }
   >();
   for (let offset = 0; offset < bookingIds.length; offset += 100) {
     const batchIds = bookingIds.slice(offset, offset + 100);
@@ -433,7 +434,7 @@ export async function loadAdminFacilityBookings(input: {
     for (const [id, items] of payments) bookingPaymentMap.set(id, items);
     const { data: workflows, error: workflowError } = await supabase
       .from("booking_integration_workflows")
-      .select("booking_id, calendar_status, last_error_class")
+      .select("booking_id, calendar_status, decision_email_status, last_error_class")
       .eq("booking_kind", "facility")
       .in("booking_id", batchIds);
     if (workflowError) {
@@ -444,6 +445,7 @@ export async function loadAdminFacilityBookings(input: {
       for (const workflow of workflows ?? []) {
         workflowByBookingId.set(String(workflow.booking_id), {
           calendar_status: clean(workflow.calendar_status as string | null),
+          decision_email_status: clean(workflow.decision_email_status as string | null),
           last_error_class: sanitizeWorkflowErrorClass(
             workflow.last_error_class as string | null,
           ),
@@ -506,6 +508,7 @@ export async function loadAdminFacilityBookings(input: {
       tax: moneyNumber(row.tax),
       total: moneyNumber(row.total),
       calendarStatus,
+      decisionEmailStatus: workflow?.decision_email_status ?? null,
       calendarNeedsRepair: needsRepair,
       safeWorkflowErrorClass: workflow?.last_error_class ?? null,
       agreementHistory: agreementMap.get(row.id) ?? [],

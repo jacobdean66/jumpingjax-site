@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildFacilityDecisionEmail } from "@/lib/bookings/facility-decision-email";
 
 import {
   deleteGoogleCalendarDestinations,
@@ -6,13 +7,10 @@ import {
   summarizeGoogleCalendarError,
   syncGoogleCalendarDestinations,
 } from "@/lib/google/calendar";
-import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
-  facilityPricingFromBooking,
   formatFacilityCalendarDescription,
   type FacilityBookingCalendarFields,
 } from "@/lib/facility-parties/calendar-description";
-import { formatFacilityPricingLines } from "@/lib/facility-parties/pricing";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
   renderApprovalReview,
@@ -25,14 +23,6 @@ import {
 } from "@/lib/bookings/workflow-state";
 import { sendBookingOperationalAlert } from "@/lib/bookings/operational-alert";
 import { sendDurableBookingEmail } from "@/lib/bookings/durable-email";
-import { buildFacilityWaiverInvitationUrl } from "@/lib/facility-parties/invitations";
-import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
-import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
-import {
-  facilityInvitationShareUrl,
-  facilityInvitationSheetShareUrl,
-  resolveInvitationSnapshot,
-} from "@/lib/facility-parties/invitations/snapshot";
 import { resolveRentalEmailSiteUrl } from "@/lib/rentals/rental-site-url";
 
 const FACILITY_BOOKING_SELECT =
@@ -358,86 +348,7 @@ async function handleFacilityConfirm(
   }
 
   try {
-    const emailSubject =
-      action === "reject"
-        ? "Your Jumping Jax facility booking request"
-        : "Your Jumping Jax facility booking is confirmed";
-    const emailMessage =
-      action === "reject"
-        ? "We are sorry, but we are unable to confirm your facility booking request for this time."
-        : "Your facility booking has been confirmed.";
-    const pricingLines = formatFacilityPricingLines(
-      facilityPricingFromBooking(booking),
-    );
-    const emailSiteUrl = resolveRentalEmailSiteUrl(req.url);
-    const invitationUrl =
-      action === "confirm" ? facilityInvitationShareUrl(emailSiteUrl, id) : "";
-    const invitationEmailSection =
-      action === "confirm"
-        ? buildCustomerInvitationEmailSection({
-            childName: booking.child_name,
-            childAge: booking.child_age,
-            customerPhone: booking.phone,
-            dateLabel: booking.readable_date,
-            timeLabel: booking.readable_time,
-            themeText: booking.party_theme,
-            invitationUrl,
-            printableUrl: facilityInvitationSheetShareUrl(emailSiteUrl, id),
-            waiverUrl: buildFacilityWaiverInvitationUrl({
-              siteUrl: emailSiteUrl,
-              bookingId: id,
-              partyDate: booking.readable_date,
-            }),
-          })
-        : [];
-
-    const customerEmailText = [
-      `Hi ${booking.customer_name},`,
-      "",
-      emailMessage,
-      "",
-      `Party: ${booking.party_label}`,
-      `Date: ${booking.readable_date}`,
-      `Time: ${booking.readable_time}`,
-      ...invitationEmailSection,
-      booking.drink_choice ? `Drink choice: ${booking.drink_choice}` : null,
-      booking.payment_method
-        ? `Payment method: ${booking.payment_method}`
-        : null,
-      action === "confirm"
-        ? Number(booking.total) === 0 ? "This party is free. No deposit or payment is due." : "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
-        : null,
-      "",
-      formatStoredFacilityAddons(booking.addon_selections),
-      ...pricingLines,
-    ]
-      .filter((line): line is string => line !== null)
-      .join("\n");
-    const customerEmailHtml =
-      action === "confirm"
-        ? buildFullInvitationEmailHtml({
-            snapshot: resolveInvitationSnapshot({
-              partyTheme: booking.party_theme,
-              stored: booking.invitation,
-              colorHint: `${booking.balloon_colors ?? ""} ${booking.table_cloth_colors ?? ""}`,
-            }),
-            siteUrl: emailSiteUrl,
-            plainText: customerEmailText,
-            childName: booking.child_name,
-            childAge: booking.child_age,
-            customerPhone: booking.phone,
-            dateLabel: booking.readable_date,
-            timeLabel: booking.readable_time,
-            themeText: booking.party_theme,
-            invitationUrl,
-            printableUrl: facilityInvitationSheetShareUrl(emailSiteUrl, id),
-            waiverUrl: buildFacilityWaiverInvitationUrl({
-              siteUrl: emailSiteUrl,
-              bookingId: id,
-              partyDate: booking.readable_date,
-            }),
-          })
-        : undefined;
+    const customerEmail = buildFacilityDecisionEmail(booking, action, resolveRentalEmailSiteUrl(req.url));
 
     const { error: emailError } = await sendDurableBookingEmail({
       supabase,
@@ -446,9 +357,9 @@ async function handleFacilityConfirm(
       bookingId: id,
       purpose: `decision_${action}`,
       to: booking.email,
-      subject: emailSubject,
-      text: customerEmailText,
-      html: customerEmailHtml,
+      subject: customerEmail.subject,
+      text: customerEmail.text,
+      html: customerEmail.html,
     });
 
     if (emailError) {
@@ -462,7 +373,7 @@ async function handleFacilityConfirm(
       });
       console.error("CUSTOMER STATUS EMAIL ERROR", emailError);
       return NextResponse.json(
-        { error: "Status changed but customer email failed" },
+        { error: "Status changed but customer email failed", statusChanged: true, message: `Party ${status}. Customer email failed.${action === "confirm" ? " Retry the confirmation email from the party card." : " Review the email failure in the admin dashboard."}` },
         { status: 500 },
       );
     }
@@ -478,7 +389,7 @@ async function handleFacilityConfirm(
       safeErrorClass: "decision_email_failed",
     });
     return NextResponse.json(
-      { error: "Status changed but customer email failed" },
+      { error: "Status changed but customer email failed", statusChanged: true, message: `Party ${status}. Customer email failed.${action === "confirm" ? " Retry the confirmation email from the party card." : " Review the email failure in the admin dashboard."}` },
       { status: 500 },
     );
   }

@@ -39,8 +39,17 @@ export function BulkBookingActionButton({
         });
         if (!response.ok) {
           const text = await response.text();
+          let failure: { message?: string; error?: string; statusChanged?: boolean } = {};
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) failure = parsed;
+          } catch { /* Preserve plain-text errors. */ }
+          if (failure.statusChanged === true) {
+            approved += 1;
+            router.refresh();
+          }
           setMessage(
-            `${approved} approved, then stopped: ${text || "server error"}`,
+            `${approved} approved, then stopped: ${failure.message || failure.error || text || "server error"}`,
           );
           return;
         }

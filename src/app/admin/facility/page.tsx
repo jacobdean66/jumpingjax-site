@@ -137,7 +137,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={booking.status} />
             <span className={`rounded-full px-3 py-1 text-xs font-black ${balanceCents === 0 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
-              {paymentStatusLabel(paymentProjection.status)}
+              {booking.total === 0 ? "Free — no payment due" : paymentStatusLabel(paymentProjection.status)}
             </span>
             <span className="text-xs font-bold text-slate-500">
               #{booking.id}
@@ -233,6 +233,12 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             />
           )}
         </div>
+        {booking.status === "confirmed" && booking.decisionEmailStatus === "failed" ? (
+          <div className="flex flex-col items-start gap-2 print:hidden">
+            <p className="max-w-sm text-xs font-semibold text-amber-800">Party confirmed. The customer confirmation email needs attention.</p>
+            <BookingActionButton action="confirm" endpoint={`/api/admin/facility/${encodeURIComponent(booking.id)}/confirmation-email`} label="Retry confirmation email" tone="confirm" workingLabel="Sending..." successMessage="Confirmation email sent." refreshOnly />
+          </div>
+        ) : null}
         {booking.calendarNeedsRepair && (
           <div className="flex flex-col items-start gap-2 print:hidden">
             <p className="max-w-sm text-xs font-semibold text-amber-800">
@@ -453,8 +459,8 @@ function FacilityExpandableCard({
         <p className="text-xs font-semibold text-slate-600">
           {new Date(booking.startTime).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}
         </p>
-        <p className={`text-xs font-black ${paidInFull || depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
-          {paidInFull ? paymentStatusLabel(paymentProjection.status) : depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
+        <p className={`text-xs font-black ${booking.total === 0 || paidInFull || depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
+          {booking.total === 0 ? "Free — no deposit due" : paidInFull ? paymentStatusLabel(paymentProjection.status) : depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
         </p>
       </summary>
       <div className="bg-slate-100 p-3 sm:p-5">
