@@ -1,4 +1,5 @@
 "use client";
+import { RentalAgreementCheckout, type CheckoutAgreement } from "./RentalAgreementCheckout";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -30,6 +31,7 @@ import { BookingDateCalendar } from "./BookingDateCalendar";
 import { BookingSummary } from "./BookingSummary";
 import { CustomerForm, type CustomerFields } from "./CustomerForm";
 import { DurationSelector } from "./DurationSelector";
+import { rentalStepErrors, type RentalCheckoutStep } from "@/lib/rentals/checkout-validation";
 import { StickyReserveBar } from "./StickyReserveBar";
 import { trackLead } from "@/lib/analytics/client";
 import { calculateInflatableDiscount, DEFAULT_PROMOTION_SLUGS } from "@/lib/rentals/ad-promotion";
@@ -98,14 +100,6 @@ const PARTY_START_TIMES = [
   ["19:30", "7:30 PM"],
   ["20:00", "8:00 PM"],
 ] as const;
-
-function isPlausibleEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-function digitsOnly(s: string): string {
-  return s.replace(/\D/g, "");
-}
 
 function isFridayOrSaturday(ymd: string | null): boolean {
   if (!ymd) return false;
@@ -343,6 +337,9 @@ export function RentalBookingPanel({
   availabilityLoadError,
 }: RentalBookingPanelProps) {
   const promotionCode = useRentalPromotion();
+  const [step, setStep] = useState<RentalCheckoutStep>(1);
+  const [attemptedStep, setAttemptedStep] = useState<RentalCheckoutStep | null>(null);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
 
@@ -363,7 +360,9 @@ export function RentalBookingPanel({
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
     () => new Set<string>(),
   );
+  const [agreement, setAgreement] = useState<CheckoutAgreement | null>(null);
   const [agreementPath, setAgreementPath] = useState<string | null>(null);
+  const [agreementRefresh, setAgreementRefresh] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [restoredSuccessId, setRestoredSuccessId] = useState<string | null>(null);
@@ -588,15 +587,41 @@ export function RentalBookingPanel({
     return "ok";
   }, [selectedYmd, selectionValid]);
 
-  const customerOk = useMemo(() => {
-    const phoneDigits = digitsOnly(customer.customerPhone);
-    return (
-      customer.customerName.trim().length > 0 && customer.customerName.trim().length <= 120 &&
-      isPlausibleEmail(customer.customerEmail) &&
-      phoneDigits.length >= 10 && phoneDigits.length <= 15 &&
-      customer.eventAddress.trim().length > 0 && customer.eventAddress.trim().length <= 500
-    );
-  }, [customer]);
+  const errorsForStep = (target: RentalCheckoutStep) => rentalStepErrors(target, customer, selectedDeliveryTime, eventStartTime);
+  const fieldErrors = attemptedStep === step ? errorsForStep(step) : {};
+  const customerOk = [1, 2, 3].every(target => Object.keys(errorsForStep(target as RentalCheckoutStep)).length === 0);
+
+  function goToStep(target: RentalCheckoutStep) {
+    setStep(target);
+    setAttemptedStep(null);
+    setSubmitError(null);
+    window.requestAnimationFrame(() => {
+      stepHeading.current?.focus();
+      stepHeading.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function showMissingAnswers(target: RentalCheckoutStep, errors: Record<string, string>) {
+    setStep(target);
+    setAttemptedStep(target);
+    window.requestAnimationFrame(() => {
+      const name = Object.keys(errors)[0];
+      const field = document.querySelector<HTMLElement>(`#booking-form [name="${name}"]`);
+      field?.focus();
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  function continueStep() {
+    if (!selectionValid) {
+      setSubmitError("Choose an available rental date before continuing.");
+      document.getElementById("rental-date")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const errors = errorsForStep(step);
+    if (Object.keys(errors).length) { showMissingAnswers(step, errors); return; }
+    if (step < 4) goToStep((step + 1) as RentalCheckoutStep);
+  }
 
   const distanceMiles = normalizeDistanceMiles(customer.distanceMiles);
   const deliveryFee = selectionValid && duration
@@ -641,7 +666,7 @@ export function RentalBookingPanel({
         : subtotal == null || totalAmount == null
           ? "A rental price is unavailable. Refresh the page before submitting your request."
       : !customerOk
-        ? "Enter your name, phone number, email, and event address to continue."
+        ? "Add your contact details, verify the event address, choose setup details, choose payment method, choose a delivery window, and add the party start time to continue."
         : undefined;
 
   const bookingPayload = {
@@ -669,7 +694,9 @@ export function RentalBookingPanel({
           subtotal: subtotal ?? 0,
           total: totalAmount ?? 0,
   };
-  const submitBlocked = Boolean(reserveReason) || isSubmitting;
+  const bookingFingerprint = JSON.stringify(bookingPayload);
+  const agreementReady = agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged;
+  const submitBlocked = Boolean(reserveReason) || !agreementReady || isSubmitting;
 
   const serverLoadOk = availabilityLoadError === null;
 
@@ -711,11 +738,17 @@ export function RentalBookingPanel({
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+    if (step < 4) { continueStep(); return; }
+    for (const target of [1, 2, 3] as RentalCheckoutStep[]) {
+      const errors = errorsForStep(target);
+      if (Object.keys(errors).length) { showMissingAnswers(target, errors); return; }
+    }
     setSubmitError(null);
     clearSubmitSuccess();
 
-    if (reserveReason) {
-      setSubmitError(reserveReason);
+    if (reserveReason || !agreementReady) {
+      setSubmitError(reserveReason ?? "Review the agreement, check the acknowledgment, and type your full legal name to sign.");
       document
         .getElementById("checkout-form")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -731,7 +764,7 @@ export function RentalBookingPanel({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current }),
+        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current, agreement_signer_name: agreement?.signerName, agreement_acknowledged: agreement?.acknowledged, agreement_preview_token: agreement?.previewToken }),
       });
 
       const data: unknown = await res.json().catch(() => null);
@@ -744,6 +777,7 @@ export function RentalBookingPanel({
           typeof (data as { error?: unknown }).error === "string"
             ? (data as { error: string }).error
             : `Request failed (${res.status})`;
+        if (data && typeof data === "object" && "agreementRefreshRequired" in data) { setAgreement(null); setAgreementRefresh(n => n + 1); }
         setSubmitError(apiError);
         document
           .getElementById("book-rental")
@@ -822,7 +856,7 @@ export function RentalBookingPanel({
               Request submitted
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-slate-200">
-              Your rental request is pending approval. We’ll call you if we have any questions.
+              Your rental request is pending approval.
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               You will receive an email once Jumping Jax confirms your booking.
@@ -977,10 +1011,11 @@ export function RentalBookingPanel({
 
             <div
               id="checkout-form"
-              className="mt-8 grid scroll-mt-28 gap-6 sm:scroll-mt-32 lg:grid-cols-2 lg:items-start"
+              className="mt-8 space-y-6 scroll-mt-28 sm:scroll-mt-32"
             >
-              <div className="space-y-6">
-                <div>
+              <details open={!selectedYmd || !selectionValid} className="rounded-2xl border border-white/15 p-4">
+                <summary className="cursor-pointer font-bold text-cyan-100">{selectedYmd ? `Rental date: ${formatDisplayDate(selectedYmd)} — change date or duration` : "Choose your rental date"}</summary>
+                <div id="rental-date" className="mt-4 scroll-mt-28">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
                     1. Date
                   </h3>
@@ -1063,9 +1098,15 @@ export function RentalBookingPanel({
                     )}
                   </div>
                 </div>
-              </div>
+              </details>
 
-              <div className="space-y-6">
+              <div className="rounded-2xl border border-cyan-300/35 bg-white/[0.04] p-4 sm:p-6">
+                <p className="text-xs font-black uppercase tracking-wide text-cyan-200" aria-live="polite">Step {step} of 4</p>
+                <div className="mt-3 flex gap-2" aria-hidden="true">{[1, 2, 3, 4].map(number => <div key={number} className={`h-1.5 flex-1 rounded-full ${number <= step ? "bg-cyan-300" : "bg-white/15"}`} />)}</div>
+                <h3 ref={stepHeading} tabIndex={-1} className="mt-5 scroll-mt-28 text-xl font-black text-white outline-none">{["Your information", "Delivery and setup", "Timing and payment", "Review and agreement"][step - 1]}</h3>
+                <p className="mb-5 mt-2 text-sm text-slate-300">{step === 4 ? "Review your booking and sign the agreement to submit your request." : "Complete each required answer below to continue. Optional questions are labeled."}</p>
+                {Object.keys(fieldErrors).length > 0 && <p role="alert" className="mb-4 rounded-xl border border-rose-400/35 bg-rose-500/10 p-3 text-sm text-rose-100">Please complete the highlighted answers before continuing.</p>}
+                <div className={step === 4 ? "space-y-4" : "hidden"}>
                 <BookingSummary
                   cartItems={selectedRentalItems}
                   selectedYmd={selectedYmd}
@@ -1080,18 +1121,27 @@ export function RentalBookingPanel({
                   promotionDiscount={promotionDiscount}
                 />
                 {!isFoamOnlyCart && secondDayQuoteRequested && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">Second-day quote requested. We&apos;ll call you with discounted pricing. The second day is not included in this estimate.</p>}
-                <CustomerForm value={customer} onChange={setCustomer} />
-                <details className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
-                  <summary className="cursor-pointer text-sm font-bold text-cyan-200">Party and delivery times (optional)</summary>
-                  <label className="mb-5 mt-4 block">
+                <dl className="grid gap-3 text-sm text-slate-200 sm:grid-cols-2">
+                  <div><dt className="font-bold text-white">Contact</dt><dd>{customer.customerName}<br />{customer.customerEmail}<br />{customer.customerPhone}</dd></div>
+                  <div><dt className="font-bold text-white">Delivery and setup</dt><dd>{customer.eventAddress}<br />{customer.setupSurface} · {customer.setupAccess}</dd></div>
+                  <div><dt className="font-bold text-white">Timing</dt><dd>Party: {PARTY_START_TIMES.find(([value]) => value === eventStartTime)?.[1]}<br />Delivery: {selectedDeliveryTime}</dd></div>
+                  <div><dt className="font-bold text-white">Payment preference</dt><dd>{customer.paymentMethod}</dd></div>
+                </dl>
+                </div>
+                <CustomerForm step={step} errors={fieldErrors} value={customer} onChange={setCustomer} />
+                <div className={step === 3 ? "mt-5" : "hidden"}>
+                  <label className="mb-5 block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       Official party start time
                     </span>
                     <select
                       name="eventStartTime"
+                      aria-invalid={Boolean(fieldErrors.eventStartTime)}
+                      aria-describedby={fieldErrors.eventStartTime ? "error-eventStartTime" : undefined}
+                      required
                       value={eventStartTime}
                       onChange={(e) => setEventStartTime(e.target.value)}
-                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
                     >
                       <option value="">Select official start time</option>
                       {PARTY_START_TIMES.map(([value, label]) => (
@@ -1100,6 +1150,7 @@ export function RentalBookingPanel({
                         </option>
                       ))}
                     </select>
+                    {fieldErrors.eventStartTime && <p id="error-eventStartTime" className="mt-2 text-sm font-semibold text-rose-200">{fieldErrors.eventStartTime}</p>}
                     <p className="mt-2 text-xs leading-relaxed text-slate-400">
                       This is when your party officially starts. It is separate
                       from the delivery window and will appear on the booking
@@ -1112,9 +1163,12 @@ export function RentalBookingPanel({
                     </span>
                     <select
                       name="deliveryTime"
+                      aria-invalid={Boolean(fieldErrors.deliveryTime)}
+                      aria-describedby={fieldErrors.deliveryTime ? "error-deliveryTime" : undefined}
+                      required
                       value={selectedDeliveryTime}
                       onChange={(e) => setDeliveryTime(e.target.value)}
-                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                      className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
                     >
                       <option value="">Select a 3-hour delivery window</option>
                       {showFridayDeliveryPrompt && (
@@ -1134,6 +1188,7 @@ export function RentalBookingPanel({
                         ))}
                       </optgroup>
                     </select>
+                    {fieldErrors.deliveryTime && <p id="error-deliveryTime" className="mt-2 text-sm font-semibold text-rose-200">{fieldErrors.deliveryTime}</p>}
                     {showFridayDeliveryPrompt && (
                       <p className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
                         Friday delivery is recommended for Friday and Saturday
@@ -1146,22 +1201,27 @@ export function RentalBookingPanel({
                       confirm the final delivery plan after reviewing the route.
                     </p>
                   </label>
-                </details>
-              </div>
-            </div>
-
-            <p className="mt-6 text-sm text-slate-300">Send your request with your name, phone number, email, and address. We’ll call you if we have any questions and confirm the remaining rental details with you.</p>
+                </div>
+                <div className={step === 4 ? "block" : "hidden"}>
+            <RentalAgreementCheckout key={`${bookingFingerprint}:${agreementRefresh}`} payload={bookingPayload} requestFingerprint={bookingFingerprint} enabled={!reserveReason} onChange={setAgreement} />
+                </div>
             <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-400 sm:max-w-xs">
-                Complete the checkout form above, then submit your request.
+                {step < 4 ? "Your answers are kept when you go back." : reserveReason ?? (!agreementReady ? "Review the agreement, check the acknowledgment, and type your full legal name to sign." : "Your request is ready to submit.")}
               </p>
+              <div className="flex w-full gap-3 sm:w-auto">
+              {step > 1 && <button type="button" onClick={() => goToStep((step - 1) as RentalCheckoutStep)} className="min-h-12 rounded-full border border-white/25 px-6 py-3 font-bold text-white">Back</button>}
               <button
-                type="submit"
-                disabled={submitBlocked}
-                className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-full bg-cyan-400 px-8 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-h-14 sm:text-base"
+                type={step === 4 ? "submit" : "button"}
+                onClick={step < 4 ? continueStep : undefined}
+                disabled={step === 4 ? submitBlocked : isSubmitting}
+                className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-cyan-400 px-6 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-h-14 sm:text-base"
               >
-                {isSubmitting ? "Sending…" : "Submit request"}
+                {isSubmitting ? "Sending…" : step === 4 ? "Submit request" : "Continue"}
               </button>
+              </div>
+            </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1169,8 +1229,10 @@ export function RentalBookingPanel({
 
       <StickyReserveBar
         totalDisplay={totalDisplay}
-        disabledReason={reserveReason}
-        submitDisabled={submitBlocked}
+        disabledReason={step < 4 ? `Step ${step} of 4: ${["Your information", "Delivery and setup", "Timing and payment"][step - 1]}` : reserveReason ?? (!agreementReady ? "Review and sign the rental agreement to continue." : undefined)}
+        buttonLabel={step < 4 ? "Continue" : isSubmitting ? "Sending…" : "Submit request"}
+        onContinue={step < 4 ? continueStep : undefined}
+        submitDisabled={step === 4 ? submitBlocked : isSubmitting}
       />
       </fieldset>
     </form>

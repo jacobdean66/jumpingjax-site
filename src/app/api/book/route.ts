@@ -56,22 +56,17 @@ export async function POST(req: Request) {
   if (prepared instanceof Response) return prepared;
   const { input, lineItems, notes } = prepared;
   const { customerName, email: customerEmail, phone: customerPhone, eventDateYmd, durationLabel, spanDays, foamDurationLabel, eventAddress, event_start_time: eventStartTime, requested_delivery_window: requestedDeliveryWindow, setup_location: setupLocation, setup_surface: setupSurface, setup_access: setupAccess, setup_notes: setupNotes, payment_method: paymentMethod, total, delivery_fee: deliveryFee, mileage_fee: mileageFee, distance_miles: distanceMiles } = input;
-  // Initial requests need only contact details and an address. Older clients may
-  // still submit a signed agreement; validate it fully when one is supplied.
-  if (body.agreement_acknowledged !== undefined || body.agreement_signer_name !== undefined || body.agreement_preview_token !== undefined) {
-    if (body.agreement_acknowledged !== true || !validSignerName(body.agreement_signer_name)) {
-      return NextResponse.json({ ok: false, error: "Review the rental agreement, check the acknowledgment, and type your full legal name to sign." }, { status: 400 });
-    }
-    const template = await loadAgreementTemplate();
-    const snapshot = buildRentalAgreementSnapshot(input, template);
-    if (!verifyPreviewToken(body.agreement_preview_token, snapshot)) {
-      return NextResponse.json({ ok: false, error: "Your booking details or agreement have changed. Review the agreement again before signing.", agreementRefreshRequired: true }, { status: 409 });
-    }
-    const agreementId = crypto.randomUUID();
-    const token = agreementToken(agreementId);
-    input.agreement = { id: agreementId, tokenHash: hashToken(token), snapshot, templateVersion: template.version, signerName: body.agreement_signer_name.trim(), ipHmac: hmacIpAddress(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()), userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null };
+  if (body.agreement_acknowledged !== true || !validSignerName(body.agreement_signer_name)) {
+    return NextResponse.json({ ok: false, error: "Review the rental agreement, check the acknowledgment, and type your full legal name to sign." }, { status: 400 });
   }
-  const result = await insertPendingBooking(input);
+  const template = await loadAgreementTemplate();
+  const snapshot = buildRentalAgreementSnapshot(input, template);
+  if (!verifyPreviewToken(body.agreement_preview_token, snapshot)) {
+    return NextResponse.json({ ok: false, error: "Your booking details or agreement have changed. Review the agreement again before signing.", agreementRefreshRequired: true }, { status: 409 });
+  }
+  const agreementId = crypto.randomUUID();
+  const token = agreementToken(agreementId);
+  const result = await insertPendingBooking({ ...input, agreement: { id: agreementId, tokenHash: hashToken(token), snapshot, templateVersion: template.version, signerName: body.agreement_signer_name.trim(), ipHmac: hmacIpAddress(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()), userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null } });
 
   if (!result.ok) {
     const error = result.message ?? result.code ?? result;
@@ -107,7 +102,7 @@ export async function POST(req: Request) {
     }),
   );
 
-  const savedAgreement = input.agreement ? (await loadAgreementHistory([result.id])).get(result.id)?.[0] : null;
+  const savedAgreement = (await loadAgreementHistory([result.id])).get(result.id)?.[0];
   const signedAgreementPath = savedAgreement ? customerAgreementPath(savedAgreement.id) : null;
   const facilityOwnerEmails = getFacilityOwnerEmails();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
@@ -168,8 +163,8 @@ export async function POST(req: Request) {
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : null,
             foamDurationLine,
-            `Official party start time: ${eventStartTime || "To be confirmed"}`,
-            `Requested delivery window: ${requestedDeliveryWindow || "To be confirmed"}`,
+            `Official party start time: ${eventStartTime}`,
+            `Requested delivery window: ${requestedDeliveryWindow}`,
             `Name: ${customerName}`,
             customerPhone ? `Phone: ${customerPhone}` : null,
             eventAddress ? `Event address: ${eventAddress}` : null,
@@ -227,8 +222,8 @@ export async function POST(req: Request) {
             `Event date: ${eventDateYmd}`,
             durationLine ? `Duration: ${durationLine}` : `Span: ${spanDays} day(s)`,
             foamDurationLine,
-            `Official party start time: ${eventStartTime || "To be confirmed"}`,
-            `Requested delivery window: ${requestedDeliveryWindow || "To be confirmed"}`,
+            `Official party start time: ${eventStartTime}`,
+            `Requested delivery window: ${requestedDeliveryWindow}`,
             `Customer: ${customerName}`,
             `Email: ${customerEmail || "(not provided)"}`,
             customerPhone ? `Phone: ${customerPhone}` : "Phone: (not provided)",

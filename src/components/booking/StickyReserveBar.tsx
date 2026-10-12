@@ -2,6 +2,8 @@
 
 type Props = {
   totalDisplay: string | null;
+  buttonLabel?: string;
+  onContinue?: () => void;
   disabledReason?: string;
   formId?: string;
   submitDisabled?: boolean;
@@ -9,6 +11,8 @@ type Props = {
 
 export function StickyReserveBar({
   totalDisplay,
+  buttonLabel = "Submit request",
+  onContinue,
   disabledReason,
   formId = "booking-form",
   submitDisabled = false,
@@ -34,12 +38,13 @@ export function StickyReserveBar({
           )}
         </div>
         <button
-          type="submit"
+          type={onContinue ? "button" : "submit"}
+          onClick={onContinue}
           form={formId}
           disabled={submitDisabled}
           className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-cyan-950/25 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-14 sm:px-8 sm:text-base"
         >
-          Submit request
+          {buttonLabel}
         </button>
       </div>
     </div>
