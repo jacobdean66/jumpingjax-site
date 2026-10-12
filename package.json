@@ -24,6 +24,7 @@
     "trigger:dev": "trigger.dev dev --profile default --skip-telemetry",
     "inventory:sync": "node scripts/sync-rental-inventory.mjs && pnpm assets:metadata",
     "test:invitation:production": "node scripts/check-invitation-production-contract.mjs",
+    "test:giveaway-rsvps": "node --conditions=react-server --import tsx --test src/lib/giveaway/party-store.test.mts && node --import tsx --test src/lib/giveaway/party-rsvps.test.mts src/lib/giveaway/monthly-draws.test.mts src/lib/giveaway/giveaway-status-boundary.test.mts",
     "test:host-guest-list-email": "node --import tsx --test src/lib/facility-parties/host-guest-list-email.test.mts"
   },
   "dependencies": {
