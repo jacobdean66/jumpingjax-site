@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { pickSecureRandomIndex } from "@/lib/giveaway/public-nominee-display";
 import { ACTIVE_GIVEAWAY_MONTH } from "@/lib/giveaway/giveaway-campaigns";
+import { GiveawayPartyPanel } from "./GiveawayPartyPanel";
 
 export type GiveawayDrawSubmission = {
   id: string;
@@ -76,6 +77,7 @@ export function GiveawayDrawClient({ months }: { months: GiveawayDrawMonth[] }) 
           className="mt-6"
         >
           <h2 className="text-2xl font-black text-slate-950">{month.label} Giveaway</h2>
+          {selectedMonth === month.monthKey ? <GiveawayPartyPanel key={month.monthKey} drawMonth={month.monthKey} monthLabel={month.label} /> : null}
           {month.groups.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-black text-slate-950">No nominees for {month.label} yet</h3>
