@@ -114,8 +114,7 @@ export function CustomerForm({ value, onChange }: Props) {
         Your details
       </h3>
       <p className="mt-2 text-xs text-slate-400">
-        Jumping Jax uses these details to review your rental request, confirm
-        availability, and contact you about delivery and setup.
+        Name, phone number, email, and address are all we need to receive your request. We’ll call you if we have any questions.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -126,6 +125,7 @@ export function CustomerForm({ value, onChange }: Props) {
           <input
             type="text"
             name="customerName"
+            required
             autoComplete="name"
             value={value.customerName}
             onChange={(e) => patch({ customerName: e.target.value })}
@@ -140,6 +140,7 @@ export function CustomerForm({ value, onChange }: Props) {
           <input
             type="email"
             name="customerEmail"
+            required
             autoComplete="email"
             value={value.customerEmail}
             onChange={(e) => patch({ customerEmail: e.target.value })}
@@ -154,6 +155,7 @@ export function CustomerForm({ value, onChange }: Props) {
           <input
             type="tel"
             name="customerPhone"
+            required
             autoComplete="tel"
             value={value.customerPhone}
             onChange={(e) => patch({ customerPhone: e.target.value })}
@@ -167,6 +169,7 @@ export function CustomerForm({ value, onChange }: Props) {
           </span>
           <textarea
             name="eventAddress"
+            required
             rows={3}
             value={value.eventAddress}
             onChange={(e) => onAddressChange(e.target.value)}
@@ -179,7 +182,7 @@ export function CustomerForm({ value, onChange }: Props) {
             disabled={addressLoading || value.eventAddress.trim().length < 8}
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-black uppercase tracking-wide text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-slate-600"
           >
-            {addressLoading ? "Checking address..." : "Verify address"}
+            {addressLoading ? "Checking address..." : "Verify address (optional)"}
           </button>
           {addressError && (
             <p className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
@@ -226,97 +229,99 @@ export function CustomerForm({ value, onChange }: Props) {
             </div>
           )}
         </label>
-        <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            One-way delivery miles
-          </span>
-          <input
-            type="number"
-            name="distanceMiles"
-            min="0"
-            step="0.1"
-            inputMode="decimal"
-            value={value.distanceMiles}
-            onChange={(e) => patch({ distanceMiles: e.target.value })}
-            readOnly
-            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/60 px-3 py-3 text-base text-slate-200 outline-none"
-            placeholder="Verify address first"
-          />
-          <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            Estimated driving distance from Google Maps. The first 25 miles
-            are included; after that, mileage is $2 per one-way mile.
-          </p>
-        </label>
-        <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Setup surface
-          </span>
-          <select
-            name="setupSurface"
-            required
-            value={value.setupSurface}
-            onChange={(e) => patch({ setupSurface: e.target.value })}
-            className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
-          >
-            <option value="">Select surface</option>
-            <option value="Grass">Grass</option>
-            <option value="Concrete">Concrete</option>
-            <option value="Asphalt">Asphalt</option>
-            <option value="Indoor">Indoor</option>
-            <option value="Other / unsure">Other / unsure</option>
-          </select>
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Setup access
-          </span>
-          <select
-            name="setupAccess"
-            required
-            value={value.setupAccess}
-            onChange={(e) => patch({ setupAccess: e.target.value })}
-            className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
-          >
-            <option value="">Select access</option>
-            <option value="Vehicle can drive to setup area">
-              Vehicle can drive to setup area
-            </option>
-            <option value="Hand trucks required">Hand trucks required</option>
-            <option value="Stairs, hills, or narrow gate">
-              Stairs, hills, or narrow gate
-            </option>
-            <option value="Other / unsure">Other / unsure</option>
-          </select>
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            How will you pay?
-          </span>
-          <select
-            name="paymentMethod"
-            required
-            value={value.paymentMethod}
-            onChange={(e) => patch({ paymentMethod: e.target.value })}
-            className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
-          >
-            <option value="">Select payment method</option>
-            <option value="Cash">Cash</option>
-            <option value="Card">Card</option>
-          </select>
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Setup notes
-          </span>
-          <textarea
-            name="setupNotes"
-            rows={3}
-            value={value.setupNotes}
-            onChange={(e) => patch({ setupNotes: e.target.value })}
-            className="mt-1.5 w-full resize-y rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
-            placeholder="Gate width, slope, stairs, power location, or anything we should know"
-          />
-        </label>
+        <details className="sm:col-span-2">
+          <summary className="cursor-pointer text-sm font-bold text-cyan-200">Setup and payment details (optional)</summary>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                One-way delivery miles
+              </span>
+              <input
+                type="number"
+                name="distanceMiles"
+                min="0"
+                step="0.1"
+                inputMode="decimal"
+                value={value.distanceMiles}
+                onChange={(e) => patch({ distanceMiles: e.target.value })}
+                readOnly
+                className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/60 px-3 py-3 text-base text-slate-200 outline-none"
+                placeholder="Verify address first"
+              />
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                Estimated driving distance from Google Maps. The first 25 miles
+                are included; after that, mileage is $2 per one-way mile.
+              </p>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Setup surface
+              </span>
+              <select
+                name="setupSurface"
+                value={value.setupSurface}
+                onChange={(e) => patch({ setupSurface: e.target.value })}
+                className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+              >
+                <option value="">Select surface</option>
+                <option value="Grass">Grass</option>
+                <option value="Concrete">Concrete</option>
+                <option value="Asphalt">Asphalt</option>
+                <option value="Indoor">Indoor</option>
+                <option value="Other / unsure">Other / unsure</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Setup access
+              </span>
+              <select
+                name="setupAccess"
+                value={value.setupAccess}
+                onChange={(e) => patch({ setupAccess: e.target.value })}
+                className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+              >
+                <option value="">Select access</option>
+                <option value="Vehicle can drive to setup area">
+                  Vehicle can drive to setup area
+                </option>
+                <option value="Hand trucks required">Hand trucks required</option>
+                <option value="Stairs, hills, or narrow gate">
+                  Stairs, hills, or narrow gate
+                </option>
+                <option value="Other / unsure">Other / unsure</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                How will you pay?
+              </span>
+              <select
+                name="paymentMethod"
+                value={value.paymentMethod}
+                onChange={(e) => patch({ paymentMethod: e.target.value })}
+                className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+              >
+                <option value="">Select payment method</option>
+                <option value="Cash">Cash</option>
+                <option value="Card">Card</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Setup notes
+              </span>
+              <textarea
+                name="setupNotes"
+                rows={3}
+                value={value.setupNotes}
+                onChange={(e) => patch({ setupNotes: e.target.value })}
+                className="mt-1.5 w-full resize-y rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
+                placeholder="Gate width, slope, stairs, power location, or anything we should know"
+              />
+            </label>
+          </div>
+        </details>
       </div>
     </div>
   );
