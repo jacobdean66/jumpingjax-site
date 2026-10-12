@@ -200,7 +200,7 @@ async function buildFacilityInvoice(bookingId: string): Promise<(BookingInvoice 
     notes: clean(data.notes),
   };
   const at = data.pricing_details?.staffTotalEdit?.at;
-  return { ...applyFacilityInvoiceTotal(invoice, money(data.total), money(data.tax)), ...(typeof at === "string" ? { staffTotalEditedAt: at } : {}) };
+  return { ...(data.total === null ? invoice : applyFacilityInvoiceTotal(invoice, money(data.total), money(data.tax))), ...(typeof at === "string" ? { staffTotalEditedAt: at } : {}) };
 }
 
 export async function loadBookingInvoice(
