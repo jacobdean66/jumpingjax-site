@@ -1,5 +1,4 @@
 "use client";
-import { RentalAgreementCheckout, type CheckoutAgreement } from "./RentalAgreementCheckout";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -364,9 +363,7 @@ export function RentalBookingPanel({
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
     () => new Set<string>(),
   );
-  const [agreement, setAgreement] = useState<CheckoutAgreement | null>(null);
   const [agreementPath, setAgreementPath] = useState<string | null>(null);
-  const [agreementRefresh, setAgreementRefresh] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [restoredSuccessId, setRestoredSuccessId] = useState<string | null>(null);
@@ -593,20 +590,13 @@ export function RentalBookingPanel({
 
   const customerOk = useMemo(() => {
     const phoneDigits = digitsOnly(customer.customerPhone);
-    const verifiedDistanceMiles = normalizeDistanceMiles(customer.distanceMiles);
     return (
-      customer.customerName.trim().length >= 2 &&
+      customer.customerName.trim().length > 0 && customer.customerName.trim().length <= 120 &&
       isPlausibleEmail(customer.customerEmail) &&
-      phoneDigits.length >= 10 &&
-      customer.eventAddress.trim().length >= 8 &&
-      verifiedDistanceMiles !== null &&
-      customer.setupSurface.trim().length > 0 &&
-      customer.setupAccess.trim().length > 0 &&
-      customer.paymentMethod.trim().length > 0 &&
-      selectedDeliveryTime.trim().length > 0 &&
-      eventStartTime.trim().length > 0
+      phoneDigits.length >= 10 && phoneDigits.length <= 15 &&
+      customer.eventAddress.trim().length > 0 && customer.eventAddress.trim().length <= 500
     );
-  }, [customer, selectedDeliveryTime, eventStartTime]);
+  }, [customer]);
 
   const distanceMiles = normalizeDistanceMiles(customer.distanceMiles);
   const deliveryFee = selectionValid && duration
@@ -651,7 +641,7 @@ export function RentalBookingPanel({
         : subtotal == null || totalAmount == null
           ? "A rental price is unavailable. Refresh the page before submitting your request."
       : !customerOk
-        ? "Add your contact details, verify the event address, choose setup details, choose payment method, choose a delivery window, and add the party start time to continue."
+        ? "Enter your name, phone number, email, and event address to continue."
         : undefined;
 
   const bookingPayload = {
@@ -679,9 +669,7 @@ export function RentalBookingPanel({
           subtotal: subtotal ?? 0,
           total: totalAmount ?? 0,
   };
-  const bookingFingerprint = JSON.stringify(bookingPayload);
-  const agreementReady = agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged;
-  const submitBlocked = Boolean(reserveReason) || !agreementReady || isSubmitting;
+  const submitBlocked = Boolean(reserveReason) || isSubmitting;
 
   const serverLoadOk = availabilityLoadError === null;
 
@@ -726,8 +714,8 @@ export function RentalBookingPanel({
     setSubmitError(null);
     clearSubmitSuccess();
 
-    if (reserveReason || !agreementReady) {
-      setSubmitError(reserveReason ?? "Review the agreement, check the acknowledgment, and type your full legal name to sign.");
+    if (reserveReason) {
+      setSubmitError(reserveReason);
       document
         .getElementById("checkout-form")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -743,7 +731,7 @@ export function RentalBookingPanel({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current, agreement_signer_name: agreement?.signerName, agreement_acknowledged: agreement?.acknowledged, agreement_preview_token: agreement?.previewToken }),
+        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current }),
       });
 
       const data: unknown = await res.json().catch(() => null);
@@ -756,7 +744,6 @@ export function RentalBookingPanel({
           typeof (data as { error?: unknown }).error === "string"
             ? (data as { error: string }).error
             : `Request failed (${res.status})`;
-        if (data && typeof data === "object" && "agreementRefreshRequired" in data) { setAgreement(null); setAgreementRefresh(n => n + 1); }
         setSubmitError(apiError);
         document
           .getElementById("book-rental")
@@ -835,7 +822,7 @@ export function RentalBookingPanel({
               Request submitted
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-slate-200">
-              Your rental request is pending approval.
+              Your rental request is pending approval. We’ll call you if we have any questions.
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               You will receive an email once Jumping Jax confirms your booking.
@@ -1094,14 +1081,14 @@ export function RentalBookingPanel({
                 />
                 {!isFoamOnlyCart && secondDayQuoteRequested && <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">Second-day quote requested. We&apos;ll call you with discounted pricing. The second day is not included in this estimate.</p>}
                 <CustomerForm value={customer} onChange={setCustomer} />
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
-                  <label className="mb-5 block">
+                <details className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+                  <summary className="cursor-pointer text-sm font-bold text-cyan-200">Party and delivery times (optional)</summary>
+                  <label className="mb-5 mt-4 block">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       Official party start time
                     </span>
                     <select
                       name="eventStartTime"
-                      required
                       value={eventStartTime}
                       onChange={(e) => setEventStartTime(e.target.value)}
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
@@ -1125,7 +1112,6 @@ export function RentalBookingPanel({
                     </span>
                     <select
                       name="deliveryTime"
-                      required
                       value={selectedDeliveryTime}
                       onChange={(e) => setDeliveryTime(e.target.value)}
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30"
@@ -1160,11 +1146,11 @@ export function RentalBookingPanel({
                       confirm the final delivery plan after reviewing the route.
                     </p>
                   </label>
-                </div>
+                </details>
               </div>
             </div>
 
-            <RentalAgreementCheckout key={`${bookingFingerprint}:${agreementRefresh}`} payload={bookingPayload} requestFingerprint={bookingFingerprint} enabled={!reserveReason} onChange={setAgreement} />
+            <p className="mt-6 text-sm text-slate-300">Send your request with your name, phone number, email, and address. We’ll call you if we have any questions and confirm the remaining rental details with you.</p>
             <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-400 sm:max-w-xs">
                 Complete the checkout form above, then submit your request.
@@ -1183,7 +1169,7 @@ export function RentalBookingPanel({
 
       <StickyReserveBar
         totalDisplay={totalDisplay}
-        disabledReason={reserveReason ?? (!agreementReady ? "Review and sign the rental agreement to continue." : undefined)}
+        disabledReason={reserveReason}
         submitDisabled={submitBlocked}
       />
       </fieldset>

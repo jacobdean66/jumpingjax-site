@@ -84,22 +84,14 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
       ? body.event_start_time.trim()
       : null;
 
-  if (!requestedDeliveryWindow || !eventStartTime) {
-    return new Response(
-      JSON.stringify({
-        error: "requested_delivery_window and event_start_time are required",
-      }),
-      { status: 400 },
-    );
-  }
-  if (requestedDeliveryWindow.length > 100 || !isValidClockTime(eventStartTime)) {
+  if ((requestedDeliveryWindow && requestedDeliveryWindow.length > 100) || (eventStartTime && !isValidClockTime(eventStartTime))) {
     return NextResponse.json({ error: "Invalid delivery or event time" }, { status: 400 });
   }
 
   const customerName =
     typeof body.customer_name === "string" && body.customer_name.trim()
       ? body.customer_name.trim()
-      : "Guest";
+      : "";
   const customerEmail =
     typeof body.customer_email === "string" && body.customer_email.trim()
       ? body.customer_email.trim()
@@ -116,13 +108,13 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     !isValidYmd(eventDateYmd) ||
     !idempotencyKey ||
     idempotencyKey.length > 128 ||
-    !customerName || customerName === "Guest" || customerName.length > 120 ||
-    !customerPhone || customerPhone.length > 40 ||
+    !customerName || customerName.length > 120 ||
+    customerPhone.replace(/\D/g, "").length < 10 || customerPhone.replace(/\D/g, "").length > 15 || customerPhone.length > 40 ||
     !customerEmail || customerEmail.length > 254 ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
   ) {
     return NextResponse.json(
-      { error: "A valid event date, email, and request key are required" },
+      { error: "Enter your name, phone, email, and a valid rental date." },
       { status: 400 },
     );
   }
@@ -181,16 +173,16 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     typeof body.payment_method === "string" ? body.payment_method.trim() : "";
   if (
     !eventAddress || eventAddress.length > 500 ||
-    !setupSurface || setupSurface.length > 120 ||
-    !setupAccess || setupAccess.length > 500 ||
-    !paymentMethod || paymentMethod.length > 80 ||
+    setupSurface.length > 120 ||
+    setupAccess.length > 500 ||
+    paymentMethod.length > 80 ||
     savedSetupNotes.length > 2000 ||
     (distanceMiles != null && distanceMiles > 500)
   ) {
     return new Response(
       JSON.stringify({
         error:
-          "event_address, setup_surface, setup_access, and payment_method are required",
+          "Enter your event address and keep any optional details within their length limits.",
       }),
       { status: 400 },
     );
@@ -245,8 +237,8 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     foamDurationLabel,
     spanDays,
     eventAddress,
-    event_start_time: eventStartTime,
-    requested_delivery_window: requestedDeliveryWindow,
+    event_start_time: eventStartTime ?? undefined,
+    requested_delivery_window: requestedDeliveryWindow ?? undefined,
     distance_miles: distanceMiles,
     delivery_fee: deliveryFee,
     mileage_fee: mileageFee,
