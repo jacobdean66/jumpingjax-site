@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { calculateAgreementPricing } from "@/lib/facility-parties/agreement-pricing";
 
 import type {
   AdminAgreementSummary,
@@ -39,7 +40,7 @@ export function FacilityAgreementPanel({
   const latestSnapshot = latest?.snapshot;
   const [includePayment, setIncludePayment] = useState(false);
   const [amount, setAmount] = useState(() => {
-    if (!latestSnapshot) return "50.00";
+    if (!latestSnapshot) return booking.total === 0 ? "" : "50.00";
     const paid = booking.paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
     const balance = Math.max(0, latestSnapshot.total - paid);
     return balance > 0 ? balance.toFixed(2) : "";
@@ -57,13 +58,14 @@ export function FacilityAgreementPanel({
   const status = statusLabel(latest);
 
   const preview = useMemo(() => {
-    const packagePrice = booking.facilityPackagePrice ?? 0;
-    const addOns = booking.addonSubtotal ?? 0;
-    const extra = Math.max(0, Number(age3Plus) || 0) * 10 + Math.max(0, Number(age2Under) || 0) * 7;
-    const subtotal = packagePrice + addOns + extra;
-    const rate = booking.subtotal && booking.tax !== null ? booking.tax / booking.subtotal : 0.07;
-    const tax = Math.round(subtotal * rate * 100) / 100;
-    const total = Math.round((subtotal + tax) * 100) / 100;
+    const { total } = calculateAgreementPricing({
+      packagePrice: booking.facilityPackagePrice,
+      addonSubtotal: booking.addonSubtotal,
+      storedSubtotal: booking.subtotal,
+      storedTax: booking.tax,
+      additionalChildrenAge3Plus: age3Plus,
+      additionalChildrenAge2Under: age2Under,
+    });
     const existingPaid = booking.paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
     const proposed = includePayment ? Math.max(0, Number(amount) || 0) : 0;
     return { total, paid: existingPaid + proposed, balance: Math.max(0, total - existingPaid - proposed) };
@@ -169,7 +171,7 @@ export function FacilityAgreementPanel({
         <a href={`/admin/facility/${encodeURIComponent(booking.id)}/agreement/print`} target="_blank" rel="noreferrer" className="rounded-full border-2 border-slate-950 bg-white px-5 py-2 text-sm font-black text-slate-950 hover:bg-slate-100">
           Print agreement / receipt
         </a>
-        <span className="text-xs font-semibold text-slate-600">Sent to {booking.email ?? "email not set"}</span>
+        <span className="text-xs font-semibold text-slate-600">Customer email: {booking.email ?? "email not set"}</span>
       </div>
       {message ? <p className="mt-3 text-sm font-bold text-slate-800" role="status">{message}</p> : null}
 

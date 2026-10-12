@@ -109,7 +109,7 @@ export default async function PrintableFacilityAgreementPage({ params }: { param
           {details.notes ? <section className="rounded-lg border border-slate-300 p-3"><h2 className="text-[10px] font-black uppercase text-slate-500">Party notes</h2><p className="mt-1 text-xs font-semibold">{details.notes}</p></section> : null}
 
           <section className="border-t border-slate-300 pt-3 text-[10px] font-semibold leading-relaxed text-slate-700">
-            <p><strong>Agreement:</strong> The $50 deposit is nonrefundable. The remaining balance is due before the party begins. Extra-child charges are due on the party date. Food is not included; prepackaged drinks are provided. Socks are required.</p>
+            <p><strong>Agreement:</strong> {snapshot.policies[0]} The remaining balance is due before the party begins. Extra-child charges are due on the party date. Food is not included; prepackaged drinks are provided. Socks are required.</p>
             <div className="mt-4 grid grid-cols-[1fr_160px] gap-6">
               <div className="border-b border-slate-500 pb-4"><span className="sr-only">Customer signature</span></div>
               <div className="border-b border-slate-500 pb-4"><span className="sr-only">Date</span></div>
