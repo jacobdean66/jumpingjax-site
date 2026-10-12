@@ -1,4 +1,5 @@
 import "server-only";
+import { applyFacilityInvoiceTotal } from "./facility-total";
 import { reconcileRentalLines } from "./rental-lines";
 import { rentalDatePlusDays, rentalExtraTotal, type RentalDayCharge } from "@/lib/rentals/rental-period";
 import { loadBookingPaymentMap } from "@/lib/payments/store";
@@ -145,11 +146,11 @@ async function buildRentalInvoice(bookingId: string): Promise<BookingInvoice | n
   };
 }
 
-async function buildFacilityInvoice(bookingId: string): Promise<BookingInvoice | null> {
+async function buildFacilityInvoice(bookingId: string): Promise<(BookingInvoice & { staffTotalEditedAt?: string }) | null> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("facility_bookings")
-    .select("id,customer_name,email,phone,parent_name,child_name,party_label,readable_date,readable_time,start_time,room,party_kind,facility_package_price,addon_subtotal,addon_selections,tax,total,notes")
+    .select("id,customer_name,email,phone,parent_name,child_name,party_label,readable_date,readable_time,start_time,room,party_kind,facility_package_price,addon_subtotal,addon_selections,tax,total,pricing_details,notes")
     .eq("id", bookingId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -166,7 +167,7 @@ async function buildFacilityInvoice(bookingId: string): Promise<BookingInvoice |
   }
   const paymentsReceived = sumBookingPaymentCents((await loadBookingPaymentMap("facility", [bookingId])).get(bookingId) ?? []) / 100;
   const eventDate = clean(data.readable_date) || String(data.start_time).slice(0, 10);
-  return {
+  const invoice: BookingInvoice = {
     kind: "facility",
     bookingId,
     invoiceNumber: `JJ-F-${bookingId}`,
@@ -198,6 +199,8 @@ async function buildFacilityInvoice(bookingId: string): Promise<BookingInvoice |
     paymentsReceived,
     notes: clean(data.notes),
   };
+  const at = data.pricing_details?.staffTotalEdit?.at;
+  return { ...applyFacilityInvoiceTotal(invoice, money(data.total), money(data.tax)), ...(typeof at === "string" ? { staffTotalEditedAt: at } : {}) };
 }
 
 export async function loadBookingInvoice(
@@ -207,7 +210,7 @@ export async function loadBookingInvoice(
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("booking_invoices")
-    .select("payload")
+    .select("payload,updated_at")
     .eq("booking_kind", kind)
     .eq("booking_id", bookingId)
     .maybeSingle();
@@ -221,7 +224,11 @@ export async function loadBookingInvoice(
     ? await buildRentalInvoice(bookingId)
     : await buildFacilityInvoice(bookingId);
   if (!generated) return null;
-  const invoice = normalizeInvoice(data?.payload, generated);
+  let invoice = normalizeInvoice(data?.payload, generated);
+  const editedAt = "staffTotalEditedAt" in generated ? generated.staffTotalEditedAt : undefined;
+  if (kind === "facility" && typeof editedAt === "string" && (!data?.updated_at || Date.parse(editedAt) > Date.parse(data.updated_at))) {
+    invoice = applyFacilityInvoiceTotal(invoice, calculateInvoiceTotals(generated).total, generated.tax);
+  }
   if (kind === "rental") {
     // Reservation dates always follow the booking; retain custom invoice prose.
     const reserved = generated.eventDetails.split("\n")[0];

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminAccess } from "@/lib/admin/session";
+import { overridePartyTotal, parsePartyTotal } from "@/lib/facility-parties/total-edit";
 
 import {
   listPrivateSlotDispositions,
@@ -123,6 +125,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    let staffPriceEdit: { total: number; reason: string; by: string; at: string } | undefined;
+    if (body.staff_total !== undefined) {
+      const auth = await verifyAdminAccess();
+      if (!auth.ok) return NextResponse.json({ error: "Staff sign-in is required to change a party's cost." }, { status: 401 });
+      const total = parsePartyTotal(body.staff_total);
+      const reason = typeof body.staff_total_reason === "string" ? body.staff_total_reason.trim() : "";
+      if (total === null || !reason || reason.length > 500) return NextResponse.json({ error: "Enter a valid total cost and a price change reason." }, { status: 400 });
+      staffPriceEdit = { total, reason, by: auth.identity.name, at: new Date().toISOString() };
+    }
 
     const {
       party_kind,
@@ -243,7 +254,7 @@ export async function POST(req: NextRequest) {
     const startParts = getFacilityDateParts(startDate);
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
     const siteSettings = await loadSiteSettings();
-    const pricing = priceFacilityPartyWithConfig(
+    const standardPricing = priceFacilityPartyWithConfig(
       {
         partyKind: party_kind,
         roomId: room as FacilityRoomId,
@@ -253,6 +264,7 @@ export async function POST(req: NextRequest) {
       },
       siteSettings.facilityPricing,
     );
+    const pricing = staffPriceEdit ? overridePartyTotal(standardPricing, staffPriceEdit.total) : standardPricing;
 
     if (pricing.missingPrice) {
       return NextResponse.json(
@@ -432,6 +444,7 @@ export async function POST(req: NextRequest) {
           pricing_details: {
             taxRate: pricing.taxRate,
             source: "facility-party-price-sheet",
+            ...(staffPriceEdit ? { staffTotalEdit: { ...staffPriceEdit, previousTotal: standardPricing.total } } : {}),
           },
         };
     const { data, error } = await supabase.rpc("create_facility_booking_atomic", {
@@ -601,7 +614,7 @@ export async function POST(req: NextRequest) {
         `Invitation quantity: ${invitationQuantity}`,
         `Drink choice: ${String(drink_choice ?? "").trim()}`,
         `Payment method: ${String(payment_method ?? "").trim()}`,
-        `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
+        pricing.total === 0 ? "This party is free. No deposit or payment is due." : `Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax.`,
         "",
         ...invitationEmailSection,
         "",

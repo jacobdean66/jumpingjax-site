@@ -142,6 +142,7 @@ export function formatFacilityPricingLines(
   return [
     `Package price: ${formatUsd(pricing.packagePrice)}`,
     `Add-ons subtotal: ${formatUsd(pricing.addonSubtotal)}`,
+    ...(Math.abs(pricing.subtotal - pricing.packagePrice - pricing.addonSubtotal) >= 0.005 ? [`Price adjustment: ${formatUsd(Math.round((pricing.subtotal - pricing.packagePrice - pricing.addonSubtotal) * 100) / 100)}`] : []),
     `Subtotal: ${formatUsd(pricing.subtotal)}`,
     `Tax (${(pricing.taxRate * 100).toFixed(0)}%): ${formatUsd(pricing.tax)}`,
     `Total price: ${formatUsd(pricing.total)}`,

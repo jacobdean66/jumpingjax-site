@@ -72,6 +72,7 @@ export default async function PrintableFacilityAgreementPage({ params }: { param
             <table className="mt-2 w-full border-collapse text-xs">
               <tbody className="divide-y divide-slate-200 border-y border-slate-300">
                 <tr><th className="py-2 text-left font-semibold">Party package</th><td className="py-2 text-right font-black">{money(snapshot.packagePrice)}</td></tr>
+                {snapshot.priceAdjustment ? <tr><th className="py-2 text-left font-semibold">Price adjustment</th><td className="py-2 text-right font-black">{money(snapshot.priceAdjustment)}</td></tr> : null}
                 {snapshot.addonSubtotal > 0 ? <tr><th className="py-2 text-left font-semibold">Add-ons<div className="mt-0.5 whitespace-pre-wrap text-[10px] font-medium text-slate-500">{snapshot.addonText}</div></th><td className="py-2 text-right font-black">{money(snapshot.addonSubtotal)}</td></tr> : null}
                 {snapshot.additionalChildrenCharge > 0 ? <tr><th className="py-2 text-left font-semibold">Additional children ({snapshot.additionalChildrenAge3Plus} age 3+; {snapshot.additionalChildrenAge2Under} age 2 and under)</th><td className="py-2 text-right font-black">{money(snapshot.additionalChildrenCharge)}</td></tr> : null}
                 <tr><th className="py-2 text-left font-semibold">Subtotal</th><td className="py-2 text-right font-black">{money(snapshot.subtotal)}</td></tr>

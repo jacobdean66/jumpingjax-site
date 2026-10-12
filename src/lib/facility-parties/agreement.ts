@@ -43,6 +43,7 @@ export type FacilityAgreementSnapshot = {
   additionalChildrenAge2Under: number;
   additionalChildrenCharge: number;
   packagePrice: number;
+  priceAdjustment?: number;
   addonSubtotal: number;
   addonText: string;
   subtotal: number;
@@ -115,13 +116,16 @@ export function calculateAgreementPricing(input: {
     ? Math.round((storedTax / storedSubtotal) * 10000) / 10000
     : 0.07;
   const additionalChildrenCharge = money(age3Plus * 10 + age2Under * 7);
-  const subtotal = money(packagePrice + addonSubtotal + additionalChildrenCharge);
+  const baseSubtotal = input.storedSubtotal !== null && Number.isFinite(input.storedSubtotal) ? input.storedSubtotal : packagePrice + addonSubtotal;
+  const priceAdjustment = money(baseSubtotal - packagePrice - addonSubtotal);
+  const subtotal = money(baseSubtotal + additionalChildrenCharge);
   const tax = money(subtotal * taxRate);
   return {
     additionalChildrenAge3Plus: age3Plus,
     additionalChildrenAge2Under: age2Under,
     additionalChildrenCharge,
     packagePrice,
+    ...(priceAdjustment !== 0 ? { priceAdjustment } : {}),
     addonSubtotal,
     subtotal,
     taxRate,
@@ -180,7 +184,7 @@ export function buildFacilityAgreementSnapshot(input: {
     payments: [],
     paidTotal: 0,
     balanceDue: pricing.total,
-    policies: AGREEMENT_POLICIES,
+    policies: pricing.total === 0 ? ["No deposit or payment is due for this free party.", ...AGREEMENT_POLICIES.slice(1)] : AGREEMENT_POLICIES,
   };
 }
 

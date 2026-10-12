@@ -91,6 +91,7 @@ export function FacilityAgreementDocument({
                 <tr><th className="px-4 py-3 font-semibold">Add-ons</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.addonSubtotal)}</td></tr>
                 <tr><th className="px-4 py-3 font-semibold">Additional children age 3+ ({snapshot.additionalChildrenAge3Plus} × $10)</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.additionalChildrenAge3Plus * 10)}</td></tr>
                 <tr><th className="px-4 py-3 font-semibold">Additional children age 2 and under ({snapshot.additionalChildrenAge2Under} × $7)</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.additionalChildrenAge2Under * 7)}</td></tr>
+                {snapshot.priceAdjustment ? <tr><th className="px-4 py-3 font-semibold">Price adjustment</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.priceAdjustment)}</td></tr> : null}
                 <tr><th className="px-4 py-3 font-semibold">Subtotal</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.subtotal)}</td></tr>
                 <tr><th className="px-4 py-3 font-semibold">Sales tax ({(snapshot.taxRate * 100).toFixed(0)}%)</th><td className="px-4 py-3 text-right font-bold">{money(snapshot.tax)}</td></tr>
                 <tr className="bg-slate-950 text-white"><th className="px-4 py-4 text-base font-black">Party total</th><td className="px-4 py-4 text-right text-base font-black">{money(snapshot.total)}</td></tr>

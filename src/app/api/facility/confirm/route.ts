@@ -405,7 +405,7 @@ async function handleFacilityConfirm(
         ? `Payment method: ${booking.payment_method}`
         : null,
       action === "confirm"
-        ? "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
+        ? Number(booking.total) === 0 ? "This party is free. No deposit or payment is due." : "Deposit: $50 due within one week of making this reservation, paid directly to Jumping Jax."
         : null,
       "",
       formatStoredFacilityAddons(booking.addon_selections),

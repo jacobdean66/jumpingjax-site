@@ -46,6 +46,8 @@ export function FacilityEditButton({ booking }: Props) {
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState(false);
+  const [total, setTotal] = useState(booking.total?.toFixed(2) ?? "");
+  const priceChanged = total !== (booking.total?.toFixed(2) ?? "");
   const selectedInvitationDeliveryPreferences = useMemo(
     () => normalizeInvitationDeliveryPreferences(booking.invitationDeliveryPreference),
     [booking.invitationDeliveryPreference],
@@ -60,6 +62,7 @@ export function FacilityEditButton({ booking }: Props) {
 
     const form = new FormData(event.currentTarget);
     const payload = {
+      ...(priceChanged ? { total, expectedTotal: booking.total, priceChangeReason: String(form.get("priceChangeReason") ?? "") } : {}),
       customerName: String(form.get("customerName") ?? ""),
       email: String(form.get("email") ?? ""),
       phone: String(form.get("phone") ?? ""),
@@ -119,6 +122,7 @@ export function FacilityEditButton({ booking }: Props) {
         type="button"
         onClick={() => {
           setOpen(true);
+          setTotal(booking.total?.toFixed(2) ?? "");
           setMessage(null);
           setWarning(false);
         }}
@@ -164,6 +168,13 @@ export function FacilityEditButton({ booking }: Props) {
             </div>
 
             <div className="grid gap-3 overflow-y-auto px-5 py-4 sm:grid-cols-2">
+              <Field label="Total cost (including tax)">
+                <input name="total" type="number" min="0" max="1000000" step="0.01" value={total} onChange={(event) => setTotal(event.target.value)} className={inputClass} />
+                <p className="mt-1 text-xs font-semibold normal-case tracking-normal">Enter $0 for a free party. Tax and remaining balance update with the total; recorded payments stay intact.</p>
+              </Field>
+              <Field label="Price change reason">
+                <input name="priceChangeReason" required={priceChanged} maxLength={500} placeholder="Giveaway, discount, or correction" className={inputClass} />
+              </Field>
               <Field label="Customer name">
                 <input
                   name="customerName"

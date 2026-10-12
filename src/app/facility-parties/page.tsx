@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { verifyAdminAccess } from "@/lib/admin/session";
 
 import { FacilityPartyBookingForm } from "@/components/facility-parties/FacilityPartyBookingForm";
 import {
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
 export const metadata = generateFacilityPartiesMetadata();
 
 export default async function FacilityPartiesPage() {
+  const canEditTotal = (await verifyAdminAccess()).ok;
   let settings = DEFAULT_SITE_SETTINGS;
   try {
     settings = await loadSiteSettings();
@@ -148,7 +150,7 @@ export default async function FacilityPartiesPage() {
             </div>
           }
         >
-          <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} />
+          <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} canEditTotal={canEditTotal} />
         </Suspense>
       </section>
     </main>

@@ -2,6 +2,7 @@ import {
   normalizeRentalStatus,
   rentalAppearsInActiveSchedule,
 } from "@/lib/bookings/rental-lifecycle";
+import { parsePartyTotal } from "@/lib/facility-parties/total-edit";
 import { parseRentalPeriod, type RentalDayCharge } from "@/lib/rentals/rental-period";
 import {
   normalizeInvitationDeliveryPreferences,
@@ -124,6 +125,9 @@ export function buildRentalEditUpdate(input: RentalEditInput) {
 }
 
 export type FacilityEditInput = {
+  total?: number;
+  expectedTotal?: number | null;
+  priceChangeReason?: string;
   customerName: string;
   email: string | null;
   phone: string | null;
@@ -249,6 +253,17 @@ export function parseFacilityEditInput(
     return { ok: false, error: "Invalid request body." };
   }
   const raw = body as Record<string, unknown>;
+  let priceEdit: Pick<FacilityEditInput, "total" | "expectedTotal" | "priceChangeReason"> = {};
+  if (raw.total !== undefined) {
+    const total = parsePartyTotal(raw.total);
+    const expectedTotal = raw.expectedTotal === null ? null : parsePartyTotal(raw.expectedTotal);
+    if (total === null || (expectedTotal === null && raw.expectedTotal !== null)) {
+      return { ok: false, error: "Enter a total from $0 to $1,000,000 with at most two decimal places, and refresh the party before editing." };
+    }
+    const reason = requiredTrimmed(raw.priceChangeReason, "Price change reason", 500);
+    if (!reason.ok) return reason;
+    priceEdit = { total, expectedTotal, priceChangeReason: reason.value };
+  }
 
   const customerName = requiredTrimmed(raw.customerName, "Customer name", 120);
   if (!customerName.ok) return customerName;
@@ -315,6 +330,7 @@ export function parseFacilityEditInput(
     value: {
       customerName: customerName.value,
       email: email.value,
+      ...priceEdit,
       phone: phone.value,
       parentName: parentName.value,
       childName: childName.value,

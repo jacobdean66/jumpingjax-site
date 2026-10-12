@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { overridePartyTotal, parsePartyTotal } from "@/lib/facility-parties/total-edit";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -127,12 +128,16 @@ function formatReadableTimeRange(startMinutes: number, endMinutes: number) {
 }
 
 type FacilityPartyBookingFormProps = {
+  canEditTotal?: boolean;
   pricingConfig: FacilityPricingConfig;
 };
 
 export function FacilityPartyBookingForm({
   pricingConfig,
+  canEditTotal = false,
 }: FacilityPartyBookingFormProps) {
+  const [staffTotal, setStaffTotal] = useState("");
+  const [staffTotalReason, setStaffTotalReason] = useState("");
   const confirmationRef = useRef<HTMLDivElement | null>(null);
   const searchParams = useSearchParams();
   const urlTheme = searchParams.get("theme")?.trim() ?? "";
@@ -395,7 +400,7 @@ export function FacilityPartyBookingForm({
       return null;
     }
 
-    return priceFacilityPartyWithConfig(
+    const pricing = priceFacilityPartyWithConfig(
       {
         partyKind,
         roomId: partyKind === "public" ? roomId : PRIVATE_PARTY_ROOM_ID,
@@ -406,6 +411,8 @@ export function FacilityPartyBookingForm({
       },
       pricingConfig,
     );
+    const total = canEditTotal && staffTotal.trim() ? parsePartyTotal(staffTotal) : null;
+    return total === null ? pricing : overridePartyTotal(pricing, total);
   }, [
     addonSubtotalPreview,
     date,
@@ -413,6 +420,8 @@ export function FacilityPartyBookingForm({
     pricingConfig,
     roomId,
     selectedDisposition,
+    canEditTotal,
+    staffTotal,
   ]);
 
   const onPartyKindChange = (next: FacilityPartyKind) => {
@@ -446,6 +455,10 @@ export function FacilityPartyBookingForm({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitInFlight.current || bookingSubmitted) return;
+    if (canEditTotal && staffTotal.trim() && (parsePartyTotal(staffTotal) === null || !staffTotalReason.trim())) {
+      setFormError("Enter a valid total cost and a price change reason.");
+      return;
+    }
     setFormError(null);
     setSuccessMessage(null);
 
@@ -519,6 +532,7 @@ export function FacilityPartyBookingForm({
         },
         body: JSON.stringify({
           idempotency_key: submitIdempotencyKey.current,
+          ...(canEditTotal && staffTotal.trim() ? { staff_total: staffTotal, staff_total_reason: staffTotalReason.trim() } : {}),
           party_kind: request.kind,
           room: request.roomId,
           booking_date: request.date,
@@ -626,7 +640,7 @@ export function FacilityPartyBookingForm({
         {successBookingId && successRequestKey && invitationCreationPreference === "create" ? (
           <InvitationDeliveryActions bookingId={successBookingId} requestKey={successRequestKey} />
         ) : null}
-        <div className="mt-6 border-t border-white/10 pt-6">
+        {pricingPreview?.total === 0 ? <p className="mt-6 font-bold text-emerald-200">This party is free. No deposit or payment is due.</p> : <div className="mt-6 border-t border-white/10 pt-6">
           <p className="text-sm font-black text-white">Facility party deposit</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
             Pay the $50 deposit by card now. SwipeSimple adds the 3% card
@@ -638,7 +652,7 @@ export function FacilityPartyBookingForm({
           >
             Pay facility deposit
           </Link>
-        </div>
+        </div>}
       </div>
     );
   }
@@ -1465,6 +1479,16 @@ export function FacilityPartyBookingForm({
                     Add-ons subtotal (estimate): ${addonSubtotalPreview.toFixed(2)}
                   </p>
                 )}
+                {canEditTotal ? <fieldset className="mb-4 grid gap-3 rounded-xl border border-cyan-300 p-4">
+                  <legend className="font-black text-cyan-100">Staff pricing</legend>
+                  <label className="text-sm font-bold text-white">Total cost (including tax)
+                    <input type="number" min="0" max="1000000" step="0.01" value={staffTotal} onChange={event => setStaffTotal(event.target.value)} placeholder="Use standard pricing" className={inputClassName} />
+                  </label>
+                  <label className="text-sm font-bold text-white">Price change reason
+                    <input value={staffTotalReason} onChange={event => setStaffTotalReason(event.target.value)} maxLength={500} required={Boolean(staffTotal.trim())} placeholder="Giveaway, discount, or correction" className={inputClassName} />
+                  </label>
+                  <p className="text-xs text-cyan-100">Leave blank for standard pricing. Enter $0 for a free party.</p>
+                </fieldset> : null}
                 {pricingPreview && !pricingPreview.missingPrice && (
                   <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-3 text-sm text-slate-200">
                     {formatFacilityPricingLines(pricingPreview).map((line) => (

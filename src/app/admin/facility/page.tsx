@@ -370,6 +370,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
             value={formatMoney(booking.facilityPackagePrice)}
           />
           <Detail label="Add-ons" value={formatMoney(booking.addonSubtotal)} />
+          {booking.subtotal !== null && booking.facilityPackagePrice !== null && booking.addonSubtotal !== null && Math.abs(booking.subtotal - booking.facilityPackagePrice - booking.addonSubtotal) >= 0.005 ? <Detail label="Price adjustment" value={formatMoney(booking.subtotal - booking.facilityPackagePrice - booking.addonSubtotal)} /> : null}
           <Detail label="Tax" value={formatMoney(booking.tax)} />
           <Detail label="Total" value={formatMoney(booking.total)} />
         </section>

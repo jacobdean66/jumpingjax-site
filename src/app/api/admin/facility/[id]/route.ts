@@ -9,8 +9,10 @@ import {
 import { verifyAdminAccess } from "@/lib/admin/session";
 import {
   formatFacilityCalendarDescription,
+  facilityPricingFromBooking,
   type FacilityBookingCalendarFields,
 } from "@/lib/facility-parties/calendar-description";
+import { overridePartyTotal } from "@/lib/facility-parties/total-edit";
 import {
   evaluateGoogleCalendarProjection,
   summarizeGoogleCalendarError,
@@ -152,9 +154,20 @@ export async function PATCH(
     );
   }
 
-  const { data: updated, error: updateError } = await supabase
+  const priceUpdate: Record<string, unknown> = {};
+  if (parsed.value.total !== undefined) {
+    if ((existing.total === null ? null : Number(existing.total)) !== parsed.value.expectedTotal) {
+      return NextResponse.json({ ok: false, message: "This party's total changed. Refresh it before editing the cost." }, { status: 409 });
+    }
+    const pricing = overridePartyTotal(facilityPricingFromBooking(existing), parsed.value.total);
+    Object.assign(priceUpdate, { subtotal: pricing.subtotal, tax: pricing.tax, total: pricing.total,
+      pricing_details: { ...(existing.pricing_details && typeof existing.pricing_details === "object" ? existing.pricing_details : {}), taxRate: pricing.taxRate,
+        staffTotalEdit: { previousTotal: existing.total, total: pricing.total, reason: parsed.value.priceChangeReason, by: auth.identity.name, at: new Date().toISOString() } } });
+  }
+  let updateQuery = supabase
     .from("facility_bookings")
     .update({
+      ...priceUpdate,
       customer_name: parsed.value.customerName,
       email: parsed.value.email,
       phone: parsed.value.phone,
@@ -173,7 +186,11 @@ export async function PATCH(
       payment_method: parsed.value.paymentMethod,
     })
     .eq("id", id)
-    .in("status", ["pending", "confirmed"])
+    .in("status", ["pending", "confirmed"]);
+  if (parsed.value.total !== undefined) {
+    updateQuery = parsed.value.expectedTotal === null ? updateQuery.is("total", null) : updateQuery.eq("total", parsed.value.expectedTotal);
+  }
+  const { data: updated, error: updateError } = await updateQuery
     .select(FACILITY_EDIT_SELECT)
     .maybeSingle<FacilityEditRow>();
 
@@ -206,6 +223,8 @@ export async function PATCH(
 
   revalidatePath("/admin/facility");
   revalidatePath("/admin/schedule");
+  revalidatePath("/admin/front-desk/deposits");
+  revalidatePath("/admin/invoices");
 
   return NextResponse.json({
     ok: true,
