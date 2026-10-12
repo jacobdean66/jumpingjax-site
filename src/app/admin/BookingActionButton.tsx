@@ -9,6 +9,8 @@ type BookingActionButtonProps = {
   label: string;
   tone: "confirm" | "reject";
   workingLabel?: string;
+  successMessage?: string;
+  refreshOnly?: boolean;
 };
 
 export function BookingActionButton({
@@ -17,6 +19,8 @@ export function BookingActionButton({
   label,
   tone,
   workingLabel,
+  successMessage,
+  refreshOnly = false,
 }: BookingActionButtonProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,21 +42,27 @@ export function BookingActionButton({
       const text = await response.text();
 
       if (!response.ok) {
-        setMessage(text || "Something went wrong. Try again.");
+        let failure: { message?: string; error?: string; statusChanged?: boolean } = {};
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) failure = parsed;
+        } catch { /* Plain-text API errors are supported too. */ }
+        setMessage(failure.message || failure.error || text || "Something went wrong. Try again.");
+        if (failure.statusChanged === true) router.refresh();
         setIsWorking(false);
         return;
       }
 
       setMessage(
-        action === "reject"
+        (successMessage ? text || successMessage : null) ?? (action === "reject"
           ? "Rejected"
           : label.toLowerCase().includes("calendar")
             ? text || "Calendar sync complete"
-            : "Confirmed",
+            : "Confirmed"),
       );
       const nextParams = new URLSearchParams(searchParams.toString());
       const currentStatus = nextParams.get("status");
-      if (!currentStatus || currentStatus === "all") {
+      if (!refreshOnly && (!currentStatus || currentStatus === "all")) {
         nextParams.set("status", "pending");
         router.replace(`${pathname}?${nextParams.toString()}`);
       }
