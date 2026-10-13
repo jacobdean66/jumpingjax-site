@@ -6,7 +6,7 @@ Prepared October 13, 2026. This is a sampling procedure, not a ranking guarantee
 
 Open **Marketing → AI Search Visibility** at `/admin/ai-visibility` after owner sign-in. The existing owner session check protects the page. Employees do not get this navigation item or access. No new authentication configuration is required.
 
-The initial dataset contains seven conventional web-search tool observations and two actual Google AI Mode answers. The AI answers were collected manually through Google's interface in an existing signed-in session that already had Jumping Jax browsing history. They are exploratory samples with strong personalization bias, not a clean benchmark. **No ChatGPT recommendation samples were collected.**
+The bundled dataset contains seven conventional web-search observations, two actual Google AI Mode answers, and two actual ChatGPT web-search answers. Google samples used an existing personalized session with Jumping Jax browsing history. ChatGPT samples used separate temporary chats in an existing Free account; the interface showed **Personalized** and stated that temporary chats can reference memory, plugins and custom instructions. Model identity and actual inferred search location were not exposed. These are exploratory samples, not a clean benchmark or a measured causal effect of the release.
 
 An AI answer must be the generated answer itself. A source list from a web-search tool, a Google local pack, an ordinary search result, a review, and this agent's summary are not ChatGPT answers. A mention in a cited source alone does not establish that the generated answer recommended the business.
 
@@ -29,10 +29,12 @@ Suggested supplementary wording: “Which birthday party packages are available 
 
 ## Import format
 
-Top-level JSON must be `{ "version": 1, "observations": [...] }`. An empty import is valid and adds nothing. Two complete **actual observations**, suitable for copying as format examples, are saved at:
+Top-level JSON must be `{ "version": 1, "observations": [...] }`. An empty import is valid and adds nothing. Complete **actual observations**, suitable for copying as format examples, are saved at:
 
 - [Google AI Mode, Greenwood rentals](evidence/google-ai-greenwood-rentals.json)
 - [Google AI Mode, facility parties near Abbeville](evidence/google-ai-abbeville-facility.json)
+- [ChatGPT web search, Greenwood rentals](evidence/chatgpt-greenwood-rentals.json)
+- [ChatGPT web search, facility parties near Abbeville](evidence/chatgpt-abbeville-facility.json)
 
 Copying them unchanged is a re-import of those original samples, not a new test. Do not change their dates or IDs to imply that a later search occurred. For a new sample, replace all evidence and evaluations with what was actually observed.
 
@@ -63,7 +65,7 @@ All objects reject unrecognized fields. URLs must be HTTP(S) and contain no embe
 - Geographic coverage: coverage of recorded query locations, not coverage of the delivery territory or local population.
 - History: UTC daily counts and fractions. A changing sample mix can change totals without any underlying visibility improvement. One date cannot establish a trend.
 
-Never present a two-answer percentage as a market visibility score, impression share, universal ranking or measured improvement. Current samples precede deployment of this branch. They cannot measure the effects of these changes.
+Never present a small-sample percentage as a market visibility score, impression share, universal ranking or measured improvement. Google samples preceded the initial deployment; ChatGPT samples were captured immediately after it. There is no comparable before/after ChatGPT cohort, so these observations cannot establish the effects of the changes.
 
 ## Local verification
 
