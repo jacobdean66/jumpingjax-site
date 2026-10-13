@@ -32,6 +32,7 @@ import {
 } from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import { getFacilityOwnerEmails } from "@/lib/email/resend";
+import { isValidEmailAddress } from "@/lib/email/address";
 import {
   facilityConfirmLink,
   resolveRentalEmailSiteUrl,
@@ -56,7 +57,7 @@ import {
   facilityInvitationSheetShareUrl,
 } from "@/lib/facility-parties/invitations/snapshot";
 import { buildCustomerInvitationEmailSection } from "@/lib/facility-parties/invitations/content";
-import { buildFullInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
+import { buildOptionalInvitationEmailHtml } from "@/lib/facility-parties/invitations/email-html";
 import { assertConfirmedArtworkAvailable, verifyBookedInvitation } from "@/lib/facility-parties/invitations/booking-evidence";
 import { readConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
 import { buildHostGuestListUrl } from "@/lib/facility-parties/host-guest-list";
@@ -96,7 +97,7 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function isValidEmail(value: unknown): value is string {
-  return isNonEmptyString(value) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return isValidEmailAddress(value);
 }
 
 function buildAbsoluteAdminInvitationLink(
@@ -496,6 +497,9 @@ export async function POST(req: NextRequest) {
     let ownerNotificationFailed = facilityOwnerEmails.length === 0;
     let ownerNotificationSent = false;
     let customerReceiptFailed = false;
+    const waiverInvitationLink = buildFacilityWaiverInvitationUrl({
+      siteUrl, bookingId, partyDate: storedReadableDate,
+    });
 
     try {
       const confirmLink = siteUrl
@@ -504,11 +508,6 @@ export async function POST(req: NextRequest) {
       const rejectLink = siteUrl
         ? facilityConfirmLink(siteUrl, bookingId, "reject")
         : "Unavailable - use the authenticated admin dashboard";
-      const waiverInvitationLink = buildFacilityWaiverInvitationUrl({
-        siteUrl,
-        bookingId,
-        partyDate: storedReadableDate,
-      });
       const adminInvitationLink = buildAbsoluteAdminInvitationLink(
         siteUrl,
         bookingId,
@@ -577,7 +576,12 @@ export async function POST(req: NextRequest) {
           emailsSent = true;
         }
       }
+    } catch (emailError) {
+      ownerNotificationFailed = true;
+      console.error("OWNER BOOKING EMAIL ERROR", emailError);
+    }
 
+    try {
       const invitationUrl = siteUrl
         ? facilityInvitationShareUrl(siteUrl, bookingId)
         : "";
@@ -626,7 +630,7 @@ export async function POST(req: NextRequest) {
         .filter((line): line is string => line !== null)
         .join("\n");
       const invitationEmailHtml = invitationCreationPreference === "create"
-        ? buildFullInvitationEmailHtml({
+        ? buildOptionalInvitationEmailHtml({
             snapshot: invitationSnapshot,
             siteUrl,
             plainText: customerEmailText,
@@ -670,8 +674,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (emailError) {
       customerReceiptFailed = true;
-      ownerNotificationFailed = true;
-      console.error("BOOKING EMAIL ERROR", emailError);
+      console.error("CUSTOMER BOOKING EMAIL ERROR", emailError);
     }
 
     await recordWorkflowOutcome({
