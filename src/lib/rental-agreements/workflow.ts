@@ -1,4 +1,5 @@
 import { signerNameMatches, type RentalAgreement } from "./types";
+import { isValidEmailAddress } from "@/lib/email/address";
 
 export type AgreementState = "missing" | "ready" | "awaiting" | "signed" | "review" | "superseded" | "failed";
 export function agreementState(customerName: string, agreement?: RentalAgreement): AgreementState {
@@ -16,7 +17,7 @@ export function canRequestAgreement(status: string, agreement?: RentalAgreement)
   return ["pending", "approved"].includes(status) && agreement?.status !== "signed";
 }
 export function normalizeAgreementEmail(email: string | null | undefined) { return email?.trim().toLowerCase() ?? ""; }
-export function validAgreementEmail(email: string | null | undefined) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email?.trim() ?? ""); }
+export function validAgreementEmail(email: string | null | undefined) { return isValidEmailAddress(email); }
 export type AgreementBatchBooking = {
   id: string; customerName: string; customerEmail: string | null; eventDate: string;
   rentalNames: string; city: string; status: string; agreement?: RentalAgreement;

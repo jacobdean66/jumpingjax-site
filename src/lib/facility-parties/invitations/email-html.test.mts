@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildInvitationSnapshot } from "./snapshot.ts";
-import { buildFullInvitationEmailHtml } from "./email-html.ts";
+import { buildFullInvitationEmailHtml, buildOptionalInvitationEmailHtml } from "./email-html.ts";
+
+test("optional receipt artwork cannot block delivery and does not bypass artwork approval", () => {
+  const input = { snapshot: buildInvitationSnapshot("Halloween Costume Party"), siteUrl: "https://jumpingjaxllc.com", plainText: "Booking saved", childName: "Test", dateLabel: "2026-10-31", timeLabel: "2:00 PM", themeText: "Halloween Costume Party", invitationUrl: "", printableUrl: "", waiverUrl: "" };
+  assert.throws(() => buildFullInvitationEmailHtml(input));
+  assert.equal(buildOptionalInvitationEmailHtml(input), undefined);
+  const approved = buildOptionalInvitationEmailHtml({ ...input, snapshot: buildInvitationSnapshot("Sonic") });
+  assert.match(approved!, /data-full-page-invitation/);
+});
 
 test("full invitation email includes the themed invitation and forwarding actions", () => {
   const html = buildFullInvitationEmailHtml({

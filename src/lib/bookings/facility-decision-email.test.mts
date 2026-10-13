@@ -76,7 +76,7 @@ test("confirmation retry requires staff auth and a confirmed booking, with no bo
   assert.doesNotMatch(route, /\.update\(|\.insert\(|(?:create|sync|delete)GoogleCalendar|payment_entries|\.delete\(/);
 });
 
-test("failed durable email retries once with the same provider key, then suppresses duplicates", async context => {
+test("a transient durable email failure recovers with the same provider key, then suppresses duplicates", async context => {
   const oldKey = process.env.RESEND_API_KEY;
   process.env.RESEND_API_KEY = "re_test_only";
   let row: Record<string, unknown> | null = null;
@@ -103,7 +103,6 @@ test("failed durable email retries once with the same provider key, then suppres
   try {
     const supabase = createClient("https://email-test.supabase.co", "test-only-key", { auth: { persistSession: false } });
     const input = { supabase, messageKey: `facility-${booking.id}-decision-confirm-v1`, kind: "facility" as const, bookingId: booking.id, purpose: "decision_confirm", to: booking.email!, ...buildFacilityDecisionEmail(booking, "confirm", siteUrl) };
-    assert.ok((await sendDurableBookingEmail(input)).error);
     assert.equal((await sendDurableBookingEmail(input)).error, null);
     assert.equal((await sendDurableBookingEmail(input)).alreadySent, true);
     assert.equal(providerAttempts, 2);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValidEmailAddress } from "@/lib/email/address";
 import { estimateCartGrandTotal, estimateCartRentalSubtotal, estimateMileageFee, estimateRentalDeliveryFee, normalizeDistanceMiles, resolveNewFoamDurationLabel, resolveNewRentalDuration } from "@/lib/rentals/rental-pricing-text";
 import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import type { CreateBookingInput } from "@/lib/supabase/booking-data";
@@ -119,7 +120,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
     !customerName || customerName === "Guest" || customerName.length > 120 ||
     !customerPhone || customerPhone.length > 40 ||
     !customerEmail || customerEmail.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+    !isValidEmailAddress(customerEmail)
   ) {
     return NextResponse.json(
       { error: "A valid event date, email, and request key are required" },

@@ -13,6 +13,15 @@ export type FullInvitationEmailInput = InvitationCopyInput & {
   plainText: string;
 };
 
+/** Booking receipts remain deliverable when optional artwork cannot render. */
+export function buildOptionalInvitationEmailHtml(input: FullInvitationEmailInput): string | undefined {
+  try {
+    return buildFullInvitationEmailHtml(input);
+  } catch {
+    return undefined;
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")

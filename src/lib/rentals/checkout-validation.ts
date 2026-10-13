@@ -1,3 +1,5 @@
+import { isValidEmailAddress } from "@/lib/email/address";
+
 export type RentalCheckoutStep = 1 | 2 | 3 | 4;
 export type CheckoutErrors = Record<string, string>;
 
@@ -23,7 +25,7 @@ export function rentalStepErrors(
   if (step === 1) {
     if (customer.customerName.trim().length < 2 || customer.customerName.trim().length > 120)
       errors.customerName = "Enter your full name (2–120 characters).";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.customerEmail.trim()) || customer.customerEmail.trim().length > 254)
+    if (!isValidEmailAddress(customer.customerEmail) || customer.customerEmail.trim().length > 254)
       errors.customerEmail = "Enter a valid email address, such as you@example.com.";
     const digits = customer.customerPhone.replace(/\D/g, "");
     if (digits.length < 10 || digits.length > 15 || customer.customerPhone.length > 40)
