@@ -1,0 +1,50 @@
+{
+  "observedAt": "2026-10-13T17:32:18.021Z",
+  "routes": [
+    {
+      "path": "/service-area",
+      "status": 200,
+      "redirect": null,
+      "canonical": "https://jumpingjaxllc.com/service-area",
+      "dashboardVisible": false,
+      "loginRequired": false,
+      "serviceContent": true
+    },
+    {
+      "path": "/admin/ai-visibility",
+      "status": 200,
+      "redirect": null,
+      "canonical": "https://jumpingjaxllc.com",
+      "robots": "noindex, nofollow",
+      "dashboardVisible": false,
+      "loginRequired": false,
+      "serviceContent": false
+    },
+    {
+      "path": "/admin",
+      "status": 200,
+      "redirect": null,
+      "canonical": "https://jumpingjaxllc.com",
+      "robots": "noindex, nofollow",
+      "dashboardVisible": false,
+      "loginRequired": false,
+      "serviceContent": false
+    },
+    {
+      "path": "/pages/water-slide-rentals-in-abbeville-sc",
+      "status": 308,
+      "redirect": "/rentals/water-slides",
+      "dashboardVisible": false,
+      "loginRequired": false,
+      "serviceContent": false
+    },
+    {
+      "path": "/pages/water-slide-rentals-in-ware-shoals-sc",
+      "status": 308,
+      "redirect": "/rentals/water-slides",
+      "dashboardVisible": false,
+      "loginRequired": false,
+      "serviceContent": false
+    }
+  ]
+}

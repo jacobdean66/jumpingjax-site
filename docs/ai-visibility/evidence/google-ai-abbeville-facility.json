@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "id": "google-ai-2026-10-13-abbeville-facility",
+      "capturedAt": "2026-10-13T17:42:43.844Z",
+      "resultType": "ai-answer",
+      "provider": "Google AI Mode (manual browser sample)",
+      "collectionMethod": "manual",
+      "query": "indoor kids birthday party venues near Abbeville SC",
+      "city": "Abbeville",
+      "serviceType": "facility",
+      "locationContext": "Abbeville specified in query. Existing Google session previously reported 29649; actual AI geolocation not independently verified.",
+      "sessionContext": "Signed-in existing Google session with personalized results and recent Jumping Jax browsing. Fresh AI thread, but not a clean account. Exploratory sample with strong personalization bias.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Skate Away USA",
+          "url": "https://www.skateawayusa.com/"
+        },
+        {
+          "name": "Kid City",
+          "url": "https://www.kidcitysc.com/"
+        },
+        {
+          "name": "Big Air Trampoline Park (Anderson)"
+        },
+        {
+          "name": "Let’s Play Pretend",
+          "url": "http://letsplaypretend.org/"
+        },
+        {
+          "name": "The Splatter Place"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax LLC, ZuzuForKids",
+          "url": "https://zuzuforkids.com/places/us/sc/greenwood/jumping-jax-llc-greenwood-sc"
+        },
+        {
+          "title": "Skate Away USA schedule",
+          "url": "https://www.skateawayusa.com/SkateAway%20usa/SK8/skating/Schedule.html"
+        },
+        {
+          "title": "Kid City",
+          "url": "https://www.kidcitysc.com/"
+        },
+        {
+          "title": "Let’s Play Pretend",
+          "url": "http://letsplaypretend.org/"
+        },
+        {
+          "title": "Yelp indoor play area results, Anderson",
+          "url": "https://m.yelp.com/search?find_desc=Kids+Indoor+Play+Area&find_loc=Anderson%2C+SC"
+        },
+        {
+          "title": "Abbeville community discussion on Facebook",
+          "url": "https://www.facebook.com/groups/1514672432044546/posts/2181057368739379/"
+        },
+        {
+          "title": "Yelp kids birthday results, Abbeville",
+          "url": "https://m.yelp.com/search?find_desc=Kids+Birthday+Party&find_loc=Abbeville%2C+SC"
+        },
+        {
+          "title": "Yelp indoor playcenter results, Abbeville",
+          "url": "https://m.yelp.com/search?find_desc=Indoor+Playcenter&find_loc=Abbeville%2C+SC"
+        },
+        {
+          "title": "Girls Gone Gorgeous Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSHRIbCgNwdnESFENnMHZaeTh4TVc1ek0zWm1iRjgwGAo"
+        }
+      ],
+      "evidence": {
+        "text": "While Abbeville itself has limited indoor commercial play spaces, you will find excellent indoor kids birthday party venues just a short drive away, including Jumping Jax LLC and Skate Away USA in Greenwood, as well as Kid City and Let’s Play Pretend in Anderson. \nMap data ©2026 Google\nTerms\n20 km \n 60 min\n🎈 Inflatable & Active Play Centers (Greenwood)\nJumping Jax LLC\n4.4\n(244)\nParty equipment rental service\nClosedGreenwood, SC\nCall\nDirections\nWebsite\nLocated just about 10 miles away in Greenwood, Jumping Jax LLC features over 8,000 square feet of cushioned indoor play space. It is packed with inflatable playgrounds, obstacle courses, slides, and dedicated party spaces, making it a top local pick for energetic crowds.\nSkate Away USA\n4.0\n(445)\nRoller skating rink\nClosedGreenwood, SC\nCall\nDirections\nWebsite\nFor a classic roller-skating celebration, Skate Away USA in Greenwood offers active indoor entertainment. They host themed sessions like Glow Nights, making it a great option for older kids and families who love music and movement. \n🤸 Gymnastics & Trampoline Parks (Anderson)\nKid City\n4.6\n(41)\nGymnastics center\nClosedAnderson, SC\nCall\nDirections\nWebsite\nA fantastic venue for milestones, Kid City in Anderson provides birthday packages with access to trampolines, gymnastics equipment, a ninja training line, a rock-climbing wall, and inflatables. Parents highly rate their staff for keeping the party organized and interactive.\nBig Air Trampoline Park\n4.7\n(984)\nAmusement center\nClosedAnderson, SC\nCall\nDirections\nWebsite\nLocated on Clemson Boulevard in Anderson, this massive trampoline park features dedicated party zones and high-flying courts. It is a reliable choice if you want a completely hands-off hosting experience while the kids bounce off the walls. \n🧸 Toddler & Imaginative Play (Anderson)\nLet’s Play Pretend\n4.7\n(27)\nIndoor playground\nOpenAnderson, SC\nCall\nDirections\nWebsite\nIf you are planning a party for toddlers or preschoolers, Let’s Play Pretend is an exceptionally clean, well-designed indoor playground tailored specifically for imaginative play. It is intentionally sized so parents can relax and chat while keeping eyes on their little ones at all times. \n🎯 Action-Packed Entertainment (Anderson)\nThe Splatter Place: For a highly unique and memorable celebration, The Splatter Place features private party rooms alongside a variety of games. You can book budget-friendly packages that include glow-in-the-dark splatter painting rooms, Nerf wars, archery tag, and bubble soccer. \nYelp\nTo help narrow down the perfect spot, could you tell me:\nWhat age group is the birthday party for?\nAre you looking for a fully hosted package (where they provide decorations and structure), or just a room to rent?\nI can give you more details on pricing and availability!\n"
+      },
+      "notes": "Actual Google AI Mode response lists Jumping Jax as a top local option for energetic crowds. Unnumbered category grouping; no rank recorded. Anderson alternatives are recorded appearances, not verified businesses inside the Greenwood target radius. AI claims about floor area and travel distance were not adopted into website content. Response archived in docs/ai-visibility/evidence/google-ai-abbeville-facility.json. Citation URLs were manually checked against the captured rendered DOM; interface settings links were excluded. Google place-source links may expire."
+    }
+  ]
+}

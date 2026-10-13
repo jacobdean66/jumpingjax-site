@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { ServiceQuestions } from "@/components/ServiceQuestions";
+import { facilityQuestions } from "@/data/service-questions";
 import { verifyAdminAccess } from "@/lib/admin/session";
 
 import { FacilityPartyBookingForm } from "@/components/facility-parties/FacilityPartyBookingForm";
@@ -15,6 +18,7 @@ import {
   generateBreadcrumbSchema,
   generateFacilityPartiesMetadata,
   generateServiceSchema,
+  generateOrganizationSchema,
 } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +83,7 @@ export default async function FacilityPartiesPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={createJsonLdScript([
+          generateOrganizationSchema(settings),
           generateBreadcrumbSchema([
             { name: "Home", path: "/" },
             { name: "Facility Parties", path: "/facility-parties" },
@@ -88,6 +93,7 @@ export default async function FacilityPartiesPage() {
             "Indoor birthday party rooms and private facility party options at Jumping Jax in Greenwood, SC.",
             "/facility-parties",
             "Birthday party venue",
+            "facility",
           ),
         ])}
       />
@@ -153,6 +159,8 @@ export default async function FacilityPartiesPage() {
           <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} canEditTotal={canEditTotal} />
         </Suspense>
       </section>
+      <ServiceQuestions title="Indoor birthday party questions" questions={facilityQuestions} />
+      <p className="mx-auto mt-6 max-w-5xl text-center text-slate-700"><Link href="/contact" className="font-bold text-pink-800 underline">Contact us for directions and party questions</Link> · <Link href="/rentals" className="font-bold text-cyan-800 underline">Rent an inflatable for your own event</Link></p>
     </main>
   );
 }

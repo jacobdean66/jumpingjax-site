@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-13T17:56:59.557Z",
+  "environment": "Standalone localhost React component preview using the real dashboard component and production CSS; separate from the authenticated Next.js route.",
+  "checks": {
+    "defaultAiView": "Two Google AI Mode samples, correct evaluated denominator and disclosed personalization bias; no ChatGPT samples.",
+    "webSearchView": "Seven samples, six mentions, AI recommendation metrics remain not measured.",
+    "geographyFilter": "Hodges: one completed web search, zero Jumping Jax result mentions.",
+    "invalidImport": "Version 2 rejected with visible alert; existing observations retained.",
+    "validReimport": "Captured Google AI observation re-imported idempotently: nine total records retained.",
+    "export": "Browser download created jumping-jax-visibility-history.json; local file verified as version 1 with nine records and two AI samples.",
+    "mobile": "390px browser viewport: document client width and scroll width both 375px (15px scrollbar), no page-level horizontal overflow.",
+    "servicePageMobile": "New service-area page also had matching client/scroll widths at 390px.",
+    "accessibility": "Controls have labels; reporting tables have captions and header scopes; import feedback has status/alert semantics."
+  },
+  "limitations": [
+    "No authenticated full admin-session test or production database connection.",
+    "No screen reader session, automated axe audit or Core Web Vitals measurement.",
+    "Viewport reset after responsive testing."
+  ]
+}

@@ -1,0 +1,256 @@
+✔ obsolete water-slide URLs permanently consolidate into the canonical category (0.5744ms)
+✔ primary local keyword clusters have one visible category target (0.1158ms)
+✖ production checkout copy describes the actual follow-up workflow (1.5508ms)
+✔ successful rental and facility requests emit lead events (0.0907ms)
+✔ the booking conversion page has a self-referencing canonical and local title (0.0843ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 648.1867
+
+✖ failing tests:
+
+test at src\lib\seo\organic-seo-boundary.test.mts:1:1505
+✖ production checkout copy describes the actual follow-up workflow (1.5508ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /review your rental request/. Input:
+
+  '"use client";\r\n' +
+    '\r\n' +
+    'import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";\r\n' +
+    '\r\n' +
+    'import type { CheckoutErrors, RentalCheckoutStep } from "@/lib/rentals/checkout-validation";\r\n' +
+    '\r\n' +
+    'export type CustomerFields = {\r\n' +
+    '  customerName: string;\r\n' +
+    '  customerEmail: string;\r\n' +
+    '  customerPhone: string;\r\n' +
+    '  eventAddress: string;\r\n' +
+    '  distanceMiles: string;\r\n' +
+    '  setupSurface: string;\r\n' +
+    '  setupAccess: string;\r\n' +
+    '  setupNotes: string;\r\n' +
+    '  paymentMethod: string;\r\n' +
+    '};\r\n' +
+    '\r\n' +
+    'type Props = {\r\n' +
+    '  step: RentalCheckoutStep;\r\n' +
+    '  errors: CheckoutErrors;\r\n' +
+    '  value: CustomerFields;\r\n' +
+    '  onChange: Dispatch<SetStateAction<CustomerFields>>;\r\n' +
+    '};\r\n' +
+    '\r\n' +
+    'type AddressDistanceResult = {\r\n' +
+    '  formattedAddress: string;\r\n' +
+    '  latitude: number;\r\n' +
+    '  longitude: number;\r\n' +
+    '  distanceMiles: number;\r\n' +
+    '  distanceText: string | null;\r\n' +
+    '  durationText: string | null;\r\n' +
+    '  originAddress: string;\r\n' +
+    '};\r\n' +
+    '\r\n' +
+    'export function CustomerForm({ value, onChange, step, errors }: Props) {\r\n' +
+    '  const verificationId = useRef(0);\r\n' +
+    '  const [addressResult, setAddressResult] =\r\n' +
+    '    useState<AddressDistanceResult | null>(null);\r\n' +
+    '  const [addressLoading, setAddressLoading] = useState(false);\r\n' +
+    '  const [addressError, setAddressError] = useState<string | null>(null);\r\n' +
+    '\r\n' +
+    '  const patch = (partial: Partial<CustomerFields>) =>\r\n' +
+    '    onChange(previous => ({ ...previous, ...partial }));\r\n' +
+    '\r\n' +
+    '  const mapSrc = useMemo(() => {\r\n' +
+    '    if (!addressResult) return null;\r\n' +
+    '    const query = encodeURIComponent(\r\n' +
+    '      `${addressResult.latitude},${addressResult.longitude}`,\r\n' +
+    '    );\r\n' +
+    '    return `https://www.google.com/maps?q=${query}&z=15&output=embed`;\r\n' +
+    '  }, [addressResult]);\r\n' +
+    '\r\n' +
+    '  const routeUrl = useMemo(() => {\r\n' +
+    '    if (!addressResult) return null;\r\n' +
+    '    const origin = encodeURIComponent(addressResult.originAddress);\r\n' +
+    '    const destination = encodeURIComponent(addressResult.formattedAddress);\r\n' +
+    '    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;\r\n' +
+    '  }, [addressResult]);\r\n' +
+    '\r\n' +
+    '  const verifyAddress = async () => {\r\n' +
+    '    const currentVerification = ++verificationId.current;\r\n' +
+    '    setAddressLoading(true);\r\n' +
+    '    setAddressError(null);\r\n' +
+    '    setAddressResult(null);\r\n' +
+    '\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch("/api/rentals/address-distance", {\r\n' +
+    '        method: "POST",\r\n' +
+    '        headers: { "Content-Type": "application/json" },\r\n' +
+    '        body: JSON.stringify({ address: value.eventAddress }),\r\n' +
+    '      });\r\n' +
+    '      const data = (await res.json().catch(() => null)) as\r\n' +
+    '        | (Partial<AddressDistanceResult> & { error?: string })\r\n' +
+    '        | null;\r\n' +
+    '\r\n' +
+    '      if (\r\n' +
+    '        !res.ok ||\r\n' +
+    '        !data?.formattedAddress ||\r\n' +
+    '        typeof data.distanceMiles !== "number"\r\n' +
+    '      ) {\r\n' +
+    '        throw new Error(data?.error || "We could not verify that address.");\r\n' +
+    '      }\r\n' +
+    '\r\n' +
+    '      const nextResult: AddressDistanceResult = {\r\n' +
+    '        formattedAddress: data.formattedAddress,\r\n' +
+    '        latitude: Number(data.latitude),\r\n' +
+    '        longitude: Number(data.longitude),\r\n' +
+    '        distanceMiles: data.distanceMiles,\r\n' +
+    '        distanceText: data.distanceText ?? null,\r\n' +
+    '        durationText: data.durationText ?? null,\r\n' +
+    '        originAddress: data.originAddress ?? "559 Beaudrot Rd, Greenwood, SC",\r\n' +
+    '      };\r\n' +
+    '\r\n' +
+    '      if (currentVerification !== verificationId.current) return;\r\n' +
+    '      setAddressResult(nextResult);\r\n' +
+    '      patch({\r\n' +
+    '        eventAddress: nextResult.formattedAddress,\r\n' +
+    '        distanceMiles: String(nextResult.distanceMiles),\r\n' +
+    '      });\r\n' +
+    '    } catch (error) {\r\n' +
+    '      if (currentVerification !== verificationId.current) return;\r\n' +
+    '      setAddressError(\r\n' +
+    '        error instanceof Error\r\n' +
+    '          ? error.message\r\n' +
+    '          : "We could not verify that address.",\r\n' +
+    '      );\r\n' +
+    '    } finally {\r\n' +
+    '      if (currentVerification === verificationId.current) setAddressLoading(false);\r\n' +
+    '    }\r\n' +
+    '  };\r\n' +
+    '\r\n' +
+    '  const onAddressChange = (eventAddress: string) => {\r\n' +
+    '    verificationId.current++;\r\n' +
+    '    setAddressLoading(false);\r\n' +
+    '    setAddressResult(null);\r\n' +
+    '    setAddressError(null);\r\n' +
+    '    patch({ eventAddress, distanceMiles: "" });\r\n' +
+    '  };\r\n' +
+    '\r\n' +
+    '  return (\r\n' +
+    '    <div className={step === 4 ? "hidden" : "grid gap-4 sm:grid-cols-2"}>\r\n' +
+    '        <label className={step === 1 ? "block sm:col-span-2" : "hidden"}>\r\n' +
+    '          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n' +
+    '            Full name\r\n' +
+    '          </span>\r\n' +
+    '          <input\r\n' +
+    '            type="text"\r\n' +
+    '            name="customerName"\r\n' +
+    '            aria-invalid={Boolean(errors.customerName)}\r\n' +
+    '            aria-describedby={errors.customerName ? "error-customerName" : undefined}\r\n' +
+    '            required\r\n' +
+    '            autoComplete="name"\r\n' +
+    '            value={value.customerName}\r\n' +
+    '            onChange={(e) => patch({ customerName: e.target.value })}\r\n' +
+    '            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n' +
+    '            placeholder="Jordan Lee"\r\n' +
+    '          />\r\n' +
+    '\r\n' +
+    '          {errors.customerName && <p id="error-customerName" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerName}</p>}\r\n' +
+    '        </label>\r\n' +
+    '        <label className={step === 1 ? "block" : "hidden"}>\r\n' +
+    '          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n' +
+    '            Email\r\n' +
+    '          </span>\r\n' +
+    '          <input\r\n' +
+    '            type="email"\r\n' +
+    '            name="customerEmail"\r\n' +
+    '            aria-invalid={Boolean(errors.customerEmail)}\r\n' +
+    '            aria-describedby={errors.customerEmail ? "error-customerEmail" : undefined}\r\n' +
+    '            required\r\n' +
+    '            autoComplete="email"\r\n' +
+    '            value={value.customerEmail}\r\n' +
+    '            onChange={(e) => patch({ customerEmail: e.target.value })}\r\n' +
+    '            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n' +
+    '            placeholder="you@example.com"\r\n' +
+    '          />\r\n' +
+    '\r\n' +
+    '          {errors.customerEmail && <p id="error-customerEmail" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerEmail}</p>}\r\n' +
+    '        </label>\r\n' +
+    '        <label className={step === 1 ? "block" : "hidden"}>\r\n' +
+    '          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n' +
+    '            Phone\r\n' +
+    '          </span>\r\n' +
+    '          <input\r\n' +
+    '            type="tel"\r\n' +
+    '            name="customerPhone"\r\n' +
+    '            aria-invalid={Boolean(errors.customerPhone)}\r\n' +
+    '            aria-describedby={errors.customerPhone ? "error-customerPhone" : undefined}\r\n' +
+    '            required\r\n' +
+    '            autoComplete="tel"\r\n' +
+    '            value={value.customerPhone}\r\n' +
+    '            onChange={(e) => patch({ customerPhone: e.target.value })}\r\n' +
+    '            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n' +
+    '            placeholder="(864) 555-0199"\r\n' +
+    '          />\r\n' +
+    '\r\n' +
+    '          {errors.customerPhone && <p id="error-customerPhone" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerPhone}</p>}\r\n' +
+    '        </label>\r\n' +
+    '        <label className={step === 2 ? "block sm:col-span-2" : "hidden"}>\r\n' +
+    '          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n' +
+    '            Event address\r\n' +
+    '          </span>\r\n' +
+    '          <textarea\r\n' +
+    '            name="eventAddress"\r\n' +
+    '            aria-invalid={Boolean(errors.eventAddress)}\r\n' +
+    '            aria-describedby={errors.eventAddress ? "error-eventAddress" : undefined}\r\n' +
+    '            required\r\n' +
+    '            rows={3}\r\n' +
+    '            value={value.eventAddress}\r\n' +
+    '            onChange={(e) => onAddressChange(e.target.value)}\r\n' +
+    '            className="mt-1.5 w-full resize-y rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n' +
+    '            placeholder="Street, city, ZIP — helps us plan delivery"\r\n' +
+    '          />\r\n' +
+    '          <button\r\n' +
+    '            type="button"\r\n' +
+    '            onClick={verifyAddress}\r\n' +
+    '            disabled={addressLoading || value.eventAddress.trim().length < 8}\r\n' +
+    '            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-black uppercase tracking-wide text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-slate-600"\r\n' +
+    '          >\r\n' +
+    '            {addressLoading ? "Checking address..." : "Verify address"}\r\n' +
+    '          </button>\r\n' +
+    '          {addressError && (\r\n' +
+    '            <p className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-100">\r\n' +
+    '              {addressError}\r\n' +
+    '            </p>\r\n' +
+    '          )}\r\n' +
+    '          {addressResult && (\r\n' +
+    '            <div className="mt-3 space-y-3 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.06] p-3 text-sm text-slate-200">\r\n' +
+    '              <div>\r\n' +
+    '                <p className="font-semibold text-emerald-100">\r\n' +
+    '                  Address verified\r\n' +
+    '                </p>\r\n' +
+    '                <p className="mt-1 text-slate-300">\r\n' +
+    '                  {addressResult.formattedAddress}\r\n' +
+    '                </p>\r\n' +
+    '                <p className="mt-1 text-xs text-slate-400">\r\n' +
+    '                  {addressResult.distanceText ??\r\n' +
+    '                    `${addressResult.distanceMiles} miles`}{" "}\r\n' +
+    '                  estimated driving one way from {addressResult.originAddress}\r\n' +
+    '                  {add'... 7448 more characters
+
+      at TestContext.<anonymous> (C:\Users\User\Documents\Codex\2026-10-13\i-m-gonna-send-you-something\jumpingjax-site\src\lib\seo\organic-seo-boundary.test.mts:54:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '"use client";\r\n\r\nimport { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";\r\n\r\nimport type { CheckoutErrors, RentalCheckoutStep } from "@/lib/rentals/checkout-validation";\r\n\r\nexport type CustomerFields = {\r\n  customerName: string;\r\n  customerEmail: string;\r\n  customerPhone: string;\r\n  eventAddress: string;\r\n  distanceMiles: string;\r\n  setupSurface: string;\r\n  setupAccess: string;\r\n  setupNotes: string;\r\n  paymentMethod: string;\r\n};\r\n\r\ntype Props = {\r\n  step: RentalCheckoutStep;\r\n  errors: CheckoutErrors;\r\n  value: CustomerFields;\r\n  onChange: Dispatch<SetStateAction<CustomerFields>>;\r\n};\r\n\r\ntype AddressDistanceResult = {\r\n  formattedAddress: string;\r\n  latitude: number;\r\n  longitude: number;\r\n  distanceMiles: number;\r\n  distanceText: string | null;\r\n  durationText: string | null;\r\n  originAddress: string;\r\n};\r\n\r\nexport function CustomerForm({ value, onChange, step, errors }: Props) {\r\n  const verificationId = useRef(0);\r\n  const [addressResult, setAddressResult] =\r\n    useState<AddressDistanceResult | null>(null);\r\n  const [addressLoading, setAddressLoading] = useState(false);\r\n  const [addressError, setAddressError] = useState<string | null>(null);\r\n\r\n  const patch = (partial: Partial<CustomerFields>) =>\r\n    onChange(previous => ({ ...previous, ...partial }));\r\n\r\n  const mapSrc = useMemo(() => {\r\n    if (!addressResult) return null;\r\n    const query = encodeURIComponent(\r\n      `${addressResult.latitude},${addressResult.longitude}`,\r\n    );\r\n    return `https://www.google.com/maps?q=${query}&z=15&output=embed`;\r\n  }, [addressResult]);\r\n\r\n  const routeUrl = useMemo(() => {\r\n    if (!addressResult) return null;\r\n    const origin = encodeURIComponent(addressResult.originAddress);\r\n    const destination = encodeURIComponent(addressResult.formattedAddress);\r\n    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;\r\n  }, [addressResult]);\r\n\r\n  const verifyAddress = async () => {\r\n    const currentVerification = ++verificationId.current;\r\n    setAddressLoading(true);\r\n    setAddressError(null);\r\n    setAddressResult(null);\r\n\r\n    try {\r\n      const res = await fetch("/api/rentals/address-distance", {\r\n        method: "POST",\r\n        headers: { "Content-Type": "application/json" },\r\n        body: JSON.stringify({ address: value.eventAddress }),\r\n      });\r\n      const data = (await res.json().catch(() => null)) as\r\n        | (Partial<AddressDistanceResult> & { error?: string })\r\n        | null;\r\n\r\n      if (\r\n        !res.ok ||\r\n        !data?.formattedAddress ||\r\n        typeof data.distanceMiles !== "number"\r\n      ) {\r\n        throw new Error(data?.error || "We could not verify that address.");\r\n      }\r\n\r\n      const nextResult: AddressDistanceResult = {\r\n        formattedAddress: data.formattedAddress,\r\n        latitude: Number(data.latitude),\r\n        longitude: Number(data.longitude),\r\n        distanceMiles: data.distanceMiles,\r\n        distanceText: data.distanceText ?? null,\r\n        durationText: data.durationText ?? null,\r\n        originAddress: data.originAddress ?? "559 Beaudrot Rd, Greenwood, SC",\r\n      };\r\n\r\n      if (currentVerification !== verificationId.current) return;\r\n      setAddressResult(nextResult);\r\n      patch({\r\n        eventAddress: nextResult.formattedAddress,\r\n        distanceMiles: String(nextResult.distanceMiles),\r\n      });\r\n    } catch (error) {\r\n      if (currentVerification !== verificationId.current) return;\r\n      setAddressError(\r\n        error instanceof Error\r\n          ? error.message\r\n          : "We could not verify that address.",\r\n      );\r\n    } finally {\r\n      if (currentVerification === verificationId.current) setAddressLoading(false);\r\n    }\r\n  };\r\n\r\n  const onAddressChange = (eventAddress: string) => {\r\n    verificationId.current++;\r\n    setAddressLoading(false);\r\n    setAddressResult(null);\r\n    setAddressError(null);\r\n    patch({ eventAddress, distanceMiles: "" });\r\n  };\r\n\r\n  return (\r\n    <div className={step === 4 ? "hidden" : "grid gap-4 sm:grid-cols-2"}>\r\n        <label className={step === 1 ? "block sm:col-span-2" : "hidden"}>\r\n          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n            Full name\r\n          </span>\r\n          <input\r\n            type="text"\r\n            name="customerName"\r\n            aria-invalid={Boolean(errors.customerName)}\r\n            aria-describedby={errors.customerName ? "error-customerName" : undefined}\r\n            required\r\n            autoComplete="name"\r\n            value={value.customerName}\r\n            onChange={(e) => patch({ customerName: e.target.value })}\r\n            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n            placeholder="Jordan Lee"\r\n          />\r\n\r\n          {errors.customerName && <p id="error-customerName" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerName}</p>}\r\n        </label>\r\n        <label className={step === 1 ? "block" : "hidden"}>\r\n          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n            Email\r\n          </span>\r\n          <input\r\n            type="email"\r\n            name="customerEmail"\r\n            aria-invalid={Boolean(errors.customerEmail)}\r\n            aria-describedby={errors.customerEmail ? "error-customerEmail" : undefined}\r\n            required\r\n            autoComplete="email"\r\n            value={value.customerEmail}\r\n            onChange={(e) => patch({ customerEmail: e.target.value })}\r\n            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n            placeholder="you@example.com"\r\n          />\r\n\r\n          {errors.customerEmail && <p id="error-customerEmail" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerEmail}</p>}\r\n        </label>\r\n        <label className={step === 1 ? "block" : "hidden"}>\r\n          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n            Phone\r\n          </span>\r\n          <input\r\n            type="tel"\r\n            name="customerPhone"\r\n            aria-invalid={Boolean(errors.customerPhone)}\r\n            aria-describedby={errors.customerPhone ? "error-customerPhone" : undefined}\r\n            required\r\n            autoComplete="tel"\r\n            value={value.customerPhone}\r\n            onChange={(e) => patch({ customerPhone: e.target.value })}\r\n            className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n            placeholder="(864) 555-0199"\r\n          />\r\n\r\n          {errors.customerPhone && <p id="error-customerPhone" className="mt-2 text-sm font-semibold text-rose-200">{errors.customerPhone}</p>}\r\n        </label>\r\n        <label className={step === 2 ? "block sm:col-span-2" : "hidden"}>\r\n          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">\r\n            Event address\r\n          </span>\r\n          <textarea\r\n            name="eventAddress"\r\n            aria-invalid={Boolean(errors.eventAddress)}\r\n            aria-describedby={errors.eventAddress ? "error-eventAddress" : undefined}\r\n            required\r\n            rows={3}\r\n            value={value.eventAddress}\r\n            onChange={(e) => onAddressChange(e.target.value)}\r\n            className="mt-1.5 w-full resize-y rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"\r\n            placeholder="Street, city, ZIP — helps us plan delivery"\r\n          />\r\n          <button\r\n            type="button"\r\n            onClick={verifyAddress}\r\n            disabled={addressLoading || value.eventAddress.trim().length < 8}\r\n            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-black uppercase tracking-wide text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-slate-600"\r\n          >\r\n            {addressLoading ? "Checking address..." : "Verify address"}\r\n          </button>\r\n          {addressError && (\r\n            <p className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-100">\r\n              {addressError}\r\n            </p>\r\n          )}\r\n          {addressResult && (\r\n            <div className="mt-3 space-y-3 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.06] p-3 text-sm text-slate-200">\r\n              <div>\r\n                <p className="font-semibold text-emerald-100">\r\n                  Address verified\r\n                </p>\r\n                <p className="mt-1 text-slate-300">\r\n                  {addressResult.formattedAddress}\r\n                </p>\r\n                <p className="mt-1 text-xs text-slate-400">\r\n                  {addressResult.distanceText ??\r\n                    `${addressResult.distanceMiles} miles`}{" "}\r\n                  estimated driving one way from {addressResult.originAddress}\r\n                  {add'... 7448 more characters,
+    expected: /review your rental request/,
+    operator: 'match',
+    diff: 'simple'
+  }

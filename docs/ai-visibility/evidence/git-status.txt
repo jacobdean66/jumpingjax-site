@@ -1,0 +1,64 @@
+Branch: seo/ai-visibility-2026-10-13
+HEAD (base; no new commit): d00e039f4c76ba32cd61df51c379f7ebc1cb78a4
+Local clone: C:/Users/User/Documents/Codex/2026-10-13/i-m-gonna-send-you-something/jumpingjax-site
+Commit status: no local commit; Git author name/email not configured.
+Final verified state: 56 changed files staged; no unstaged or untracked files.
+No push, PR, merge, deployment, production database change or migration.
+
+Git status --short:
+A  docs/ai-visibility/HANDOFF.md
+A  docs/ai-visibility/evidence/abbeville-rentals.txt
+A  docs/ai-visibility/evidence/booking-regression.txt
+A  docs/ai-visibility/evidence/browser-qa.json
+A  docs/ai-visibility/evidence/build.txt
+A  docs/ai-visibility/evidence/competitor-http.json
+A  docs/ai-visibility/evidence/dashboard-desktop.jpg
+A  docs/ai-visibility/evidence/dashboard-export.json
+A  docs/ai-visibility/evidence/dashboard-mobile.jpg
+A  docs/ai-visibility/evidence/existing-seo-boundary.txt
+A  docs/ai-visibility/evidence/facility-pricing.json
+A  docs/ai-visibility/evidence/focused-tests.txt
+A  docs/ai-visibility/evidence/geography.json
+A  docs/ai-visibility/evidence/git-status.txt
+A  docs/ai-visibility/evidence/google-ai-abbeville-facility.jpg
+A  docs/ai-visibility/evidence/google-ai-abbeville-facility.json
+A  docs/ai-visibility/evidence/google-ai-greenwood-rentals.jpg
+A  docs/ai-visibility/evidence/google-ai-greenwood-rentals.json
+A  docs/ai-visibility/evidence/google-business-profile.json
+A  docs/ai-visibility/evidence/greenwood-rentals.txt
+A  docs/ai-visibility/evidence/greenwood-venues.txt
+A  docs/ai-visibility/evidence/hodges-rentals.txt
+A  docs/ai-visibility/evidence/laurens-rentals.txt
+A  docs/ai-visibility/evidence/lint.txt
+A  docs/ai-visibility/evidence/local-audit.json
+A  docs/ai-visibility/evidence/local-route-checks.json
+A  docs/ai-visibility/evidence/ninety-six-rentals.txt
+A  docs/ai-visibility/evidence/public-audit.json
+A  docs/ai-visibility/evidence/rockies-http.json
+A  docs/ai-visibility/evidence/typecheck.txt
+A  docs/ai-visibility/evidence/ware-shoals-rentals.txt
+A  docs/ai-visibility/measurement-guide.md
+M  next.config.ts
+M  package.json
+A  scripts/audit-public-seo.mjs
+A  src/app/admin/ai-visibility/VisibilityDashboard.tsx
+A  src/app/admin/ai-visibility/page.tsx
+M  src/app/contact/page.tsx
+M  src/app/facility-parties/page.tsx
+M  src/app/layout.tsx
+M  src/app/page.tsx
+M  src/app/rentals/page.tsx
+M  src/app/robots.ts
+A  src/app/service-area/page.tsx
+M  src/app/sitemap.ts
+A  src/components/ServiceQuestions.tsx
+A  src/data/ai-visibility-baseline.json
+A  src/data/service-questions.ts
+M  src/data/site.ts
+M  src/lib/admin/navigation.ts
+M  src/lib/admin/site-settings.ts
+A  src/lib/ai-visibility/dashboard-render.test.mts
+A  src/lib/ai-visibility/observations.test.mts
+A  src/lib/ai-visibility/observations.ts
+M  src/lib/metadata.ts
+A  src/lib/seo/ai-search-readiness.test.mts

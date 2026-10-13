@@ -10,6 +10,7 @@ import {
   location,
   seoDefaults,
   pageSEO,
+  type BusinessHours,
 } from "@/data/site";
 import { absoluteSeoUrl, getSeoBaseUrl } from "@/lib/seo/site-url";
 
@@ -207,24 +208,28 @@ export const generateContactMetadata = (): Metadata => {
 /**
  * Generate JSON-LD schema for organization
  */
-export const generateOrganizationSchema = () => {
+export const generateOrganizationSchema = (settings?: {
+  businessHours: BusinessHours[];
+  websiteText: { contactPhone: string; contactEmail: string; contactAddress: string; businessDescription: string };
+}) => {
   return {
     "@context": "https://schema.org",
     "@type": ["LocalBusiness", "EntertainmentBusiness"],
     "@id": `${getSeoBaseUrl()}/#business`,
     name: business.name,
-    description: business.description,
+    description: settings?.websiteText.businessDescription ?? business.description,
     image: absoluteSeoUrl(business.logo || "/logo.png"),
-    telephone: contact.phone,
-    email: contact.email,
-    address: {
+    telephone: settings?.websiteText.contactPhone ?? contact.phone,
+    email: settings?.websiteText.contactEmail ?? contact.email,
+    address: !settings || settings.websiteText.contactAddress === contact.address ? {
       "@type": "PostalAddress",
       streetAddress: "559 Beaudrot Rd",
       addressLocality: location.city,
       addressRegion: "SC",
       postalCode: "29649",
       addressCountry: "US",
-    },
+    } : settings.websiteText.contactAddress,
+    openingHoursSpecification: settings ? openingHoursFromDisplay(settings.businessHours) : undefined,
     areaServed: location.serviceAreas.map((name) => ({
       "@type": "City",
       name: `${name}, SC`,
@@ -240,31 +245,32 @@ export const generateOrganizationSchema = () => {
 /**
  * Generate JSON-LD schema for business hours
  */
-export const generateBusinessHoursSchema = () => {
+export function openingHoursFromDisplay(rows: readonly BusinessHours[]) {
+  const days = new Set(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
+  const time = (hour: string, minute: string, period: string) => {
+    const h = Number(hour);
+    const m = Number(minute);
+    if (h < 1 || h > 12 || m > 59) return null;
+    return `${String(h % 12 + (period.toUpperCase() === "PM" ? 12 : 0)).padStart(2, "0")}:${minute}`;
+  };
+  return rows.flatMap(row => {
+    if (row.closed || !days.has(row.day)) return [];
+    const match = row.hours.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return []; // Appointment-only or ambiguous text is not a timed opening.
+    const opens = time(match[1], match[2], match[3]);
+    const closes = time(match[4], match[5], match[6]);
+    if (!opens || !closes || opens >= closes) return [];
+    return [{ "@type": "OpeningHoursSpecification", dayOfWeek: row.day, opens, closes }];
+  });
+}
+
+export const generateBusinessHoursSchema = (rows: readonly BusinessHours[]) => {
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
+    "@id": `${getSeoBaseUrl()}/#business`,
     name: business.name,
-    openingHoursSpecification: [
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        opens: "09:00",
-        closes: "18:00",
-      },
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: "Saturday",
-        opens: "08:00",
-        closes: "17:00",
-      },
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: "Sunday",
-        opens: "00:00",
-        closes: "00:00",
-      },
-    ],
+    openingHoursSpecification: openingHoursFromDisplay(rows),
   };
 };
 
@@ -273,6 +279,7 @@ export const generateServiceSchema = (
   description: string,
   path: string,
   serviceType: string,
+  scope: "delivery" | "facility" = "delivery",
 ) => {
   return {
     "@context": "https://schema.org",
@@ -285,7 +292,7 @@ export const generateServiceSchema = (
       "@id": `${getSeoBaseUrl()}/#business`,
       name: business.name,
     },
-    areaServed: location.serviceAreas.map((name) => ({
+    areaServed: (scope === "facility" ? [location.city] : location.serviceAreas).map((name) => ({
       "@type": "City",
       name: `${name}, SC`,
     })),

@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "id": "google-ai-2026-10-13-greenwood-rentals",
+      "capturedAt": "2026-10-13T17:41:06.888Z",
+      "resultType": "ai-answer",
+      "provider": "Google AI Mode (manual browser sample)",
+      "collectionMethod": "manual",
+      "query": "bounce house rentals Greenwood SC",
+      "city": "Greenwood",
+      "serviceType": "rental",
+      "locationContext": "Greenwood specified in query. Existing Google session previously reported 29649; actual AI geolocation not independently verified.",
+      "sessionContext": "Signed-in existing Google session with personalized results and recent Jumping Jax browsing. Fresh AI thread, but not a clean account. Exploratory sample with strong personalization bias.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Rockies Event Rentals & More",
+          "url": "https://rockieseventrentals.com/"
+        },
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "name": "Bounce All Out Party & Event Rentals",
+          "url": "https://www.facebook.com/bouncealloutpartyrentals/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax homepage",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "Jumping Jax bounce house rentals",
+          "url": "https://jumpingjaxllc.com/rentals/bounce-houses"
+        },
+        {
+          "title": "Jumping Jax combo rentals",
+          "url": "https://jumpingjaxllc.com/rentals/combos"
+        },
+        {
+          "title": "Jumping Jax rental categories",
+          "url": "https://jumpingjaxllc.com/rentals"
+        },
+        {
+          "title": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "title": "Rockies Event Rentals & More",
+          "url": "https://rockieseventrentals.com/"
+        },
+        {
+          "title": "Rockies Event Rentals on MapQuest",
+          "url": "https://www.mapquest.com/us/south-carolina/rockies-event-rentals-more-430672886"
+        },
+        {
+          "title": "Bounce All Out Party & Event Rentals on Facebook",
+          "url": "https://www.facebook.com/bouncealloutpartyrentals/"
+        },
+        {
+          "title": "Jumping Jax Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSGxIZCgNwdnESEkNnc3ZaeTh4ZEdwbVl6TXljdxgK"
+        },
+        {
+          "title": "Rockies Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSHRIbCgNwdnESFENnMHZaeTh4TVc1NGNsOW9PR2N5GAo"
+        }
+      ],
+      "evidence": {
+        "text": "If you are planning a party or event in the Greenwood, SC area, you have several excellent local options for bounce houses, water slides, and party equipment rentals. Whether you are looking for an all-inclusive indoor venue or standard backyard delivery, these top choices are ready to help you pull off a great event.\nTop Local Pick\nFor the smoothest all-around experience, I highly recommend checking out Jumping Jax LLC. What makes them stand out is their total flexibility. They operate a dedicated indoor play facility on Beaudrot Rd—which is a fantastic backup option if you want to wear the kids out without worrying about South Carolina heat or unpredictable rain—but they also offer a robust residential delivery and setup service. \nJumping Jax\n +1\nThe Selection: They offer classic jumpers like their 1-Day Castle or Tiger Belly Bounce starting around $150, themed options like the Dalmatian house or World of Disney area for $175, and larger combo bounce-and-slide setups ranging from $175 to $275. \nJumping Jax\n +1\nThe Experience: Parents love their reliable communication. They typically call the day before your reservation to verify delivery logistics, and their setup crew is known for being friendly and efficient. \nStrong Alternative Providers\nIf you want to shop around for specific themes, packages, or availability, these local providers also serve the immediate Greenwood area:\nRockies Event Rentals & More L.L.C.\n5.0\n(6)\nParty equipment rental service\nWillard Rd\nCall\nDirections\nWebsite\nBased right here in Greenwood on Willard Rd, this women-owned business is highly rated by locals for punctuality and pristine, clean equipment. They specialize in themed bounce houses, combo units, large water slides (like their Purple and Dolphin Splash slides), as well as event essentials like tables, chairs, and snow cone concessions.\nWe Three Inflatables\nAbbeville, SC\nCall\nDirections\nWebsite\nOperating out of nearby Abbeville, they fully service the Greenwood community. They are an excellent pick if you are organizing a larger school event, church festival, or neighborhood block party, as their inventory spans toddler play zones, massive obstacle courses, foam party packages, and GellyBall setups alongside standard bounce houses.\nBounce All Out Party & Event Rentals LLC\n5.0\n(1)\nParty equipment rental service\nOpen\nCall\nWebsite\nA great hyper-local option serving Greenwood, Ninety Six, and Ware Shoals. They are very active on social media, sanitize all equipment thoroughly, and frequently run seasonal bundle specials if you call or text them directly. \nwethreeinflatables.com\n +4\nPro-Tips for Booking Inflatables in Greenwood\nCheck the Inclusions: Always ask if delivery, setup, and stakes/sandbags are included in the base price, or if there is an extra mileage fee depending on how far out you live.\nPower Requirements: Most standard bounce houses require a dedicated 110V circuit within 50–100 feet of the setup area. If you are hosting your party at a local park (like Grace Street Park or Westside Park), you will likely need to rent a generator from the provider. \nJumping Jax\n +1\nWeather Policies: Before signing a contract, verify the company's rain and high-wind cancellation policy so you know how late you can pivot without losing your deposit.\nTo help narrow this down for your party, let me know:\nWhat date is the event and what is the age group of the kids?\nAre you setting up on grass or pavement, and will you need water slide capabilities?\nDo you also need extra party supplies like tables, chairs, or concession machines?\n"
+      },
+      "notes": "Actual generated Google AI Mode answer. Explicitly calls Jumping Jax a Top Local Pick and recommends it. No numbered ranking recorded. Ads, booking-agent controls, and underlying factual claims are not treated as verified business facts. Screenshot and response archived in docs/ai-visibility/evidence/google-ai-greenwood-rentals.json. Citation URLs were manually checked against the captured rendered DOM; interface settings links were excluded. Google place-source links may expire."
+    }
+  ]
+}

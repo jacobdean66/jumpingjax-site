@@ -98,7 +98,6 @@ export const location: LocationInfo = {
     "Laurens",
     "Ninety Six",
     "Saluda",
-    "McCormick",
   ],
 };
 
@@ -107,13 +106,13 @@ export const location: LocationInfo = {
 // ============================================================================
 
 export const businessHours: BusinessHours[] = [
-  { day: "Monday", hours: "9:00 AM - 6:00 PM" },
-  { day: "Tuesday", hours: "9:00 AM - 6:00 PM" },
-  { day: "Wednesday", hours: "9:00 AM - 6:00 PM" },
-  { day: "Thursday", hours: "9:00 AM - 6:00 PM" },
-  { day: "Friday", hours: "9:00 AM - 6:00 PM" },
-  { day: "Saturday", hours: "8:00 AM - 5:00 PM" },
-  { day: "Sunday", hours: "Closed", closed: true },
+  { day: "Monday", hours: "Closed", closed: true },
+  { day: "Tuesday", hours: "Closed", closed: true },
+  { day: "Wednesday", hours: "12:00 PM - 5:00 PM" },
+  { day: "Thursday", hours: "12:00 PM - 5:00 PM" },
+  { day: "Friday", hours: "12:00 PM - 6:00 PM" },
+  { day: "Saturday", hours: "10:00 AM - 6:00 PM" },
+  { day: "Sunday", hours: "Private parties all day" },
 ];
 
 // ============================================================================

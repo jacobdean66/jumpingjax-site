@@ -50,6 +50,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      ...["abbeville", "ware-shoals"].map((city) => ({
+        source: `/pages/water-slide-rentals-in-${city}-sc`,
+        destination: "/rentals/water-slides",
+        permanent: true,
+      })),
       {
         source: "/pages/water-slide-rentals-in-greenwood-sc",
         destination: "/rentals/water-slides",

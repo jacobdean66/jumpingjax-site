@@ -3,7 +3,7 @@ import {
   DEFAULT_SITE_SETTINGS,
   loadSiteSettings,
 } from "@/lib/admin/site-settings";
-import { generateContactMetadata } from "@/lib/metadata";
+import { createJsonLdScript, generateContactMetadata, generateOrganizationSchema } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 export const metadata = generateContactMetadata();
@@ -22,6 +22,7 @@ export default async function ContactPage() {
 
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-12 text-slate-950 sm:px-6">
+      <script type="application/ld+json" dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema(settings))} />
       <section className="mx-auto max-w-4xl rounded-3xl border-2 border-pink-200 bg-white px-5 py-10 text-center shadow-[0_18px_48px_rgba(236,72,153,0.14)] sm:px-8">
         <span className="inline-flex rounded-full border border-pink-200 bg-pink-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-pink-800">
           Contact Us
@@ -33,7 +34,7 @@ export default async function ContactPage() {
           {settings.websiteText.contactDescription}
         </p>
 
-        <div className="mt-8 grid gap-4 text-lg font-bold sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 break-words text-lg font-bold sm:grid-cols-3">
           <a
             href={phoneHref}
             className="rounded-3xl border-2 border-cyan-100 bg-cyan-50 px-5 py-6 text-cyan-900 transition hover:bg-cyan-100"
@@ -54,6 +55,7 @@ export default async function ContactPage() {
           </a>
         </div>
 
+        <p className="mt-6 text-slate-700">Planning a delivery? <Link href="/service-area" className="font-bold text-cyan-800 underline">Check our rental service area</Link>.</p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link
             href="/rentals"

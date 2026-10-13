@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ServiceQuestions } from "@/components/ServiceQuestions";
+import { rentalQuestions } from "@/data/service-questions";
 import {
   CATEGORY_BROWSE_ORDER,
   CATEGORY_COPY,
@@ -14,6 +16,7 @@ import {
   generateItemListSchema,
   generateRentalsMetadata,
   generateServiceSchema,
+  generateOrganizationSchema,
 } from "@/lib/metadata";
 
 const CATEGORY_CARD_IMAGE_SIZES =
@@ -35,6 +38,7 @@ export default async function RentalsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={createJsonLdScript([
+          generateOrganizationSchema(settings),
           generateServiceSchema(
             "Inflatable and Party Rentals in Greenwood, SC",
             "Bounce house, water slide, obstacle course, foam party, and party equipment rentals from Jumping Jax.",
@@ -114,7 +118,9 @@ export default async function RentalsPage() {
             );
           })}
         </div>
+        <p className="mt-8 text-center text-slate-700"><Link href="/service-area" className="font-bold text-cyan-800 underline">Delivery communities and event planning</Link> · <Link href="/facility-parties" className="font-bold text-pink-800 underline">Host an indoor birthday party at Jumping Jax</Link></p>
       </section>
+      <ServiceQuestions title="Inflatable rental questions" questions={rentalQuestions} />
     </main>
   );
 }
