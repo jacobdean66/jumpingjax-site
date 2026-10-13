@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "id": "chatgpt-2026-10-13-abbeville-facility",
+      "capturedAt": "2026-10-13T19:08:16.676Z",
+      "resultType": "ai-answer",
+      "provider": "ChatGPT web search (Free; temporary personalized chat)",
+      "collectionMethod": "manual",
+      "query": "Where can I host an indoor kids’ birthday party near Abbeville, South Carolina? Compare nearby venues and cite current sources.",
+      "city": "Abbeville",
+      "serviceType": "facility",
+      "locationContext": "Abbeville explicitly specified in the neutral prompt. Actual physical/inferred search location not verified.",
+      "sessionContext": "Existing signed-in Free account; fresh Temporary chat. UI explicitly says temporary chats can reference memory, plugins and custom instructions and shows Personalized. No brand named in the prompt; model identity not exposed. Potential personalization bias remains.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": true,
+      "position": 1,
+      "competitors": [
+        {
+          "name": "Venue 119",
+          "url": "https://www.google.com/maps/search/?api=1&query=Venue+119+Abbeville+SC"
+        },
+        {
+          "name": "The Venue on Court Square",
+          "url": "https://www.google.com/maps/search/?api=1&query=The+Venue+on+Court+Square+Abbeville+SC"
+        },
+        {
+          "name": "Abbeville Recreation Department / Civic Center",
+          "url": "https://www.abbevillecitysc.com/178/Recreation-Facilities-Rental-Fees"
+        },
+        {
+          "name": "All In Academy",
+          "url": "https://www.google.com/maps/search/?api=1&query=All+In+Academy+Abbeville+SC"
+        },
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax facility party packages",
+          "url": "https://jumpingjaxllc.com/facility-parties"
+        },
+        {
+          "title": "Venue 119 map listing",
+          "url": "https://www.google.com/maps/search/?api=1&query=Venue+119+Abbeville+SC"
+        },
+        {
+          "title": "The Venue on Court Square map listing",
+          "url": "https://www.google.com/maps/search/?api=1&query=The+Venue+on+Court+Square+Abbeville+SC"
+        },
+        {
+          "title": "Abbeville city facility fee schedule",
+          "url": "https://www.abbevillecitysc.com/178/Recreation-Facilities-Rental-Fees"
+        },
+        {
+          "title": "All In Academy map listing",
+          "url": "https://www.google.com/maps/search/?api=1&query=All+In+Academy+Abbeville+SC"
+        },
+        {
+          "title": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        }
+      ],
+      "evidence": {
+        "text": "Indoor kids’ birthday party venues near Abbeville, SC\n\nIf you're planning a kids’ birthday party near Abbeville, South Carolina, I'd start with Jumping Jax in Greenwood for an active, all-indoor party, then compare it with Abbeville's local rental halls if you want more control over food, decorations, and your budget.\n\nI found a mix of indoor play facilities, private event venues, and community spaces. One important distinction: a venue that rents an indoor room isn't necessarily a kids’ play center, so I've separated the options by what they offer.\n\n4.0\nJumping Jax\n5.0\nVenue 119\nThe Venue on Court Square\n4.2\nAbbeville Recreation Department\n5.0\nAll In Academy\nUse two fingers to move the map\nUse ctrl + scroll to zoom the map\nBest options to compare\n1. Jumping Jax\n\n559 Beaudrot Road, Greenwood · Indoor play\n\nBest overall for active play\n\nThis is the strongest match if you want kids to bounce, slide, and play without worrying about the weather. The facility offers indoor inflatables, seating, concessions, and a dedicated party room. \nJumping Jax\n+1\n\nPublished starting prices:\n\n10-child public party: $140\n\n20-child public party: $215\n\n20-child private party: $270\n\nPublic parties use a 1.5-hour play slot; private bookings have several duration options. These are baseline prices, so check add-ons and final totals. \nJumping Jax\n\nContact: 864-933-1420\n\nParty packages and booking\n\n2. Venue 119\n\n119 Court Square, Abbeville · Private event space\n\nA good local option if you'd rather organize your own themed birthday party with decorations, games, and cake. It's an indoor event venue with a reported capacity of up to 130 guests. \ngoogle.com.sg\n\nPricing: Not verified from a current published rate sheet. Ask about children's parties, rental duration, tables and chairs, and whether outside food is allowed.\n\nContact: 864-378-1056\n\nVenue details and directions\n\n3. The Venue on Court Square\n\n120 Court Square, Abbeville · Private event space\n\nAnother nearby option for a traditional indoor party, especially if you want a dedicated room rather than a commercial play facility. The venue is listed for private celebrations and other gatherings. \ngoogle.com\n\nPricing: Not confirmed online. Contact the venue to check capacity, children's party policies, and weekend availability.\n\nContact: 864-828-1645\n\nVenue details and directions\n\n4. Abbeville Recreation Department / Civic Center\n\n404 N Main Street, Abbeville · Community rental\n\nBest budget-conscious option to investigate. The city's published facility fee schedule lists a meeting room, meeting room with kitchen, and gymnasium with kitchen. A gym could work well for party games and room to move around, although you would need to arrange the entertainment yourself. \nabbevillecitysc.com\n+1\n\nPublished rates: The city's online fee schedule lists meeting rooms from $50 for the first four hours for county residents and $90 for non-county residents. The page's rate schedule dates to 2018, so confirm current prices before budgeting.\n\nContact: 864-366-5007\n\nOfficial facility fees and rental information\n\n5. All In Academy\n\n2824 SC-72, Abbeville · Gymnastics facility\n\nWorth calling if your child loves gymnastics, tumbling, or movement-based activities. The facility is listed locally as a gymnastics center, but I couldn't verify a current birthday-party package or public party price. \ngoogle.com\n\nPricing and party availability: Call to confirm whether birthday rentals are offered, whether activities are supervised, and what ages they accommodate.\n\nContact: 864-980-6205\n\nLocation and contact details\n\nQuick comparison\n\nVenue\n\n\t\n\nBest for\n\n\t\n\nPrice information\n\n\n\n\nJumping Jax\n\n\t\n\nIndoor inflatables and play\n\n\t\n\n$140–$270 published starting prices\n\n\n\n\nVenue 119\n\n\t\n\nCustom-themed party\n\n\t\n\nRequest a quote\n\n\n\n\nThe Venue on Court Square\n\n\t\n\nPrivate indoor gathering\n\n\t\n\nRequest a quote\n\n\n\n\nAbbeville Civic Center\n\n\t\n\nRoom or gym rental\n\n\t\n\nOlder published rates; reconfirm\n\n\n\n\nAll In Academy\n\n\t\n\nPotential gymnastics-themed party\n\n\t\n\nParty packages unconfirmed\n\nAnother option: bring the fun to your own venue\n\nWe Three Inflatables\n\nThis Abbeville-area business delivers bounce houses, inflatable slides, obstacle courses, and other party equipment. It's worth considering if you have access to a suitable indoor hall or covered space, but confirm whether the specific equipment you want can be safely installed indoors. \nParty Rental and Bounce House Rental\n+1\n\nContact: 864-413-2190\n\nBrowse rentals and request a quote\n\nMy recommendation\n\nFor a party where the kids are entertained for you: Start with Jumping Jax.\n\nFor a lower-cost party where you bring the decorations and games: Ask the Abbeville Civic Center for its current gym or meeting-room rental rates.\n\nFor a more personalized party in Abbeville itself: Contact Venue 119 and The Venue on Court Square.\n\nThese are based on published venue information available online; I haven't confirmed open dates or directly verified current quotes.\n\nOne question that would help me narrow this down: How old is the birthday child, and roughly how many children are you inviting? I can use that to prioritize the best venues and realistic costs."
+      },
+      "notes": "Actual ChatGPT response with web search selected; completed neutral prompt in a separate temporary chat. Jumping Jax appears first in an explicitly numbered options list, is described as a strong active indoor-party match, and is recommended again. Position 1 is the order within this single answer only. Generated map ratings and third-party venue details are not independently verified facts; some competitor rates are explicitly old/unconfirmed. Exact exposed source links are recorded. Immediate post-release sample cannot show that the deployment caused the recommendation."
+    }
+  ]
+}

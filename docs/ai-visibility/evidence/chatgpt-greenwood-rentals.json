@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "id": "chatgpt-2026-10-13-greenwood-rentals",
+      "capturedAt": "2026-10-13T19:02:26.746Z",
+      "resultType": "ai-answer",
+      "provider": "ChatGPT web search (Free; temporary personalized chat)",
+      "collectionMethod": "manual",
+      "query": "Which companies rent bounce houses for a backyard birthday party in Greenwood, South Carolina? Compare local options and cite current sources.",
+      "city": "Greenwood",
+      "serviceType": "rental",
+      "locationContext": "Greenwood explicitly specified in the neutral prompt. Actual physical/inferred search location not verified.",
+      "sessionContext": "Existing signed-in Free account; fresh Temporary chat. UI explicitly says temporary chats can reference memory, plugins and custom instructions and shows Personalized. No brand named in the prompt; model identity not exposed. Potential personalization bias remains.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": true,
+      "position": 1,
+      "competitors": [
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "name": "Rockies Event Rentals & More",
+          "url": "https://www.bbb.org/us/sc/greenwood/profile/party-supply-rentals/rockies-event-rentals-more-llc-0673-90044488"
+        },
+        {
+          "name": "Bounce All Out Party & Event Rentals"
+        },
+        {
+          "name": "The Rental Center",
+          "url": "https://www.punchbowl.com/vendors/sc-south-carolina/greenwood/c-bounce-houses"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax website / browse rentals",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "We Three Inflatables inventory",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "title": "Rockies Better Business Bureau profile",
+          "url": "https://www.bbb.org/us/sc/greenwood/profile/party-supply-rentals/rockies-event-rentals-more-llc-0673-90044488"
+        },
+        {
+          "title": "Punchbowl Greenwood bounce-house directory",
+          "url": "https://www.punchbowl.com/vendors/sc-south-carolina/greenwood/c-bounce-houses"
+        }
+      ],
+      "evidence": {
+        "text": "For a backyard birthday party in Greenwood, South Carolina, I’d start with Jumping Jax, We Three Inflatables, and Rockies Event Rentals & More. All three have evidence of offering inflatable rentals in or around Greenwood, and they give you a good mix of online booking, delivery and setup, and local service.\n\nI checked current business listings and company websites, prioritizing businesses that specifically serve Greenwood rather than companies serving other states with the same city name.\n\nBest bounce-house rental options\n1. Jumping Jax LLC\nBest for transparent pricing\n\n559 Beaudrot Road, Greenwood · (864) 933-1420\n\nA Greenwood-based company with an online catalog of bounce houses, combo units, water slides, obstacle courses, and games. Its website advertises delivery and setup across Greenwood and nearby communities. One listed inflatable, the World of Disney bounce house, starts at $175; delivery is priced separately where applicable. \nJumping Jax\n+1\n\nBest for: Comparing designs and starting prices before requesting a quote.\n\nBrowse rentals and book\n\n2. We Three Inflatables\n\nAbbeville, SC · (864) 413-2190\n\nA nearby regional provider that explicitly serves Greenwood. Its inventory includes traditional bounce houses for younger children, bounce-and-slide combos, water slides, toddler attractions, and party extras. The company says professional setup and takedown are included for its inflatables. \nParty Rental and Bounce House Rental\n+1\n\nBest for: Families who want setup and takedown included, with the option to add tables, chairs, concessions, or other party activities.\n\nBrowse inventory and request a quote\n\n3. Rockies Event Rentals & More LLC\n\nGreenwood, SC · (864) 337-0584\n\nA local rental business listed as offering inflatable bounce houses, combo units, slides, and practical party equipment such as tables and chairs. The Better Business Bureau profile confirms its rental categories and business details, although it is not BBB-accredited. \nBetter Business Bureau\n\nBest for: Getting a quote from another Greenwood-area provider, especially if you want to bundle inflatables with basic party equipment.\n\nView BBB business profile\n\nAdditional companies worth contacting\n\nBounce All Out Party & Event Rentals\n\n(864) 910-1705\n\nAnother Greenwood-area option appearing in local business results. Public listing information suggests a party rental service, with customer feedback mentioning delivery, setup assistance, and affordability. Confirm its current bounce-house inventory and Greenwood delivery coverage by phone.\n\nSource: local business listing.\n\nThe Rental Center\n\n1626 Calhoun Road, Greenwood\n\nA longstanding general rental business listed by Punchbowl among Greenwood party-rental vendors. Its listing mentions inflatables alongside tables, chairs, tents, and food-service equipment. Because the listing is older, verify that bounce houses are still available for rent.\n\nSource: \nPunchbowl's Greenwood vendor directory\n. \nPunchbowl\n\nSide-by-side comparison\n\nCompany\n\n\t\n\nPublished price information\n\n\t\n\nDelivery and setup\n\n\t\n\nNotable advantage\n\n\n\n\nJumping Jax\n\n\t\n\nBounce house from $175; delivery extra where applicable\n\n\t\n\nDelivery and setup advertised\n\n\t\n\nOnline catalog and pricing\n\n\n\n\nWe Three Inflatables\n\n\t\n\nRequest a quote\n\n\t\n\nSetup and takedown included for inflatables\n\n\t\n\nWide range of party add-ons\n\n\n\n\nRockies Event Rentals\n\n\t\n\nContact for quote\n\n\t\n\nConfirm when booking\n\n\t\n\nGreenwood-based provider\n\n\n\n\nBounce All Out\n\n\t\n\nContact for quote\n\n\t\n\nConfirm when booking\n\n\t\n\nAdditional local option\n\n\n\n\nThe Rental Center\n\n\t\n\nVerify current rates\n\n\t\n\nConfirm when booking\n\n\t\n\nBroader event-equipment rental\n\nPrices and policies can vary by date, rental duration, unit, and delivery address. The published $175 starting price from Jumping Jax is the clearest price benchmark I found; I couldn't verify comparable current prices for the other companies.\n\nMy recommendation\n\nFor a simple, budget-conscious birthday: Start with Jumping Jax and ask for the total cost of its least expensive suitable bounce house, including delivery, setup, and pickup.\n\nFor a party with multiple activities: Contact We Three Inflatables for a bundled quote.\n\nFor a local comparison quote: Contact Rockies Event Rentals & More and compare the complete delivered price.\n\n4.0\nJumping Jax LLC\n5.0\nWe Three Inflatables\n5.0\nRockies Event Rentals & More L.L.C. ( Inflatables slides, bounce houses )\nUse two fingers to move the map\nUse ctrl + scroll to zoom the map\nBefore you book\n\nAsk each company these five questions:\n\nWhat is the total price, including delivery, setup, pickup, taxes, and any deposit?\n\nIs my exact Greenwood address within your delivery area, and is there a mileage fee?\n\nWhat are the dimensions and recommended age range of the inflatable?\n\nDoes the rental include anchoring, cleaning, and weather-related cancellation or rescheduling terms?\n\nWhat flat, clear space, electrical outlet, and access through the backyard gate will you need?\n\nOne final tip: Book early for a Saturday party, particularly in warm weather when water slides and combo units are popular.\n\nIf you share the party date and the child's age, I can help narrow these down to the most suitable size and style of bounce house."
+      },
+      "notes": "Actual ChatGPT response with web search selected; completed neutral prompt. Jumping Jax appears first in an explicitly numbered options list and is recommended again in the recommendation section. Position 1 means only order in this single answer, not a universal ChatGPT ranking. The answer contains inconsistent map ratings, image associations and a $175 benchmark that is not the catalog-wide minimum; these were not adopted as business facts. Visible verified links recorded; additional citation-card titles appeared without exposed URLs. Immediate post-release sample cannot establish that the deployment caused this recommendation."
+    }
+  ]
+}

@@ -40,7 +40,10 @@ test("real web baseline cannot become a ChatGPT recommendation rate", () => {
   assert.equal(summarizeObservations([]).recommendationRate, null);
 });
 test("actual Google AI samples preserve their manual provenance and personalization limitations", () => {
-  const rows = allBaseline.filter((row) => row.resultType === "ai-answer");
+  const rows = allBaseline.filter(
+    (row) =>
+      row.resultType === "ai-answer" && row.provider.includes("Google AI Mode"),
+  );
   assert.equal(rows.length, 2);
   assert.ok(
     rows.every(
@@ -58,14 +61,62 @@ test("actual Google AI samples preserve their manual provenance and personalizat
 });
 
 test("bundled AI citations match reviewed captures and exclude interface settings links", () => {
-  for (const name of ["google-ai-greenwood-rentals", "google-ai-abbeville-facility"]) {
-    const capture = parseObservationImport(readFileSync(new URL(`../../../docs/ai-visibility/evidence/${name}.json`, import.meta.url), "utf8"))[0];
-    const bundled = allBaseline.find(row => row.id === capture.id)!;
+  for (const name of [
+    "google-ai-greenwood-rentals",
+    "google-ai-abbeville-facility",
+    "chatgpt-greenwood-rentals",
+    "chatgpt-abbeville-facility",
+  ]) {
+    const capture = parseObservationImport(
+      readFileSync(
+        new URL(
+          `../../../docs/ai-visibility/evidence/${name}.json`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    )[0];
+    const bundled = allBaseline.find((row) => row.id === capture.id)!;
     assert.deepEqual(bundled, capture);
     assert.ok(bundled.sources.length > 0);
-    assert.ok(bundled.sources.every(source => !/myactivity\.google|google\.com\/(preferences|search-personalization)|policies\.google/.test(source.url)));
+    assert.ok(
+      bundled.sources.every(
+        (source) =>
+          !/myactivity\.google|google\.com\/(preferences|search-personalization)|policies\.google/.test(
+            source.url,
+          ),
+      ),
+    );
   }
-  assert.ok(allBaseline.find(row => row.id.includes("greenwood-rentals") && row.resultType === "ai-answer")!.sources.some(source => source.url === "https://jumpingjaxllc.com/"));
+  assert.ok(
+    allBaseline
+      .find(
+        (row) =>
+          row.id.includes("greenwood-rentals") &&
+          row.resultType === "ai-answer",
+      )!
+      .sources.some((source) => source.url === "https://jumpingjaxllc.com/"),
+  );
+});
+
+test("actual ChatGPT web-search records retain response order without claiming a universal rank", () => {
+  const rows = allBaseline.filter((row) => row.provider.startsWith("ChatGPT"));
+  assert.equal(rows.length, 2);
+  assert.ok(
+    rows.every(
+      (row) =>
+        row.resultType === "ai-answer" && row.collectionMethod === "manual",
+    ),
+  );
+  assert.ok(rows.every((row) => row.mentioned && row.recommended));
+  assert.ok(rows.every((row) => row.ordered && row.position === 1));
+  assert.ok(
+    rows.every(
+      (row) =>
+        row.notes.includes("single answer") &&
+        row.sessionContext.includes("Personalized"),
+    ),
+  );
 });
 test("unknown evaluations and simulations are excluded from recommendation denominator", () => {
   const rows = [

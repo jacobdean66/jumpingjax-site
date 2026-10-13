@@ -187,13 +187,15 @@ export function VisibilityDashboard({
           answer samples recorded
         </p>
         <p className="mt-3 text-sm text-slate-600">
-          The October 13, 2026 baseline contains seven web searches and two
-          actual Google AI Mode answers. The AI samples came from an existing
-          personalized Google session with prior Jumping Jax browsing; they are
-          exploratory observations. No actual ChatGPT recommendation test was
-          performed. Imported evidence stays in memory in this tab and is
-          cleared on reload. Export and re-import your history to compare future
-          samples.
+          The bundled October 13, 2026 baseline contains{" "}
+          {initialObservations.length} dated observations. Use the provider and
+          evidence-type filters to distinguish actual ChatGPT and Google AI
+          answers from conventional web searches. These small samples can be
+          influenced by personalization, location uncertainty and wording; they
+          do not establish a fixed rank or prove an improvement caused by this
+          release. Each observation records its session context. Imported
+          evidence stays in memory in this tab and is cleared on reload. Export
+          and re-import your history to compare future samples.
         </p>
       </section>
 
@@ -583,9 +585,9 @@ export function VisibilityDashboard({
             redirects to the current water-slide category.
           </li>
           <li>
-            Included in this release: explicit OAI-SearchBot rules, private route exclusions,
-            service-area sitemap entry, and structured hours derived from
-            displayed settings.
+            Included in this release: explicit OAI-SearchBot rules, private
+            route exclusions, service-area sitemap entry, and structured hours
+            derived from displayed settings.
           </li>
           <li>
             Needs owner evidence: Google/Bing indexing reports, Business Profile
@@ -630,7 +632,8 @@ export function VisibilityDashboard({
           </li>
           <li>
             Owner action: confirm regular versus special open play hours, actual
-            delivery territory, and current social profile URLs when they change.
+            delivery territory, and current social profile URLs when they
+            change.
           </li>
           <li>
             Owner action: review Google Business Profile categories, contact
@@ -644,8 +647,8 @@ export function VisibilityDashboard({
           </li>
           <li>
             Next check: verify public metadata after release, then collect
-            comparable samples. This
-            dashboard cannot publish or change business listings.
+            comparable samples. This dashboard cannot publish or change business
+            listings.
           </li>
         </ul>
       </section>
