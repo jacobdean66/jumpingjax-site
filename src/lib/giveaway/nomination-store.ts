@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { ACTIVE_GIVEAWAY_CAMPAIGN, GIVEAWAY_NOMINATIONS_OPEN, GIVEAWAY_CLOSED_MESSAGE } from "./giveaway-campaigns";
 import type { GiveawayNominationRow } from "./nomination-email";
 import { listFixtureState, saveFixtureNomination, type NominationFixtureState } from "./nomination-fixture-store";
 
@@ -11,6 +12,10 @@ fixtureGlobal.__jumpingJaxNominationFixtures = fixtureState;
 export async function saveGiveawayNomination(row: GiveawayNominationRow, mode: "production" | "fixture" = "production") {
   if (mode === "fixture") {
     return saveFixtureNomination(fixtureState, row);
+  }
+
+  if (!GIVEAWAY_NOMINATIONS_OPEN && row.party_choice === ACTIVE_GIVEAWAY_CAMPAIGN) {
+    throw new Error(GIVEAWAY_CLOSED_MESSAGE);
   }
 
   const supabase = createServiceRoleClient();
