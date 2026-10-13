@@ -1,0 +1,692 @@
+{
+  "version": 1,
+  "observations": [
+    {
+      "id": "google-ai-2026-10-13-abbeville-facility",
+      "capturedAt": "2026-10-13T17:42:43.844Z",
+      "resultType": "ai-answer",
+      "provider": "Google AI Mode (manual browser sample)",
+      "collectionMethod": "manual",
+      "query": "indoor kids birthday party venues near Abbeville SC",
+      "city": "Abbeville",
+      "serviceType": "facility",
+      "locationContext": "Abbeville specified in query. Existing Google session previously reported 29649; actual AI geolocation not independently verified.",
+      "sessionContext": "Signed-in existing Google session with personalized results and recent Jumping Jax browsing. Fresh AI thread, but not a clean account. Exploratory sample with strong personalization bias.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Skate Away USA",
+          "url": "https://www.skateawayusa.com/"
+        },
+        {
+          "name": "Kid City",
+          "url": "https://www.kidcitysc.com/"
+        },
+        {
+          "name": "Big Air Trampoline Park (Anderson)"
+        },
+        {
+          "name": "Let’s Play Pretend",
+          "url": "http://letsplaypretend.org/"
+        },
+        {
+          "name": "The Splatter Place"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax LLC, ZuzuForKids",
+          "url": "https://zuzuforkids.com/places/us/sc/greenwood/jumping-jax-llc-greenwood-sc"
+        },
+        {
+          "title": "Skate Away USA schedule",
+          "url": "https://www.skateawayusa.com/SkateAway%20usa/SK8/skating/Schedule.html"
+        },
+        {
+          "title": "Kid City",
+          "url": "https://www.kidcitysc.com/"
+        },
+        {
+          "title": "Let’s Play Pretend",
+          "url": "http://letsplaypretend.org/"
+        },
+        {
+          "title": "Yelp indoor play area results, Anderson",
+          "url": "https://m.yelp.com/search?find_desc=Kids+Indoor+Play+Area&find_loc=Anderson%2C+SC"
+        },
+        {
+          "title": "Abbeville community discussion on Facebook",
+          "url": "https://www.facebook.com/groups/1514672432044546/posts/2181057368739379/"
+        },
+        {
+          "title": "Yelp kids birthday results, Abbeville",
+          "url": "https://m.yelp.com/search?find_desc=Kids+Birthday+Party&find_loc=Abbeville%2C+SC"
+        },
+        {
+          "title": "Yelp indoor playcenter results, Abbeville",
+          "url": "https://m.yelp.com/search?find_desc=Indoor+Playcenter&find_loc=Abbeville%2C+SC"
+        },
+        {
+          "title": "Girls Gone Gorgeous Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSHRIbCgNwdnESFENnMHZaeTh4TVc1ek0zWm1iRjgwGAo"
+        }
+      ],
+      "evidence": {
+        "text": "While Abbeville itself has limited indoor commercial play spaces, you will find excellent indoor kids birthday party venues just a short drive away, including Jumping Jax LLC and Skate Away USA in Greenwood, as well as Kid City and Let’s Play Pretend in Anderson. \nMap data ©2026 Google\nTerms\n20 km \n 60 min\n🎈 Inflatable & Active Play Centers (Greenwood)\nJumping Jax LLC\n4.4\n(244)\nParty equipment rental service\nClosedGreenwood, SC\nCall\nDirections\nWebsite\nLocated just about 10 miles away in Greenwood, Jumping Jax LLC features over 8,000 square feet of cushioned indoor play space. It is packed with inflatable playgrounds, obstacle courses, slides, and dedicated party spaces, making it a top local pick for energetic crowds.\nSkate Away USA\n4.0\n(445)\nRoller skating rink\nClosedGreenwood, SC\nCall\nDirections\nWebsite\nFor a classic roller-skating celebration, Skate Away USA in Greenwood offers active indoor entertainment. They host themed sessions like Glow Nights, making it a great option for older kids and families who love music and movement. \n🤸 Gymnastics & Trampoline Parks (Anderson)\nKid City\n4.6\n(41)\nGymnastics center\nClosedAnderson, SC\nCall\nDirections\nWebsite\nA fantastic venue for milestones, Kid City in Anderson provides birthday packages with access to trampolines, gymnastics equipment, a ninja training line, a rock-climbing wall, and inflatables. Parents highly rate their staff for keeping the party organized and interactive.\nBig Air Trampoline Park\n4.7\n(984)\nAmusement center\nClosedAnderson, SC\nCall\nDirections\nWebsite\nLocated on Clemson Boulevard in Anderson, this massive trampoline park features dedicated party zones and high-flying courts. It is a reliable choice if you want a completely hands-off hosting experience while the kids bounce off the walls. \n🧸 Toddler & Imaginative Play (Anderson)\nLet’s Play Pretend\n4.7\n(27)\nIndoor playground\nOpenAnderson, SC\nCall\nDirections\nWebsite\nIf you are planning a party for toddlers or preschoolers, Let’s Play Pretend is an exceptionally clean, well-designed indoor playground tailored specifically for imaginative play. It is intentionally sized so parents can relax and chat while keeping eyes on their little ones at all times. \n🎯 Action-Packed Entertainment (Anderson)\nThe Splatter Place: For a highly unique and memorable celebration, The Splatter Place features private party rooms alongside a variety of games. You can book budget-friendly packages that include glow-in-the-dark splatter painting rooms, Nerf wars, archery tag, and bubble soccer. \nYelp\nTo help narrow down the perfect spot, could you tell me:\nWhat age group is the birthday party for?\nAre you looking for a fully hosted package (where they provide decorations and structure), or just a room to rent?\nI can give you more details on pricing and availability!"
+      },
+      "notes": "Actual Google AI Mode response lists Jumping Jax as a top local option for energetic crowds. Unnumbered category grouping; no rank recorded. Anderson alternatives are recorded appearances, not verified businesses inside the Greenwood target radius. AI claims about floor area and travel distance were not adopted into website content. Response archived in docs/ai-visibility/evidence/google-ai-abbeville-facility.json. Citation URLs were manually checked against the captured rendered DOM; interface settings links were excluded. Google place-source links may expire."
+    },
+    {
+      "id": "google-ai-2026-10-13-greenwood-rentals",
+      "capturedAt": "2026-10-13T17:41:06.888Z",
+      "resultType": "ai-answer",
+      "provider": "Google AI Mode (manual browser sample)",
+      "collectionMethod": "manual",
+      "query": "bounce house rentals Greenwood SC",
+      "city": "Greenwood",
+      "serviceType": "rental",
+      "locationContext": "Greenwood specified in query. Existing Google session previously reported 29649; actual AI geolocation not independently verified.",
+      "sessionContext": "Signed-in existing Google session with personalized results and recent Jumping Jax browsing. Fresh AI thread, but not a clean account. Exploratory sample with strong personalization bias.",
+      "mentioned": true,
+      "recommended": true,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Rockies Event Rentals & More",
+          "url": "https://rockieseventrentals.com/"
+        },
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "name": "Bounce All Out Party & Event Rentals",
+          "url": "https://www.facebook.com/bouncealloutpartyrentals/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Jumping Jax homepage",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "Jumping Jax bounce house rentals",
+          "url": "https://jumpingjaxllc.com/rentals/bounce-houses"
+        },
+        {
+          "title": "Jumping Jax combo rentals",
+          "url": "https://jumpingjaxllc.com/rentals/combos"
+        },
+        {
+          "title": "Jumping Jax rental categories",
+          "url": "https://jumpingjaxllc.com/rentals"
+        },
+        {
+          "title": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "title": "Rockies Event Rentals & More",
+          "url": "https://rockieseventrentals.com/"
+        },
+        {
+          "title": "Rockies Event Rentals on MapQuest",
+          "url": "https://www.mapquest.com/us/south-carolina/rockies-event-rentals-more-430672886"
+        },
+        {
+          "title": "Bounce All Out Party & Event Rentals on Facebook",
+          "url": "https://www.facebook.com/bouncealloutpartyrentals/"
+        },
+        {
+          "title": "Jumping Jax Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSGxIZCgNwdnESEkNnc3ZaeTh4ZEdwbVl6TXljdxgK"
+        },
+        {
+          "title": "Rockies Google place source",
+          "url": "https://www.google.com/searchviewer/10?svid=CAwSHRIbCgNwdnESFENnMHZaeTh4TVc1NGNsOW9PR2N5GAo"
+        }
+      ],
+      "evidence": {
+        "text": "If you are planning a party or event in the Greenwood, SC area, you have several excellent local options for bounce houses, water slides, and party equipment rentals. Whether you are looking for an all-inclusive indoor venue or standard backyard delivery, these top choices are ready to help you pull off a great event.\nTop Local Pick\nFor the smoothest all-around experience, I highly recommend checking out Jumping Jax LLC. What makes them stand out is their total flexibility. They operate a dedicated indoor play facility on Beaudrot Rd—which is a fantastic backup option if you want to wear the kids out without worrying about South Carolina heat or unpredictable rain—but they also offer a robust residential delivery and setup service. \nJumping Jax\n +1\nThe Selection: They offer classic jumpers like their 1-Day Castle or Tiger Belly Bounce starting around $150, themed options like the Dalmatian house or World of Disney area for $175, and larger combo bounce-and-slide setups ranging from $175 to $275. \nJumping Jax\n +1\nThe Experience: Parents love their reliable communication. They typically call the day before your reservation to verify delivery logistics, and their setup crew is known for being friendly and efficient. \nStrong Alternative Providers\nIf you want to shop around for specific themes, packages, or availability, these local providers also serve the immediate Greenwood area:\nRockies Event Rentals & More L.L.C.\n5.0\n(6)\nParty equipment rental service\nWillard Rd\nCall\nDirections\nWebsite\nBased right here in Greenwood on Willard Rd, this women-owned business is highly rated by locals for punctuality and pristine, clean equipment. They specialize in themed bounce houses, combo units, large water slides (like their Purple and Dolphin Splash slides), as well as event essentials like tables, chairs, and snow cone concessions.\nWe Three Inflatables\nAbbeville, SC\nCall\nDirections\nWebsite\nOperating out of nearby Abbeville, they fully service the Greenwood community. They are an excellent pick if you are organizing a larger school event, church festival, or neighborhood block party, as their inventory spans toddler play zones, massive obstacle courses, foam party packages, and GellyBall setups alongside standard bounce houses.\nBounce All Out Party & Event Rentals LLC\n5.0\n(1)\nParty equipment rental service\nOpen\nCall\nWebsite\nA great hyper-local option serving Greenwood, Ninety Six, and Ware Shoals. They are very active on social media, sanitize all equipment thoroughly, and frequently run seasonal bundle specials if you call or text them directly. \nwethreeinflatables.com\n +4\nPro-Tips for Booking Inflatables in Greenwood\nCheck the Inclusions: Always ask if delivery, setup, and stakes/sandbags are included in the base price, or if there is an extra mileage fee depending on how far out you live.\nPower Requirements: Most standard bounce houses require a dedicated 110V circuit within 50–100 feet of the setup area. If you are hosting your party at a local park (like Grace Street Park or Westside Park), you will likely need to rent a generator from the provider. \nJumping Jax\n +1\nWeather Policies: Before signing a contract, verify the company's rain and high-wind cancellation policy so you know how late you can pivot without losing your deposit.\nTo help narrow this down for your party, let me know:\nWhat date is the event and what is the age group of the kids?\nAre you setting up on grass or pavement, and will you need water slide capabilities?\nDo you also need extra party supplies like tables, chairs, or concession machines?"
+      },
+      "notes": "Actual generated Google AI Mode answer. Explicitly calls Jumping Jax a Top Local Pick and recommends it. No numbered ranking recorded. Ads, booking-agent controls, and underlying factual claims are not treated as verified business facts. Screenshot and response archived in docs/ai-visibility/evidence/google-ai-greenwood-rentals.json. Citation URLs were manually checked against the captured rendered DOM; interface settings links were excluded. Google place-source links may expire."
+    },
+    {
+      "id": "audit-2026-10-13-laurens-rentals",
+      "capturedAt": "2026-10-13T17:17:48.948Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "bounce house rentals Laurens SC",
+      "city": "Laurens",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Crazy K’s Party Rentals",
+          "url": "https://crazykspartyrentals.com/"
+        },
+        {
+          "name": "Airtime Inflatable Rentals",
+          "url": "https://www.airtimeinflatablerentals.com/"
+        },
+        {
+          "name": "Adventures Amusements & Party Rentals",
+          "url": "https://www.adventuresamusements.com/"
+        },
+        {
+          "name": "Big Air Laurens",
+          "url": "https://www.bigairusa.com/laurens"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Big Air Laurens | Indoor Trampoline Park & Family Attraction",
+          "url": "https://www.bigairusa.com/laurens"
+        },
+        {
+          "title": "Crazy K’s Party Rentals, LLC Laurens SC - Party Rental and Bounce House Rental",
+          "url": "https://crazykspartyrentals.com/"
+        },
+        {
+          "title": "Up-N-Jumping Fountain Inn SC - Party Rental and Bounce House Rental",
+          "url": "https://upnjumping.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Gray Court, SC | Adventures Amusements & Party Rentals LLC",
+          "url": "https://www.adventuresamusements.com/"
+        },
+        {
+          "title": "Bounce House and Waterslide Rentals in Gray Court, Fountain Inn, Simpsonville, Woodruff, Laurens | Airtime Inflatable Rentals",
+          "url": "https://www.airtimeinflatablerentals.com/"
+        },
+        {
+          "title": "Bounce Houses & Waterslides - Crazy K’s Party Rentals, LLC Laurens SC",
+          "url": "https://crazykspartyrentals.com/rentals/slides-combos/"
+        },
+        {
+          "title": "Home - Monker Jumpers",
+          "url": "https://monkerjumpers.com/"
+        },
+        {
+          "title": "Bounce House Rental in Upstate, SC | TheWrightParties",
+          "url": "https://www.thewrightinflatables.com/"
+        },
+        {
+          "title": "Airtime Inflatable Rentals, LLC",
+          "url": "https://business.laurenscounty.org/memberdirectory/Details/airtime-inflatable-rentals-llc-2154078"
+        },
+        {
+          "title": "Tents - Bounce House Rentals in Gray Court, SC | Adventures Amusements & Party Rentals LLC",
+          "url": "https://www.adventuresamusements.com/category/tents"
+        },
+        {
+          "title": "Airtime Inflatable Rentals, LLC - Gray Court, SC - Equipment Rental",
+          "url": "https://www.eventective.com/gray-court-sc/airtime-inflatable-rentals-llc-721565.html"
+        },
+        {
+          "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nBig Air Laurens | Indoor Trampoline Park & Family Attraction — https://www.bigairusa.com/laurens\nCrazy K’s Party Rentals, LLC Laurens SC - Party Rental and Bounce House Rental — https://crazykspartyrentals.com/\nUp-N-Jumping Fountain Inn SC - Party Rental and Bounce House Rental — https://upnjumping.com/\nBounce House Rentals in Gray Court, SC | Adventures Amusements & Party Rentals LLC — https://www.adventuresamusements.com/\nBounce House and Waterslide Rentals in Gray Court, Fountain Inn, Simpsonville, Woodruff, Laurens | Airtime Inflatable Rentals — https://www.airtimeinflatablerentals.com/\nBounce Houses & Waterslides - Crazy K’s Party Rentals, LLC Laurens SC — https://crazykspartyrentals.com/rentals/slides-combos/\nHome - Monker Jumpers — https://monkerjumpers.com/\nBounce House Rental in Upstate, SC | TheWrightParties — https://www.thewrightinflatables.com/\nAirtime Inflatable Rentals, LLC — https://business.laurenscounty.org/memberdirectory/Details/airtime-inflatable-rentals-llc-2154078\nTents - Bounce House Rentals in Gray Court, SC | Adventures Amusements & Party Rentals LLC — https://www.adventuresamusements.com/category/tents\nAirtime Inflatable Rentals, LLC - Gray Court, SC - Equipment Rental — https://www.eventective.com/gray-court-sc/airtime-inflatable-rentals-llc-721565.html\nInflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/\nRESOLUTION NUMBER: 2026-11 — https://mccmeetingspublic.blob.core.usgovcloudapi.net/popgrv-meet-40a76871880445e69745a452334a3a1e/ITEM-Attachment-001-167fae49793347ecadcb0c9caf9c4fbd.pdf\nwww.ThePartyStoreMT.com — https://www.thepartystoremt.com/uploads/7/6/4/3/76439421/2018_printable_brochure_pdf.pdf\nParty Perfect Rentals — https://www.partyperfectrentals.com/price-list/ppr-price-list.pdf\nLA CITY APPROVED VENDERS FOR JUMPERES, BOUNCE HOUSE, MOON BOUNCE. ETC — https://www.laparks.org/sites/default/files/reccenter/shadow-ranch-recreation-center/media/list-approved-jumpers.pdf\nFACILITY RENTALS — https://www.marionymca.org/media/2024/06/rentals-at-the-Y-2023-front-and-back.pdf\nMAX AIR PARTY RENTALS — https://www.marionymca.org/media/2024/05/Resource-and-program-for-summer-2024.pdf"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/laurens-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-abbeville-rentals",
+      "capturedAt": "2026-10-13T17:17:48.455Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "bounce house rental Abbeville SC",
+      "city": "Abbeville",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Bounce Houses - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/rentals/bounce-houses/"
+        },
+        {
+          "title": "We Three Inflatables Abbeville SC - Party Rental and Bounce House Rental",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "title": "Inventory - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/rentals/"
+        },
+        {
+          "title": "5 Yard Game Package - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/rentals/games/5-game-package/"
+        },
+        {
+          "title": "FAQs - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/faqs/"
+        },
+        {
+          "title": "City of Abbeville Recreation Facilities Rental Fees",
+          "url": "https://www.abbevillecitysc.com/308/Recreation-Facilities-Rules-Regulations"
+        },
+        {
+          "title": "Water Slide Rentals in Abbeville, SC | Jumping Jax",
+          "url": "https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-abbeville-sc"
+        },
+        {
+          "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "Bounce House & Water Slide Rentals | Boomin Bounce",
+          "url": "https://www.boominbouncerentals.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Walhalla, SC | AE Bounce and Party Rentals",
+          "url": "https://www.aebounce.com/"
+        },
+        {
+          "title": "Bounce House Rental for Memorable Parties",
+          "url": "https://justbounceinflatable.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Sc | Jump & Play Upstate",
+          "url": "https://www.jumpandplayupstate.com/"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nBounce Houses - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/rentals/bounce-houses/\nWe Three Inflatables Abbeville SC - Party Rental and Bounce House Rental — https://wethreeinflatables.com/\nInventory - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/rentals/\n5 Yard Game Package - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/rentals/games/5-game-package/\nFAQs - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/faqs/\nCity of Abbeville Recreation Facilities Rental Fees — https://www.abbevillecitysc.com/308/Recreation-Facilities-Rules-Regulations\nWater Slide Rentals in Abbeville, SC | Jumping Jax — https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-abbeville-sc\nInflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/\nBounce House & Water Slide Rentals | Boomin Bounce — https://www.boominbouncerentals.com/\nBounce House Rentals in Walhalla, SC | AE Bounce and Party Rentals — https://www.aebounce.com/\nBounce House Rental for Memorable Parties — https://justbounceinflatable.com/\nBounce House Rentals in Sc | Jump & Play Upstate — https://www.jumpandplayupstate.com/\nBounce House Rental in Upstate, SC | TheWrightParties — https://www.thewrightinflatables.com/\nRipley’s Rental — https://ripleysrental.com/filedocstorage/Party_Pricelist_2025.pdf\nwww.ThePartyStoreMT.com — https://www.thepartystoremt.com/uploads/7/6/4/3/76439421/2018_printable_brochure_pdf.pdf\nEquipment rental brochure 05032023 — https://jackson.armymwr.com/application/files/4916/8364/8773/Equipment_rental_brochure_05032023.pdf\ntjs_inflatibles1 — https://86cb8127dc14737f5057-7c0671222953158607ea93d5febd68b4.ssl.cf1.rackcdn.com/21/assets/v1/327000/327452/tjsbouncehouse2017.pdf"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/abbeville-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-ware-shoals-rentals",
+      "capturedAt": "2026-10-13T17:17:48.241Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "inflatable rentals Ware Shoals SC",
+      "city": "Ware Shoals",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [],
+      "sources": [
+        {
+          "title": "Water Slide Rentals in Ware Shoals, SC | Jumping Jax",
+          "url": "https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-ware-shoals-sc"
+        },
+        {
+          "title": "Shoals Splash-N-Bounce | Inflatable Party Rentals | Muscle Shoals, AL, USA",
+          "url": "https://www.shoalssplashnbounce.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Sc | Jump & Play Upstate",
+          "url": "https://www.jumpandplayupstate.com/"
+        },
+        {
+          "title": "Bounce House Rental for Memorable Parties",
+          "url": "https://justbounceinflatable.com/"
+        },
+        {
+          "title": "R&S Inflatables in Lugoff SC - Bounce House Rentals",
+          "url": "https://rsinflatables.com/"
+        },
+        {
+          "title": "Bounce House & Water Slide Rentals | Charleston Jump Castles",
+          "url": "https://charlestonjumpcastles.com/"
+        },
+        {
+          "title": "Beach Bounce Little River, SC - Party Rental and Bounce House Rental",
+          "url": "https://beach-bounce.com/"
+        },
+        {
+          "title": "Ware Shoals Bounce Houses - Find a bounce house for your birthday or event in Ware Shoals, South Carolina",
+          "url": "https://www.punchbowl.com/vendors/sc-south-carolina/ware-shoals/c-bounce-houses"
+        },
+        {
+          "title": "Saluda Shoals Park - Environmental Education Center Rentals",
+          "url": "https://www.icrc.net/sites/default/files/uploads/saluda-shoals/eec-rental-information-2-24.pdf"
+        },
+        {
+          "title": "Bounce House Rentals in Waycross, GA",
+          "url": "https://www.hbrinflatables.com/"
+        },
+        {
+          "title": "Unicorn Combo Wet/Dry (2-8) - Bounce House Rentals in Sc | Jump & Play Upstate",
+          "url": "https://www.jumpandplayupstate.com/category/combo-bounce-house/12/unicorn-combo-wet-dry-2-8"
+        },
+        {
+          "title": "Saluda Shoals Park - Picnic Shelter Rentals",
+          "url": "https://www.icrc.net/sites/default/files/uploads/saluda-shoals/Rentals/2024-shelter-rental-information-with-weekend-rates.pdf"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nWater Slide Rentals in Ware Shoals, SC | Jumping Jax — https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-ware-shoals-sc\nShoals Splash-N-Bounce | Inflatable Party Rentals | Muscle Shoals, AL, USA — https://www.shoalssplashnbounce.com/\nBounce House Rentals in Sc | Jump & Play Upstate — https://www.jumpandplayupstate.com/\nBounce House Rental for Memorable Parties — https://justbounceinflatable.com/\nR&S Inflatables in Lugoff SC - Bounce House Rentals — https://rsinflatables.com/\nBounce House & Water Slide Rentals | Charleston Jump Castles — https://charlestonjumpcastles.com/\nBeach Bounce Little River, SC - Party Rental and Bounce House Rental — https://beach-bounce.com/\nWare Shoals Bounce Houses - Find a bounce house for your birthday or event in Ware Shoals, South Carolina — https://www.punchbowl.com/vendors/sc-south-carolina/ware-shoals/c-bounce-houses\nSaluda Shoals Park - Environmental Education Center Rentals — https://www.icrc.net/sites/default/files/uploads/saluda-shoals/eec-rental-information-2-24.pdf\nBounce House Rentals in Waycross, GA — https://www.hbrinflatables.com/\nUnicorn Combo Wet/Dry (2-8) - Bounce House Rentals in Sc | Jump & Play Upstate — https://www.jumpandplayupstate.com/category/combo-bounce-house/12/unicorn-combo-wet-dry-2-8\nSaluda Shoals Park - Picnic Shelter Rentals — https://www.icrc.net/sites/default/files/uploads/saluda-shoals/Rentals/2024-shelter-rental-information-with-weekend-rates.pdf\nCharleston Bounce Houses & Water Slides - Making Memories — https://happilyeverafterjumps.com/\nBounce House & Party Rentals | SC-Inflatables.com Columbia SC — https://www.sc-inflatables.com/\nSaluda Shoals Park - Picnic Shelter Rentals — https://www.icrc.net/sites/default/files/uploads/saluda-shoals/shelter-rental-information-2-05-2024.pdf\nSCGWA Family Fun Day — https://cdn.ymaws.com/scgwa.org/resource/resmgr/events/springmtgflyer2022.pdf\nSaluda Shoals Park Equipment Rental Agreement — https://www.icrc.net/sites/default/files/uploads/saluda-shoals/Liability%20Waivers/boat-ramp-equipment-rental-agreement.pdf\nEquipment-rental-brochure-2-8 — https://jackson.armymwr.com/application/files/4714/9335/8749/Equipment-rental-brochure-2-8.pdf\nWare Shoals, South Carolina — https://en.wikipedia.org/wiki/Ware_Shoals%2C_South_Carolina\nSouth Carolina Highway 252 — https://en.wikipedia.org/wiki/South_Carolina_Highway_252"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/ware-shoals-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-hodges-rentals",
+      "capturedAt": "2026-10-13T17:17:47.701Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "bounce house rental Hodges SC",
+      "city": "Hodges",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": false,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [],
+      "sources": [
+        {
+          "title": "Bounce House Rental for Memorable Parties",
+          "url": "https://justbounceinflatable.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Sc | Jump & Play Upstate",
+          "url": "https://www.jumpandplayupstate.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Walhalla, SC | AE Bounce and Party Rentals",
+          "url": "https://www.aebounce.com/"
+        },
+        {
+          "title": "Laugh n Leap: Bounce House & Party Rentals in Columbia, SC",
+          "url": "https://www.laughnleap.com/"
+        },
+        {
+          "title": "HB Party Rentals, LLC Duncan, SC - Party Rentals and Bounce House Rentals",
+          "url": "https://hbpartyrentals.com/"
+        },
+        {
+          "title": "R&S Inflatables in Lugoff SC - Bounce House Rentals",
+          "url": "https://rsinflatables.com/"
+        },
+        {
+          "title": "Kirby & Kids Rentals - Party Rental and Bounce House Rental",
+          "url": "https://kirbyandkidsrentals.com/"
+        },
+        {
+          "title": "Bounce House & Water Slide Rentals | Charleston Jump Castles",
+          "url": "https://charlestonjumpcastles.com/"
+        },
+        {
+          "title": "Bounce Houses",
+          "url": "https://4monkeysfun.com/inflatables/bounce-houses.html"
+        },
+        {
+          "title": "VIP Rentals LLC  Party Rentals",
+          "url": "https://www.viprentalco.com/"
+        },
+        {
+          "title": "Bounce House & Water Slide Rentals Florence SC | Fajardo Jumps",
+          "url": "https://fajardojumps.com/"
+        },
+        {
+          "title": "Bounce House Rentals in Lexington, SC | 3as4u Bounce House",
+          "url": "https://www.3as4u.com/"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nBounce House Rental for Memorable Parties — https://justbounceinflatable.com/\nBounce House Rentals in Sc | Jump & Play Upstate — https://www.jumpandplayupstate.com/\nBounce House Rentals in Walhalla, SC | AE Bounce and Party Rentals — https://www.aebounce.com/\nLaugh n Leap: Bounce House & Party Rentals in Columbia, SC — https://www.laughnleap.com/\nHB Party Rentals, LLC Duncan, SC - Party Rentals and Bounce House Rentals — https://hbpartyrentals.com/\nR&S Inflatables in Lugoff SC - Bounce House Rentals — https://rsinflatables.com/\nKirby & Kids Rentals - Party Rental and Bounce House Rental — https://kirbyandkidsrentals.com/\nBounce House & Water Slide Rentals | Charleston Jump Castles — https://charlestonjumpcastles.com/\nBounce Houses — https://4monkeysfun.com/inflatables/bounce-houses.html\nVIP Rentals LLC  Party Rentals — https://www.viprentalco.com/\nBounce House & Water Slide Rentals Florence SC | Fajardo Jumps — https://fajardojumps.com/\nBounce House Rentals in Lexington, SC | 3as4u Bounce House — https://www.3as4u.com/\nOUTDOOR RECREATION RENTAL RATE — https://southcarolina.usmc-mccs.org/modules/media/?do=inline&id=321bba68-651f-4a15-8092-3041e0a41aa8&v=1\nBOUNCY CASTLES — https://100fss.com/wp-content/uploads/2025/11/Pricelist_ODR_Oct2025.pdf\nwww.ThePartyStoreMT.com — https://www.thepartystoremt.com/uploads/7/6/4/3/76439421/2018_printable_brochure_pdf.pdf\nwww.ThePartyStoreMT.com — https://www.thepartystoremt.com/uploads/7/6/4/3/76439421/2017_printable_brochure.pdf\nBOUNCE HOUSES — https://mountainhomefss.com/wp-content/uploads/2024/06/Party-Rentals-ODR-2024.pdf\ntjs_inflatibles1 — https://86cb8127dc14737f5057-7c0671222953158607ea93d5febd68b4.ssl.cf1.rackcdn.com/21/assets/v1/327000/327452/tjsbouncehouse2017.pdf\nBounce/soft play last-minute rental — https://www.reddit.com/r/bergencounty/comments/1rjffgl/bouncesoft_play_lastminute_rental/\nHodges — https://en.wikipedia.org/wiki/Hodges\nHodges, South Carolina — https://en.wikipedia.org/wiki/Hodges%2C_South_Carolina"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/hodges-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-greenwood-rentals",
+      "capturedAt": "2026-10-13T17:17:47.259Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "bounce house rentals Greenwood SC",
+      "city": "Greenwood",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "We Three Inflatables",
+          "url": "https://wethreeinflatables.com/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "We Three Inflatables Abbeville SC - Party Rental and Bounce House Rental",
+          "url": "https://wethreeinflatables.com/"
+        },
+        {
+          "title": "Kids' Birthday Party Venue in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/facility-parties"
+        },
+        {
+          "title": "Contact Jumping Jax in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/contact"
+        },
+        {
+          "title": "Sports Course Rental in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/rentals/obstacle-courses/sports-course"
+        },
+        {
+          "title": "Inventory - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/rentals/"
+        },
+        {
+          "title": "Inflatable Obstacle Course Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/rentals/obstacle-courses"
+        },
+        {
+          "title": "Bounce Houses - We Three Inflatables Abbeville SC",
+          "url": "https://wethreeinflatables.com/rentals/bounce-houses/"
+        },
+        {
+          "title": "Foam Party Rental in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/rentals/foam-parties/foam-party"
+        },
+        {
+          "title": "Little Jumpers - Bounce House Rentals, Party Rentals, & More",
+          "url": "https://littlejumpersllc.com/"
+        },
+        {
+          "title": "World Of Disney Rental in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/rentals/combos/world-of-disney"
+        },
+        {
+          "title": "JamRoxx Bounce n Entertainment LLC in Greenwood, SC | WeShopSC Store",
+          "url": "https://weshopsc.com/r/jamroxx-bounce-n-entertainment-llc/greenwood/"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nInflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/\nWe Three Inflatables Abbeville SC - Party Rental and Bounce House Rental — https://wethreeinflatables.com/\nKids' Birthday Party Venue in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/facility-parties\nContact Jumping Jax in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/contact\nSports Course Rental in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/rentals/obstacle-courses/sports-course\nInventory - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/rentals/\nInflatable Obstacle Course Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/rentals/obstacle-courses\nBounce Houses - We Three Inflatables Abbeville SC — https://wethreeinflatables.com/rentals/bounce-houses/\nFoam Party Rental in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/rentals/foam-parties/foam-party\nLittle Jumpers - Bounce House Rentals, Party Rentals, & More — https://littlejumpersllc.com/\nWorld Of Disney Rental in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/rentals/combos/world-of-disney\nJamRoxx Bounce n Entertainment LLC in Greenwood, SC | WeShopSC Store — https://weshopsc.com/r/jamroxx-bounce-n-entertainment-llc/greenwood/\nwww.ThePartyStoreMT.com — https://www.thepartystoremt.com/uploads/7/6/4/3/76439421/2018_printable_brochure_pdf.pdf\nRESOLUTION NUMBER: 2026-11 — https://mccmeetingspublic.blob.core.usgovcloudapi.net/popgrv-meet-40a76871880445e69745a452334a3a1e/ITEM-Attachment-001-167fae49793347ecadcb0c9caf9c4fbd.pdf\nITEM LIST — https://www.gopatrickfl.com/pdfs/ODRPRICEGUIDE%28current%29.pdf\nParty Perfect Rentals — https://www.partyperfectrentals.com/price-list/ppr-price-list.pdf\ntjs_inflatibles1 — https://86cb8127dc14737f5057-7c0671222953158607ea93d5febd68b4.ssl.cf1.rackcdn.com/21/assets/v1/327000/327452/tjsbouncehouse2017.pdf\nEquipmentRentalBrochureSEP-21 — https://jackson.armymwr.com/application/files/5216/3370/9524/EquipmentRentalBrochureSEP-21.pdf"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/greenwood-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-greenwood-venues",
+      "capturedAt": "2026-10-13T17:17:47.149Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "indoor kids birthday party venues Greenwood SC",
+      "city": "Greenwood",
+      "serviceType": "facility",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [
+        {
+          "name": "Skate Away USA",
+          "url": "https://www.skateawayusa.com/"
+        },
+        {
+          "name": "Point of Grace Dance",
+          "url": "https://pogdstudio.com/book-studio/"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Kids' Birthday Party Venue in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/facility-parties"
+        },
+        {
+          "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "Kids Birthday Party Venues in Greenwood, SC",
+          "url": "https://nextdoor.com/ask/kids-birthday-party-venues/greenwood--sc/"
+        },
+        {
+          "title": "Reserve Your Party | Skate Away USA",
+          "url": "https://mail.skateawayusa.com/party/reserve.php?package=glow"
+        },
+        {
+          "title": "Book The Studio - Point of Grace Dance - Greenwood, SC",
+          "url": "https://pogdstudio.com/book-studio/"
+        },
+        {
+          "title": "Skate Away USA | Greenwood's Favorite Place to Play",
+          "url": "https://www.skateawayusa.com/"
+        },
+        {
+          "title": "Skate Away USA | Greenwood's Favorite Place to Play",
+          "url": "https://skateawayusa.com/"
+        },
+        {
+          "title": "Events Venue - THE ARTS CENTER OF GREENWOOD",
+          "url": "https://www.artscentergreenwood.com/events-venue.html"
+        },
+        {
+          "title": "Contact Jumping Jax in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/contact"
+        },
+        {
+          "title": "Party Food Packages",
+          "url": "https://greenwoodmall.ns.ca/wp-content/uploads/2022/10/roos-new-brochure.pdf"
+        },
+        {
+          "title": "Venues - discovergreenwood.com",
+          "url": "https://discovergreenwood.com/plan-your-event/venues/"
+        },
+        {
+          "title": "Jumping Jax LLC",
+          "url": "https://www.activitieschildren.com/jumping-jax-llc"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nKids' Birthday Party Venue in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/facility-parties\nInflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/\nKids Birthday Party Venues in Greenwood, SC — https://nextdoor.com/ask/kids-birthday-party-venues/greenwood--sc/\nReserve Your Party | Skate Away USA — https://mail.skateawayusa.com/party/reserve.php?package=glow\nBook The Studio - Point of Grace Dance - Greenwood, SC — https://pogdstudio.com/book-studio/\nSkate Away USA | Greenwood's Favorite Place to Play — https://www.skateawayusa.com/\nSkate Away USA | Greenwood's Favorite Place to Play — https://skateawayusa.com/\nEvents Venue - THE ARTS CENTER OF GREENWOOD — https://www.artscentergreenwood.com/events-venue.html\nContact Jumping Jax in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/contact\nParty Food Packages — https://greenwoodmall.ns.ca/wp-content/uploads/2022/10/roos-new-brochure.pdf\nVenues - discovergreenwood.com — https://discovergreenwood.com/plan-your-event/venues/\nJumping Jax LLC — https://www.activitieschildren.com/jumping-jax-llc\nAttractions | Skate Away USA — https://www.skateawayusa.com/SkateAway%20usa/SK8/skating/attractions.html\n\\ — https://www.brambleandwoodwpz.com/perch/resources/downloadables/2024-birthday-party-packages.pdf\nBirthday Party Packages — https://www.missionks.org/wp-content/uploads/2026/02/Birthday-Party-Packages-fold-over-2-2-26-1.pdf\nPARTY PACKAGES ST — https://www.greenhouseartscenter.org/s/Birthday-Parties-1-1.pdf\n2026 Birthday Party Brochure — https://www.gochetwynd.com/wp-content/uploads/2026/01/2026-Birthday-Party-Brochure.pdf\n<visual_element id=\"e1\"> — https://d5gp08eef6cck.cloudfront.net/2026-02/Celebrations%20Brochure.pdf\nGreenwood Community Theatre — https://en.wikipedia.org/wiki/Greenwood_Community_Theatre\nParty places ???! 🎉 — https://www.reddit.com/r/greensburg/comments/1vz23x1/party_places/\nParty — https://www.reddit.com/r/ColumbiYEAH/comments/1vp9aif/party/\nSuggestions for 12 year old girl's birthday party? — https://www.reddit.com/r/GreenvilleSC/comments/xpt98s\nIdeas for 3-year old birthday party in Greenville that doesn’t cost $500 — https://www.reddit.com/r/greenville/comments/1b0zf5s\nBirthday party recommendations for 10 year old boy — https://www.reddit.com/r/greenville/comments/1hv569l\nBirthday Party — https://www.reddit.com/r/Charleston/comments/1ub31od/birthday_party/\nWhere do you have kids birthday parties? — https://www.reddit.com/r/HIckoryNC/comments/1qkyl80/where_do_you_have_kids_birthday_parties/\nIndoor Toddler Birthday Ideas — https://www.reddit.com/r/lexington/comments/1dz2h54\nIndoor party recs? — https://www.reddit.com/r/SanAngelo/comments/1iz49m8"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/greenwood-venues.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    },
+    {
+      "id": "audit-2026-10-13-ninety-six-rentals",
+      "capturedAt": "2026-10-13T17:17:46.998Z",
+      "resultType": "web-search",
+      "provider": "Web search tool (backend unspecified)",
+      "collectionMethod": "web-search-tool",
+      "query": "inflatable rentals Ninety Six SC",
+      "city": "Ninety Six",
+      "serviceType": "rental",
+      "locationContext": "City specified in query; actual searcher location and search-engine localization unknown.",
+      "sessionContext": "Single query via available web search tool. No ChatGPT answer or Google/Bing rank evaluated.",
+      "mentioned": true,
+      "recommended": null,
+      "ordered": false,
+      "position": null,
+      "competitors": [],
+      "sources": [
+        {
+          "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+          "url": "https://jumpingjaxllc.com/"
+        },
+        {
+          "title": "Water Slide Rentals in Ware Shoals, SC | Jumping Jax",
+          "url": "https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-ware-shoals-sc"
+        },
+        {
+          "title": "Water Slide Rentals in Clinton, SC | Jumping Jax",
+          "url": "https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-clinton-sc"
+        },
+        {
+          "title": "Water Slide Rentals in Abbeville, SC | Jumping Jax",
+          "url": "https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-abbeville-sc"
+        },
+        {
+          "title": "We Three Inflatables (Bounce House, Water Slides, Party Rentals) in Ninety Six, SC",
+          "url": "https://localitybiz.com/29658298/we-three-inflatables-bounce-house-water-slides-party-rentals-ninety-six"
+        },
+        {
+          "title": "Bounce House Rentals in Sc | Jump & Play Upstate",
+          "url": "https://www.jumpandplayupstate.com/"
+        },
+        {
+          "title": "Bounce House & Party Rentals | SC-Inflatables.com Columbia SC",
+          "url": "https://www.sc-inflatables.com/"
+        },
+        {
+          "title": "Up-N-Jumping Fountain Inn SC - Party Rental and Bounce House Rental",
+          "url": "https://upnjumping.com/"
+        },
+        {
+          "title": "Bounce House & Water Slide Rentals | Charleston Jump Castles",
+          "url": "https://charlestonjumpcastles.com/"
+        },
+        {
+          "title": "Bounce House Rental for Memorable Parties",
+          "url": "https://justbounceinflatable.com/"
+        },
+        {
+          "title": "R&S Inflatables in Lugoff SC - Bounce House Rentals",
+          "url": "https://rsinflatables.com/"
+        },
+        {
+          "title": "Bounce House Rental in Upstate, SC | TheWrightParties",
+          "url": "https://www.thewrightinflatables.com/"
+        }
+      ],
+      "evidence": {
+        "text": "Returned result headings and links:\nInflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax — https://jumpingjaxllc.com/\nWater Slide Rentals in Ware Shoals, SC | Jumping Jax — https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-ware-shoals-sc\nWater Slide Rentals in Clinton, SC | Jumping Jax — https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-clinton-sc\nWater Slide Rentals in Abbeville, SC | Jumping Jax — https://www.jumpingjaxllc.com/pages/water-slide-rentals-in-abbeville-sc\nWe Three Inflatables (Bounce House, Water Slides, Party Rentals) in Ninety Six, SC — https://localitybiz.com/29658298/we-three-inflatables-bounce-house-water-slides-party-rentals-ninety-six\nBounce House Rentals in Sc | Jump & Play Upstate — https://www.jumpandplayupstate.com/\nBounce House & Party Rentals | SC-Inflatables.com Columbia SC — https://www.sc-inflatables.com/\nUp-N-Jumping Fountain Inn SC - Party Rental and Bounce House Rental — https://upnjumping.com/\nBounce House & Water Slide Rentals | Charleston Jump Castles — https://charlestonjumpcastles.com/\nBounce House Rental for Memorable Parties — https://justbounceinflatable.com/\nR&S Inflatables in Lugoff SC - Bounce House Rentals — https://rsinflatables.com/\nBounce House Rental in Upstate, SC | TheWrightParties — https://www.thewrightinflatables.com/\nNinety Six, South Carolina — https://en.wikipedia.org/wiki/Ninety_Six%2C_South_Carolina\nNinety Six National Historic Site — https://en.wikipedia.org/wiki/Ninety_Six_National_Historic_Site\nRental Information - Updated 12-18-25 — https://cms2.revize.com/revize/cityofnorthcharlestonrecreation/Documents/Parks%20and%20Facilities/Rent%20A%20Facility/Rental%20Information%20-%20Updated%2012-18-25.pdf?t=202512190809550\nINFLATABLES — https://ellsworthfss.com/wp-content/uploads/2024/01/Rental-Pamphlet.pdf\ntjs_inflatibles1 — https://86cb8127dc14737f5057-7c0671222953158607ea93d5febd68b4.ssl.cf1.rackcdn.com/21/assets/v1/327000/327452/tjsbouncehouse2017.pdf\nINDOOR INFLATABLE CENTER APPLICATION — https://www.cossioinsurance.com/docs/IndoorWithSupplements.pdf\nINFLATABLES APPROVED RENTALS — https://campussuite-storage.s3.amazonaws.com/prod/1559060/7fb78b4a-77c0-11eb-acb4-0a72cb11b325/2846287/5b4c7930-7156-11ef-bf24-0afff3f4b85f/file/Use%20of%20Facilities%20Pkt%20-%20Revised%204-9-24.pdf\nEquipment-rental-brochure-2-8 — https://jackson.armymwr.com/application/files/4714/9335/8749/Equipment-rental-brochure-2-8.pdf\nLake Greenwood State Park — https://en.wikipedia.org/wiki/Lake_Greenwood_State_Park\nBouncy house/ inflatable rentals — https://www.reddit.com/r/halifax/comments/1v2lvcb/bouncy_house_inflatable_rentals/\nInflatable castle — https://en.wikipedia.org/wiki/Inflatable_castle\nAndy's Bounce and Splash — https://www.reddit.com/r/u_AggravatingReason649/comments/17pv301"
+      },
+      "notes": "Full returned search extracts: docs/ai-visibility/evidence/ninety-six-rentals.txt. Mentions mean a Jumping Jax result appeared in this tool response. Competitors include only businesses verified in this audit; returned ordering is not a rank."
+    }
+  ]
+}

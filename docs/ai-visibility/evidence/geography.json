@@ -1,0 +1,44 @@
+{
+  "source": "https://tigerweb.geo.census.gov/tigerwebmain/Files/acs26/tigerweb_acs26_incplace_2025_acs25_sc.html",
+  "observedAt": "2026-10-13T17:26:41.657Z",
+  "coordinateType": "Census CENTLAT/CENTLON centroids, January 1 2025 geography",
+  "method": "Haversine; Earth radius 3958.7613 miles; Greenwood city centroid as origin. Not driving distances, facility distances, municipal boundary containment or confirmed delivery territory.",
+  "locations": [
+    {
+      "name": "Abbeville",
+      "latitude": 34.1786937,
+      "longitude": -82.3774229,
+      "straightLineMiles": 12.8
+    },
+    {
+      "name": "Greenwood",
+      "latitude": 34.1945126,
+      "longitude": -82.1549188,
+      "straightLineMiles": 0
+    },
+    {
+      "name": "Hodges",
+      "latitude": 34.2874809,
+      "longitude": -82.2479867,
+      "straightLineMiles": 8.3
+    },
+    {
+      "name": "Laurens",
+      "latitude": 34.5027388,
+      "longitude": -82.0213642,
+      "straightLineMiles": 22.6
+    },
+    {
+      "name": "Ninety Six",
+      "latitude": 34.1693689,
+      "longitude": -82.0229497,
+      "straightLineMiles": 7.7
+    },
+    {
+      "name": "Ware Shoals",
+      "latitude": 34.3891693,
+      "longitude": -82.2389266,
+      "straightLineMiles": 14.3
+    }
+  ]
+}

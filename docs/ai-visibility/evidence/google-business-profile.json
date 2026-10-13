@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-10-13T17:42:43.844Z",
+  "source": "https://www.google.com/maps/place/Jumping+Jax+LLC/data=!4m2!3m1!1s0x0:0x729cd410ace32e78",
+  "query": "Jumping Jax LLC Greenwood SC",
+  "context": "Read-only branded Google search in an existing signed-in, personalized session. Account identity omitted. No listing changes made.",
+  "name": "Jumping Jax LLC",
+  "category": "Party equipment rental service",
+  "address": "559 Beaudrot Rd, Greenwood, SC 29649",
+  "phone": "(864) 933-1420",
+  "website": "https://www.jumpingjaxllc.com/",
+  "rating": 4.4,
+  "googleReviewCount": 244,
+  "hours": {
+    "Monday": "9–11:30 AM",
+    "Tuesday": "Closed",
+    "Wednesday": "9:30 AM–5 PM",
+    "Thursday": "9 AM–5 PM",
+    "Friday": "11 AM–6 PM",
+    "Saturday": "10 AM–6 PM",
+    "Sunday": "Closed"
+  },
+  "profiles": [
+    "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+    "https://www.instagram.com/jumping.jax.llc/"
+  ],
+  "accessLimitation": "The manager interface also showed a pending access/verification notice alongside a management badge. Effective edit permission is not established. Owner should resolve access before edits.",
+  "comparison": "Website timed open-play hours match; Sunday website describes private parties, while Google says closed for public opening. Birdeye hours differ and its review count is an aggregator, not the observed Google count."
+}

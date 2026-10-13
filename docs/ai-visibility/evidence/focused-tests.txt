@@ -1,0 +1,43 @@
+$ node --import tsx --test src/lib/ai-visibility/observations.test.mts src/lib/ai-visibility/dashboard-render.test.mts src/lib/seo/ai-search-readiness.test.mts src/lib/seo/structured-data.test.mts src/lib/admin/front-desk-navigation.test.mts src/proxy.test.mts src/lib/site-url.test.mts
+✔ weekend stays Friday-Sunday and advances after Sunday in the business timezone (12.2332ms)
+✔ weekends survive DST, year rollover and invalid date input (0.3292ms)
+✔ weekend scope includes foam rentals and excludes facility and cancelled bookings (0.1563ms)
+✔ front-desk tasks remain available without granting owner agent or security access (0.2386ms)
+✔ invitation and weekend detail paths select their correct destinations (0.1989ms)
+✔ agent summary keeps unknown checks unknown and only exposes validated counts (0.1946ms)
+✔ empty AI panel never presents the web baseline as a measured recommendation (7.7643ms)
+✔ actual AI fixtures render observed metrics, labels, and escaped evidence (2.6263ms)
+✔ forms and reporting tables expose accessible labels, captions and live status (1.9088ms)
+✔ real web baseline cannot become a ChatGPT recommendation rate (0.553ms)
+✔ actual Google AI samples preserve their manual provenance and personalization limitations (0.1277ms)
+✔ bundled AI citations match reviewed captures and exclude interface settings links (1.7327ms)
+✔ unknown evaluations and simulations are excluded from recommendation denominator (0.1174ms)
+✔ contradictory claims, web search AI order, and false provenance are rejected (1.3641ms)
+✔ imports reject executable URLs, credentials, invalid dates and malformed evidence (3.1948ms)
+✔ same-ID reimport is idempotent; conflicting and repeated IDs never silently overwrite evidence (7.42ms)
+✔ competitors count once per observation and groups retain denominators (0.3597ms)
+✔ dashboard route and navigation preserve owner-only access (0.8237ms)
+✔ OAI-SearchBot permits public pages and retains every wildcard private exclusion (0.7962ms)
+✔ displayed hours are parsed conservatively without inventing appointment or overnight hours (0.7852ms)
+✔ business schema matches displayed settings and facility service remains at Greenwood (0.5627ms)
+✔ sitemap includes canonical service page once and excludes protected routes (0.8663ms)
+✔ verified legacy city URLs redirect permanently to the live water slide category (0.1654ms)
+✔ structured data uses canonical Jumping Jax URLs (0.8524ms)
+✔ JSON-LD escapes markup so rental text cannot terminate its script (0.1413ms)
+✔ rental product JSON-LD exposes offer and seller data (0.1787ms)
+✔ production URL resolution is HTTPS and pinned to the apex .com (0.7736ms)
+✔ local development can use localhost (0.2605ms)
+✔ Preview links use the trusted branch origin even with a production Node build (0.2524ms)
+✔ rental and facility action links use canonical encoded URLs without duplicate slashes (1.1038ms)
+✔ canonical metadata and SEO URLs use the apex .com (0.247ms)
+✔ legacy .net hosts redirect matching paths and preserve safe query parameters (2.426ms)
+✔ legacy redirects remove OAuth and authentication secrets (0.318ms)
+✔ canonical and preview hosts do not redirect (0.4073ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3728.91

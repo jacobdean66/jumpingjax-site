@@ -1,0 +1,2325 @@
+{
+  "observedAt": "2026-10-13T17:32:17.414Z",
+  "base": "http://127.0.0.1:3210",
+  "limitations": "HTTP probes are not verified crawler traffic or Core Web Vitals. Links are sampled from eight entry URLs; no authenticated pages or booking submissions tested.",
+  "pages": [
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:16.838Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 133,
+      "htmlBytes": 75647,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals",
+      "finalUrl": "http://127.0.0.1:3210/rentals",
+      "observedAt": "2026-10-13T17:32:16.839Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 117,
+      "htmlBytes": 86386,
+      "xRobotsTag": null,
+      "title": "Inflatable & Party Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Browse bounce house rentals, water slides, combos, obstacle courses, inflatable games, and party equipment for Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com/rentals"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Party Rentals in Greenwood, SC"
+        },
+        {
+          "property": "og:description",
+          "content": "Browse bounce house rentals, water slides, combos, obstacle courses, inflatable games, and party equipment for Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com/rentals"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        [
+          {
+            "@context": "https://schema.org",
+            "@type": [
+              "LocalBusiness",
+              "EntertainmentBusiness"
+            ],
+            "@id": "https://jumpingjaxllc.com/#business",
+            "name": "Jumping Jax",
+            "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+            "image": "https://jumpingjaxllc.com/logo.png",
+            "telephone": "864-933-1420",
+            "email": "info@jumpingjaxllc.com",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "559 Beaudrot Rd",
+              "addressLocality": "Greenwood",
+              "addressRegion": "SC",
+              "postalCode": "29649",
+              "addressCountry": "US"
+            },
+            "openingHoursSpecification": [
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Wednesday",
+                "opens": "12:00",
+                "closes": "17:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Thursday",
+                "opens": "12:00",
+                "closes": "17:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Friday",
+                "opens": "12:00",
+                "closes": "18:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Saturday",
+                "opens": "10:00",
+                "closes": "18:00"
+              }
+            ],
+            "areaServed": [
+              {
+                "@type": "City",
+                "name": "Greenwood, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Clinton, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Abbeville, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Edgefield, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Honea Path, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Laurens, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Ninety Six, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Saluda, SC"
+              }
+            ],
+            "url": "https://jumpingjaxllc.com",
+            "sameAs": [
+              "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+              "https://www.instagram.com/jumping.jax.llc/"
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            "@id": "https://jumpingjaxllc.com/rentals#service",
+            "name": "Inflatable and Party Rentals in Greenwood, SC",
+            "description": "Bounce house, water slide, obstacle course, foam party, and party equipment rentals from Jumping Jax.",
+            "serviceType": "Inflatable rental service",
+            "provider": {
+              "@id": "https://jumpingjaxllc.com/#business",
+              "name": "Jumping Jax"
+            },
+            "areaServed": [
+              {
+                "@type": "City",
+                "name": "Greenwood, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Clinton, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Abbeville, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Edgefield, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Honea Path, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Laurens, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Ninety Six, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Saluda, SC"
+              }
+            ],
+            "url": "https://jumpingjaxllc.com/rentals"
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "@id": "https://jumpingjaxllc.com/rentals#itemlist",
+            "name": "Jumping Jax rental categories",
+            "description": "Rental categories available from Jumping Jax in Greenwood, SC.",
+            "url": "https://jumpingjaxllc.com/rentals",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Water Slides",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "url": "https://jumpingjaxllc.com/rentals/foam-parties",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Foam Parties",
+                  "url": "https://jumpingjaxllc.com/rentals/foam-parties",
+                  "image": "https://jumpingjaxllc.com/inflatables/foam-parties/foam-parties.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "url": "https://jumpingjaxllc.com/rentals/accessories",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Accessories",
+                  "url": "https://jumpingjaxllc.com/rentals/accessories",
+                  "image": "https://jumpingjaxllc.com/inflatables/accessories/generator.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Bounce Houses",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/dream-castle.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 5,
+                "url": "https://jumpingjaxllc.com/rentals/combos",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Combos",
+                  "url": "https://jumpingjaxllc.com/rentals/combos",
+                  "image": "https://jumpingjaxllc.com/inflatables/combos/world-of-disney.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 6,
+                "url": "https://jumpingjaxllc.com/rentals/slides",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Slides",
+                  "url": "https://jumpingjaxllc.com/rentals/slides",
+                  "image": "https://jumpingjaxllc.com/inflatables/slides/30-ft-long-rock-climb-slide.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 7,
+                "url": "https://jumpingjaxllc.com/rentals/obstacle-courses",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Obstacle Courses",
+                  "url": "https://jumpingjaxllc.com/rentals/obstacle-courses",
+                  "image": "https://jumpingjaxllc.com/inflatables/obstacle-courses/offshore-obstacle-course.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 8,
+                "url": "https://jumpingjaxllc.com/rentals/inflatable-games",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Inflatable Games",
+                  "url": "https://jumpingjaxllc.com/rentals/inflatable-games",
+                  "image": "https://jumpingjaxllc.com/inflatables/inflatable-games/human-whackamole.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 9,
+                "url": "https://jumpingjaxllc.com/rentals/yard-games",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Yard Games",
+                  "url": "https://jumpingjaxllc.com/rentals/yard-games",
+                  "image": "https://jumpingjaxllc.com/inflatables/yard-games/basketball-game.webp"
+                }
+              }
+            ]
+          }
+        ]
+      ],
+      "headings": [
+        "Inflatable & Party Rentals in Greenwood, SC"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/rentals/slides",
+        "/rentals/obstacle-courses",
+        "/rentals/inflatable-games",
+        "/rentals/yard-games",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/facility-parties",
+      "finalUrl": "http://127.0.0.1:3210/facility-parties",
+      "observedAt": "2026-10-13T17:32:16.910Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 70,
+      "htmlBytes": 57775,
+      "xRobotsTag": null,
+      "title": "Kids' Birthday Party Venue in Greenwood, SC | Jumping Jax",
+      "description": "Plan an indoor kids' birthday party at Jumping Jax in Greenwood, SC, with party rooms, inflatable fun, and a simple online reservation request.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com/facility-parties"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Kids' Birthday Party Venue in Greenwood, SC"
+        },
+        {
+          "property": "og:description",
+          "content": "Plan an indoor kids' birthday party at Jumping Jax in Greenwood, SC, with party rooms, inflatable fun, and a simple online reservation request."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com/facility-parties"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        [
+          {
+            "@context": "https://schema.org",
+            "@type": [
+              "LocalBusiness",
+              "EntertainmentBusiness"
+            ],
+            "@id": "https://jumpingjaxllc.com/#business",
+            "name": "Jumping Jax",
+            "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+            "image": "https://jumpingjaxllc.com/logo.png",
+            "telephone": "864-933-1420",
+            "email": "info@jumpingjaxllc.com",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "559 Beaudrot Rd",
+              "addressLocality": "Greenwood",
+              "addressRegion": "SC",
+              "postalCode": "29649",
+              "addressCountry": "US"
+            },
+            "openingHoursSpecification": [
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Wednesday",
+                "opens": "12:00",
+                "closes": "17:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Thursday",
+                "opens": "12:00",
+                "closes": "17:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Friday",
+                "opens": "12:00",
+                "closes": "18:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": "Saturday",
+                "opens": "10:00",
+                "closes": "18:00"
+              }
+            ],
+            "areaServed": [
+              {
+                "@type": "City",
+                "name": "Greenwood, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Clinton, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Abbeville, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Edgefield, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Honea Path, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Laurens, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Ninety Six, SC"
+              },
+              {
+                "@type": "City",
+                "name": "Saluda, SC"
+              }
+            ],
+            "url": "https://jumpingjaxllc.com",
+            "sameAs": [
+              "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+              "https://www.instagram.com/jumping.jax.llc/"
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://jumpingjaxllc.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Facility Parties",
+                "item": "https://jumpingjaxllc.com/facility-parties"
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            "@id": "https://jumpingjaxllc.com/facility-parties#service",
+            "name": "Kids' Birthday Party Venue in Greenwood, SC",
+            "description": "Indoor birthday party rooms and private facility party options at Jumping Jax in Greenwood, SC.",
+            "serviceType": "Birthday party venue",
+            "provider": {
+              "@id": "https://jumpingjaxllc.com/#business",
+              "name": "Jumping Jax"
+            },
+            "areaServed": [
+              {
+                "@type": "City",
+                "name": "Greenwood, SC"
+              }
+            ],
+            "url": "https://jumpingjaxllc.com/facility-parties"
+          }
+        ]
+      ],
+      "headings": [
+        "Kids' Birthday Party Venue in Greenwood, SC"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/contact"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/contact",
+      "finalUrl": "http://127.0.0.1:3210/contact",
+      "observedAt": "2026-10-13T17:32:16.910Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 70,
+      "htmlBytes": 32057,
+      "xRobotsTag": null,
+      "title": "Contact Jumping Jax in Greenwood, SC | Jumping Jax",
+      "description": "Contact Jumping Jax about inflatable rentals, water slides, bounce houses, foam parties, and birthday parties in Greenwood, SC.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com/contact"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Contact Jumping Jax in Greenwood, SC"
+        },
+        {
+          "property": "og:description",
+          "content": "Contact Jumping Jax about inflatable rentals, water slides, bounce houses, foam parties, and birthday parties in Greenwood, SC."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com/contact"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Contact Jumping Jax in Greenwood, SC"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses",
+      "observedAt": "2026-10-13T17:32:16.949Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 39,
+      "htmlBytes": 68168,
+      "xRobotsTag": null,
+      "title": "Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent clean bounce houses from Jumping Jax for birthdays, schools, churches, and events in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com/rentals/bounce-houses"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Bounce House Rentals in Greenwood, SC"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent clean bounce houses from Jumping Jax for birthdays, schools, churches, and events in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com/rentals/bounce-houses"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://jumpingjaxllc.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Rentals",
+                "item": "https://jumpingjaxllc.com/rentals"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Bounce Houses",
+                "item": "https://jumpingjaxllc.com/rentals/bounce-houses"
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "@id": "https://jumpingjaxllc.com/rentals/bounce-houses#itemlist",
+            "name": "Bounce Houses rentals in Greenwood, SC",
+            "description": "Classic jumpers and castle styles—delivered clean, set up safely, and ready for smiles.",
+            "url": "https://jumpingjaxllc.com/rentals/bounce-houses",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses/castle",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Castle",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses/castle",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/castle.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses/dalmation-bounce",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Dalmatian Bounce House",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses/dalmation-bounce",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/dalmation-bounce.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses/dream-castle",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Dream Castle",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses/dream-castle",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/dream-castle.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses/jumbo-castle-bouncer",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Jumbo Castle Bouncer",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses/jumbo-castle-bouncer",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/jumbo-castle-bouncer.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 5,
+                "url": "https://jumpingjaxllc.com/rentals/bounce-houses/tiger-belly-bounce",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Tiger Belly Bounce",
+                  "url": "https://jumpingjaxllc.com/rentals/bounce-houses/tiger-belly-bounce",
+                  "image": "https://jumpingjaxllc.com/inflatables/bounce-houses/tiger-belly-bounce.jpg"
+                }
+              }
+            ]
+          }
+        ]
+      ],
+      "headings": [
+        "Bounce House Rentals in Greenwood, SC"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/rentals/bounce-houses/castle",
+        "/rentals/bounce-houses/dalmation-bounce",
+        "/rentals/bounce-houses/dream-castle",
+        "/rentals/bounce-houses/jumbo-castle-bouncer",
+        "/rentals/bounce-houses/tiger-belly-bounce",
+        "/rentals/water-slides"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides",
+      "observedAt": "2026-10-13T17:32:16.950Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 39,
+      "htmlBytes": 130849,
+      "xRobotsTag": null,
+      "title": "Water Slide Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent inflatable water slides from Jumping Jax for summer birthdays and events in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com/rentals/water-slides"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Water Slide Rentals in Greenwood, SC"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent inflatable water slides from Jumping Jax for summer birthdays and events in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com/rentals/water-slides"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://jumpingjaxllc.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Rentals",
+                "item": "https://jumpingjaxllc.com/rentals"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Water Slides",
+                "item": "https://jumpingjaxllc.com/rentals/water-slides"
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "@id": "https://jumpingjaxllc.com/rentals/water-slides#itemlist",
+            "name": "Water Slides rentals in Greenwood, SC",
+            "description": "Cool off with our wet slide lineup—perfect for summer birthdays, schools, and neighborhood bashes.",
+            "url": "https://jumpingjaxllc.com/rentals/water-slides",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/18-ft-basic-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "18' Basic Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/18-ft-basic-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/18-ft-basic-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/22-ft-hurricane-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "22' Hurricane Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/22-ft-hurricane-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/22-ft-hurricane-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/22-ft-tropical-hurricane-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "22' Tropical Hurricane Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/22-ft-tropical-hurricane-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/22-ft-tropical-hurricane-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/double-lane-18ft-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Double Lane 18ft Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/double-lane-18ft-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/double-lane-18ft-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 5,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-tiki-plunge",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Mini Tiki Plunge",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-tiki-plunge",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/mini-tiki-plunge.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 6,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Mini Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/mini-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 7,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide-2",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Mini Waterslide 2",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide-2",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/mini-waterslide-2.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 8,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/purple-hurricane-18ft",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Purple Hurricane 18ft",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/purple-hurricane-18ft",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/purple-hurricane-18ft.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 9,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/rampage-doublelane-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Rampage Doublelane Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/rampage-doublelane-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/rampage-doublelane-waterslide.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 10,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/ruby-falls-waterslide-with-deep-pool",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Ruby Falls Waterslide with Deep Pool",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/ruby-falls-waterslide-with-deep-pool",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/legacy/ruby-falls-waterslide-with-deep-pool.jpg"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 11,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "18 Ft Tropical Double Lane Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/18-ft-tropical-double-lane-waterslide.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 12,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/island-breeze-combo-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Island Breeze Combo Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/island-breeze-combo-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/island-breeze-combo-waterslide.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 13,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/pirate-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Pirate Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/pirate-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/pirate-waterslide.webp"
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 14,
+                "url": "https://jumpingjaxllc.com/rentals/water-slides/princess-waterslide",
+                "item": {
+                  "@type": "Thing",
+                  "name": "Princess Waterslide",
+                  "url": "https://jumpingjaxllc.com/rentals/water-slides/princess-waterslide",
+                  "image": "https://jumpingjaxllc.com/inflatables/waterslides/princess-waterslide.webp"
+                }
+              }
+            ]
+          }
+        ]
+      ],
+      "headings": [
+        "Water Slide Rentals in Greenwood, SC"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/rentals/water-slides/18-ft-basic-waterslide",
+        "/rentals/water-slides/22-ft-hurricane-waterslide",
+        "/rentals/water-slides/22-ft-tropical-hurricane-waterslide",
+        "/rentals/water-slides/double-lane-18ft-waterslide",
+        "/rentals/water-slides/mini-tiki-plunge",
+        "/rentals/water-slides/mini-waterslide",
+        "/rentals/water-slides/mini-waterslide-2",
+        "/rentals/water-slides/purple-hurricane-18ft",
+        "/rentals/water-slides/rampage-doublelane-waterslide",
+        "/rentals/water-slides/ruby-falls-waterslide-with-deep-pool",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/water-slides/island-breeze-combo-waterslide",
+        "/rentals/water-slides/pirate-waterslide",
+        "/rentals/water-slides/princess-waterslide",
+        "/rentals/bounce-houses"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/robots.txt",
+      "finalUrl": "http://127.0.0.1:3210/robots.txt",
+      "observedAt": "2026-10-13T17:32:16.979Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 30,
+      "htmlBytes": 1017,
+      "xRobotsTag": null,
+      "title": "",
+      "robots": [],
+      "canonical": [],
+      "openGraph": [],
+      "jsonLd": [],
+      "headings": [],
+      "internalLinks": [],
+      "text": "User-Agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api\nDisallow: /booking\nDisallow: /logistics\nDisallow: /driver\nDisallow: /check-in\nDisallow: /facility-party-check-in\nDisallow: /payments\nDisallow: /waiver\nDisallow: /rental-agreement\nDisallow: /facility-party-agreement\nDisallow: /rentals/confirmation\nDisallow: /facility-parties/confirmation\nDisallow: /facility-parties/invitations\nDisallow: /facility-parties/guest-list\nDisallow: /nominate\nDisallow: /nominees\n\nUser-Agent: OAI-SearchBot\nAllow: /\nDisallow: /admin\nDisallow: /api\nDisallow: /booking\nDisallow: /logistics\nDisallow: /driver\nDisallow: /check-in\nDisallow: /facility-party-check-in\nDisallow: /payments\nDisallow: /waiver\nDisallow: /rental-agreement\nDisallow: /facility-party-agreement\nDisallow: /rentals/confirmation\nDisallow: /facility-parties/confirmation\nDisallow: /facility-parties/invitations\nDisallow: /facility-parties/guest-list\nDisallow: /nominate\nDisallow: /nominees\n\nHost: https://jumpingjaxllc.com\nSitemap: https://jumpingjaxllc.com/sitemap.xml\n"
+    },
+    {
+      "url": "http://127.0.0.1:3210/sitemap.xml",
+      "finalUrl": "http://127.0.0.1:3210/sitemap.xml",
+      "observedAt": "2026-10-13T17:32:16.978Z",
+      "userAgent": "JumpingJax-PublicSEOAudit/1.0",
+      "status": 200,
+      "elapsedMs": 28,
+      "htmlBytes": 11710,
+      "xRobotsTag": null,
+      "title": "",
+      "robots": [],
+      "canonical": [],
+      "openGraph": [],
+      "jsonLd": [],
+      "headings": [],
+      "internalLinks": [],
+      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n<url>\n<loc>https://jumpingjaxllc.com/</loc>\n<changefreq>weekly</changefreq>\n<priority>1</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals</loc>\n<changefreq>weekly</changefreq>\n<priority>0.9</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/facility-parties</loc>\n<changefreq>monthly</changefreq>\n<priority>0.9</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/contact</loc>\n<changefreq>monthly</changefreq>\n<priority>0.6</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/service-area</loc>\n<changefreq>monthly</changefreq>\n<priority>0.6</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/privacy</loc>\n<changefreq>monthly</changefreq>\n<priority>0.6</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/data-deletion</loc>\n<changefreq>monthly</changefreq>\n<priority>0.6</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/ads</loc>\n<changefreq>monthly</changefreq>\n<priority>0.6</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/foam-parties</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/yard-games</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/18-ft-basic-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/22-ft-hurricane-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/22-ft-tropical-hurricane-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/double-lane-18ft-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/mini-tiki-plunge</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/mini-waterslide-2</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/purple-hurricane-18ft</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/rampage-doublelane-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/ruby-falls-waterslide-with-deep-pool</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/foam-parties/foam-party</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/foam-parties/uv-glow-foam-party</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/40in-helium-number-balloons</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/6-ft-table</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/8-ft-table</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/chairs</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/cotton-candy</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/cotton-candy-birthday-package</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/dunk-tank</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/generator</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/helium-latex-balloons</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/inflatable-birthday-chair</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/popcorn-machine</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/accessories/sno-cone</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses/castle</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses/dalmation-bounce</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses/dream-castle</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses/jumbo-castle-bouncer</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/bounce-houses/tiger-belly-bounce</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/candy-land-toddle-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/cars-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/castle-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/combo1</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/dream-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/fairies-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/island-breeze-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/spongebob-combo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/whoville-igloo-combo-grinch-themed-inflatable-bounce-house</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/combos/world-of-disney</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/4-in-1-sports-game</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/floating-baseball-game</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/football-game</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/human-whackamole</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/hungry-hippo</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/jumpingjax-basketball-shootout</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/inflatable-games/sports-star</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/call-of-duty-course</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/criss-cross-course</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/grinch-whoville-mayhem</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/offshore-obstacle-course</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/sports-course</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/obstacle-courses/toxic-course</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/18-ft-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/18-ft-tropical-double-lane-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/24-ft-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/30-ft-long-rock-climb-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/pirate-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/princess-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/slides/sugar-rush-slide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/18-ft-tropical-double-lane-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/island-breeze-combo-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/pirate-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/water-slides/princess-waterslide</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n<url>\n<loc>https://jumpingjaxllc.com/rentals/yard-games/basketball-game</loc>\n<changefreq>monthly</changefreq>\n<priority>0.75</priority>\n</url>\n</urlset>\n"
+    }
+  ],
+  "linkChecks": [
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/facility-parties",
+      "finalUrl": "http://127.0.0.1:3210/facility-parties",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals",
+      "finalUrl": "http://127.0.0.1:3210/rentals",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/foam-parties",
+      "finalUrl": "http://127.0.0.1:3210/rentals/foam-parties",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/ads",
+      "finalUrl": "http://127.0.0.1:3210/ads",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/campaigns/air-hockey-tournament",
+      "finalUrl": "http://127.0.0.1:3210/campaigns/air-hockey-tournament",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/combos/world-of-disney",
+      "finalUrl": "http://127.0.0.1:3210/rentals/combos/world-of-disney",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/slides/30-ft-long-rock-climb-slide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/slides/30-ft-long-rock-climb-slide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/accessories",
+      "finalUrl": "http://127.0.0.1:3210/rentals/accessories",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/combos",
+      "finalUrl": "http://127.0.0.1:3210/rentals/combos",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/service-area",
+      "finalUrl": "http://127.0.0.1:3210/service-area",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/slides",
+      "finalUrl": "http://127.0.0.1:3210/rentals/slides",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/obstacle-courses",
+      "finalUrl": "http://127.0.0.1:3210/rentals/obstacle-courses",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/inflatable-games",
+      "finalUrl": "http://127.0.0.1:3210/rentals/inflatable-games",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/yard-games",
+      "finalUrl": "http://127.0.0.1:3210/rentals/yard-games",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/contact",
+      "finalUrl": "http://127.0.0.1:3210/contact",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses/castle",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses/castle",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses/dalmation-bounce",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses/dalmation-bounce",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses/dream-castle",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses/dream-castle",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses/jumbo-castle-bouncer",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses/jumbo-castle-bouncer",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/bounce-houses/tiger-belly-bounce",
+      "finalUrl": "http://127.0.0.1:3210/rentals/bounce-houses/tiger-belly-bounce",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/18-ft-basic-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/18-ft-basic-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/22-ft-hurricane-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/22-ft-hurricane-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/22-ft-tropical-hurricane-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/22-ft-tropical-hurricane-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/double-lane-18ft-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/double-lane-18ft-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/mini-tiki-plunge",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/mini-tiki-plunge",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/mini-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/mini-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/mini-waterslide-2",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/mini-waterslide-2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/purple-hurricane-18ft",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/purple-hurricane-18ft",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/rampage-doublelane-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/rampage-doublelane-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/ruby-falls-waterslide-with-deep-pool",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/ruby-falls-waterslide-with-deep-pool",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/island-breeze-combo-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/island-breeze-combo-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/pirate-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/pirate-waterslide",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3210/rentals/water-slides/princess-waterslide",
+      "finalUrl": "http://127.0.0.1:3210/rentals/water-slides/princess-waterslide",
+      "status": 200
+    }
+  ],
+  "crawlerProbes": [
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:17.356Z",
+      "userAgent": "OAI-SearchBot",
+      "status": 200,
+      "elapsedMs": 6,
+      "htmlBytes": 75647,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:17.363Z",
+      "userAgent": "Googlebot",
+      "status": 200,
+      "elapsedMs": 6,
+      "htmlBytes": 75647,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:17.381Z",
+      "userAgent": "bingbot",
+      "status": 200,
+      "elapsedMs": 18,
+      "htmlBytes": 75383,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:17.397Z",
+      "userAgent": "PerplexityBot",
+      "status": 200,
+      "elapsedMs": 16,
+      "htmlBytes": 75647,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:3210/",
+      "finalUrl": "http://127.0.0.1:3210/",
+      "observedAt": "2026-10-13T17:32:17.413Z",
+      "userAgent": "Claude-SearchBot",
+      "status": 200,
+      "elapsedMs": 16,
+      "htmlBytes": 75647,
+      "xRobotsTag": null,
+      "title": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax",
+      "description": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities.",
+      "robots": [],
+      "canonical": [
+        "https://jumpingjaxllc.com"
+      ],
+      "openGraph": [
+        {
+          "property": "og:title",
+          "content": "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+        },
+        {
+          "property": "og:description",
+          "content": "Rent bounce houses, water slides, obstacle courses, foam parties, and party equipment from Jumping Jax in Greenwood, SC and nearby communities."
+        },
+        {
+          "property": "og:url",
+          "content": "https://jumpingjaxllc.com"
+        },
+        {
+          "property": "og:site_name",
+          "content": "Jumping Jax"
+        },
+        {
+          "property": "og:image",
+          "content": "https://jumpingjaxllc.com/logo.png"
+        },
+        {
+          "property": "og:image:width",
+          "content": "1200"
+        },
+        {
+          "property": "og:image:height",
+          "content": "630"
+        },
+        {
+          "property": "og:image:alt",
+          "content": "Jumping Jax - Greenwood, SC Inflatable Rentals & Parties"
+        },
+        {
+          "property": "og:type",
+          "content": "website"
+        }
+      ],
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": [
+            "LocalBusiness",
+            "EntertainmentBusiness"
+          ],
+          "@id": "https://jumpingjaxllc.com/#business",
+          "name": "Jumping Jax",
+          "description": "Inflatable rentals, bounce houses, water slides, foam parties, open play, and kids' birthday parties in Greenwood, South Carolina and nearby communities.",
+          "image": "https://jumpingjaxllc.com/logo.png",
+          "telephone": "864-933-1420",
+          "email": "info@jumpingjaxllc.com",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "559 Beaudrot Rd",
+            "addressLocality": "Greenwood",
+            "addressRegion": "SC",
+            "postalCode": "29649",
+            "addressCountry": "US"
+          },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Wednesday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Thursday",
+              "opens": "12:00",
+              "closes": "17:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Friday",
+              "opens": "12:00",
+              "closes": "18:00"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": "Saturday",
+              "opens": "10:00",
+              "closes": "18:00"
+            }
+          ],
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Greenwood, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Clinton, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Abbeville, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Edgefield, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Honea Path, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Laurens, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Ninety Six, SC"
+            },
+            {
+              "@type": "City",
+              "name": "Saluda, SC"
+            }
+          ],
+          "url": "https://jumpingjaxllc.com",
+          "sameAs": [
+            "https://www.facebook.com/p/Jumping-Jax-LLC-100057288707032/",
+            "https://www.instagram.com/jumping.jax.llc/"
+          ]
+        }
+      ],
+      "headings": [
+        "Inflatable & Bounce House Rentals in Greenwood, SC | Jumping Jax"
+      ],
+      "internalLinks": [
+        "/",
+        "/facility-parties",
+        "/rentals",
+        "/rentals/foam-parties",
+        "/ads",
+        "/campaigns/air-hockey-tournament",
+        "/waiver",
+        "/facility-party-check-in",
+        "/nominees",
+        "/rentals/water-slides/18-ft-tropical-double-lane-waterslide",
+        "/rentals/combos/world-of-disney",
+        "/rentals/slides/30-ft-long-rock-climb-slide",
+        "/rentals/water-slides",
+        "/rentals/accessories",
+        "/rentals/bounce-houses",
+        "/rentals/combos",
+        "/service-area"
+      ]
+    }
+  ],
+  "redirects": []
+}

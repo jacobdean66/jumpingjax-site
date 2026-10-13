@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 
 import {
   business,
+  businessHours,
   contact,
   pageSEO,
   type BusinessHours,
@@ -40,15 +41,7 @@ export type SiteSettings = {
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   facilityPricing: DEFAULT_FACILITY_PRICING,
-  businessHours: [
-    { day: "Monday", hours: "Closed", closed: true },
-    { day: "Tuesday", hours: "Closed", closed: true },
-    { day: "Wednesday", hours: "12:00 PM - 5:00 PM" },
-    { day: "Thursday", hours: "12:00 PM - 5:00 PM" },
-    { day: "Friday", hours: "12:00 PM - 6:00 PM" },
-    { day: "Saturday", hours: "10:00 AM - 6:00 PM" },
-    { day: "Sunday", hours: "Private parties all day" },
-  ],
+  businessHours,
   websiteText: {
     businessTagline: business.tagline,
     businessDescription: business.description,

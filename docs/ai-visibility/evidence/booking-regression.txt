@@ -1,0 +1,28 @@
+✔ facility admin query filters by canonical start_time (0.9505ms)
+✔ rental pending insert delegates parent and child writes to one atomic RPC (0.4343ms)
+✔ admin action buttons can call confirmation routes with POST (0.7999ms)
+✔ rental and inventory tools stay in Operations while management stays separate (0.2701ms)
+✔ facility name mapping uses one parent contact and one birthday child (1.0299ms)
+✔ booking failures preserve server explanations and retry timing (12.5808ms)
+✔ success requires a saved booking identifier (0.4939ms)
+✔ all offered party combinations pass the real route's pricing and time validation (62.6306ms)
+✔ contact-only bookings save with blank optional details and preserve supplied details (16.6225ms)
+Audited 30786 offered facility slots through 2027-12-31
+✔ every offered date, room and duration has the correct configured price through the booking horizon (1150.4165ms)
+✔ unsupported public days and private rooms cannot receive misleading prices (0.1214ms)
+✔ the admin has a dedicated invoice page and navigation option (1.0276ms)
+✔ every rental card, including foam bookings, exposes invoice creation (0.5134ms)
+✔ every facility booking card exposes invoice creation (0.5151ms)
+✔ invoice APIs require admin access (0.4254ms)
+✔ rental API resolves every item from the server catalog and rejects duplicates (0.5364ms)
+✔ client monetary projections are never authoritative (0.1708ms)
+✔ server resolves foam duration independently for mixed rental carts (0.0745ms)
+✔ availability includes secondary cart items and fails closed (0.0584ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3476.9213

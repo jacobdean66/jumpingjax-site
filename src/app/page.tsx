@@ -14,21 +14,15 @@ import {
 } from "@/lib/admin/site-settings";
 import {
   generateHomeMetadata,
+  generateOrganizationSchema,
+  createJsonLdScript,
 } from "@/lib/metadata";
+import { location } from "@/data/site";
 
 const FEATURED_IMAGE_SIZES =
   "(max-width: 768px) 94vw, (max-width: 1200px) 33vw, 400px";
 
-const SERVICE_AREAS = [
-  "Greenwood",
-  "Clinton",
-  "Abbeville",
-  "Edgefield",
-  "Honea Path",
-  "Laurens",
-  "Ninety Six",
-  "Saluda",
-];
+const SERVICE_AREAS = location.serviceAreas;
 
 export const dynamic = "force-dynamic";
 export const metadata = generateHomeMetadata();
@@ -48,6 +42,7 @@ export default async function Home() {
 
   return (
     <main className="overflow-x-hidden bg-[#fff8e8] text-slate-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={createJsonLdScript(generateOrganizationSchema(settings))} />
       {/* HERO — Next/Image for bandwidth-aware delivery + stable layout box */}
       <section className="relative flex min-h-[100svh] items-center justify-center px-4 py-20 sm:py-24">
         <div className="absolute inset-0">
@@ -168,7 +163,7 @@ export default async function Home() {
       </section>
 
       {/* INDOOR FACILITY */}
-      <section className="bg-cyan-100 px-4 py-20 sm:px-6">
+      <section id="open-play" className="bg-cyan-100 px-4 py-20 sm:px-6">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>
             <span className="inline-flex rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-800">
@@ -352,6 +347,7 @@ export default async function Home() {
           <p className="mx-auto mb-10 max-w-3xl text-pretty text-base leading-7 text-slate-700 sm:text-lg">
             Jumping Jax provides bounce house rentals, water slide rentals, foam
             parties, and party equipment across Greenwood and nearby communities.
+            {" "}<Link href="/service-area" className="font-bold text-cyan-800 underline">Confirm delivery for your event location</Link>.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 text-lg sm:gap-4">
