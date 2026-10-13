@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { GiveawayNominationForm } from "@/components/giveaway/GiveawayNominationForm";
+import { GiveawayClosedNotice } from "@/components/giveaway/GiveawayClosedNotice";
+import { GIVEAWAY_NOMINATIONS_OPEN } from "@/lib/giveaway/giveaway-campaigns";
 
 export const metadata: Metadata = {
   title: "Free Party Giveaway Nomination",
@@ -9,6 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default function NominatePage() {
+  if (!GIVEAWAY_NOMINATIONS_OPEN) {
+    return <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_44%,#fce7f3_100%)] px-4 py-10 sm:px-6"><GiveawayClosedNotice /></main>;
+  }
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#cffafe_0,#fff8e8_44%,#fce7f3_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-4xl">

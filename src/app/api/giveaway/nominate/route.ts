@@ -7,6 +7,8 @@ import {
 } from "@/lib/email/resend";
 import {
   GIVEAWAY_CAMPAIGN_LABELS,
+  GIVEAWAY_NOMINATIONS_OPEN,
+  GIVEAWAY_CLOSED_MESSAGE,
   type GiveawayCampaignChoice,
   isGiveawayCampaignChoice,
 } from "@/lib/giveaway/giveaway-campaigns";
@@ -32,6 +34,9 @@ function isValidMonthDay(month: number, day: number) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!GIVEAWAY_NOMINATIONS_OPEN) {
+    return NextResponse.json({ error: GIVEAWAY_CLOSED_MESSAGE }, { status: 410 });
+  }
   const limited = rateLimit(request, {
     scope: "giveaway-nomination",
     limit: 6,

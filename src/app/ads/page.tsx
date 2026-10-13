@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GIVEAWAY_PARTY_RSVP_URL } from "@/lib/giveaway/giveaway-campaigns";
 
 export const metadata: Metadata = {
   title: "Giveaways & Promotions",
@@ -26,17 +27,17 @@ export default function AdsPage() {
         <section className="mt-10 overflow-hidden rounded-[2rem] border-4 border-pink-200 bg-white shadow-2xl">
           <div className="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
             <div className="p-6 sm:p-9">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-600">Current giveaway</p>
-              <h2 className="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">Win a free party!</h2>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-pink-600">October giveaway closed</p>
+              <h2 className="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">Thank you for your nominations!</h2>
               <p className="mt-4 font-semibold leading-relaxed text-slate-700">
-                Nominate a child for a September birthday celebration or a back-to-school party at Jumping Jax in Greenwood.
+                Nominations are closed and the winner has been selected. Every child nominated for October&apos;s giveaway is invited to Keenan&apos;s Halloween costume party on October 31, from 2–3:30 PM, with free admission and free sno cones.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="/nominate"
+                  href={GIVEAWAY_PARTY_RSVP_URL}
                   className="inline-flex min-h-12 items-center justify-center rounded-full bg-orange-500 px-6 py-3 text-center text-sm font-black uppercase tracking-wide text-white shadow-[0_6px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
                 >
-                  Nominate a child
+                  Invited families: RSVP
                 </Link>
                 <Link
                   href="/nominees"
@@ -50,8 +51,8 @@ export default function AdsPage() {
             <div className="flex min-h-64 items-center justify-center bg-[linear-gradient(135deg,#f9a8d4_0%,#facc15_48%,#67e8f9_100%)] p-8 text-center">
               <div className="rotate-2 rounded-[2rem] border-4 border-white bg-slate-950 px-7 py-9 text-white shadow-xl">
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-yellow-300">2026 Giveaway</p>
-                <p className="mt-3 text-4xl font-black leading-none">One winner.<br />One free party.</p>
-                <p className="mt-4 text-sm font-bold text-slate-200">Entries close August 30</p>
+                <p className="mt-3 text-4xl font-black leading-none">Winner selected.<br />Let&apos;s celebrate!</p>
+                <p className="mt-4 text-sm font-bold text-slate-200">Nominations are closed</p>
               </div>
             </div>
           </div>

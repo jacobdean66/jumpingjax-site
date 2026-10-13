@@ -8,7 +8,7 @@ import {
   projectPublicNomineeCards,
   type NominationSubmission,
 } from "@/lib/giveaway/nomination-groups";
-import { giveawayCampaignLabel } from "@/lib/giveaway/giveaway-campaigns";
+import { giveawayCampaignLabel, GIVEAWAY_PARTY_RSVP_URL } from "@/lib/giveaway/giveaway-campaigns";
 import { formatPublicChildDisplayName } from "@/lib/giveaway/public-nominee-display";
 import {
   createServiceRoleClient,
@@ -112,7 +112,7 @@ export default async function NomineesPage() {
           </p>
           {!unavailable && cards.length > 0 ? (
             <p className="mt-4 text-sm font-black uppercase tracking-widest text-cyan-800">
-              {cards.length} {cards.length === 1 ? "nominee" : "nominees"} and counting
+              {cards.length} {cards.length === 1 ? "nominee" : "nominees"} · October nominations closed
             </p>
           ) : null}
         </div>
@@ -122,14 +122,14 @@ export default async function NomineesPage() {
             <div className="rounded-[2rem] border-4 border-orange-200 bg-white p-8 text-center shadow-xl">
               <h2 className="text-2xl font-black text-slate-950">The nominee list is taking a quick break</h2>
               <p className="mx-auto mt-3 max-w-xl font-semibold text-slate-600">
-                Please check back in a little while. New nominations can still be submitted.
+                Please check back in a little while. October nominations are closed and the winner has been selected.
               </p>
             </div>
           ) : cards.length === 0 ? (
             <div className="rounded-[2rem] border-4 border-cyan-200 bg-white p-8 text-center shadow-xl">
-              <h2 className="text-2xl font-black text-slate-950">Be the first to nominate a child</h2>
+              <h2 className="text-2xl font-black text-slate-950">No nominees to display</h2>
               <p className="mx-auto mt-3 max-w-xl font-semibold text-slate-600">
-                The nominee wall will fill up as entries arrive.
+                October nominations are closed and the winner has been selected.
               </p>
             </div>
           ) : (
@@ -177,10 +177,10 @@ export default async function NomineesPage() {
 
         <div className="mt-10 text-center">
           <Link
-            href="/nominate"
+            href={GIVEAWAY_PARTY_RSVP_URL}
             className="inline-flex rounded-full bg-orange-500 px-7 py-4 text-base font-black uppercase tracking-wide text-white shadow-[0_7px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
           >
-            Nominate a child
+            Invited families: RSVP
           </Link>
           <p className="mt-5 text-sm font-semibold text-slate-600">
             To protect families&apos; privacy, birthdays, contact details, and nomination stories are never shown here.

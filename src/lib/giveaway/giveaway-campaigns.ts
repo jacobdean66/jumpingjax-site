@@ -6,6 +6,11 @@ export const GIVEAWAY_CAMPAIGN_LABELS = {
 
 export const ACTIVE_GIVEAWAY_CAMPAIGN = "october_halloween";
 
+// The owner ended October's nomination drawing after selecting its winner.
+export const GIVEAWAY_NOMINATIONS_OPEN = false;
+export const GIVEAWAY_CLOSED_MESSAGE = "The October giveaway has ended. Nominations are closed and the winner has been selected.";
+export const GIVEAWAY_PARTY_RSVP_URL = "/facility-party-check-in?booking=8e07a9a0-a432-425c-a70a-78d4b0663dc6&date=2026-10-31";
+
 // Campaign month is independent of the child's birthday and submission date.
 export const GIVEAWAY_CAMPAIGN_MONTHS = {
   september_birthday: "2026-09",

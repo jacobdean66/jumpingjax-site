@@ -2,7 +2,8 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-import { ACTIVE_GIVEAWAY_CAMPAIGN } from "@/lib/giveaway/giveaway-campaigns";
+import { ACTIVE_GIVEAWAY_CAMPAIGN, GIVEAWAY_NOMINATIONS_OPEN } from "@/lib/giveaway/giveaway-campaigns";
+import { GiveawayClosedNotice } from "./GiveawayClosedNotice";
 
 const months = [
   "January", "February", "March", "April", "May", "June",
@@ -46,6 +47,8 @@ export function GiveawayNominationForm() {
     }
     setSubmitted(true);
   }
+
+  if (!GIVEAWAY_NOMINATIONS_OPEN) return <GiveawayClosedNotice />;
 
   if (submitted) {
     return (

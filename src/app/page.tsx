@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { GIVEAWAY_PARTY_RSVP_URL } from "@/lib/giveaway/giveaway-campaigns";
 import {
   CATEGORY_BROWSE_ORDER,
   CATEGORY_COPY,
@@ -130,21 +131,21 @@ export default async function Home() {
                 Ads
               </Link>
               <span className="rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950">
-                Current giveaway
+                October giveaway closed
               </span>
             </div>
             <h2 className="mt-5 text-balance text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
-              October Giveaway: win a free Halloween costume party!
+              October Giveaway: thank you for your nominations!
             </h2>
             <p className="mt-4 max-w-3xl text-pretty text-base font-semibold leading-7 text-slate-700 sm:text-lg">
-              Nominate a child to win a public or private party on any day of Halloween weekend. Guests wear their own costumes, and Halloween candy is included. Winner chosen October 15 at 9:00 a.m.
+              Nominations are closed and the winner has been selected. Invited families can still RSVP for Keenan&apos;s Halloween costume party on October 31, from 2–3:30 PM.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/nominate"
+                href={GIVEAWAY_PARTY_RSVP_URL}
                 className="inline-flex min-h-13 items-center justify-center rounded-full bg-orange-500 px-7 py-3 text-center text-base font-black text-white shadow-[0_6px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
               >
-                Nominate a child
+                Invited families: RSVP
               </Link>
               <Link
                 href="/nominees"
