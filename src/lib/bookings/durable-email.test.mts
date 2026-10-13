@@ -3,7 +3,7 @@ import test from "node:test";
 import { createClient } from "@supabase/supabase-js";
 import { sendDurableBookingEmail } from "./durable-email.ts";
 
-for (const scenario of ["invalid address", "authentication", "rate limit", "outage", "status write"] as const) {
+for (const scenario of ["invalid address", "authentication", "quota", "rate limit", "outage", "status write"] as const) {
   test(`durable email handles ${scenario} without duplicates or a false success`, async context => {
     const previous = process.env.RESEND_API_KEY;
     process.env.RESEND_API_KEY = "test-key";
@@ -19,6 +19,7 @@ for (const scenario of ["invalid address", "authentication", "rate limit", "outa
         assert.equal(req.headers.get("idempotency-key"), "rental-test-customer-receipt-v1");
         bodies.push(await req.json());
         if (scenario === "authentication") return Response.json({ name: "invalid_api_key", message: "secret details must not be stored" }, { status: 401 });
+        if (scenario === "quota") return Response.json({ name: "daily_quota_exceeded", message: "Limit reached" }, { status: 429 });
         if (scenario === "rate limit" && attempts === 1) return Response.json({ name: "rate_limit_exceeded", message: "Slow down" }, { status: 429, headers: { "retry-after": "1" } });
         if (scenario === "outage") return Response.json({ name: "internal_server_error", message: "Temporary failure" }, { status: 500 });
         return Response.json({ id: "test-id" });
@@ -40,7 +41,7 @@ for (const scenario of ["invalid address", "authentication", "rate limit", "outa
         assert.equal((await sendDurableBookingEmail(input)).alreadySent, true);
         assert.equal(attempts, 2);
       } else {
-        assert.equal(result.error?.code, { "invalid address": "customer_email_invalid", authentication: "email_authentication_failed", outage: "email_provider_unavailable", "status write": "email_status_write_failed" }[scenario]);
+        assert.equal(result.error?.code, { "invalid address": "customer_email_invalid", authentication: "email_authentication_failed", quota: "email_quota_exceeded", outage: "email_provider_unavailable", "status write": "email_status_write_failed" }[scenario]);
         assert.equal(attempts, scenario === "invalid address" ? 0 : scenario === "outage" ? 3 : 1);
       }
       if (bodies.length > 1) for (const body of bodies) assert.deepEqual(body, bodies[0]);
