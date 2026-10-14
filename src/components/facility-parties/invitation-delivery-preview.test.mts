@@ -20,6 +20,25 @@ const formFields = {
   timeLabel: "4:00 PM - 5:30 PM",
 };
 
+test("confirmed invitations keep party headings in print and fit four cards within printer margins", () => {
+  const confirmedSnapshot = {...snapshot, confirmedTheme: {
+    id: "sonic", label: "Sonic", description: "Sonic the Hedgehog",
+    imageUrl: "https://example.com/sonic.png", sourceUrl: "https://example.com/sonic",
+    imagePath: `/api/facility/invitations/artwork/${"a".repeat(64)}`,
+    originalQuery: "Sonic", confirmedAt: "2026-10-14T00:00:00Z",
+  }};
+  const html = renderToStaticMarkup(createElement(InvitationSheet, {
+    ...formFields, snapshot: confirmedSnapshot, invitationQuantity: 8,
+  }));
+  assert.equal(countMatches(html, 'data-invite-instance="true"'), 8);
+  assert.equal(countMatches(html, '<div class="confirmed-invitation-heading">'), 8);
+  assert.doesNotMatch(html, /<header/);
+  assert.match(html, /width: 10.5in !important/);
+  assert.match(html, /height: 8in !important/);
+  const bodyRule = html.match(/html, body\s*\{[^}]+\}/)?.[0] ?? '';
+  assert.doesNotMatch(bodyRule, /height:|overflow:/);
+});
+
 function countMatches(html: string, needle: string): number {
   return html.split(needle).length - 1;
 }

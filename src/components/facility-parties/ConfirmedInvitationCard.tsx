@@ -12,12 +12,12 @@ export function ConfirmedInvitationCard({ snapshot, childName, childAge, custome
   const variant = snapshot.optionIndex % 3;
   return <article className={styles.frame} data-confirmed-theme-id={theme.id} data-confirmed-layout={['spotlight','portrait','banner'][variant]} data-sheet-mode={sheetMode ? 'true' : undefined}>
     <div className={[styles.card, styles[['spotlight','portrait','banner'][variant]], sheetMode ? styles.sheet : ''].join(' ')}>
-      <header className={styles.heading}>
+      <div className={styles.heading}>
         <img src="/logo.png" alt="Jumping Jax" className={styles.logo} />
         <p className={styles.eyebrow}>You’re invited</p>
         <h2>{childName.trim() || 'Birthday Star'}</h2>
         <p className={styles.age}>{childAge.trim() ? 'is turning ' + childAge.trim() + '!' : 'Birthday celebration'}</p>
-      </header>
+      </div>
       <div className={styles.artwork}>
         {failed ? <p role="alert">Your confirmed picture could not load. Please reload to try again. Your selection is saved.</p> : <img key={theme.imagePath} src={theme.imagePath} alt={theme.label} onError={() => setFailed(true)} />}
       </div>
