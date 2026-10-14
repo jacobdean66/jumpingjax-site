@@ -39,10 +39,10 @@ export function InvitationSheet({
   const portrait = Boolean(snapshot.approvedPrint) || (!snapshot.confirmedTheme && (snapshot.themeId === "princess-royal" || snapshot.themeId === "racing-cars"));
   const pageWidth = portrait ? 8.5 : legal ? 14 : 11;
   const pageHeight = portrait ? (legal ? 14 : 11) : 8.5;
-  const safeMargin = snapshot.approvedPrint ? 0.25 : INVITATION_AGENT_STANDARD.printSafeMarginInches;
+  const safeMargin = snapshot.approvedPrint || snapshot.confirmedTheme ? 0.25 : INVITATION_AGENT_STANDARD.printSafeMarginInches;
   const canvasWidth = legal && !portrait ? 12 : pageWidth - safeMargin * 2;
   const canvasHeight = legal && !portrait ? 8 : pageHeight - safeMargin * 2;
-  const bleed = snapshot.approvedPrint || legal ? 0 : 0.125;
+  const bleed = snapshot.approvedPrint || snapshot.confirmedTheme || legal ? 0 : 0.125;
 
   return (
     <div
@@ -61,13 +61,16 @@ export function InvitationSheet({
           @page { size: ${pageWidth}in ${pageHeight}in; margin: 0; }
           html, body {
             width: ${pageWidth}in !important;
-            height: ${pageHeight}in !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: hidden !important;
           }
           body main {
             width: ${pageWidth}in !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body main section:has(.invitation-print-document) {
+            max-width: none !important;
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -93,6 +96,10 @@ export function InvitationSheet({
             flex: 0 0 auto !important;
             width: ${canvasWidth + bleed * 2}in !important;
             height: ${canvasHeight + bleed * 2}in !important;
+          }
+          .invitation-print-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
           }
           .invitation-print-page,
           .invitation-print-page * {
