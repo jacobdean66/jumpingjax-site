@@ -20,6 +20,8 @@ function fixtureRequest(options: { failure?: number; body?: unknown; traffic?: u
     assert.equal(init?.method, "POST");
     assert.equal(init?.cache, "no-store");
     const query = JSON.parse(String(init?.body)).query as string;
+    // GAQL requires non-date segments used by WHERE to also appear in SELECT.
+    if (query.includes("AND segments.conversion_action")) assert.match(query.split(" FROM ")[0], /segments\.conversion_action/);
     calls.push({ url: target, query, headers: init?.headers });
     if (options.failure) return Response.json(options.body || { error: { message: "DO NOT EXPOSE fixture-access-secret" } }, { status: options.failure });
     if (options.malformed) return Response.json({ results: [] });

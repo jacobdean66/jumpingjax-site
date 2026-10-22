@@ -105,7 +105,7 @@ export async function fetchGoogleAdsReport(input: {
     const filter = `campaign.id = ${GOOGLE_REPORTING_CAMPAIGN_ID} AND segments.date BETWEEN '${dates.since}' AND '${dates.until}'`;
     const [traffic, leads] = await Promise.all([
       query(`SELECT metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE ${filter}`),
-      query(`SELECT metrics.conversions FROM campaign WHERE ${filter} AND segments.conversion_action = 'customers/${GOOGLE_REPORTING_CUSTOMER_ID}/conversionActions/${GOOGLE_REPORTING_CONVERSION_ID}'`),
+      query(`SELECT segments.conversion_action, metrics.conversions FROM campaign WHERE ${filter} AND segments.conversion_action = 'customers/${GOOGLE_REPORTING_CUSTOMER_ID}/conversionActions/${GOOGLE_REPORTING_CONVERSION_ID}'`),
     ]);
     const impressions = traffic.reduce((sum, entry) => sum + measure(object(entry.metrics).impressions), 0);
     const clicks = traffic.reduce((sum, entry) => sum + measure(object(entry.metrics).clicks), 0);
