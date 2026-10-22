@@ -9,7 +9,7 @@ export const inflatableCampaignDraft = {
   finalUrlExpansion: false,
   finalUrl: "https://jumpingjaxllc.com/offers/inflatables-15?utm_source=google&utm_medium=cpc&utm_campaign=inflatables_15",
   network: "Google Search only",
-  targeting: "People in or regularly in Greenwood, SC and a 25-mile radius",
+  targeting: "People in or regularly in a 25-mile radius around Greenwood, SC, plus all of Abbeville, Anderson, Edgefield, Greenville, Laurens, Newberry, and Saluda counties",
   bidding: "Maximize clicks initially; review rental-request conversions before changing bidding",
   headlines: ["15% Off Inflatable Rentals", "Jumping Jax Rentals", "Bounce Houses in Greenwood", "Plan Your Backyard Party", "Claim Your Rental Discount", "Inflatable Obstacle Courses", "Bounce & Slide Combos", "Request Your Event Date"],
   descriptions: [
@@ -24,14 +24,14 @@ export const inflatableCampaignDraft = {
 
 // Manual handoff record. Do not substitute an internal account identifier for a public customer ID.
 export const googleAdsSetupSnapshot = {
-  recordedDate: "October 6, 2026",
+  recordedDate: "October 22, 2026",
   ownerEmail: "karen.mcclain.jumpingjaxllc@gmail.com",
   replacementInternalId: "8586212544",
-  publicCustomerId: null as string | null,
+  publicCustomerId: "715-139-9909" as string | null,
   oldCustomerId: "477-299-0778",
   oldAccountStatus: "Permanently closed",
-  liveCampaignStatus: "Not verified",
-  locationStatus: "25-mile radius and presence setting not yet verified saved",
-  billingStatus: "Not verified complete",
+  liveCampaignStatus: "Campaign table shows no enabled campaigns and two Search drafts at $10/day; launch still pending",
+  locationStatus: "Reviewed draft has the 25-mile Greenwood radius and seven full counties; presence only",
+  billingStatus: "Owner submitted billing and reached account completion; bank authorization settlement not independently verified",
   advertiserVerificationStatus: "Not verified",
 } as const;

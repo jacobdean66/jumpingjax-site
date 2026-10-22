@@ -24,7 +24,7 @@ function withAnalyticsWindow(run: (calls: unknown[][], storage: Map<string, stri
   }
 }
 
-test("lead analytics remain available while unverified replacement Ads tracking is disabled", () => {
+test("only a saved rental request dispatches the configured Ads conversion while all lead analytics remain available", () => {
   withAnalyticsWindow(calls => {
     trackLead("phone_click");
     trackLead("facility_party_request", { transaction_id: "facility-test" });
