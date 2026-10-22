@@ -2,13 +2,15 @@
 
 Open `/admin/agents#tech-search` as owner. Enter a technical question or use **Research this finding** on a Permanent Agent warning. The latest snapshot revalidates the finding before research starts. No search runs automatically on page load.
 
+For a dashboard notice, select it and use **Explain finding**, or ask “What's this?” The explanation uses the current owner-only snapshot, makes no AI request, and links to the related workspace. It is shown separately from saved web research. Captured-call counts include saved test/intake records and do not prove real customer calls occurred.
+
 Reports contain dated findings, recommended checks, inline citations, and source links. The latest 12 completed reports load from existing private `agent_jobs` storage (`supervisor.tech-search`); searches also appear in Agent Manager activity. No migration is needed. This feature does not modify customer/business records, code, deployments, or integration settings.
 
 The existing protected OpenAI configuration is reused. Sentinel uses the existing Chat Completions search contract (`gpt-5-search-api`, optionally `TECH_SEARCH_CHAT_MODEL`). Other approved routes use Responses web search (`gpt-5-mini`, optionally `TECH_SEARCH_MODEL`) with official-domain filters. There is no automatic fallback to a different provider or direct API access. Only validated primary-source citation annotations become links; generated HTML and Markdown remain text.
 
 Owner authorization, same-origin JSON requests, existing shared AI protection, owner/site rate limits (10 per five minutes each), Permanent Agent pause/emergency controls, and bounded timeouts apply. Credentials and contact details are rejected in questions and redacted from selected diagnostic summaries; only package versions and selected technical finding metadata are sent. Do not paste customer data or raw logs into a question.
 
-Each request ID has one durable running job and at most one provider start. Repeating that request returns the saved report, or reports that the attempt is already used. Failed searches are not retried by cron or by the provider SDK. Use **New search** for an intentional fresh attempt. A provider error or invalid/missing citation produces a visible failure rather than an uncited report.
+Each research request ID has one durable running job and at most one provider start. Repeating that request returns the saved report, or reports that the attempt is already used. Failed searches are not retried by cron or by the provider SDK. A confirmed failed response allows a fresh explicit search; an uncertain network response retains the request ID to avoid duplicate calls. Source-validation, provider, timeout, and saving failures have separate messages and safe failure codes. A source-validation failure does not imply the AI connection is unavailable.
 
 Validation:
 

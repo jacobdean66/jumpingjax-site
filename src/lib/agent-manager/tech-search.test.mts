@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import * as core from "./tech-search";
-import { ResearchReport, TechSearchClient } from "../../app/admin/agents/TechSearchClient";
+import { FindingExplanationView, ResearchReport, TechSearchClient } from "../../app/admin/agents/TechSearchClient";
 
 const requestId = "11111111-1111-4111-8111-111111111111";
 const answer = "Check the official release. [1]";
@@ -54,7 +54,7 @@ function isolated<T>(file: URL, imports: Record<string, unknown>): T {
   return exports as T;
 }
 
-function routeHarness(options: { owner?: boolean; blocked?: boolean; limited?: boolean; guardStatus?: number } = {}) {
+function routeHarness(options: { owner?: boolean; blocked?: boolean; limited?: boolean; guardStatus?: number; providerFailure?: boolean } = {}) {
   let starts = 0;
   const json = (body: unknown, status = 200, extraHeaders?: HeadersInit) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store", ...extraHeaders } });
   const route = isolated<{ POST(req: Request): Promise<Response>; GET(): Promise<Response> }>(new URL("../../app/api/admin/agents/tech-search/route.ts", import.meta.url), {
@@ -63,7 +63,11 @@ function routeHarness(options: { owner?: boolean; blocked?: boolean; limited?: b
     "@/lib/social-posts/agents/agent-protection-mode": { billableModelProtectionBlock: async () => options.blocked ? {} : null, usesDurableAgentProtection: () => true },
     "@/lib/social-posts/agents/agent-durable-store": { durableCheckSocialPostAdminRateLimit: async () => ({ limited: options.limited, retryAfterSeconds: 30 }) },
     "@/lib/social-posts/social-post-admin-rate-limit-core": { checkSocialPostAdminRateLimit: () => { throw Error("Must use shared production limits"); } },
-    "@/lib/agent-manager/tech-search-service": { loadTechSearchHistory: async () => [report], runTechSearch: async () => { starts++; return report; } },
+    "@/lib/agent-manager/tech-search-service": {
+      loadTechSearchHistory: async () => [report],
+      explainTechFinding: async () => core.buildFindingExplanation({ code: "answering-machine:review", area: "answering_machine", severity: "info", summary: "4 captured calls are waiting for owner review." }, report.snapshotAt),
+      runTechSearch: async () => { starts++; if (options.providerFailure) throw new core.TechSearchError("citations_missing"); return report; },
+    },
     "@/lib/agent-manager/tech-search": core,
   });
   return { ...route, starts: () => starts, post: (body: unknown = { question: "Check email retries", requestId }) => route.POST(new Request("https://jumpingjaxllc.com/api/admin/agents/tech-search", { method: "POST", body: JSON.stringify(body) })) };
@@ -135,7 +139,7 @@ function serviceHarness(options: { paused?: boolean; providerFails?: boolean; em
     };
     return query;
   } };
-  const service = isolated<{ runTechSearch(input: unknown, actor: string): Promise<core.TechSearchReport>; loadTechSearchHistory(): Promise<core.TechSearchReport[]> }>(new URL("tech-search-service.ts", import.meta.url), {
+  const service = isolated<{ runTechSearch(input: unknown, actor: string): Promise<core.TechSearchReport>; loadTechSearchHistory(): Promise<core.TechSearchReport[]>; explainTechFinding(code: string, actor: string): Promise<core.FindingExplanation> }>(new URL("tech-search-service.ts", import.meta.url), {
     "server-only": {}, "node:crypto": { randomUUID: () => requestId }, "@/lib/supabase/admin": { createServiceRoleClient: () => db },
     "./supervisor-service": { collectSupervisorSnapshot: async () => ({ generatedAt: report.snapshotAt, deployment: { commitSha: "abc" }, issues: [{ code: "bookings:workflow", area: "bookings", severity: "warning", summary: "customer@example.com has an email retry problem" }], customer_email: "MUST NOT SEND" }) },
     "./tech-search-provider": { researchTechnicalIssue: async (input: unknown) => { calls++; sent = input; if (options.providerFails) throw Error("PRIVATE PROVIDER BODY"); return cited(); } },
@@ -169,8 +173,53 @@ test("pause, emergency stop and stale findings prevent model calls; failed reque
   await assert.rejects(stale.runTechSearch({ question: "Check retries", requestId, issueCode: "gone" }, "owner"), /no longer/);
   assert.equal(stale.calls(), 0);
   const failed = serviceHarness({ providerFails: true });
-  await assert.rejects(failed.runTechSearch({ question: "Check retries", requestId }, "owner"), /No automatic retry/);
+  await assert.rejects(failed.runTechSearch({ question: "Check retries", requestId }, "owner"), /AI search service/);
   assert.equal(failed.calls(), 1);
   assert.equal(failed.tables.agent_jobs[0].status, "failed");
   assert.doesNotMatch(JSON.stringify(failed.tables), /PRIVATE PROVIDER BODY/);
+});
+
+test("the screenshot's vague questions are explanations while specific troubleshooting questions remain research", () => {
+  for (const question of ["What's this", "What’s this?", "What is this?", "What does this mean?", "Explain this finding", "Explain", "Tell me what this means"]) assert.equal(core.isFindingExplanationQuestion(question), true, question);
+  for (const question of ["What is this error in Next.js?", "Research WhatsApp webhooks", "How do I fix delayed email?"]) assert.equal(core.isFindingExplanationQuestion(question), false, question);
+});
+
+test("captured-call explanations distinguish saved/test records from verified customer calls and link to the owner inbox", () => {
+  const explanation = core.buildFindingExplanation({ code: "answering-machine:review", area: "answering_machine", severity: "info", summary: "4 captured calls are waiting for owner review." }, report.snapshotAt);
+  assert.match(explanation.meaning, /test records/i);
+  assert.match(explanation.meaning, /does not establish/);
+  assert.equal(explanation.href, "/admin/answering-machine");
+  const html = renderToStaticMarkup(createElement(FindingExplanationView, { explanation }));
+  assert.match(html, /No AI search was used/);
+  assert.match(html, /href="\/admin\/answering-machine"/);
+});
+
+test("explaining a finding needs owner authorization but no model connection, shared billing gate, or paid search", async () => {
+  const app = routeHarness({ blocked: true, limited: true });
+  const response = await app.post({ question: "What’s this", issueCode: "answering-machine:review", requestId });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).explanation.issueCode, "answering-machine:review");
+  assert.equal(app.starts(), 0);
+  const denied = routeHarness({ owner: false });
+  assert.equal((await denied.post({ question: "What's this", issueCode: "answering-machine:review", requestId })).status, 401);
+});
+
+test("the explanation service validates the current finding without starting a model or saving a research job", async () => {
+  const app = serviceHarness();
+  const explanation = await app.explainTechFinding("bookings:workflow", "owner");
+  assert.equal(explanation.issueCode, "bookings:workflow");
+  assert.equal(app.calls(), 0);
+  assert.equal(app.tables.agent_jobs.length, 0);
+  await assert.rejects(app.explainTechFinding("stale-finding", "owner"), /no longer/);
+});
+
+test("missing citation errors explain the actual source problem without claiming the AI connection is broken", async () => {
+  assert.throws(() => core.parseResearchAnswer("An uncited answer", []), (error: unknown) => error instanceof core.TechSearchError && error.code === "citations_missing");
+  const app = routeHarness({ providerFailure: true });
+  const response = await app.post();
+  assert.equal(response.status, 502);
+  const body = await response.json();
+  assert.equal(body.failureCode, "citations_missing");
+  assert.match(body.error, /no verifiable web sources/);
+  assert.doesNotMatch(body.error, /connection|unavailable/);
 });

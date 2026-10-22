@@ -3,8 +3,15 @@ import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { collectSupervisorSnapshot } from "./supervisor-service";
 import { researchTechnicalIssue } from "./tech-search-provider";
-import { safeResearchText, TECH_SEARCH_JOB_TYPE, techSearchReportSchema, techSearchRequestSchema, validateResearchQuestion, type TechSearchReport } from "./tech-search";
+import { buildFindingExplanation, safeResearchText, TECH_SEARCH_JOB_TYPE, techSearchReportSchema, techSearchRequestSchema, validateResearchQuestion, TechSearchError, type TechSearchReport } from "./tech-search";
 import manifest from "../../../package.json";
+
+export async function explainTechFinding(issueCode: string, actorId: string) {
+  const snapshot = await collectSupervisorSnapshot(actorId);
+  const issue = snapshot.issues.find(item => item.code === issueCode);
+  if (!issue) throw new Error("That finding is no longer in the latest check. Refresh and choose a current finding.");
+  return buildFindingExplanation(issue, snapshot.generatedAt);
+}
 
 export async function loadTechSearchHistory(): Promise<TechSearchReport[]> {
   const db = createServiceRoleClient();
@@ -64,12 +71,13 @@ export async function runTechSearch(raw: unknown, actorId: string) {
     const finished = new Date().toISOString();
     const saved = await db.from("agent_jobs").update({ status: "succeeded", payload: { ...payload, report }, result_summary: `Tech Search: ${input.question}`, completed_at: finished, updated_at: finished, lease_expires_at: null, claimed_by: null })
       .eq("id", id).eq("status", "running").select("id").maybeSingle();
-    if (saved.error || !saved.data) throw new Error("Search completed but its report could not be saved.");
+    if (saved.error || !saved.data) throw new TechSearchError("save_failed");
     await db.from("agent_events").insert({ agent_id: agent.data.id, job_id: id, actor_id: actorId, event_type: "supervisor.tech_search_completed", summary: "Technical research saved with official-source citations.", metadata: { aiInvocations: 1, businessWrites: 0 } });
     return report;
-  } catch {
+  } catch (error) {
+    const failure = error instanceof TechSearchError ? error : new TechSearchError("connection");
     const finished = new Date().toISOString();
-    await db.from("agent_jobs").update({ status: "failed", error_summary: "Tech Search could not return and save a complete cited report.", completed_at: finished, updated_at: finished, lease_expires_at: null, claimed_by: null }).eq("id", id).eq("status", "running");
-    throw new Error("Tech Search could not complete and save a cited report. The AI connection may be unavailable or may not support web search. No automatic retry was made.");
+    await db.from("agent_jobs").update({ status: "failed", payload: { ...payload, failureCode: failure.code }, error_summary: failure.message, completed_at: finished, updated_at: finished, lease_expires_at: null, claimed_by: null }).eq("id", id).eq("status", "running");
+    throw failure;
   }
 }
