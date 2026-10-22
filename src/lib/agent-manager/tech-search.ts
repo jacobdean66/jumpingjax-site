@@ -12,7 +12,7 @@ export const techSearchRequestSchema = z.object({
 export function safeResearchText(value: string): string {
   return value
     .replace(/\b(?:sk|aithura)[-_][a-zA-Z0-9_-]{12,}\b/g, "[redacted key]")
-    .replace(/\b(?:password|secret|api[-_ ]?key|access[-_ ]?token|authorization|bearer)\b\s*[:=]?\s*\S+/gi, "[redacted credential]")
+    .replace(/\b(?:password|secret|api[-_ ]?key|access[-_ ]?token|authorization)\b\s*[:=]\s*\S+|\bbearer\s+[a-z0-9._~-]{8,}/gi, "[redacted credential]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted email]")
     .replace(/\b(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b/g, "[redacted phone]")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
@@ -26,7 +26,9 @@ export function validateResearchQuestion(question: string) {
 export function officialResearchUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
-    if (url.protocol !== "https:" || url.username || url.password || url.port || url.search) return false;
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
+    const docParams = new Set(["view", "tabs", "tab", "hl", "lang", "locale", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref", "trk"]);
+    if ([...url.searchParams.keys()].some(key => !docParams.has(key))) return false;
     if (!TECH_SEARCH_DOMAINS.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`))) return false;
     if (url.hostname === "github.com" && !/^\/(?:vercel|facebook|supabase|openai|nodejs|postgres|triggerdotdev|resend|jacobdean66)\//.test(url.pathname)) return false;
     return true;

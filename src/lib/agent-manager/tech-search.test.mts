@@ -22,6 +22,7 @@ test("research requires bounded technical input and removes credentials and cont
     assert.ok(!core.safeResearchText(input).includes(input));
   }
   assert.equal(core.validateResearchQuestion("Next.js 16.3.6 and sharp 0.35.4"), "Next.js 16.3.6 and sharp 0.35.4");
+  assert.equal(core.validateResearchQuestion("How do I diagnose password reset emails?"), "How do I diagnose password reset emails?");
 });
 
 test("only safe primary-source citations are accepted, including both provider annotation formats", () => {
@@ -29,6 +30,7 @@ test("only safe primary-source citations are accepted, including both provider a
   assert.equal(core.parseResearchAnswer(answer, [{ type: "url_citation", url_citation: { ...annotation, start_index: answer.indexOf("[1]"), end_index: answer.length } }]).citations[0].url, annotation.url);
   for (const url of ["javascript:alert(1)", "http://nextjs.org", "https://nextjs.org.evil.test/path", "https://127.0.0.1/", "https://user:secret@nextjs.org/", "https://github.com/random-user/nextjs", "https://nextjs.org/?token=secret"]) assert.equal(core.officialResearchUrl(url), false);
   assert.equal(core.officialResearchUrl("https://github.com/vercel/next.js/security/advisories"), true);
+  assert.equal(core.officialResearchUrl("https://learn.microsoft.com/en-us/windows/?view=windows-11"), true);
   assert.throws(() => core.parseResearchAnswer(answer, []));
   assert.throws(() => core.parseResearchAnswer(answer, [{ ...annotation, end_index: 9999 }]));
   assert.throws(() => core.parseResearchAnswer(answer, [{ ...annotation, url: "https://untrusted.example/blog" }]));
