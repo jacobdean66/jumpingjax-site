@@ -1,7 +1,7 @@
 export const inflatableCampaignDraft = {
   name: "Inflatable Rentals - 15% Off",
   dailyBudget: 10,
-  status: "Draft setup incomplete; launch not verified",
+  status: "Campaign created and paused while Google tag confirmation is completed",
   displayPaths: ["inflatables", "15-percent-off"],
   language: "English",
   aiMax: false,
@@ -30,8 +30,8 @@ export const googleAdsSetupSnapshot = {
   publicCustomerId: "715-139-9909" as string | null,
   oldCustomerId: "477-299-0778",
   oldAccountStatus: "Permanently closed",
-  liveCampaignStatus: "Campaign table shows no enabled campaigns and two Search drafts at $10/day; launch still pending",
+  liveCampaignStatus: "Campaign 24386017082 created and confirmed paused at $10/day; ten negative keywords attached; launch pending Google tag confirmation",
   locationStatus: "Reviewed draft has the 25-mile Greenwood radius and seven full counties; presence only",
-  billingStatus: "Owner submitted billing and reached account completion; bank authorization settlement not independently verified",
+  billingStatus: "Billing summary accessible: $0 balance, $0 payments, no upcoming payment; temporary card authorization settlement not independently verified",
   advertiserVerificationStatus: "Not verified",
 } as const;
