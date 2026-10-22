@@ -13,6 +13,8 @@ import {
 } from "@/lib/meta-ads";
 import { AdAnalyticsClient } from "./AdAnalyticsClient";
 import { loadGiveawayFunnelAnalytics } from "@/lib/meta-ads/giveaway-funnel";
+import { loadGoogleAdsReport } from "@/lib/analytics/google-reporting";
+import { GooglePerformance } from "./google/GooglePerformance";
 
 export const dynamic = "force-dynamic";
 
@@ -50,14 +52,14 @@ export default async function AdminAdAnalyticsPage({
   }
 
   const params = (await searchParams) ?? {};
-  const dashboard = await loadMetaAdsDashboard({
+  const [dashboard, googleReport] = await Promise.all([loadMetaAdsDashboard({
     accountId: params.account_id,
     preset: params.preset,
     since: params.since,
     until: params.until,
     status: params.status,
     campaignId: params.campaign_id,
-  });
+  }), loadGoogleAdsReport(params.preset)]);
   const giveawayFunnel = await loadGiveawayFunnelAnalytics(dashboard.dateRange);
 
   const adsManagerUrl = dashboard.selectedAccountId
@@ -78,6 +80,8 @@ export default async function AdminAdAnalyticsPage({
         <span className="rounded-full bg-slate-950 px-4 py-2 text-white">Meta Ads</span>
         <Link href="/admin/ad-analytics/google" className="rounded-full border border-slate-300 px-4 py-2">Google Ads &amp; SEO</Link>
       </nav>
+
+      <GooglePerformance report={googleReport} compact />
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
         Meta paid-ad performance for every authorized Jumping Jax ad account.
