@@ -3,8 +3,8 @@ import { privateJson, validateOwnerPost } from "@/lib/security/request-guard";
 import { billableModelProtectionBlock, usesDurableAgentProtection } from "@/lib/social-posts/agents/agent-protection-mode";
 import { durableCheckSocialPostAdminRateLimit } from "@/lib/social-posts/agents/agent-durable-store";
 import { checkSocialPostAdminRateLimit } from "@/lib/social-posts/social-post-admin-rate-limit-core";
-import { loadTechSearchHistory, runTechSearch } from "@/lib/agent-manager/tech-search-service";
-import { techSearchRequestSchema, validateResearchQuestion } from "@/lib/agent-manager/tech-search";
+import { explainTechFinding, loadTechSearchHistory, runTechSearch } from "@/lib/agent-manager/tech-search-service";
+import { isFindingExplanationQuestion, techSearchRequestSchema, validateResearchQuestion, TechSearchError } from "@/lib/agent-manager/tech-search";
 
 export const maxDuration = 90;
 
@@ -28,6 +28,9 @@ export async function POST(request: Request) {
     validateResearchQuestion(input.question);
   } catch { return privateJson({ ok: false, error: "Enter a technical question under 600 characters without credentials, email addresses, or phone numbers." }, 400); }
   try {
+    if (input.issueCode && isFindingExplanationQuestion(input.question)) {
+      return privateJson({ ok: true, explanation: await explainTechFinding(input.issueCode, auth.identity.id) });
+    }
     const block = await billableModelProtectionBlock();
     if (block) return privateJson({ ok: false, error: "Tech Search is unavailable while shared AI request protection is disconnected." }, 503);
     const limit = usesDurableAgentProtection() ? durableCheckSocialPostAdminRateLimit : checkSocialPostAdminRateLimit;
@@ -37,6 +40,7 @@ export async function POST(request: Request) {
     }
     return privateJson({ ok: true, report: await runTechSearch(input, auth.identity.id) });
   } catch (error) {
+    if (error instanceof TechSearchError) return privateJson({ ok: false, error: error.message, failureCode: error.code }, 502);
     // Service errors are bounded public messages; provider bodies never leave the provider.
     const message = error instanceof Error && /^(Tech Search|This search|That finding|Start a new search|Search could not|Permanent Agent)/.test(error.message) ? error.message : "Tech Search is temporarily unavailable.";
     return privateJson({ ok: false, error: message }, 503);

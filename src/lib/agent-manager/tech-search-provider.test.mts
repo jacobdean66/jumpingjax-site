@@ -42,7 +42,7 @@ test("Responses routing requires web search, limits tool calls and uses official
       return Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text, annotations: [citation] }] }] });
     });
     assert.equal(result.answer, text);
-    await assert.rejects(researchTechnicalIssue({ question: "Check Next.js", context: {} }, undefined, async () => Response.json({ status: "incomplete", output: [] })), /did not complete/);
+    await assert.rejects(researchTechnicalIssue({ question: "Check Next.js", context: {} }, undefined, async () => Response.json({ status: "incomplete", output: [] })), /did not finish/);
   });
 });
 test("unconfigured AI never sends a request", async () => {
