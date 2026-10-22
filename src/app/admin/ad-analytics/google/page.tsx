@@ -8,16 +8,18 @@ import { googleReportingConfig } from "@/lib/analytics/google-reporting-core";
 import { GOOGLE_ADS_CALLBACK_PATH, googleAdsCookieKey } from "@/lib/analytics/google-reporting-auth";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { GooglePerformance } from "./GooglePerformance";
+import { SearchConsolePerformance } from "./SearchConsolePerformance";
+import { loadSearchConsoleReport } from "@/lib/analytics/search-console";
 
 export const dynamic = "force-dynamic";
 
 const button = "inline-flex rounded-full bg-sky-700 px-4 py-2 text-sm font-bold text-white";
 
-export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?: Promise<{ preset?: string; google_ads?: string }> }) {
+export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?: Promise<{ preset?: string; google_ads?: string; search_console?: string }> }) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
   const params = await searchParams || {};
-  const report = await loadGoogleAdsReport(params.preset);
+  const [report, searchReport] = await Promise.all([loadGoogleAdsReport(params.preset), loadSearchConsoleReport(params.preset)]);
   const canConnect = googleReportingConfig(process.env).oauthReady && Boolean(googleAdsCookieKey(process.env));
   const connectionMessages: Record<string, string> = {
     configuration_required: "Google reporting connection needs server configuration before authorization can start.",
@@ -34,12 +36,14 @@ export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?
       <Link href="/admin/ad-analytics" className="rounded-full border border-slate-300 px-4 py-2">Meta Ads</Link>
       <span className="rounded-full bg-slate-950 px-4 py-2 text-white">Google Ads &amp; SEO</span>
     </nav>
-    <p className="mt-5 text-sm text-slate-600">Google Ads performance refreshes when this page loads after reporting is connected. The setup record below was manually verified {snapshot.recordedDate}. Search Console information remains a historical snapshot.</p>
+    <p className="mt-5 text-sm text-slate-600">Connected Google reports refresh when this page loads. Each report shows its own reporting dates and connection status. The campaign setup record below was manually verified {snapshot.recordedDate}.</p>
     <form className="mt-5 flex flex-wrap items-end gap-3" method="get">
       <label className="text-sm font-bold">Reporting period<select name="preset" defaultValue={report.preset} className="ml-3 rounded-lg border border-slate-300 p-2"><option value="last_7d">Last 7 days</option><option value="last_30d">Last 30 days</option><option value="today">Today</option></select></label>
       <button className={button} type="submit">Refresh performance</button>
     </form>
     <GooglePerformance report={report} />
+    {params.search_console && connectionMessages[params.search_console] ? <p className="mt-4 rounded-xl bg-sky-50 p-3 text-sm" role="status">Search Console: {connectionMessages[params.search_console]}</p> : null}
+    <SearchConsolePerformance report={searchReport} canConnect={canConnect} />
     {params.google_ads && connectionMessages[params.google_ads] ? <p className="mt-4 rounded-xl bg-sky-50 p-3 text-sm" role="status">{connectionMessages[params.google_ads]}</p> : null}
     {report.status !== "connected" ? <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="text-xl font-black">Connect Google reporting</h2>
@@ -50,6 +54,8 @@ export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?
         <p className="mt-2">Enable Google Ads API and production reporting access in the Google Cloud project that owns the OAuth client. Register this production redirect URI: <code>{getCanonicalSiteUrl()}{GOOGLE_ADS_CALLBACK_PATH}</code>.</p>
         <p className="mt-2">The server uses GOOGLE_ADS_CLIENT_ID and GOOGLE_ADS_CLIENT_SECRET, or the existing GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Cookie encryption uses GOOGLE_ADS_COOKIE_SECRET, ADMIN_SESSION_SECRET, or the server’s existing Supabase service key. Keep all secrets in hosting settings. An optional dedicated GOOGLE_ADS_REFRESH_TOKEN supports reporting across owner browsers.</p>
         <a className="mt-2 inline-block font-bold text-sky-800" href="https://console.cloud.google.com/apis/library/googleads.googleapis.com" target="_blank" rel="noopener noreferrer">Open Google Ads API setup</a>
+        <p className="mt-2">For organic reporting, enable Search Console API in the same Google Cloud project. Search Console uses the same registered callback, a separate read-only consent, and a separate encrypted cookie. An optional GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN supports reporting across owner browsers.</p>
+        <a className="mt-2 inline-block font-bold text-sky-800" href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com" target="_blank" rel="noopener noreferrer">Open Search Console API setup</a>
       </details>
     </section> : null}
     <div className="mt-6 grid gap-5 lg:grid-cols-2">
@@ -62,7 +68,7 @@ export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?
         <a className={`${button} mt-4`} href={`https://ads.google.com/aw/overview?ocid=${snapshot.replacementInternalId}&campaignId=24386017082`} target="_blank" rel="noopener noreferrer">Open rental campaign in Google Ads</a>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-black">Organic search</h2>
+        <h2 className="text-xl font-black">Historical SEO checks</h2>
         <p className="mt-3 text-sm">Historical Search Console snapshot from October 4, 2026: 152 clicks, 4,290 impressions, 3.5% click rate, average position 8.6 over three months. Most clicks came from brand searches.</p>
         <p className="mt-3 text-sm">The later Search Console review on October 21 showed 35 indexed pages, 85 not indexed, a successful sitemap read on October 20, and one remaining product-snippet error on the foam category. The live foam category was checked October 22 and now uses a linked item list rather than Product markup. Google must recrawl it before that report clears.</p>
         <p className="mt-3 text-sm">The promotion landing page intentionally uses noindex, follow and is excluded from the organic sitemap. Rental pages remain available for indexing. Google must crawl published repairs before its reports update.</p>
