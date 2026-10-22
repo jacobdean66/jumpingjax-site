@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { GOOGLE_ADS_SCOPE, googleReportingConfig } from "./google-reporting-core";
+import { SEARCH_CONSOLE_SCOPE } from "./search-console-core";
 
 export const GOOGLE_ADS_CONNECTION_COOKIE = "jjx-google-ads-reporting";
 export const GOOGLE_ADS_STATE_COOKIE = "jjx-google-ads-state";
@@ -11,7 +12,7 @@ export function googleAdsCookieKey(env: Env): Buffer | null {
   const secret = env.GOOGLE_ADS_COOKIE_SECRET?.trim() || env.ADMIN_SESSION_SECRET?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return secret ? createHash("sha256").update(`google-ads-reporting-cookie-v1:${secret}`).digest() : null;
 }
-export function sealGoogleAdsCookie(payload: Payload, env: Env, purpose: "connection" | "state", ttl: number, now = Date.now()): string {
+export function sealGoogleAdsCookie(payload: Payload, env: Env, purpose: "connection" | "state" | "search_console", ttl: number, now = Date.now()): string {
   const key = googleAdsCookieKey(env);
   if (!key) throw new Error("Reporting encryption is not configured");
   const iv = randomBytes(12);
@@ -22,7 +23,7 @@ export function sealGoogleAdsCookie(payload: Payload, env: Env, purpose: "connec
   if (value.length > 3500) throw new Error("Reporting connection is too large");
   return value;
 }
-export function openGoogleAdsCookie(value: string | undefined, env: Env, purpose: "connection" | "state", now = Date.now()): Payload | null {
+export function openGoogleAdsCookie(value: string | undefined, env: Env, purpose: "connection" | "state" | "search_console", now = Date.now()): Payload | null {
   const key = googleAdsCookieKey(env);
   if (!value || !key || value.length > 3500) return null;
   try {
@@ -34,15 +35,15 @@ export function openGoogleAdsCookie(value: string | undefined, env: Env, purpose
     return typeof payload.expires === "number" && payload.expires > now ? payload : null;
   } catch { return null; }
 }
-export function buildGoogleAdsAuthorization(env: Env, origin: string, ownerId: string) {
+export function buildGoogleAdsAuthorization(env: Env, origin: string, ownerId: string, service: "ads" | "search_console" = "ads") {
   const config = googleReportingConfig(env);
   if (!config.oauthReady || !googleAdsCookieKey(env)) return null;
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(32).toString("base64url");
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: `${origin}${GOOGLE_ADS_CALLBACK_PATH}`, response_type: "code", scope: GOOGLE_ADS_SCOPE,
-    state, access_type: "offline", prompt: "consent", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", login_hint: "karen.mcclain.jumpingjaxllc@gmail.com" }).toString();
-  return { url: url.toString(), cookie: sealGoogleAdsCookie({ state, verifier, ownerId }, env, "state", 600) };
+  url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: `${origin}${GOOGLE_ADS_CALLBACK_PATH}`, response_type: "code", scope: service === "search_console" ? SEARCH_CONSOLE_SCOPE : GOOGLE_ADS_SCOPE,
+    state, access_type: "offline", prompt: "consent", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", ...(service === "ads" ? { login_hint: "karen.mcclain.jumpingjaxllc@gmail.com" } : {}) }).toString();
+  return { url: url.toString(), cookie: sealGoogleAdsCookie({ state, verifier, ownerId, service }, env, "state", 600) };
 }
 
 export function validateGoogleAdsState(cookie: string | undefined, returnedState: string | null, ownerId: string, env: Env, now = Date.now()): string | null {

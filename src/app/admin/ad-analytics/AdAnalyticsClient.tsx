@@ -393,6 +393,7 @@ export function AdAnalyticsClient({
             Selected dates in America/Indiana/Indianapolis; Meta totals use the ad account timezone
           </p>
         </div>
+        <p className="mt-3 text-sm text-slate-700">Website entries include all traffic sources. Meta clicks reflect the selected ad account and filters; these counts do not establish which entries came from an ad.</p>
 
         {giveawayFunnel.available ? (
           <>
@@ -494,11 +495,11 @@ export function AdAnalyticsClient({
           value={money(initial.totals.cpm, currency)}
         />
         <SummaryCard
-          label="Results reported"
+          label="Reported metric categories"
           value={String(initial.totals.results.length)}
           hint={
             initial.totals.results[0]
-              ? `${initial.totals.results[0].label}: ${initial.totals.results[0].count}`
+              ? `Categories, not leads or bookings. ${initial.totals.results[0].label}: ${initial.totals.results[0].count}`
               : "No named results in this range"
           }
         />
@@ -506,7 +507,8 @@ export function AdAnalyticsClient({
 
       {initial.totals.results.length > 0 ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-black">Results breakdown</h2>
+          <h2 className="text-lg font-black">Reported actions</h2>
+          <p className="mt-2 text-sm text-slate-600">Action categories can overlap. Do not add them together as unique customers, leads, or bookings.</p>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {initial.totals.results.map((result) => (
               <li

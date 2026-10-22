@@ -2,20 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { GOOGLE_ADS_SCOPE, googleReportingConfig } from "@/lib/analytics/google-reporting-core";
-import { GOOGLE_ADS_CALLBACK_PATH, GOOGLE_ADS_CONNECTION_COOKIE, GOOGLE_ADS_STATE_COOKIE, sealGoogleAdsCookie, validateGoogleAdsState } from "@/lib/analytics/google-reporting-auth";
+import { GOOGLE_ADS_CALLBACK_PATH, GOOGLE_ADS_CONNECTION_COOKIE, GOOGLE_ADS_STATE_COOKIE, openGoogleAdsCookie, sealGoogleAdsCookie, validateGoogleAdsState } from "@/lib/analytics/google-reporting-auth";
+import { SEARCH_CONSOLE_COOKIE, SEARCH_CONSOLE_SCOPE } from "@/lib/analytics/search-console-core";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return NextResponse.json({ error: "Owner authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   const origin = resolveEmailSiteUrl(request.url);
+  const stateCookie = request.cookies.get(GOOGLE_ADS_STATE_COOKIE)?.value;
+  const storedState = openGoogleAdsCookie(stateCookie, process.env, "state");
+  const service = storedState?.service === "search_console" ? "search_console" : "ads";
   function finish(status: string) {
-    const response = NextResponse.redirect(new URL(`/admin/ad-analytics/google?google_ads=${status}`, origin), 303);
+    const response = NextResponse.redirect(new URL(`/admin/ad-analytics/google?${service === "search_console" ? "search_console" : "google_ads"}=${status}`, origin), 303);
     response.headers.set("Cache-Control", "private, no-store");
     response.cookies.set(GOOGLE_ADS_STATE_COOKIE, "", { path: "/", httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0 });
     return response;
   }
-  const verifier = validateGoogleAdsState(request.cookies.get(GOOGLE_ADS_STATE_COOKIE)?.value, request.nextUrl.searchParams.get("state"), auth.identity.id, process.env);
+  const verifier = validateGoogleAdsState(stateCookie, request.nextUrl.searchParams.get("state"), auth.identity.id, process.env);
   if (!verifier) return finish("invalid_state");
   if (request.nextUrl.searchParams.has("error")) return finish("cancelled");
   const code = request.nextUrl.searchParams.get("code");
@@ -27,9 +31,9 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({ code, client_id: config.clientId, client_secret: config.clientSecret, redirect_uri: `${origin}${GOOGLE_ADS_CALLBACK_PATH}`, code_verifier: verifier, grant_type: "authorization_code" }),
     });
     const token = await tokenResponse.json() as { refresh_token?: string; scope?: string };
-    if (!tokenResponse.ok || !token.refresh_token || !token.scope?.split(" ").includes(GOOGLE_ADS_SCOPE)) return finish("authorization_failed");
+    if (!tokenResponse.ok || !token.refresh_token || !token.scope?.split(" ").includes(service === "search_console" ? SEARCH_CONSOLE_SCOPE : GOOGLE_ADS_SCOPE)) return finish("authorization_failed");
     const response = finish("connected");
-    response.cookies.set(GOOGLE_ADS_CONNECTION_COOKIE, sealGoogleAdsCookie({ refreshToken: token.refresh_token }, process.env, "connection", 30 * 86400), {
+    response.cookies.set(service === "search_console" ? SEARCH_CONSOLE_COOKIE : GOOGLE_ADS_CONNECTION_COOKIE, sealGoogleAdsCookie({ refreshToken: token.refresh_token }, process.env, service === "search_console" ? "search_console" : "connection", 30 * 86400), {
       path: "/", httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 30 * 86400,
     });
     return response;

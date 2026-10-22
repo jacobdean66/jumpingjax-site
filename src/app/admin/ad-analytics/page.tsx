@@ -133,6 +133,14 @@ export default async function AdminAdAnalyticsPage({
             </p>
           </div>
         )}
+        {dashboard.connection.hasAdsRead === true && dashboard.connection.hasAdsManagement !== true ? (
+          <div className="mt-3">
+            <p>Reporting is connected. Authorize Meta ad management to enable the dashboard’s individual Pause ad buttons. Connecting does not pause or launch any ads.</p>
+            <form action="/api/admin/ad-analytics/oauth/connect" method="post" className="mt-2">
+              <button type="submit" className="rounded-full bg-sky-700 px-4 py-2 font-bold text-white">Enable pause controls</button>
+            </form>
+          </div>
+        ) : null}
         {params.oauth ? (
           <p className="mt-2">
             Meta connect status:{" "}
