@@ -78,7 +78,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         {snapshot?.issues.some((issue) => issue.severity === issueFilter) ? <ul className="mt-2 space-y-2">
           {snapshot.issues.filter((issue) => issue.severity === issueFilter).map((issue) => {
             const action = supervisorIssueAction(issue, snapshot.services);
-            return <li key={issue.code} className="text-sm text-slate-200"><p>{issue.summary}</p><a className="mt-1 inline-block font-bold text-sky-300 underline" href={action.href}>{action.label} →</a></li>;
+            return <li key={issue.code} className="text-sm text-slate-200"><p>{issue.summary}</p><div className="mt-1 flex flex-wrap gap-4"><a className="inline-block font-bold text-sky-300 underline" href={action.href}>{action.label} →</a><a className="inline-block font-bold text-sky-300 underline" href={`/admin/agents?researchIssue=${encodeURIComponent(issue.code)}#tech-search`}>Research this finding →</a></div></li>;
           })}
         </ul> : <p className="mt-2 text-sm text-slate-300">No {issueFilter} issues in the latest check.</p>}
       </div>}

@@ -17,13 +17,14 @@ import { CodingDiagnosisClient } from "./CodingDiagnosisClient";
 import { SupervisorChat } from "./SupervisorChat";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { AgentWorkspace } from "./AgentWorkspace";
+import { TechSearchClient } from "./TechSearchClient";
 import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
 import { conversationId } from "@/lib/agent-manager/network/http";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ conversation?: string; agent?: string }> }) {
+export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ conversation?: string; agent?: string; researchIssue?: string }> }) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
@@ -60,6 +61,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       <AgentWorkspace initialConversation={Boolean(initialContextId || initialRecipient)} supervisor={dashboard && !dashboard.demoMode ? (
         <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
       ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
+      techSearch={<TechSearchClient issues={supervisorSnapshot?.issues ?? []} initialIssueCode={params.researchIssue} />}
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
       tools={<>
       <p className="mt-5 text-sm font-semibold text-slate-600">Run specialist reviews here. Expand setup details and test tools when you need them.</p>

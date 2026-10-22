@@ -24,7 +24,7 @@ test("saved permanent-agent chats render newest first without mutating history",
 });
 
 test("manager opens permanent chat by default and saved conversations directly", () => {
-  const panels = { supervisor: "Chat", controls: "Controls", conversations: "History", tools: "Tools" };
+  const panels = { supervisor: "Chat", controls: "Controls", conversations: "History", tools: "Tools", techSearch: "Research" };
   const home = renderToStaticMarkup(createElement(AgentWorkspace, panels));
   const saved = renderToStaticMarkup(createElement(AgentWorkspace, { ...panels, initialConversation: true }));
   assert.match(home, /id="supervisor" role="tabpanel" aria-labelledby="supervisor-tab" tabindex="0"/);
