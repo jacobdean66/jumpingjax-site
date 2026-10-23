@@ -1,0 +1,149 @@
+name: Permanent Agent code repairs
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: permanent-agent-code-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      accepted: ${{ steps.package.outputs.accepted }}
+      active: ${{ steps.claim.outputs.active }}
+      id: ${{ steps.claim.outputs.id }}
+      base_sha: ${{ steps.claim.outputs.base_sha }}
+    env:
+      REPAIR_STATE_DIR: ${{ runner.temp }}/code-repair-state
+      REPAIR_TOOLS_DIR: ${{ runner.temp }}/code-repair-tools
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Preserve trusted supervisor outside the coding workspace
+        run: cp -R scripts/code-repairs "$RUNNER_TEMP/trusted-code-repairs"
+      - name: Claim one owner-requested repair
+        id: claim
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" claim
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        if: steps.claim.outputs.active == 'true'
+      - name: Install locked dependencies and isolated browser
+        if: steps.claim.outputs.active == 'true'
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm exec next typegen
+          npm install --prefix "$REPAIR_TOOLS_DIR" --no-save --ignore-scripts playwright@1.64.1
+          "$REPAIR_TOOLS_DIR/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check controls before coding
+        if: steps.claim.outputs.active == 'true'
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" check
+      - name: Codex prepares a repair
+        if: steps.claim.outputs.active == 'true'
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1
+        with:
+          openai-api-key: ${{ secrets.CODE_REPAIR_OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/code-repair-state/prompt.txt
+          permission-profile: ':workspace'
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral"]'
+      - name: Supervisor independently verifies attempt one
+        if: steps.claim.outputs.active == 'true'
+        id: first
+        run: node "$RUNNER_TEMP/trusted-code-repairs/verify.mjs" 1
+      - name: Check controls before correction
+        if: steps.claim.outputs.active == 'true' && steps.first.outputs.accepted == 'false'
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" check
+      - name: Codex corrects rejected work
+        if: steps.claim.outputs.active == 'true' && steps.first.outputs.accepted == 'false'
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1
+        with:
+          openai-api-key: ${{ secrets.CODE_REPAIR_OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/code-repair-state/correction.txt
+          permission-profile: ':workspace'
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral"]'
+      - name: Supervisor independently verifies the correction
+        if: steps.claim.outputs.active == 'true' && steps.first.outputs.accepted == 'false'
+        run: node "$RUNNER_TEMP/trusted-code-repairs/verify.mjs" 2
+      - name: Package only accepted source and verification evidence
+        if: steps.claim.outputs.active == 'true'
+        id: package
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.package.outputs.accepted == 'true'
+        with:
+          name: verified-repair
+          path: ${{ runner.temp }}/code-repair-state/artifact/
+          retention-days: 7
+      - name: Record failed or interrupted verification
+        if: always() && steps.claim.outputs.active == 'true' && steps.package.outputs.accepted != 'true'
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" fail
+      - name: Preserve independent check results
+        if: always() && steps.claim.outputs.active == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: repair-check-results
+          path: |
+            ${{ runner.temp }}/code-repair-state/evidence.json
+            ${{ runner.temp }}/code-repair-state/browser-*.png
+          retention-days: 7
+  publish:
+    needs: repair
+    if: needs.repair.outputs.accepted == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      REPAIR_STATE_DIR: ${{ runner.temp }}/code-repair-state
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.repair.outputs.base_sha }}
+          persist-credentials: true
+      - name: Preserve the trusted publisher
+        run: cp -R scripts/code-repairs "$RUNNER_TEMP/trusted-code-repairs"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-repair
+          path: ${{ runner.temp }}/code-repair-state/artifact/
+      - name: Recover this run's lease
+        id: claim
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+          REPAIR_EXPECTED_ID: ${{ needs.repair.outputs.id }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" recover
+      - name: Publish the exact verified patch as a draft PR
+        if: steps.claim.outputs.active == 'true'
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" publish
+      - name: Record publisher failure
+        if: failure() && steps.claim.outputs.active == 'true'
+        env:
+          CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
+        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" fail

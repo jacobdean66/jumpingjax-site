@@ -18,6 +18,7 @@ import { SupervisorChat } from "./SupervisorChat";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { TechSearchClient } from "./TechSearchClient";
+import { CodeRepairClient } from "./CodeRepairClient";
 import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
 import { conversationId } from "@/lib/agent-manager/network/http";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
@@ -62,6 +63,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
       ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
       techSearch={<TechSearchClient issues={supervisorSnapshot?.issues ?? []} initialIssueCode={params.researchIssue} />}
+      codeRepairs={<CodeRepairClient />}
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
       tools={<>
       <p className="mt-5 text-sm font-semibold text-slate-600">Run specialist reviews here. Expand setup details and test tools when you need them.</p>

@@ -29,6 +29,8 @@ import {
   type SupervisorRelatedAction,
 } from "./supervisor";
 import type { AgentJob } from "./types";
+import { isCodeRepairRequest } from "./code-repair";
+import { loadCodeRepairWorkerStatus } from "./code-repair-service";
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
@@ -79,6 +81,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
   const readiness = getAnsweringMachineReadiness();
   const nominationReadiness = getNominationAgentReadiness();
   const security = (securityResult.value?.services ?? []).map((service) => ({ name: service.name, state: service.state, summary: service.summary }));
+  const codeRepairWorker = await loadCodeRepairWorkerStatus().catch(() => ({ connected: false }));
   const services = await loadDashboardServiceCoverage({ dashboard, security }).catch(() => {
     dataErrors.push("Dashboard service coverage could not be checked.");
     return [];
@@ -117,7 +120,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
     },
     security,
     services,
-    wiring: buildAgentWiring({ nominationReady: nominationReadiness.enabled && nominationReadiness.configured }),
+    wiring: buildAgentWiring({ nominationReady: nominationReadiness.enabled && nominationReadiness.configured, codeRepairReady: codeRepairWorker.connected }),
     dataErrors,
   } satisfies Omit<SupervisorSnapshot, "issues">;
   return { ...base, issues: buildSupervisorIssues(base) };
@@ -225,6 +228,8 @@ export async function runSupervisorConversation(message: string, actorId: string
       const { submitNetworkTask } = await import("./network/service");
       const task = await submitNetworkTask({ ...networkRequest, requestId: clientRequestId, sender: "supervisor", actorId, title: "Supervisor handoff" });
       handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
+    } else if (isCodeRepairRequest(message)) {
+      handoff = { outcome: "Open Website code repairs to specify the page and visible acceptance check. The coding worker can prepare a tested draft pull request with one automatic correction attempt.", relatedAction: { kind: "code_repair" as const, label: "Prepare a website code repair", href: "/admin/agents#code-repairs" } };
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);

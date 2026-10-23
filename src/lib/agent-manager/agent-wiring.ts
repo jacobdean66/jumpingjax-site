@@ -18,6 +18,7 @@ export type AgentWiring = {
 
 export function buildAgentWiring(input: {
   nominationReady: boolean;
+  codeRepairReady?: boolean;
 }): AgentWiring[] {
   return [
     {
@@ -78,10 +79,10 @@ export function buildAgentWiring(input: {
     },
     {
       key: "coding",
-      state: "read_only",
-      handler: "Deterministic code-health diagnosis worker",
-      trigger: "Owner request + supervisor health watcher",
-      summary: "Diagnoses deployed routes, agent failures, and code-security status; fixes and deployments remain approval-gated.",
+      state: input.codeRepairReady ? "connected" : "read_only",
+      handler: "Code-health diagnosis + isolated Codex repair workflow",
+      trigger: "Owner request + GitHub worker + supervisor health watcher",
+      summary: input.codeRepairReady ? "The coding worker checked in recently. Public-page fixes require independent tests and browser checks before a draft pull request." : "Code diagnosis is available. The public-page repair worker has not established a recent connection.",
       supervisorDispatch: true,
       canPause: true,
     },

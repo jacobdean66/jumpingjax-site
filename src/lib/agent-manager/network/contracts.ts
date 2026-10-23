@@ -28,7 +28,7 @@ export const AGENT_DIRECTORY: AgentDefinition[] = [
   define("nomination", "Nomination Agent", "Reports readiness of the existing signed email intake.", ["nomination_readiness"]),
   define("party-invitation", "Party / Invitation Agent", "Reports invitation layouts, the indexed licensed artwork repository, team search and supervisor acceptance rules; selection and saving use the invitation builder.", ["invitation_themes"]),
   define("social", "Social Agent", "Finds an existing draft or prepares the owner-review workflow.", ["social_handoff"]),
-  define("coding", "Coding Agent", "Reads deployed evidence; repairs use the reviewed workflow.", ["code_review"]),
+  define("coding", "Coding Agent", "Reviews deployed health and links to the isolated public-page repair queue. Verified repairs produce draft pull requests.", ["code_review"]),
   define("health-security", "Health / Security Agent", "Reads existing security provider evidence.", ["security_review"]),
   define("answering-machine", "Answering Machine", "Reports configuration readiness; real call acceptance is separate.", ["call_readiness", "booking_review"]),
   define("receptionist", "Receptionist", "Delegates structured inquiries to Booking through this server interface.", ["booking_review", "call_readiness"], "answering-machine"),
