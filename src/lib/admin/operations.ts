@@ -1,3 +1,4 @@
+import { loadBookingGoogleOffers, type SavedGoogleOffer } from "@/lib/analytics/customer-offer-store";
 import type { RentalDayCharge } from "@/lib/rentals/rental-period";
 import { formatStoredFacilityAddons } from "@/lib/facility-parties/addons";
 import {
@@ -107,6 +108,7 @@ type FacilityRow = {
 };
 
 export type AdminRentalBooking = {
+  googleOffer?: SavedGoogleOffer;
   id: string;
   createdAt: string | null;
   status: string;
@@ -166,6 +168,7 @@ const SAFE_WORKFLOW_ERROR_CLASSES = new Set([
 ]);
 
 export type AdminFacilityBooking = {
+  googleOffer?: SavedGoogleOffer;
   id: string;
   createdAt: string | null;
   status: string;
@@ -316,6 +319,7 @@ export async function loadAdminRentalBookings(input: {
   const ids = rows.map((row) => row.id);
   const itemMap = new Map<string, RentalItemRow[]>();
   const paymentMap = await loadBookingPaymentMap("rental", ids.map(String));
+  const googleOfferMap = await loadBookingGoogleOffers("rental",ids.map(String));
 
   if (ids.length > 0) {
     const { data: itemRows, error: itemError } = await supabase
@@ -386,6 +390,7 @@ export async function loadAdminRentalBookings(input: {
           clean(item.rental_name) ?? clean(item.rental_item) ?? "Rental",
       })),
       paymentEntries: paymentMap.get(String(row.id)) ?? [],
+      googleOffer: googleOfferMap.get(String(row.id)),
     };
   });
 
@@ -429,6 +434,7 @@ export async function loadAdminFacilityBookings(input: {
     if (page.length < 500) break;
   }
   const bookingIds = rows.map((row) => row.id);
+  const googleOfferMap = await loadBookingGoogleOffers("facility",bookingIds);
   const agreementMap = new Map<string, AdminAgreementSummary[]>();
   const paymentMap = new Map<string, AgreementPayment[]>();
   const bookingPaymentMap = new Map<string, BookingPaymentEntry[]>();
@@ -526,6 +532,7 @@ export async function loadAdminFacilityBookings(input: {
       agreementHistory: agreementMap.get(row.id) ?? [],
       paymentHistory: paymentMap.get(row.id) ?? [],
       paymentEntries: bookingPaymentMap.get(row.id) ?? [],
+      googleOffer: googleOfferMap.get(row.id),
     };
   });
 

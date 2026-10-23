@@ -1,3 +1,4 @@
+import { GoogleOfferCard } from "@/components/GoogleOfferCard";
 import { rentalDatePlusDays } from "@/lib/rentals/rental-period";
 import { RentalAgreementPanel } from "./RentalAgreementPanel";
 import { RentalAgreementTemplateEditor } from "./RentalAgreementTemplateEditor";
@@ -184,6 +185,7 @@ function RentalCard({ booking, agreements, removalStatus = "unavailable" }: { bo
         </div>
       </div>
 
+      <GoogleOfferCard offer={booking.googleOffer} kind="rental" />
       <RentalAgreementPanel bookingId={booking.id} customerName={booking.customerName} customerEmail={booking.customerEmail} history={agreements} editable={booking.status === "pending" || booking.status === "approved"} />
       <div className="compact-print-columns mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">

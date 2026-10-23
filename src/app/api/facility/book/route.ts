@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateCustomerOffer } from "@/lib/analytics/customer-offer-store";
+import { facilityGoogleDiscount } from "@/lib/analytics/customer-offer";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { overridePartyTotal, parsePartyTotal } from "@/lib/facility-parties/total-edit";
 
@@ -265,7 +267,14 @@ export async function POST(req: NextRequest) {
       },
       siteSettings.facilityPricing,
     );
-    const pricing = staffPriceEdit ? overridePartyTotal(standardPricing, staffPriceEdit.total) : standardPricing;
+    let googleCode = "";
+    if (body.promotion_code) {
+      if (staffPriceEdit) return NextResponse.json({error:"Use either the Google offer or a staff price adjustment."},{status:400});
+      try { googleCode = await validateCustomerOffer(body.promotion_code,email,"facility",idempotency_key); }
+      catch(error) { return NextResponse.json({error:error instanceof Error ? error.message : "Your Google offer could not be checked."},{status:400}); }
+    }
+    const pricing = staffPriceEdit ? overridePartyTotal(standardPricing, staffPriceEdit.total) : facilityGoogleDiscount(standardPricing,googleCode);
+    const googleDiscount = googleCode ? Math.round(standardPricing.packagePrice*15)/100 : 0;
 
     if (pricing.missingPrice) {
       return NextResponse.json(
@@ -274,7 +283,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const pricingLines = formatFacilityPricingLines(pricing);
+    const pricingLines = [...formatFacilityPricingLines(pricing),...(googleCode ? [`Google code: ${googleCode}. Savings: $${googleDiscount.toFixed(2)} on the base party package; add-ons excluded.`] : [])];
     const storedReadableDate = booking_date;
     const storedReadableTime = `${formatMinutesLabel(start_minutes)} - ${formatMinutesLabel(end_minutes)}`;
     const storedPartyLabel = party_kind === "private" ? "Private Party" : "Public Play Party";
@@ -432,7 +441,7 @@ export async function POST(req: NextRequest) {
           invitation_template_id: invitationTemplateId,
           invitation_quantity: invitationQuantity,
           deposit_acknowledged: deposit_acknowledged === true,
-          notes,
+          notes: [notes,googleCode ? `Google offer ${googleCode}: 15% off base package. Savings $${googleDiscount.toFixed(2)} before tax; add-ons excluded.` : ""].filter(Boolean).join("\n"),
           readable_date: storedReadableDate,
           readable_time: storedReadableTime,
           party_label: storedPartyLabel,
@@ -448,12 +457,14 @@ export async function POST(req: NextRequest) {
             ...(staffPriceEdit ? { staffTotalEdit: { ...staffPriceEdit, previousTotal: standardPricing.total } } : {}),
           },
         };
-    const { data, error } = await supabase.rpc("create_facility_booking_atomic", {
+    const { data, error } = await supabase.rpc(googleCode ? "book_with_google_customer_offer" : "create_facility_booking_atomic", {
       p_booking: bookingData,
       p_idempotency_key: idempotency_key.trim(),
+      ...(googleCode ? {p_kind:"facility",p_code:googleCode,p_discount:googleDiscount,p_items:[],p_agreement:{}} : {}),
     });
 
     if (error) {
+      if (/offer_|invalid_offer/.test(error.message ?? "")) return NextResponse.json({error:"This Google offer could not be used. It may already be attached to another booking. Check your personal code on the Google offer page."},{status:409});
       if (error.message?.includes("booking_conflict")) {
         return NextResponse.json(
           { error: "Booking window is unavailable" },

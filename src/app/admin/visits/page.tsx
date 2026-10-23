@@ -1,3 +1,4 @@
+import { GoogleOfferCard } from "@/components/GoogleOfferCard";
 import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { loadAdminRentalBookings, loadAdminFacilityBookings } from "@/lib/admin/operations";
@@ -53,7 +54,7 @@ export default async function VisitsPage({ searchParams }: { searchParams?: Prom
       <h2 className="text-xl font-black">Open Play &amp; participant check-in</h2>
       <p className="mt-2 text-sm">Walk-ins appear in the waiver desk, even without a party booking. Search the signer or participant there, verify their waiver and mark everyone attending. A party agreement does not replace participant waivers.</p>
       <Link href="/admin/check-in#check-in-desk" className={`${button} mt-3`}>Open waiver check-in desk</Link>
-      <p className="mt-3 text-xs">The Google 15% offer is for eligible inflatable rentals only. Facility admission and party pricing are separate.</p>
+      <p className="mt-3 text-xs">The Google facility offer covers the base party package before tax. Add-ons and Open Play are excluded.</p>
     </aside> : <p className="mt-4 text-sm text-slate-600">Saved rental prices already include any applied offer. Review the agreement terms below; do not subtract the discount a second time. Open the booking for fulfillment and payment details.</p>}
     {!data ? <p role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 font-bold text-amber-950">Booking or agreement records could not load. Retry before assuming a booking or signature is missing.</p> : <>
       <h2 className="mt-6 text-xl font-black">{kind === "rentals" ? "Rental bookings" : "Facility party bookings"} · {data.bookings.length}</h2>
@@ -62,7 +63,7 @@ export default async function VisitsPage({ searchParams }: { searchParams?: Prom
         {data.kind === "rentals" ? data.bookings.map(booking => {
           const agreement = data.agreements.get(booking.id)?.[0];
           return <article key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-5">
-            <StatusBadge status={booking.status} /><h3 className="mt-3 text-xl font-black">{booking.customerName}</h3>
+            <GoogleOfferCard offer={booking.googleOffer} kind="rental" /><StatusBadge status={booking.status} /><h3 className="mt-3 text-xl font-black">{booking.customerName}</h3>
             <p className="mt-1 break-words text-sm">#{booking.id} · {booking.eventDate} · {booking.items.map(item => item.rental_name).join(", ")}</p>
             <p className="mt-2 text-sm font-bold">Rental agreement: {agreementStateLabel[agreementState(booking.customerName, agreement)]}</p>
             <p className="mt-2 text-sm">Saved booking total: <strong>{money(booking.total)}</strong></p>
@@ -70,7 +71,7 @@ export default async function VisitsPage({ searchParams }: { searchParams?: Prom
             <Link className={`${button} mt-4`} href={visitBookingHref("rentals", booking.id, day, today)}>Open rental &amp; agreement</Link>
           </article>;
         }) : data.bookings.map(booking => <article key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-5">
-          <StatusBadge status={booking.status} /><h3 className="mt-3 text-xl font-black">{booking.customerName}</h3>
+          <GoogleOfferCard offer={booking.googleOffer} kind="facility" /><StatusBadge status={booking.status} /><h3 className="mt-3 text-xl font-black">{booking.customerName}</h3>
           <p className="mt-1 text-sm">{booking.childName ? `${booking.childName} · ` : ""}{booking.readableDate} {booking.readableTime}</p>
           <p className="mt-2 text-sm">Party agreement: <strong>{booking.agreementHistory[0]?.status ?? "Not recorded"}</strong> · Participant waivers: check at waiver desk</p>
           <p className="mt-2 text-sm">Saved party total: <strong>{money(booking.total)}</strong></p>
