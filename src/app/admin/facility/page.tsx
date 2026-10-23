@@ -421,8 +421,8 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </ul>
         )}
       </section>
-      {!["cancelled", "canceled", "rejected"].includes(booking.status) ? (
       <GoogleOfferCard offer={booking.googleOffer} kind="facility" />
+      {!["cancelled", "canceled", "rejected"].includes(booking.status) ? (
         <FacilityAgreementPanel
           booking={{
             id: booking.id,
