@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = { title: "Your facility visit | Jumping Jax", robots: { index: false, follow: true } };
+export const metadata: Metadata = { title: "Your facility visit", robots: { index: false, follow: true } };
 
 export default function FacilityVisitPage() {
   return <main className="min-h-screen bg-[#071326] px-4 py-6 text-white"><div className="mx-auto max-w-3xl">

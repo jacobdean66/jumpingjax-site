@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { RentalPromotionNotice } from "@/components/booking/RentalPromotion";
 
-export const metadata: Metadata = { title: "Your rental | Jumping Jax", robots: { index: false, follow: true } };
+export const metadata: Metadata = { title: "Your rental", robots: { index: false, follow: true } };
 
 export default function RentalVisitPage() {
   return <main className="min-h-screen bg-[#071326] px-4 py-6 text-white"><div className="mx-auto max-w-3xl">
