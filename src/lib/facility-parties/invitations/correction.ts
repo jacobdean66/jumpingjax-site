@@ -25,7 +25,7 @@ export function invitationCorrectionHref(message: string, bookingId?: string) {
 }
 
 export function isInvitationCorrectionRequest(message: string) {
-  return /\binvitations?\b/i.test(message) && /\b(fix|correct|change|revise|update|repair|redo|replace|edit|delegate)\b/i.test(message)
+  return /\b(?:invitations?|invites?)\b/i.test(message) && /\b(fix|correct|change|revise|update|repair|redo|replace|edit|delegate)\b/i.test(message)
     && !/\b(code|coding|api|crash(?:es|ing)?)\b/i.test(message)
     && !/^\s*(?:do not|don't|never)\b/i.test(message);
 }
