@@ -36,7 +36,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; error?: string };
       if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
       setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
-      historyRef.current?.scrollTo({ top: 0 });
+      requestAnimationFrame(() => historyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
       setSnapshot(body.snapshot);
       window.dispatchEvent(new Event("agent-manager:refresh"));
       setMessage("");
@@ -58,6 +58,17 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
   const connectedServices = snapshot?.services.filter((service) => service.state === "connected").length ?? 0;
   const serviceTotal = snapshot?.services.length ?? 0;
   const attentionServices = snapshot?.services.filter((service) => service.state !== "connected") ?? [];
+
+  function renderMessage(item: ConversationItem) {
+    return <article key={item.id} className="space-y-2 border-b border-slate-200 pb-4 last:border-0 last:pb-0">
+      <time dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{formatAgentTime(item.createdAt)}</time>
+      <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
+      <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
+        <SupervisorReply text={item.reply} />
+        {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
+      </div>
+    </article>;
+  }
 
   return (
     <section className="mt-7 rounded-3xl border border-slate-300 bg-slate-950 p-5 text-white shadow-xl">
@@ -122,22 +133,19 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       <SupervisorComposer message={message} busy={busy} onChange={setMessage} onSubmit={submit} />
 
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
-      <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 max-h-[32rem] space-y-4 overflow-y-auto rounded-2xl bg-white p-4 text-slate-950">
+      <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 scroll-mt-4 space-y-4 rounded-2xl bg-white p-4 text-slate-950">
         {busy ? <p role="status" className="text-sm font-bold text-slate-500">Preparing a reply…</p> : null}
         {messages.length === 0 ? (
           <div className="rounded-xl bg-sky-50 p-4 text-sm font-semibold text-slate-700">
             I am ready. Ask me what is wrong, what needs attention, or to run a safe check. Exact controls include “pause booking agent,” “run booking scan,” and “emergency stop.”
           </div>
-        ) : messages.map((item) => (
-          <article key={item.id} className="space-y-2 border-b border-slate-200 pb-4 last:border-0 last:pb-0">
-            <time dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{formatAgentTime(item.createdAt)}</time>
-            <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
-            <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
-              <SupervisorReply text={item.reply} />
-              {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
-            </div>
-          </article>
-        ))}
+        ) : <>
+          {renderMessage(messages[0])}
+          {messages.length > 1 ? <details className="border-t border-slate-200 pt-4">
+            <summary className="min-h-11 cursor-pointer text-sm font-bold text-sky-800">Earlier chats ({messages.length - 1})</summary>
+            <div className="mt-3 space-y-4">{messages.slice(1).map(renderMessage)}</div>
+          </details> : null}
+        </>}
       </div>
 
       {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-950 p-3 text-sm font-bold text-rose-100">{error}</p> : null}
