@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { verifyAdminAccess } from "@/lib/admin/session";
 import { businessDayYmdFromInstant } from "@/lib/open-play/business-day";
 import { isYmd } from "@/lib/open-play/pricing";
@@ -27,6 +28,7 @@ export default async function AdminCheckInPage({ searchParams }: { searchParams?
     <AdminShell>
       <AdminHeader eyebrow="Open Play" title="Check-in" />
       <AdminNav token="" role={auth.role} active="open-play" />
+      <Link href="/admin/visits?kind=facility" className="inline-flex min-h-11 items-center font-bold text-sky-800 underline">Find a rental or facility booking →</Link>
       <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
         Search first, last, or full names. Mark each guest here immediately,
         then put everyone paying together on one checkout ticket.

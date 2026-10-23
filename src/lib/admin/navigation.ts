@@ -14,6 +14,7 @@ export function adminNavigation(role: AdminRole): { primary: AdminNavItem[]; gro
   const owner = role === "owner";
   const groups: AdminNavGroup[] = [
     { label: "Operations", items: [
+      { id: "visits", label: "Bookings & Visits", href: "/admin/visits" },
       { id: "rentals", label: "Rentals", href: "/admin/rentals" },
       { id: "facility", label: "Facility Parties", href: "/admin/facility" },
       { id: "schedule", label: "Full Schedule", href: "/admin/schedule" },
