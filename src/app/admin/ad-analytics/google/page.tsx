@@ -41,9 +41,9 @@ export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?
     </nav>
     <section className="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
       <h2 className="text-xl font-black">From ad to booking &amp; check-in</h2>
-      <p className="mt-2 text-sm">The Google offer links to a shared visit page with separate rental and facility paths. Rental offers stay with the rental estimate and agreement. Staff can review saved pricing and agreement terms in Bookings &amp; Visits; facility participants use the waiver desk.</p>
-      <div className="mt-3 flex flex-wrap gap-3"><Link href="/visit" className={button}>Customer visit page</Link><Link href="/admin/visits" className={button}>Rental bookings &amp; offers</Link><Link href="/admin/visits?kind=facility" className={button}>Facility visits &amp; waivers</Link></div>
-      <p className="mt-3 text-xs">Current offer: shared GOOGLE15 code. Individual, single-use customer codes are not enabled. Facility visits do not receive this rental discount or count as rental-request conversions.</p>
+      <p className="mt-2 text-sm">Customers claim a personal Google code using their booking email. The code and savings are saved on their rental or facility party card. Staff can review the reservation or redemption status there.</p>
+      <div className="mt-3 flex flex-wrap gap-3"><Link href="/offers/inflatables-15" className={button}>Google discount page</Link><Link href="/admin/visits" className={button}>Rental bookings &amp; offers</Link><Link href="/admin/visits?kind=facility" className={button}>Facility visits &amp; waivers</Link></div>
+      <p className="mt-3 text-xs">Personal codes replace shared GOOGLE15. Rental offers cover eligible inflatables; facility offers cover the base package before tax, excluding add-ons. Open Play is excluded. Facility requests do not count as rental-request conversions.</p>
     </section>
     <section aria-label="Shared Google reporting" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="font-black">Google reporting across your devices</h2>

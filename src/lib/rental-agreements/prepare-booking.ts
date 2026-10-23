@@ -5,7 +5,8 @@ import { getWebsiteRentalBySlug } from "@/lib/rentals/public-catalog";
 import type { CreateBookingInput } from "@/lib/supabase/booking-data";
 import { SECOND_DAY_QUOTE_NOTE } from "@/lib/rentals/second-day-quote";
 import { cartContainsStandardRental } from "@/lib/rentals/rental-pricing-text";
-import { calculateInflatableDiscount, isInflatablePromotionCategory, promotionDescription, INFLATABLE_PROMOTION_CODE } from "@/lib/rentals/ad-promotion";
+import { calculateInflatableDiscount, isInflatablePromotionCategory } from "@/lib/rentals/ad-promotion";
+import { validateCustomerOffer } from "@/lib/analytics/customer-offer-store";
 function isValidYmd(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -16,7 +17,7 @@ function isValidClockTime(value: string): boolean {
   return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-export async function prepareRentalBooking(body: Record<string, unknown>): Promise<Response | { input: CreateBookingInput; lineItems: { rental_item?: string; rental_name?: string }[]; notes: string; electricityDistance: string; waterDistance: string }> {
+export async function prepareRentalBooking(body: Record<string, unknown>, checkOffer = validateCustomerOffer): Promise<Response | { input: CreateBookingInput; lineItems: { rental_item?: string; rental_name?: string }[]; notes: string; electricityDistance: string; waterDistance: string }> {
   const { rental_items } = body;
 
   const rental_item =
@@ -223,13 +224,18 @@ export async function prepareRentalBooking(body: Record<string, unknown>): Promi
   }
 
   // Recompute from the server catalog; never accept client totals or percentages.
-  const promotionDiscount = calculateInflatableDiscount(body.promotion_code, normalizedRentalItems,
+  let promotionCode = "";
+  if (body.promotion_code) {
+    try { promotionCode = await checkOffer(body.promotion_code,customerEmail,"rental",idempotencyKey); }
+    catch(error) { return NextResponse.json({error: error instanceof Error ? error.message : "Your Google offer could not be checked."},{status:400}); }
+  }
+  const promotionDiscount = calculateInflatableDiscount(promotionCode, normalizedRentalItems,
     normalizedRentalItems.filter(item => item.promotion_eligible).map(item => item.rental_item),
     durationLabel, spanDays, foamDurationLabel);
   const subtotal = Math.round((undiscountedSubtotal - promotionDiscount) * 100) / 100;
   const total = Math.round((undiscountedTotal - promotionDiscount) * 100) / 100;
-  const promotion = promotionDiscount > 0 ? { code: INFLATABLE_PROMOTION_CODE, discount: promotionDiscount } : undefined;
-  const finalSetupNotes = [savedSetupNotes, promotion ? promotionDescription(promotionDiscount) : ""].filter(Boolean).join("\n");
+  const promotion = promotionDiscount > 0 ? { code: promotionCode, discount: promotionDiscount } : undefined;
+  const finalSetupNotes = [savedSetupNotes, promotion ? `Google offer ${promotion.code}: 15% off eligible rentals. Savings $${promotionDiscount.toFixed(2)}. Delivery and other services excluded.` : ""].filter(Boolean).join("\n");
   if (finalSetupNotes.length > 2000) {
     return NextResponse.json({ error: "Please shorten the setup notes so the discount details can be included." }, { status: 400 });
   }

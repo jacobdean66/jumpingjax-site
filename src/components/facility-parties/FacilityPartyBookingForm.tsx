@@ -1,4 +1,6 @@
 "use client";
+import { RentalPromotionEntry,useGoogleOffer } from "@/components/booking/RentalPromotion";
+import { facilityGoogleDiscount } from "@/lib/analytics/customer-offer";
 
 import Link from "next/link";
 import { overridePartyTotal, parsePartyTotal } from "@/lib/facility-parties/total-edit";
@@ -136,6 +138,7 @@ export function FacilityPartyBookingForm({
   pricingConfig,
   canEditTotal = false,
 }: FacilityPartyBookingFormProps) {
+  const googleCode = useGoogleOffer("facility");
   const [staffTotal, setStaffTotal] = useState("");
   const [staffTotalReason, setStaffTotalReason] = useState("");
   const confirmationRef = useRef<HTMLDivElement | null>(null);
@@ -412,12 +415,13 @@ export function FacilityPartyBookingForm({
       pricingConfig,
     );
     const total = canEditTotal && staffTotal.trim() ? parsePartyTotal(staffTotal) : null;
-    return total === null ? pricing : overridePartyTotal(pricing, total);
+    return total === null ? facilityGoogleDiscount(pricing,googleCode) : overridePartyTotal(pricing, total);
   }, [
     addonSubtotalPreview,
     date,
     partyKind,
     pricingConfig,
+    googleCode,
     roomId,
     selectedDisposition,
     canEditTotal,
@@ -532,6 +536,7 @@ export function FacilityPartyBookingForm({
         },
         body: JSON.stringify({
           idempotency_key: submitIdempotencyKey.current,
+          promotion_code: googleCode,
           ...(canEditTotal && staffTotal.trim() ? { staff_total: staffTotal, staff_total_reason: staffTotalReason.trim() } : {}),
           party_kind: request.kind,
           room: request.roomId,
@@ -1489,6 +1494,7 @@ export function FacilityPartyBookingForm({
                   </label>
                   <p className="text-xs text-cyan-100">Leave blank for standard pricing. Enter $0 for a free party.</p>
                 </fieldset> : null}
+                <RentalPromotionEntry kind="facility" eligibleItems discount={googleCode && pricingPreview && !(canEditTotal && staffTotal.trim()) ? Math.round(pricingPreview.packagePrice*15)/100 : 0} />
                 {pricingPreview && !pricingPreview.missingPrice && (
                   <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-3 text-sm text-slate-200">
                     {formatFacilityPricingLines(pricingPreview).map((line) => (

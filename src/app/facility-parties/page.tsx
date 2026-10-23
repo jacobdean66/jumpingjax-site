@@ -156,7 +156,7 @@ export default async function FacilityPartiesPage() {
             </div>
           }
         >
-          <FacilityPartyBookingForm pricingConfig={settings.facilityPricing} canEditTotal={canEditTotal} />
+          <div id="facility-booking" className="scroll-mt-4" /><FacilityPartyBookingForm pricingConfig={settings.facilityPricing} canEditTotal={canEditTotal} />
         </Suspense>
       </section>
       <ServiceQuestions title="Indoor birthday party questions" questions={facilityQuestions} />

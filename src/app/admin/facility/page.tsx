@@ -1,3 +1,4 @@
+import { GoogleOfferCard } from "@/components/GoogleOfferCard";
 import Link from "next/link";
 
 import { verifyAdminAccess } from "@/lib/admin/session";
@@ -421,6 +422,7 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
         )}
       </section>
       {!["cancelled", "canceled", "rejected"].includes(booking.status) ? (
+      <GoogleOfferCard offer={booking.googleOffer} kind="facility" />
         <FacilityAgreementPanel
           booking={{
             id: booking.id,

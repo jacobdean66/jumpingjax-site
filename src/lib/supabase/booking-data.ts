@@ -158,15 +158,17 @@ export async function insertPendingBooking(
     }));
     // Use the versioned RPC so an old SQL snippet cannot silently replace the
     // production booking implementation again.
-    const rpcName = input.agreement ? "create_rental_booking_with_agreement_atomic" : "create_rental_booking_atomic_v2";
+    const rpcName = input.promotion ? "book_with_google_customer_offer" : input.agreement ? "create_rental_booking_with_agreement_atomic" : "create_rental_booking_atomic_v2";
     const { data, error } = await supabase.rpc(rpcName, {
       p_booking: bookingData,
       p_items: rentalItemRows,
       p_idempotency_key: input.idempotencyKey.trim(),
       ...(input.agreement ? { p_agreement: input.agreement } : {}),
+      ...(input.promotion ? {p_kind:"rental",p_code:input.promotion.code,p_discount:input.promotion.discount} : {}),
     });
 
     if (error) {
+      if (/offer_|invalid_offer/.test(error.message ?? "")) return {ok:false,code:"invalid_input",message:"This Google offer could not be used. It may already be attached to another booking. Return to the Google offer page to check your code."};
       if (error.message?.includes("booking_conflict")) {
         return {
           ok: false,
