@@ -31,3 +31,4 @@ jobs:
       - run: node --test scripts/code-repairs/verify.test.mjs
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/network/network.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/writing-suggestions.test.mts
+      - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/conversation-reply.test.mts

@@ -6,6 +6,7 @@ import { FormEvent, useRef, useState } from "react";
 import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
 import { supervisorIssueAction } from "./navigation";
 import { SupervisorComposer } from "./SupervisorComposer";
+import { SupervisorReply } from "./SupervisorReply";
 
 type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
 
@@ -122,7 +123,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
 
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 max-h-[32rem] space-y-4 overflow-y-auto rounded-2xl bg-white p-4 text-slate-950">
-        {busy ? <p role="status" className="text-sm font-bold text-slate-500">Checking the live systems…</p> : null}
+        {busy ? <p role="status" className="text-sm font-bold text-slate-500">Preparing a reply…</p> : null}
         {messages.length === 0 ? (
           <div className="rounded-xl bg-sky-50 p-4 text-sm font-semibold text-slate-700">
             I am ready. Ask me what is wrong, what needs attention, or to run a safe check. Exact controls include “pause booking agent,” “run booking scan,” and “emergency stop.”
@@ -131,8 +132,8 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
           <article key={item.id} className="space-y-2 border-b border-slate-200 pb-4 last:border-0 last:pb-0">
             <time dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{formatAgentTime(item.createdAt)}</time>
             <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
-            <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-800">
-              <p>{item.reply}</p>
+            <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
+              <SupervisorReply text={item.reply} />
               {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
             </div>
           </article>

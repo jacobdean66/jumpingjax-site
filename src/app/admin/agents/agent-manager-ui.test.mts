@@ -3,11 +3,24 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SupervisorChat } from "./SupervisorChat";
+import { SupervisorReply } from "./SupervisorReply";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { agentConversationHref, agentWorkspaceHref, supervisorIssueAction } from "./navigation";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { formatAgentTime } from "./time";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
+
+test("replies preserve paragraphs, safely render lists and collapse old long reports", () => {
+  const html = renderToStaticMarkup(createElement(SupervisorReply, { text: "Yes, we can improve it.\n\n- Clearer wording\n- Easier editing\n\nWhich part first?" }));
+  assert.match(html, /<ul/);
+  assert.match(html, /<li>Clearer wording<\/li>/);
+  assert.match(html, /<p[^>]*>Which part first\?<\/p>/);
+  const long = renderToStaticMarkup(createElement(SupervisorReply, { text: Array.from({ length: 25 }, (_, i) => `Status ${i}: the service is reporting a detailed health finding that should remain available.`).join(" ") }));
+  assert.match(long, /<details>/);
+  assert.match(long, /Show full reply/);
+  const unsafe = renderToStaticMarkup(createElement(SupervisorReply, { text: "<script>alert(1)</script>" }));
+  assert.doesNotMatch(unsafe, /<script>/);
+});
 
 test("saved permanent-agent chats render newest first without mutating history", () => {
   const messages = [

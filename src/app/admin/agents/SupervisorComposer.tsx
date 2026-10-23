@@ -45,7 +45,7 @@ export function SupervisorComposer({ message, busy, onChange, onSubmit }: {
     <div className="flex flex-col gap-2 sm:flex-row">
       <label className="sr-only" htmlFor="permanent-agent-message">Message the Permanent Agent</label>
       <textarea ref={input} id="permanent-agent-message" value={message} disabled={busy} onChange={event => { selected.current = ""; change(event.target.value); }} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} aria-describedby="permanent-agent-writing-help" maxLength={800} rows={3} placeholder="Ask the Permanent Agent… Start with a few words, like ‘booking confirmation’." className="min-w-0 min-h-14 flex-1 resize-y rounded-2xl border border-slate-600 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-400 focus:border-sky-400" />
-      <button disabled={busy || !draft} className="min-h-11 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{busy ? "Checking…" : "Send"}</button>
+      <button disabled={busy || !draft} className="min-h-11 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{busy ? "Thinking…" : "Send"}</button>
     </div>
     <p id="permanent-agent-writing-help" className="mt-2 text-xs font-semibold text-slate-300">Suggestions adapt as you type. Choose one to edit, then press Send when you’re ready.</p>
     <div aria-label="Suggested ways to ask" className="mt-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-3">

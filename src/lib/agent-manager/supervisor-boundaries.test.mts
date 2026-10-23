@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Permanent Agent chat is owner-only, same-origin guarded, bounded, and model-free", async () => {
+test("Permanent Agent chat is owner-only, bounded, and separates replies from controls", async () => {
   const route = await readFile(new URL("../../app/api/admin/agents/supervisor-chat/route.ts", import.meta.url), "utf8");
   const service = await readFile(new URL("supervisor-service.ts", import.meta.url), "utf8");
   assert.match(route, /verifyAdminOwnerAccess/);
@@ -12,6 +12,9 @@ test("Permanent Agent chat is owner-only, same-origin guarded, bounded, and mode
   assert.match(service, /supervisor-chat:\$\{clientRequestId\}/);
   assert.match(service, /eq\("status", "queued"\)/);
   assert.doesNotMatch(service, /openai|anthropic|chat\.completions|responses\.create/i);
+  assert.match(service, /generateSupervisorReply/);
+  assert.match(service, /reply = actionOutcome/);
+  assert.match(service, /loadSupervisorConversation\(4, actorId\)/);
   assert.doesNotMatch(service, /customer_phone|customer_name|event_address/i);
   assert.doesNotMatch(service, /select\([^)]*customer_email(?!_status)/i);
 });
