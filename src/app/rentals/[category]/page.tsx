@@ -8,6 +8,7 @@ import {
   type RentalCategoryId,
 } from "@/data/rentals";
 import { RentalCard } from "@/components/rentals/RentalCard";
+import { RentalPromotionNotice } from "@/components/booking/RentalPromotion";
 import { loadWebsiteRentalsInCategory } from "@/lib/rentals/public-catalog";
 import {
   createJsonLdScript,
@@ -239,7 +240,8 @@ export default async function RentalCategoryPage({ params }: Props) {
           </p>
         </header>
 
-        <div className="mt-12 grid auto-rows-fr gap-7 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-9">
+        <div className="mt-8"><RentalPromotionNotice /></div>
+        <div id="rental-units" className="mt-4 grid scroll-mt-5 auto-rows-fr gap-7 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-9">
           {rentals.map((rental, index) => (
             <RentalCard
               key={rental.id}
