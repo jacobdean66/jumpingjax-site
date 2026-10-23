@@ -76,7 +76,7 @@ export function buildFullInvitationEmailHtml(
         text: treatment.text,
       }
     : composed.palette;
-  const copy = buildInvitationCopy(input);
+  const copy = buildInvitationCopy({ ...input, customHeadline: input.snapshot.customHeadline });
   const artwork =
     input.snapshot.confirmedTheme?.imagePath ??
     approvedArtworkSrc(input.snapshot.themeId, input.snapshot.sourceText) ??

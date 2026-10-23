@@ -47,3 +47,13 @@ test("editable invitation filename is safe and recognizable", () => {
     "will-maffett-editable-invitations.pptx",
   );
 });
+
+test("approved invitation wording corrections reach the editable download", async () => {
+  const snapshot = { ...buildInvitationSnapshot("Minecraft"), customHeadline: "Come celebrate with {name}!" };
+  const content = await buildEditableInvitationPptx({ snapshot, childName: "Test Child", childAge: "7", dateLabel: "Test date", timeLabel: "Test time", invitationQuantity: 4 });
+  const archive = await JSZip.loadAsync(content);
+  const slide = await archive.file("ppt/slides/slide1.xml")!.async("text");
+  assert.equal((slide.match(/Come celebrate with Test Child!/g) ?? []).length, 4);
+  assert.match(slide, /Test date/);
+  assert.match(slide, /Test time/);
+});

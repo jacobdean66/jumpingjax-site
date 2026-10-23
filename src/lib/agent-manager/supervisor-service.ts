@@ -31,6 +31,7 @@ import type { AgentJob } from "./types";
 import { loadCodeRepairWorkerStatus } from "./code-repair-service";
 import { codingConversationAction, supervisorReplyContext } from "./conversation-reply";
 import { generateSupervisorReply } from "./conversation-reply-provider";
+import { invitationCorrectionHref } from "@/lib/facility-parties/invitations/correction";
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
@@ -228,6 +229,7 @@ export async function runSupervisorConversation(message: string, actorId: string
       const { submitNetworkTask } = await import("./network/service");
       const task = await submitNetworkTask({ ...networkRequest, requestId: clientRequestId, sender: "supervisor", actorId, title: "Supervisor handoff" });
       handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
+      if (networkRequest.skill === "invitation_correction") handoff = { outcome: "I’ve handed your correction request to the Invitation Agent. Choose the party, then describe or review the wording, layout or picture changes. You’ll see a preview before approving the save.", relatedAction: { kind: "agent_network" as const, label: "Choose invitation to correct", href: invitationCorrectionHref(String(networkRequest.input.message)) } };
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);

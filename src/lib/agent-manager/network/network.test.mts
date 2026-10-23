@@ -44,6 +44,15 @@ test("all registered adapters support discovery and supervisor commands preserve
   assert.equal(supervisorNetworkRequest("Ask Image Director to prepare a birthday post")?.recipient, "image-director");
   assert.equal(supervisorNetworkRequest("Ask Waiver Agent to delete records"), null);
   assert.equal(supervisorNetworkRequest("Do not ask Social Agent to prepare a post"), null);
+  const correction = supervisorNetworkRequest("Fix the invitation wording and use a banner");
+  assert.equal(correction?.recipient, "party-invitation");
+  assert.equal(correction?.skill, "invitation_correction");
+  const task = taskFor("party-invitation", "invitation_correction", { message: "Fix the invitation wording and use a banner" });
+  const result = await executeAdapter(task, adapters, [task], new AbortController().signal);
+  assert.ok(!("delegate" in result));
+  assert.equal(result.status, "input_required");
+  assert.equal(result.data.saved, false);
+  assert.match(result.links![0].href, /\/admin\/front-desk\/invitations\?correction=/);
 });
 test("real adapters delegate booking and social review without executing business actions", async () => {
   const adapters = createAgentAdapters(dependencies);

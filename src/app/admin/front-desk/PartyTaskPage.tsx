@@ -5,14 +5,17 @@ import { loadAdminFacilityBookings } from "@/lib/admin/operations";
 import { facilityDepositStatus, formatCents, remainingBookingBalanceCents, sumBookingPaymentCents } from "@/lib/payments/booking-payments";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell, StatusBadge } from "../_components";
 import { BookingPaymentButton } from "../BookingPaymentButton";
+import { correctionRequestSchema, invitationCorrectionHref } from "@/lib/facility-parties/invitations/correction";
 
-export type PartyTaskParams = { q?: string; view?: string };
+export type PartyTaskParams = { q?: string; view?: string; correction?: string };
 
 export async function PartyTaskPage({ task, searchParams }: { task: "deposits" | "invitations"; searchParams: Promise<PartyTaskParams> }) {
   const auth = await verifyAdminAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
   const params = await searchParams;
   const q = (params.q ?? "").trim().slice(0, 200);
+  const parsedCorrection = correctionRequestSchema.safeParse({ message: params.correction });
+  const correction = task === "invitations" && parsedCorrection.success ? parsedCorrection.data.message : "";
   const view = params.view === "past" ? "past" : "upcoming";
   const title = task === "deposits" ? "Facility Deposits" : "Make / Print Invitations";
   const result = await loadAdminFacilityBookings({ status: "all", view, today: facilityAdminDay(), search: q })
@@ -22,7 +25,9 @@ export async function PartyTaskPage({ task, searchParams }: { task: "deposits" |
     <AdminHeader eyebrow="Front Desk" title={title} />
     <AdminNav role={auth.role} token="" active={task} />
     <p className="mt-4 text-sm font-semibold text-slate-600">{task === "deposits" ? "Confirm the party and deposit status before opening its payment form." : "Select a party to make, preview or print its invitations."}</p>
+    {correction ? <p className="mt-3 rounded-xl bg-indigo-50 p-4 text-slate-900"><strong>Invitation Agent correction:</strong> {correction}<br />Choose the party below. Your request will carry over to its invitation.</p> : null}
     <form className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+      {correction ? <input type="hidden" name="correction" value={correction} /> : null}
       <label className="text-sm font-bold">Find a party
         <input name="q" defaultValue={q} type="search" placeholder="Child, parent, customer, phone or party date" className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base" />
       </label>
@@ -43,7 +48,7 @@ export async function PartyTaskPage({ task, searchParams }: { task: "deposits" |
           {task === "deposits" ? <>
             <p className="mt-1 text-xs text-slate-600">{booking.total === null ? "Balance not set" : `Remaining balance: ${formatCents(remainingBookingBalanceCents(booking.total, sumBookingPaymentCents(booking.paymentEntries)) ?? 0)}`}</p>
             <div className="mt-3">{active ? <BookingPaymentButton bookingId={booking.id} kind="facility" customerName={booking.customerName} customerEmail={booking.email} balanceCents={remainingBookingBalanceCents(booking.total, sumBookingPaymentCents(booking.paymentEntries))} depositRecorded={deposit === "paid"} /> : <p className="text-sm font-semibold">Payment collection is unavailable for this party status.</p>}</div>
-          </> : <Link href={`/admin/facility/${encodeURIComponent(booking.id)}/invitations`} prefetch={false} className="mt-3 inline-flex min-h-11 items-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">Make / Print Invitations</Link>}
+          </> : <Link href={correction ? invitationCorrectionHref(correction, booking.id) : `/admin/facility/${encodeURIComponent(booking.id)}/invitations`} prefetch={false} className="mt-3 inline-flex min-h-11 items-center rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">{correction ? "Correct this invitation" : "Make / Print Invitations"}</Link>}
           <Link href={`/admin/facility?view=${view}#booking-${encodeURIComponent(booking.id)}`} className="mt-3 block text-sm font-bold text-sky-700 underline">View party details</Link>
         </article>;
       })}

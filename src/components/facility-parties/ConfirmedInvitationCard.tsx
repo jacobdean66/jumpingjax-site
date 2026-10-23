@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PartyInvitationCardProps } from './PartyInvitationCard';
 import { FACILITY_INVITATION_VENUE } from '@/lib/facility-parties/invitations/snapshot';
 import { InvitationQr } from './InvitationQr';
+import { buildInvitationCopy } from '@/lib/facility-parties/invitations/content';
 const styles: Record<string,string> = {"frame":"confirmed-invitation-frame","card":"confirmed-invitation-card","spotlight":"confirmed-invitation-spotlight","portrait":"confirmed-invitation-portrait","banner":"confirmed-invitation-banner","sheet":"confirmed-invitation-sheet","heading":"confirmed-invitation-heading","logo":"confirmed-invitation-logo","eyebrow":"confirmed-invitation-eyebrow","age":"confirmed-invitation-age","artwork":"confirmed-invitation-artwork","footer":"confirmed-invitation-footer","details":"confirmed-invitation-details","venue":"confirmed-invitation-venue","qr":"confirmed-invitation-qr","qrImage":"confirmed-invitation-qrImage"};
 
 export function ConfirmedInvitationCard({ snapshot, childName, childAge, customerPhone, dateLabel, timeLabel, qrUrl, waiverUrl, sheetMode }: PartyInvitationCardProps) {
@@ -15,7 +16,7 @@ export function ConfirmedInvitationCard({ snapshot, childName, childAge, custome
       <div className={styles.heading}>
         <img src="/logo.png" alt="Jumping Jax" className={styles.logo} />
         <p className={styles.eyebrow}>You’re invited</p>
-        <h2>{childName.trim() || 'Birthday Star'}</h2>
+        <h2>{snapshot.customHeadline ? buildInvitationCopy({ childName, childAge, customHeadline: snapshot.customHeadline }).headline : childName.trim() || 'Birthday Star'}</h2>
         <p className={styles.age}>{childAge.trim() ? 'is turning ' + childAge.trim() + '!' : 'Birthday celebration'}</p>
       </div>
       <div className={styles.artwork}>

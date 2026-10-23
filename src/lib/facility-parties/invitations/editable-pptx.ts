@@ -63,10 +63,10 @@ function addConfirmedInvitation(pptx: PptxGenJS, slide: PptxGenJS.Slide, input: 
   const background='FFFFFF';
   const accent=variant===2?'14738B':'75508E';
   slide.addShape(pptx.ShapeType.rect,{x,y,w:INVITE_WIDTH,h:INVITE_HEIGHT,line:{color:background,transparency:100},fill:{color:background}});
-  const copy=buildInvitationCopy({childName:input.childName,childAge:input.childAge,customerPhone:input.customerPhone,dateLabel:input.dateLabel,timeLabel:input.timeLabel,themeText:input.snapshot.sourceText});
+  const copy=buildInvitationCopy({childName:input.childName,childAge:input.childAge,customerPhone:input.customerPhone,dateLabel:input.dateLabel,timeLabel:input.timeLabel,themeText:input.snapshot.sourceText,customHeadline:input.snapshot.customHeadline});
   const textX=x+(variant===1?3.0:0.3);
   slide.addImage({path:publicAssetPath('/logo.png'),x:textX,y:y+0.18,w:0.95,h:0.43,sizing:{type:'contain',w:0.95,h:0.43}});
-  slide.addText(copy.childName,{x:variant===2?x+1.4:textX,y:y+0.7*(variant===2?0.4:1),w:variant===2?3.75:2.2,h:0.75,fontSize:23,bold:true,fontFace:'Aptos Display',color:'172033',fit:'shrink',margin:0,align:variant===2?'center':'left'});
+  slide.addText(input.snapshot.customHeadline ? copy.headline : copy.childName,{x:variant===2?x+1.4:textX,y:y+0.7*(variant===2?0.4:1),w:variant===2?3.75:2.2,h:0.75,fontSize:23,bold:true,fontFace:'Aptos Display',color:'172033',fit:'shrink',margin:0,align:variant===2?'center':'left'});
   slide.addText(input.childAge.trim()?'IS TURNING '+input.childAge.trim()+'!':'BIRTHDAY CELEBRATION',{x:variant===2?x+1.4:textX,y:y+(variant===2?0.97:1.5),w:variant===2?3.75:2.2,h:0.3,fontSize:13,bold:true,fontFace:'Aptos',color:accent,fit:'shrink',margin:0,align:variant===2?'center':'left'});
   const imageX=x+(variant===1?0.25:variant===2?0.3:2.85), imageY=y+(variant===2?1.35:0.18), imageW=variant===2?4.9:2.35, imageH=variant===2?1.5:2.2;
   slide.addImage({data:artwork,altText:input.snapshot.confirmedTheme?.label,x:imageX,y:imageY,w:imageW,h:imageH,sizing:{type:'contain',w:imageW,h:imageH}});
@@ -102,6 +102,7 @@ function addInvitation(
   const background = "FFFEF8";
   const accent = pptxColor(input.snapshot.confirmedTheme ? pickReadableTextColor("#fffef8", composed.palette.accent) : composed.palette.accent, "0F172A");
   const copy = buildInvitationCopy({
+    customHeadline: input.snapshot.customHeadline,
     childName: input.childName,
     childAge: input.childAge,
     customerPhone: input.customerPhone,
@@ -147,7 +148,7 @@ function addInvitation(
     line: { color: "FFFFFF", transparency: 100 },
     fill: { color: "FFFFFF", transparency: 100 },
   });
-  slide.addText(copy.childName, {
+  slide.addText(input.snapshot.customHeadline ? copy.headline : copy.childName, {
     x: x + 0.36,
     y: y + 0.3,
     w: 3.4,

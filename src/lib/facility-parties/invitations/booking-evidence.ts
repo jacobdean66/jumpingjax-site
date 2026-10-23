@@ -14,13 +14,13 @@ export async function assertConfirmedArtworkAvailable(db: SupabaseClient, theme:
 }
 
 /** Read the actual inserted row, not the request or composer result. */
-export async function verifyBookedInvitation(db: SupabaseClient, bookingId: string, expected: ConfirmedInvitationTheme, optionIndex: number): Promise<boolean> {
+export async function verifyBookedInvitation(db: SupabaseClient, bookingId: string, expected: ConfirmedInvitationTheme, optionIndex: number, headline?: string): Promise<boolean> {
   const operationId = randomUUID();
   await recordInvitationEvent('operation_started', { operationId, stage: 'booking', bookingId, themeId: expected.id, optionIndex });
   const { data, error } = await db.from('facility_bookings').select('invitation').eq('id',bookingId)
-    .single<{ invitation: { confirmedTheme?: unknown; optionIndex?: number } }>();
+    .single<{ invitation: { confirmedTheme?: unknown; optionIndex?: number; customHeadline?: string } }>();
   const saved = confirmedThemeSchema.safeParse(data?.invitation?.confirmedTheme);
-  const ok = !error && saved.success && saved.data.id === expected.id && saved.data.imagePath === expected.imagePath && saved.data.label === expected.label && data?.invitation.optionIndex === optionIndex;
+  const ok = !error && saved.success && saved.data.id === expected.id && saved.data.imagePath === expected.imagePath && saved.data.label === expected.label && data?.invitation.optionIndex === optionIndex && (headline === undefined || data?.invitation.customHeadline === headline);
   await recordInvitationEvent(ok ? 'booking_verified' : 'failed', {
     operationId, stage:'booking', category: ok ? undefined : 'booking_invitation_mismatch', imageId: expected.imagePath.split('/').pop(),
   });

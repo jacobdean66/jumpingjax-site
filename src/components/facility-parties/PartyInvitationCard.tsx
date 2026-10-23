@@ -84,6 +84,7 @@ export function PartyInvitationCard({
       }
     : composed.palette;
   const invitationCopy = buildInvitationCopy({
+    customHeadline: snapshot.customHeadline,
     childName,
     childAge,
     customerPhone,
