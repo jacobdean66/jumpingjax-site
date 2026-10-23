@@ -19,8 +19,6 @@ jobs:
       id: ${{ steps.claim.outputs.id }}
       base_sha: ${{ steps.claim.outputs.base_sha }}
     env:
-      REPAIR_STATE_DIR: ${{ runner.temp }}/code-repair-state
-      REPAIR_TOOLS_DIR: ${{ runner.temp }}/code-repair-tools
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -31,7 +29,9 @@ jobs:
         with:
           node-version: '24'
       - name: Preserve trusted supervisor outside the coding workspace
-        run: cp -R scripts/code-repairs "$RUNNER_TEMP/trusted-code-repairs"
+        run: |
+          cp -R scripts/code-repairs "$RUNNER_TEMP/trusted-code-repairs"
+          echo "REPAIR_TOOLS_DIR=$RUNNER_TEMP/code-repair-tools" >> "$GITHUB_ENV"
       - name: Claim one owner-requested repair
         id: claim
         env:
@@ -117,8 +117,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    env:
-      REPAIR_STATE_DIR: ${{ runner.temp }}/code-repair-state
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
