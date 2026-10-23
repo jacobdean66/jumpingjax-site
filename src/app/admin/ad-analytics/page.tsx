@@ -15,6 +15,7 @@ import { AdAnalyticsClient } from "./AdAnalyticsClient";
 import { loadGiveawayFunnelAnalytics } from "@/lib/meta-ads/giveaway-funnel";
 import { loadGoogleAdsReport } from "@/lib/analytics/google-reporting";
 import { GooglePerformance } from "./google/GooglePerformance";
+import { GoogleReportAutoRefresh } from "./google/GoogleReportAutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function AdminAdAnalyticsPage({
 
   return (
     <AdminShell>
+      <GoogleReportAutoRefresh />
       <AdminHeader eyebrow="Owner Tools" title="Ad Analytics">
         <AdminNav token="" role={auth.role} active="ad-analytics" />
       </AdminHeader>

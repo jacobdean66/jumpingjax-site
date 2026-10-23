@@ -29,3 +29,10 @@ test("connected performance shows reported metrics, status and attribution, whil
   assert.match(html, /href="\/admin\/ad-analytics\/google"/);
   assert.match(html, /Requests are not paid bookings or revenue/);
 });
+test("today view labels its date and processing lag, and exposes stale-report warnings", () => {
+  const html = renderToStaticMarkup(createElement(GooglePerformance, { report: { ...report, preset: "today", freshness: { source: "saved", lastAttemptAt: "2026-10-23T01:00:00Z", lastAttemptStatus: "reconnect", warning: "The latest refresh failed. Showing the last successful report." } } }));
+  assert.match(html, /Today — Google Ads/);
+  assert.match(html, /Google reporting can lag/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /Showing the last successful report/);
+});

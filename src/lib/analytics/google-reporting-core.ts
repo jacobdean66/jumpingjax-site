@@ -1,4 +1,5 @@
 // Reporting only. No caller-provided customer IDs, GAQL, or mutation endpoints.
+import type { ReportFreshness } from "./shared-google-core";
 export const GOOGLE_REPORTING_CUSTOMER_ID = "7151399909";
 export const GOOGLE_REPORTING_CAMPAIGN_ID = "24386017082";
 export const GOOGLE_REPORTING_CONVERSION_ID = "7823548968";
@@ -9,6 +10,7 @@ type Env = Record<string, string | undefined>;
 type Json = Record<string, unknown>;
 export type GoogleReportingConfig = { clientId: string; clientSecret: string; loginCustomerId: string; oauthReady: boolean };
 export type GoogleAdsReport = {
+  freshness?: ReportFreshness;
   status: "connected" | "not_connected" | "reconnect" | "permission_required" | "unavailable";
   message: string;
   fetchedAt: string | null;

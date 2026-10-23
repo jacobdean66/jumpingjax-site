@@ -71,6 +71,16 @@ test("successful empty metric results mean zero activity, with no false cost-per
   assert.equal(report.status, "connected");
   assert.deepEqual(report.totals, { impressions: 0, clicks: 0, spend: 0, savedRentalRequests: 0, ctr: null, costPerRentalRequest: null });
 });
+test("today queries only the current account-local day, independent of the 30-day totals", async () => {
+  const { fetcher, calls } = fixtureRequest({ traffic: [{ metrics: { impressions: "5", clicks: "1", costMicros: "750000" } }], leads: [] });
+  const report = await fetchGoogleAdsReport({ config, refreshToken: "fixture", fetcher, now, preset: "today" });
+  assert.equal(report.preset, "today");
+  assert.equal(report.since, "2026-10-22");
+  assert.equal(report.until, "2026-10-22");
+  assert.equal(report.totals?.spend, 0.75);
+  assert.equal(report.totals?.clicks, 1);
+  assert.match(calls.find(call => call.query?.includes("metrics.impressions"))!.query!, /BETWEEN '2026-10-22' AND '2026-10-22'/);
+});
 
 test("permission errors, expired scopes and malformed responses never masquerade as zero results or leak raw errors", async () => {
   for (const [options, expected] of [[{ failure: 403 }, "permission_required"], [{ failure: 401 }, "reconnect"], [{ failure: 429 }, "unavailable"], [{ malformed: true }, "unavailable"], [{ scope: "https://www.googleapis.com/auth/calendar" }, "reconnect"]] as const) {

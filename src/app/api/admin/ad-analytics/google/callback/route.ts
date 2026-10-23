@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { resolveEmailSiteUrl } from "@/lib/site-url";
 import { GOOGLE_ADS_SCOPE, googleReportingConfig } from "@/lib/analytics/google-reporting-core";
-import { GOOGLE_ADS_CALLBACK_PATH, GOOGLE_ADS_CONNECTION_COOKIE, GOOGLE_ADS_STATE_COOKIE, openGoogleAdsCookie, sealGoogleAdsCookie, validateGoogleAdsState } from "@/lib/analytics/google-reporting-auth";
+import { GOOGLE_ADS_CALLBACK_PATH, GOOGLE_ADS_CONNECTION_COOKIE, GOOGLE_ADS_STATE_COOKIE, openGoogleAdsCookie, validateGoogleAdsState } from "@/lib/analytics/google-reporting-auth";
 import { SEARCH_CONSOLE_COOKIE, SEARCH_CONSOLE_SCOPE } from "@/lib/analytics/search-console-core";
+import { saveSharedGoogleConnection } from "@/lib/analytics/shared-google-reporting";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return NextResponse.json({ error: "Owner authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
@@ -32,10 +34,9 @@ export async function GET(request: NextRequest) {
     });
     const token = await tokenResponse.json() as { refresh_token?: string; scope?: string };
     if (!tokenResponse.ok || !token.refresh_token || !token.scope?.split(" ").includes(service === "search_console" ? SEARCH_CONSOLE_SCOPE : GOOGLE_ADS_SCOPE)) return finish("authorization_failed");
+    await saveSharedGoogleConnection(service, token.refresh_token, auth.identity.id);
     const response = finish("connected");
-    response.cookies.set(service === "search_console" ? SEARCH_CONSOLE_COOKIE : GOOGLE_ADS_CONNECTION_COOKIE, sealGoogleAdsCookie({ refreshToken: token.refresh_token }, process.env, service === "search_console" ? "search_console" : "connection", 30 * 86400), {
-      path: "/", httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 30 * 86400,
-    });
+    response.cookies.set(service === "search_console" ? SEARCH_CONSOLE_COOKIE : GOOGLE_ADS_CONNECTION_COOKIE, "", { path: "/", httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0 });
     return response;
   } catch { return finish("authorization_failed"); }
 }
