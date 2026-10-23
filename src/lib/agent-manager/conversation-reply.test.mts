@@ -9,6 +9,9 @@ const snapshot = { generatedAt: "2026-10-23T02:00:00Z", website: [], bookings: {
 test("coding questions offer the repair form without submitting a job", () => {
   const action = { kind: "code_repair", label: "Open website code repairs", href: "/admin/agents#code-repairs" };
   assert.deepEqual(codingConversationAction("Can you edit coding?"), action);
+  assert.deepEqual(codingConversationAction("Can you fix coding issues"), action);
+  assert.deepEqual(codingConversationAction("Can it fix coding repairs?"), action);
+  assert.deepEqual(codingConversationAction("Fix the broken website button"), action);
   assert.deepEqual(codingConversationAction("Could you write code for the website?"), action);
   assert.equal(codingConversationAction("Can we revamp invitations?"), null);
   assert.equal(codingConversationAction("Where is my passcode?"), null);

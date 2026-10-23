@@ -28,7 +28,6 @@ import {
   type SupervisorRelatedAction,
 } from "./supervisor";
 import type { AgentJob } from "./types";
-import { isCodeRepairRequest } from "./code-repair";
 import { loadCodeRepairWorkerStatus } from "./code-repair-service";
 import { codingConversationAction, supervisorReplyContext } from "./conversation-reply";
 import { generateSupervisorReply } from "./conversation-reply-provider";
@@ -229,8 +228,6 @@ export async function runSupervisorConversation(message: string, actorId: string
       const { submitNetworkTask } = await import("./network/service");
       const task = await submitNetworkTask({ ...networkRequest, requestId: clientRequestId, sender: "supervisor", actorId, title: "Supervisor handoff" });
       handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
-    } else if (isCodeRepairRequest(message)) {
-      handoff = { outcome: "Open Website code repairs to specify the page and visible acceptance check. The coding worker can prepare a tested draft pull request with one automatic correction attempt.", relatedAction: { kind: "code_repair" as const, label: "Prepare a website code repair", href: "/admin/agents#code-repairs" } };
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);

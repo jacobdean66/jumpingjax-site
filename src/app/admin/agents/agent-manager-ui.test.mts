@@ -4,11 +4,28 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SupervisorChat } from "./SupervisorChat";
 import { SupervisorReply } from "./SupervisorReply";
+import { CodeRepairHistory } from "./CodeRepairHistory";
+import type { CodeRepairItem } from "@/lib/agent-manager/code-repair";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { agentConversationHref, agentWorkspaceHref, supervisorIssueAction } from "./navigation";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { formatAgentTime } from "./time";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
+
+test("repair history leads with a readable status and keeps technical requests collapsed", () => {
+  const repair = { id: "example", status: "review_ready", page_path: "/service-area", created_at: "2026-10-23T01:15:53Z", description: "Acceptance test: wrap the breadcrumb in aria-current=page. <script>unsafe</script>", result: { summary: "Your tested fix is ready to review.", pullRequestUrl: "https://github.com/jacobdean66/jumpingjax-site/pull/194" }, run_url: "https://github.com/jacobdean66/jumpingjax-site/actions/runs/1" } as CodeRepairItem;
+  const html = renderToStaticMarkup(createElement(CodeRepairHistory, { repairs: [repair], onCancel: () => {} }));
+  assert.match(html, /<h3[^>]*>Website repair<\/h3>/);
+  assert.match(html, /Ready for your review/);
+  assert.match(html, /<details[^>]*><summary[^>]*>Request details<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*open|<script>|<h3[^>]*>Acceptance test/);
+  assert.match(html, /aria-current=page/);
+  assert.match(html, /href="https:\/\/github.com\/jacobdean66\/jumpingjax-site\/pull\/194"/);
+  assert.doesNotMatch(html, /Cancel repair/);
+  const pending = renderToStaticMarkup(createElement(CodeRepairHistory, { repairs: [{ ...repair, status: "queued", result: null }], onCancel: () => {} }));
+  assert.match(pending, /Waiting to start/);
+  assert.match(pending, /Cancel repair/);
+});
 
 test("replies preserve paragraphs, safely render lists and collapse old long reports", () => {
   const html = renderToStaticMarkup(createElement(SupervisorReply, { text: "Yes, we can improve it.\n\n- Clearer wording\n- Easier editing\n\nWhich part first?" }));

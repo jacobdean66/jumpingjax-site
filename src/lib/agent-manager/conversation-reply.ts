@@ -1,11 +1,12 @@
 import { safeResearchText } from "./tech-search";
 import type { SupervisorSnapshot } from "./supervisor";
+import { isCodeRepairRequest } from "./code-repair";
 
 export type ReplyHistory = { question: string; reply: string };
 
 /** Navigation only: discussing coding never submits or approves a repair. */
 export function codingConversationAction(message: string) {
-  return /\b(code|coding|programming)\b/i.test(message)
+  return /\b(code|coding|programming)\b/i.test(message) || isCodeRepairRequest(message)
     ? { kind: "code_repair" as const, label: "Open website code repairs", href: "/admin/agents#code-repairs" }
     : null;
 }
@@ -19,7 +20,7 @@ export function supervisorReplyContext(message: string, snapshot: SupervisorSnap
       "Help change supported public website code through the Code repairs worker: it edits code, runs independent tests and browser checks, and returns a draft pull request for review.",
     ],
     coding: {
-      workflow: "Code repairs is available from the button below a coding reply. The owner supplies the page, requested change and visible acceptance check in that form. A chat reply alone does not queue a repair.",
+      workflow: "Answer capability questions conversationally and ask what is broken and on which page. Employees can describe the problem in everyday words; do not demand technical descriptions or acceptance checks. The optional Code repairs button opens the form used to submit a supported repair when ready. A chat reply alone does not queue a repair.",
       connection: coding?.state === "connected" ? "Worker checked in recently." : "No recent worker connection is confirmed. Check Code repairs before promising a run.",
       executionPaused: snapshot.agents.emergencyStop === true,
       scope: "Supported public-page fixes, such as wording, buttons and layout. Admin tools (including the invitation builder), APIs, authentication, bookings, payments and integrations require a separate reviewed engineering change outside this worker's scope.",
