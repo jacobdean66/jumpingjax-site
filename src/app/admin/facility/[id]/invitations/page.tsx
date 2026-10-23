@@ -24,6 +24,8 @@ import {
 import { runInvitationAgent } from "@/lib/facility-parties/invitations/agent";
 import { invitationNeedsArtworkConfirmation } from "@/lib/facility-parties/invitations/artwork-policy";
 import { AdminInvitationEditor } from "@/components/facility-parties/AdminInvitationEditor";
+import { InvitationCorrectionEditor } from "@/components/facility-parties/InvitationCorrectionEditor";
+import { correctionRequestSchema } from "@/lib/facility-parties/invitations/correction";
 import { buildInvitationEmailDraft } from "@/lib/facility-parties/invitations/content";
 import {
   facilityInvitationShareUrl,
@@ -37,7 +39,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ layout?: string; token?: string }>;
+  searchParams?: Promise<{ layout?: string; token?: string; correction?: string }>;
 };
 
 type FacilityInvitationRow = {
@@ -180,8 +182,10 @@ export default async function FacilityInvitationsPage({
     bookingId: data.id,
     approvedPrint: storedSnapshot.approvedPrint,
   });
+  agentResult.snapshot.customHeadline = storedSnapshot.customHeadline;
+  const correction = correctionRequestSchema.safeParse({ message: resolvedSearch?.correction });
 
-  const editor = <AdminInvitationEditor bookingId={data.id} themeText={clean(data.party_theme)} childName={clean(data.child_name) || "Birthday Star"} childAge={clean(data.child_age)} customerPhone={clean(data.phone)} dateLabel={clean(data.readable_date)} timeLabel={clean(data.readable_time)} waiverUrl={waiverUrl} />;
+  const editor = <><InvitationCorrectionEditor key={JSON.stringify([storedSnapshot.confirmedTheme?.id, storedSnapshot.optionIndex, storedSnapshot.customHeadline])} bookingId={data.id} initialRequest={correction.success ? correction.data.message : ""} snapshot={storedSnapshot} childName={clean(data.child_name) || "Birthday Star"} childAge={clean(data.child_age)} customerPhone={clean(data.phone)} dateLabel={clean(data.readable_date)} timeLabel={clean(data.readable_time)} waiverUrl={waiverUrl} /><AdminInvitationEditor bookingId={data.id} themeText={clean(data.party_theme)} childName={clean(data.child_name) || "Birthday Star"} childAge={clean(data.child_age)} customerPhone={clean(data.phone)} dateLabel={clean(data.readable_date)} timeLabel={clean(data.readable_time)} waiverUrl={waiverUrl} /></>;
   if (invitationNeedsArtworkConfirmation(agentResult.snapshot)) return <AdminShell><AdminHeader eyebrow="Facility Invitations" title={`${clean(data.child_name) || "Birthday"} invitations`} /><AdminNav token="" role={auth.role} active="facility" />{editor}<Link href={`/admin/facility#booking-${encodeURIComponent(data.id)}`} className="font-bold text-sky-700 underline">Back to party</Link></AdminShell>;
 
   return (

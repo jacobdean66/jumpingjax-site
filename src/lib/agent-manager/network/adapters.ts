@@ -13,6 +13,7 @@ import { prepareSupervisorHandoff } from "../supervisor-handoff";
 import { collectSupervisorSnapshot } from "../supervisor-service";
 import { AGENT_DIRECTORY, type NetworkResult } from "./contracts";
 import type { AgentAdapter, AdapterContext, AdapterOutput } from "./engine";
+import { invitationCorrectionHref } from "@/lib/facility-parties/invitations/correction";
 
 const completed = (summary: string, data: Record<string, unknown> = {}): NetworkResult => ({ status: "completed", summary, data });
 // Injected dependencies are also used by the synthetic integration tests.
@@ -70,6 +71,7 @@ export function createAgentAdapters(deps = adapterDependencies): AgentAdapter[] 
       case "waiver_review": return completed("Completed waiver signature and document integrity reviewed.", await deps.waiverIntegrity());
       case "nomination_readiness": { const r = deps.nomination(); return completed("Nomination configuration checked; email receipt acceptance is separate.", { status: r.status, enabled: r.enabled, configured: r.configured, missing: r.missing }); }
       case "invitation_themes": return { ...completed("Invitation layouts, searchable artwork catalog and team directory found.", { themes: deps.themes(), artworkCatalog: invitationCatalogStatus() }), links: [{ label: "Open facility invitations", href: "/admin/facility" }] };
+      case "invitation_correction": return { status: "input_required", summary: "Choose the party to prepare its invitation correction. Your requested changes are carried into the Invitation Agent editor for preview and approval.", data: { message: input.message, saved: false, sent: false, printed: false }, links: [{ label: "Choose invitation to correct", href: invitationCorrectionHref(String(input.message)) }] };
       case "social_handoff": {
         if (task.recipient_key !== "social") return { delegate: { recipient: "social", skill: "social_handoff", input }, summary: "Requested the existing Social Posts review workflow." };
         const handoff = await deps.social(String(input.message));

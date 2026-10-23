@@ -10,6 +10,7 @@ export type InvitationCopyInput = {
   invitationUrl?: string | null;
   printableUrl?: string | null;
   waiverUrl?: string | null;
+  customHeadline?: string | null;
 };
 
 export type InvitationCopy = {
@@ -57,9 +58,9 @@ export function buildInvitationCopy(input: InvitationCopyInput): InvitationCopy 
   return {
     childName,
     ageLabel,
-    headline: childAge
+    headline: clean(input.customHeadline)?.replaceAll("{name}", childName).replaceAll("{age}", childAge) || (childAge
       ? `${childName} is turning ${childAge}!`
-      : `Celebrate with ${childName}!`,
+      : `Celebrate with ${childName}!`),
     dateLabel: clean(input.dateLabel) || "Date coming soon",
     timeLabel: clean(input.timeLabel) || "Time coming soon",
     venueLine: `${FACILITY_INVITATION_VENUE.name} - ${FACILITY_INVITATION_VENUE.address} - ${FACILITY_INVITATION_VENUE.phone}`,

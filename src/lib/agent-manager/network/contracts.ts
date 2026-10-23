@@ -14,6 +14,7 @@ export const skills = {
   booking_review: { name: "Review a booking request", schema: bookingInput }, availability_review: { name: "Review schedule conflicts", schema: bookingInput },
   workflow_review: { name: "Review booking integration failures", schema: empty }, waiver_review: { name: "Review waiver document integrity", schema: empty },
   nomination_readiness: { name: "Review nomination intake setup", schema: empty }, invitation_themes: { name: "Find invitation themes", schema: empty },
+  invitation_correction: { name: "Correct an invitation", schema: z.object({ message: safeText }).strict() },
   social_handoff: { name: "Prepare a Social Posts review handoff", schema: z.object({ message: safeText }).strict() },
   code_review: { name: "Review deployed code health", schema: empty }, security_review: { name: "Review security provider evidence", schema: empty }, call_readiness: { name: "Review calling configuration", schema: empty },
 } as const;
@@ -26,7 +27,7 @@ export const AGENT_DIRECTORY: AgentDefinition[] = [
   define("availability", "Schedule Review Agent", "Runs the existing composite conflict planner. Review is not a reservation or final inventory guarantee.", ["availability_review"], "booking"),
   define("waiver", "Waiver Agent", "Reviews signature/document metadata without participant details.", ["waiver_review"]),
   define("nomination", "Nomination Agent", "Reports readiness of the existing signed email intake.", ["nomination_readiness"]),
-  define("party-invitation", "Party / Invitation Agent", "Reports invitation layouts, the indexed licensed artwork repository, team search and supervisor acceptance rules; selection and saving use the invitation builder.", ["invitation_themes"]),
+  define("party-invitation", "Party / Invitation Agent", "Prepares wording, layout and artwork corrections in the party's invitation editor, with a preview and approval before saving.", ["invitation_correction", "invitation_themes"]),
   define("social", "Social Agent", "Finds an existing draft or prepares the owner-review workflow.", ["social_handoff"]),
   define("coding", "Coding Agent", "Reviews deployed health and links to the isolated public-page repair queue. Verified repairs produce draft pull requests.", ["code_review"]),
   define("health-security", "Health / Security Agent", "Reads existing security provider evidence.", ["security_review"]),

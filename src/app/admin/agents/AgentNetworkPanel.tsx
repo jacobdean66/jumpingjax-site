@@ -81,7 +81,7 @@ export function AgentNetworkPanel({ initial, initialContextId = "", initialRecip
     setBusy(true); setError("");
     try {
       let input: Record<string, unknown> = {};
-      if (skill === "social_handoff") input = { message };
+      if (skill === "social_handoff" || skill === "invitation_correction") input = { message };
       if (skill === "booking_review" || skill === "availability_review") {
         const [hours, minutes] = time.split(":").map(Number);
         input = { services: [{ kind, ...(date ? { date } : {}), ...(time ? { startMinutes: hours * 60 + minutes } : {}), ...(duration ? { durationMinutes: Number(duration) } : {}), ...(kind === "rental" && items.trim() ? { itemRefs: items.split(",").map((s) => s.trim()).filter(Boolean) } : {}), ...(kind !== "facility_party" && location.trim() ? { locationRef: location.trim() } : {}), ...(kind !== "facility_party" && distance !== "" ? { distanceMiles: Number(distance) } : {}), ...(kind === "facility_party" && packageRef.trim() ? { packageRef: packageRef.trim() } : {}) }] };
@@ -130,6 +130,7 @@ export function AgentNetworkPanel({ initial, initialContextId = "", initialRecip
           {agentWorkspaceHref(recipient) && <a href={agentWorkspaceHref(recipient)} className="inline-flex text-sm font-bold text-indigo-800 underline">Open {selected?.name} workspace →</a>}
           <label className="block text-sm font-bold">Capability<select className={field} value={skill} onChange={(e) => setSkill(e.target.value as NetworkSkill)}>{selected?.skills.map((s) => <option key={s} value={s}>{skills[s].name}</option>)}</select></label>
           {skill === "social_handoff" && <label className="block text-sm font-bold">Post request<textarea className={field} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={800} required placeholder="Describe the post to prepare for review" /></label>}
+          {skill === "invitation_correction" && <label className="block text-sm font-bold">Invitation correction<textarea className={field} value={message} onChange={event => setMessage(event.target.value)} maxLength={800} required placeholder="Describe the wording, layout or picture to change" /></label>}
           {(skill === "booking_review" || skill === "availability_review") && <div className="grid grid-cols-2 gap-3">
             <label className="text-sm font-bold">Service<select className={field} value={kind} onChange={(e) => setKind(e.target.value)}><option value="rental">Rental</option><option value="facility_party">Facility party</option><option value="foam_party">Foam party</option></select></label>
             <label className="text-sm font-bold">Date<input className={field} type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>

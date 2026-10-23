@@ -4,6 +4,11 @@ on:
     paths:
       - 'src/lib/agent-manager/**'
       - 'src/app/admin/agents/**'
+      - 'src/lib/facility-parties/invitations/**'
+      - 'src/components/facility-parties/*Invitation*'
+      - 'src/app/admin/facility/**/invitations/**'
+      - 'src/app/admin/front-desk/PartyTaskPage.tsx'
+      - 'src/app/api/admin/facility/**/invitation/**'
       - 'src/app/api/**/code-repair*/**'
       - 'scripts/code-repairs/**'
       - 'supabase/migrations/*code_repairs.sql'
@@ -32,3 +37,6 @@ jobs:
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/network/network.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/writing-suggestions.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/conversation-reply.test.mts
+      - run: node --import tsx --test src/lib/facility-parties/invitations/correction.test.mts src/lib/facility-parties/invitations/correction-api.test.mts
+      - run: node --conditions=react-server --import tsx --test src/lib/facility-parties/invitations/correction-provider.test.mts src/lib/facility-parties/invitations/admin-save.test.mts
+      - run: node --import tsx --test src/lib/facility-parties/invitations/content.test.mts src/lib/facility-parties/invitations/email-html.test.mts src/lib/facility-parties/invitations/editable-pptx.test.mts

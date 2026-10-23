@@ -15,7 +15,7 @@ export function supervisorReplyContext(message: string, snapshot: SupervisorSnap
   const coding = snapshot.wiring.find(agent => agent.key === "coding");
   const context: Record<string, unknown> = {
     capabilities: [
-      "Discuss and plan invitation design, wording, layout, templates, printing and the editing experience. The existing invitation builder is under Front Desk > Make / Print Invitations.",
+      "Delegate wording, layout and artwork corrections to the Invitation Agent. The employee chooses the party under Front Desk > Make / Print Invitations, asks for a correction in everyday words, reviews the before/after preview, confirms any replacement picture and approves saving. A correction does not send or print anything. Changes to the invitation tool's source code require engineering review.",
       "Check website health, bookings/calendars, rental catalog, agent connections and answering-machine readiness.",
       "Help change supported public website code through the Code repairs worker: it edits code, runs independent tests and browser checks, and returns a draft pull request for review.",
     ],

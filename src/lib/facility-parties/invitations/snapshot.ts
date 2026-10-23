@@ -9,6 +9,7 @@ import { getInvitationTheme, type InvitationThemeDefinition } from "./theme-cata
 import { confirmedThemeSchema, type ConfirmedInvitationTheme } from "./theme-search";
 
 import type { ApprovedPrint } from "./approved-print";
+import { invitationHeadlineSchema } from "./correction";
 
 export const INVITATION_SNAPSHOT_VERSION = 1 as const;
 
@@ -21,6 +22,7 @@ export type InvitationSnapshot = InvitationMatch & {
   alternatesLocked: boolean;
   colorHint: string;
   confirmedTheme?: ConfirmedInvitationTheme;
+  customHeadline?: string;
 };
 
 export const FACILITY_INVITATION_VENUE = {
@@ -113,6 +115,18 @@ export function isInvitationSnapshot(value: unknown): value is InvitationSnapsho
 }
 
 export function resolveInvitationSnapshot(input: {
+  partyTheme: string | null | undefined;
+  stored?: unknown;
+  colorHint?: string | null;
+}): InvitationSnapshot {
+  const snapshot = resolveBaseInvitationSnapshot(input);
+  const saved = input.stored && typeof input.stored === "object" ? input.stored as Record<string, unknown> : {};
+  const headline = invitationHeadlineSchema.safeParse(saved.customHeadline);
+  if (headline.success) snapshot.customHeadline = headline.data;
+  return snapshot;
+}
+
+function resolveBaseInvitationSnapshot(input: {
   partyTheme: string | null | undefined;
   stored?: unknown;
   colorHint?: string | null;
