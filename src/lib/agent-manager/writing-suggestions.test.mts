@@ -11,6 +11,15 @@ test("typing help stays useful without AI and with unfinished words", () => {
   assert.equal(writingSuggestionInput.safeParse({ draft: "x".repeat(501) }).success, false);
 });
 
+test("invitation correction suggestions stay on invitations even when the draft mentions fixing a booking", () => {
+  for (const draft of ["fix the invitation", "booking invitation layout", "fix invita", "change an invite picture"]) {
+    const suggestions = quickWritingSuggestions(draft);
+    assert.equal(suggestions.length, 3);
+    assert.ok(suggestions.every(value => /invitation/i.test(value)));
+    assert.ok(suggestions.every(value => !/Code repairs|website/i.test(value)));
+  }
+});
+
 test("credentials and customer contact details never become provider input", async () => {
   for (const draft of ["password=not-for-the-model", "ask example@example.com", "call 864-555-0123", "key sk-proj-abcdefghijklmnopqrstuvwxyz123456"]) {
     assert.equal(safeWritingDraft(draft), false);

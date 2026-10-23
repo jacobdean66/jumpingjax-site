@@ -10,6 +10,11 @@ export function safeWritingDraft(draft: string) {
 
 export function quickWritingSuggestions(draft: string): string[] {
   if (!safeWritingDraft(draft)) return [];
+  if (/\binvit/i.test(draft)) return [
+    "Fix an invitation’s wording, layout or picture.",
+    "Ask Invitation Agent to revise an invitation for review.",
+    "Help me correct the picture on an invitation.",
+  ];
   if (/\b(book|booking|calendar|confirmation|reservation)/i.test(draft)) return [
     "Check bookings and calendars for anything that needs attention.",
     "Check for booking confirmations that did not complete.",

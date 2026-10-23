@@ -13,6 +13,7 @@ const theme = { id: "test-artwork", label: "Dinosaur", originalQuery: "Dinosaur"
 test("natural invitation correction requests delegate to the invitation agent and retain their exact instructions", () => {
   const message = "Fix the invitation wording and replace its picture with a dinosaur";
   assert.equal(isInvitationCorrectionRequest(message), true);
+  assert.equal(isInvitationCorrectionRequest("Change the invite picture"), true);
   assert.equal(isInvitationCorrectionRequest("Do not change the invitation"), false);
   assert.equal(isInvitationCorrectionRequest("Check website health"), false);
   assert.equal(isInvitationCorrectionRequest("Fix the invitation tool source code"), false);
