@@ -10,11 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default function InflatableOfferPage() {
-  return <main className="min-h-screen bg-[#071326] px-5 py-12 text-white">
-    <article className="mx-auto max-w-3xl rounded-3xl border border-cyan-300/25 bg-white/5 p-6 sm:p-10">
-      <p className="font-bold uppercase tracking-wider text-cyan-200">Jumping Jax · Greenwood, SC</p>
-      <h1 className="mt-4 text-4xl font-black sm:text-5xl">15% off inflatable rentals</h1>
-      <p className="mt-5 text-lg leading-relaxed text-slate-200">Claim this offer, choose your inflatable, and request your event date. Your eligible rental discount is calculated in your booking estimate.</p>
+  return <main className="min-h-screen bg-[#071326] px-4 pb-12 pt-5 text-white sm:px-5 sm:pt-8">
+    <article className="mx-auto max-w-3xl rounded-3xl border border-cyan-300/25 bg-white/5 p-5 sm:p-10">
+      <p className="text-xs font-bold uppercase tracking-wider text-cyan-200 sm:text-base">Jumping Jax · Greenwood, SC</p>
+      <h1 className="mt-3 text-3xl font-black leading-tight sm:text-5xl">15% off inflatable rentals</h1>
+      <p className="mt-4 text-base leading-relaxed text-slate-200 sm:text-lg">Claim this offer, choose your inflatable, and request your event date. Your eligible rental discount is calculated in your booking estimate.</p>
       <ClaimRentalPromotion />
       <h2 className="mt-9 text-xl font-bold">What’s included</h2>
       <p className="mt-3 leading-relaxed text-slate-300">Eligible bounce houses, bounce and slide combos, and inflatable obstacle courses.</p>
