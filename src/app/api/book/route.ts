@@ -84,7 +84,7 @@ export async function POST(req: Request) {
           result.code === "conflict"
             ? String(error)
             : result.code === "invalid_input"
-              ? "Invalid booking request"
+              ? String(error)
               : "Unable to save the rental request",
       },
       { status },
