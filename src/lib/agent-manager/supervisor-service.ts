@@ -18,7 +18,6 @@ import { supervisorNetworkRequest } from "./network/supervisor-routing";
 import { enqueueJob, loadDashboard, setAgentPaused, setEmergencyStop } from "./service";
 import {
   buildSupervisorIssues,
-  buildSupervisorReply,
   parseSupervisorControl,
   SUPERVISOR_CHAT_JOB_TYPE,
   SUPERVISOR_WATCH_JOB_TYPE,
@@ -31,6 +30,8 @@ import {
 import type { AgentJob } from "./types";
 import { isCodeRepairRequest } from "./code-repair";
 import { loadCodeRepairWorkerStatus } from "./code-repair-service";
+import { supervisorReplyContext } from "./conversation-reply";
+import { generateSupervisorReply } from "./conversation-reply-provider";
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
@@ -154,7 +155,7 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
       job_id: job.id,
       event_type: job.job_type === SUPERVISOR_CHAT_JOB_TYPE ? "supervisor.replied" : "supervisor.watch_completed",
       summary: summary.slice(0, 1000),
-      metadata: { aiInvocations: 0, businessWrites: 0 },
+      metadata: { aiInvocations: payload?.aiInvocations ?? 0, businessWrites: 0 },
     }),
   ]);
 }
@@ -195,7 +196,7 @@ export async function runSupervisorConversation(message: string, actorId: string
     agentKey: "supervisor",
     jobType: SUPERVISOR_CHAT_JOB_TYPE,
     source: "admin.supervisor-chat",
-    payload: { message, clientRequestId, aiInvocations: 0, businessWritesAllowed: false },
+    payload: { message, clientRequestId, actorId, aiInvocations: 0, businessWritesAllowed: false },
     idempotencyKey: `supervisor-chat:${clientRequestId}`,
     actorId,
   });
@@ -233,14 +234,28 @@ export async function runSupervisorConversation(message: string, actorId: string
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);
-    const reply = buildSupervisorReply(message, snapshot, actionOutcome);
+    let reply: string;
+    let aiInvocations = 0;
+    if (actionOutcome) {
+      // Explicit commands keep their verified outcome; the model never runs a control.
+      reply = actionOutcome;
+    } else {
+      const { data: supervisor, error: supervisorError } = await db.from("agents").select("enabled,paused").eq("key", "supervisor").single();
+      if (supervisorError || !supervisor?.enabled || supervisor.paused || snapshot.agents.emergencyStop) throw new Error("Conversational replies are paused by Permanent Agent controls.");
+      const history = await loadSupervisorConversation(4, actorId);
+      aiInvocations = 1;
+      const reserved = await db.from("agent_jobs").update({ payload: { ...job.payload, actorId, aiInvocations } }).eq("id", job.id).eq("status", "running");
+      if (reserved.error) throw new Error("Conversational replies are temporarily unavailable.");
+      reply = await generateSupervisorReply({ message, context: supervisorReplyContext(message, snapshot), history }, AbortSignal.timeout(20_000));
+    }
     const payload = {
       message,
       clientRequestId,
+      actorId,
       snapshot,
       actionOutcome,
       relatedAction: handoff?.relatedAction ?? null,
-      aiInvocations: 0,
+      aiInvocations,
       businessWritesAllowed: false,
     };
     await finishSupervisorJob(job, reply, payload);
@@ -255,18 +270,20 @@ export async function runSupervisorConversation(message: string, actorId: string
   }
 }
 
-export async function loadSupervisorConversation(limit = 12) {
+export async function loadSupervisorConversation(limit = 12, actorId?: string) {
   const db = createServiceRoleClient();
   const bounded = Math.max(1, Math.min(20, Math.trunc(limit)));
   const { data: agent, error: agentError } = await db.from("agents").select("id").eq("key", "supervisor").single();
   if (agentError || !agent) return [];
-  const { data, error } = await db.from("agent_jobs")
+  let query = db.from("agent_jobs")
     .select("id,payload,result_summary,created_at")
     .eq("agent_id", agent.id)
     .eq("job_type", SUPERVISOR_CHAT_JOB_TYPE)
     .eq("status", "succeeded")
     .order("created_at", { ascending: false })
     .limit(bounded);
+  if (actorId) query = query.contains("payload", { actorId });
+  const { data, error } = await query;
   if (error) throw new Error("Permanent Agent conversation history is unavailable.");
   return (data ?? []).map((job) => supervisorJobMessage(job as Pick<AgentJob, "payload" | "result_summary" | "created_at" | "id">)).filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
