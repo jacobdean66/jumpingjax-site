@@ -1,7 +1,7 @@
 export const inflatableCampaignDraft = {
   name: "Inflatable Rentals - 15% Off",
   dailyBudget: 10,
-  status: "Campaign created and paused while Google tag confirmation is completed",
+  status: "Enabled October 22, 2026; ad eligible; campaign has a keyword-coverage limitation",
   displayPaths: ["inflatables", "15-percent-off"],
   language: "English",
   aiMax: false,
@@ -30,8 +30,8 @@ export const googleAdsSetupSnapshot = {
   publicCustomerId: "715-139-9909" as string | null,
   oldCustomerId: "477-299-0778",
   oldAccountStatus: "Permanently closed",
-  liveCampaignStatus: "Campaign 24386017082 created and confirmed paused at $10/day; ten negative keywords attached; launch pending Google tag confirmation",
-  locationStatus: "Reviewed draft has the 25-mile Greenwood radius and seven full counties; presence only",
+  liveCampaignStatus: "Campaign 24386017082 enabled at $10/day on October 22; ad and ad group eligible; campaign Eligible (Limited) for keyword coverage; ten negative keywords attached; manual tag confirmed and live reporting connected",
+  locationStatus: "Saved campaign has the 25-mile Greenwood radius and seven full counties; presence only",
   billingStatus: "Billing summary accessible: $0 balance, $0 payments, no upcoming payment; temporary card authorization settlement not independently verified",
   advertiserVerificationStatus: "Not verified",
 } as const;
