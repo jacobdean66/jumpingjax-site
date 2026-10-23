@@ -55,7 +55,7 @@ export type SupervisorSnapshot = {
 export type SupervisorRelatedAction = {
   label: string;
   href: string;
-  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center" | "agent_network";
+  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center" | "agent_network" | "code_repair";
 };
 
 export type SupervisorControl =
@@ -254,7 +254,7 @@ export function buildSupervisorReply(message: string, snapshot: SupervisorSnapsh
   if (/\b(invitation|invite|party theme)\b/.test(normalized)) return `${prefix}${specialistReply("party-invitation", snapshot)}`;
   if (/\b(bookings?|calendar|party|parties)\b/.test(normalized)) return `${prefix}${bookingReply(snapshot)}`;
   if (/\b(rental|inventory|inflatable|foam)\b/.test(normalized)) return `${prefix}Rentals: ${snapshot.rentals.catalogItems} catalog items and ${snapshot.bookings.activeRentals ?? "unknown"} active rental bookings are visible to the supervisor. ${snapshot.bookings.workflowIssues ?? "unknown"} booking workflow issues currently need review. No rental availability or booking record was changed.`;
-  if (/\b(code|coding|security|broken|bug|deploy)\b/.test(normalized)) return `${prefix}${securityReply(snapshot)} ${issueSummary(snapshot)} I can diagnose and prepare a reviewed fix, but production code and deployment remain approval-gated.`;
+  if (/\b(code|coding|security|broken|bug|deploy)\b/.test(normalized)) return `${prefix}${securityReply(snapshot)} ${issueSummary(snapshot)} Public-page repairs use Website code repairs: the coding worker prepares a draft pull request only after independent tests and browser checks pass. Production deployment remains approval-gated.`;
   if (/\b(answer|answering|voicemail|whatsapp|call)\b/.test(normalized)) return `${prefix}Answering machine: ${snapshot.answeringMachine.status}; ${snapshot.answeringMachine.pendingReview ?? "unknown"} calls are waiting for review and ${snapshot.answeringMachine.failedCalls ?? "unknown"} have failed. Intake is gated by local configuration. Stored fixtures and credentials alone do not verify Meta delivery or a completed call.`;
   if (/\b(agent|approval|queue|emergency|pause|resume)\b/.test(normalized)) return `${prefix}${agentReply(snapshot)} ${issueSummary(snapshot)}`;
   if (/\b(site|website|page|route|online|status|health|wrong|issue|problem)\b/.test(normalized)) return `${prefix}${websiteReply(snapshot)}`;
@@ -290,6 +290,6 @@ function parseRelatedAction(value: unknown): SupervisorRelatedAction | null {
   const action = value as Partial<SupervisorRelatedAction>;
   if (typeof action.label !== "string" || typeof action.href !== "string") return null;
   if (!action.href.startsWith("/admin/")) return null;
-  if (!action.kind || !["existing_social_draft", "new_social_draft", "answering_machine", "security_center"].includes(action.kind)) return null;
+  if (!action.kind || !["existing_social_draft", "new_social_draft", "answering_machine", "security_center", "agent_network", "code_repair"].includes(action.kind)) return null;
   return { label: action.label.slice(0, 120), href: action.href.slice(0, 500), kind: action.kind };
 }

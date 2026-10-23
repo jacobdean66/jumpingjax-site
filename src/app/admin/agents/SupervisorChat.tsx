@@ -149,7 +149,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       </div>
 
       {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-950 p-3 text-sm font-bold text-rose-100">{error}</p> : null}
-      <p className="mt-3 text-xs font-semibold text-slate-400">Do not paste passwords, tokens, or customer details. Safe checks and exact pause/emergency controls may run immediately; code, content, booking, calendar, customer-message, payment, deletion, and deployment changes remain approval-gated.</p>
+      <p className="mt-3 text-xs font-semibold text-slate-400">Do not paste passwords, tokens, or customer details. Use Code repairs to request a tested draft fix for a public page. Production code, content, booking, calendar, customer-message, payment, deletion, and deployment changes remain approval-gated.</p>
     </section>
   );
 }

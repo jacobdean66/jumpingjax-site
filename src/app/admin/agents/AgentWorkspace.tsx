@@ -5,14 +5,15 @@ import { useEffect, useState, type ReactNode } from "react";
 const tabs = [
   { id: "supervisor", label: "Permanent agent" },
   { id: "tech-search", label: "Tech Search" },
+  { id: "code-repairs", label: "Code repairs" },
   { id: "agent-controls", label: "Agents & activity" },
   { id: "agent-conversations", label: "Conversations" },
   { id: "agent-tools", label: "Tools & diagnostics" },
 ] as const;
 type TabId = typeof tabs[number]["id"];
 
-export function AgentWorkspace({ supervisor, controls, conversations, tools, techSearch, initialConversation = false }: {
-  supervisor: ReactNode; controls: ReactNode; conversations: ReactNode; tools: ReactNode; techSearch: ReactNode; initialConversation?: boolean;
+export function AgentWorkspace({ supervisor, controls, conversations, tools, techSearch, codeRepairs, initialConversation = false }: {
+  supervisor: ReactNode; controls: ReactNode; conversations: ReactNode; tools: ReactNode; techSearch: ReactNode; codeRepairs?: ReactNode; initialConversation?: boolean;
 }) {
   const [active, setActive] = useState<TabId>(initialConversation ? "agent-conversations" : "supervisor");
   useEffect(() => {
@@ -26,7 +27,7 @@ export function AgentWorkspace({ supervisor, controls, conversations, tools, tec
       window.removeEventListener("hashchange", sync);
     };
   }, []);
-  const panels = { supervisor, "agent-controls": controls, "agent-conversations": conversations, "agent-tools": tools, "tech-search": techSearch };
+  const panels = { supervisor, "agent-controls": controls, "agent-conversations": conversations, "agent-tools": tools, "tech-search": techSearch, "code-repairs": codeRepairs };
   function select(id: TabId) {
     setActive(id);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);

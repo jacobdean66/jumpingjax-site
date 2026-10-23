@@ -75,7 +75,7 @@ export function createAgentAdapters(deps = adapterDependencies): AgentAdapter[] 
         const handoff = await deps.social(String(input.message));
         return { status: "input_required", summary: handoff?.outcome ?? "Describe the social post you want in the existing review workflow.", data: { published: false, scheduled: false, modelCalls: 0 }, links: [{ label: handoff?.relatedAction.label ?? "Open Social Posts", href: handoff?.relatedAction.href ?? "/admin/social-posts/new" }] };
       }
-      case "code_review": { const h = await deps.health(task.actor_id); return completed("Deployed code health reviewed. Repairs require the existing review workflow.", h); }
+      case "code_review": { const h = await deps.health(task.actor_id); return { ...completed("Deployed code health reviewed. Request a public-page code repair to prepare a tested draft pull request.", h), links: [{ label: "Prepare a website code repair", href: "/admin/agents#code-repairs" }] }; }
       case "security_review": return completed("Security provider evidence reviewed.", { services: await deps.security(task.actor_id) });
       case "call_readiness": { const r = deps.calling(); return completed("Calling configuration checked; no real call acceptance test was performed.", { provider: r.provider, mode: r.mode, configured: r.configured, enabled: r.enabled, configurationStatus: r.status, missing: r.missing, realCallVerified: false }); }
       default: throw new Error("Unsupported adapter capability.");

@@ -49,7 +49,7 @@ test("agent cards separate real connection state from database runtime state", a
   assert.match(ui, /Agents and real connections/);
   assert.match(ui, /Supervisor handoff/);
   assert.match(ui, /wiring\?\.canPause/);
-  assert.match(wiring, /key: "coding"[\s\S]*state: "read_only"/);
+  assert.match(wiring, /key: "coding"[\s\S]*state: input.codeRepairReady \? "connected" : "read_only"/);
   assert.match(wiring, /key: "health-security"[\s\S]*state: "read_only"/);
   assert.match(service, /PAUSEABLE_AGENT_KEYS/);
   assert.match(service, /Agent has no pauseable worker/);
