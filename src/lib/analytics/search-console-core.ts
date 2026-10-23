@@ -1,10 +1,12 @@
 import { googleReportingDates, type GoogleReportingConfig } from "./google-reporting-core";
+import type { ReportFreshness } from "./shared-google-core";
 
 export const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 export const SEARCH_CONSOLE_COOKIE = "jjx-search-console-reporting";
 const properties = ["https://jumpingjaxllc.com/", "sc-domain:jumpingjaxllc.com"] as const;
 type Json = Record<string, unknown>;
 export type SearchConsoleReport = {
+  freshness?: ReportFreshness;
   status: "connected" | "not_connected" | "reconnect" | "permission_required" | "unavailable";
   message: string;
   since: string; until: string; fetchedAt: string | null; property: string | null;
@@ -84,8 +86,9 @@ export async function fetchSearchConsoleReport(input: {
         } catch { sitemaps = null; }
       }
     }
-    return { ...base, status: "connected", message: "Search Console report fetched from Google. Finalized web-search data can lag recent days.",
-      property, fetchedAt: now.toISOString(), totals: { clicks, impressions, ctr, position }, sitemaps,
+    const waitingForToday = dates.preset === "today" && rows.length === 0;
+    return { ...base, status: "connected", message: waitingForToday ? "Google has not published finalized organic search numbers for today yet. This does not mean zero visits. Select Last 7 days or Last 30 days for available SEO results." : "Search Console report fetched from Google. Finalized web-search data can lag recent days.",
+      property, fetchedAt: now.toISOString(), totals: waitingForToday ? null : { clicks, impressions, ctr, position }, sitemaps,
       sitemapMessage: sitemaps === null ? "Sitemap status could not be loaded. Organic performance above is available." : null };
   } catch (error) {
     const status = error instanceof ReportError ? error.kind : "unavailable";

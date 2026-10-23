@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/google-reporting",
+      "schedule": "0 0,12,18 * * *"
+    },
+    {
       "path": "/api/cron/birthday-coupons",
       "schedule": "0 14 * * *"
     },

@@ -55,6 +55,14 @@ test("empty successful reports mean no finalized activity, not missing access", 
   assert.equal(report.status, "connected");
   assert.deepEqual(report.totals, { clicks: 0, impressions: 0, ctr: null, position: null });
 });
+test("today without finalized organic rows stays unavailable rather than claiming zero visits", async () => {
+  const { fetcher } = fixture({ empty: true });
+  const report = await fetchSearchConsoleReport({ config, refreshToken: "fixture", fetcher, now, preset: "today" });
+  assert.equal(report.status, "connected");
+  assert.equal(report.totals, null);
+  assert.match(report.message, /not published finalized/);
+  assert.ok(report.sitemaps);
+});
 test("domain property is supported but unrelated properties are never queried", async () => {
   const good = fixture({ domain: true });
   assert.equal((await fetchSearchConsoleReport({ config, refreshToken: "fixture", fetcher: good.fetcher, now })).property, "sc-domain:jumpingjaxllc.com");

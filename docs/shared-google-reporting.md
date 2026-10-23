@@ -1,0 +1,11 @@
+# Shared Google reporting
+
+Owner-only reporting for Google Ads customer 715-139-9909, campaign 24386017082, and the Jumping Jax Search Console property. No campaign mutations or Search Console writes.
+
+Connections and snapshots use the private `google-reporting-private` Supabase Storage bucket with service-role access. Refresh tokens use AES-256-GCM encryption bound to their service, with a server-derived key separated from legacy browser-cookie encryption. Tokens never appear in responses or logs. New OAuth callbacks validate campaign/property access before replacing a connection. Existing browser connections can be promoted by an owner-only, same-origin POST; successful promotion clears the corresponding browser credential. Disconnect removes that service's shared credential and snapshots; Google-side revocation can also be done in the Google account.
+
+Vercel invokes `/api/cron/google-reporting` at 00:00, 12:00, and 18:00 UTC (morning, afternoon, evening in Eastern time; hours shift with DST). `CRON_SECRET` is required and missing/incorrect authorization fails closed. Each invocation refreshes Today, Last 7 days, and Last 30 days for both services without a browser session. Failed refreshes return 503 with sanitized per-report statuses for hosting logs. Existing cron schedules are retained.
+
+Authenticated page loads reuse same-date snapshots younger than five minutes; otherwise they fetch and save current results. Refresh performance forces a fetch. API failures retain the last successful snapshot with its original fetched time and an explicit latest-attempt warning. Snapshots with mismatching reporting dates are never used, including across Eastern/Pacific midnight. Ads defaults to Today; SEO initially shows Last 30 days. Selecting Today shows finalized SEO results only when Google supplies them; missing today's finalized rows are unavailable, not zero visits.
+
+Deployment verification: promote existing owner browser grants, check both shared connection flags, run the protected cron once, confirm six saved snapshots, then view reports with browser reporting cookies removed. Test anonymous endpoint rejection and bucket privacy. Google OAuth testing-mode refresh tokens may still expire according to Google's policy; the UI exposes reconnect status. Shared storage cannot make Google's reporting real-time.
