@@ -39,6 +39,8 @@ await db.exec(
     "utf8",
   ),
 );
+// Reapplying the tracked migration must preserve existing offers and schema.
+await db.exec(await fs.readFile(new URL("../supabase/migrations/20261023010000_google_customer_offers.sql", import.meta.url), "utf8"));
 async function claim(email, kind) {
   return (
     await db.query("select claim_google_customer_offer($1,$2) as code", [

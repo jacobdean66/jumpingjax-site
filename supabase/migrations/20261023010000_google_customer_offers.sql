@@ -1,5 +1,5 @@
 begin;
-create table public.google_customer_offers (
+create table if not exists public.google_customer_offers (
  id uuid primary key default gen_random_uuid(),
  code text not null unique default ('JAX-' || upper(replace(gen_random_uuid()::text,'-',''))),
  email text not null check (email = lower(trim(email))),
@@ -8,7 +8,7 @@ create table public.google_customer_offers (
  created_at timestamptz not null default now(),
  unique(email,kind,campaign)
 );
-create table public.google_offer_redemptions (
+create table if not exists public.google_offer_redemptions (
  id uuid primary key default gen_random_uuid(),
  offer_id uuid not null references public.google_customer_offers(id),
  kind text not null check(kind in ('rental','facility')),
@@ -19,13 +19,13 @@ create table public.google_offer_redemptions (
  created_at timestamptz not null default now(),
  unique(kind,booking_id), unique(kind,request_key)
 );
-create unique index google_offer_one_active_booking on public.google_offer_redemptions(offer_id) where status <> 'released';
+create unique index if not exists google_offer_one_active_booking on public.google_offer_redemptions(offer_id) where status <> 'released';
 alter table public.google_customer_offers enable row level security;
 alter table public.google_offer_redemptions enable row level security;
 revoke all on public.google_customer_offers,public.google_offer_redemptions from public,anon,authenticated;
 grant all on public.google_customer_offers,public.google_offer_redemptions to service_role;
 
-create function public.claim_google_customer_offer(p_email text,p_kind text) returns text language plpgsql security invoker set search_path=public,pg_temp as $$
+create or replace function public.claim_google_customer_offer(p_email text,p_kind text) returns text language plpgsql security invoker set search_path=public,pg_temp as $$
 declare v_code text;
 begin
  if p_kind not in ('rental','facility') or length(trim(p_email)) not between 3 and 254 or p_email not like '%@%.%' then raise exception 'invalid_offer'; end if;
@@ -34,7 +34,7 @@ begin
  return v_code;
 end; $$;
 
-create function public.book_with_google_customer_offer(p_kind text,p_code text,p_booking jsonb,p_items jsonb,p_agreement jsonb,p_idempotency_key text,p_discount numeric)
+create or replace function public.book_with_google_customer_offer(p_kind text,p_code text,p_booking jsonb,p_items jsonb,p_agreement jsonb,p_idempotency_key text,p_discount numeric)
 returns text language plpgsql security invoker set search_path=public,pg_temp as $$
 declare v_offer public.google_customer_offers%rowtype; v_existing public.google_offer_redemptions%rowtype; v_id text; v_email text;
 begin
@@ -59,7 +59,7 @@ begin
  return v_id;
 end; $$;
 
-create function public.update_google_offer_booking_status() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+create or replace function public.update_google_offer_booking_status() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
 begin
  update public.google_offer_redemptions set status=case
  when lower(new.status::text) in ('approved','confirmed') then 'redeemed'
@@ -68,7 +68,9 @@ begin
  where booking_id=new.id::text and kind=case when TG_TABLE_NAME='bookings' then 'rental' else 'facility' end;
  return new;
 end; $$;
+drop trigger if exists google_offer_rental_status on public.bookings;
 create trigger google_offer_rental_status after update of status on public.bookings for each row execute function public.update_google_offer_booking_status();
+drop trigger if exists google_offer_facility_status on public.facility_bookings;
 create trigger google_offer_facility_status after update of status on public.facility_bookings for each row execute function public.update_google_offer_booking_status();
 revoke all on function public.claim_google_customer_offer(text,text), public.book_with_google_customer_offer(text,text,jsonb,jsonb,jsonb,text,numeric),public.update_google_offer_booking_status() from public,anon,authenticated;
 grant execute on function public.claim_google_customer_offer(text,text),public.book_with_google_customer_offer(text,text,jsonb,jsonb,jsonb,text,numeric) to service_role;
