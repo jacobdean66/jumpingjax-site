@@ -1,10 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { generateSupervisorReply } from "./conversation-reply-provider";
-import { readableReplyParagraphs, supervisorReplyContext } from "./conversation-reply";
+import { codingConversationAction, readableReplyParagraphs, supervisorReplyContext } from "./conversation-reply";
 import type { SupervisorSnapshot } from "./supervisor";
 
-const snapshot = { generatedAt: "2026-10-23T02:00:00Z", website: [], bookings: {}, agents: {}, issues: [{ area: "security", summary: "Unrelated security warning" }] } as unknown as SupervisorSnapshot;
+const snapshot = { generatedAt: "2026-10-23T02:00:00Z", website: [], bookings: {}, agents: {}, wiring: [{ key: "coding", state: "connected" }], issues: [{ area: "security", summary: "Unrelated security warning" }] } as unknown as SupervisorSnapshot;
+
+test("coding questions offer the repair form without submitting a job", () => {
+  const action = { kind: "code_repair", label: "Open website code repairs", href: "/admin/agents#code-repairs" };
+  assert.deepEqual(codingConversationAction("Can you edit coding?"), action);
+  assert.deepEqual(codingConversationAction("Could you write code for the website?"), action);
+  assert.equal(codingConversationAction("Can we revamp invitations?"), null);
+  assert.equal(codingConversationAction("Where is my passcode?"), null);
+});
+
+test("coding context distinguishes tested draft edits, connection freshness and unsupported admin changes", () => {
+  const connected = supervisorReplyContext("Can you edit coding?", snapshot).coding as Record<string, unknown>;
+  assert.match(String(connected.connection), /checked in recently/);
+  assert.match(String(connected.review), /actual code edits.*draft pull request/);
+  assert.match(String(connected.workflow), /does not queue a repair/);
+  assert.match(String(connected.scope), /invitation builder.*outside this worker's scope/);
+  const unavailable = supervisorReplyContext("Can you edit coding?", { ...snapshot, wiring: [], agents: { ...snapshot.agents, emergencyStop: true } }).coding as Record<string, unknown>;
+  assert.match(String(unavailable.connection), /No recent worker connection/);
+  assert.equal(unavailable.executionPaused, true);
+});
 
 test("an invitation design question is not padded with unrelated health findings", () => {
   const context = supervisorReplyContext("Can we revamp the invitations at all?", snapshot);

@@ -30,7 +30,7 @@ import {
 import type { AgentJob } from "./types";
 import { isCodeRepairRequest } from "./code-repair";
 import { loadCodeRepairWorkerStatus } from "./code-repair-service";
-import { supervisorReplyContext } from "./conversation-reply";
+import { codingConversationAction, supervisorReplyContext } from "./conversation-reply";
 import { generateSupervisorReply } from "./conversation-reply-provider";
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
@@ -234,6 +234,7 @@ export async function runSupervisorConversation(message: string, actorId: string
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);
+    const relatedAction = handoff?.relatedAction ?? codingConversationAction(message);
     let reply: string;
     let aiInvocations = 0;
     if (actionOutcome) {
@@ -254,12 +255,12 @@ export async function runSupervisorConversation(message: string, actorId: string
       actorId,
       snapshot,
       actionOutcome,
-      relatedAction: handoff?.relatedAction ?? null,
+      relatedAction,
       aiInvocations,
       businessWritesAllowed: false,
     };
     await finishSupervisorJob(job, reply, payload);
-    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction: handoff?.relatedAction ?? null, deduplicated: false };
+    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, deduplicated: false };
   } catch (error) {
     const failedAt = new Date().toISOString();
     await Promise.all([
