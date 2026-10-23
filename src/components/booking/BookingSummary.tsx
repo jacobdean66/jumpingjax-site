@@ -135,7 +135,7 @@ export function BookingSummary({
           </dd>
         </div>
         {promotionDiscount > 0 && <div className="flex justify-between gap-3 border-b border-white/10 pb-3 text-emerald-200">
-          <dt>Google Ads offer · 15% off eligible inflatables</dt>
+          <dt>GOOGLE15 · 15% off eligible inflatables</dt>
           <dd className="font-bold">−${promotionDiscount.toFixed(2)}</dd>
         </div>}
         {showPrices && (

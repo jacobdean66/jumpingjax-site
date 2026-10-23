@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ServiceQuestions } from "@/components/ServiceQuestions";
+import { RentalPromotionNotice } from "@/components/booking/RentalPromotion";
 import { rentalQuestions } from "@/data/service-questions";
 import {
   CATEGORY_BROWSE_ORDER,
@@ -74,7 +75,9 @@ export default async function RentalsPage() {
           </p>
         </header>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 lg:gap-8">
+        <div id="rental-categories" className="mt-8 scroll-mt-5">
+          <RentalPromotionNotice />
+        <div className="grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 lg:gap-8">
           {CATEGORY_BROWSE_ORDER.map((id, index) => {
             const copy = CATEGORY_COPY[id];
             const preview = categoryPreviewRental(id);
@@ -117,6 +120,7 @@ export default async function RentalsPage() {
               </Link>
             );
           })}
+        </div>
         </div>
         <p className="mt-8 text-center text-slate-700"><Link href="/service-area" className="font-bold text-cyan-800 underline">Delivery communities and event planning</Link> · <Link href="/facility-parties" className="font-bold text-pink-800 underline">Host an indoor birthday party at Jumping Jax</Link></p>
       </section>

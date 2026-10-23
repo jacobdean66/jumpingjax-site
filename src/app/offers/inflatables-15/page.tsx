@@ -18,7 +18,7 @@ export default function InflatableOfferPage() {
       <ClaimRentalPromotion />
       <h2 className="mt-9 text-xl font-bold">What’s included</h2>
       <p className="mt-3 leading-relaxed text-slate-300">Eligible bounce houses, bounce and slide combos, and inflatable obstacle courses.</p>
-      <p className="mt-4 text-sm leading-relaxed text-slate-300">15% applies to eligible inflatable rental prices only. Delivery, mileage, accessories, yard games, foam parties, and facility parties are excluded. Availability and final delivery plans require staff confirmation. Claim the offer and complete your request in the same browser visit.</p>
+      <p className="mt-4 text-sm leading-relaxed text-slate-300">15% applies to eligible inflatable rental prices only. Delivery, mileage, accessories, yard games, foam parties, and facility parties are excluded. Availability and final delivery plans require staff confirmation. Claim the offer to save it for this browser visit, or enter GOOGLE15 at rental checkout.</p>
       <p className="mt-6 text-sm"><Link href="/contact" className="text-cyan-200 underline">Contact Jumping Jax</Link> for help choosing your rental.</p>
     </article>
   </main>;

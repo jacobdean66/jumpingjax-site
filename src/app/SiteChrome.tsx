@@ -4,12 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { trackLead } from "@/lib/analytics/client";
+import { useRentalPromotion } from "@/components/booking/RentalPromotion";
 
 export function SiteChrome() {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const promotionCode = useRentalPromotion();
 
-  if (pathname === "/offers/inflatables-15") {
+  if (pathname === "/offers/inflatables-15" || (promotionCode && (pathname === "/rentals" || pathname.startsWith("/rentals/")))) {
     return (
       <header aria-label="Rental offer header" className="border-b border-cyan-300/20 bg-[#071326] text-white">
         <div className="h-1 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />

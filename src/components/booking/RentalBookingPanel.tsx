@@ -35,7 +35,7 @@ import { rentalStepErrors, type RentalCheckoutStep } from "@/lib/rentals/checkou
 import { StickyReserveBar } from "./StickyReserveBar";
 import { trackLead } from "@/lib/analytics/client";
 import { calculateInflatableDiscount, DEFAULT_PROMOTION_SLUGS } from "@/lib/rentals/ad-promotion";
-import { useRentalPromotion } from "./RentalPromotion";
+import { RentalPromotionEntry, useRentalPromotion } from "./RentalPromotion";
 
 export type RentalBookingPanelProps = {
   rental_item: string;
@@ -918,6 +918,8 @@ export function RentalBookingPanel({
               one request for everything. Unavailable days reflect pending,
               approved, and blocked bookings in our system.
             </p>
+
+            <RentalPromotionEntry discount={promotionDiscount} eligibleItems={selectedRentalItems.some(item => promotionEligibleSlugs.includes(item.rental_item))} />
 
             {availabilityBanner && (
               <p

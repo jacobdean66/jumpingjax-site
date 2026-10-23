@@ -1,11 +1,7 @@
 import { RENTALS } from "@/data/rentals";
 import { estimateRentalLineSubtotal, type RentalLineInput } from "./rental-pricing-text";
-
-export const INFLATABLE_PROMOTION_CODE = "GOOGLE15";
-export const INFLATABLE_PROMOTION_PERCENT = 15;
-export const INFLATABLE_PROMOTION_PATH = "/offers/inflatables-15";
-export const PROMOTION_STORAGE_KEY = "jax-inflatables-promotion";
-export const PROMOTION_STORAGE_EVENT = "jax-promotion-change";
+import { INFLATABLE_PROMOTION_CODE, INFLATABLE_PROMOTION_PERCENT, normalizeInflatablePromotionCode } from "./ad-promotion-state";
+export { INFLATABLE_PROMOTION_CODE, INFLATABLE_PROMOTION_PERCENT, INFLATABLE_PROMOTION_PATH, PROMOTION_STORAGE_KEY, PROMOTION_STORAGE_EVENT, normalizeInflatablePromotionCode } from "./ad-promotion-state";
 
 export function isInflatablePromotionCategory(category: string): boolean {
   return ["bounce-houses", "combos", "obstacle-courses"].includes(category);
@@ -23,7 +19,7 @@ export function calculateInflatableDiscount(
   spanDays = 1,
   foamDurationLabel?: string | null,
 ): number {
-  if (code !== INFLATABLE_PROMOTION_CODE) return 0;
+  if (!normalizeInflatablePromotionCode(code)) return 0;
   const eligible = new Set(eligibleSlugs);
   const eligibleSubtotal = items.reduce((sum, item) => {
     if (!item.rental_item || !eligible.has(item.rental_item)) return sum;

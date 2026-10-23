@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateInflatableDiscount, isInflatablePromotionCategory } from "./ad-promotion";
+import { calculateInflatableDiscount, isInflatablePromotionCategory, normalizeInflatablePromotionCode } from "./ad-promotion";
 import { estimateCartGrandTotal } from "./rental-pricing-text";
 
 test("15% discount applies to eligible inflatable lines and leaves other fees and services intact", () => {
@@ -23,4 +23,9 @@ test("unknown codes cannot choose a percentage or a discount", () => {
 test("eligibility follows the approved bounce house, combo, and obstacle course offer", () => {
   for (const category of ["bounce-houses", "combos", "obstacle-courses"]) assert.equal(isInflatablePromotionCategory(category), true);
   for (const category of ["water-slides", "slides", "inflatable-games", "foam-parties", "accessories", "yard-games", "facility-parties", "unknown"]) assert.equal(isInflatablePromotionCategory(category), false);
+});
+test("customers can type the displayed code with spaces or lowercase, while unknown codes remain invalid", () => {
+  assert.equal(normalizeInflatablePromotionCode(" google15 "), "GOOGLE15");
+  assert.equal(calculateInflatableDiscount(" google15 ", [{ rental_item: "test", starting_price: 150 }], ["test"]), 22.5);
+  for (const value of [undefined, {}, "GOOGLE150", "GOOGLE 15", ""]) assert.equal(normalizeInflatablePromotionCode(value), "");
 });
