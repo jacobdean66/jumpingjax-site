@@ -5,10 +5,9 @@ import { FormEvent, useRef, useState } from "react";
 
 import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
 import { supervisorIssueAction } from "./navigation";
+import { SupervisorComposer } from "./SupervisorComposer";
 
 type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
-
-const STARTERS = ["Check the whole website", "Check bookings and calendars", "Check agent connections", "Check code and security", "Ask Waiver Agent to review waiver integrity", "Ask Booking Agent to review booking workflows"];
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(() => [...initialMessages].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
@@ -83,10 +82,6 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         </ul> : <p className="mt-2 text-sm text-slate-300">No {issueFilter} issues in the latest check.</p>}
       </div>}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {STARTERS.map((starter) => <button key={starter} disabled={busy} onClick={() => void send(starter)} className="rounded-full border border-slate-600 bg-slate-900 px-3 py-1.5 text-xs font-black hover:border-sky-400 disabled:opacity-50">{starter}</button>)}
-      </div>
-
       {snapshot ? (
         <div className="mt-5 grid gap-3 border-y border-slate-700 py-4 lg:grid-cols-[220px_1fr]">
           <div className="p-2">
@@ -123,11 +118,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         </div>
       ) : null}
 
-      <form onSubmit={submit} className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <label className="sr-only" htmlFor="permanent-agent-message">Message the Permanent Agent</label>
-        <textarea id="permanent-agent-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={800} rows={2} placeholder="Ask the Permanent Agent…" className="min-h-14 flex-1 resize-y rounded-2xl border border-slate-600 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-sky-400" />
-        <button disabled={busy || !message.trim()} className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{busy ? "Checking…" : "Send"}</button>
-      </form>
+      <SupervisorComposer message={message} busy={busy} onChange={setMessage} onSubmit={submit} />
 
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 max-h-[32rem] space-y-4 overflow-y-auto rounded-2xl bg-white p-4 text-slate-950">

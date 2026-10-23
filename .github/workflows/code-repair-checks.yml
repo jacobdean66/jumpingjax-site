@@ -30,3 +30,4 @@ jobs:
       - run: node --import tsx --test src/lib/agent-manager/code-repair.test.mts src/lib/agent-manager/code-repair-api.test.mts src/lib/agent-manager/coding-diagnosis.test.mts src/lib/agent-manager/supervisor.test.mts src/lib/agent-manager/supervisor-boundaries.test.mts src/app/admin/agents/agent-manager-ui.test.mts
       - run: node --test scripts/code-repairs/verify.test.mjs
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/network/network.test.mts
+      - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/writing-suggestions.test.mts
