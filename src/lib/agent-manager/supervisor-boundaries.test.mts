@@ -14,6 +14,8 @@ test("Permanent Agent chat is owner-only, bounded, and separates replies from co
   assert.doesNotMatch(service, /openai|anthropic|chat\.completions|responses\.create/i);
   assert.match(service, /generateSupervisorReply/);
   assert.match(service, /reply = actionOutcome/);
+  assert.doesNotMatch(service, /else if \(isCodeRepairRequest/);
+  assert.doesNotMatch(service, /visible acceptance check/);
   assert.match(service, /loadSupervisorConversation\(4, actorId\)/);
   assert.doesNotMatch(service, /customer_phone|customer_name|event_address/i);
   assert.doesNotMatch(service, /select\([^)]*customer_email(?!_status)/i);
