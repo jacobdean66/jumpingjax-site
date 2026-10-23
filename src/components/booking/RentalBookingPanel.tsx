@@ -657,7 +657,7 @@ export function RentalBookingPanel({
 
   const totalAmount = undiscountedTotal == null ? null : Math.round((undiscountedTotal - promotionDiscount) * 100) / 100;
   const totalDisplay =
-    totalAmount !== null ? `$${totalAmount}` : null;
+    totalAmount !== null ? `$${totalAmount.toFixed(2)}` : null;
 
   const reserveReason = !selectionValid
     ? "Complete a valid rental date first."

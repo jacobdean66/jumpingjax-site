@@ -33,6 +33,7 @@ export function RentalPromotionNotice({ dark = false }: { dark?: boolean }) {
   return <aside role="status" aria-label="Saved rental discount" className={`mb-5 rounded-2xl border p-4 text-sm ${dark ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-950"}`}>
     <p className="font-black">Your rental offer: {code} · 15% off eligible inflatables</p>
     <p className="mt-1">Choose a bounce house, bounce-and-slide combo, or obstacle course. The savings appear in your rental estimate and agreement. Delivery and other services are excluded.</p>
+    <nav aria-label="Eligible rental categories" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 font-bold underline"><Link href="/rentals/bounce-houses#rental-units">Bounce houses</Link><Link href="/rentals/combos#rental-units">Combos</Link><Link href="/rentals/obstacle-courses#rental-units">Obstacle courses</Link></nav>
   </aside>;
 }
 
