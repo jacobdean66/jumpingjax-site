@@ -16,6 +16,10 @@ export default function InflatableOfferPage() {
       <h1 className="mt-3 text-3xl font-black leading-tight sm:text-5xl">15% off inflatable rentals</h1>
       <p className="mt-4 text-base leading-relaxed text-slate-200 sm:text-lg">Claim this offer, choose your inflatable, and request your event date. Your eligible rental discount is calculated in your booking estimate.</p>
       <ClaimRentalPromotion />
+      <div className="mt-5 rounded-xl border border-white/20 p-4 text-sm">
+        <Link href="/visit" className="inline-flex min-h-11 items-center font-bold text-cyan-200 underline">Already booked, or visiting our facility? Choose your visit →</Link>
+        <p className="mt-1 text-slate-300">Rental agreements and facility participant waivers have separate paths. This 15% offer is for eligible inflatable rentals only.</p>
+      </div>
       <h2 className="mt-9 text-xl font-bold">What’s included</h2>
       <p className="mt-3 leading-relaxed text-slate-300">Eligible bounce houses, bounce and slide combos, and inflatable obstacle courses.</p>
       <p className="mt-4 text-sm leading-relaxed text-slate-300">15% applies to eligible inflatable rental prices only. Delivery, mileage, accessories, yard games, foam parties, and facility parties are excluded. Availability and final delivery plans require staff confirmation. Claim the offer to save it for this browser visit, or enter GOOGLE15 at rental checkout.</p>

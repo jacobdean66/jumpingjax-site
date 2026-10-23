@@ -60,14 +60,14 @@ export function ClaimRentalPromotion() {
   const code = useRentalPromotion();
   const [error, setError] = useState("");
   return <div className="mt-6 space-y-4">
-    {code ? <Link href="/rentals#rental-categories" className="inline-flex min-h-12 items-center rounded-full bg-cyan-300 px-6 py-3 font-black text-slate-950">Choose my inflatable →</Link> : <button type="button" onClick={() => {
+    {code ? <Link href="/rentals#rental-categories" className="inline-flex min-h-12 items-center rounded-full bg-cyan-300 px-6 py-3 font-black text-slate-950">Go to website &amp; use my code →</Link> : <button type="button" onClick={() => {
       try { savePromotion(); }
       catch { setError("Allow browser storage to save this offer, or contact us and mention the Google 15% offer."); return; }
       setError("");
     }} className="min-h-12 rounded-full bg-cyan-300 px-6 py-3 font-black text-slate-950">
       Claim my 15% discount
     </button>}
-    {code && <div role="status" className="rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-4 text-emerald-100"><p className="font-black">Your code: <code className="select-all">{INFLATABLE_PROMOTION_CODE}</code></p><p className="mt-1 text-sm">Choose your inflatable and date next. Your savings appear in the estimate and agreement. Returning in another browser? Enter this code at checkout.</p></div>}
+    {code && <div role="status" className="rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-4 text-emerald-100"><p className="font-black">Your code: <code className="select-all">{INFLATABLE_PROMOTION_CODE}</code></p><p className="mt-1 text-sm">Your code is automatically entered for this browser visit. Choose your inflatable and date next to see your savings in the estimate and agreement. Returning in another browser? Enter this code at checkout.</p></div>}
     {error && <p role="alert" className="text-amber-200">{error}</p>}
     {!code && <Link href="/rentals#rental-categories" className="block w-fit rounded-full border border-white/30 px-6 py-3 font-bold">Browse inflatable rentals</Link>}
   </div>;
