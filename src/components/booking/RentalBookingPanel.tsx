@@ -699,7 +699,7 @@ export function RentalBookingPanel({
           total: totalAmount ?? 0,
   };
   const bookingFingerprint = JSON.stringify(bookingPayload);
-  const agreementReady = signLater || (agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged);
+  const agreementReady = signLater ? promotionDiscount === 0 : (agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged);
   const submitBlocked = Boolean(reserveReason) || !agreementReady || isSubmitting;
 
   const serverLoadOk = availabilityLoadError === null;
@@ -1215,9 +1215,9 @@ export function RentalBookingPanel({
             <div className="mt-6 rounded-2xl border border-cyan-400/40 bg-cyan-400/5 p-4 text-sm text-white sm:p-6">
               <p className="font-black">Who will sign the rental agreement?</p>
               <label className="mt-3 flex items-start gap-3"><input type="radio" name="agreementSigning" checked={!signLater} onChange={() => setSignLater(false)} className="mt-1" /> <span>The customer is here and will sign now</span></label>
-              <label className="mt-3 flex items-start gap-3"><input type="radio" name="agreementSigning" checked={signLater} onChange={() => setSignLater(true)} className="mt-1" /> <span>Email the customer a link to sign later</span></label>
-              {signLater && promotionCode && <p className="mt-3 text-amber-200">If this Google offer applies to the rental, the customer must sign during checkout. Contact Jumping Jax for help.</p>}
-              {signLater && <p className="mt-3 text-cyan-100">We will email the signing link to {customer.customerEmail || "the customer's email"}. The agreement stays unsigned until the customer signs it.</p>}
+              <label className="mt-3 flex items-start gap-3"><input type="radio" name="agreementSigning" checked={signLater} disabled={promotionDiscount > 0} onChange={() => setSignLater(true)} className="mt-1" /> <span>Email the customer a link to sign later</span></label>
+              {promotionDiscount > 0 && <p className="mt-3 text-amber-200">With this Google offer, the customer needs to sign during checkout. Contact Jumping Jax for help.</p>}
+              {signLater && promotionDiscount === 0 && <p className="mt-3 text-cyan-100">We will email the signing link to {customer.customerEmail || "the customer's email"}. The agreement stays unsigned until the customer signs it.</p>}
             </div>
             {!signLater && <RentalAgreementCheckout key={`${bookingFingerprint}:${agreementRefresh}`} payload={bookingPayload} requestFingerprint={bookingFingerprint} enabled={!reserveReason} onChange={setAgreement} />}
                 </div>
