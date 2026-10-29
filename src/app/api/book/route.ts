@@ -2,6 +2,8 @@ import { prepareRentalBooking } from "@/lib/rental-agreements/prepare-booking";
 import { loadAgreementTemplate, loadAgreementHistory, customerAgreementPath } from "@/lib/rental-agreements/store";
 import { buildRentalAgreementSnapshot } from "@/lib/rental-agreements/snapshot";
 import { validSignerName } from "@/lib/rental-agreements/types";
+import { emailRentalAgreement, prepareRentalAgreement } from "@/lib/rental-agreements/delivery";
+import { normalizeAgreementEmail } from "@/lib/rental-agreements/workflow";
 import { agreementToken, hashToken, verifyPreviewToken } from "@/lib/rental-agreements/security";
 import { hmacIpAddress } from "@/lib/waivers/tokens";
 import { after, NextResponse } from "next/server";
@@ -56,17 +58,23 @@ export async function POST(req: Request) {
   if (prepared instanceof Response) return prepared;
   const { input, lineItems, notes } = prepared;
   const { customerName, email: customerEmail, phone: customerPhone, eventDateYmd, durationLabel, spanDays, foamDurationLabel, eventAddress, event_start_time: eventStartTime, requested_delivery_window: requestedDeliveryWindow, setup_location: setupLocation, setup_surface: setupSurface, setup_access: setupAccess, setup_notes: setupNotes, payment_method: paymentMethod, total, delivery_fee: deliveryFee, mileage_fee: mileageFee, distance_miles: distanceMiles } = input;
-  if (body.agreement_acknowledged !== true || !validSignerName(body.agreement_signer_name)) {
-    return NextResponse.json({ ok: false, error: "Review the rental agreement, check the acknowledgment, and type your full legal name to sign." }, { status: 400 });
+  const signLater = body.agreement_sign_later === true;
+  if (signLater && input.promotion) return NextResponse.json({ ok: false, error: "This offer currently requires the customer to sign during checkout. Contact Jumping Jax for help." }, { status: 400 });
+  let bookingInput = input;
+  if (!signLater) {
+    if (body.agreement_acknowledged !== true || !validSignerName(body.agreement_signer_name)) {
+      return NextResponse.json({ ok: false, error: "Review the rental agreement, check the acknowledgment, and type your full legal name to sign." }, { status: 400 });
+    }
+    const template = await loadAgreementTemplate();
+    const snapshot = buildRentalAgreementSnapshot(input, template);
+    if (!verifyPreviewToken(body.agreement_preview_token, snapshot)) {
+      return NextResponse.json({ ok: false, error: "Your booking details or agreement have changed. Review the agreement again before signing.", agreementRefreshRequired: true }, { status: 409 });
+    }
+    const agreementId = crypto.randomUUID();
+    const token = agreementToken(agreementId);
+    bookingInput = { ...input, agreement: { id: agreementId, tokenHash: hashToken(token), snapshot, templateVersion: template.version, signerName: body.agreement_signer_name.trim(), ipHmac: hmacIpAddress(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()), userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null } };
   }
-  const template = await loadAgreementTemplate();
-  const snapshot = buildRentalAgreementSnapshot(input, template);
-  if (!verifyPreviewToken(body.agreement_preview_token, snapshot)) {
-    return NextResponse.json({ ok: false, error: "Your booking details or agreement have changed. Review the agreement again before signing.", agreementRefreshRequired: true }, { status: 409 });
-  }
-  const agreementId = crypto.randomUUID();
-  const token = agreementToken(agreementId);
-  const result = await insertPendingBooking({ ...input, agreement: { id: agreementId, tokenHash: hashToken(token), snapshot, templateVersion: template.version, signerName: body.agreement_signer_name.trim(), ipHmac: hmacIpAddress(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()), userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null } });
+  const result = await insertPendingBooking(bookingInput);
 
   if (!result.ok) {
     const error = result.message ?? result.code ?? result;
@@ -102,8 +110,26 @@ export async function POST(req: Request) {
     }),
   );
 
-  const savedAgreement = (await loadAgreementHistory([result.id])).get(result.id)?.[0];
-  const signedAgreementPath = savedAgreement ? customerAgreementPath(savedAgreement.id) : null;
+  if (signLater) {
+    const { data: persisted, error: lookupError } = await workflowSupabase.from("bookings").select("customer_email,customer_name,event_date").eq("id", result.id).single();
+    if (lookupError || !persisted || normalizeAgreementEmail(persisted.customer_email) !== normalizeAgreementEmail(customerEmail) || persisted.customer_name !== customerName || String(persisted.event_date).slice(0, 10) !== eventDateYmd) {
+      return NextResponse.json({ ok: false, error: "This request was already saved with different customer or event details. Check the rental dashboard before trying again." }, { status: 409 });
+    }
+    try { await prepareRentalAgreement(result.id, crypto.randomUUID(), "Customer signing after booking"); }
+    catch (error) { console.error("[api/book] agreement preparation failed", error); }
+  }
+  const savedAgreement = signLater
+    ? (await loadAgreementHistory([result.id]).catch(() => new Map())).get(result.id)?.[0]
+    : (await loadAgreementHistory([result.id])).get(result.id)?.[0];
+  const signedAgreementPath = savedAgreement?.status === "signed" ? customerAgreementPath(savedAgreement.id) : null;
+  const signingAgreementPath = signLater && savedAgreement?.status === "awaiting_signature" ? customerAgreementPath(savedAgreement.id) : null;
+  let agreementEmailSent = false;
+  if (signingAgreementPath && savedAgreement) {
+    try {
+      const sent = await emailRentalAgreement({ bookingId: result.id, agreementId: savedAgreement.id, requestId: savedAgreement.id, signedCopy: false, expectedEmail: customerEmail, requestUrl: req.url });
+      agreementEmailSent = sent.ok;
+    } catch (error) { console.error("[api/book] signing email failed", error); }
+  }
   const facilityOwnerEmails = getFacilityOwnerEmails();
   const siteUrl = resolveRentalEmailSiteUrl(req.url);
   console.log(
@@ -178,6 +204,7 @@ export async function POST(req: Request) {
             estimatedTotalLine,
             "Final quote will be confirmed by Jumping Jax.",
             signedAgreementPath ? `Your signed rental agreement: ${new URL(signedAgreementPath, resolveRentalEmailSiteUrl(req.url)).toString()}` : null,
+            signLater && !signedAgreementPath ? "Your rental agreement must be signed separately. Jumping Jax will follow up if you do not receive a signing link." : null,
           ]
             .filter((line): line is string => line !== null)
             .join("\n"),
@@ -318,5 +345,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, id: result.id, emailsSent, signedAgreementPath });
+  return NextResponse.json({ ok: true, id: result.id, emailsSent, signedAgreementPath, signingAgreementPath, agreementEmailSent: signLater ? agreementEmailSent : null });
 }

@@ -362,6 +362,8 @@ export function RentalBookingPanel({
   );
   const [agreement, setAgreement] = useState<CheckoutAgreement | null>(null);
   const [agreementPath, setAgreementPath] = useState<string | null>(null);
+  const [signLater, setSignLater] = useState(false);
+  const [signingEmailSent, setSigningEmailSent] = useState<boolean | null>(null);
   const [agreementRefresh, setAgreementRefresh] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -373,6 +375,8 @@ export function RentalBookingPanel({
     setSuccessId(null);
     setRestoredSuccessId(null);
     setSubmitEmailsSent(null);
+    setSigningEmailSent(null);
+    setAgreementPath(null);
   };
 
   useEffect(() => {
@@ -695,7 +699,7 @@ export function RentalBookingPanel({
           total: totalAmount ?? 0,
   };
   const bookingFingerprint = JSON.stringify(bookingPayload);
-  const agreementReady = agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged;
+  const agreementReady = signLater || (agreement?.requestFingerprint === bookingFingerprint && agreement.acknowledged);
   const submitBlocked = Boolean(reserveReason) || !agreementReady || isSubmitting;
 
   const serverLoadOk = availabilityLoadError === null;
@@ -764,7 +768,7 @@ export function RentalBookingPanel({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current, agreement_signer_name: agreement?.signerName, agreement_acknowledged: agreement?.acknowledged, agreement_preview_token: agreement?.previewToken }),
+        body: JSON.stringify({ ...bookingPayload, idempotency_key: submitIdempotencyKey.current, agreement_sign_later: signLater, agreement_signer_name: agreement?.signerName, agreement_acknowledged: agreement?.acknowledged, agreement_preview_token: agreement?.previewToken }),
       });
 
       const data: unknown = await res.json().catch(() => null);
@@ -808,6 +812,8 @@ export function RentalBookingPanel({
         });
         setSubmitEmailsSent(emailsSent);
         if (data && typeof data === "object" && "signedAgreementPath" in data && typeof data.signedAgreementPath === "string") setAgreementPath(data.signedAgreementPath);
+        if (data && typeof data === "object" && "signingAgreementPath" in data && typeof data.signingAgreementPath === "string") setAgreementPath(data.signingAgreementPath);
+        if (signLater && data && typeof data === "object" && "agreementEmailSent" in data && !("signedAgreementPath" in data && data.signedAgreementPath)) setSigningEmailSent(data.agreementEmailSent === true);
         writePersistedSubmitSuccess(id, slug);
         setSuccessId(id);
         if (selectedYmd && duration) {
@@ -861,7 +867,8 @@ export function RentalBookingPanel({
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
               You will receive an email once Jumping Jax confirms your booking.
             </p>
-            {agreementPath ? <a href={agreementPath} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950">View your signed rental agreement</a> : null}
+            {signingEmailSent !== null && <p className="mt-3 text-sm font-bold text-cyan-100">{signingEmailSent ? "The agreement signing link was emailed to the customer. The agreement remains unsigned until the customer signs." : "The request was saved, but the signing link could not be emailed. Open the rental in the dashboard to prepare or resend it."}</p>}
+            {agreementPath ? <a href={agreementPath} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950">{signingEmailSent !== null ? "Open customer signing link" : "View your signed rental agreement"}</a> : null}
             {submitEmailsSent === false && (
               <p className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-sm leading-relaxed text-amber-100">
                 Your request was saved, but we could not send a confirmation
@@ -1106,7 +1113,7 @@ export function RentalBookingPanel({
                 <p className="text-xs font-black uppercase tracking-wide text-cyan-200" aria-live="polite">Step {step} of 4</p>
                 <div className="mt-3 flex gap-2" aria-hidden="true">{[1, 2, 3, 4].map(number => <div key={number} className={`h-1.5 flex-1 rounded-full ${number <= step ? "bg-cyan-300" : "bg-white/15"}`} />)}</div>
                 <h3 ref={stepHeading} tabIndex={-1} className="mt-5 scroll-mt-28 text-xl font-black text-white outline-none">{["Your information", "Delivery and setup", "Timing and payment", "Review and agreement"][step - 1]}</h3>
-                <p className="mb-5 mt-2 text-sm text-slate-300">{step === 4 ? "Review your booking and sign the agreement to submit your request." : "Complete each required answer below to continue. Optional questions are labeled."}</p>
+                <p className="mb-5 mt-2 text-sm text-slate-300">{step === 4 ? "Review your booking, then choose how the customer will sign the agreement." : "Complete each required answer below to continue. Optional questions are labeled."}</p>
                 {Object.keys(fieldErrors).length > 0 && <p role="alert" className="mb-4 rounded-xl border border-rose-400/35 bg-rose-500/10 p-3 text-sm text-rose-100">Please complete the highlighted answers before continuing.</p>}
                 <div className={step === 4 ? "space-y-4" : "hidden"}>
                 <BookingSummary
@@ -1205,7 +1212,14 @@ export function RentalBookingPanel({
                   </label>
                 </div>
                 <div className={step === 4 ? "block" : "hidden"}>
-            <RentalAgreementCheckout key={`${bookingFingerprint}:${agreementRefresh}`} payload={bookingPayload} requestFingerprint={bookingFingerprint} enabled={!reserveReason} onChange={setAgreement} />
+            <div className="mt-6 rounded-2xl border border-cyan-400/40 bg-cyan-400/5 p-4 text-sm text-white sm:p-6">
+              <p className="font-black">Who will sign the rental agreement?</p>
+              <label className="mt-3 flex items-start gap-3"><input type="radio" name="agreementSigning" checked={!signLater} onChange={() => setSignLater(false)} className="mt-1" /> <span>The customer is here and will sign now</span></label>
+              <label className="mt-3 flex items-start gap-3"><input type="radio" name="agreementSigning" checked={signLater} onChange={() => setSignLater(true)} className="mt-1" /> <span>Email the customer a link to sign later</span></label>
+              {signLater && promotionCode && <p className="mt-3 text-amber-200">If this Google offer applies to the rental, the customer must sign during checkout. Contact Jumping Jax for help.</p>}
+              {signLater && <p className="mt-3 text-cyan-100">We will email the signing link to {customer.customerEmail || "the customer's email"}. The agreement stays unsigned until the customer signs it.</p>}
+            </div>
+            {!signLater && <RentalAgreementCheckout key={`${bookingFingerprint}:${agreementRefresh}`} payload={bookingPayload} requestFingerprint={bookingFingerprint} enabled={!reserveReason} onChange={setAgreement} />}
                 </div>
             <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-400 sm:max-w-xs">
