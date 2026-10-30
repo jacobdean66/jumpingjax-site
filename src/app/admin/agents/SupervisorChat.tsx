@@ -7,8 +7,9 @@ import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-ma
 import { supervisorIssueAction } from "./navigation";
 import { SupervisorComposer } from "./SupervisorComposer";
 import { SupervisorReply } from "./SupervisorReply";
+import { parseInvestigationEvidence, type InvestigationTrace } from '@/lib/agent-manager/investigation';
 
-type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null };
+type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[] };
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(() => [...initialMessages].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
@@ -33,9 +34,9 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed, clientRequestId: crypto.randomUUID() }),
       });
-      const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; error?: string };
+      const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; evidence?: unknown; error?: string };
       if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
-      setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
+      setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null, evidence: parseInvestigationEvidence(body.evidence) }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
       requestAnimationFrame(() => historyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
       setSnapshot(body.snapshot);
       window.dispatchEvent(new Event("agent-manager:refresh"));
@@ -65,6 +66,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
       <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
         <SupervisorReply text={item.reply} />
+        {item.evidence?.length ? <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Sources checked ({item.evidence.length})</summary><ul className="mt-2 space-y-2">{item.evidence.map((entry, index) => <li key={index} className="break-words"><span className={entry.ok ? 'text-emerald-800' : 'text-rose-800'}>{entry.ok ? 'Checked' : 'Unavailable'}</span> · {entry.source}<span className="block text-xs">{formatAgentTime(entry.checkedAt)}{entry.limited ? ' · Limited scope' : ''}</span></li>)}</ul></details> : null}
         {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
       </div>
     </article>;

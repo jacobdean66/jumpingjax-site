@@ -5,6 +5,7 @@ import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { privateJson, safeOwnerAuthError, validateOwnerPost } from "@/lib/security/request-guard";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 90;
 
 export async function GET() {
   const auth = await verifyAdminOwnerAccess();

@@ -32,6 +32,8 @@ import { loadCodeRepairWorkerStatus } from "./code-repair-service";
 import { codingConversationAction, supervisorReplyContext } from "./conversation-reply";
 import { generateSupervisorReply } from "./conversation-reply-provider";
 import { invitationCorrectionHref } from "@/lib/facility-parties/invitations/correction";
+import { createInvestigationReader } from './investigation-service';
+import { canReadOfficeMail, parseInvestigationEvidence } from './investigation';
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
@@ -144,7 +146,7 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
   await Promise.all([
     db.from("agents").update({
       status: "idle",
-      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "social.draft.handoff", "agent.pause", "agent.resume", "manager.emergency_stop"],
+      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "repository.read", "website.inspect", "database.operational.read", "email.office.read", "social.draft.handoff", "agent.pause", "agent.resume", "manager.emergency_stop"],
       current_job_id: null,
       last_activity_at: now,
       last_success_at: now,
@@ -155,7 +157,7 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
       job_id: job.id,
       event_type: job.job_type === SUPERVISOR_CHAT_JOB_TYPE ? "supervisor.replied" : "supervisor.watch_completed",
       summary: summary.slice(0, 1000),
-      metadata: { aiInvocations: payload?.aiInvocations ?? 0, businessWrites: 0 },
+      metadata: { aiInvocations: payload?.aiInvocations ?? 0, readOnlyLookups: Array.isArray(payload?.evidence) ? payload.evidence.length : 0, businessWrites: 0 },
     }),
   ]);
 }
@@ -207,6 +209,7 @@ export async function runSupervisorConversation(message: string, actorId: string
       snapshot: job.payload.snapshot as SupervisorSnapshot,
       actionOutcome: typeof job.payload.actionOutcome === "string" ? job.payload.actionOutcome : null,
       relatedAction: (job.payload.relatedAction as SupervisorRelatedAction | null | undefined) ?? null,
+      evidence: parseInvestigationEvidence(job.payload.evidence),
       deduplicated: true,
     };
   }
@@ -236,17 +239,27 @@ export async function runSupervisorConversation(message: string, actorId: string
     const relatedAction = handoff?.relatedAction ?? codingConversationAction(message);
     let reply: string;
     let aiInvocations = 0;
+    const deadline = AbortSignal.timeout(55000);
+    const reader = createInvestigationReader({ allowEmail: canReadOfficeMail(message) }, deadline);
     if (actionOutcome) {
       // Explicit commands keep their verified outcome; the model never runs a control.
       reply = actionOutcome;
     } else {
-      const { data: supervisor, error: supervisorError } = await db.from("agents").select("enabled,paused").eq("key", "supervisor").single();
-      if (supervisorError || !supervisor?.enabled || supervisor.paused || snapshot.agents.emergencyStop) throw new Error("Conversational replies are paused by Permanent Agent controls.");
+      const assertAllowed = async () => {
+        const [supervisor, settings] = await Promise.all([
+          db.from('agents').select('enabled,paused').eq('key', 'supervisor').single(),
+          db.from('agent_manager_settings').select('emergency_stop').eq('singleton', true).single(),
+        ]);
+        if (supervisor.error || settings.error || !supervisor.data?.enabled || supervisor.data.paused || settings.data?.emergency_stop) throw new Error('Conversational replies are paused by Permanent Agent controls.');
+      };
+      await assertAllowed();
       const history = await loadSupervisorConversation(4, actorId);
-      aiInvocations = 1;
-      const reserved = await db.from("agent_jobs").update({ payload: { ...job.payload, actorId, aiInvocations } }).eq("id", job.id).eq("status", "running");
-      if (reserved.error) throw new Error("Conversational replies are temporarily unavailable.");
-      reply = await generateSupervisorReply({ message, context: supervisorReplyContext(message, snapshot), history }, AbortSignal.timeout(20_000));
+      reply = await generateSupervisorReply({ message, context: supervisorReplyContext(message, snapshot), history, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
+        await assertAllowed();
+        if (++aiInvocations > 4) throw new Error('Conversational investigation reached its model-call limit.');
+        const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
+        if (reserved.error || !reserved.data) throw new Error('Conversational replies are temporarily unavailable.');
+      } } }, deadline);
     }
     const payload = {
       message,
@@ -256,10 +269,11 @@ export async function runSupervisorConversation(message: string, actorId: string
       actionOutcome,
       relatedAction,
       aiInvocations,
+      evidence: reader.traces,
       businessWritesAllowed: false,
     };
     await finishSupervisorJob(job, reply, payload);
-    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, deduplicated: false };
+    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, evidence: reader.traces, deduplicated: false };
   } catch (error) {
     const failedAt = new Date().toISOString();
     await Promise.all([

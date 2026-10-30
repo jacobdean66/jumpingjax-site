@@ -40,16 +40,17 @@ export function belongsToOffice(message: OfficeMessage, folder: MailFolder): boo
   return addressed;
 }
 
-async function resendRead<T>(path: string): Promise<T> {
+async function resendRead<T>(path: string, signal?: AbortSignal): Promise<T> {
   const key = process.env.RESEND_INBOX_API_KEY?.trim() || process.env.RESEND_API_KEY?.trim();
   if (!key) throw new Error("Office email is not configured. Please contact the owner.");
   for (let attempt = 0; attempt < 2; attempt++) {
     let response: Response;
     try {
       response = await fetch(`https://api.resend.com${path}`, {
+        method: 'GET',
         headers: { Authorization: `Bearer ${key}` },
         cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(15_000)]),
       });
     } catch {
       throw new Error("Email could not be reached. Please refresh to try again.");
@@ -72,38 +73,43 @@ async function resendRead<T>(path: string): Promise<T> {
   throw new Error("Email is busy. Please refresh in a moment.");
 }
 
-export async function readOfficeMessage(folder: MailFolder, id: string): Promise<OfficeMessage | null> {
+export async function readOfficeMessage(folder: MailFolder, id: string, signal?: AbortSignal): Promise<OfficeMessage | null> {
   if (!isMailId(id)) return null;
-  const message = await resendRead<OfficeMessage>(`/emails/${folder === "inbox" ? "receiving/" : ""}${id}`);
+  const message = await resendRead<OfficeMessage>(`/emails/${folder === "inbox" ? "receiving/" : ""}${id}`, signal);
   return belongsToOffice(message, folder) ? message : null;
 }
 
-export async function listOfficeMessages(folder: MailFolder, after = "") {
+export async function listOfficeMessages(folder: MailFolder, after = "", options: { signal?: AbortSignal; maxPages?: number; maxMessages?: number } = {}) {
   const messages: OfficeMessage[] = [];
   let cursor = isMailId(after) ? after : "";
   let next: string | null = null;
   let pages = 0;
   do {
+    options.signal?.throwIfAborted();
     if (pages > 0) await new Promise(resolve => setTimeout(resolve, 550));
     const query = new URLSearchParams({ limit: folder === "sent" ? "100" : "20" });
     if (cursor) query.set("after", cursor);
-    const result = await resendRead<{ data: OfficeMessage[]; has_more: boolean }>(`/emails${folder === "inbox" ? "/receiving" : ""}?${query}`);
+    const result = await resendRead<{ data: OfficeMessage[]; has_more: boolean }>(`/emails${folder === "inbox" ? "/receiving" : ""}?${query}`, options.signal);
+    let consumed = 0;
     for (const row of result.data) {
+      options.signal?.throwIfAborted();
       if (belongsToOffice(row, folder)) {
         messages.push(row);
       } else if (folder === "inbox") {
         // BCC and forwarded recipients may appear only in the detailed envelope.
         await new Promise(resolve => setTimeout(resolve, 550));
-        const full = await readOfficeMessage(folder, row.id);
+        const full = await readOfficeMessage(folder, row.id, options.signal);
         if (full) messages.push(full);
       }
+      consumed++;
+      if (options.maxMessages && messages.length >= Math.max(1, Math.min(20, options.maxMessages))) break;
     }
     pages++;
-    next = result.has_more ? result.data.at(-1)?.id ?? null : null;
+    next = result.has_more || consumed < result.data.length ? result.data[consumed - 1]?.id ?? null : null;
     cursor = next ?? "";
     // Sent messages are interleaved with all other account mail. Scan several
     // provider pages so office copies don't disappear among unrelated sends.
-  } while (folder === "sent" && next && messages.length < 20 && pages < 10);
+  } while (folder === "sent" && next && messages.length < Math.min(20, options.maxMessages ?? 20) && pages < Math.min(10, options.maxPages ?? 10));
   return { messages, next };
 }
 

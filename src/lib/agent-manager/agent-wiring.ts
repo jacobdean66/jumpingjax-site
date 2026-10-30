@@ -24,9 +24,9 @@ export function buildAgentWiring(input: {
     {
       key: "supervisor",
       state: "connected",
-      handler: "Deterministic website supervisor",
+      handler: "Conversational supervisor with read-only investigation",
       trigger: "Owner chat + five-minute watcher",
-      summary: "Checks website and operational health; exact safe controls only.",
+      summary: "Searches deployed source, inspects public pages, reads operational database fields and the Office Inbox; existing explicit controls and approval workflows remain separate.",
       supervisorDispatch: true,
       canPause: false,
     },
