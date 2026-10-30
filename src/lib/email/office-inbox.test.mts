@@ -62,7 +62,7 @@ test("BCC envelope hydration preserves office copies and the upstream pagination
 test("upstream errors remain errors, without exposing response bodies or credentials", async () => {
   process.env.RESEND_API_KEY = "test-credential";
   globalThis.fetch = (async () => new Response("private provider diagnostic and credential", { status: 403 })) as typeof fetch;
-  await assert.rejects(listOfficeMessages("sent"), error => error instanceof Error && error.message === "Email could not be loaded. Please refresh to try again.");
+  await assert.rejects(listOfficeMessages("sent"), error => error instanceof Error && error.message === "Email service access was denied. Please contact the site administrator.");
 });
 
 test("attachments require membership in the office message", async () => {

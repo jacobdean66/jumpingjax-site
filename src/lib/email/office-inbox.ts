@@ -58,9 +58,14 @@ async function resendRead<T>(path: string): Promise<T> {
       await new Promise(resolve => setTimeout(resolve, wait));
       continue;
     }
-    if (!response.ok) throw new Error(response.status === 404
-      ? "This message is no longer available."
-      : "Email could not be loaded. Please refresh to try again.");
+    if (!response.ok) {
+      console.error("[office-inbox] Email provider request failed", { status: response.status, folder: path.startsWith("/emails/receiving") ? "inbox" : "sent" });
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Email service access was denied. Please contact the site administrator.");
+      }
+      if (response.status === 404) throw new Error("This message is no longer available.");
+      throw new Error("Email could not be loaded. Please refresh to try again.");
+    }
     return await response.json() as T;
   }
   throw new Error("Email is busy. Please refresh in a moment.");
