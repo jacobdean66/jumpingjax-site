@@ -57,7 +57,9 @@ export async function finishCodeRepair(id: string, leaseToken: string, raw: unkn
   const result = codeRepairResultSchema.parse(raw);
   const db = createServiceRoleClient();
   const task = await db.from(CODE_REPAIR_TABLE).select('page_path').eq('id', id).eq('lease_token', leaseToken).eq('status', 'running').maybeSingle();
-  if (task.error || !task.data || result.changedFiles.some(path => !allowedTaskRepairPath(path, task.data.page_path)) || (result.outcome === 'review_ready' && !acceptedRepairEvidence(result, task.data.page_path))) throw new Error('Repair evidence does not match the queued scope.');
+  if (task.error || !task.data) throw new Error('Repair evidence does not match the queued scope.');
+  const pagePath = task.data.page_path;
+  if (result.changedFiles.some(path => !allowedTaskRepairPath(path, pagePath)) || (result.outcome === 'review_ready' && !acceptedRepairEvidence(result, pagePath))) throw new Error('Repair evidence does not match the queued scope.');
   const { data, error } = await db.rpc("finish_code_repair", { p_id: id, p_lease_token: leaseToken, p_result: result });
   if (error || !data) throw new Error("The repair was cancelled, paused, completed or its worker lease expired.");
   return result;
