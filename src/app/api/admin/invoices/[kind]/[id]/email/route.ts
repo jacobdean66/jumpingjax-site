@@ -60,6 +60,7 @@ export async function POST(
     const { error } = await resend.emails.send({
       from: getResendFromAddress(),
       to,
+      replyTo: officeEmail,
       bcc: target === "customer-and-office" && invoice.customerEmail.toLowerCase() !== officeEmail.toLowerCase()
         ? officeEmail
         : undefined,

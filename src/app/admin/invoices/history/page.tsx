@@ -19,7 +19,7 @@ export default async function InvoiceHistoryPage({ searchParams }: { searchParam
     <AdminHeader eyebrow="Billing" title="Invoice history"><AdminNav token="" role={auth.role} active="invoices" /></AdminHeader>
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
       <p className="max-w-3xl text-sm text-slate-600">Search saved invoices and select a customer to open their invoice.</p>
-      <Link href="/admin/invoices" className="rounded-full bg-sky-950 px-4 py-2 text-sm font-black text-white">Create invoice</Link>
+      <div className="flex flex-wrap gap-2"><Link href="/admin/invoices/inbox" className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-black text-white">View office inbox</Link><Link href="/admin/invoices" className="rounded-full bg-sky-950 px-4 py-2 text-sm font-black text-white">Create invoice</Link></div>
     </div>
     <form role="search" action="/admin/invoices/history" className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
       <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-bold">Search invoices<input type="search" name="q" defaultValue={filters.q} maxLength={100} placeholder="Search by customer name, email, or invoice number" className={`${control} w-full min-w-[180px] border-2 border-indigo-300 py-3 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200`} /></label>

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { AdminAuthError } from "@/app/admin/_components";
 import { PrintInvoiceButton } from "@/app/admin/invoices/PrintInvoiceButton";
@@ -30,7 +31,7 @@ export default async function InvoicePrintPage({
 
   return (
     <main className="min-h-screen bg-slate-200 p-4 text-slate-950 print:bg-white print:p-0">
-      <div className="mx-auto mb-4 flex max-w-4xl justify-end print:hidden"><PrintInvoiceButton /></div>
+      <div className="mx-auto mb-4 flex max-w-4xl flex-wrap justify-end gap-3 print:hidden"><Link href="/admin/invoices/inbox" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white">View office inbox</Link><PrintInvoiceButton /></div>
       <article className="mx-auto max-w-4xl bg-white p-8 shadow-xl print:max-w-none print:p-5 print:shadow-none">
         <header className="grid grid-cols-[1fr_180px] gap-5 border-t-8 border-sky-950 border-b-4 border-b-rose-500 py-5">
           <div><Image src="/logo.png" alt="Jumping Jax" width={260} height={100} className="max-h-24 w-auto object-contain object-left" priority /><p className="mt-2 text-sm font-semibold text-slate-600">559 Beaudrot Road, Greenwood, SC<br />864-933-1420 · info@jumpingjaxllc.com<br />jumpingjaxllc.com</p></div>

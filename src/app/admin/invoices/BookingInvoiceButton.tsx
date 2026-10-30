@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, Mail, Plus, Printer, ReceiptText, Save, Trash2, X } from "lucide-react";
+import { Eye, Inbox, Mail, Plus, Printer, ReceiptText, Save, Trash2, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -180,6 +181,7 @@ export function BookingInvoiceButton({ kind, bookingId, initialInvoice, label = 
                 <h2 className="text-xl font-black text-slate-950">{kind === "standalone" ? "Standalone invoice" : `Booking #${bookingId}`}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <Link href="/admin/invoices/inbox" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-black text-indigo-900 hover:bg-indigo-100"><Inbox className="h-4 w-4" /> View office inbox</Link>
                 <button type="button" disabled={working || !invoice} onClick={save} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"><Save className="h-4 w-4" /> Save</button>
                 <button type="button" disabled={working || !invoice} onClick={() => printInvoice("customer")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"><Printer className="h-4 w-4" /> Print customer copy</button>
                 <button type="button" disabled={working || !invoice} onClick={() => printInvoice("office")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"><Printer className="h-4 w-4" /> Print office copy</button>
