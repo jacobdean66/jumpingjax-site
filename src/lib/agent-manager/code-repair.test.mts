@@ -4,16 +4,17 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { codeRepairRequestSchema, codeRepairResultSchema, isCodeRepairRequest } from "./code-repair";
-import { allowedRepairPath, publicPreviewPath } from "../../../scripts/code-repairs/policy.mjs";
+import { allowedRepairPath, publicPreviewPath, allowedEngineeringPath, allowedTaskRepairPath, acceptedRepairEvidence } from "../../../scripts/code-repairs/policy.mjs";
 import { buildAgentWiring } from "./agent-wiring";
 
-test("repair requests require a public page and a bounded visible acceptance check", () => {
+test("repair requests require a scoped page and a bounded visible acceptance check", () => {
   const input = { requestId: randomUUID(), description: "Fix the missing rental heading", pagePath: "/rentals", expectedText: "Inflatable rentals" };
   assert.ok(codeRepairRequestSchema.safeParse(input).success);
-  for (const pagePath of ["https://example.com", "//evil.test", "/../admin", "/admin", "/api/book", "/payments", "/waiver", "/rentals?token=value"]) {
+  for (const pagePath of ["https://example.com", "//evil.test", "/../admin", "/payments", "/waiver", "/rentals?token=value"]) {
     assert.equal(codeRepairRequestSchema.safeParse({ ...input, pagePath }).success, false);
     assert.equal(publicPreviewPath(pagePath), false);
   }
+  for (const pagePath of ["/admin", "/admin/invoices/inbox/print", "/api/book", "/driver"]) assert.ok(codeRepairRequestSchema.safeParse({ ...input, pagePath }).success);
   for (const patch of [{ description: "api_key: do-not-store" }, { expectedText: "a" }, { command: "rm anything" }, { requestId: "bad" }]) assert.equal(codeRepairRequestSchema.safeParse({ ...input, ...patch }).success, false);
   for (const path of ["src/app/page.tsx", "src/app/rentals/page.tsx", "src/components/BrandedErrorState.tsx", "src/app/globals.css"]) assert.equal(allowedRepairPath(path), true);
   for (const path of ["../src/app/page.tsx", "src/app/../page.tsx", "src/app/api/book/route.ts", "src/app/admin/page.tsx", "src/lib/agent-manager/code-repair.ts", "src/lib/security/auth.ts", "src/lib/payments/test.ts", "src/app/test.test.ts", ".github/workflows/test.yml", "package.json", "src/app/layout.tsx"]) assert.equal(allowedRepairPath(path), false);
@@ -81,4 +82,22 @@ test("repair queue SQL persists jobs, deduplicates requests, bounds work and rej
       }
     });
   } finally { await db.close(); }
+});
+
+
+test("reviewed engineering drafts require honest preview evidence bound to the queued scope", () => {
+  const files = ["src/app/admin/invoices/inbox/print/page.tsx", "src/lib/email/office-inbox.ts", "src/app/api/admin/inventory/item/route.ts", "src/components/facility-parties/Invitation.tsx"];
+  for (const file of files) {
+    assert.equal(allowedEngineeringPath(file), true);
+    assert.equal(allowedTaskRepairPath(file, "/admin/invoices/inbox"), true);
+    assert.equal(allowedTaskRepairPath(file, "/rentals"), false);
+  }
+  for (const file of ["src/lib/agent-manager/supervisor.ts", "src/app/api/admin/agents/supervisor-chat/route.ts", "src/app/admin/agents/page.tsx", "src/lib/security/request-guard.ts", "src/lib/admin/auth.ts", "src/lib/waivers/content.ts", "src/app/middleware.ts", "scripts/code-repairs/verify.mjs", "package.json"]) assert.equal(allowedEngineeringPath(file), false);
+  const evidence = { outcome: "review_ready", summary: "Owner preview required", attempts: 1, baseSha: "a".repeat(40), headSha: "b".repeat(40), changedFiles: [files[0]], checks: { types: true, lint: true, tests: true, browser: false, changed: true }, browserReviewRequired: true, pullRequestUrl: "https://github.com/jacobdean66/jumpingjax-site/pull/123" };
+  assert.ok(codeRepairResultSchema.safeParse(evidence).success);
+  assert.equal(acceptedRepairEvidence(evidence, "/admin/invoices/inbox"), true);
+  assert.equal(acceptedRepairEvidence(evidence, "/rentals"), false);
+  assert.equal(acceptedRepairEvidence({ ...evidence, checks: { ...evidence.checks, browser: true } }, "/admin"), false);
+  assert.equal(acceptedRepairEvidence({ ...evidence, checks: { ...evidence.checks, types: false } }, "/admin"), false);
+  assert.equal(acceptedRepairEvidence(evidence, "https://evil.test"), false);
 });

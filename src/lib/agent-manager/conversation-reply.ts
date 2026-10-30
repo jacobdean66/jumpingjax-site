@@ -15,15 +15,15 @@ export function supervisorReplyContext(message: string, snapshot: SupervisorSnap
   const coding = snapshot.wiring.find(agent => agent.key === "coding");
   const context: Record<string, unknown> = {
     capabilities: [
-      "Delegate wording, layout and artwork corrections to the Invitation Agent. The employee chooses the party under Front Desk > Make / Print Invitations, asks for a correction in everyday words, reviews the before/after preview, confirms any replacement picture and approves saving. A correction does not send or print anything. Changes to the invitation tool's source code require engineering review.",
+      "Delegate wording, layout and artwork corrections to the Invitation Agent. The employee chooses the party under Front Desk > Make / Print Invitations, asks for a correction in everyday words, reviews the before/after preview, confirms any replacement picture and approves saving. A correction does not send or print anything. Invitation tool source fixes can be prepared as reviewed dashboard coding drafts.",
       "Check website health, bookings/calendars, rental catalog, agent connections and answering-machine readiness.",
-      "Help change supported public website code through the Code repairs worker: it edits code, runs independent tests and browser checks, and returns a draft pull request for review.",
+      "Prepare a new rental catalogue item in the Inventory review form. The owner fills missing facts, adds a photo, reviews visibility and saves. Prepare public website, home page, new public pages, dashboard, API and print code changes through the coding worker. Public pages get independent browser checks; protected pages require owner preview before merge. All coding changes return draft pull requests for review.",
     ],
     coding: {
-      workflow: "Answer capability questions conversationally and ask what is broken and on which page. Employees can describe the problem in everyday words; do not demand technical descriptions or acceptance checks. The optional Code repairs button opens the form used to submit a supported repair when ready. A chat reply alone does not queue a repair.",
+      workflow: "Answer capability questions conversationally and ask what is broken and on which page. Employees can describe the problem in everyday words; do not demand technical descriptions or acceptance checks. For a concrete request, investigate the source and use prepare_code_repair to prefill the review form. The owner starts the paid run there. For a new rental item use prepare_catalog_item; never invent missing product facts. A chat reply alone does not queue a repair.",
       connection: coding?.state === "connected" ? "Worker checked in recently." : "No recent worker connection is confirmed. Check Code repairs before promising a run.",
       executionPaused: snapshot.agents.emergencyStop === true,
-      scope: "Supported public-page fixes, such as wording, buttons and layout. Admin tools (including the invitation builder), APIs, authentication, bookings, payments and integrations require a separate reviewed engineering change outside this worker's scope.",
+      scope: "Public pages, the home page and new pages; reviewed dashboard, API, invitation-builder and print fixes. Protected page drafts require owner preview of the signed-in page, print output and business behavior. The worker cannot edit its own controls, authentication, security or legal terms. Business records are never changed by a coding draft.",
       review: "The worker prepares actual code edits in a draft pull request. An owner must review before merging or deploying; it never automatically changes the live site.",
     },
   };

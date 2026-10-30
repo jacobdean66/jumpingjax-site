@@ -17,6 +17,7 @@ import {
   AdminShell,
   StatTile,
 } from "../_components";
+import { catalogDraftSchema, parseReviewDraft } from "@/lib/agent-manager/action-drafts";
 import { InventoryItemForm } from "./InventoryItemForm";
 import { InventoryList } from "./InventoryList";
 
@@ -28,6 +29,7 @@ type Props = {
   searchParams?: Promise<{
     token?: string;
     item?: string;
+    draft?: string;
     category?: string;
     visibility?: string;
     message?: string;
@@ -90,6 +92,7 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
   }
 
   const item = selectedItem(items, resolved?.item);
+  const draft = !resolved?.item ? parseReviewDraft(resolved?.draft, catalogDraftSchema) : undefined;
   const activeCategory = isCategoryId(resolved?.category)
     ? resolved.category
     : undefined;
@@ -306,9 +309,10 @@ export default async function AdminInventoryPage({ searchParams }: Props) {
         </section>
 
         <InventoryItemForm
-          key={item?.id ?? "new-item"}
+          key={item?.id ?? (draft ? JSON.stringify(draft) : "new-item")}
           token={token}
           item={item}
+          draft={draft}
           cancelHref={inventoryHref(token, {
             categoryId: activeCategory,
             visibility: visibilityFilter,

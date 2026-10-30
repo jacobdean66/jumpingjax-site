@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CatalogDraft } from "@/lib/agent-manager/action-drafts";
 import Image from "next/image";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import {
@@ -115,6 +116,7 @@ async function optimizeLargePhoto(file: File): Promise<File> {
 type Props = {
   token: string;
   item?: AdminInventoryItem;
+  draft?: CatalogDraft;
   cancelHref: string;
 };
 
@@ -170,7 +172,8 @@ function orderedMedia(media: readonly RentalMedia[]): RentalMedia[] {
   return media.map((item, index) => ({ ...item, sortOrder: index }));
 }
 
-export function InventoryItemForm({ token, item, cancelHref }: Props) {
+export function InventoryItemForm({ token, item, draft: proposedDraft, cancelHref }: Props) {
+  const draft = item ? undefined : proposedDraft;
   const dimensions = item?.dimensions ?? emptyInventoryDimensions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,6 +284,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
       onSubmit={handleSubmit}
       className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
     >
+      {draft ? <p className="mb-4 rounded-xl bg-sky-50 p-3 text-sm leading-6 text-sky-950">Prepared by the Permanent Agent. Review the details, supply the price and a photo, and check visibility before saving. This draft has not added an item to the catalogue.</p> : null}
       <input type="hidden" name="token" value={token} />
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
       <input type="hidden" name="imageSrc" defaultValue={item?.imageSrc ?? ""} />
@@ -335,7 +339,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
           <input
             name="title"
             required
-            defaultValue={item?.title ?? ""}
+            defaultValue={item?.title ?? draft?.title ?? ""}
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>
@@ -343,7 +347,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
           Category
           <select
             name="categoryId"
-            defaultValue={item?.categoryId ?? "bounce-houses"}
+            defaultValue={item?.categoryId ?? draft?.categoryId ?? "bounce-houses"}
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           >
             {CATEGORY_IDS.map((id) => (
@@ -360,7 +364,8 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
             type="number"
             min="0"
             step="1"
-            defaultValue={item?.startingPrice ?? 0}
+            defaultValue={item?.startingPrice ?? (draft ? draft.startingPrice ?? "" : 0)}
+            required
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>
@@ -502,7 +507,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
           <textarea
             name="shortDescription"
             rows={3}
-            defaultValue={item?.shortDescription ?? ""}
+            defaultValue={item?.shortDescription ?? draft?.shortDescription ?? ""}
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>
@@ -511,7 +516,7 @@ export function InventoryItemForm({ token, item, cancelHref }: Props) {
           <textarea
             name="description"
             rows={5}
-            defaultValue={item?.description ?? ""}
+            defaultValue={item?.description ?? draft?.description ?? ""}
             className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-base text-slate-950 outline-none focus:border-sky-500"
           />
         </label>

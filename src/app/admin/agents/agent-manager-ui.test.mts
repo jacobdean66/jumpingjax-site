@@ -5,12 +5,40 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SupervisorChat } from "./SupervisorChat";
 import { SupervisorReply } from "./SupervisorReply";
 import { CodeRepairHistory } from "./CodeRepairHistory";
+import { CodeRepairClient } from './CodeRepairClient';
+import type { AdminInventoryItem } from '@/lib/admin/inventory';
 import type { CodeRepairItem } from "@/lib/agent-manager/code-repair";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { agentConversationHref, agentWorkspaceHref, supervisorIssueAction } from "./navigation";
 import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { formatAgentTime } from "./time";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
+
+test('review drafts populate the real forms without submitting or publishing', async context => {
+  const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL, previousKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://fixture.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'unit-test-only';
+  context.after(() => {
+    if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousKey;
+  });
+  const { InventoryItemForm } = await import('../inventory/InventoryItemForm');
+  const draft = { title: 'Rainbow slide', categoryId: 'water-slides' as const, startingPrice: null, shortDescription: 'Colorful slide', description: 'Owner supplied product details.' };
+  const html = renderToStaticMarkup(createElement(InventoryItemForm, { token: '', cancelHref: '/admin/inventory', draft }));
+  assert.match(html, /name="title"[^>]*value="Rainbow slide"/);
+  assert.match(html, /option value="water-slides" selected=""/);
+  assert.match(html, /<input\b(?=[^>]*name="startingPrice")(?=[^>]*required="")(?=[^>]*value="")[^>]*>/);
+  assert.match(html, /This draft has not added an item/);
+  assert.doesNotMatch(html, /<input\b(?=[^>]*name="publicVisible")(?=[^>]*checked)[^>]*>|name="id"/);
+  const existing = { id: 'existing', title: 'Existing slide', categoryId: 'slides', media: [], startingPrice: 200, description: '', shortDescription: '', setupRequirements: [] } as unknown as AdminInventoryItem;
+  const edit = renderToStaticMarkup(createElement(InventoryItemForm, { token: '', cancelHref: '/admin/inventory', draft, item: existing }));
+  assert.match(edit, /name="title"[^>]*value="Existing slide"/);
+  assert.doesNotMatch(edit, /Rainbow slide|This draft has not added an item/);
+  const code = renderToStaticMarkup(createElement(CodeRepairClient, { draft: { description: 'Fix clipped office print content', pagePath: '/admin/invoices/inbox/print', expectedText: 'Office email' } }));
+  assert.match(code, /Fix clipped office print content/);
+  assert.match(code, /value="\/admin\/invoices\/inbox\/print"/);
+  assert.match(code, /owner preview checks/);
+});
 
 test('chat shows bounded checked-source evidence without exposing result bodies or rendering HTML', () => {
   const html = renderToStaticMarkup(createElement(SupervisorChat, { initialSnapshot: null, initialMessages: [{ id: 'lookup', question: 'Check the homepage', reply: 'I checked its source.', createdAt: '2026-10-30T12:00:00Z', evidence: [{ tool: 'repository_read', source: 'src/app/page.tsx:1 <script>bad</script>', checkedAt: '2026-10-30T12:00:00Z', ok: true, limited: false }] }] }));

@@ -4,26 +4,42 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile, lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { allowedRepairPath, publicPreviewPath } from "./policy.mjs";
+import { allowedTaskRepairPath, publicPreviewPath, reviewedApplicationPath, repairPagePath, acceptedRepairEvidence } from "./policy.mjs";
 import { buildRepairPrompt } from "./worker.mjs";
 const exec = promisify(execFile);
 const stateDir = process.env.REPAIR_STATE_DIR || join(process.env.RUNNER_TEMP || ".", "code-repair-state");
 
+export function relatedRepairTests(files) {
+  const plain = [], server = [];
+  if (files.some(file => /(?:\/email\/|\/invoices\/)/.test(file))) {
+    plain.push('src/lib/email/address.test.mts', 'src/lib/email/printable-email.test.mts');
+    server.push('src/lib/email/office-inbox.test.mts');
+  }
+  if (files.some(file => /\/inventory(?:\/|[.-])/.test(file))) plain.push('src/lib/admin/inventory-media.test.mts', 'src/lib/admin/inventory-ops.test.mts', 'src/lib/admin/inventory-review-boundary.test.mts');
+  if (files.some(file => /invitations?\//i.test(file) || /Invitation/.test(file))) {
+    plain.push('src/lib/facility-parties/invitations/correction.test.mts', 'src/lib/facility-parties/invitations/content.test.mts', 'src/components/facility-parties/invitation-delivery-preview.test.mts');
+    server.push('src/lib/facility-parties/invitations/admin-save.test.mts');
+  }
+  return { plain, server };
+}
+
 export async function verifyRepair({ task, cwd = process.cwd(), attempt = 1, run = exec, browserCheck = checkBrowser }) {
   const checks = { types: false, lint: false, tests: false, browser: false, changed: false };
   const failures = [];
+  const browserReviewRequired = reviewedApplicationPath(task.pagePath);
   const changedFiles = [];
   try {
+    if (!repairPagePath(task.pagePath)) throw new Error("Invalid repair page scope.");
     const head = await run("git", ["rev-parse", "HEAD"], { cwd });
     if (head.stdout.trim() !== task.baseSha) throw new Error("The worker changed Git history.");
     // Include untracked additions as intent-to-add so the exact patch is validated and published.
     const untracked = await run("git", ["ls-files", "--others", "--exclude-standard", "-z"], { cwd });
     const additions = untracked.stdout.split("\0").filter(Boolean);
-    if (additions.some(file => !allowedRepairPath(file))) throw new Error("The worker added files outside its allowed scope.");
+    if (additions.some(file => !allowedTaskRepairPath(file, task.pagePath))) throw new Error("The worker added files outside its allowed scope.");
     if (additions.length) await run("git", ["add", "-N", "--", ...additions], { cwd });
     const result = await run("git", ["diff", "--name-only", "-z", task.baseSha], { cwd });
     changedFiles.push(...result.stdout.split("\0").filter(Boolean));
-    if (!changedFiles.length || changedFiles.length > 20 || changedFiles.some(file => !allowedRepairPath(file))) throw new Error("No eligible repair was produced, or the change escaped its allowed scope.");
+    if (!changedFiles.length || changedFiles.length > 20 || changedFiles.some(file => !allowedTaskRepairPath(file, task.pagePath))) throw new Error("No eligible repair was produced, or the change escaped its allowed scope.");
     for (const file of changedFiles) {
       const stat = await lstat(join(cwd, file));
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 200000) throw new Error("Changed files must be small regular source files.");
@@ -34,22 +50,26 @@ export async function verifyRepair({ task, cwd = process.cwd(), attempt = 1, run
   } catch (error) { failures.push(error.message); }
   // Never run repository code after a scope violation.
   if (checks.changed) {
+    const related = relatedRepairTests(changedFiles);
     const commands = [
       ["types", process.execPath, ["node_modules/typescript/bin/tsc", "--noEmit", "--incremental", "false"]],
       ["lint", process.execPath, ["node_modules/eslint/bin/eslint.js", ...changedFiles.filter(file => /\.[jt]sx?$/.test(file))]],
-      ["tests", process.execPath, ["--import", "tsx", "--test", "src/lib/agent-manager/coding-diagnosis.test.mts", "src/lib/agent-manager/worker.test.mts", "src/lib/agent-manager/supervisor.test.mts", "src/lib/agent-manager/supervisor-boundaries.test.mts"]],
+      ["tests", process.execPath, ["--import", "tsx", "--test", "src/lib/agent-manager/coding-diagnosis.test.mts", "src/lib/agent-manager/worker.test.mts", "src/lib/agent-manager/supervisor.test.mts", "src/lib/agent-manager/supervisor-boundaries.test.mts", ...related.plain]],
     ];
     for (const [key, file, args] of commands) {
       try {
         if (key !== "lint" || changedFiles.some(path => /\.[jt]sx?$/.test(path))) await run(file, args, { cwd, timeout: 240000, maxBuffer: 2_000_000 });
+        if (key === 'tests' && related.server.length) await run(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--test', ...related.server], { cwd, timeout: 240000, maxBuffer: 2_000_000 });
         checks[key] = true;
       } catch (error) { failures.push(`${key}: ${String(error.stdout || error.stderr || error.message).slice(-3000)}`); }
     }
-    try { await browserCheck(task, cwd); checks.browser = true; }
-    catch (error) { failures.push(`browser: ${error.message}`); }
+    if (!browserReviewRequired) {
+      try { await browserCheck(task, cwd); checks.browser = true; }
+      catch (error) { failures.push(`browser: ${error.message}`); }
+    }
   }
   const patch = checks.changed ? execFileSync("git", ["diff", "--binary", task.baseSha], { cwd, maxBuffer: 2_000_000 }) : Buffer.alloc(0);
-  return { accepted: Object.values(checks).every(Boolean), taskId: task.id ?? null, checks, changedFiles, attempts: attempt, failures, baseSha: task.baseSha, patchHash: createHash("sha256").update(patch).digest("hex") };
+  return { accepted: acceptedRepairEvidence({ checks, browserReviewRequired }, task.pagePath), browserReviewRequired, taskId: task.id ?? null, checks, changedFiles, attempts: attempt, failures, baseSha: task.baseSha, patchHash: createHash("sha256").update(patch).digest("hex") };
 }
 
 export async function checkBrowser(task, cwd) {

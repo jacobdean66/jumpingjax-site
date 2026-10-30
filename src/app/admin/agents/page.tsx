@@ -22,10 +22,11 @@ import { CodeRepairClient } from "./CodeRepairClient";
 import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
 import { conversationId } from "@/lib/agent-manager/network/http";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
+import { codeRepairDraftSchema, parseReviewDraft } from '@/lib/agent-manager/action-drafts';
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ conversation?: string; agent?: string; researchIssue?: string }> }) {
+export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ conversation?: string; agent?: string; researchIssue?: string; draft?: string }> }) {
   const auth = await verifyAdminOwnerAccess();
   if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
 
@@ -36,6 +37,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
   const nextSpecialist = getNextSpecialistReadiness();
   const network = await loadNetworkOverview().catch(() => null);
   const params = await searchParams;
+  const repairDraft = parseReviewDraft(params.draft, codeRepairDraftSchema);
   const requestedContext = params.conversation;
   const initialRecipient = AGENT_DIRECTORY.find((agent) => agent.key === params.agent)?.key;
   const initialContextId = conversationId.safeParse(requestedContext).success ? requestedContext : undefined;
@@ -46,7 +48,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
   }
   if (dashboard && !dashboard.demoMode) {
     [supervisorMessages, supervisorSnapshot] = await Promise.all([
-      loadSupervisorConversation().catch(() => []),
+      loadSupervisorConversation(12, auth.identity.id).catch(() => []),
       collectSupervisorSnapshot(auth.identity.id).catch(() => null),
     ]);
   }
@@ -63,7 +65,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
       ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
       techSearch={<TechSearchClient issues={supervisorSnapshot?.issues ?? []} initialIssueCode={params.researchIssue} />}
-      codeRepairs={<CodeRepairClient />}
+      codeRepairs={<CodeRepairClient key={repairDraft ? JSON.stringify(repairDraft) : 'new-repair'} draft={repairDraft} />}
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
       tools={<>
       <p className="mt-5 text-sm font-semibold text-slate-600">Run specialist reviews here. Expand setup details and test tools when you need them.</p>

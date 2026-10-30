@@ -22,7 +22,7 @@ test("coding context distinguishes tested draft edits, connection freshness and 
   assert.match(String(connected.connection), /checked in recently/);
   assert.match(String(connected.review), /actual code edits.*draft pull request/);
   assert.match(String(connected.workflow), /does not queue a repair/);
-  assert.match(String(connected.scope), /invitation builder.*outside this worker's scope/);
+  assert.match(String(connected.scope), /reviewed dashboard.*owner preview/);
   const unavailable = supervisorReplyContext("Can you edit coding?", { ...snapshot, wiring: [], agents: { ...snapshot.agents, emergencyStop: true } }).coding as Record<string, unknown>;
   assert.match(String(unavailable.connection), /No recent worker connection/);
   assert.equal(unavailable.executionPaused, true);
