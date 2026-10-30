@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseInvestigationEvidence } from './investigation';
 
 import type { AgentJob } from "./types";
 import type { AgentWiring } from "./agent-wiring";
@@ -282,6 +283,7 @@ export function supervisorJobMessage(job: Pick<AgentJob, "payload" | "result_sum
     reply: job.result_summary.slice(0, 4000),
     createdAt: job.created_at,
     relatedAction: parseRelatedAction(job.payload.relatedAction),
+    evidence: parseInvestigationEvidence(job.payload.evidence),
   };
 }
 

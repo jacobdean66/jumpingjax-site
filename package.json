@@ -6,7 +6,7 @@
   "scripts": {
     "test:ai-visibility": "node --import tsx --test src/lib/ai-visibility/observations.test.mts src/lib/ai-visibility/dashboard-render.test.mts src/lib/seo/ai-search-readiness.test.mts src/lib/seo/structured-data.test.mts src/lib/admin/front-desk-navigation.test.mts src/proxy.test.mts src/lib/site-url.test.mts",
     "assets:metadata": "node scripts/generate-public-asset-metadata.mjs",
-    "prebuild": "node scripts/generate-public-asset-metadata.mjs",
+    "prebuild": "node scripts/generate-public-asset-metadata.mjs && node scripts/agent-investigation/repository.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -12,6 +12,14 @@ import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { formatAgentTime } from "./time";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
 
+test('chat shows bounded checked-source evidence without exposing result bodies or rendering HTML', () => {
+  const html = renderToStaticMarkup(createElement(SupervisorChat, { initialSnapshot: null, initialMessages: [{ id: 'lookup', question: 'Check the homepage', reply: 'I checked its source.', createdAt: '2026-10-30T12:00:00Z', evidence: [{ tool: 'repository_read', source: 'src/app/page.tsx:1 <script>bad</script>', checkedAt: '2026-10-30T12:00:00Z', ok: true, limited: false }] }] }));
+  assert.match(html, /Sources checked \(1\)/);
+  assert.match(html, /<details/);
+  assert.doesNotMatch(html, /<script>|<details[^>]*open/);
+  assert.match(html, /src\/app\/page.tsx:1/);
+});
+
 test("repair history leads with a readable status and keeps technical requests collapsed", () => {
   const repair = { id: "example", status: "review_ready", page_path: "/service-area", created_at: "2026-10-23T01:15:53Z", description: "Acceptance test: wrap the breadcrumb in aria-current=page. <script>unsafe</script>", result: { summary: "Your tested fix is ready to review.", pullRequestUrl: "https://github.com/jacobdean66/jumpingjax-site/pull/194" }, run_url: "https://github.com/jacobdean66/jumpingjax-site/actions/runs/1" } as CodeRepairItem;
   const html = renderToStaticMarkup(createElement(CodeRepairHistory, { repairs: [repair], onCancel: () => {} }));

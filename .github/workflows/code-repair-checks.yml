@@ -11,6 +11,10 @@ on:
       - 'src/app/api/admin/facility/**/invitation/**'
       - 'src/app/api/**/code-repair*/**'
       - 'scripts/code-repairs/**'
+      - 'scripts/agent-investigation/**'
+      - 'src/lib/email/office-inbox*'
+      - 'next.config.ts'
+      - 'package.json'
       - 'supabase/migrations/*code_repairs.sql'
       - '.github/workflows/*repair*.yml'
   push:
@@ -30,6 +34,7 @@ jobs:
           node-version: '24'
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: node scripts/agent-investigation/repository.mjs
       - run: pnpm exec next typegen
       - run: pnpm exec tsc --noEmit --incremental false
       - run: node --import tsx --test src/lib/agent-manager/code-repair.test.mts src/lib/agent-manager/code-repair-api.test.mts src/lib/agent-manager/coding-diagnosis.test.mts src/lib/agent-manager/supervisor.test.mts src/lib/agent-manager/supervisor-boundaries.test.mts src/app/admin/agents/agent-manager-ui.test.mts
@@ -37,6 +42,8 @@ jobs:
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/network/network.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/writing-suggestions.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/conversation-reply.test.mts
+      - run: node --test scripts/agent-investigation/repository.test.mjs
+      - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/investigation.test.mts src/lib/agent-manager/investigation-provider.test.mts src/lib/email/office-inbox.test.mts
       - run: node --import tsx --test src/lib/facility-parties/invitations/correction.test.mts src/lib/facility-parties/invitations/correction-api.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/facility-parties/invitations/correction-provider.test.mts src/lib/facility-parties/invitations/admin-save.test.mts
       - run: node --import tsx --test src/lib/facility-parties/invitations/content.test.mts src/lib/facility-parties/invitations/email-html.test.mts src/lib/facility-parties/invitations/editable-pptx.test.mts

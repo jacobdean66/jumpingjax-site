@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
+    "/api/admin/agents/supervisor-chat": ["./.generated/agent-repository-index.json"],
     "/api/facility/invitations/themes/*": ["./public/invitation-library/**/*.png"],
   },
   allowedDevOrigins: ["192.168.7.161"],
