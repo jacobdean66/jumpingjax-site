@@ -47,6 +47,7 @@ export default async function OfficeInboxPage({ searchParams }: { searchParams: 
       <Link href="/admin/invoices/inbox?folder=sent" aria-current={folder === "sent" ? "page" : undefined} className={`${button} ${folder === "sent" ? "!border-indigo-600 !bg-indigo-600 !text-white" : ""}`}><Send size={18} /> Sent invoice copies</Link>
     </nav>
     {folder === "sent" && <p className="mt-3 text-sm text-slate-600">Invoices sent to the office or copied to the office. Delivery status is for the outgoing message and does not confirm each recipient separately.</p>}
+    <p className="mt-3 text-xs text-slate-500">This viewer shows recent email within the email provider&apos;s retention period. Saved invoices remain in <Link href="/admin/invoices/history" className="font-bold text-indigo-700 underline">Invoice history</Link>.</p>
     {error && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4 font-semibold text-rose-800">{error}</p>}
     <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <section aria-label="Messages" className="min-w-0 self-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
