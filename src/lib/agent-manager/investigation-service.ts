@@ -2,7 +2,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { investigationInputs, readableDatabaseColumn, type InvestigationTool, type InvestigationTrace } from './investigation';
-import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-investigation/repository.mjs';
+import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-investigation/source-policy.mjs';
 import { CANONICAL_PRODUCTION_SITE_URL } from '@/lib/site-url';
 import { listOfficeMessages, readOfficeMessage } from '@/lib/email/office-inbox';
 import { reviewDraftHref } from './action-drafts';
