@@ -4,10 +4,12 @@ import { belongsToOffice, emailDocument, listOfficeMessages, officeAttachment, r
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.RESEND_API_KEY;
+const originalInboxKey = process.env.RESEND_INBOX_API_KEY;
 const originalOffice = process.env.INVOICE_OFFICE_EMAIL;
 afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = originalKey;
+  if (originalInboxKey === undefined) delete process.env.RESEND_INBOX_API_KEY; else process.env.RESEND_INBOX_API_KEY = originalInboxKey;
   if (originalOffice === undefined) delete process.env.INVOICE_OFFICE_EMAIL; else process.env.INVOICE_OFFICE_EMAIL = originalOffice;
 });
 const id = "00000000-0000-4000-8000-000000000001";
@@ -63,6 +65,16 @@ test("upstream errors remain errors, without exposing response bodies or credent
   process.env.RESEND_API_KEY = "test-credential";
   globalThis.fetch = (async () => new Response("private provider diagnostic and credential", { status: 403 })) as typeof fetch;
   await assert.rejects(listOfficeMessages("sent"), error => error instanceof Error && error.message === "Email service access was denied. Please contact the site administrator.");
+});
+
+test("inbox requests use their dedicated credential when configured", async () => {
+  process.env.RESEND_API_KEY = "send-only-placeholder";
+  process.env.RESEND_INBOX_API_KEY = "inbox-placeholder";
+  globalThis.fetch = (async (_input, init) => {
+    assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer inbox-placeholder");
+    return Response.json({ data: [], has_more: false });
+  }) as typeof fetch;
+  assert.deepEqual(await listOfficeMessages("inbox"), { messages: [], next: null });
 });
 
 test("attachments require membership in the office message", async () => {

@@ -40,7 +40,7 @@ export function belongsToOffice(message: OfficeMessage, folder: MailFolder): boo
 }
 
 async function resendRead<T>(path: string): Promise<T> {
-  const key = process.env.RESEND_API_KEY?.trim();
+  const key = process.env.RESEND_INBOX_API_KEY?.trim() || process.env.RESEND_API_KEY?.trim();
   if (!key) throw new Error("Office email is not configured. Please contact the owner.");
   for (let attempt = 0; attempt < 2; attempt++) {
     let response: Response;
