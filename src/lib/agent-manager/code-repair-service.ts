@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { CODE_REPAIR_TABLE, codeRepairRequestSchema, codeRepairResultSchema } from "./code-repair";
+import { acceptedRepairEvidence, allowedTaskRepairPath } from '../../../scripts/code-repairs/policy.mjs';
 
 const fields = "id,description,page_path,expected_text,status,created_at,updated_at,run_url,result";
 
@@ -55,6 +56,8 @@ export async function recoverCodeRepair(id: string, runUrl: string) {
 export async function finishCodeRepair(id: string, leaseToken: string, raw: unknown) {
   const result = codeRepairResultSchema.parse(raw);
   const db = createServiceRoleClient();
+  const task = await db.from(CODE_REPAIR_TABLE).select('page_path').eq('id', id).eq('lease_token', leaseToken).eq('status', 'running').maybeSingle();
+  if (task.error || !task.data || result.changedFiles.some(path => !allowedTaskRepairPath(path, task.data.page_path)) || (result.outcome === 'review_ready' && !acceptedRepairEvidence(result, task.data.page_path))) throw new Error('Repair evidence does not match the queued scope.');
   const { data, error } = await db.rpc("finish_code_repair", { p_id: id, p_lease_token: leaseToken, p_result: result });
   if (error || !data) throw new Error("The repair was cancelled, paused, completed or its worker lease expired.");
   return result;

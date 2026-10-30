@@ -37,7 +37,7 @@ test('protected gateways rejecting native tools use structured planning through 
 test('unknown or out-of-scope tools cannot execute and lookup rounds stop at the budget', async context => {
   configure(context); let executed = 0, calls = 0;
   await assert.rejects(generateSupervisorReply({ message: 'Check the homepage', context: {}, history: [], investigation: { execute: async () => { executed++; return {}; } } }, undefined, async () => { calls++; return toolResponse('office_email_read', { folder: 'inbox', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }, `call_${calls}`); }), /lookup limit/);
-  assert.equal(executed, 0); assert.equal(calls, 3);
+  assert.equal(executed, 0); assert.equal(calls, 4);
 });
 
 test('ordinary replies can finish without lookups; incomplete provider responses are rejected', async context => {
@@ -46,4 +46,19 @@ test('ordinary replies can finish without lookups; incomplete provider responses
   assert.equal(await generateSupervisorReply(input, undefined, async () => answer('Hello! How can I help?')), 'Hello! How can I help?');
   assert.equal(executed, 0);
   await assert.rejects(generateSupervisorReply(input, undefined, async () => Response.json({ choices: [{ finish_reason: 'length', message: { content: 'incomplete' } }] })), /unavailable/);
+});
+
+test('a concrete repair can search source, read it and prepare a review form before answering', async context => {
+  configure(context); let calls = 0;
+  const executed: string[] = [];
+  const steps = [
+    ['repository_search', { query: 'print', prefix: 'src/app/admin/invoices', offset: 0 }],
+    ['repository_read', { path: 'src/app/admin/invoices/inbox/print/page.tsx', startLine: 1, lineCount: 60 }],
+    ['prepare_code_repair', { description: 'Prevent clipping on the office email print page', pagePath: '/admin/invoices/inbox/print', expectedText: 'Office email' }],
+  ] as const;
+  const reply = await generateSupervisorReply({ message: 'Fix the clipped office email print preview', context: {}, history: [], investigation: { execute: async name => { executed.push(name); return name === 'prepare_code_repair' ? { prepared: true, queued: false } : { source: 'print/page.tsx', text: 'Office email' }; } } }, undefined, async () => {
+    const step = steps[calls++]; return step ? toolResponse(step[0], step[1], `call_${calls}`) : answer('I prepared the print repair request. Review it before starting the coding run. Nothing has changed on the live site.');
+  });
+  assert.deepEqual(executed, steps.map(step => step[0])); assert.equal(calls, 4);
+  assert.match(reply, /Nothing has changed/);
 });

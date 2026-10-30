@@ -5,6 +5,8 @@ import { investigationInputs, readableDatabaseColumn, type InvestigationTool, ty
 import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-investigation/repository.mjs';
 import { CANONICAL_PRODUCTION_SITE_URL } from '@/lib/site-url';
 import { listOfficeMessages, readOfficeMessage } from '@/lib/email/office-inbox';
+import { reviewDraftHref } from './action-drafts';
+import type { SupervisorRelatedAction } from './supervisor';
 
 export type RepositoryIndex = {
   commit: string; generatedAt: string; coverage: { files: number; truncatedFiles: number; bytes: number };
@@ -52,6 +54,7 @@ function safeSubject(subject: string | null) { return authenticationMail(subject
 export function createInvestigationReader(overrides: Partial<Dependencies> = {}, signal?: AbortSignal) {
   const deps: Dependencies = { index: deployedRepositoryIndex, fetch, databaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY, emailList: listOfficeMessages, emailRead: readOfficeMessage, allowEmail: false, ...overrides };
   const traces: InvestigationTrace[] = [];
+  const actions: SupervisorRelatedAction[] = [];
   let catalogPromise: Promise<Catalog> | undefined;
   function readSignal() { return AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(9000)]); }
   async function databaseGet(path: string, query: URLSearchParams, count = false) {
@@ -78,7 +81,13 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
       const input = investigationInputs[tool].parse(raw);
       if (tool.startsWith('office_email_') && !deps.allowEmail) throw new Error('Office email lookup is unavailable for a question unrelated to email.');
       let data: Record<string, unknown>;
-      if (tool === 'repository_search') {
+      if (tool === 'prepare_catalog_item' || tool === 'prepare_code_repair') {
+        const catalog = tool === 'prepare_catalog_item';
+        const href = reviewDraftHref(catalog ? 'catalog' : 'code', input);
+        const action: SupervisorRelatedAction = { kind: catalog ? 'catalog_draft' : 'code_repair', label: catalog ? 'Review rental item draft' : 'Review coding request', href };
+        actions.push(action); source = catalog ? 'review-form:new-rental-item' : 'review-form:code-repair';
+        data = { prepared: true, saved: false, queued: false, published: false, action, note: catalog ? 'An editable draft is ready. The owner must supply missing facts and a photo, review visibility, and save in Inventory. Nothing was added to the catalogue yet.' : 'A request is ready to review. The owner must click Prepare a code fix to start the paid coding worker. It returns a draft pull request; protected dashboard and print pages require owner browser review before merge. Nothing was queued, edited or deployed.' };
+      } else if (tool === 'repository_search') {
         const { query, prefix, offset } = investigationInputs.repository_search.parse(input);
         const index = await deps.index(); source = `repository:${index.commit}`;
         const search = query.toLowerCase(), matches = [];
@@ -176,5 +185,5 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
       return { source, checkedAt, error: message };
     }
   }
-  return { execute, traces };
+  return { execute, traces, actions };
 }

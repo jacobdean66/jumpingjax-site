@@ -5,7 +5,7 @@ import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { verifyRepair } from "./verify.mjs";
+import { verifyRepair, relatedRepairTests } from "./verify.mjs";
 import { buildRepairPrompt } from "./worker.mjs";
 const exec = promisify(execFile);
 
@@ -34,4 +34,34 @@ test("the supervisor rejects incomplete work, issues a correction, and independe
     const unsafe = await verifyRepair({ task, cwd, run, browserCheck: async () => assert.fail("Out-of-scope code must never execute") });
     assert.equal(unsafe.accepted, false); assert.equal(commands, 6);
   } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+
+test("protected-page patches run code checks without claiming browser or print verification", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "jjx-engineering-verifier-"));
+  try {
+    await mkdir(join(cwd, "src/app/admin/invoices/print"), { recursive: true });
+    const file = join(cwd, "src/app/admin/invoices/print/page.tsx");
+    await writeFile(file, "export default function Print() { return <h1>Print</h1>; }\n");
+    const git = args => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    git(["init", "--quiet"]); git(["add", "."]); git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--quiet", "-m", "baseline"]);
+    const task = { baseSha: git(["rev-parse", "HEAD"]), pagePath: "/admin/invoices/print", description: "Fix clipped print content", expectedText: "Print" };
+    await writeFile(file, "export default function Print() { return <h1 className='print:overflow-visible'>Print</h1>; }\n");
+    let checks = 0;
+    const run = async (command, args, options) => { if (command === "git") return exec(command, args, options); checks++; return { stdout: "", stderr: "" }; };
+    const evidence = await verifyRepair({ task, cwd, run, browserCheck: async () => assert.fail("Do not browse protected pages with production credentials") });
+    assert.equal(evidence.accepted, true); assert.equal(checks, 4);
+    assert.equal(evidence.checks.browser, false); assert.equal(evidence.browserReviewRequired, true);
+    const publicTask = await verifyRepair({ task: { ...task, pagePath: "/rentals" }, cwd, run });
+    assert.equal(publicTask.accepted, false); assert.equal(checks, 4);
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test('original regression suites follow the affected print, inventory and invitation source', () => {
+  const tests = relatedRepairTests(['src/app/admin/invoices/inbox/print/page.tsx', 'src/app/api/admin/inventory/item/route.ts', 'src/components/facility-parties/Invitation.tsx']);
+  assert.ok(tests.plain.includes('src/lib/email/printable-email.test.mts'));
+  assert.ok(tests.plain.includes('src/lib/admin/inventory-review-boundary.test.mts'));
+  assert.ok(tests.plain.includes('src/lib/facility-parties/invitations/correction.test.mts'));
+  assert.ok(tests.server.includes('src/lib/email/office-inbox.test.mts'));
+  assert.deepEqual(relatedRepairTests(['src/app/page.tsx']), { plain: [], server: [] });
 });

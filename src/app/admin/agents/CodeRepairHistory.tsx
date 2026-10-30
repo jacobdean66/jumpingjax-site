@@ -15,6 +15,7 @@ export function CodeRepairHistory({ repairs, onCancel }: { repairs: CodeRepairIt
       <div className="flex flex-wrap justify-between gap-2"><h3 className="font-bold">Website repair</h3><span className="text-sm font-bold">{STATUS_LABELS[repair.status]}</span></div>
       <p className="mt-1 text-sm text-slate-500">{repair.page_path} · {formatAgentTime(repair.created_at)}</p>
       {repair.result ? <p className="mt-3 text-base leading-7">{repair.result.summary}</p> : null}
+      {repair.status === "review_ready" && repair.result?.browserReviewRequired ? <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900">Owner preview required: automated code checks passed, but the signed-in page, print output and relevant business behavior must be checked before merging.</p> : null}
       {repair.result?.pullRequestUrl ? <a href={repair.result.pullRequestUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block font-bold text-indigo-800 underline">Review this fix →</a> : null}
       <details className="mt-4 text-sm text-slate-600">
         <summary className="cursor-pointer font-semibold">Request details</summary>

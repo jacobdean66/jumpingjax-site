@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { z } from 'zod';
+import type { codeRepairDraftSchema } from "@/lib/agent-manager/action-drafts";
 import type { CodeRepairItem } from "@/lib/agent-manager/code-repair";
 import { CodeRepairHistory } from "./CodeRepairHistory";
 
-export function CodeRepairClient() {
+export function CodeRepairClient({ draft }: { draft?: z.infer<typeof codeRepairDraftSchema> } = {}) {
   const [repairs, setRepairs] = useState<CodeRepairItem[]>([]);
-  const [description, setDescription] = useState("");
-  const [pagePath, setPagePath] = useState("/");
-  const [expectedText, setExpectedText] = useState("");
+  const [description, setDescription] = useState(draft?.description ?? "");
+  const [pagePath, setPagePath] = useState(draft?.pagePath ?? "/");
+  const [expectedText, setExpectedText] = useState(draft?.expectedText ?? "");
   const [configured, setConfigured] = useState(false);
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,16 +52,16 @@ export function CodeRepairClient() {
   }
   return <section className="mt-7 rounded-3xl border border-slate-300 bg-white p-5 text-slate-950">
     <h2 className="text-2xl font-black">Website code repairs</h2>
-    <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">Tell us what is wrong with a public website page. The agent prepares and tests a fix for you to review before it goes live.</p>
+    <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">Describe a website change or a problem with a dashboard, API or print page. The agent prepares and tests a fix for you to review before it goes live.</p>
     <p role="status" className={`mt-3 text-sm font-bold ${connected ? "text-emerald-800" : "text-amber-800"}`}>{connected ? "Coding worker connected · queued requests are checked about every five minutes" : configured ? "Worker has not checked in recently · requests will wait in the queue" : "Worker activation required · repairs cannot start yet"}</p>
     <form onSubmit={submit} className="mt-5 grid gap-4">
       <label className="text-sm font-bold">What needs fixing?<textarea required minLength={3} maxLength={800} rows={3} value={description} onChange={event => setDescription(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="Describe what happens and what should happen instead." /></label>
-      <label className="text-sm font-bold">Public page<input required value={pagePath} onChange={event => setPagePath(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="/rentals" /></label>
+      <label className="text-sm font-bold">Page to change<input required value={pagePath} onChange={event => setPagePath(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="/rentals" /></label>
       <label className="text-sm font-bold">Text we should see on the fixed page<input required minLength={3} maxLength={180} value={expectedText} onChange={event => setExpectedText(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-3" placeholder="A heading, button label, or other text on the page" /></label>
       <button disabled={busy || !configured} className="justify-self-start rounded-full bg-indigo-800 px-5 py-3 text-sm font-black text-white disabled:opacity-50">{busy ? "Queuing…" : "Prepare a code fix"}</button>
     </form>
     {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-900">{error}</p> : null}
-    <p className="mt-4 text-sm leading-6 text-slate-500">Describe the problem in your own words. Leave out customer details and passwords. This tool fixes public pages; admin tools, payments, login, waivers and integrations need separate review. You approve changes before they go live.</p>
+    <p className="mt-4 text-sm leading-6 text-slate-500">Describe the problem in your own words. Leave out customer details and passwords. Public pages get desktop and mobile browser checks. Dashboard, API and print repairs need owner preview checks as well as code review. Login, security controls and legal terms need separate engineering review. Coding runs use API credits; you start the run with the button above. You approve changes before they go live.</p>
     <CodeRepairHistory repairs={repairs} onCancel={id => void cancel(id)} />
   </section>;
 }

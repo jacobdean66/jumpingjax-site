@@ -236,10 +236,9 @@ export async function runSupervisorConversation(message: string, actorId: string
     } else handoff = await prepareSupervisorHandoff(message);
     const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
     const snapshot = await collectSupervisorSnapshot(actorId);
-    const relatedAction = handoff?.relatedAction ?? codingConversationAction(message);
     let reply: string;
     let aiInvocations = 0;
-    const deadline = AbortSignal.timeout(55000);
+    const deadline = AbortSignal.timeout(65000);
     const reader = createInvestigationReader({ allowEmail: canReadOfficeMail(message) }, deadline);
     if (actionOutcome) {
       // Explicit commands keep their verified outcome; the model never runs a control.
@@ -256,11 +255,12 @@ export async function runSupervisorConversation(message: string, actorId: string
       const history = await loadSupervisorConversation(4, actorId);
       reply = await generateSupervisorReply({ message, context: supervisorReplyContext(message, snapshot), history, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
         await assertAllowed();
-        if (++aiInvocations > 4) throw new Error('Conversational investigation reached its model-call limit.');
+        if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
         const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
         if (reserved.error || !reserved.data) throw new Error('Conversational replies are temporarily unavailable.');
       } } }, deadline);
     }
+    const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? codingConversationAction(message);
     const payload = {
       message,
       clientRequestId,

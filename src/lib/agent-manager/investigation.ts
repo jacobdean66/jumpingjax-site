@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { catalogDraftSchema, codeRepairDraftSchema } from './action-drafts';
 
 const identifier = z.string().regex(/^[a-z_][a-z0-9_]{0,80}$/);
 const path = z.string().max(240).refine(value => value.startsWith('/') && !/[\\?#%\s]/.test(value) && !value.startsWith('//') && !value.split('/').some(part => part === '.' || part === '..'), 'Use a website page path.');
 export const investigationInputs = {
+  prepare_catalog_item: catalogDraftSchema,
+  prepare_code_repair: codeRepairDraftSchema,
   repository_search: z.object({ query: z.string().max(120), prefix: z.string().max(200).nullable(), offset: z.number().int().min(0).max(10000) }).strict(),
   repository_read: z.object({ path: z.string().min(1).max(240), startLine: z.number().int().min(1).max(100000), lineCount: z.number().int().min(1).max(120) }).strict(),
   website_map: z.object({ query: z.string().max(120), offset: z.number().int().min(0).max(10000) }).strict(),
@@ -21,6 +24,8 @@ export function parseInvestigationEvidence(value: unknown): InvestigationTrace[]
 }
 
 const descriptions: Record<InvestigationTool, string> = {
+  prepare_catalog_item: 'Prepare a NEW rental catalogue item in the owner review form, only when the user asks to add an item. No database write or publication. Use the supplied title/category and facts; use null for an unknown price and do not invent dimensions, prices, availability or images. Ask for missing essential facts first. The owner reviews, adds a photo and saves.',
+  prepare_code_repair: 'Prepare a coding request in the owner review form when the user requests a concrete website, home page, dashboard, API or print fix. First investigate the relevant source. Include the page path, plain-language requested behavior and a concise visible check. This does not queue a paid run, edit files or deploy; the owner reviews and starts the worker.',
   repository_search: 'Search the deployed active repository by literal text or filename. Returns source paths and matching lines. Empty query lists paths. Use prefix to narrow scope and offset to continue.',
   repository_read: 'Read a numbered excerpt from an indexed source file. This is the code deployed with this application, not a live GitHub branch. No secrets or environment files are available.',
   website_map: 'Discover public and protected page routes throughout the deployed website, including their source files. This inventory is not proof pages have been checked.',

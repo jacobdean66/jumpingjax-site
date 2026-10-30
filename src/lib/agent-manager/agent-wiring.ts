@@ -82,7 +82,7 @@ export function buildAgentWiring(input: {
       state: input.codeRepairReady ? "connected" : "read_only",
       handler: "Code-health diagnosis + isolated Codex repair workflow",
       trigger: "Owner request + GitHub worker + supervisor health watcher",
-      summary: input.codeRepairReady ? "The coding worker checked in recently. Public-page fixes require independent tests and browser checks before a draft pull request." : "Code diagnosis is available. The public-page repair worker has not established a recent connection.",
+      summary: input.codeRepairReady ? "The coding worker checked in recently. Public pages require code and browser checks; dashboard, API and print drafts require code checks plus owner preview before merge." : "Code diagnosis is available. The repair worker has not established a recent connection.",
       supervisorDispatch: true,
       canPause: true,
     },
