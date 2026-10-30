@@ -26,9 +26,9 @@ test("office scoping handles direct, CC, BCC and forwarded envelopes without exp
   assert.equal(belongsToOffice({ ...message, to: ["info@jumpingjaxllc.com.evil.test"] }, "inbox"), false);
 });
 
-test("sent folder contains only invoice emails copied or sent to this office", () => {
+test("sent folder includes every email copied or sent to this office", () => {
   delete process.env.INVOICE_OFFICE_EMAIL;
-  assert.equal(belongsToOffice(message, "sent"), false);
+  assert.equal(belongsToOffice(message, "sent"), true);
   assert.equal(belongsToOffice({ ...message, subject: "Jumping Jax invoice JJ-R-605" }, "sent"), true);
   assert.equal(belongsToOffice({ ...message, subject: "Office copy — Jumping Jax invoice JJ-R-605" }, "sent"), true);
   assert.equal(belongsToOffice({ ...message, to: ["customer@example.com"], subject: "Jumping Jax invoice JJ-R-605" }, "sent"), false);
@@ -75,6 +75,25 @@ test("inbox requests use their dedicated credential when configured", async () =
     return Response.json({ data: [], has_more: false });
   }) as typeof fetch;
   assert.deepEqual(await listOfficeMessages("inbox"), { messages: [], next: null });
+});
+
+test("sent office copies are collected across unrelated provider pages", async () => {
+  delete process.env.INVOICE_OFFICE_EMAIL;
+  process.env.RESEND_API_KEY = "test-credential";
+  let calls = 0;
+  globalThis.fetch = (async (input) => {
+    calls++;
+    const url = new URL(String(input));
+    assert.equal(url.searchParams.get("limit"), "100");
+    if (calls === 1) return Response.json({ data: [{ ...message, to: ["someone@example.com"] }], has_more: true });
+    assert.equal(url.searchParams.get("after"), id);
+    return Response.json({ data: [{ ...message, subject: "Office copy from a later page" }], has_more: false });
+  }) as typeof fetch;
+  const result = await listOfficeMessages("sent");
+  assert.equal(calls, 2);
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.messages[0].subject, "Office copy from a later page");
+  assert.equal(result.next, null);
 });
 
 test("attachments require membership in the office message", async () => {

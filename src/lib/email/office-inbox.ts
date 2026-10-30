@@ -33,10 +33,11 @@ function containsAddress(values: string[] | null | undefined, address: string): 
 }
 
 export function belongsToOffice(message: OfficeMessage, folder: MailFolder): boolean {
+  void folder;
   const office = officeAddress();
   const addressed = [message.to, message.cc, message.bcc, message.received_for]
     .some(values => containsAddress(values, office));
-  return addressed && (folder === "inbox" || /^(?:Office copy\s*[—–-]\s*)?Jumping Jax invoice\s/i.test(message.subject ?? ""));
+  return addressed;
 }
 
 async function resendRead<T>(path: string): Promise<T> {
@@ -78,22 +79,32 @@ export async function readOfficeMessage(folder: MailFolder, id: string): Promise
 }
 
 export async function listOfficeMessages(folder: MailFolder, after = "") {
-  const query = new URLSearchParams({ limit: "20" });
-  if (isMailId(after)) query.set("after", after);
-  const result = await resendRead<{ data: OfficeMessage[]; has_more: boolean }>(`/emails${folder === "inbox" ? "/receiving" : ""}?${query}`);
   const messages: OfficeMessage[] = [];
-  for (const row of result.data) {
-    if (belongsToOffice(row, folder)) {
-      messages.push(row);
-    } else if (folder === "inbox") {
-      // BCC and forwarded recipients may appear only in the detailed envelope.
-      // Never expose another mailbox's messages simply because they share an account.
-      await new Promise(resolve => setTimeout(resolve, 550));
-      const full = await readOfficeMessage(folder, row.id);
-      if (full) messages.push(full);
+  let cursor = isMailId(after) ? after : "";
+  let next: string | null = null;
+  let pages = 0;
+  do {
+    if (pages > 0) await new Promise(resolve => setTimeout(resolve, 550));
+    const query = new URLSearchParams({ limit: folder === "sent" ? "100" : "20" });
+    if (cursor) query.set("after", cursor);
+    const result = await resendRead<{ data: OfficeMessage[]; has_more: boolean }>(`/emails${folder === "inbox" ? "/receiving" : ""}?${query}`);
+    for (const row of result.data) {
+      if (belongsToOffice(row, folder)) {
+        messages.push(row);
+      } else if (folder === "inbox") {
+        // BCC and forwarded recipients may appear only in the detailed envelope.
+        await new Promise(resolve => setTimeout(resolve, 550));
+        const full = await readOfficeMessage(folder, row.id);
+        if (full) messages.push(full);
+      }
     }
-  }
-  return { messages, next: result.has_more ? result.data.at(-1)?.id ?? null : null };
+    pages++;
+    next = result.has_more ? result.data.at(-1)?.id ?? null : null;
+    cursor = next ?? "";
+    // Sent messages are interleaved with all other account mail. Scan several
+    // provider pages so office copies don't disappear among unrelated sends.
+  } while (folder === "sent" && next && messages.length < 20 && pages < 10);
+  return { messages, next };
 }
 
 export async function officeAttachment(emailId: string, attachmentId: string): Promise<string | null> {
