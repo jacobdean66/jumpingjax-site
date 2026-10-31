@@ -5,9 +5,10 @@ import { quickWritingSuggestions, safeWritingDraft, writingSuggestionOutput } fr
 import Image from 'next/image';
 import { MAX_CHAT_PICTURES, type ChatPicture } from '@/lib/agent-manager/chat-pictures';
 
-export function SupervisorComposer({ message, busy, preparingPictures, pictures, onAddPictures, onRemovePicture, onChange, onSubmit }: {
+export function SupervisorComposer({ message, busy, stopping = false, onStop, preparingPictures, pictures, onAddPictures, onRemovePicture, onChange, onSubmit }: {
   message: string; busy: boolean; onChange: (value: string) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   preparingPictures: boolean; pictures: ChatPicture[]; onAddPictures: (files: File[]) => void; onRemovePicture: (index: number) => void;
+  stopping?: boolean; onStop?: () => void;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -52,7 +53,7 @@ export function SupervisorComposer({ message, busy, preparingPictures, pictures,
     <div className="flex flex-col gap-2 sm:flex-row">
       <label className="sr-only" htmlFor="permanent-agent-message">Message the Permanent Agent</label>
       <textarea ref={input} id="permanent-agent-message" value={message} disabled={busy} onChange={event => { selected.current = ""; change(event.target.value); }} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} aria-describedby="permanent-agent-writing-help" maxLength={800} rows={3} placeholder="Ask the Permanent Agent… Start with a few words, like ‘booking confirmation’." className="min-w-0 min-h-14 flex-1 resize-y rounded-2xl border border-slate-600 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-400 focus:border-sky-400" />
-      <button disabled={busy || (!draft && !pictures.length)} className="min-h-11 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{preparingPictures ? 'Preparing picture…' : busy ? "Thinking…" : "Send"}</button>
+      {busy && !preparingPictures && onStop ? <button type="button" onClick={onStop} disabled={stopping} className="min-h-11 rounded-2xl bg-rose-600 px-5 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50">{stopping ? 'Stopping…' : 'Stop'}</button> : <button disabled={busy || (!draft && !pictures.length)} className="min-h-11 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{preparingPictures ? 'Preparing picture…' : busy ? "Thinking…" : "Send"}</button>}
     </div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <input ref={fileInput} type="file" accept="image/*" multiple disabled={busy} className="sr-only" aria-label="Choose pictures" tabIndex={-1} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ''; onAddPictures(files); }} />

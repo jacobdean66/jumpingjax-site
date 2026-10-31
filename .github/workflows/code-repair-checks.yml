@@ -47,6 +47,8 @@ jobs:
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/investigation.test.mts src/lib/agent-manager/action-drafts.test.mts src/lib/agent-manager/investigation-provider.test.mts src/lib/email/office-inbox.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/chat-pictures.test.mts src/lib/agent-manager/chat-pictures-service.test.mts
       - run: node --import tsx --test src/app/admin/agents/chat-pictures-ui.test.mts
+      - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/supervisor-stop.test.mts
+      - run: node --import tsx --test src/app/admin/agents/supervisor-chat-request.test.mts
       - run: node --import tsx --test src/lib/facility-parties/invitations/correction.test.mts src/lib/facility-parties/invitations/correction-api.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/facility-parties/invitations/correction-provider.test.mts src/lib/facility-parties/invitations/admin-save.test.mts
       - run: node --import tsx --test src/lib/facility-parties/invitations/content.test.mts src/lib/facility-parties/invitations/email-html.test.mts src/lib/facility-parties/invitations/editable-pptx.test.mts

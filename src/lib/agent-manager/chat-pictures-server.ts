@@ -6,9 +6,9 @@ export class ChatPictureError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
 }
 
-export async function readChatRequest(request: Request): Promise<{ message?: unknown; clientRequestId?: unknown; pictures?: unknown }> {
+export async function readChatRequest(request: Request, maximumBytes = MAX_CHAT_REQUEST_BYTES): Promise<{ message?: unknown; clientRequestId?: unknown; pictures?: unknown }> {
   const declared = Number(request.headers.get('content-length'));
-  if (declared > MAX_CHAT_REQUEST_BYTES) throw new ChatPictureError('Pictures are too large. Choose smaller pictures and try again.', 413);
+  if (declared > maximumBytes) throw new ChatPictureError('The request is too large. Choose smaller pictures and try again.', 413);
   const reader = request.body?.getReader();
   if (!reader) throw new ChatPictureError('Enter a message or attach a picture.');
   const chunks: Uint8Array[] = []; let size = 0;
@@ -17,7 +17,7 @@ export async function readChatRequest(request: Request): Promise<{ message?: unk
       const part = await reader.read();
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > MAX_CHAT_REQUEST_BYTES) throw new ChatPictureError('Pictures are too large. Choose smaller pictures and try again.', 413);
+      if (size > maximumBytes) throw new ChatPictureError('The request is too large. Choose smaller pictures and try again.', 413);
       chunks.push(part.value);
     }
   } finally { await reader.cancel().catch(() => undefined); }

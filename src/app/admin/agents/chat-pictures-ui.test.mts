@@ -19,3 +19,15 @@ test('the composer offers phone photo selection, previews, removal and picture-o
   assert.match(preparing, /<button disabled=""[^>]*>Preparing picture…<\/button>/);
   assert.match(preparing, /<button type="button" disabled=""[^>]*>Remove picture 1/);
 });
+
+test('the active reply offers Stop and disables it only while cancellation is pending', () => {
+  const props = { message: 'Check this', busy: true, preparingPictures: false, pictures: [], onAddPictures: () => {}, onRemovePicture: () => {}, onChange: () => {}, onSubmit: () => {}, onStop: () => {} };
+  const running = renderToStaticMarkup(React.createElement(SupervisorComposer, props));
+  assert.match(running, /<button type="button"[^>]*>Stop<\/button>/);
+  assert.doesNotMatch(running, /<button[^>]*disabled=""[^>]*>Stop<\/button>/);
+  const stopping = renderToStaticMarkup(React.createElement(SupervisorComposer, { ...props, stopping: true }));
+  assert.match(stopping, /<button type="button" disabled=""[^>]*>Stopping…<\/button>/);
+  const idle = renderToStaticMarkup(React.createElement(SupervisorComposer, { ...props, busy: false }));
+  assert.match(idle, />Send<\/button>/);
+  assert.doesNotMatch(idle, />Stop<\/button>/);
+});

@@ -141,3 +141,22 @@ test('a gateway that rejects pictures never receives a silent text-only retry', 
   }), /Picture analysis is unavailable/);
   assert.equal(calls, 1);
 });
+
+test('aborting a reply reaches the active model request and prevents later model rounds or lookups', async context => {
+  configure(context);
+  const controller = new AbortController();
+  let calls = 0, lookups = 0, started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const response = generateSupervisorReply({ message: 'Check the website', context: {}, history: [], investigation: { execute: async () => { lookups++; return {}; } } }, controller.signal, async (_url, init) => {
+    calls++;
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Stopped', 'AbortError')), { once: true });
+      started();
+    });
+  });
+  await ready;
+  const rejected = assert.rejects(response, /unavailable/);
+  controller.abort();
+  await rejected;
+  assert.equal(calls, 1); assert.equal(lookups, 0);
+});
