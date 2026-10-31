@@ -14,6 +14,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 1351,
     "format": "jpeg"
   },
+  "/images/campaigns/ridiculous-party-pitch.png": {
+    "width": 1734,
+    "height": 907,
+    "format": "png"
+  },
   "/inflatables/accessories/40in-helium-number-balloons.jpg": {
     "width": 3024,
     "height": 4032,

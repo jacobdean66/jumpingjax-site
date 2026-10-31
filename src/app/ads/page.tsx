@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GIVEAWAY_PARTY_RSVP_URL } from "@/lib/giveaway/giveaway-campaigns";
+import { campaignIssues, entriesOpen, PARTY_PITCH_PATH } from "@/lib/party-pitch/model";
+import { loadPitchCampaign } from "@/lib/party-pitch/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Giveaways & Promotions",
@@ -8,7 +12,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/ads" },
 };
 
-export default function AdsPage() {
+export default async function AdsPage() {
+  const partyPitch = await loadPitchCampaign().catch(() => null);
+  const showPartyPitch = partyPitch && partyPitch.status !== "draft" && campaignIssues(partyPitch).length === 0;
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e9d5ff_0,#fff8e8_45%,#cffafe_100%)] px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-5xl">
@@ -23,6 +29,13 @@ export default function AdsPage() {
             Find our current promotions and community campaigns in one place.
           </p>
         </header>
+
+        {showPartyPitch ? <section className="mt-10 rounded-[2rem] border-4 border-purple-200 bg-white p-6 shadow-xl sm:p-9">
+          <p className="text-xs font-black uppercase tracking-widest text-fuchsia-700">The Most Ridiculous Party Pitch in Greenwood</p>
+          <h2 className="mt-3 text-3xl font-black text-purple-950 sm:text-4xl">Good friends. Great party. Ridiculous reason.</h2>
+          <p className="mt-4 font-semibold text-slate-700">Retire the recliner. Graduate the dog. Get your people together.</p>
+          <Link href={PARTY_PITCH_PATH} className="mt-6 inline-block rounded-full bg-purple-800 px-6 py-3 font-black text-white">{partyPitch && entriesOpen(partyPitch) ? "Pitch my party" : "View contest details"}</Link>
+        </section> : null}
 
         <section className="mt-10 overflow-hidden rounded-[2rem] border-4 border-pink-200 bg-white shadow-2xl">
           <div className="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
