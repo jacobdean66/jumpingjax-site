@@ -62,13 +62,16 @@ function providerError(status: number, body: unknown): ReportingError {
 
 export async function fetchGoogleAdsReport(input: {
   config: GoogleReportingConfig; refreshToken: string; preset?: string; now?: Date; fetcher?: typeof fetch;
+  campaignId?: string; trafficOnly?: boolean;
 }): Promise<GoogleAdsReport> {
   const now = input.now || new Date();
+  const campaignId = input.campaignId ?? GOOGLE_REPORTING_CAMPAIGN_ID;
   const base: GoogleAdsReport = {
     status: "not_connected", message: "Connect Karen’s Google Ads account to load performance. No live results have been fetched.",
     fetchedAt: null, ...googleReportingDates(input.preset, now), customerId: GOOGLE_REPORTING_CUSTOMER_ID,
-    campaignId: GOOGLE_REPORTING_CAMPAIGN_ID, campaign: null, currency: "USD", timeZone: "America/New_York", totals: null,
+    campaignId, campaign: null, currency: "USD", timeZone: "America/New_York", totals: null,
   };
+  if (!/^\d{1,20}$/.test(campaignId) || BigInt(campaignId) > BigInt("9223372036854775807")) return { ...base, status: "unavailable", message: "The saved campaign ID is invalid." };
   if (!input.config.oauthReady || !input.refreshToken) return base;
   if (input.config.loginCustomerId && !/^\d{10}$/.test(input.config.loginCustomerId)) return { ...base, status: "unavailable", message: "The reporting account configuration needs attention." };
   const request = input.fetcher || fetch;
@@ -100,14 +103,14 @@ export async function fetchGoogleAdsReport(input: {
     const account = object(accountRows[0]?.customer);
     if (String(account.id) !== GOOGLE_REPORTING_CUSTOMER_ID || typeof account.currencyCode !== "string" || typeof account.timeZone !== "string") throw new Error("invalid_account");
     const dates = googleReportingDates(input.preset, now, account.timeZone);
-    const campaignRows = await query(`SELECT campaign.id, campaign.name, campaign.status, campaign_budget.amount_micros FROM campaign WHERE campaign.id = ${GOOGLE_REPORTING_CAMPAIGN_ID}`);
+    const campaignRows = await query(`SELECT campaign.id, campaign.name, campaign.status, campaign_budget.amount_micros FROM campaign WHERE campaign.id = ${campaignId}`);
     const row = campaignRows[0];
     const campaign = object(row?.campaign);
-    if (String(campaign.id) !== GOOGLE_REPORTING_CAMPAIGN_ID || typeof campaign.name !== "string" || typeof campaign.status !== "string") throw new Error("missing_campaign");
-    const filter = `campaign.id = ${GOOGLE_REPORTING_CAMPAIGN_ID} AND segments.date BETWEEN '${dates.since}' AND '${dates.until}'`;
+    if (String(campaign.id) !== campaignId || typeof campaign.name !== "string" || typeof campaign.status !== "string") throw new Error("missing_campaign");
+    const filter = `campaign.id = ${campaignId} AND segments.date BETWEEN '${dates.since}' AND '${dates.until}'`;
     const [traffic, leads] = await Promise.all([
       query(`SELECT metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE ${filter}`),
-      query(`SELECT segments.conversion_action, metrics.conversions FROM campaign WHERE ${filter} AND segments.conversion_action = 'customers/${GOOGLE_REPORTING_CUSTOMER_ID}/conversionActions/${GOOGLE_REPORTING_CONVERSION_ID}'`),
+      input.trafficOnly ? Promise.resolve([]) : query(`SELECT segments.conversion_action, metrics.conversions FROM campaign WHERE ${filter} AND segments.conversion_action = 'customers/${GOOGLE_REPORTING_CUSTOMER_ID}/conversionActions/${GOOGLE_REPORTING_CONVERSION_ID}'`),
     ]);
     const impressions = traffic.reduce((sum, entry) => sum + measure(object(entry.metrics).impressions), 0);
     const clicks = traffic.reduce((sum, entry) => sum + measure(object(entry.metrics).clicks), 0);

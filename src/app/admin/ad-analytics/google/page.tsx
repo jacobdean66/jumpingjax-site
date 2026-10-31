@@ -12,6 +12,7 @@ import { SearchConsolePerformance } from "./SearchConsolePerformance";
 import { loadSearchConsoleReport } from "@/lib/analytics/search-console";
 import { sharedGoogleConnectionStatus } from "@/lib/analytics/shared-google-reporting";
 import { GoogleReportAutoRefresh } from "./GoogleReportAutoRefresh";
+import { BackyardTrackingPanel } from "@/components/giveaway/BackyardTrackingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function GoogleAdsSeoPage({ searchParams }: { searchParams?
       <Link href="/admin/ad-analytics" className="rounded-full border border-slate-300 px-4 py-2">Meta Ads</Link>
       <span className="rounded-full bg-slate-950 px-4 py-2 text-white">Google Ads &amp; SEO</span>
     </nav>
+    <BackyardTrackingPanel />
     <section className="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
       <h2 className="text-xl font-black">From ad to booking &amp; check-in</h2>
       <p className="mt-2 text-sm">Customers claim a personal Google code using their booking email. The code and savings are saved on their rental or facility party card. Staff can review the reservation or redemption status there.</p>

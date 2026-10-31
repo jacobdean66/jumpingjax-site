@@ -1,16 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export function PolicyPageLayout({ title, current, children }: {
+export function PolicyPageLayout({ title, current, children, updatedAt }: {
   title: string;
   current: "privacy" | "data-deletion";
   children: ReactNode;
+  updatedAt?: { iso: string; label: string };
 }) {
   return (
     <main className="min-h-screen bg-cyan-100 px-4 py-10 text-slate-950 sm:px-6">
       <article className="mx-auto max-w-4xl rounded-3xl border-2 border-cyan-200 bg-white px-5 py-8 shadow-sm sm:px-9 sm:py-10">
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{title}</h1>
-        <p className="mt-3 text-sm text-slate-600">Last updated: <time dateTime="2026-10-06">October 6, 2026</time></p>
+        <p className="mt-3 text-sm text-slate-600">Last updated: <time dateTime={updatedAt?.iso ?? "2026-10-06"}>{updatedAt?.label ?? "October 6, 2026"}</time></p>
         <div className="mt-7 text-base [&_h2]:mt-8 [&_h2]:text-xl [&_h2]:font-bold [&_p]:mt-4 [&_p]:leading-7 [&_ol]:mt-4 [&_ol]:list-decimal [&_ol]:space-y-3 [&_ol]:pl-6 [&_li]:leading-7 [&_a]:font-semibold [&_a]:text-cyan-800 [&_a]:underline [&_a]:underline-offset-4">
           {children}
         </div>

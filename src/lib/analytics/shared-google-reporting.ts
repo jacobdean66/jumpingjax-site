@@ -80,3 +80,21 @@ export async function refreshScheduledGoogleReports() {
     return { service, preset, status: report.freshness?.lastAttemptStatus || report.status, saved: !report.freshness?.warning, fetchedAt: report.fetchedAt };
   })));
 }
+
+// Separate cache and validated ID: contest traffic must never reuse the 15%-offer campaign's report.
+export async function loadSharedGoogleCampaignTraffic(campaignId: string, preset = "last_30d"): Promise<GoogleAdsReport> {
+  if (!/^\d{1,20}$/.test(campaignId)) throw new Error("Invalid saved Google campaign ID.");
+  const selected = googleReportingDates(preset).preset;
+  const path = `reports/ads_campaign/${campaignId}/${selected}.json`;
+  let previous: SavedReport<GoogleAdsReport> | null = null;
+  try { previous = await readGoogleReportingObject<SavedReport<GoogleAdsReport>>(path); } catch { /* Live reporting can still work during a cache outage. */ }
+  if (previous?.report?.campaignId !== campaignId || !reportMatchesDates(previous.report, "ads", selected, new Date())) previous = null;
+  if (previous?.report && Date.now() - Date.parse(previous.attemptedAt) < 5 * 60_000) return presentSavedGoogleReport(previous, previous.report);
+  const token = await tokenFor("ads", true);
+  const fresh = await fetchGoogleAdsReport({ config: googleReportingConfig(process.env), refreshToken: token, preset: selected, campaignId, trafficOnly: true });
+  const saved = reconcileGoogleReport(fresh, previous);
+  if (await tokenFor("ads")) {
+    try { await writeGoogleReportingObject(path, saved); } catch { /* Do not replace live results with a fabricated zero. */ }
+  }
+  return fresh.status === "connected" ? fresh : previous?.report ? presentSavedGoogleReport(saved, fresh) : fresh;
+}
