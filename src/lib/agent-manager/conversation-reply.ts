@@ -2,7 +2,7 @@ import { safeResearchText } from "./tech-search";
 import type { SupervisorSnapshot } from "./supervisor";
 import { isCodeRepairRequest } from "./code-repair";
 
-export type ReplyHistory = { question: string; reply: string };
+export type ReplyHistory = { question: string; reply: string; pictureCount?: number };
 
 /** Navigation only: discussing coding never submits or approves a repair. */
 export function codingConversationAction(message: string) {

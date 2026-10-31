@@ -34,6 +34,7 @@ import { generateSupervisorReply } from "./conversation-reply-provider";
 import { invitationCorrectionHref } from "@/lib/facility-parties/invitations/correction";
 import { createInvestigationReader } from './investigation-service';
 import { canReadOfficeMail, parseInvestigationEvidence } from './investigation';
+import { savedPictureCount, type ChatPicture } from './chat-pictures';
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
@@ -146,7 +147,7 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
   await Promise.all([
     db.from("agents").update({
       status: "idle",
-      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "repository.read", "website.inspect", "database.operational.read", "email.office.read", "social.draft.handoff", "agent.pause", "agent.resume", "manager.emergency_stop"],
+      capabilities: ["system.health_check", SUPERVISOR_CHAT_JOB_TYPE, SUPERVISOR_WATCH_JOB_TYPE, "image.inspect", "repository.read", "website.inspect", "database.operational.read", "email.office.read", "social.draft.handoff", "agent.pause", "agent.resume", "manager.emergency_stop"],
       current_job_id: null,
       last_activity_at: now,
       last_success_at: now,
@@ -157,7 +158,7 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
       job_id: job.id,
       event_type: job.job_type === SUPERVISOR_CHAT_JOB_TYPE ? "supervisor.replied" : "supervisor.watch_completed",
       summary: summary.slice(0, 1000),
-      metadata: { aiInvocations: payload?.aiInvocations ?? 0, readOnlyLookups: Array.isArray(payload?.evidence) ? payload.evidence.length : 0, businessWrites: 0 },
+      metadata: { aiInvocations: payload?.aiInvocations ?? 0, pictureCount: savedPictureCount(payload?.pictureCount), readOnlyLookups: Array.isArray(payload?.evidence) ? payload.evidence.length : 0, businessWrites: 0 },
     }),
   ]);
 }
@@ -193,12 +194,13 @@ async function runControl(message: string, actorId: string) {
   return `${control.displayName} ${paused ? "paused" : "resumed"} and the action was recorded.`;
 }
 
-export async function runSupervisorConversation(message: string, actorId: string, clientRequestId: string) {
+export async function runSupervisorConversation(message: string, actorId: string, clientRequestId: string, pictures: ChatPicture[] = []) {
+  const pictureCount = pictures.length;
   const job = await enqueueJob({
     agentKey: "supervisor",
     jobType: SUPERVISOR_CHAT_JOB_TYPE,
     source: "admin.supervisor-chat",
-    payload: { message, clientRequestId, actorId, aiInvocations: 0, businessWritesAllowed: false },
+    payload: { message, clientRequestId, actorId, pictureCount, aiInvocations: 0, businessWritesAllowed: false },
     idempotencyKey: `supervisor-chat:${clientRequestId}`,
     actorId,
   });
@@ -210,6 +212,7 @@ export async function runSupervisorConversation(message: string, actorId: string
       actionOutcome: typeof job.payload.actionOutcome === "string" ? job.payload.actionOutcome : null,
       relatedAction: (job.payload.relatedAction as SupervisorRelatedAction | null | undefined) ?? null,
       evidence: parseInvestigationEvidence(job.payload.evidence),
+      pictureCount: savedPictureCount(job.payload.pictureCount),
       deduplicated: true,
     };
   }
@@ -226,15 +229,17 @@ export async function runSupervisorConversation(message: string, actorId: string
   if (claimError || !claimed) throw new Error("This Permanent Agent request is already processing.");
 
   try {
-    const networkRequest = supervisorNetworkRequest(message);
+    const requestedHandoff = supervisorNetworkRequest(message);
+    const networkRequest = pictureCount ? null : requestedHandoff;
+    const pictureReviewAction: SupervisorRelatedAction | null = pictureCount && requestedHandoff?.skill === 'invitation_correction' ? { kind: 'agent_network', label: 'Choose invitation to correct', href: invitationCorrectionHref(message) } : null;
     let handoff;
     if (networkRequest) {
       const { submitNetworkTask } = await import("./network/service");
       const task = await submitNetworkTask({ ...networkRequest, requestId: clientRequestId, sender: "supervisor", actorId, title: "Supervisor handoff" });
       handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
       if (networkRequest.skill === "invitation_correction") handoff = { outcome: "I’ve handed your correction request to the Invitation Agent. Choose the party, then describe or review the wording, layout or picture changes. You’ll see a preview before approving the save.", relatedAction: { kind: "agent_network" as const, label: "Choose invitation to correct", href: invitationCorrectionHref(String(networkRequest.input.message)) } };
-    } else handoff = await prepareSupervisorHandoff(message);
-    const actionOutcome = handoff?.outcome ?? await runControl(message, actorId);
+    } else handoff = pictureCount ? null : await prepareSupervisorHandoff(message);
+    const actionOutcome = handoff?.outcome ?? (pictureCount ? null : await runControl(message, actorId));
     const snapshot = await collectSupervisorSnapshot(actorId);
     let reply: string;
     let aiInvocations = 0;
@@ -253,14 +258,14 @@ export async function runSupervisorConversation(message: string, actorId: string
       };
       await assertAllowed();
       const history = await loadSupervisorConversation(4, actorId);
-      reply = await generateSupervisorReply({ message, context: supervisorReplyContext(message, snapshot), history, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
+      reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
         await assertAllowed();
         if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
         const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
         if (reserved.error || !reserved.data) throw new Error('Conversational replies are temporarily unavailable.');
       } } }, deadline);
     }
-    const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? codingConversationAction(message);
+    const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
     const payload = {
       message,
       clientRequestId,
@@ -269,11 +274,12 @@ export async function runSupervisorConversation(message: string, actorId: string
       actionOutcome,
       relatedAction,
       aiInvocations,
+      pictureCount,
       evidence: reader.traces,
       businessWritesAllowed: false,
     };
     await finishSupervisorJob(job, reply, payload);
-    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, evidence: reader.traces, deduplicated: false };
+    return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, evidence: reader.traces, pictureCount, deduplicated: false };
   } catch (error) {
     const failedAt = new Date().toISOString();
     await Promise.all([
