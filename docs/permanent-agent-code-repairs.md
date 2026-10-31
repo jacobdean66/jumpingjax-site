@@ -25,6 +25,10 @@ The conversational agent has bounded, read-only deployed repository, route, publ
 
 Coding questions with one explicit website page path automatically read that exact page's indexed source before the model plans a reply. `repository_read` accepts either an indexed file path or an exact page route; it never substitutes a parent page for a missing route. This read uses the existing pause checks and six-lookup budget. A draft-only request can prepare the review form without starting a worker.
 
+Permanent Agent messages accept up to two pictures through **Attach picture**, the phone photo picker or pasting a screenshot. The owner can preview/remove them and send with or without text. The browser resizes supported pictures; the owner-only, same-origin endpoint bounds the request, decodes each picture and re-encodes it without EXIF/GPS metadata before sending actual image content to the existing protected chat connection. There is no text-only fallback if image input fails. JPEG, PNG and WebP are supported; HEIC/HEIF selection works only where the browser can decode it.
+
+Picture bytes stay in the current request and browser preview. Saved chat/job/event history retains the attachment count, not the pictures or filenames; follow-ups needing the original pixels require reattaching. Images are untrusted evidence, not control commands or proof a fix passed. Picture messages go through conversational review instead of shortcut control/specialist mutations. An invitation request can still open the existing party-selection review link. Pictures are not automatically copied into rental records, specialist tasks or coding workers; the owner reviews the prepared request and supplies any needed artwork/photo in the existing editor.
+
 GitHub scheduled runs can be delayed. A missing worker heartbeat is displayed separately from configured credentials. A cancelled lease prevents the final acceptance callback; there is no distributed transaction spanning GitHub and Supabase, so cancellation during the final PR API request can leave an unaccepted draft PR. Nothing automatically merges it.
 
 ## Verification

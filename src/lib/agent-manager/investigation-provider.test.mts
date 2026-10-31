@@ -114,3 +114,30 @@ test('automatic source reads count against the existing six-lookup budget', asyn
   assert.equal(reads, 5); // One automatic read plus two allowed pairs; the next pair would exceed six.
   assert.equal(calls, 3);
 });
+
+for (const compatible of [false, true]) test(`picture pixels reach the model with text and remain present through gateway compatibility (${compatible})`, async context => {
+  configure(context); let calls = 0;
+  const picture = { dataUrl: 'data:image/jpeg;base64,cGljdHVyZS1waXhlbHM=' };
+  const reply = await generateSupervisorReply({ message: 'What color is the button?', pictures: [picture], context: {}, history: [{ question: 'Check my previous picture', reply: 'I checked it.', pictureCount: 1 }], investigation: { execute: async () => { throw new Error('No lookup needed for visible colors'); } } }, undefined, async (_url, init) => {
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.store, false);
+    const user = body.messages.find((entry: { role: string; content: unknown }) => entry.role === 'user' && Array.isArray(entry.content));
+    assert.deepEqual(user.content, [{ type: 'text', text: 'What color is the button?' }, { type: 'image_url', image_url: { url: picture.dataUrl, detail: 'high' } }]);
+    assert.match(JSON.stringify(body.messages), /pixels are not available in this turn/);
+    if (compatible && calls === 1) return Response.json({ error: { message: 'tools are not allowed by this gateway', type: 'invalid_request_error' } }, { status: 400 });
+    return answer(compatible ? JSON.stringify({ reply: 'The button is blue.', lookups: [] }) : 'The button is blue.');
+  });
+  assert.equal(reply, 'The button is blue.');
+  assert.equal(calls, compatible ? 2 : 1);
+});
+
+test('a gateway that rejects pictures never receives a silent text-only retry', async context => {
+  configure(context); let calls = 0;
+  await assert.rejects(generateSupervisorReply({ message: 'Describe this', pictures: [{ dataUrl: 'data:image/jpeg;base64,cGl4ZWxz' }], context: {}, history: [] }, undefined, async (_url, init) => {
+    calls++;
+    assert.match(String(init?.body), /image_url/);
+    return Response.json({ error: { message: 'Image input is not supported', type: 'invalid_request_error' } }, { status: 400 });
+  }), /Picture analysis is unavailable/);
+  assert.equal(calls, 1);
+});

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { parseInvestigationEvidence } from './investigation';
+import { savedPictureCount } from './chat-pictures';
 
 import type { AgentJob } from "./types";
 import type { AgentWiring } from "./agent-wiring";
@@ -284,6 +285,7 @@ export function supervisorJobMessage(job: Pick<AgentJob, "payload" | "result_sum
     createdAt: job.created_at,
     relatedAction: parseRelatedAction(job.payload.relatedAction),
     evidence: parseInvestigationEvidence(job.payload.evidence),
+    pictureCount: savedPictureCount(job.payload.pictureCount),
   };
 }
 

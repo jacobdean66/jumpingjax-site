@@ -8,8 +8,11 @@ import { supervisorIssueAction } from "./navigation";
 import { SupervisorComposer } from "./SupervisorComposer";
 import { SupervisorReply } from "./SupervisorReply";
 import { parseInvestigationEvidence, type InvestigationTrace } from '@/lib/agent-manager/investigation';
+import Image from 'next/image';
+import { MAX_CHAT_PICTURES, type ChatPicture } from '@/lib/agent-manager/chat-pictures';
+import { prepareChatPicture } from './chat-picture-client';
 
-type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[] };
+type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[]; pictureCount?: number; pictures?: ChatPicture[] };
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(() => [...initialMessages].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
@@ -18,13 +21,16 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pictures, setPictures] = useState<ChatPicture[]>([]);
+  const [preparingPictures, setPreparingPictures] = useState(false);
+  const addingPicturesRef = useRef(false);
   const [issueFilter, setIssueFilter] = useState<"critical" | "warning" | null>(null);
   const [servicesOpen, setServicesOpen] = useState(false);
   const inFlightRef = useRef(false);
 
   async function send(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed || inFlightRef.current) return;
+    const trimmed = value.trim() || (pictures.length ? 'Please look at the attached pictures and tell me what you see.' : '');
+    if (!trimmed || inFlightRef.current || addingPicturesRef.current) return;
     inFlightRef.current = true;
     setBusy(true);
     setError("");
@@ -32,21 +38,35 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       const response = await fetch("/api/admin/agents/supervisor-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, clientRequestId: crypto.randomUUID() }),
+        body: JSON.stringify({ message: trimmed, clientRequestId: crypto.randomUUID(), pictures }),
       });
       const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; evidence?: unknown; error?: string };
       if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
-      setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null, evidence: parseInvestigationEvidence(body.evidence) }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
+      setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null, evidence: parseInvestigationEvidence(body.evidence), pictureCount: pictures.length, pictures }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
       requestAnimationFrame(() => historyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
       setSnapshot(body.snapshot);
       window.dispatchEvent(new Event("agent-manager:refresh"));
       setMessage("");
+      setPictures([]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Permanent Agent request failed safely.");
     } finally {
       inFlightRef.current = false;
       setBusy(false);
     }
+  }
+
+  async function addPictures(files: File[]) {
+    if (inFlightRef.current || addingPicturesRef.current || !files.length) return;
+    setError('');
+    if (pictures.length + files.length > MAX_CHAT_PICTURES) { setError(`Attach up to ${MAX_CHAT_PICTURES} pictures per message. Remove one first.`); return; }
+    addingPicturesRef.current = true;
+    setPreparingPictures(true);
+    try {
+      const prepared = await Promise.all(files.map(prepareChatPicture));
+      setPictures(current => [...current, ...prepared]);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'The picture could not be prepared. Try another picture.'); }
+    finally { addingPicturesRef.current = false; setPreparingPictures(false); }
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -63,7 +83,10 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
   function renderMessage(item: ConversationItem) {
     return <article key={item.id} className="space-y-2 border-b border-slate-200 pb-4 last:border-0 last:pb-0">
       <time dateTime={item.createdAt} className="block text-xs font-semibold text-slate-500">{formatAgentTime(item.createdAt)}</time>
-      <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">{item.question}</div>
+      <div className="ml-auto max-w-3xl rounded-2xl bg-sky-700 px-4 py-3 text-sm font-bold text-white">
+        {item.question}
+        {item.pictures?.length ? <div className="mt-3 grid gap-2 sm:grid-cols-2">{item.pictures.map((picture, index) => <Image key={index} src={picture.dataUrl} alt={`Attached picture ${index + 1}`} width={512} height={384} unoptimized className="max-h-64 w-full rounded-lg bg-white object-contain" />)}</div> : item.pictureCount ? <p className="mt-2 text-xs font-normal">{item.pictureCount} {item.pictureCount === 1 ? 'picture was' : 'pictures were'} attached. Reattach to inspect again.</p> : null}
+      </div>
       <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
         <SupervisorReply text={item.reply} />
         {item.evidence?.length ? <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Sources checked ({item.evidence.length})</summary><ul className="mt-2 space-y-2">{item.evidence.map((entry, index) => <li key={index} className="break-words"><span className={entry.ok ? 'text-emerald-800' : 'text-rose-800'}>{entry.ok ? 'Checked' : 'Unavailable'}</span> · {entry.source}<span className="block text-xs">{formatAgentTime(entry.checkedAt)}{entry.limited ? ' · Limited scope' : ''}</span></li>)}</ul></details> : null}
@@ -132,7 +155,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         </div>
       ) : null}
 
-      <SupervisorComposer message={message} busy={busy} onChange={setMessage} onSubmit={submit} />
+      <SupervisorComposer message={message} busy={busy || preparingPictures} preparingPictures={preparingPictures} pictures={pictures} onAddPictures={files => { void addPictures(files); }} onRemovePicture={index => { setPictures(current => current.filter((_, at) => at !== index)); setError(''); }} onChange={setMessage} onSubmit={submit} />
 
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 scroll-mt-4 space-y-4 rounded-2xl bg-white p-4 text-slate-950">
