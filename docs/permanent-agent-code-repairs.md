@@ -23,6 +23,8 @@ The public-page scope supports small UI and pure application code repairs, inclu
 
 The conversational agent has bounded, read-only deployed repository, route, public HTML, operational database and Office Inbox tools. It cites checked sources and reports failed or limited lookups. A separate `prepare_catalog_item` tool opens a new-item draft in Inventory: supplied title, category, wording and price are editable; an unknown price remains blank, the owner adds a photo and reviews visibility before saving. The tool does not save or publish an item. Existing-item edits ignore new-item drafts. Invitation wording/layout/artwork correction requests retain their existing specialist preview-and-approval flow.
 
+Coding questions with one explicit website page path automatically read that exact page's indexed source before the model plans a reply. `repository_read` accepts either an indexed file path or an exact page route; it never substitutes a parent page for a missing route. This read uses the existing pause checks and six-lookup budget. A draft-only request can prepare the review form without starting a worker.
+
 GitHub scheduled runs can be delayed. A missing worker heartbeat is displayed separately from configured credentials. A cancelled lease prevents the final acceptance callback; there is no distributed transaction spanning GitHub and Supabase, so cancellation during the final PR API request can leave an unaccepted draft PR. Nothing automatically merges it.
 
 ## Verification
