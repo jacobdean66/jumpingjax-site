@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInvestigationReader, boundedText, type RepositoryIndex } from './investigation-service';
-import { investigationInputs, readableDatabaseColumn, parseInvestigationEvidence } from './investigation';
+import { explicitSourcePage, investigationInputs, readableDatabaseColumn, parseInvestigationEvidence } from './investigation';
 
 const index: RepositoryIndex = { commit: 'a'.repeat(40), generatedAt: '2026-10-30T12:00:00Z', coverage: { files: 3, truncatedFiles: 0, bytes: 100 }, files: [{ path: 'src/app/page.tsx', text: 'const title = "Home";\nexport default function Home() {}', lines: 2, truncated: false }, { path: 'src/app/admin/invoices/inbox/page.tsx', text: 'Office inbox reads office mail.', lines: 1, truncated: false }, { path: 'docs/large.md', text: '', lines: null, truncated: true }], routes: [{ path: '/', source: 'src/app/page.tsx', dynamic: false, protected: false }, { path: '/admin/invoices/inbox', source: 'src/app/admin/invoices/inbox/page.tsx', dynamic: false, protected: true }] };
 const schema = { definitions: { bookings: { properties: { id: { type: 'string', format: 'uuid' }, status: { type: 'string' }, total: { type: 'number' }, customer_email: { type: 'string' }, invitation: { type: 'object' }, credit_card_number: { type: 'number' } } }, admin_sessions: { properties: { id: { type: 'string', format: 'uuid' } } } } };
@@ -17,6 +17,29 @@ test('repository searches cite paths and numbered excerpts without allowing arbi
   const map = await reader.execute('website_map', { query: 'inbox', offset: 0 });
   assert.match(JSON.stringify(map), /protected.*true/);
   assert.equal(reader.traces.length, 5);
+});
+
+test('exact website page reads resolve the child source and never substitute a parent or arbitrary file', async () => {
+  const page = '/admin/invoices/inbox/print', source = 'src/app/admin/invoices/inbox/print/page.tsx';
+  const reader = createInvestigationReader({ index: async () => ({ ...index, files: [...index.files, { path: source, text: '<PrintInvoiceButton label="Print email" />', lines: 1, truncated: false }], routes: [...index.routes, { path: page, source, dynamic: false, protected: true }] }) });
+  const result = await reader.execute('repository_read', { path: page, startLine: 1, lineCount: 120 });
+  assert.equal(result.path, source);
+  assert.equal(result.pagePath, page);
+  assert.match(String(result.text), /Print email/);
+  assert.doesNotMatch(String(result.text), /Office inbox reads/);
+  assert.match(reader.traces[0].source, /inbox\/print\/page.tsx:1@/);
+  for (const path of ['/admin/invoices/inbox/print/missing', '/../.env.local', '/admin/invoices/inbox?token=private']) {
+    const missing = await reader.execute('repository_read', { path, startLine: 1, lineCount: 120 });
+    assert.match(String(missing.error), /exact website page.*not found/);
+    assert.equal(missing.text, undefined);
+  }
+});
+
+test('automatic source inspection requires one explicit safe page and a code-related question', () => {
+  assert.equal(explicitSourcePage('Prepare a code-repair draft for /admin/invoices/inbox/print. Inspect its source.'), '/admin/invoices/inbox/print');
+  assert.equal(explicitSourcePage('Fix `/rentals` please'), '/rentals');
+  assert.equal(explicitSourcePage('Inspect the source for “/”.'), '/');
+  for (const message of ['Hello', 'Visit /rentals', 'Fix /rentals and /service-area', 'Fix /../.env.local', 'Fix //evil.test/path', 'Fix /rentals?token=private', 'Fix /%2e%2e/.env.local']) assert.equal(explicitSourcePage(message), undefined, message);
 });
 
 test('website inspections use only first-party GETs and do not execute scripts, follow mail links or forward credentials', async () => {

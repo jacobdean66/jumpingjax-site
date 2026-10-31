@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateSupervisorReply } from './conversation-reply-provider';
+import { createInvestigationReader, type RepositoryIndex } from './investigation-service';
 
 function configure(context: { after: (fn: () => void) => void }) {
   const old = { ALLOW_DIRECT_OPENAI: process.env.ALLOW_DIRECT_OPENAI, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
@@ -61,4 +62,55 @@ test('a concrete repair can search source, read it and prepare a review form bef
   });
   assert.deepEqual(executed, steps.map(step => step[0])); assert.equal(calls, 4);
   assert.match(reply, /Nothing has changed/);
+});
+
+for (const compatible of [false, true]) test(`explicit print repair reads the exact source before planning and prepares a draft (${compatible ? 'gateway compatibility' : 'native tools'})`, async context => {
+  configure(context);
+  const page = '/admin/invoices/inbox/print', source = 'src/app/admin/invoices/inbox/print/page.tsx';
+  const index: RepositoryIndex = { commit: 'a'.repeat(40), generatedAt: '2026-10-30T12:00:00Z', coverage: { files: 2, truncatedFiles: 0, bytes: 200 }, files: [
+    { path: 'src/app/admin/invoices/inbox/page.tsx', text: 'Office Inbox. No print button on this parent page.', lines: 1, truncated: false },
+    { path: source, text: '<PrintInvoiceButton label="Print email" />', lines: 1, truncated: false },
+  ], routes: [{ path: page, source, dynamic: false, protected: true }] };
+  const reader = createInvestigationReader({ index: async () => index });
+  let calls = 0, lookupGuards = 0;
+  const draft = { description: 'Change the Print email button label to Print office email without changing printing.', pagePath: page, expectedText: 'Print office email' };
+  const reply = await generateSupervisorReply({ message: `Prepare a code-repair draft for ${page}. Inspect its source and change the Print email button to Print office email. Do not start a coding run.`, context: {}, history: [], investigation: { execute: reader.execute, beforeLookups: async () => { lookupGuards++; } } }, undefined, async (_url, init) => {
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    const messages = JSON.stringify(body.messages);
+    assert.match(messages, /inbox\/print\/page.tsx/);
+    assert.match(messages, /PrintInvoiceButton/);
+    assert.doesNotMatch(messages, /No print button on this parent/);
+    if (compatible && calls === 1) return Response.json({ error: { message: 'tools are not allowed by this gateway', type: 'invalid_request_error' } }, { status: 400 });
+    const planning = calls === (compatible ? 2 : 1);
+    if (compatible) return answer(JSON.stringify(planning ? { reply: '', lookups: [{ name: 'prepare_code_repair', arguments: JSON.stringify(draft) }] } : { reply: 'The coding request is ready for review. No coding run has started.', lookups: [] }));
+    return planning ? toolResponse('prepare_code_repair', draft) : answer('The coding request is ready for review. No coding run has started.');
+  });
+  assert.match(reply, /ready for review/);
+  assert.deepEqual(reader.traces.map(trace => trace.tool), ['repository_read', 'prepare_code_repair']);
+  assert.equal(lookupGuards, 2);
+  assert.equal(reader.actions.length, 1);
+  const link = new URL(reader.actions[0].href, 'https://jumpingjaxllc.com');
+  assert.equal(link.pathname, '/admin/agents');
+  assert.equal(link.hash, '#code-repairs');
+  assert.deepEqual(JSON.parse(link.searchParams.get('draft')!), draft);
+});
+
+test('automatic source reads honor the existing pause guard before reading or calling the model', async context => {
+  configure(context);
+  let reads = 0, calls = 0;
+  await assert.rejects(generateSupervisorReply({ message: 'Fix the code at /rentals', context: {}, history: [], investigation: { beforeLookups: async () => { throw new Error('Agent is paused'); }, execute: async () => { reads++; return {}; } } }, undefined, async () => { calls++; return answer('unused'); }), /paused/);
+  assert.equal(reads, 0);
+  assert.equal(calls, 0);
+});
+
+test('automatic source reads count against the existing six-lookup budget', async context => {
+  configure(context);
+  let reads = 0, calls = 0;
+  await assert.rejects(generateSupervisorReply({ message: 'Fix the code at /rentals', context: {}, history: [], investigation: { execute: async () => { reads++; return {}; } } }, undefined, async () => {
+    calls++;
+    return Response.json({ choices: [{ finish_reason: 'tool_calls', message: { content: null, tool_calls: [0, 1].map(i => ({ id: `call_${calls}_${i}`, type: 'function', function: { name: 'repository_search', arguments: JSON.stringify({ query: 'rentals', prefix: null, offset: 0 }) } })) } }] });
+  }), /lookup limit/);
+  assert.equal(reads, 5); // One automatic read plus two allowed pairs; the next pair would exceed six.
+  assert.equal(calls, 3);
 });

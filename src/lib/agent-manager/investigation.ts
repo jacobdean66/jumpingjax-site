@@ -17,6 +17,11 @@ export const investigationInputs = {
 };
 export type InvestigationTool = keyof typeof investigationInputs;
 export function canReadOfficeMail(message: string) { return /\b(emails?|mailbox|inbox|office copies|customer replies)\b/i.test(message); }
+export function explicitSourcePage(message: string): string | undefined {
+  if (!/\b(code|coding|source|repair|fix|debug)\b/i.test(message)) return;
+  const pages = [...new Set(message.split(/\s+/).map(word => word.replace(/^[`"'“‘(]+/, '').replace(/[`"'”’),.;:!?]+$/, '')).filter(word => /^\/[A-Za-z0-9_/@.\[\]()-]*$/.test(word) && path.safeParse(word).success))];
+  return pages.length === 1 ? pages[0] : undefined;
+}
 export type InvestigationTrace = { tool: InvestigationTool; source: string; checkedAt: string; ok: boolean; limited: boolean };
 export function parseInvestigationEvidence(value: unknown): InvestigationTrace[] {
   if (!Array.isArray(value)) return [];
@@ -26,8 +31,8 @@ export function parseInvestigationEvidence(value: unknown): InvestigationTrace[]
 const descriptions: Record<InvestigationTool, string> = {
   prepare_catalog_item: 'Prepare a NEW rental catalogue item in the owner review form, only when the user asks to add an item. No database write or publication. Use the supplied title/category and facts; use null for an unknown price and do not invent dimensions, prices, availability or images. Ask for missing essential facts first. The owner reviews, adds a photo and saves.',
   prepare_code_repair: 'Prepare a coding request in the owner review form when the user requests a concrete website, home page, dashboard, API or print fix. First investigate the relevant source. Include the page path, plain-language requested behavior and a concise visible check. This does not queue a paid run, edit files or deploy; the owner reviews and starts the worker.',
-  repository_search: 'Search the deployed active repository by literal text or filename. Returns source paths and matching lines. Empty query lists paths. Use prefix to narrow scope and offset to continue.',
-  repository_read: 'Read a numbered excerpt from an indexed source file. This is the code deployed with this application, not a live GitHub branch. No secrets or environment files are available.',
+  repository_search: 'Search the deployed active repository by literal text or filename. Returns source paths and matching lines. Empty query lists paths. Prefix is a repository directory such as src/app/admin, not a website URL path. For an exact website page path, use repository_read directly or website_map to resolve its source. Use offset to continue.',
+  repository_read: 'Read a numbered excerpt from an indexed source file or an exact website page path such as /admin/invoices/inbox/print. Website paths resolve to their exact indexed page source, never a parent page. This is deployed code, not a live GitHub branch. No secrets or environment files are available.',
   website_map: 'Discover public and protected page routes throughout the deployed website, including their source files. This inventory is not proof pages have been checked.',
   website_inspect: 'Read live HTML text, title, links and HTTP status from one public website page. No scripts, screenshots, authenticated browsing or interactions; protected pages must be investigated through source and database tools.',
   database_schema: 'Discover public database tables and their columns. A specific table shows its available operational fields and restricted columns; no row data. Start here before querying an unfamiliar table.',

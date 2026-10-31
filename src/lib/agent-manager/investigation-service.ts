@@ -103,17 +103,21 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         data = { commit: index.commit, indexedAt: index.generatedAt, coverage: index.coverage, totalMatches: matches.length, matches: matches.slice(offset, offset + 12), nextOffset: offset + 12 < matches.length ? offset + 12 : null };
       } else if (tool === 'repository_read') {
         const { path, startLine, lineCount } = investigationInputs.repository_read.parse(input);
-        if (!eligibleSourcePath(path)) throw new Error('That file is outside the deployed source index.');
-        const index = await deps.index(), file = index.files.find(file => file.path === path);
+        if (!path.startsWith('/') && !eligibleSourcePath(path)) throw new Error('That file is outside the deployed source index.');
+        const index = await deps.index();
+        const resolvedPath = path.startsWith('/') ? index.routes.find(route => route.path === path)?.source : path;
+        if (!resolvedPath) throw new Error('The exact website page was not found in the deployed source index.');
+        if (!eligibleSourcePath(resolvedPath)) throw new Error('That file is outside the deployed source index.');
+        const file = index.files.find(file => file.path === resolvedPath);
         if (!file || file.truncated) throw new Error('That source file is unavailable or exceeded the indexing limit.');
-        source = `${path}:${startLine}@${index.commit}`;
+        source = `${resolvedPath}:${startLine}@${index.commit}`;
         const lines = file.text.split('\n'); let text = '', endLine = startLine - 1;
         for (let at = startLine - 1; at < Math.min(lines.length, startLine - 1 + lineCount); at++) {
           const next = `${at + 1}: ${lines[at]}\n`; if (text.length + next.length > 12000) break;
           text += next; endLine = at + 1;
         }
         limited = endLine < lines.length;
-        data = { path, commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
+        data = { path: resolvedPath, ...(path.startsWith('/') ? { pagePath: path } : {}), commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
       } else if (tool === 'website_map') {
         const { query, offset } = investigationInputs.website_map.parse(input), index = await deps.index();
         const matches = index.routes.filter(route => `${route.path} ${route.source}`.toLowerCase().includes(query.toLowerCase()));
