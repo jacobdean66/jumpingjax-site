@@ -14,6 +14,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 1351,
     "format": "jpeg"
   },
+  "/images/campaigns/party-pitch-display-580x400.jpg": {
+    "width": 580,
+    "height": 400,
+    "format": "jpeg"
+  },
   "/images/campaigns/ridiculous-party-pitch.png": {
     "width": 1734,
     "height": 907,

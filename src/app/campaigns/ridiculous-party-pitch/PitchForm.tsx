@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 
 const inputClass = "mt-2 block w-full rounded-xl border border-purple-200 bg-white px-4 py-3 font-medium text-slate-950 focus:outline-none focus:ring-2 focus:ring-purple-500";
 
@@ -29,6 +30,7 @@ export function PitchForm() {
       const result = await response.json();
       if (!response.ok || !result.id) throw new Error(result.error || "Your pitch could not be saved.");
       setConfirmation(result.id);
+      if (result.created === true) trackAnalyticsEvent("party_pitch_entry_saved", { campaign: "ridiculous_party_pitch" });
     } catch (e) { setError(e instanceof Error ? e.message : "Your pitch could not be saved. Please try again."); }
     finally { setBusy(false); }
   }

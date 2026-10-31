@@ -45,7 +45,7 @@ export async function listPitchEntries(): Promise<PitchEntry[]> {
   // Supabase caps result sets. Page through every row so older entrants are not hidden.
   for (let start = 0; ; start += 500) {
     const { data, error } = await db.from("campaign_event_signups")
-      .select("id, parent_name, email, phone, notes, utm_source, created_at")
+      .select("id, parent_name, email, phone, notes, utm_source, utm_medium, created_at")
       .eq("event_id", PARTY_PITCH_ID).order("created_at", { ascending: false }).order("id")
       .range(start, start + 499);
     if (error) throw new Error("Party pitches could not be loaded.");
@@ -53,7 +53,7 @@ export async function listPitchEntries(): Promise<PitchEntry[]> {
       const details = readPitchDetails(row.notes);
       if (!details) throw new Error("An entry could not be read. Contact support; no entries have been removed.");
       entries.push({ ...details, id: String(row.id), name: String(row.parent_name), email: String(row.email),
-        phone: String(row.phone ?? ""), source: String(row.utm_source ?? ""), createdAt: String(row.created_at) });
+        phone: String(row.phone ?? ""), source: String(row.utm_source ?? ""), medium: String(row.utm_medium ?? ""), createdAt: String(row.created_at) });
     }
     if (!data || data.length < 500) return entries;
   }

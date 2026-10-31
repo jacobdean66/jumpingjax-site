@@ -53,6 +53,11 @@ export function FrontDeskDashboard({ role, name, focusItems }: { role: AdminRole
           {role === "owner" ? <Link className="ah-chip jax-support-link text-xs font-black" href="/admin/open-play-report"><BarChart3 size={20} aria-hidden="true" />Daily attendance report<ArrowUpRight size={16} aria-hidden="true" /></Link> : null}
         </div>
       </section>
+      {role === "owner" ? <section aria-label="Party Pitch campaign" className="ah-panel jax-support-panel mt-7 p-5">
+        <div className="jax-panel-heading"><p className="ah-panel-label text-xs font-black uppercase">Ridiculous Party Pitch</p></div>
+        <p className="ah-lede mt-3 text-sm">Review every application, keep private judging notes, and check the poster ad&apos;s results.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2"><Link href="/admin/party-pitches" className="ah-chip jax-support-link text-sm font-black"><Users size={20} aria-hidden="true" />Party Pitch applicants<ArrowUpRight size={16} aria-hidden="true" /></Link><Link href="/admin/ad-analytics/google#party-pitch-analytics" className="ah-chip jax-support-link text-sm font-black"><BarChart3 size={20} aria-hidden="true" />Party Pitch ad analytics<ArrowUpRight size={16} aria-hidden="true" /></Link></div>
+      </section> : null}
       <aside className="ah-panel jax-bookings-panel mt-7 p-5">
         <div className="jax-panel-heading"><p className="ah-panel-label text-xs font-black uppercase">Today&apos;s bookings</p><Link href="/admin/schedule" className="jax-schedule-link">Open schedule <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
         <div className="ah-focus-scroll mt-4 grid max-h-80 gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">

@@ -49,8 +49,13 @@ test("confirmation is returned only after the database accepts the application",
   const response = await POST(request(entrant));
   assert.equal(response.status, 200);
   assert.equal(saved, true);
-  assert.match((await response.json()).id, /^[\da-f-]{36}$/);
+  const result = await response.json();
+  assert.match(result.id, /^[\da-f-]{36}$/);
+  assert.equal(result.created, true);
   assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+  server.use(http.post("https://party-pitch.invalid/rest/v1/campaign_event_signups", () => HttpResponse.json([])));
+  const duplicate = await POST(request(entrant));
+  assert.equal((await duplicate.json()).created, false);
   server.use(http.post("https://party-pitch.invalid/rest/v1/campaign_event_signups", () => HttpResponse.json({ code: "storage_failure", message: "test-only failure" }, { status: 503 })));
   const failed = await POST(request(entrant));
   assert.equal(failed.status, 503);

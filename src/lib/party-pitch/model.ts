@@ -12,6 +12,7 @@ export type PitchCampaign = {
   closesOn: string;
   announcesOn: string;
   rules: string;
+  googleCampaignId?: string;
 };
 export const DRAFT_AWARD_RULES = [
   "SPONSOR AND ELIGIBILITY\nSponsored by Jumping Jax LLC, 559 Beaudrot Rd, Greenwood, SC. Entrants must be 18 or older and live within the eligible area shown above. The winning event must also take place within that area. Jumping Jax employees, judges, and their immediate family members are not eligible.",
@@ -25,7 +26,7 @@ export const DRAFT_AWARD_RULES = [
 export const EMPTY_CAMPAIGN: PitchCampaign = {
   status: "draft", prize: "One Jumping Jax rental package of the winner's choice, up to $400 total value. Any mandatory delivery, setup, pickup charges, and applicable taxes are included within the $400 allowance; no payment is required to receive the prize.", retailValue: "400.00",
   eligibleArea: "Within a 50-mile radius of Jumping Jax, 559 Beaudrot Rd, Greenwood, SC.",
-  opensOn: "2026-10-30", closesOn: "2026-12-31", announcesOn: "2027-01-01", rules: DRAFT_AWARD_RULES,
+  opensOn: "2026-10-30", closesOn: "2026-12-31", announcesOn: "2027-01-01", rules: DRAFT_AWARD_RULES, googleCampaignId: "",
 };
 export type PitchDetails = {
   version: 1;
@@ -41,7 +42,7 @@ export type PitchDetails = {
 };
 export type PitchEntry = PitchDetails & {
   id: string; name: string; email: string; phone: string;
-  createdAt: string; source: string;
+  createdAt: string; source: string; medium?: string;
 };
 
 export function text(value: unknown, max: number): string {
@@ -109,7 +110,7 @@ export function normalizeCampaign(value: unknown): PitchCampaign {
   const b = value as Record<string, unknown>;
   const status = ["draft", "published", "paused", "closed"].includes(String(b.status)) ? b.status as PitchCampaign["status"] : "draft";
   return { status, prize: text(b.prize, 3000), retailValue: text(b.retailValue, 30), eligibleArea: text(b.eligibleArea, 1000),
-    opensOn: text(b.opensOn, 10), closesOn: text(b.closesOn, 10), announcesOn: text(b.announcesOn, 10), rules: text(b.rules, 20000) };
+    opensOn: text(b.opensOn, 10), closesOn: text(b.closesOn, 10), announcesOn: text(b.announcesOn, 10), rules: text(b.rules, 20000), googleCampaignId: text(b.googleCampaignId, 24) };
 }
 export function readPitchDetails(value: unknown): PitchDetails | null {
   if (typeof value !== "string") return null;

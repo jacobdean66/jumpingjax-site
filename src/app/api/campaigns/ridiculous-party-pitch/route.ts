@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       source: text(body.utmSource, 100), medium: text(body.utmMedium, 100), campaign: text(body.utmCampaign, 100), content: text(body.utmContent, 100),
     });
     // Duplicate submissions do not overwrite the original pitch or its review.
-    return privateJson({ ok: true, id: saved.id });
+    return privateJson({ ok: true, id: saved.id, created: saved.created });
   } catch {
     return privateJson({ error: "We couldn't save your pitch. Please try again shortly." }, 503);
   }

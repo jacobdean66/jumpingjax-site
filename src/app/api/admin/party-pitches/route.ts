@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   try {
     if (body.action === "settings") {
       const config = normalizeCampaign(body.config);
+      if (config.googleCampaignId && !/^\d{1,19}$/.test(config.googleCampaignId)) return privateJson({ error: "Use the numeric Google Ads campaign ID, or leave it blank until the campaign is published." }, 400);
       const issues = campaignIssues(config);
       if (config.status === "published" && issues.length) return privateJson({ error: issues.join(" ") }, 400);
       await savePitchCampaign(config);

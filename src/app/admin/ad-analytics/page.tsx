@@ -17,6 +17,7 @@ import { loadGoogleAdsReport } from "@/lib/analytics/google-reporting";
 import { GooglePerformance } from "./google/GooglePerformance";
 import { GoogleReportAutoRefresh } from "./google/GoogleReportAutoRefresh";
 import { BackyardTrackingPanel } from "@/components/giveaway/BackyardTrackingPanel";
+import { PartyPitchAnalytics } from "@/components/PartyPitchAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,7 @@ export default async function AdminAdAnalyticsPage({
       </nav>
 
       <GooglePerformance report={googleReport} compact />
+      <PartyPitchAnalytics preset={params.preset} />
       <BackyardTrackingPanel />
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
