@@ -11,9 +11,9 @@ export function SiteChrome() {
   const isHome = pathname === "/";
   const promotionCode = useRentalPromotion();
 
-  if (pathname === "/visit" || pathname.startsWith("/visit/") || pathname === "/offers/inflatables-15" || (promotionCode && (pathname === "/rentals" || pathname.startsWith("/rentals/")))) {
+  if (pathname === "/campaigns/backyard-takeover" || pathname === "/visit" || pathname.startsWith("/visit/") || pathname === "/offers/inflatables-15" || (promotionCode && (pathname === "/rentals" || pathname.startsWith("/rentals/")))) {
     return (
-      <header aria-label="Rental offer header" className="border-b border-cyan-300/20 bg-[#071326] text-white">
+      <header aria-label={pathname === "/campaigns/backyard-takeover" ? "Backyard Takeover header" : "Rental offer header"} className="border-b border-cyan-300/20 bg-[#071326] text-white">
         <div className="h-1 bg-[linear-gradient(90deg,#f97316_0%,#facc15_22%,#22c55e_45%,#06b6d4_68%,#ec4899_100%)]" />
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-5 py-3">
           <Link href="/" className="inline-flex min-h-11 items-center text-lg font-black text-pink-300">Jumping Jax</Link>

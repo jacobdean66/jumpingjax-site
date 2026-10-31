@@ -1,7 +1,11 @@
 import { verifyAdminOwnerAccess } from "@/lib/admin/session";
 import { privateJson, safeOwnerAuthError } from "@/lib/security/request-guard";
 import { cleanBackyardText, entriesCsv, isEntryId, isEntryStatus, validateBackyardEntry } from "@/lib/admin/backyard-takeover";
-import { createBackyardEntry, loadBackyardDashboard, reviewBackyardEntry, saveBackyardCampaign } from "@/lib/admin/backyard-takeover-store";
+import { createBackyardEntry, loadBackyardDashboard, loadBackyardCampaign, reviewBackyardEntry } from "@/lib/admin/backyard-takeover-store";
+import { loadBackyardSettings, saveBackyardSettings } from "@/lib/admin/backyard-tracking-store";
+import { backyardTimeInput, normalizeBackyardSettings } from "@/lib/admin/backyard-tracking";
+import { GOOGLE_ADS_TAG_ID, GOOGLE_ADS_RENTAL_DESTINATION } from "@/lib/analytics/google-ads";
+import { GOOGLE_REPORTING_CAMPAIGN_ID } from "@/lib/analytics/google-reporting-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +18,7 @@ export async function GET(request: Request) {
     if (new URL(request.url).searchParams.get("format") === "csv") return new Response(entriesCsv(dashboard.entries), {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="backyard-takeover-entries.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex, nofollow, noarchive" },
     });
-    return privateJson(dashboard);
+    return privateJson({ ...dashboard, settings: await loadBackyardSettings() });
   } catch { return privateJson({ error: "Campaign records could not be loaded. Please try again." }, 503); }
 }
 
@@ -50,7 +54,16 @@ export async function POST(request: Request) {
       if (deadline && (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || !parsedDeadline || Number.isNaN(parsedDeadline.getTime()) || parsedDeadline.toISOString().slice(0, 10) !== deadline)) return privateJson({ error: "Choose a valid deadline." }, 400);
       const metaCampaignId = cleanBackyardText(input.metaCampaignId, 40);
       if (metaCampaignId && !/^\d+$/.test(metaCampaignId)) return privateJson({ error: "A Meta campaign ID must contain numbers only." }, 400);
-      await saveBackyardCampaign({ deadline, prize: cleanBackyardText(input.prize), rules: cleanBackyardText(input.rules, 8000), metaCampaignId, metaCampaignName: cleanBackyardText(input.metaCampaignName, 200) });
+      const existing = await loadBackyardCampaign();
+      const status = input.status ?? existing.status;
+      if (!["draft","published","paused","closed"].includes(status)) return privateJson({ error: "Choose a valid entry status." }, 400);
+      const settings = input.settings ? normalizeBackyardSettings(input.settings) : await loadBackyardSettings();
+      if ([settings.opensAt,settings.closesAt].some(value => value && !Number.isFinite(Date.parse(value)))) return privateJson({ error: "Choose valid opening and closing times." }, 400);
+      if (settings.googleCampaignId && (!/^\d{1,20}$/.test(settings.googleCampaignId) || BigInt(settings.googleCampaignId) > BigInt("9223372036854775807"))) return privateJson({ error: "Enter a valid Google campaign ID." }, 400);
+      if (settings.googleCampaignId === GOOGLE_REPORTING_CAMPAIGN_ID) return privateJson({ error: "That is the existing 15% offer campaign. Use the separate Backyard Takeover campaign ID." }, 400);
+      const destination = settings.googleConversionDestination;
+      if (destination && (!/^AW-\d+\/[a-zA-Z0-9_-]{1,100}$/.test(destination) || !GOOGLE_ADS_TAG_ID || !destination.startsWith(`${GOOGLE_ADS_TAG_ID}/`) || destination === GOOGLE_ADS_RENTAL_DESTINATION)) return privateJson({ error: "Use a separate contest-entry conversion destination for the current Google Ads tag. The rental-request conversion cannot be reused." }, 400);
+      await saveBackyardSettings(settings, { status, deadline: settings.closesAt ? backyardTimeInput(settings.closesAt).slice(0,10) : deadline, prize: cleanBackyardText(input.prize), rules: cleanBackyardText(input.rules, 8000), metaCampaignId, metaCampaignName: cleanBackyardText(input.metaCampaignName, 200) });
       return privateJson({ ok: true });
     }
     return privateJson({ error: "Unknown action." }, 400);
