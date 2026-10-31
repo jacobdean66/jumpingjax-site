@@ -121,8 +121,8 @@ export function BackyardTakeoverClient({ initial }: { initial: { campaign: Backy
           <label className="text-sm font-bold sm:col-span-2">Proposed prize<textarea name="prize" maxLength={2000} rows={2} defaultValue={initial.campaign.prize} className={inputClass} /></label>
           <label className="text-sm font-bold sm:col-span-2">Rules & planning notes<textarea name="rules" maxLength={8000} rows={5} defaultValue={initial.campaign.rules} className={inputClass} /></label>
         </fieldset>
-        <div className="flex flex-wrap items-center gap-4"><button disabled={Boolean(busy)} className={buttonClass}>{busy === "settings" ? "Saving…" : "Save planning details"}</button><Link href={initial.campaign.metaCampaignId ? `/admin/ad-analytics?campaign_id=${encodeURIComponent(initial.campaign.metaCampaignId)}` : "/admin/ad-analytics"} className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">{initial.campaign.metaCampaignId ? "View linked Meta campaign" : "Open Meta Ad Analytics"}</Link></div>
-        {!initial.campaign.metaCampaignId ? <p className="text-xs text-slate-500">No ad campaign linked. Spend, impressions and clicks are not being reported for this campaign yet.</p> : null}
+        <div className="flex flex-wrap items-center gap-4"><button disabled={Boolean(busy)} className={buttonClass}>{busy === "settings" ? "Saving…" : "Save planning details"}</button><Link href={initial.campaign.metaCampaignId ? `/admin/ad-analytics?campaign_id=${encodeURIComponent(initial.campaign.metaCampaignId)}` : "/admin/ad-analytics"} className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">{initial.campaign.metaCampaignId ? "View linked Meta campaign" : "Open Meta Ad Analytics"}</Link><Link href="/admin/ad-analytics/google" className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">Open Google Ad Analytics</Link></div>
+        {!initial.campaign.metaCampaignId ? <p className="text-xs text-slate-500">No Meta campaign linked to this workspace yet. Use the analytics pages to review published ad performance.</p> : null}
       </form>
     </details>
 
