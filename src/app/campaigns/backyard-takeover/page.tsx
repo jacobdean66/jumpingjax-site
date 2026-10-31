@@ -9,18 +9,24 @@ import { backyardTermsFingerprint } from "@/lib/admin/backyard-tracking-security
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Backyard Takeover | Jumping Jax", description: "This party has no chill. See the Jumping Jax Backyard Takeover contest in Greenwood, South Carolina." };
+async function loadLandingData() {
+  const [campaign, settings] = await Promise.all([loadBackyardCampaign(), loadBackyardSettings()]);
+  return { campaign, settings, now: Date.now() };
+}
 export default async function BackyardTakeoverLanding({ searchParams }: { searchParams: Promise<{ preview?: string }> }) {
   const params = await searchParams;
   const preview = params.preview === "1" && (await verifyAdminOwnerAccess()).ok;
-  try {
-    const [campaign, settings] = await Promise.all([loadBackyardCampaign(), loadBackyardSettings()]);
+  let data;
+  try { data = await loadLandingData(); }
+  catch { return <main className="min-h-screen bg-slate-950 px-4 py-20 text-white"><div className="mx-auto max-w-xl"><h1 className="text-4xl font-black">Backyard Takeover</h1><p className="mt-5 leading-relaxed">Contest details are temporarily unavailable. Please check back shortly.</p></div></main>; }
+    const { campaign, settings, now } = data;
     const open = entriesAreOpen(campaign, settings);
     const detailsReady = entryReadiness(campaign,settings).length === 0;
     const showDetails = preview || (detailsReady && campaign.status !== "draft");
     const date = (value: string) => new Date(value).toLocaleString("en-US", { timeZone: "America/New_York", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
-    const notice = campaign.status === "closed" || (settings.closesAt && Date.now() >= Date.parse(settings.closesAt)) ? { title: "Entries have closed.", message: "Thank you for sharing your backyard party ideas. Watch for the winner announcement." }
+    const notice = campaign.status === "closed" || (settings.closesAt && now >= Date.parse(settings.closesAt)) ? { title: "Entries have closed.", message: "Thank you for sharing your backyard party ideas. Watch for the winner announcement." }
       : campaign.status === "paused" ? { title: "Entries are paused.", message: "Please check back here for updates from Jumping Jax." }
-      : campaign.status === "published" && detailsReady && Date.now() < Date.parse(settings.opensAt) ? { title: "The takeover is almost here.", message: `Entries open ${date(settings.opensAt)}. Come back then to submit your backyard.` } : undefined;
+      : campaign.status === "published" && detailsReady && now < Date.parse(settings.opensAt) ? { title: "The takeover is almost here.", message: `Entries open ${date(settings.opensAt)}. Come back then to submit your backyard.` } : undefined;
     return <main className="min-h-screen bg-slate-950 px-4 py-10 text-white sm:px-6"><div className="mx-auto max-w-6xl">
       <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-300">Jumping Jax · Greenwood, SC</p>
       <h1 className="mt-4 max-w-4xl text-5xl font-black uppercase leading-none sm:text-7xl">This party has <span className="text-yellow-300">no chill.</span></h1>
@@ -35,5 +41,4 @@ export default async function BackyardTakeoverLanding({ searchParams }: { search
       </div>
       {showDetails && <section id="rules" className="mt-8 rounded-3xl bg-white p-6 text-slate-950 sm:p-8"><h2 className="text-2xl font-black">Official contest rules</h2><p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{campaign.rules}</p></section>}
     </div></main>;
-  } catch { return <main className="min-h-screen bg-slate-950 px-4 py-20 text-white"><div className="mx-auto max-w-xl"><h1 className="text-4xl font-black">Backyard Takeover</h1><p className="mt-5 leading-relaxed">Contest details are temporarily unavailable. Please check back shortly.</p></div></main>; }
 }

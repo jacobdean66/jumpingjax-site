@@ -17,14 +17,14 @@ export function BackyardTrackingPanel() {
         setReport(await response.json()); setError("");
       } catch (problem) { if (!(problem instanceof DOMException && problem.name === "AbortError")) setError(problem instanceof Error ? problem.message : "Tracking could not be loaded."); }
     }
-    setReport(null); void load();
+    void load();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60_000);
     return () => { controller?.abort(); window.clearInterval(timer); };
   }, [period, refresh]);
   const count = (value: number | null | undefined) => value == null ? "—" : value.toLocaleString("en-US");
   return <section aria-label="Backyard Takeover tracking" className="mt-6 min-w-0 rounded-2xl border-2 border-cyan-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-cyan-800">Campaign tracking</p><h2 className="mt-1 text-2xl font-black">Backyard Takeover</h2><p className="mt-2 text-sm text-slate-600">Ad clicks → link opens → landing visits → saved entries.</p></div><Link href="/admin/backyard-takeover" className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">Open campaign workspace</Link></div>
-    <div className="mt-4 flex flex-wrap items-center gap-3"><label className="text-sm font-bold">Reporting period<select value={period} onChange={event => setPeriod(event.target.value as TrackingPeriod)} className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base font-normal"><option value="today">Today</option><option value="last_7d">Last 7 days</option><option value="last_30d">Last 30 days</option></select></label><button type="button" onClick={() => setRefresh(value => value + 1)} className="min-h-11 text-sm font-bold text-sky-700">Refresh tracking</button></div>
+    <div className="mt-4 flex flex-wrap items-center gap-3"><label className="text-sm font-bold">Reporting period<select value={period} onChange={event => { setReport(null); setPeriod(event.target.value as TrackingPeriod); }} className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base font-normal"><option value="today">Today</option><option value="last_7d">Last 7 days</option><option value="last_30d">Last 30 days</option></select></label><button type="button" onClick={() => { setReport(null); setRefresh(value => value + 1); }} className="min-h-11 text-sm font-bold text-sky-700">Refresh tracking</button></div>
     {error ? <p role="alert" className="mt-3 text-sm font-bold text-rose-700">{error}{report ? " Previous results remain visible below." : ""}</p> : null}
     {!report ? <p role="status" className="mt-4 text-sm text-slate-500">{error ? "No current tracking report is available." : "Loading campaign activity…"}</p> : <>
       <p className={`mt-3 text-xs leading-relaxed ${report.available ? "text-slate-500" : "text-rose-700"}`}>{report.message}</p>
