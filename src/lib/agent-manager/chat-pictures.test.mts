@@ -8,6 +8,7 @@ import * as pictureServer from './chat-pictures-server';
 import { MAX_CHAT_REQUEST_BYTES } from './chat-pictures';
 import { validateSupervisorMessage, validateSupervisorRequestId, supervisorJobMessage } from './supervisor';
 import { privateJson, safeOwnerAuthError, validateOwnerPost } from '../security/request-guard';
+import { SupervisorStoppedError } from './supervisor-stop';
 
 const sample = async () => `data:image/png;base64,${(await sharp({ create: { width: 36, height: 24, channels: 4, background: '#3355ff' } }).png().withMetadata({ exif: { IFD0: { Artist: 'Do not retain this metadata' } } }).toBuffer()).toString('base64')}`;
 
@@ -40,13 +41,15 @@ test('chat body limits apply to declared lengths and streamed bytes, before JSON
 test('owner chat validates pictures before invoking the conversation; unauthenticated and cross-origin requests never process them', async () => {
   const source = readFileSync(new URL('../../app/api/admin/agents/supervisor-chat/route.ts', import.meta.url), 'utf8');
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  let owner = false, pictureReads = 0;
+  let owner = false, pictureReads = 0, stopFails = false;
+  const stops: unknown[][] = [];
   const calls: unknown[][] = [];
   const imports: Record<string, unknown> = {
     '@/lib/admin/session': { verifyAdminOwnerAccess: async () => owner ? { ok: true, identity: { id: 'owner' } } : { ok: false, reason: 'invalid_token' } },
     '@/lib/security/request-guard': { privateJson, safeOwnerAuthError, validateOwnerPost },
     '@/lib/agent-manager/supervisor': { validateSupervisorMessage, validateSupervisorRequestId },
     '@/lib/agent-manager/chat-pictures-server': { ...pictureServer, normalizeChatPictures: async (value: unknown) => { pictureReads++; return pictureServer.normalizeChatPictures(value); } },
+    '@/lib/agent-manager/supervisor-stop': { SupervisorStoppedError, stopSupervisorConversation: async (...args: unknown[]) => { stops.push(args); if (stopFails) throw new Error('Unavailable'); return { stopped: true, finished: true }; } },
     '@/lib/agent-manager/supervisor-service': { runSupervisorConversation: async (...args: unknown[]) => { calls.push(args); return { jobId: 'test' }; }, loadSupervisorConversation: async (...args: unknown[]) => { calls.push(args); return []; }, collectSupervisorSnapshot: async () => ({}) },
   };
   const loaded = { exports: {} as Record<string, (request?: Request) => Promise<Response>> };
@@ -54,6 +57,7 @@ test('owner chat validates pictures before invoking the conversation; unauthenti
   const request = (body: unknown, origin = 'https://jumpingjaxllc.com') => new Request('https://jumpingjaxllc.com/api/admin/agents/supervisor-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) });
   const body = { message: 'Describe this screenshot', clientRequestId: 'picture-request-1234', pictures: [{ dataUrl: await sample() }] };
   assert.equal((await loaded.exports.POST(request(body))).status, 401);
+  assert.equal((await loaded.exports.DELETE(new Request(request({ clientRequestId: body.clientRequestId }), { method: 'DELETE' }))).status, 401);
   assert.equal(pictureReads, 0);
   owner = true;
   assert.equal((await loaded.exports.POST(request(body, 'https://evil.test'))).status, 403);
@@ -66,6 +70,17 @@ test('owner chat validates pictures before invoking the conversation; unauthenti
   assert.match((calls[0][3] as Array<{ dataUrl: string }>)[0].dataUrl, /^data:image\/jpeg;base64,/);
   await loaded.exports.GET();
   assert.deepEqual(calls.at(-1), [12, 'owner']);
+  const cancellation = (value: unknown, origin?: string) => new Request(request(value, origin), { method: 'DELETE' });
+  assert.equal((await loaded.exports.DELETE(cancellation({ clientRequestId: body.clientRequestId }, 'https://evil.test'))).status, 403);
+  assert.equal((await loaded.exports.DELETE(cancellation({ clientRequestId: 'short' }))).status, 400);
+  assert.equal((await loaded.exports.DELETE(cancellation({ clientRequestId: body.clientRequestId, actorId: 'someone-else' }))).status, 400);
+  assert.equal(stops.length, 0);
+  assert.equal((await loaded.exports.DELETE(cancellation({ clientRequestId: body.clientRequestId }))).status, 200);
+  assert.deepEqual(stops[0], ['owner', body.clientRequestId]);
+  stopFails = true;
+  const failed = await loaded.exports.DELETE(cancellation({ clientRequestId: body.clientRequestId }));
+  assert.equal(failed.status, 503);
+  assert.equal((await failed.json()).ok, false);
 });
 
 test('saved chat history returns picture receipts without image bytes or unexpected counts', () => {

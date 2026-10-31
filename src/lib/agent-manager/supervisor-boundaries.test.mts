@@ -38,10 +38,10 @@ test("the bounded cron worker consumes durable jobs instead of leaving the queue
 });
 
 test("Permanent Agent UI contains a real text box and clear approval boundary", async () => {
-  const ui = await readFile(new URL("../../app/admin/agents/SupervisorChat.tsx", import.meta.url), "utf8") + await readFile(new URL("../../app/admin/agents/SupervisorComposer.tsx", import.meta.url), "utf8");
+  const ui = await readFile(new URL("../../app/admin/agents/SupervisorChat.tsx", import.meta.url), "utf8") + await readFile(new URL("../../app/admin/agents/SupervisorComposer.tsx", import.meta.url), "utf8") + await readFile(new URL("../../app/admin/agents/supervisor-chat-request.ts", import.meta.url), "utf8");
   assert.match(ui, /Ask the Permanent Agent/);
   assert.match(ui, /approval-gated/);
-  assert.match(ui, /Content-Type": "application\/json/);
+  assert.match(ui, /Content-Type['"]: ['"]application\/json/);
   assert.match(ui, /crypto\.randomUUID\(\)/);
   assert.match(ui, /relatedAction/);
 });

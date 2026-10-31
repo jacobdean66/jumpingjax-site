@@ -11,6 +11,7 @@ import { parseInvestigationEvidence, type InvestigationTrace } from '@/lib/agent
 import Image from 'next/image';
 import { MAX_CHAT_PICTURES, type ChatPicture } from '@/lib/agent-manager/chat-pictures';
 import { prepareChatPicture } from './chat-picture-client';
+import { createSupervisorRequest } from './supervisor-chat-request';
 
 type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[]; pictureCount?: number; pictures?: ChatPicture[] };
 
@@ -21,6 +22,9 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState('');
+  const [stopping, setStopping] = useState(false);
+  const activeRequest = useRef<ReturnType<typeof createSupervisorRequest> | null>(null);
   const [pictures, setPictures] = useState<ChatPicture[]>([]);
   const [preparingPictures, setPreparingPictures] = useState(false);
   const addingPicturesRef = useRef(false);
@@ -34,14 +38,12 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
     inFlightRef.current = true;
     setBusy(true);
     setError("");
+    setNotice('');
+    const request = createSupervisorRequest();
+    activeRequest.current = request;
     try {
-      const response = await fetch("/api/admin/agents/supervisor-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, clientRequestId: crypto.randomUUID(), pictures }),
-      });
-      const body = await response.json() as { ok?: boolean; jobId?: string; reply?: string; snapshot?: SupervisorSnapshot; relatedAction?: SupervisorRelatedAction | null; evidence?: unknown; error?: string };
-      if (!response.ok || !body.jobId || !body.reply || !body.snapshot) throw new Error(body.error || "Permanent Agent request failed safely.");
+      const body = await request.send(trimmed, pictures);
+      if (!body || request.stopped || activeRequest.current !== request) return;
       setMessages((current) => [{ id: body.jobId!, question: trimmed, reply: body.reply!, createdAt: new Date().toISOString(), relatedAction: body.relatedAction ?? null, evidence: parseInvestigationEvidence(body.evidence), pictureCount: pictures.length, pictures }, ...current.filter((item) => item.id !== body.jobId)].slice(0, 20));
       requestAnimationFrame(() => historyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
       setSnapshot(body.snapshot);
@@ -49,11 +51,31 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       setMessage("");
       setPictures([]);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Permanent Agent request failed safely.");
+      if (!request.stopped) setError(caught instanceof Error ? caught.message : "Permanent Agent request failed safely.");
     } finally {
+      if (activeRequest.current === request && !request.stopped) {
+        activeRequest.current = null;
+        inFlightRef.current = false;
+        setBusy(false);
+      }
+    }
+  }
+
+  async function stop() {
+    const request = activeRequest.current;
+    if (!request || stopping) return;
+    setStopping(true);
+    setError('');
+    try {
+      const result = await request.stop();
+      if (activeRequest.current !== request) return;
+      activeRequest.current = null;
       inFlightRef.current = false;
       setBusy(false);
-    }
+      setNotice(result.stopped ? 'Reply stopped. You can edit your message and send again. Completed actions are not undone.' : 'This request had already finished. Check Recent chats after refreshing.');
+      requestAnimationFrame(() => document.getElementById('permanent-agent-message')?.focus());
+    } catch { setError('Could not confirm the server stopped. Press Stop again to retry.'); }
+    finally { setStopping(false); }
   }
 
   async function addPictures(files: File[]) {
@@ -155,11 +177,12 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         </div>
       ) : null}
 
-      <SupervisorComposer message={message} busy={busy || preparingPictures} preparingPictures={preparingPictures} pictures={pictures} onAddPictures={files => { void addPictures(files); }} onRemovePicture={index => { setPictures(current => current.filter((_, at) => at !== index)); setError(''); }} onChange={setMessage} onSubmit={submit} />
+      <SupervisorComposer message={message} busy={busy || preparingPictures} stopping={stopping} onStop={() => { void stop(); }} preparingPictures={preparingPictures} pictures={pictures} onAddPictures={files => { void addPictures(files); }} onRemovePicture={index => { setPictures(current => current.filter((_, at) => at !== index)); setError(''); }} onChange={setMessage} onSubmit={submit} />
+      {notice ? <p role="status" className="mt-3 text-sm font-semibold text-sky-200">{notice}</p> : null}
 
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 scroll-mt-4 space-y-4 rounded-2xl bg-white p-4 text-slate-950">
-        {busy ? <p role="status" className="text-sm font-bold text-slate-500">Preparing a reply…</p> : null}
+        {busy ? <p role="status" className="text-sm font-bold text-slate-500">{stopping ? 'Stopping…' : 'Preparing a reply…'}</p> : null}
         {messages.length === 0 ? (
           <div className="rounded-xl bg-sky-50 p-4 text-sm font-semibold text-slate-700">
             I am ready. Ask me what is wrong, what needs attention, or to run a safe check. Exact controls include “pause booking agent,” “run booking scan,” and “emergency stop.”

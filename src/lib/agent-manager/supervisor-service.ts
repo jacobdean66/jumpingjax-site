@@ -35,18 +35,19 @@ import { invitationCorrectionHref } from "@/lib/facility-parties/invitations/cor
 import { createInvestigationReader } from './investigation-service';
 import { canReadOfficeMail, parseInvestigationEvidence } from './investigation';
 import { savedPictureCount, type ChatPicture } from './chat-pictures';
+import { monitorSupervisorStop, SupervisorStoppedError } from './supervisor-stop';
 
 const PROBE_PATHS = ["/", "/rentals", "/facility-parties", "/booking"] as const;
 const PROBE_TIMEOUT_MS = 5_000;
 
-async function probeWebsite(path: string, fetchImpl: typeof fetch = fetch) {
+async function probeWebsite(path: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal) {
   const started = Date.now();
   try {
     const response = await fetchImpl(new URL(path, CANONICAL_PRODUCTION_SITE_URL), {
       method: "GET",
       cache: "no-store",
       redirect: "follow",
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(PROBE_TIMEOUT_MS)]),
       headers: { "User-Agent": "JumpingJax-Permanent-Agent/1.0" },
     });
     await response.body?.cancel().catch(() => undefined);
@@ -64,13 +65,13 @@ function countOrNull(result: { count: number | null; error: { message?: string }
   return result.count ?? 0;
 }
 
-export async function collectSupervisorSnapshot(actorId = "system:supervisor", fetchImpl: typeof fetch = fetch): Promise<SupervisorSnapshot> {
+export async function collectSupervisorSnapshot(actorId = "system:supervisor", fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<SupervisorSnapshot> {
   const db = createServiceRoleClient();
   const dataErrors: string[] = [];
   const [dashboardResult, securityResult, website, workflowIssues, activeRentals, activeFacilities, pendingIntents, pendingCalls, failedCalls] = await Promise.all([
     loadDashboard().then((value) => ({ value, error: null })).catch(() => ({ value: null, error: "Agent Manager status could not be checked." })),
     loadSecurityDashboard(actorId).then((value) => ({ value, error: null })).catch(() => ({ value: null, error: "Code and security status could not be checked." })),
-    Promise.all(PROBE_PATHS.map((path) => probeWebsite(path, fetchImpl))),
+    Promise.all(PROBE_PATHS.map((path) => probeWebsite(path, fetchImpl, signal))),
     loadBookingWorkflowHealth().then((health) => ({ count: health.current.length, historicalCount: health.historicalCount, error: null })).catch(() => ({ count: null, historicalCount: null, error: { message: "Booking workflow health could not be checked." } })),
     db.from("bookings").select("*", { count: "exact", head: true }).in("status", ["pending", "approved", "blocked"]),
     db.from("facility_bookings").select("*", { count: "exact", head: true }).in("status", ["pending", "confirmed"]),
@@ -133,7 +134,7 @@ export async function collectSupervisorSnapshot(actorId = "system:supervisor", f
 async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Record<string, unknown>) {
   const db = createServiceRoleClient();
   const now = new Date().toISOString();
-  const { error } = await db.from("agent_jobs").update({
+  const { data: finished, error } = await db.from("agent_jobs").update({
     status: "succeeded",
     attempt_count: Math.max(1, job.attempt_count),
     result_summary: summary.slice(0, 4000),
@@ -142,8 +143,9 @@ async function finishSupervisorJob(job: AgentJob, summary: string, payload?: Rec
     started_at: now,
     completed_at: now,
     updated_at: now,
-  }).eq("id", job.id).in("status", ["queued", "running", "succeeded"]);
+  }).eq("id", job.id).in("status", ["queued", "running", "succeeded"]).select('id').maybeSingle();
   if (error) throw new Error("Permanent Agent conversation could not be recorded.");
+  if (!finished) throw new SupervisorStoppedError();
   await Promise.all([
     db.from("agents").update({
       status: "idle",
@@ -194,7 +196,8 @@ async function runControl(message: string, actorId: string) {
   return `${control.displayName} ${paused ? "paused" : "resumed"} and the action was recorded.`;
 }
 
-export async function runSupervisorConversation(message: string, actorId: string, clientRequestId: string, pictures: ChatPicture[] = []) {
+export async function runSupervisorConversation(message: string, actorId: string, clientRequestId: string, pictures: ChatPicture[] = [], requestSignal?: AbortSignal) {
+  if (requestSignal?.aborted) throw new SupervisorStoppedError();
   const pictureCount = pictures.length;
   const job = await enqueueJob({
     agentKey: "supervisor",
@@ -204,6 +207,7 @@ export async function runSupervisorConversation(message: string, actorId: string
     idempotencyKey: `supervisor-chat:${clientRequestId}`,
     actorId,
   });
+  if (job.job_type !== SUPERVISOR_CHAT_JOB_TYPE || job.payload.actorId !== actorId) throw new Error('Permanent Agent request is unavailable.');
   if (job.status === "succeeded" && job.result_summary && job.payload.snapshot) {
     return {
       jobId: job.id,
@@ -216,6 +220,7 @@ export async function runSupervisorConversation(message: string, actorId: string
       deduplicated: true,
     };
   }
+  if (job.status === 'cancelled') throw new SupervisorStoppedError();
   if (job.status !== "queued") throw new Error("This Permanent Agent request is already processing.");
 
   const db = createServiceRoleClient();
@@ -228,7 +233,13 @@ export async function runSupervisorConversation(message: string, actorId: string
     .maybeSingle();
   if (claimError || !claimed) throw new Error("This Permanent Agent request is already processing.");
 
+  const stopped = monitorSupervisorStop(async () => {
+    const { data, error } = await db.from('agent_jobs').select('status').eq('id', job.id).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
+    if (error || !data) throw new Error('Permanent Agent request status is unavailable.');
+    return data.status === 'running';
+  }, requestSignal);
   try {
+    await stopped.check();
     const requestedHandoff = supervisorNetworkRequest(message);
     const networkRequest = pictureCount ? null : requestedHandoff;
     const pictureReviewAction: SupervisorRelatedAction | null = pictureCount && requestedHandoff?.skill === 'invitation_correction' ? { kind: 'agent_network', label: 'Choose invitation to correct', href: invitationCorrectionHref(message) } : null;
@@ -239,22 +250,26 @@ export async function runSupervisorConversation(message: string, actorId: string
       handoff = { outcome: "Queued a persistent specialist request. Open its conversation to follow the handoffs and saved reply.", relatedAction: { kind: "agent_network" as const, label: "Follow agent conversation", href: `/admin/agents?conversation=${task.context_id}#agent-conversations` } };
       if (networkRequest.skill === "invitation_correction") handoff = { outcome: "I’ve handed your correction request to the Invitation Agent. Choose the party, then describe or review the wording, layout or picture changes. You’ll see a preview before approving the save.", relatedAction: { kind: "agent_network" as const, label: "Choose invitation to correct", href: invitationCorrectionHref(String(networkRequest.input.message)) } };
     } else handoff = pictureCount ? null : await prepareSupervisorHandoff(message);
+    await stopped.check();
     const actionOutcome = handoff?.outcome ?? (pictureCount ? null : await runControl(message, actorId));
-    const snapshot = await collectSupervisorSnapshot(actorId);
+    await stopped.check();
+    const snapshot = await collectSupervisorSnapshot(actorId, fetch, stopped.signal);
     let reply: string;
     let aiInvocations = 0;
-    const deadline = AbortSignal.timeout(65000);
+    const deadline = AbortSignal.any([stopped.signal, AbortSignal.timeout(65000)]);
     const reader = createInvestigationReader({ allowEmail: canReadOfficeMail(message) }, deadline);
     if (actionOutcome) {
       // Explicit commands keep their verified outcome; the model never runs a control.
       reply = actionOutcome;
     } else {
       const assertAllowed = async () => {
+        await stopped.check();
         const [supervisor, settings] = await Promise.all([
           db.from('agents').select('enabled,paused').eq('key', 'supervisor').single(),
           db.from('agent_manager_settings').select('emergency_stop').eq('singleton', true).single(),
         ]);
         if (supervisor.error || settings.error || !supervisor.data?.enabled || supervisor.data.paused || settings.data?.emergency_stop) throw new Error('Conversational replies are paused by Permanent Agent controls.');
+        stopped.signal.throwIfAborted();
       };
       await assertAllowed();
       const history = await loadSupervisorConversation(4, actorId);
@@ -262,7 +277,7 @@ export async function runSupervisorConversation(message: string, actorId: string
         await assertAllowed();
         if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
         const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
-        if (reserved.error || !reserved.data) throw new Error('Conversational replies are temporarily unavailable.');
+        if (reserved.error || !reserved.data) { await stopped.check(); throw new Error('Conversational replies are temporarily unavailable.'); }
       } } }, deadline);
     }
     const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
@@ -278,16 +293,19 @@ export async function runSupervisorConversation(message: string, actorId: string
       evidence: reader.traces,
       businessWritesAllowed: false,
     };
+    await stopped.check();
     await finishSupervisorJob(job, reply, payload);
     return { jobId: job.id, reply, snapshot, actionOutcome, relatedAction, evidence: reader.traces, pictureCount, deduplicated: false };
   } catch (error) {
     const failedAt = new Date().toISOString();
+    const cancelled = error instanceof SupervisorStoppedError || stopped.signal.reason instanceof SupervisorStoppedError || requestSignal?.aborted;
     await Promise.all([
-      db.from("agent_jobs").update({ status: "failed", error_summary: "Permanent Agent request failed safely.", completed_at: failedAt, updated_at: failedAt }).eq("id", job.id).eq("status", "running"),
-      db.from("agents").update({ status: "idle", current_job_id: null, last_activity_at: failedAt, updated_at: failedAt }).eq("id", job.agent_id),
+      db.from("agent_jobs").update({ status: cancelled ? 'cancelled' : "failed", error_summary: cancelled ? null : "Permanent Agent request failed safely.", completed_at: failedAt, updated_at: failedAt }).eq("id", job.id).eq("status", "running"),
+      db.from("agents").update({ status: "idle", current_job_id: null, last_activity_at: failedAt, updated_at: failedAt }).eq("id", job.agent_id).eq('current_job_id', job.id),
     ]);
+    if (cancelled) throw new SupervisorStoppedError();
     throw error;
-  }
+  } finally { stopped.dispose(); }
 }
 
 export async function loadSupervisorConversation(limit = 12, actorId?: string) {

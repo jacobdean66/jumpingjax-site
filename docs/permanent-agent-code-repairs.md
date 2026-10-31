@@ -29,6 +29,8 @@ Permanent Agent messages accept up to two pictures through **Attach picture**, t
 
 Picture bytes stay in the current request and browser preview. Saved chat/job/event history retains the attachment count, not the pictures or filenames; follow-ups needing the original pixels require reattaching. Images are untrusted evidence, not control commands or proof a fix passed. Picture messages go through conversational review instead of shortcut control/specialist mutations. An invitation request can still open the existing party-selection review link. Pictures are not automatically copied into rental records, specialist tasks or coding workers; the owner reviews the prepared request and supplies any needed artwork/photo in the existing editor.
 
+While a Permanent Agent reply is running, **Stop** replaces Send. It aborts the browser request and records cancellation for that owner's request identity. A cancelled placeholder handles Stop arriving before the original upload/enqueue; server polling and abort signals stop model/lookup work, and the final status update cannot revive a cancelled reply. The message and picture previews remain editable for resending. A failed cancellation stays visible with a retry instead of claiming success. Stop applies to the current chat reply; completed actions are not undone, and separate specialist or coding jobs retain their existing controls.
+
 GitHub scheduled runs can be delayed. A missing worker heartbeat is displayed separately from configured credentials. A cancelled lease prevents the final acceptance callback; there is no distributed transaction spanning GitHub and Supabase, so cancellation during the final PR API request can leave an unaccepted draft PR. Nothing automatically merges it.
 
 ## Verification
