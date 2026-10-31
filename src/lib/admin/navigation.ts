@@ -45,6 +45,7 @@ export function adminNavigation(role: AdminRole): { primary: AdminNavItem[]; gro
       { id: "ai-ads", label: "AI Ads", href: "/admin/ai-ads" },
       { id: "campaigns", label: "Campaign Hub", href: "/admin/campaigns" },
       { id: "party-pitches", label: "Party Pitches", href: "/admin/party-pitches" },
+      { id: "backyard-takeover", label: "Backyard Takeover", href: "/admin/backyard-takeover" },
       { id: "ad-analytics", label: "Ad Analytics", href: "/admin/ad-analytics" },
       { id: "ai-visibility", label: "AI Search Visibility", href: "/admin/ai-visibility" },
     ] },
