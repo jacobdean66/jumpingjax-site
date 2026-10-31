@@ -9,13 +9,16 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <PolicyPageLayout title="Jumping Jax LLC Privacy Policy" current="privacy">
+    <PolicyPageLayout title="Jumping Jax LLC Privacy Policy" current="privacy" updatedAt={{ iso: "2026-10-30", label: "October 30, 2026" }}>
       <p>This policy explains how Jumping Jax LLC uses information in connection with our website, rental and facility-party services, and business integrations with Facebook, Instagram, and WhatsApp. It also explains how to contact us about your information.</p>
       <h2>Information you provide</h2>
       <p>When you contact us, request a booking, submit a waiver or rental agreement, enter a giveaway, or use an invitation or RSVP feature, we receive the information you submit. This may include your name, email address, phone number, delivery or event address, event date and time, rental selections, party details, guest information, messages, and signatures.</p>
       <p>Adults may provide information about children participating in an event, such as a child&apos;s name and party details. A parent or guardian can contact us about that information.</p>
       <h2>Website activity and cookies</h2>
       <p>Our website uses cookies and similar technologies for features such as staff sign-in and measurement of website activity. Google Analytics and Google Ads tags are configured to measure visits and booking leads. These services may receive browser or device information, page activity, and event information. Your browser and the relevant provider&apos;s privacy settings may offer controls for cookies and advertising measurement.</p>
+      <h2>Backyard Takeover contest and campaign measurement</h2>
+      <p>Backyard Takeover entries include adult contact details, a city and ZIP code, a party idea, and backyard photos. Entries and photos are reviewed privately by the owner to administer and judge the contest. Optional permission for marketing messages and public use of photos is recorded separately from entry. Uploaded photos are resized and their embedded location metadata is removed.</p>
+      <p>Campaign destination links may record the referring advertising source, campaign and ad identifiers, supported advertising click identifiers, and whether a visit reached the entry page, started a form, saved an entry, or opened rental information. A first-party campaign cookie expires after 30 minutes of inactivity. These campaign activity records do not contain IP addresses. This first-party measurement excludes known preview bots and respects Do Not Track and Global Privacy Control when those preferences are signaled. Browser settings and provider reporting can make website and advertising totals differ.</p>
       <h2>Facebook and Instagram integrations</h2>
       <p>When an authorized business administrator connects a Meta account to our business tools, the integration may receive account and asset identifiers, information about accessible Pages or professional Instagram accounts, permissions, and access credentials. Depending on the permissions granted and the features enabled, it may also receive advertising campaign information and performance metrics.</p>
       <p>We use this information to connect the intended Jumping Jax assets, report advertising performance, prepare social content, and carry out authorized publishing or scheduling workflows. Connecting a Meta account does not by itself publish a post or change an advertisement.</p>

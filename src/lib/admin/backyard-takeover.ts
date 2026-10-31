@@ -18,6 +18,9 @@ export type BackyardDetails = {
   marketingConsent: boolean;
   photoPermission: boolean;
   entryPermission: boolean;
+  rulesAccepted: boolean;
+  rulesVersion: string;
+  rulesAcceptedAt: string;
 };
 
 export type BackyardEntry = BackyardDetails & {
@@ -74,6 +77,9 @@ export function parseBackyardDetails(value: unknown): BackyardDetails {
     marketingConsent: data.marketingConsent === true,
     photoPermission: data.photoPermission === true,
     entryPermission: data.entryPermission === true,
+    rulesAccepted: data.rulesAccepted === true,
+    rulesVersion: typeof data.rulesVersion === "string" && /^[0-9a-f]{64}$/.test(data.rulesVersion) ? data.rulesVersion : "",
+    rulesAcceptedAt: typeof data.rulesAcceptedAt === "string" && Number.isFinite(Date.parse(data.rulesAcceptedAt)) ? data.rulesAcceptedAt.slice(0,40) : "",
   };
 }
 
@@ -105,7 +111,7 @@ export function entriesCsv(entries: BackyardEntry[]): string {
     const text = String(value ?? "");
     return `"${(/^[\s]*[=+@\-]|^[\t\r\n]/.test(text) ? "'" : "") + text.replaceAll('"', '""')}"`;
   };
-  const rows: unknown[][] = [["Name", "Email", "Phone", "City", "ZIP", "Party idea", "Status", "Score", "Private notes", "Source", "Photos", "Marketing permission", "Public photo permission", "Entered"]];
-  for (const entry of entries) rows.push([entry.name, entry.email, entry.phone, entry.city, entry.zip, entry.partyIdea, entry.status, entry.score, entry.reviewNotes, entry.source, entry.photos.length, entry.marketingConsent ? "Yes" : "No", entry.photoPermission ? "Yes" : "No", entry.createdAt]);
+  const rows: unknown[][] = [["Name", "Email", "Phone", "City", "ZIP", "Party idea", "Status", "Score", "Private notes", "Source", "Photos", "Marketing permission", "Public photo permission", "Rules accepted", "Rules version", "Rules accepted at", "Entered"]];
+  for (const entry of entries) rows.push([entry.name, entry.email, entry.phone, entry.city, entry.zip, entry.partyIdea, entry.status, entry.score, entry.reviewNotes, entry.source, entry.photos.length, entry.marketingConsent ? "Yes" : "No", entry.photoPermission ? "Yes" : "No", entry.rulesAccepted ? "Yes" : "No", entry.rulesVersion, entry.rulesAcceptedAt, entry.createdAt]);
   return "\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n");
 }
