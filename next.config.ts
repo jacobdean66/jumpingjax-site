@@ -30,7 +30,8 @@ const nextConfig: NextConfig = {
         source: "/admin/invoices/inbox/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
-          { key: "Referrer-Policy", value: "no-referrer" },
+          // Native form POSTs need their own origin; external sites still receive no referrer.
+          { key: "Referrer-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
           { key: "Content-Security-Policy", value: "frame-src 'self'; object-src 'none'; base-uri 'self'" },
         ],
