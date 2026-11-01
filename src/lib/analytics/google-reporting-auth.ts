@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { GOOGLE_ADS_SCOPE, googleReportingConfig } from "./google-reporting-core";
+import { GMAIL_SCOPE } from "../email/gmail-core";
 import { SEARCH_CONSOLE_SCOPE } from "./search-console-core";
 
 export const GOOGLE_ADS_CONNECTION_COOKIE = "jjx-google-ads-reporting";
@@ -35,14 +36,14 @@ export function openGoogleAdsCookie(value: string | undefined, env: Env, purpose
     return typeof payload.expires === "number" && payload.expires > now ? payload : null;
   } catch { return null; }
 }
-export function buildGoogleAdsAuthorization(env: Env, origin: string, ownerId: string, service: "ads" | "search_console" = "ads") {
+export function buildGoogleAdsAuthorization(env: Env, origin: string, ownerId: string, service: "ads" | "search_console" | "gmail" = "ads") {
   const config = googleReportingConfig(env);
   if (!config.oauthReady || !googleAdsCookieKey(env)) return null;
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(32).toString("base64url");
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: `${origin}${GOOGLE_ADS_CALLBACK_PATH}`, response_type: "code", scope: service === "search_console" ? SEARCH_CONSOLE_SCOPE : GOOGLE_ADS_SCOPE,
-    state, access_type: "offline", prompt: "consent", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", ...(service === "ads" ? { login_hint: "karen.mcclain.jumpingjaxllc@gmail.com" } : {}) }).toString();
+  url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: `${origin}${GOOGLE_ADS_CALLBACK_PATH}`, response_type: "code", scope: service === "gmail" ? GMAIL_SCOPE : service === "search_console" ? SEARCH_CONSOLE_SCOPE : GOOGLE_ADS_SCOPE,
+    state, access_type: "offline", prompt: "consent", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", ...(service !== "search_console" ? { login_hint: "karen.mcclain.jumpingjaxllc@gmail.com" } : {}) }).toString();
   return { url: url.toString(), cookie: sealGoogleAdsCookie({ state, verifier, ownerId, service }, env, "state", 600) };
 }
 
