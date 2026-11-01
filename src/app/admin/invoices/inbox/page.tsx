@@ -42,6 +42,7 @@ export default async function OfficeInboxPage({ searchParams }: { searchParams: 
       <div><p className="break-all text-lg font-black text-sky-950">{officeAddress()}</p><p className="mt-1 text-sm text-slate-600">Customer replies, incoming mail, and sent invoice copies.</p></div>
       <div className="flex flex-wrap gap-2"><Link href="/admin/invoices" className={button}><ArrowLeft size={16} /> Invoices</Link><Link href={href({ id })} className={button}><RefreshCw size={16} /> Refresh</Link></div>
     </div>
+    {auth.role === "owner" && <nav aria-label="Email accounts" className="mt-6 flex flex-wrap gap-2"><Link href="/admin/invoices/inbox" aria-current="page" className={`${button} !border-indigo-600 !bg-indigo-600 !text-white`}>{officeAddress()}</Link><Link href="/admin/invoices/inbox/gmail" className={button}>Karen’s Gmail</Link></nav>}
     <nav aria-label="Email folders" className="mt-6 flex flex-wrap gap-2">
       <Link href="/admin/invoices/inbox" aria-current={folder === "inbox" ? "page" : undefined} className={`${button} ${folder === "inbox" ? "!border-indigo-600 !bg-indigo-600 !text-white" : ""}`}><Inbox size={18} /> Inbox</Link>
       <Link href="/admin/invoices/inbox?folder=sent" aria-current={folder === "sent" ? "page" : undefined} className={`${button} ${folder === "sent" ? "!border-indigo-600 !bg-indigo-600 !text-white" : ""}`}><Send size={18} /> Sent office copies</Link>
