@@ -30,7 +30,7 @@ export default async function BackyardTakeoverLanding({ searchParams }: { search
     return <main className="min-h-screen bg-slate-950 px-4 py-10 text-white sm:px-6"><div className="mx-auto max-w-6xl">
       <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-300">Jumping Jax · Greenwood, SC</p>
       <h1 className="mt-4 max-w-4xl text-5xl font-black uppercase leading-none sm:text-7xl">This party has <span className="text-yellow-300">no chill.</span></h1>
-      <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-200">A giant duck. A Jeep full of ducks. One spectacular backyard party idea.</p>
+      <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-200">A giant duck. A Jeep full of ducks. One spectacular backyard party idea. Enter the monthly giveaway for a chance to win a rental for your yard.</p>
       {(open || preview) && <a href="#enter" className="mt-5 inline-flex min-h-12 items-center rounded-full bg-yellow-300 px-6 py-3 font-black text-slate-950">Enter my backyard →</a>}
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div><Image src={BACKYARD_POSTER} alt="Jumping Jax Backyard Takeover poster with a giant duck, a duck-filled Jeep and an inflatable parade." width={1122} height={1402} loading="eager" sizes="(max-width:1023px) 100vw, 550px" className="h-auto w-full rounded-3xl" /><p className="mt-3 text-xs leading-relaxed text-slate-300">Illustrated concept. The Jeep and UFO are artwork, not part of the rental prize.</p></div>

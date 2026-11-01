@@ -6,6 +6,7 @@ import { loadBackyardSettings, saveBackyardSettings } from "@/lib/admin/backyard
 import { backyardTimeInput, normalizeBackyardSettings } from "@/lib/admin/backyard-tracking";
 import { GOOGLE_ADS_TAG_ID, GOOGLE_ADS_RENTAL_DESTINATION } from "@/lib/analytics/google-ads";
 import { GOOGLE_REPORTING_CAMPAIGN_ID } from "@/lib/analytics/google-reporting-core";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,12 @@ export async function POST(request: Request) {
     if (!type.startsWith("application/json")) return privateJson({ error: "JSON or photo upload required." }, 415);
     const input = await request.json();
     if (!input || typeof input !== "object" || Array.isArray(input)) return privateJson({ error: "Invalid request." }, 400);
+    if (input.action === "draw_month") {
+      if (typeof input.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(input.month)) return privateJson({ error: "Choose a valid drawing month." }, 400);
+      const { data, error } = await createServiceRoleClient().rpc("draw_backyard_month", { p_month: input.month });
+      if (error || !data?.id) return privateJson({ error: error?.message === "The drawing month has not ended" ? "That month has not ended yet." : error?.message === "There are no entries for this month" ? "There are no entries for that month." : "The drawing could not be completed." }, 400);
+      return privateJson({ ok: true, created: data.created === true, id: data.id });
+    }
     if (input.action === "review") {
       const score = input.score === null || input.score === "" ? null : Number(input.score);
       if (!isEntryId(input.id) || !isEntryStatus(input.status) || !/^[0-9a-f]{64}$/.test(String(input.revision)) || (score !== null && (!Number.isFinite(score) || score < 0 || score > 100))) return privateJson({ error: "Choose a valid entry, status and score between 0 and 100." }, 400);

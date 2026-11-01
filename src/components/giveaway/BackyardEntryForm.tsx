@@ -60,10 +60,10 @@ export function BackyardEntryForm({ open, preview = false, conversionDestination
     finally { setBusy(false); }
   }
   const rentalLink = <Link href="/rentals" onClick={() => { if (!preview) void (landing ?? Promise.resolve()).then(() => activity("rental_click")); }} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-full bg-cyan-300 px-6 py-3 font-black text-slate-950">Explore party rentals</Link>;
-  if (saved) return <section role="status" className="rounded-3xl bg-white p-6 text-slate-950 sm:p-8"><h2 className="text-3xl font-black">Your backyard is on the list.</h2><p className="mt-4 leading-relaxed">Thank you! Your entry has been received. Keep your party idea handy and watch for the winner announcement.</p><p className="mt-3 text-sm text-slate-600">One entry per email address. Repeated submissions do not add extra entries.</p>{rentalLink}</section>;
+  if (saved) return <section role="status" className="rounded-3xl bg-white p-6 text-slate-950 sm:p-8"><h2 className="text-3xl font-black">Your backyard is on the list.</h2><p className="mt-4 leading-relaxed">Thank you! Your entry has been received. Keep your party idea handy and watch for the winner announcement.</p><p className="mt-3 text-sm text-slate-600">One entry per customer each month. Repeated submissions do not add extra entries.</p>{rentalLink}</section>;
   return <>
     {(open || preview) ? <form onSubmit={submit} onFocusCapture={begin} className="rounded-3xl bg-white p-6 text-slate-950 sm:p-8" id="enter">
-      <h2 className="text-3xl font-black">Show us your backyard.</h2><p className="mt-3 text-sm leading-relaxed text-slate-600">Upload your photos and tell us what you’d celebrate. Free entry for adults in {eligibleArea}.</p>
+      <h2 className="text-3xl font-black">Show us your backyard.</h2><p className="mt-3 text-sm leading-relaxed text-slate-600">Upload your photos and tell us what you’d celebrate. Free entry for adults in {eligibleArea}; one entry per customer each month.</p>
       {preview ? <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900">Owner preview. Submissions are disabled while the contest is closed.</p> : null}
       <fieldset disabled={busy || preview} className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-bold">Your name<input name="name" required maxLength={120} autoComplete="name" className={field} /></label>

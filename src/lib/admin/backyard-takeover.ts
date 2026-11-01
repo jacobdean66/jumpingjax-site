@@ -1,6 +1,6 @@
 export const BACKYARD_CAMPAIGN_ID = "backyard-takeover";
 export const BACKYARD_PHOTO_BUCKET = "backyard-takeover-entries";
-export const BACKYARD_POSTER = "/marketing/backyard-takeover-no-chill.png";
+export const BACKYARD_POSTER = "/marketing/backyard-takeover-enter-now.png";
 export const ENTRY_STATUSES = ["new", "reviewed", "shortlisted", "winner"] as const;
 export type EntryStatus = (typeof ENTRY_STATUSES)[number];
 export const MAX_ENTRY_PHOTOS = 3;
