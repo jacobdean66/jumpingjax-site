@@ -21,8 +21,9 @@ export function verifyBackyardVisit(value: string | undefined, now = Date.now())
   const a = Buffer.from(expected), b = Buffer.from(signature);
   return a.length === b.length && timingSafeEqual(a, b) ? id : null;
 }
-export function publicBackyardEntryId(email: string) {
+export function publicBackyardEntryId(email: string, month: string) {
   if (!secret()) throw new Error("Entry storage is unavailable.");
-  const hex = createHmac("sha256", secret()).update(`backyard-entry-v1:${email.trim().toLowerCase()}`).digest("hex");
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Entry month is unavailable.");
+  const hex = createHmac("sha256", secret()).update(`backyard-entry-v2:${month}:${email.trim().toLowerCase()}`).digest("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }

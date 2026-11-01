@@ -8,7 +8,7 @@ export type TrackingPeriod = (typeof TRACKING_PERIODS)[number];
 export type Attribution = { source: string; medium: string; campaign: string; content: string; adCampaignId: string; adId: string; gclid: string; fbclid: string; gbraid: string; wbraid: string };
 export type BackyardSettings = {
   opensAt: string; closesAt: string; announcesOn: string; eligibleArea: string; retailValue: string;
-  rulesConfirmed: boolean; googleCampaignId: string; googleConversionDestination: string;
+  rulesConfirmed: boolean; monthly?: boolean; googleCampaignId: string; googleConversionDestination: string;
 };
 export const DEFAULT_BACKYARD_SETTINGS: BackyardSettings = {
   opensAt: "", closesAt: "", announcesOn: "", eligibleArea: "Greenwood County, South Carolina",
@@ -19,7 +19,7 @@ export function normalizeBackyardSettings(value: unknown): BackyardSettings {
   const data = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return { opensAt: cleanBackyardText(data.opensAt, 40), closesAt: cleanBackyardText(data.closesAt, 40),
     announcesOn: cleanBackyardText(data.announcesOn, 10), eligibleArea: cleanBackyardText(data.eligibleArea, 300),
-    retailValue: cleanBackyardText(data.retailValue, 20), rulesConfirmed: data.rulesConfirmed === true,
+    retailValue: cleanBackyardText(data.retailValue, 20), rulesConfirmed: data.rulesConfirmed === true, monthly: data.monthly === true,
     googleCampaignId: cleanBackyardText(data.googleCampaignId, 24), googleConversionDestination: cleanBackyardText(data.googleConversionDestination, 150) };
 }
 

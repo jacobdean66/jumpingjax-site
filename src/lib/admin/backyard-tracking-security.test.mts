@@ -22,9 +22,10 @@ test("public entry identity is deterministic per normalized email without disclo
   const previous = process.env.CAMPAIGN_TRACKING_SECRET;
   process.env.CAMPAIGN_TRACKING_SECRET = "unit-test-tracking-signing-key";
   try {
-    const id = publicBackyardEntryId("Person@example.invalid");
-    assert.equal(id, publicBackyardEntryId(" person@EXAMPLE.invalid "));
-    assert.notEqual(id, publicBackyardEntryId("another@example.invalid"));
+    const id = publicBackyardEntryId("Person@example.invalid", "2026-11");
+    assert.equal(id, publicBackyardEntryId(" person@EXAMPLE.invalid ", "2026-11"));
+    assert.notEqual(id, publicBackyardEntryId("another@example.invalid", "2026-11"));
+    assert.notEqual(id, publicBackyardEntryId("Person@example.invalid", "2026-12"));
     assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-a[0-9a-f]{3}-[0-9a-f]{12}$/);
   } finally { if (previous === undefined) delete process.env.CAMPAIGN_TRACKING_SECRET; else process.env.CAMPAIGN_TRACKING_SECRET = previous; }
 });

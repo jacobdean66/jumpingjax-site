@@ -9,20 +9,23 @@ import { backyardTimeInput, backyardTimeUtc, entryReadiness, type BackyardSettin
 const API = "/api/admin/campaigns/backyard-takeover";
 const inputClass = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base font-normal text-slate-950";
 const buttonClass = "inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white disabled:opacity-50";
-const caption = "🦆 GREENWOOD, WE MAY HAVE OVERDONE IT. 😂\n\nA giant duck. A Jeep full of rubber ducks. A whole inflatable parade. THIS PARTY HAS NO CHILL.\n\nWe’re dreaming up a Jumping Jax BACKYARD TAKEOVER—and your yard could be next.\n\nStart dreaming up your celebration. Contest dates, rental prize details and how to enter are coming soon!\n\nThe Jeep and UFO are part of the artwork, not the rental prize.\n\n#JumpingJax #GreenwoodSC #BackyardTakeover";
+const caption = "🦆 GREENWOOD, WE MAY HAVE OVERDONE IT. 😂\n\nA giant duck. A Jeep full of rubber ducks. A whole inflatable parade. THIS PARTY HAS NO CHILL.\n\nEnter our monthly BACKYARD TAKEOVER giveaway for a chance to win a Jumping Jax rental that fits your yard—worth up to $400, including delivery and pickup.\n\nShow us your yard and tell us what you’d celebrate! Free entry; one entry per customer each month. Open to adults in Greenwood County. Dates and official rules are on the entry page.\n\nEnter: https://jumpingjaxllc.com/go/backyard-takeover?utm_source=facebook&utm_medium=paid_social&utm_campaign=backyard_takeover&utm_content=duck_jeep_v5\n\nThe Jeep and UFO are artwork, not part of the prize. This promotion is not sponsored, endorsed or administered by Facebook.\n\n#JumpingJax #GreenwoodSC #BackyardTakeover";
+const monthKey = (date: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date(date));
 
 export function BackyardTakeoverClient({ initial }: { initial: { campaign: BackyardCampaign; entries: BackyardEntry[]; settings: BackyardSettings } }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [month, setMonth] = useState("all");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
   const [entryId, setEntryId] = useState(() => globalThis.crypto?.randomUUID?.() ?? "");
   const counts = entryCounts(initial.entries);
+  const months = useMemo(() => [...new Set(initial.entries.map(entry => monthKey(entry.createdAt)))].sort().reverse(), [initial.entries]);
   const filtered = useMemo(() => initial.entries.filter(entry =>
-    (filter === "all" || entry.status === filter) && `${entry.name} ${entry.email} ${entry.city} ${entry.zip} ${entry.partyIdea}`.toLowerCase().includes(search.trim().toLowerCase()),
-  ), [initial.entries, filter, search]);
+    (month === "all" || monthKey(entry.createdAt) === month) && (filter === "all" || entry.status === filter) && `${entry.name} ${entry.email} ${entry.city} ${entry.zip} ${entry.partyIdea}`.toLowerCase().includes(search.trim().toLowerCase()),
+  ), [initial.entries, filter, search, month]);
 
   async function send(key: string, body: FormData | Record<string, unknown>) {
     setBusy(key); setMessage(""); setFailed(false);
@@ -31,7 +34,7 @@ export function BackyardTakeoverClient({ initial }: { initial: { campaign: Backy
       const response = await fetch(API, { method: "POST", headers: isUpload ? undefined : { "Content-Type": "application/json" }, body: isUpload ? body : JSON.stringify(body) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Changes could not be saved.");
-      setMessage(key === "new" ? "Customer entry and photos saved privately." : "Changes saved.");
+      setMessage(key === "new" ? "Customer entry and photos saved privately." : key === "draw" ? (result.created ? "Winner drawn and saved. Select Winner in the review filter to find and contact them." : "A winner was already drawn for this month. Select Winner in the review filter to find them.") : "Changes saved.");
       router.refresh();
       return true;
     } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "Could not save. Please try again."); return false; }
@@ -58,7 +61,7 @@ export function BackyardTakeoverClient({ initial }: { initial: { campaign: Backy
     try {
       const settings: BackyardSettings = { ...initial.settings, opensAt: backyardTimeUtc(String(values.opensAt ?? "")), closesAt: backyardTimeUtc(String(values.closesAt ?? "")),
         announcesOn: String(values.announcesOn ?? ""), eligibleArea: String(values.eligibleArea ?? ""), retailValue: String(values.retailValue ?? ""),
-        rulesConfirmed: form.get("rulesConfirmed") === "on", googleCampaignId: String(values.googleCampaignId ?? ""), googleConversionDestination: String(values.googleConversionDestination ?? "") };
+        rulesConfirmed: form.get("rulesConfirmed") === "on" };
       await send("settings", { action: "settings", ...values, settings });
     } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "Check the campaign dates."); }
   }
@@ -76,7 +79,9 @@ export function BackyardTakeoverClient({ initial }: { initial: { campaign: Backy
 
     <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-black">Customer entries</h2><div className="flex flex-wrap gap-3"><button type="button" onClick={() => router.refresh()} className="min-h-11 text-sm font-bold text-sky-700">Refresh entries</button><a href={`${API}?format=csv`} className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">Export all to CSV</a></div></div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]"><label className="text-sm font-bold">Search<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, email, city or party idea" className={inputClass} /></label><label className="text-sm font-bold">Review status<select value={filter} onChange={event => setFilter(event.target.value)} className={inputClass}><option value="all">All entries</option>{ENTRY_STATUSES.map(status => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]"><label className="text-sm font-bold">Search<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, email, city or party idea" className={inputClass} /></label><label className="text-sm font-bold">Drawing month<select value={month} onChange={event => setMonth(event.target.value)} className={inputClass}><option value="all">All months</option>{months.map(item => <option key={item} value={item}>{item}</option>)}</select></label><label className="text-sm font-bold">Review status<select value={filter} onChange={event => setFilter(event.target.value)} className={inputClass}><option value="all">All entries</option>{ENTRY_STATUSES.map(status => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label></div>
+      <p className="mt-3 text-xs text-slate-500">Select a completed month to draw its winner. Each month can be drawn once. Contact the selected customer yourself; no message is sent automatically.</p>
+      {month !== "all" && <button type="button" disabled={Boolean(busy)} onClick={() => void send("draw", { action: "draw_month", month })} className={`${buttonClass} mt-3`}>{busy === "draw" ? "Drawing…" : `Draw ${month} winner`}</button>}
       {initial.entries.length === 0 ? <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6"><h3 className="font-black">The first backyard starts here.</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">Customer submissions will appear here automatically once entries open. You can also record customer entries and photos below.</p></div> : filtered.length === 0 ? <p className="mt-5 text-sm text-slate-600">No entries match this search.</p> : <div className="mt-5 grid gap-4">
         {filtered.map(entry => <article key={entry.id} data-entry-id={entry.id} className="min-w-0 rounded-xl border border-slate-200 p-4">
           <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-black">{entry.name}</h3><p className="text-sm text-slate-600">{entry.city}, {entry.zip} · {entry.source}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${entry.status === "winner" ? "bg-yellow-100 text-yellow-900" : entry.status === "shortlisted" ? "bg-cyan-100 text-cyan-900" : "bg-slate-100 text-slate-700"}`}>{entry.status}</span></div>
@@ -129,16 +134,14 @@ export function BackyardTakeoverClient({ initial }: { initial: { campaign: Backy
           <label className="text-sm font-bold">Winner announcement date<input name="announcesOn" type="date" defaultValue={initial.settings.announcesOn} className={inputClass} /></label>
           <label className="text-sm font-bold">Maximum prize value ($)<input name="retailValue" type="number" min="0.01" step="0.01" defaultValue={initial.settings.retailValue} className={inputClass} /></label>
           <label className="text-sm font-bold sm:col-span-2">Eligible area<input name="eligibleArea" maxLength={300} defaultValue={initial.settings.eligibleArea} className={inputClass} /></label>
-          <label className="text-sm font-bold">Google campaign ID (optional)<input name="googleCampaignId" inputMode="numeric" pattern="[0-9]*" defaultValue={initial.settings.googleCampaignId} className={inputClass} /><span className="mt-1 block text-xs font-normal text-slate-500">Use the new Backyard Takeover campaign, not the existing 15% offer.</span></label>
           <label className="text-sm font-bold">Meta campaign ID (optional)<input name="metaCampaignId" inputMode="numeric" pattern="[0-9]*" defaultValue={initial.campaign.metaCampaignId} className={inputClass} /></label>
-          <label className="text-sm font-bold sm:col-span-2">Google contest-entry conversion destination (optional)<input name="googleConversionDestination" placeholder="AW-…/contest-entry-label" defaultValue={initial.settings.googleConversionDestination} maxLength={150} className={inputClass} /><span className="mt-1 block text-xs font-normal text-slate-500">Website entries are counted automatically. Add a separate Google conversion action here to send saved entries to Google Ads.</span></label>
           <label className="text-sm font-bold sm:col-span-2">Meta campaign name (optional)<input name="metaCampaignName" maxLength={200} defaultValue={initial.campaign.metaCampaignName} className={inputClass} /></label>
           <label className="text-sm font-bold sm:col-span-2">Proposed prize<textarea name="prize" maxLength={2000} rows={2} defaultValue={initial.campaign.prize} className={inputClass} /></label>
           <label className="text-sm font-bold sm:col-span-2">Rules & planning notes<textarea name="rules" maxLength={8000} rows={5} defaultValue={initial.campaign.rules} className={inputClass} /></label>
           <label className="flex items-start gap-2 text-sm sm:col-span-2"><input name="rulesConfirmed" type="checkbox" defaultChecked={initial.settings.rulesConfirmed} className="mt-1 size-4 shrink-0" />The official rules, prize, eligibility and judging process have been finalized and reviewed for this contest.</label>
         </fieldset>
-        <div className="flex flex-wrap items-center gap-4"><button disabled={Boolean(busy)} className={buttonClass}>{busy === "settings" ? "Saving…" : "Save planning details"}</button><Link href={initial.campaign.metaCampaignId ? `/admin/ad-analytics?campaign_id=${encodeURIComponent(initial.campaign.metaCampaignId)}` : "/admin/ad-analytics"} className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">{initial.campaign.metaCampaignId ? "View linked Meta campaign" : "Open Meta Ad Analytics"}</Link><Link href="/admin/ad-analytics/google" className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">Open Google Ad Analytics</Link></div>
-        {!initial.campaign.metaCampaignId && !initial.settings.googleCampaignId ? <p className="text-xs text-slate-500">Platform ad clicks remain unlinked until the new campaign IDs are saved. Website source tracking is ready through the destination links above.</p> : null}
+        <div className="flex flex-wrap items-center gap-4"><button disabled={Boolean(busy)} className={buttonClass}>{busy === "settings" ? "Saving…" : "Save planning details"}</button><Link href={initial.campaign.metaCampaignId ? `/admin/ad-analytics?campaign_id=${encodeURIComponent(initial.campaign.metaCampaignId)}` : "/admin/ad-analytics"} className="inline-flex min-h-11 items-center text-sm font-bold text-sky-700">{initial.campaign.metaCampaignId ? "View linked Meta campaign" : "Open Meta Ad Analytics"}</Link></div>
+        {!initial.campaign.metaCampaignId ? <p className="text-xs text-slate-500">Meta ad clicks remain unlinked until the campaign ID is saved. Website source tracking is ready through the Facebook destination link above.</p> : null}
       </form>
     </details>
 

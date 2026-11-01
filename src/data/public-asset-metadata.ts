@@ -759,6 +759,11 @@ export const PUBLIC_ASSET_METADATA: Readonly<Record<string, PublicAssetMetadata>
     "height": 1612,
     "format": "png"
   },
+  "/marketing/backyard-takeover-enter-now.png": {
+    "width": 1122,
+    "height": 1402,
+    "format": "png"
+  },
   "/marketing/backyard-takeover-no-chill.png": {
     "width": 1122,
     "height": 1402,

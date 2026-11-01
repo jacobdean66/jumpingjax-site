@@ -5,8 +5,15 @@ import { BACKYARD_CAMPAIGN_ID, type BackyardCampaign } from "./backyard-takeover
 import { DEFAULT_BACKYARD_SETTINGS, entryReadiness, normalizeBackyardSettings, type Attribution, type BackyardSettings, type WebsiteFunnel } from "./backyard-tracking";
 
 export async function loadBackyardSettings(): Promise<BackyardSettings> {
-  const { data, error } = await createServiceRoleClient().from("backyard_takeover_settings").select("config").eq("campaign_id", BACKYARD_CAMPAIGN_ID).maybeSingle();
+  const db = createServiceRoleClient();
+  let { data, error } = await db.from("backyard_takeover_settings").select("config").eq("campaign_id", BACKYARD_CAMPAIGN_ID).maybeSingle();
   if (error) throw new Error("Campaign tracking setup is unavailable.");
+  if (data?.config?.monthly === true && Date.parse(data.config.closesAt) <= Date.now()) {
+    const rollover = await db.rpc("refresh_backyard_month");
+    if (rollover.error) throw new Error("Monthly contest settings are unavailable.");
+    ({ data, error } = await db.from("backyard_takeover_settings").select("config").eq("campaign_id", BACKYARD_CAMPAIGN_ID).maybeSingle());
+    if (error) throw new Error("Campaign tracking setup is unavailable.");
+  }
   return data ? normalizeBackyardSettings({ ...DEFAULT_BACKYARD_SETTINGS, ...data.config }) : { ...DEFAULT_BACKYARD_SETTINGS };
 }
 

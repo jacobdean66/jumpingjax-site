@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { BACKYARD_TRACKING_COOKIE, entriesAreOpen, readAttribution, trackingAllowed } from "@/lib/admin/backyard-tracking";
+import { BACKYARD_TRACKING_COOKIE, backyardTimeInput, entriesAreOpen, readAttribution, trackingAllowed } from "@/lib/admin/backyard-tracking";
 import { loadBackyardSettings } from "@/lib/admin/backyard-tracking-store";
 import { backyardTermsFingerprint, publicBackyardEntryId, verifyBackyardVisit } from "@/lib/admin/backyard-tracking-security";
 import { loadBackyardCampaign, createPublicBackyardEntry } from "@/lib/admin/backyard-takeover-store";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (form.get("termsVersion") !== backyardTermsFingerprint(campaign, settings)) return privateJson({ error: "The contest details have changed. Refresh this page and review the current rules before entering." }, 409);
     const email = String(form.get("email") ?? "").trim().toLowerCase();
     const attribution = readAttribution(new URLSearchParams(String(form.get("attribution") ?? "").slice(0, 3000)));
-    const input = { id: publicBackyardEntryId(email), name: form.get("name"), email, phone: form.get("phone"), city: form.get("city"), zip: form.get("zip"), partyIdea: form.get("partyIdea"), source: attribution.source,
+    const input = { id: publicBackyardEntryId(email, backyardTimeInput(settings.opensAt).slice(0, 7)), name: form.get("name"), email, phone: form.get("phone"), city: form.get("city"), zip: form.get("zip"), partyIdea: form.get("partyIdea"), source: attribution.source,
       permission: form.get("permission") === "on", marketingConsent: form.get("marketingConsent") === "on", photoPermission: form.get("photoPermission") === "on", rulesAccepted: form.get("rulesAccepted") === "on",
       terms: { rules: campaign.rules, prize: campaign.prize, opensAt: settings.opensAt, closesAt: settings.closesAt, announcesOn: settings.announcesOn, eligibleArea: settings.eligibleArea, retailValue: settings.retailValue } };
     const invalid = validateBackyardEntry(input);
