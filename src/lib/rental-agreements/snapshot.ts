@@ -9,7 +9,7 @@ export function buildRentalAgreementSnapshot(input: CreateBookingInput, template
     items: input.rental_items.map(i => ({ rental_item: i.rental_item, rental_name: i.rental_name ?? i.rental_item })),
     eventDate: input.eventDateYmd, duration: input.durationLabel, foamDuration: input.foamDurationLabel ?? "", spanDays: input.spanDays,
     eventAddress: input.eventAddress, deliveryWindow: input.requested_delivery_window ?? input.delivery_time ?? "To be confirmed",
-    eventStartTime: input.event_start_time ?? "To be confirmed", pickup: "Pickup time will be confirmed by Jumping Jax.",
+    eventStartTime: input.event_start_time ?? "Decide later", pickup: "Pickup time will be confirmed by Jumping Jax.",
     setupLocation: input.setup_location, setupSurface: input.setup_surface, setupAccess: input.setup_access, setupNotes: input.setup_notes,
     paymentMethod: input.payment_method, subtotal: input.subtotal, deliveryFee: input.delivery_fee, total: input.total,
     paidTotal: 0, balanceDue: input.total, pricingLabel: "Estimated quote — booking and final delivery plan require Jumping Jax confirmation.",

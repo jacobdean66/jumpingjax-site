@@ -5,6 +5,7 @@
 
 import { isYmd } from "@/lib/open-play/pricing";
 import type { TypedAgreement } from "./typed-agreements";
+import type { WaiverPreferences } from "./preferences";
 import {
   WAIVER_LIMITS,
   type ConsentInput,
@@ -34,16 +35,17 @@ export type CoveredParticipantDraft = {
   kind: "child" | "adult";
   /** Required when kind === "child"; references an adult tempId on this waiver. */
   guardianTempId: string | null;
-  adultMode?: "playing" | "watching" | null;
+  adultMode?: "playing" | "watching" | "decide_later" | null;
 };
 
 export type SignerFormState = SignerInput & {
   /** Required for the adult_signer participant row. */
   dob: string;
-  adultMode?: "playing" | "watching" | null;
+  adultMode?: "playing" | "watching" | "decide_later" | null;
 };
 
 export type WaiverFormState = {
+  preferences?: WaiverPreferences;
   agreements?: TypedAgreement[];
   signer: SignerFormState;
   participants: CoveredParticipantDraft[];
@@ -73,6 +75,7 @@ const UUID_RE =
 
 export function createEmptySigner(): SignerFormState {
   return {
+    address: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -166,6 +169,8 @@ function requireTrimmed(
 
 export function validateSignerStep(signer: SignerFormState): FieldErrors {
   const errors: FieldErrors = {};
+  const address = requireTrimmed(signer.address ?? "", "Address", 500, errors, "address");
+  if (address && address.length < 8) errors.address = "Enter your full mailing address, including city and ZIP";
   requireTrimmed(
     signer.firstName,
     "First name",
@@ -197,6 +202,9 @@ export function validateSignerStep(signer: SignerFormState): FieldErrors {
     errors,
     "phone",
   );
+  const phoneDigits = signer.phone.replace(/\D/g, "");
+  if (signer.phone.trim() && (phoneDigits.length < 10 || phoneDigits.length > 15))
+    errors.phone = "Enter a phone number with 10–15 digits, including the area code";
   const dob = signer.dob.trim();
   if (!dob) {
     errors.dob = "Date of birth is required";
@@ -343,10 +351,11 @@ export type PublicSubmitParticipant = {
   dob: string;
   role: ParticipantRole;
   guardianTempId?: string | null;
-  adultMode?: "playing" | "watching" | null;
+  adultMode?: "playing" | "watching" | "decide_later" | null;
 };
 
 export type PublicSubmitBody = {
+  preferences?: WaiverPreferences;
   agreements?: TypedAgreement[];
   legalBodyHtml?: string;
   templateVersionId: string;
@@ -368,6 +377,7 @@ export function buildPublicSubmitBody(
   idempotencyKey: string,
 ): PublicSubmitBody {
   const signer: SignerInput = {
+    address: state.signer.address.trim(),
     firstName: state.signer.firstName.trim(),
     lastName: state.signer.lastName.trim(),
     email: state.signer.email.trim(),
@@ -407,6 +417,7 @@ export function buildPublicSubmitBody(
   });
 
   return {
+    ...(state.preferences ? { preferences: state.preferences } : {}),
     templateVersionId: state.templateVersionId.trim(),
     signer,
     participants: [adultSigner, ...others],

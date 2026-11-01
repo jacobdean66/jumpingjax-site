@@ -23,6 +23,8 @@ type SavedGroup = {
     signedAt: string;
     expiresOn: string;
     templateVersionId: string;
+    signer?: { address?: string; email?: string; phone?: string };
+    preferences?: { visitType: string; partyBookingId: string | null; partyDate: string | null };
     agreementText?: {
       signatureNotice: string;
       statements: typeof AGREEMENT_STATEMENTS;
@@ -57,7 +59,7 @@ export function renderSignedGroupRecord(record: SavedGroup): string {
   const names = p.participants
     .map(
       (member) =>
-        `<li>${escape(member.first_name)} ${escape(member.last_name)} — ${escape(member.role === "child" ? "Child" : member.adult_mode === "playing" ? "Playing adult" : "Watching adult")} · Date of birth: ${escape(member.dob)}</li>`,
+        `<li>${escape(member.first_name)} ${escape(member.last_name)} — ${escape(member.role === "child" ? "Child" : member.adult_mode === "decide_later" ? "Adult — watching/playing: Decide later" : member.adult_mode === "playing" ? "Playing adult" : "Watching adult")} · Date of birth: ${escape(member.dob)}</li>`,
     )
     .join("");
   const signatures = p.agreements
@@ -69,13 +71,13 @@ export function renderSignedGroupRecord(record: SavedGroup): string {
         .filter(([key]) => key !== "guardianAuthority" || wards.length > 0)
         .map(
           ([key, text]) =>
-            `<li>${escape(text)} — ${a[key as keyof TypedAgreement] === true ? "Confirmed" : "Not selected"}</li>`,
+            `<li>${escape(text)} — ${key === "photoConsent" && a.photoConsentChoice ? (a.photoConsentChoice === "yes" ? "Permission granted" : a.photoConsentChoice === "no" ? "Permission declined" : "Decide later — no permission granted") : a[key as keyof TypedAgreement] === true ? "Confirmed" : "Not selected"}</li>`,
         )
         .join("");
       return `<section class="signature"><h2>${escape(a.firstName)} ${escape(a.lastName)}</h2><p><strong>Typed electronic signature:</strong> ${escape(a.firstName)} ${escape(a.lastName)}</p><p>${escape(signatureNotice)}</p><ul>${confirmations}</ul>${wards.length ? `<p>Confirmed parent/legal guardian for: ${wards.map((c) => escape(c.first_name) + " " + escape(c.last_name)).join(", ")}. Guardian authority: ${a.guardianAuthority ? "Confirmed" : "Missing"}.</p>` : ""}<p>Recorded at: ${escape(p.signedAt)}</p></section>`;
     })
     .join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jumping Jax — completed waiver</title><style>body{font:16px/1.6 Arial,sans-serif;color:#172033;max-width:850px;margin:40px auto;padding:0 24px}h1{font-size:28px}h2{font-size:22px}section.signature{border:1px solid #bbb;padding:20px;margin:20px 0;break-inside:avoid}footer{font-size:12px;overflow-wrap:anywhere}.print-note{background:#e8f6ff;padding:16px}@media print{body{margin:0}.print-note{display:none}}</style></head><body><p class="print-note">Completed waiver copy. Use your browser’s Print option to print this document or save it as a PDF.</p>${record.legal_body_html}<h2>Covered group</h2><ul>${names}</ul><h2>Recorded adult agreements</h2>${signatures}<footer><p>Signed: ${escape(p.signedAt)} · Expiration date: ${escape(p.expiresOn)}. An adult agreement is required when a child turns 18.</p><p>Waiver version: ${escape(p.templateVersionId)}<br>Legal-text SHA-256: ${escape(record.legal_body_sha256)}</p></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jumping Jax — completed waiver</title><style>body{font:16px/1.6 Arial,sans-serif;color:#172033;max-width:850px;margin:40px auto;padding:0 24px}h1{font-size:28px}h2{font-size:22px}section.signature{border:1px solid #bbb;padding:20px;margin:20px 0;break-inside:avoid}footer{font-size:12px;overflow-wrap:anywhere}.print-note{background:#e8f6ff;padding:16px}@media print{body{margin:0}.print-note{display:none}}</style></head><body><p class="print-note">Completed waiver copy. Use your browser’s Print option to print this document or save it as a PDF.</p>${record.legal_body_html}${p.signer?.address ? `<h2>Contact information</h2><p>Mailing address: ${escape(p.signer.address)}<br>Email: ${escape(p.signer.email)}<br>Phone: ${escape(p.signer.phone)}</p>` : ""}${p.preferences ? `<h2>Visit preference</h2><p>${escape(p.preferences.visitType === "decide_later" ? "Decide later" : p.preferences.visitType === "party" ? "Birthday party" : "Open Play")}${p.preferences.visitType === "party" ? ` · Party: ${escape(p.preferences.partyBookingId === "decide_later" ? "Decide later" : p.preferences.partyDate ?? "Invitation link")}` : ""}</p>` : ""}<h2>Covered group</h2><ul>${names}</ul><h2>Recorded adult agreements</h2>${signatures}<footer><p>Signed: ${escape(p.signedAt)} · Expiration date: ${escape(p.expiresOn)}. An adult agreement is required when a child turns 18.</p><p>Waiver version: ${escape(p.templateVersionId)}<br>Legal-text SHA-256: ${escape(record.legal_body_sha256)}</p></footer></body></html>`;
 }
 export function signedRecordResponse(
   record: SavedGroup,

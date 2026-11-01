@@ -14,7 +14,8 @@ function baseDraft(overrides: Partial<SubmissionDraft> = {}): SubmissionDraft {
       firstName: "Taylor",
       lastName: "Smith",
       email: "taylor@example.com",
-      phone: "555-0100",
+      address: "123 Test St, Greenwood, SC 29649",
+      phone: "8645550100",
     },
     participants: [
       {
@@ -48,6 +49,17 @@ function baseDraft(overrides: Partial<SubmissionDraft> = {}): SubmissionDraft {
 test("one child with guardian is accepted", () => {
   const draft = validateSubmissionDraft(baseDraft(), { todayYmd: "2026-08-04" });
   assert.equal(draft.participants.length, 2);
+});
+
+test("contact fields cannot be omitted while operational preferences can be deferred", () => {
+  const draft = baseDraft();
+  for (const field of ["firstName", "lastName", "address", "email", "phone"] as const) {
+    assert.throws(() => validateSubmissionDraft({ ...draft, signer: { ...draft.signer, [field]: "" } }), WaiverValidationError, field);
+  }
+  assert.throws(() => validateSubmissionDraft({ ...draft, signer: { ...draft.signer, phone: "Decide later" } }), /phone/);
+  const typed = { ...draft, agreements: [], preferences: { visitType: "decide_later" as const, partyBookingId: null, partyDate: null } };
+  assert.deepEqual(validateSubmissionDraft(typed).preferences, typed.preferences);
+  assert.throws(() => validateSubmissionDraft({ ...typed, preferences: undefined }), /Choose Open Play/);
 });
 
 test("multiple children with guardian are accepted", () => {

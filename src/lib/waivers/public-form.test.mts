@@ -24,6 +24,7 @@ test("signer step requires core fields and valid email/dob", () => {
     firstName: "",
     lastName: "",
     email: "not-an-email",
+    address: "123 Test St, Greenwood, SC 29649",
     phone: "",
     dob: "2099-01-01",
   });
@@ -34,13 +35,21 @@ test("signer step requires core fields and valid email/dob", () => {
   assert.equal(errors.dob, "Date of birth cannot be in the future");
 });
 
+test("mailing address is required and phone cannot be deferred", () => {
+  const signer = { firstName: "Test", lastName: "Parent", address: "", email: "test@example.invalid", phone: "Decide later", dob: "1990-01-01" };
+  assert.ok(validateSignerStep(signer).address);
+  assert.ok(validateSignerStep(signer).phone);
+  assert.deepEqual(validateSignerStep({ ...signer, address: "123 Test St, Greenwood, SC 29649", phone: "8645550100" }), {});
+});
+
 test("child without guardian is rejected", () => {
   const errors = validateParticipantsStep(
     {
       firstName: "Taylor",
       lastName: "Smith",
       email: "t@example.com",
-      phone: "555",
+      address: "123 Test St, Greenwood, SC 29649",
+      phone: "8645550100",
       dob: "1990-01-01",
     },
     [
@@ -63,7 +72,8 @@ test("child may reference signer as guardian", () => {
       firstName: "Taylor",
       lastName: "Smith",
       email: "t@example.com",
-      phone: "555",
+      address: "123 Test St, Greenwood, SC 29649",
+      phone: "8645550100",
       dob: "1990-01-01",
     },
     [
@@ -130,7 +140,8 @@ test("buildPublicSubmitBody matches reviewed submit contract shape", () => {
     firstName: "Taylor",
     lastName: "Smith",
     email: "taylor@example.com",
-    phone: "555-0100",
+    address: "123 Test St, Greenwood, SC 29649",
+    phone: "8645550100",
     dob: "1990-01-01",
   };
   state.participants = [
@@ -194,7 +205,8 @@ test("draft fingerprint changes when participant data changes", () => {
     firstName: "Taylor",
     lastName: "Smith",
     email: "taylor@example.com",
-    phone: "555-0100",
+    address: "123 Test St, Greenwood, SC 29649",
+    phone: "8645550100",
     dob: "1990-01-01",
   };
   state.templateVersionId = "11111111-1111-4111-8111-111111111111";

@@ -38,10 +38,11 @@ export function rentalStepErrors(
       errors.eventAddress = "Select Verify address to confirm your delivery location before continuing.";
     if (!customer.setupSurface.trim()) errors.setupSurface = "Choose the surface where we will set up.";
     if (!customer.setupAccess.trim()) errors.setupAccess = "Choose how we can reach the setup area.";
+    if (!customer.setupNotes.trim()) errors.setupNotes = "Enter setup notes, choose No additional notes, or choose Decide later.";
     if (customer.setupNotes.length > 2000) errors.setupNotes = "Shorten your setup notes to 2,000 characters or fewer.";
   }
   if (step === 3) {
-    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(eventStartTime))
+    if (eventStartTime !== "Decide later" && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(eventStartTime))
       errors.eventStartTime = "Choose your official party start time.";
     if (!deliveryTime.trim()) errors.deliveryTime = "Choose a requested delivery window.";
     if (!customer.paymentMethod.trim()) errors.paymentMethod = "Choose your payment preference.";

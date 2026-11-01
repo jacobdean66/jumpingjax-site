@@ -95,11 +95,12 @@ export async function submitWaiver(options: {
     if (
       p.role !== "child" &&
       p.adultMode !== "playing" &&
-      p.adultMode !== "watching"
+      p.adultMode !== "watching" &&
+      p.adultMode !== "decide_later"
     )
       throw new WaiverSubmitError(
         "validation",
-        "Choose watching or playing for every adult.",
+        "Choose watching, playing, or Decide later for every adult.",
       );
   }
   const signedAt = now.toISOString();
@@ -117,6 +118,8 @@ export async function submitWaiver(options: {
   );
 
   const payload = {
+    information_version: 1,
+    preferences: draft.preferences,
     idempotency_key: draft.idempotencyKey,
     request_hash: requestHash,
     public_token_hash: publicTokenHash,
@@ -130,6 +133,7 @@ export async function submitWaiver(options: {
     ip_hmac: hmacIpAddress(options.requestIp),
     user_agent: options.userAgent?.slice(0, 512) ?? null,
     signer: {
+      address: draft.signer.address,
       first_name: draft.signer.firstName,
       last_name: draft.signer.lastName,
       email: draft.signer.email,

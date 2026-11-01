@@ -4,7 +4,7 @@ import { emptyTypedAgreement, signatureMatchesName, validateTypedAgreements } fr
 import type { ParticipantInput } from "./validation";
 const adult: ParticipantInput = { tempId: "adult", firstName: "Anne Marie", lastName: "O’Neil", dob: "1990-02-03", role: "adult_signer", adultMode: "watching" };
 const child: ParticipantInput = { tempId: "child", firstName: "Child", lastName: "O’Neil", dob: "2024-02-03", role: "child", guardianTempId: "adult" };
-const agreement = { ...emptyTypedAgreement("adult"), firstName: "Anne Marie", lastName: "O’Neil", acknowledgedRisk: true, acknowledgedTerms: true, electronicSignature: true, guardianAuthority: true };
+const agreement = { ...emptyTypedAgreement("adult"), firstName: "Anne Marie", lastName: "O’Neil", acknowledgedRisk: true, acknowledgedTerms: true, electronicSignature: true, guardianAuthority: true, photoConsentChoice: "no" as const };
 test("signature requires matching first AND last names; harmless casing and spacing vary", () => {
   assert.equal(signatureMatchesName({firstName:" ANNE  MARIE ",lastName:"o’neil"},adult),true);
   assert.equal(signatureMatchesName({...agreement,firstName:"Anne"},adult),false);
@@ -26,4 +26,13 @@ test("watching guardian must confirm authority; photo permission is optional", (
 });
 test("a minor cannot sign as an adult", () => {
   assert.ok(validateTypedAgreements([{...adult,dob:"2010-02-03"}],[agreement],"2026-10-07")["agreements.adult.age"]);
+});
+
+test("photo permission requires an explicit answer and deferral never grants permission", () => {
+  assert.ok(validateTypedAgreements([adult], [{ ...agreement, photoConsentChoice: undefined }], "2026-11-01")["agreements.adult.photoConsent"]);
+  for (const photoConsentChoice of ["no", "decide_later"] as const) {
+    assert.deepEqual(validateTypedAgreements([adult], [{ ...agreement, photoConsentChoice, photoConsent: false }], "2026-11-01"), {});
+    assert.ok(validateTypedAgreements([adult], [{ ...agreement, photoConsentChoice, photoConsent: true }], "2026-11-01")["agreements.adult.photoConsent"]);
+  }
+  assert.ok(validateTypedAgreements([adult], [{ ...agreement, photoConsentChoice: "decide_later", electronicSignature: false }], "2026-11-01")["agreements.adult.consent"]);
 });
