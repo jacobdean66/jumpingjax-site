@@ -10,6 +10,7 @@ export type TypedAgreement = {
   electronicSignature: boolean;
   guardianAuthority: boolean;
   photoConsent: boolean;
+  photoConsentChoice?: "yes" | "no" | "decide_later";
 };
 
 export const ELECTRONIC_SIGNATURE_NOTICE =
@@ -95,6 +96,10 @@ export function validateTypedAgreements(
     if (!agreement) {
       errors[prefix] = `${name} must complete their own signature.`;
       continue;
+    }
+    if (!["yes", "no", "decide_later"].includes(agreement.photoConsentChoice ?? "") ||
+        agreement.photoConsent !== (agreement.photoConsentChoice === "yes")) {
+      errors[`${prefix}.photoConsent`] = `${name} must choose Yes, No, or Decide later for photo permission.`;
     }
     if (
       !agreement.firstName.trim() ||

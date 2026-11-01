@@ -70,9 +70,11 @@ export async function getWaiverGroupForStaff(
         }),
       ageYears: age,
       dobYmd: p.dob,
-        adultMode:
-          agreements?.find((a) => a.participant_id === p.id)?.adult_mode ??
-          null,
+        // Deferred waiver preferences must be resolved before admission is priced.
+        adultMode: (() => {
+          const mode = agreements?.find((a) => a.participant_id === p.id)?.adult_mode;
+          return mode === "playing" || mode === "watching" ? mode : null;
+        })(),
       };
     })
     .sort(

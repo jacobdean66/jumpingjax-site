@@ -1133,7 +1133,7 @@ export function RentalBookingPanel({
                 <dl className="grid gap-3 text-sm text-slate-200 sm:grid-cols-2">
                   <div><dt className="font-bold text-white">Contact</dt><dd>{customer.customerName}<br />{customer.customerEmail}<br />{customer.customerPhone}</dd></div>
                   <div><dt className="font-bold text-white">Delivery and setup</dt><dd>{customer.eventAddress}<br />{customer.setupSurface} · {customer.setupAccess}</dd></div>
-                  <div><dt className="font-bold text-white">Timing</dt><dd>Party: {PARTY_START_TIMES.find(([value]) => value === eventStartTime)?.[1]}<br />Delivery: {selectedDeliveryTime}</dd></div>
+                  <div><dt className="font-bold text-white">Timing</dt><dd>Party: {eventStartTime === "Decide later" ? "Decide later" : PARTY_START_TIMES.find(([value]) => value === eventStartTime)?.[1]}<br />Delivery: {selectedDeliveryTime}</dd></div>
                   <div><dt className="font-bold text-white">Payment preference</dt><dd>{customer.paymentMethod}</dd></div>
                 </dl>
                 </div>
@@ -1153,6 +1153,7 @@ export function RentalBookingPanel({
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
                     >
                       <option value="">Select official start time</option>
+                      <option value="Decide later">Decide later</option>
                       {PARTY_START_TIMES.map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
@@ -1180,6 +1181,7 @@ export function RentalBookingPanel({
                       className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
                     >
                       <option value="">Select a 3-hour delivery window</option>
+                      <option value="Decide later">Decide later</option>
                       {showFridayDeliveryPrompt && (
                         <optgroup label="Friday delivery recommended">
                           {FRIDAY_DELIVERY_WINDOWS.map((window) => (

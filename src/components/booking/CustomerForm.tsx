@@ -282,6 +282,7 @@ export function CustomerForm({ value, onChange, step, errors }: Props) {
             className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
           >
             <option value="">Select surface</option>
+            <option value="Decide later">Decide later</option>
             <option value="Grass">Grass</option>
             <option value="Concrete">Concrete</option>
             <option value="Asphalt">Asphalt</option>
@@ -305,6 +306,7 @@ export function CustomerForm({ value, onChange, step, errors }: Props) {
             className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
           >
             <option value="">Select access</option>
+            <option value="Decide later">Decide later</option>
             <option value="Vehicle can drive to setup area">
               Vehicle can drive to setup area
             </option>
@@ -331,6 +333,7 @@ export function CustomerForm({ value, onChange, step, errors }: Props) {
             className="mt-1.5 w-full appearance-none rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
           >
             <option value="">Select payment method</option>
+            <option value="Decide later">Decide later</option>
             <option value="Cash">Cash</option>
             <option value="Card">Card</option>
           </select>
@@ -339,10 +342,11 @@ export function CustomerForm({ value, onChange, step, errors }: Props) {
         </label>
         <label className={step === 2 ? "block sm:col-span-2" : "hidden"}>
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Setup notes (optional)
+            Setup notes — enter details or choose an answer below
           </span>
           <textarea
             name="setupNotes"
+            required
             aria-invalid={Boolean(errors.setupNotes)}
             aria-describedby={errors.setupNotes ? "error-setupNotes" : undefined}
             rows={3}
@@ -351,6 +355,13 @@ export function CustomerForm({ value, onChange, step, errors }: Props) {
             className="mt-1.5 w-full resize-y rounded-xl border border-white/15 bg-[#071326]/80 px-3 py-3 text-base text-white outline-none ring-cyan-400/0 transition placeholder:text-slate-600 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/30 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-400/25"
             placeholder="Gate width, slope, stairs, power location, or anything we should know"
           />
+          <span className="mt-3 flex flex-wrap gap-3">
+            {["No additional notes", "Decide later"].map((answer) => (
+              <button key={answer} type="button" aria-pressed={value.setupNotes === answer}
+                onClick={() => patch({ setupNotes: answer })}
+                className="min-h-11 rounded-full border border-cyan-300/50 px-4 py-2 text-sm font-bold text-cyan-100">{answer}</button>
+            ))}
+          </span>
 
           {errors.setupNotes && <p id="error-setupNotes" className="mt-2 text-sm font-semibold text-rose-200">{errors.setupNotes}</p>}
         </label>

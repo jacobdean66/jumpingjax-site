@@ -94,7 +94,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>, checkO
       { status: 400 },
     );
   }
-  if (requestedDeliveryWindow.length > 100 || !isValidClockTime(eventStartTime)) {
+  if (requestedDeliveryWindow.length > 100 || (eventStartTime !== "Decide later" && !isValidClockTime(eventStartTime))) {
     return NextResponse.json({ error: "Invalid delivery or event time" }, { status: 400 });
   }
 
@@ -118,8 +118,9 @@ export async function prepareRentalBooking(body: Record<string, unknown>, checkO
     !isValidYmd(eventDateYmd) ||
     !idempotencyKey ||
     idempotencyKey.length > 128 ||
-    !customerName || customerName === "Guest" || customerName.length > 120 ||
+    customerName.length < 2 || customerName === "Guest" || customerName.length > 120 ||
     !customerPhone || customerPhone.length > 40 ||
+    customerPhone.replace(/\D/g, "").length < 10 || customerPhone.replace(/\D/g, "").length > 15 ||
     !customerEmail || customerEmail.length > 254 ||
     !isValidEmailAddress(customerEmail)
   ) {
@@ -182,17 +183,18 @@ export async function prepareRentalBooking(body: Record<string, unknown>, checkO
   const paymentMethod =
     typeof body.payment_method === "string" ? body.payment_method.trim() : "";
   if (
-    !eventAddress || eventAddress.length > 500 ||
+    eventAddress.length < 8 || eventAddress.length > 500 ||
     !setupSurface || setupSurface.length > 120 ||
     !setupAccess || setupAccess.length > 500 ||
     !paymentMethod || paymentMethod.length > 80 ||
+    !setupNotes ||
     savedSetupNotes.length > 2000 ||
     (distanceMiles != null && distanceMiles > 500)
   ) {
     return new Response(
       JSON.stringify({
         error:
-          "event_address, setup_surface, setup_access, and payment_method are required",
+          "A full event address and answers for setup surface, setup access, setup notes and payment preference are required. Choose Decide later for undecided preferences.",
       }),
       { status: 400 },
     );
@@ -252,7 +254,7 @@ export async function prepareRentalBooking(body: Record<string, unknown>, checkO
     foamDurationLabel,
     spanDays,
     eventAddress,
-    event_start_time: eventStartTime,
+    event_start_time: eventStartTime === "Decide later" ? undefined : eventStartTime,
     requested_delivery_window: requestedDeliveryWindow,
     distance_miles: distanceMiles,
     delivery_fee: deliveryFee,

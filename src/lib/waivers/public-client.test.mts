@@ -169,7 +169,8 @@ test("buildPublicSubmitBody preserves API versionId (no client-selected substitu
     firstName: "Taylor",
     lastName: "Smith",
     email: "taylor@example.com",
-    phone: "555-0100",
+    address: "123 Test St, Greenwood, SC 29649",
+    phone: "8645550100",
     dob: "1990-01-01",
   };
   state.consent = {
@@ -194,7 +195,8 @@ test("submitPublicWaiver blocks when templateVersionId is missing/stale empty", 
     firstName: "Taylor",
     lastName: "Smith",
     email: "taylor@example.com",
-    phone: "555-0100",
+    address: "123 Test St, Greenwood, SC 29649",
+    phone: "8645550100",
     dob: "1990-01-01",
   };
   state.consent = {

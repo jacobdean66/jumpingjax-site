@@ -47,6 +47,7 @@ for (const file of [
   "20261007124000_publish_group_waiver_terms.sql",
   "20261007190000_preserve_existing_waivers.sql",
   "20261010110000_desk_birthday_party_checkout.sql",
+  "20261101210000_waiver_required_information.sql",
 ])
   await db.exec(fs.readFileSync("supabase/migrations/" + file, "utf8"));
 const version = (
@@ -70,6 +71,8 @@ const kids = ["Young", "Older", "Third"].map((first, i) => ({
   guardian_temp_id: "a" + i,
 }));
 const payload = {
+  information_version: 1,
+  preferences: { visitType: "decide_later", partyBookingId: null, partyDate: null },
   idempotency_key: crypto.randomUUID(),
   request_hash: "a".repeat(64),
   public_token_hash: "b".repeat(64),
@@ -78,6 +81,7 @@ const payload = {
   source: "web",
   signature_content_type: "text/plain",
   signer: {
+    address: "123 Test St, Greenwood, SC 29649",
     first_name: "Alex",
     last_name: "Test",
     email: "qa@example.invalid",
@@ -98,6 +102,7 @@ const payload = {
     electronicSignature: true,
     guardianAuthority: true,
     photoConsent: false,
+    photoConsentChoice: "decide_later",
   })),
   legal_body_html: version.body_html.replaceAll(
     "{{WAIVER_CURRENT_DATE}}",
@@ -113,6 +118,10 @@ const submit = async (p) =>
 const count = async (t) =>
   Number((await db.query("select count(*) n from " + t)).rows[0].n);
 for (const mutate of [
+  (p) => (p.signer.address = ""),
+  (p) => (p.preferences.visitType = ""),
+  (p) => (delete p.agreements[0].photoConsentChoice),
+  (p) => (p.agreements[0].photoConsent = true),
   (p) => (p.agreements[0].lastName = "Wrong"),
   (p) => (p.agreements[1].electronicSignature = false),
   (p) => (p.agreements[2].guardianAuthority = false),
@@ -125,6 +134,19 @@ for (const mutate of [
   assert.notEqual((await submit(p)).outcome, "created");
   assert.equal(await count("waiver_submissions"), 2);
 }
+// A deferred attendance preference is stored faithfully and is not an admission charge.
+await db.exec("begin");
+const deferred = structuredClone(payload);
+deferred.participants[0].adult_mode = "decide_later";
+const pending = await submit(deferred);
+assert.equal(pending.outcome, "created", JSON.stringify(pending));
+assert.equal((await db.query("select adult_mode from waiver_adult_agreements where submission_id=$1 order by signed_at,id", [pending.submission_id])).rows.filter(r=>r.adult_mode==='decide_later').length, 1);
+const record = (await db.query("select record_payload from waiver_group_records where submission_id=$1", [pending.submission_id])).rows[0].record_payload;
+assert.equal(record.preferences.visitType, "decide_later");
+assert.equal(record.signer.address, payload.signer.address);
+assert.equal(record.agreements[0].photoConsent, false);
+assert.equal(await count("open_play_visits"), 0);
+await db.exec("rollback");
 const saved = await submit(payload);
 assert.equal(saved.outcome, "created", JSON.stringify(saved));
 assert.equal(await count("waiver_adult_agreements"), 3);

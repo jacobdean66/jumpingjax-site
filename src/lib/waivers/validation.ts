@@ -5,6 +5,7 @@
 
 import { isYmd } from "@/lib/open-play/pricing";
 import type { TypedAgreement } from "./typed-agreements";
+import { validateWaiverPreferences, type WaiverPreferences } from "./preferences";
 
 export type ParticipantRole = "child" | "adult_signer" | "adult_covered";
 export type WaiverSource = "web" | "kiosk" | "import";
@@ -35,10 +36,11 @@ export type ParticipantInput = {
   dob: string;
   role: ParticipantRole;
   guardianTempId?: string | null;
-  adultMode?: "playing" | "watching" | null;
+  adultMode?: "playing" | "watching" | "decide_later" | null;
 };
 
 export type SignerInput = {
+  address: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -52,6 +54,7 @@ export type ConsentInput = {
 };
 
 export type SubmissionDraft = {
+  preferences?: WaiverPreferences;
   agreements?: TypedAgreement[];
   legalBodyHtml?: string;
   templateVersionId: string;
@@ -143,6 +146,7 @@ export function validateSubmissionDraft(
   }
 
   const signer = {
+    address: requireNonEmpty(draft.signer.address ?? "", "Signer address", 500),
     firstName: requireNonEmpty(
       draft.signer.firstName,
       "Signer first name",
@@ -166,6 +170,14 @@ export function validateSubmissionDraft(
   };
   if (!EMAIL_RE.test(signer.email)) {
     throw new WaiverValidationError("Signer email is invalid");
+  }
+  if (signer.address.length < 8) throw new WaiverValidationError("Enter a full mailing address, including city and ZIP");
+  const phoneDigits = signer.phone.replace(/\D/g, "");
+  if (phoneDigits.length < 10 || phoneDigits.length > 15)
+    throw new WaiverValidationError("Signer phone must contain 10–15 digits");
+  if (draft.agreements) {
+    const preferenceError = validateWaiverPreferences(draft.preferences);
+    if (preferenceError) throw new WaiverValidationError(preferenceError);
   }
 
   if (!Array.isArray(draft.participants) || draft.participants.length === 0) {
@@ -278,6 +290,7 @@ export function validateSubmissionDraft(
   }
 
   return {
+    ...(draft.preferences ? { preferences: draft.preferences } : {}),
     templateVersionId: draft.templateVersionId.trim().toLowerCase(),
     signer,
     participants,
@@ -293,6 +306,7 @@ export function validateSubmissionDraft(
 
 export function buildCanonicalSubmissionPayload(draft: SubmissionDraft) {
   return {
+    ...(draft.preferences ? { preferences: draft.preferences } : {}),
     templateVersionId: draft.templateVersionId,
     signer: draft.signer,
     participants: draft.participants.map((p) => ({

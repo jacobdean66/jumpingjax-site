@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   fetchActiveWaiverTemplate,
   applyActiveTemplateToFormState,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/waivers/typed-agreements";
 import { ageInCompletedYearsOnDate, isYmd } from "@/lib/open-play/pricing";
 import { WAIVER_LIMITS } from "@/lib/waivers/validation";
+import { validateWaiverPreferences } from "@/lib/waivers/preferences";
 import {
   parseWaiverLanguage,
   WAIVER_LANGUAGES,
@@ -49,6 +50,7 @@ function Field({
   type = "text",
   error,
   autoComplete = "off",
+  maxLength = 80,
 }: {
   label: string;
   value: string;
@@ -56,12 +58,14 @@ function Field({
   type?: string;
   error?: string;
   autoComplete?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="block text-sm font-bold text-slate-800">
       {label}
       <input
         type={type}
+        required
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onInput={(e) => {
@@ -76,7 +80,7 @@ function Field({
         aria-label={label}
         aria-invalid={Boolean(error)}
         max={type === "date" ? todayYmdAmericaNewYork() : undefined}
-        maxLength={type === "text" ? 80 : undefined}
+        maxLength={type === "text" ? maxLength : undefined}
       />
       {error && (
         <span className="mt-1 block text-sm text-red-700">{error}</span>
@@ -89,10 +93,11 @@ function AdultMode({
   onChange,
   language = "en",
 }: {
-  value: "playing" | "watching" | null | undefined;
-  onChange: (v: "playing" | "watching") => void;
+  value: "playing" | "watching" | "decide_later" | null | undefined;
+  onChange: (v: "playing" | "watching" | "decide_later") => void;
   language?: WaiverLanguage;
 }) {
+  const groupId = useId();
   return (
     <fieldset className="mt-4">
       <legend className="font-bold">
@@ -100,19 +105,21 @@ function AdultMode({
         <span className="font-normal text-slate-600">Choose one.</span>
       </legend>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
-        {(["watching", "playing"] as const).map((mode) => (
+        {(["watching", "playing", "decide_later"] as const).map((mode) => (
           <label
             key={mode}
             className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 p-3 ${value === mode ? "border-orange-500 bg-orange-50" : "border-slate-300 bg-white"}`}
           >
             <input
-              type="checkbox"
+              type="radio"
+              name={groupId}
+              required
               checked={value === mode}
               onChange={() => onChange(mode)}
               className="h-5 w-5 accent-orange-600"
             />
             <span className="font-bold">
-              {groupText(
+              {mode === "decide_later" ? "Decide later" : groupText(
                 mode === "watching" ? "Watching — Free" : "Playing — $10",
                 language,
               )}
@@ -144,7 +151,7 @@ export function WaiverFormClient() {
     lastAdded = useRef<string | null>(null),
     submitLock = useRef(false),
     requestKey = useRef<{ fingerprint: string; key: string } | null>(null);
-  const [visitType, setVisitType] = useState<"open-play" | "party" | "">("");
+  const [visitType, setVisitType] = useState<"open-play" | "party" | "decide_later" | "">("");
   const [selectedPartyId, setSelectedPartyId] = useState("");
   const [atFacility, setAtFacility] = useState(false);
   const [selectedPartyDate, setSelectedPartyDate] = useState(todayYmdAmericaNewYork);
@@ -152,12 +159,12 @@ export function WaiverFormClient() {
   const [partyError, setPartyError] = useState<string | null>(null);
   const [partiesLoading, setPartiesLoading] = useState(false);
   const linkedPartyId = searchParams.get("source") === "facility-party" ? searchParams.get("booking") : null;
-  const partyBookingId = linkedPartyId || selectedPartyId;
+  const partyBookingId = linkedPartyId || (selectedPartyId === "decide_later" ? "" : selectedPartyId);
   const facilityPartyDate = linkedPartyId ? searchParams.get("date") : selectedPartyDate;
   const isFacilityPartyWaiver =
     Boolean(partyBookingId);
   useEffect(() => {
-    if (linkedPartyId || visitType !== "party") return;
+    if (linkedPartyId || visitType !== "party" || !selectedPartyDate) return;
     const controller = new AbortController();
     void fetch(`/api/waiver/parties?date=${encodeURIComponent(selectedPartyDate)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
@@ -201,7 +208,12 @@ export function WaiverFormClient() {
   }, [state.participants.length]);
   const adultRows = state.participants.filter((p) => p.kind === "adult"),
     children = state.participants.filter((p) => p.kind === "child");
-  const draft = buildPublicSubmitBody(state, "information-preview"),
+  const preferences = {
+    visitType: linkedPartyId ? "party" as const : visitType || "decide_later" as const,
+    partyBookingId: linkedPartyId || (visitType === "party" ? selectedPartyId || null : null),
+    partyDate: linkedPartyId ? searchParams.get("date") : visitType === "party" && selectedPartyId !== "decide_later" ? selectedPartyDate : null,
+  };
+  const draft = buildPublicSubmitBody({ ...state, preferences }, "information-preview"),
     adults = draft.participants.filter((p) => p.role !== "child");
   const setSigner = (key: keyof WaiverFormState["signer"], value: string) =>
     setState((prev) => ({
@@ -220,7 +232,7 @@ export function WaiverFormClient() {
   const add = (kind: "adult" | "child") => {
     const p = createParticipantDraft({
       kind,
-      adultMode: kind === "adult" ? "playing" : undefined,
+      adultMode: undefined,
     });
     lastAdded.current = p.tempId;
     setState((prev) => ({
@@ -245,12 +257,14 @@ export function WaiverFormClient() {
         ...validateParticipantsStep(state.signer, state.participants),
       },
       today = todayYmdAmericaNewYork();
-    if (!linkedPartyId && !visitType) e.visitType = "Choose open play or a birthday party.";
-    if (!linkedPartyId && visitType === "party" && (!parties.some((p) => p.id === selectedPartyId) || partiesLoading || partyError))
-      e.party = "Choose the birthday party you are attending.";
-    if (!state.signer.adultMode)
-      e.adultMode = "Choose watching or playing for the signing adult.";
+    if (!linkedPartyId && !visitType) e.visitType = "Choose Open Play, Birthday Party, or Decide later.";
+    const preferenceError = validateWaiverPreferences(preferences);
+    if (preferenceError) e.party = preferenceError;
+    if (!linkedPartyId && visitType === "party" && selectedPartyId !== "decide_later" && (!parties.some((p) => p.id === selectedPartyId) || partiesLoading || partyError))
+      e.party = "Choose the birthday party you are attending or Decide later.";
     for (const p of draft.participants) {
+      if (p.role !== "child" && !p.adultMode)
+        e[`adultMode.${p.tempId}`] = `Choose watching, playing, or Decide later for ${p.firstName || "each adult"}.`;
       if (!isYmd(p.dob) || p.dob > today) continue;
       const age = ageInCompletedYearsOnDate(p.dob, today);
       if (p.role === "child" && age >= 18)
@@ -313,6 +327,7 @@ export function WaiverFormClient() {
     }
     const ready = {
         ...state,
+        preferences,
         consent: {
           acknowledgedRisk: true,
           acknowledgedTerms: true,
@@ -402,6 +417,7 @@ export function WaiverFormClient() {
           </p>
         )}
         <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6">
+          <p className="text-sm font-semibold text-slate-700">Complete every field and choose an answer for each preference. You can choose Decide later for preferences. Contact details, birth dates, guardian information and signing confirmations are required.</p>
           {(formError || Object.keys(errors).length > 0) && (
             <div
               role="alert"
@@ -424,11 +440,11 @@ export function WaiverFormClient() {
                   <fieldset>
                     <legend className="text-xl font-black">What are you here for?</legend>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {(["open-play", "party"] as const).map((value) => (
+                      {(["open-play", "party", "decide_later"] as const).map((value) => (
                         <label key={value} className="flex min-h-14 items-center gap-3 rounded-xl border-2 p-3 font-bold">
                           <input type="radio" name="visitType" checked={visitType === value}
                             onChange={() => { setVisitType(value); setSelectedPartyId(""); setPartiesLoading(value === "party"); setPartyError(null); setAtFacility(false); }} />
-                          {value === "party" ? "Birthday party" : "Open play"}
+                          {value === "party" ? "Birthday party" : value === "decide_later" ? "Decide later" : "Open play"}
                         </label>
                       ))}
                     </div>
@@ -439,14 +455,19 @@ export function WaiverFormClient() {
                         <input type="date" className={fieldClass} value={selectedPartyDate}
                           onChange={(e) => { setSelectedPartyDate(e.target.value); setSelectedPartyId(""); setParties([]); setPartiesLoading(true); setPartyError(null); setAtFacility(false); }} />
                       </label>
+                      <button type="button" className={secondary}
+                        onClick={() => { setSelectedPartyDate(""); setSelectedPartyId("decide_later"); setParties([]); setPartiesLoading(false); setPartyError(null); setAtFacility(false); }}>
+                        Decide later — party date and selection
+                      </button>
                       <label className="block font-bold">Whose birthday party are you attending?
-                        <select className={fieldClass} value={selectedPartyId} disabled={partiesLoading || Boolean(partyError)}
+                        <select className={fieldClass} value={selectedPartyId} required
                           onChange={(e) => setSelectedPartyId(e.target.value)}>
                           <option value="">Choose a birthday party</option>
+                          <option value="decide_later">Decide later — choose my party at check-in</option>
                           {parties.map((party) => <option key={party.id} value={party.id}>{party.label}</option>)}
                         </select>
                       </label>
-                      {selectedPartyDate === todayYmdAmericaNewYork() && (
+                      {selectedPartyId && selectedPartyId !== "decide_later" && selectedPartyDate === todayYmdAmericaNewYork() && (
                         <label className="flex min-h-12 items-center gap-3 font-bold">
                           <input type="checkbox" checked={atFacility} onChange={(e) => setAtFacility(e.target.checked)} />
                           We are at Jumping Jax now — check us into this party after signing.
@@ -502,6 +523,9 @@ export function WaiverFormClient() {
                     error={errors.dob}
                     autoComplete="bday"
                   />
+                  <Field label="Adult’s mailing address (street, city, state and ZIP)"
+                    value={state.signer.address} onChange={(v) => setSigner("address", v)}
+                    error={errors.address} autoComplete="street-address" maxLength={500} />
                 </div>
                 <AdultMode
                   language={language}
@@ -755,7 +779,6 @@ export function WaiverFormClient() {
                                 ],
                               ]
                             : []),
-                          ["photoConsent", AGREEMENT_STATEMENTS.photoConsent],
                         ] as Array<[keyof TypedAgreement, string]>
                       ).map(([key, label]) => (
                         <label
@@ -764,6 +787,7 @@ export function WaiverFormClient() {
                         >
                           <input
                             type="checkbox"
+                            required
                             className="mt-1 h-5 w-5 shrink-0 accent-orange-600"
                             checked={a[key] === true}
                             onChange={(e) =>
@@ -777,6 +801,19 @@ export function WaiverFormClient() {
                           </span>
                         </label>
                       ))}
+                      <label className="block rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
+                        Promotional photo permission — choose an answer
+                        <select className={fieldClass} required value={a.photoConsentChoice ?? ""}
+                          onChange={(e) => changeAgreement(adult.tempId, {
+                            photoConsentChoice: e.target.value as "yes" | "no" | "decide_later",
+                            photoConsent: e.target.value === "yes",
+                          })}>
+                          <option value="">Choose photo permission</option>
+                          <option value="yes">Yes — I permit promotional photographs</option>
+                          <option value="no">No — I do not permit promotional photographs</option>
+                          <option value="decide_later">Decide later — no permission granted now</option>
+                        </select>
+                      </label>
                     </div>
                   </section>
                 );

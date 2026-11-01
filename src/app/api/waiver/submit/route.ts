@@ -58,6 +58,13 @@ export async function POST(req: Request) {
     ? body.participants
     : [];
   const draft: SubmissionDraft = {
+    preferences: body.preferences && typeof body.preferences === "object"
+      ? {
+          visitType: asString((body.preferences as Record<string, unknown>).visitType) as NonNullable<SubmissionDraft["preferences"]>["visitType"],
+          partyBookingId: asString((body.preferences as Record<string, unknown>).partyBookingId) || null,
+          partyDate: asString((body.preferences as Record<string, unknown>).partyDate) || null,
+        }
+      : undefined,
     legalBodyHtml: asString(body.legalBodyHtml),
     agreements: (Array.isArray(body.agreements) ? body.agreements : []).map(
       (item) => {
@@ -71,11 +78,13 @@ export async function POST(req: Request) {
           electronicSignature: asBoolean(row.electronicSignature),
           guardianAuthority: asBoolean(row.guardianAuthority),
           photoConsent: asBoolean(row.photoConsent),
+          photoConsentChoice: asString(row.photoConsentChoice) as "yes" | "no" | "decide_later",
         };
       },
     ),
     templateVersionId: asString(body.templateVersionId),
     signer: {
+      address: asString((body.signer as Record<string, unknown> | undefined)?.address),
       firstName: asString(
         (body.signer as Record<string, unknown> | undefined)?.firstName,
       ),
@@ -103,7 +112,7 @@ export async function POST(req: Request) {
           ? asString(row.guardianTempId)
           : null,
         adultMode:
-          row.adultMode === "playing" || row.adultMode === "watching"
+          row.adultMode === "playing" || row.adultMode === "watching" || row.adultMode === "decide_later"
             ? row.adultMode
             : null,
       };
