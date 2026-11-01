@@ -9,10 +9,10 @@ export type GmailPart = {
   body?: { data?: string; attachmentId?: string; size?: number };
   parts?: GmailPart[];
 };
-export type GmailMessage = { id: string; internalDate?: string; snippet?: string; payload?: GmailPart };
+export type GmailMessage = { id: string; internalDate?: string; snippet?: string; labelIds?: string[]; payload?: GmailPart };
 export type GmailMail = {
   id: string; subject: string; from: string; to: string; date: string;
-  text: string; html: string; snippet: string;
+  text: string; html: string; snippet: string; unread: boolean;
 };
 export function isGmailId(value: string): boolean { return /^[a-f0-9]{1,32}$/i.test(value); }
 export function isGmailPageToken(value: string): boolean { return /^[A-Za-z0-9_=-]{1,2048}$/.test(value); }
@@ -36,7 +36,7 @@ export function gmailMail(message: GmailMessage): GmailMail {
   const timestamp = Number(message.internalDate);
   return { id: message.id, subject: header("subject"), from: header("from"), to: header("to"),
     date: Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp).toISOString() : header("date"),
-    text: texts.join("\n"), html: html.join("\n"), snippet: message.snippet || "" };
+    text: texts.join("\n"), html: html.join("\n"), snippet: message.snippet || "", unread: message.labelIds?.includes("UNREAD") ?? false };
 }
 function key(env: Env) {
   const secret = env.GOOGLE_ADS_COOKIE_SECRET?.trim() || env.ADMIN_SESSION_SECRET?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim();
