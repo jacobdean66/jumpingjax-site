@@ -2,22 +2,12 @@ import { readFile, writeFile, mkdir, copyFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { REPAIR_REPOSITORY, allowedTaskRepairPath, reviewedApplicationPath, acceptedRepairEvidence } from "./policy.mjs";
+import { workerQueueRequest as api, WorkerQueueError } from "./queue-client.mjs";
 
 const stateDir = process.env.REPAIR_STATE_DIR || join(process.env.RUNNER_TEMP || ".", "code-repair-state");
 const statePath = join(stateDir, "task.json");
 const evidencePath = join(stateDir, "evidence.json");
 const git = args => execFileSync("git", args, { encoding: "utf8", maxBuffer: 2_000_000 }).trim();
-async function api(body) {
-  const token = process.env.CODE_REPAIR_RUNNER_TOKEN;
-  if (!token) throw new Error("Coding worker token is not configured.");
-  const response = await fetch("https://jumpingjaxllc.com/api/agents/code-repair-worker", {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body), signal: AbortSignal.timeout(20000), redirect: "error",
-  });
-  const result = await response.json();
-  if (!response.ok || !result.ok) throw new Error("Coding worker queue rejected the request.");
-  return result;
-}
 async function output(key, value) {
   if (process.env.GITHUB_OUTPUT) await writeFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`, { flag: "a" });
 }
@@ -28,6 +18,13 @@ export function buildRepairPrompt(task, correction = "") {
 }
 
 async function main(command) {
+  if (command === "connection") {
+    // An impossible lease is a read-only connectivity check, never a claim or model run.
+    await api({ action: "check", id: "00000000-0000-4000-8000-000000000000", leaseToken: "00000000-0000-4000-8000-000000000000" });
+    await output("active", false);
+    console.log("Worker authorization and queue connection verified. No repair was claimed and no model was invoked.");
+    return;
+  }
   await mkdir(stateDir, { recursive: true });
   if (command === "claim" || command === "recover") {
     if (command === "claim" && !process.env.CODE_REPAIR_RUNNER_TOKEN) {
@@ -103,4 +100,4 @@ async function main(command) {
   }
 }
 
-if (process.argv[1]?.endsWith("worker.mjs")) main(process.argv[2]).catch(() => { console.error("Coding worker stopped. Check queue activation, lease, verification or repository permissions."); process.exitCode = 1; });
+if (process.argv[1]?.endsWith("worker.mjs")) main(process.argv[2]).catch(error => { console.error(error instanceof WorkerQueueError ? error.message : "Coding worker stopped. Check queue activation, lease, verification or repository permissions."); process.exitCode = 1; });
