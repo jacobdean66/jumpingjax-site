@@ -3,12 +3,18 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      connection_check_only:
+        description: Verify the worker connection without claiming a task or using model credits
+        type: boolean
+        default: false
 permissions: {}
 concurrency:
   group: permanent-agent-code-repair
   cancel-in-progress: false
 jobs:
   repair:
+    if: github.ref == 'refs/heads/main' || inputs.connection_check_only == true
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -23,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: main
+          ref: ${{ inputs.connection_check_only && github.sha || 'main' }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -36,7 +42,13 @@ jobs:
         id: claim
         env:
           CODE_REPAIR_RUNNER_TOKEN: ${{ secrets.CODE_REPAIR_RUNNER_TOKEN }}
-        run: node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" claim
+          CONNECTION_CHECK_ONLY: ${{ inputs.connection_check_only }}
+        run: |
+          if [ "$CONNECTION_CHECK_ONLY" = "true" ]; then
+            node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" connection
+          else
+            node "$RUNNER_TEMP/trusted-code-repairs/worker.mjs" claim
+          fi
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         if: steps.claim.outputs.active == 'true'
       - name: Install locked dependencies and isolated browser
