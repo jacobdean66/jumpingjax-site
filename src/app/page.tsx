@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { GIVEAWAY_PARTY_RSVP_URL } from "@/lib/giveaway/giveaway-campaigns";
+import { BACKYARD_LANDING_PATH, entriesAreOpen } from "@/lib/admin/backyard-tracking";
+import { loadBackyardCampaign } from "@/lib/admin/backyard-takeover-store";
+import { loadBackyardSettings } from "@/lib/admin/backyard-tracking-store";
 import {
   CATEGORY_BROWSE_ORDER,
   CATEGORY_COPY,
@@ -35,6 +37,11 @@ export default async function Home() {
     settings = DEFAULT_SITE_SETTINGS;
   }
   const featured = homeFeaturedRentals();
+  const backyard = await Promise.all([loadBackyardCampaign(), loadBackyardSettings()])
+    .then(([campaign, settings]) => ({ campaign, settings }))
+    .catch(() => null);
+  const backyardOpen = backyard && entriesAreOpen(backyard.campaign, backyard.settings);
+  const giveawayMonth = backyardOpen ? new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "America/New_York" }).format(new Date(backyard.settings.closesAt)) : "";
   const phoneHref = `tel:${settings.websiteText.contactPhone.replace(/\D/g, "")}`;
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     settings.websiteText.contactAddress,
@@ -126,27 +133,27 @@ export default async function Home() {
                 Ads
               </Link>
               <span className="rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-950">
-                October giveaway closed
+                {backyardOpen ? `${giveawayMonth} giveaway · Enter free` : "Current promotions"}
               </span>
             </div>
             <h2 className="mt-5 text-balance text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
-              October Giveaway: thank you for your nominations!
+              {backyardOpen ? `${giveawayMonth} Giveaway: win a Backyard Takeover!` : "Giveaways, deals and big fun!"}
             </h2>
             <p className="mt-4 max-w-3xl text-pretty text-base font-semibold leading-7 text-slate-700 sm:text-lg">
-              Nominations are closed and the winner has been selected. Invited families can still RSVP for Keenan&apos;s Halloween costume party on October 31, from 2–3:30 PM.
+              {backyardOpen ? backyard.campaign.prize : "See our current promotions and community campaigns in one place."}
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
-                href={GIVEAWAY_PARTY_RSVP_URL}
+                href={backyardOpen ? BACKYARD_LANDING_PATH : "/ads"}
                 className="inline-flex min-h-13 items-center justify-center rounded-full bg-orange-500 px-7 py-3 text-center text-base font-black text-white shadow-[0_6px_0_#c2410c] transition hover:-translate-y-0.5 hover:bg-orange-400"
               >
-                Invited families: RSVP
+                {backyardOpen ? "Enter the giveaway" : "See current promotions"}
               </Link>
               <Link
-                href="/nominees"
+                href="/ads"
                 className="inline-flex min-h-13 items-center justify-center rounded-full border-2 border-pink-300 bg-pink-50 px-7 py-3 text-center text-base font-black text-pink-800 transition hover:-translate-y-0.5 hover:bg-pink-100"
               >
-                View all nominees
+                View all ads &amp; giveaways
               </Link>
             </div>
           </div>
