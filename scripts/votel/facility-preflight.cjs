@@ -18,7 +18,12 @@ function normalize(input) {
   const kind = text(input.kind).toLowerCase();
   const room = kind === "private" ? "room-20" : text(input.room).replace(/^room_(10|20)$/, "room-$1");
   const durationMinutes = kind === "public" ? 90 : integer(input.duration);
-  const date = text(input.date);
+  const dateMatch = /^(\d{4}-\d{2}-\d{2})(?:T00:00:00)?$/.exec(text(input.date));
+  if (!dateMatch) return null;
+  const date = dateMatch[1];
+  // Validate the date in UTC, but keep the original calendar date for the website.
+  const day = new Date(date + "T00:00:00Z");
+  if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date) return null;
   const startTime = text(input.start_time);
   // Votel's dropdown IDs use underscores for the configured 10:00–19:00 half-hour options.
   const timeLabel = /^(?:1[0-8]_(?:00|30)|19_00)$/.test(startTime)
@@ -34,7 +39,7 @@ function normalize(input) {
   const goodieBagsQuantity = integer(input.goodie_bags);
   const cottonCandyPackage = text(input.cotton).toLowerCase();
   if (!["public", "private"].includes(kind) || !["room-10", "room-20"].includes(room) ||
-      ![90, 120, 180].includes(durationMinutes) || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      ![90, 120, 180].includes(durationMinutes) ||
       !["yes", "no", "true", "false"].includes(balloons) ||
       !Number.isSafeInteger(goodieBagsQuantity) || goodieBagsQuantity < 0 || goodieBagsQuantity > 100 ||
       !["none", "10_kids", "20_kids"].includes(cottonCandyPackage)) return null;

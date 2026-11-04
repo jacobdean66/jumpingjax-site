@@ -29,9 +29,10 @@ test("Votel room and time option IDs produce canonical requests for both public 
     ["room_10", "12_00", "room-10", 720],
     ["room_20", "16_00", "room-20", 960],
   ]) {
-    const result = await runPreflight({ ...input, date: "2026-11-20", room, start_time }, async (_url, options) => {
+    const result = await runPreflight({ ...input, date: "2026-11-20T00:00:00", room, start_time }, async (_url, options) => {
       const request = JSON.parse(options.body);
       assert.equal(request.room, expectedRoom);
+      assert.equal(request.date, "2026-11-20");
       assert.equal(request.startMinutes, expectedMinutes);
       return Response.json(reply(request));
     });
@@ -48,6 +49,19 @@ test("malformed dropdown IDs cannot start a website check", async () => {
   ]) {
     const result = await runPreflight({ ...input, ...change }, async () => { calls++; });
     assert.equal(result.preflight_status, "needs_details");
+  }
+  assert.equal(calls, 0);
+});
+
+test("only a real calendar date or Votel's exact midnight timestamp can start a website check", async () => {
+  let calls = 0;
+  for (const date of [
+    "2026-11-18T00:00:01", "2026-11-18T12:00:00", "2026-11-18 00:00:00",
+    "2026-11-18T00:00:00Z", "2026-11-18T00:00:00-05:00", "2026-11-18T00:00:00.000",
+    "2026-02-29T00:00:00", "2026-11-31", "2026-11-8T00:00:00",
+  ]) {
+    const result = await runPreflight({ ...input, date }, async () => { calls++; });
+    assert.equal(result.preflight_status, "needs_details", date);
   }
   assert.equal(calls, 0);
 });
