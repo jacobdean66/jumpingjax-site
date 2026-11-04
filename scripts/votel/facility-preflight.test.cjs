@@ -88,3 +88,52 @@ test("unavailable, malformed, mismatched and failed checks cannot be treated as 
   assert.equal((await runPreflight(input, async () => new Response("", { status: 400 }))).preflight_status, "needs_details");
   assert.equal((await runPreflight(input, async () => { throw new Error("timeout"); })).preflight_status, "check_failed");
 });
+
+test("opt-in Votel diagnostics emit only rejected field names and keep workflow outputs unchanged", () => {
+  const { spawnSync } = require("node:child_process");
+  const fs = require("node:fs");
+  const { tmpdir } = require("node:os");
+  const { join } = require("node:path");
+  const temp = fs.mkdtempSync(join(tmpdir(), "votel-preflight-test-"));
+  const source = join(temp, "input.json");
+  const target = join(temp, "output.json");
+  try {
+    const rejected = {
+      ...input,
+      room: "{{contact.private_fixture}}",
+      date: "2030-02-31",
+      start_time: "{$private_fixture}",
+      balloons: "",
+      goodie_bags: null,
+      cotton: "synthetic-private-value",
+      email: "synthetic@example.test",
+      phone: "555-0100",
+    };
+    const run = diagnostics => {
+      fs.writeFileSync(source, JSON.stringify({ ...rejected, diagnostics }));
+      const result = spawnSync(process.execPath, [require.resolve("./facility-preflight.cjs")], {
+        encoding: "utf8",
+        env: { ...process.env, VOTEL_INPUT: source, VOTEL_OUTPUT: target },
+      });
+      assert.equal(result.status, 0, result.stderr);
+      return { stdout: result.stdout, output: JSON.parse(fs.readFileSync(target, "utf8")) };
+    };
+
+    const ordinary = run(undefined);
+    const diagnostic = run("true");
+    assert.equal(ordinary.stdout, "");
+    assert.equal(diagnostic.stdout, JSON.stringify({
+      preflight_validation: {
+        missing: ["balloons", "goodie_bags"],
+        unresolved: ["room", "start_time"],
+        invalid: ["date", "cotton"],
+      },
+    }) + "\n");
+    assert.deepEqual(diagnostic.output, ordinary.output);
+    assert.equal(diagnostic.output.preflight_status, "needs_details");
+  } finally {
+    if (fs.existsSync(source)) fs.unlinkSync(source);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+    fs.rmdirSync(temp);
+  }
+});
