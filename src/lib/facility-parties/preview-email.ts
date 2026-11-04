@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
@@ -7,21 +7,17 @@ import {
 } from "./invitations";
 import { invitationSnapshotFromChoice } from "./invitations/snapshot";
 import { confirmedThemeSchema } from "./invitations/theme-search";
+import { isCanonicalFacilityBookingYmd } from "./booking-horizon";
 import { readConfirmedTheme } from "./invitations/theme-token";
+
+import { equalDigest, previewEnabled, validId } from "./preview-session";
+export { previewEnabled, previewToken, validId, validToken } from "./preview-session";
 
 export const options = [
   { optionIndex: 0, label: "Spotlight" },
   { optionIndex: 1, label: "Portrait" },
   { optionIndex: 2, label: "Banner" },
 ] as const;
-
-export function previewEnabled(): boolean {
-  return process.env.RECEPTIONIST_INVITATION_PREVIEW_ENABLED === "true";
-}
-
-function equalDigest(left: string, right: string): boolean {
-  return timingSafeEqual(createHash("sha256").update(left).digest(), createHash("sha256").update(right).digest());
-}
 
 export function authorized(request: Request): boolean {
   const key = process.env.RECEPTIONIST_INVITATION_PREVIEW_API_KEY;
@@ -31,17 +27,6 @@ export function authorized(request: Request): boolean {
   return supplied.length > 0 && supplied.length <= 256 && equalDigest(supplied, key);
 }
 
-export function previewToken(id: string): string | null {
-  const key = process.env.RECEPTIONIST_INVITATION_PREVIEW_SIGNING_KEY;
-  if (!key || key.length < 32) return null;
-  return createHmac("sha256", key).update(id).digest("base64url");
-}
-
-export function validToken(id: string, token: string): boolean {
-  const expected = previewToken(id);
-  return !!expected && token.length <= 128 && equalDigest(token, expected);
-}
-
 const shortText = (max: number) => z.string().trim().min(1).max(max).regex(/^[^\x00-\x1f\x7f]+$/);
 const optionalText = (max: number) => z.string().trim().max(max).regex(/^[^\x00-\x1f\x7f]*$/).default("");
 const previewInput = z.object({
@@ -49,6 +34,7 @@ const previewInput = z.object({
   email: z.string().trim().max(254).email().transform(value => value.toLowerCase()),
   childName: shortText(80),
   childAge: z.string().trim().regex(/^(?:[1-9]|1[0-8])?$/).default(""),
+  childBirthdate: z.string().trim().refine(isCanonicalFacilityBookingYmd).optional(),
   customerPhone: optionalText(40),
   balloonColors: optionalText(160),
   tableClothColors: optionalText(160),
@@ -58,13 +44,26 @@ const previewInput = z.object({
     return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
   }),
   partyTime: shortText(80),
-  confirmationToken: z.string().min(1).max(18000),
+  confirmationToken: z.string().min(1).max(18000).optional(),
+  chooseArtworkOnPage: z.literal(true).optional(),
 }).strict();
 
 export function parsePreview(value: unknown) {
   const parsed = previewInput.safeParse(value);
   if (!parsed.success) return null;
-  const { confirmationToken, ...input } = parsed.data;
+  const { confirmationToken, chooseArtworkOnPage, childBirthdate, ...input } = parsed.data;
+  if (childBirthdate) {
+    const partyDate = input.partyDate;
+    const yearDifference = Number(partyDate.slice(0, 4)) - Number(childBirthdate.slice(0, 4));
+    // Month/day comparison advances a February 29 birthday on March 1 in a non-leap year.
+    const age = yearDifference - Number(partyDate.slice(5) < childBirthdate.slice(5));
+    if (age < 1 || age > 18 || (input.childAge && input.childAge !== String(age))) return null;
+    input.childAge = String(age);
+  }
+  if (chooseArtworkOnPage) {
+    return childBirthdate && !confirmationToken && input.partyTheme.length >= 2
+      ? { ...input, confirmedTheme: null } : null;
+  }
   const confirmedTheme = readConfirmedTheme(confirmationToken, input.partyTheme);
   return confirmedTheme ? { ...input, confirmedTheme } : null;
 }
@@ -73,12 +72,8 @@ export function payloadHash(value: NonNullable<ReturnType<typeof parsePreview>>)
   return createHash("sha256").update(JSON.stringify([
     value.email, value.childName, value.partyTheme, value.partyDate, value.partyTime,
     value.childAge, value.customerPhone, value.balloonColors, value.tableClothColors,
-    value.confirmedTheme.id, value.confirmedTheme.imagePath,
+    ...(value.confirmedTheme ? [value.confirmedTheme.id, value.confirmedTheme.imagePath] : ["pending-artwork-v1"]),
   ])).digest("hex");
-}
-
-export function validId(id: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
 const selectionInput = z.object({

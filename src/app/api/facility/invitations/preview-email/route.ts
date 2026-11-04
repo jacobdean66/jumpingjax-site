@@ -3,9 +3,11 @@ import { Resend } from "resend";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { authorized, options, parsePreview, payloadHash, previewEnabled, previewToken, safeToRetry, validId } from "@/lib/facility-parties/preview-email";
 import { assertConfirmedArtworkAvailable } from "@/lib/facility-parties/invitations/booking-evidence";
+import { runPreviewArtworkSearch } from "@/lib/facility-parties/preview-artwork";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 const reply = (body: object, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 const disabled = () => !previewEnabled() || !process.env.RECEPTIONIST_INVITATION_PREVIEW_API_KEY || !previewToken("configuration-check");
 
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
   if (!process.env.RESEND_API_KEY?.trim() || !sender || sender.toLowerCase().endsWith("@resend.dev")) return reply({ error: "Preview service unavailable" }, 503);
   try {
     const db = createServiceRoleClient();
-    await assertConfirmedArtworkAvailable(db, input.confirmedTheme);
+    if (input.confirmedTheme) await assertConfirmedArtworkAvailable(db, input.confirmedTheme);
     const lease = randomUUID();
     const { data, error } = await db.rpc("claim_facility_invitation_preview", {
       p_key: input.requestKey, p_hash: payloadHash(input), p_recipient: input.email,
@@ -42,6 +44,14 @@ export async function POST(request: Request) {
     if (data.result === "accepted" || data.result === "processing") return reply({ requestId: data.id, status: data.result, options }, 202);
     if (data.result !== "claimed") return reply({ error: "Preview service unavailable" }, 503);
     if (!safeToRetry(data.created_at)) return reply({ requestId: data.id, status: "reconciliation_required", error: "Provider acceptance is unknown; manual reconciliation required" }, 409);
+    if (!input.confirmedTheme) {
+      const search = await runPreviewArtworkSearch(db, {
+        previewId: data.id, searchKey: data.id, query: input.partyTheme, initialLease: lease,
+      });
+      if (!["completed", "empty", "failed", "duplicate"].includes(String(search))) {
+        return reply({ error: "Preview artwork unavailable", requestId: data.id }, 503);
+      }
+    }
     const token = previewToken(data.id);
     const url = new URL("/facility-invitation-previews/" + data.id, CANONICAL_PRODUCTION_SITE_URL);
     url.searchParams.set("token", token!);
@@ -54,7 +64,9 @@ export async function POST(request: Request) {
       const result = await resend.emails.send({
         from, to: input.email,
         subject: "Your Jumping Jax invitation design previews",
-        text: `Here are three personalized invitation design previews for ${input.childName}:\n\n${url.toString()}\n\nChoose Spotlight, Portrait, or Banner and tell your Jumping Jax representative. These are previews only; they do not reserve or confirm a party. This link expires in seven days.`,
+        text: input.confirmedTheme
+          ? `Here are three personalized invitation design previews for ${input.childName}:\n\n${url.toString()}\n\nChoose Spotlight, Portrait, or Banner and tell your Jumping Jax representative. These are previews only; they do not reserve or confirm a party. This link expires in seven days.`
+          : `Open this link to choose the picture for ${input.childName}'s invitation. The same page will then show three personalized designs.\n\n${url.toString()}\n\nThese are previews only. This link expires in seven days.`,
       }, { idempotencyKey: `facility-preview-${data.id}` });
       accepted = !result.error && !!result.data?.id;
       providerId = result.data?.id ?? null;
@@ -63,7 +75,7 @@ export async function POST(request: Request) {
       .update({ status: accepted ? "accepted" : "failed", provider_id: providerId, lease_id: null, lease_until: null })
       .eq("id", data.id).eq("lease_id", lease).select("id").maybeSingle();
     if (updateError || !updated || !accepted) return reply({ error: "Preview service unavailable", requestId: data.id }, 503);
-    return reply({ requestId: data.id, status: "accepted", options }, 202);
+    return reply({ requestId: data.id, status: "accepted", options, ...(!input.confirmedTheme ? { artworkStatus: "needs_confirmation" } : {}) }, 202);
   } catch {
     return reply({ error: "Preview service unavailable" }, 503);
   }
@@ -76,7 +88,7 @@ export async function GET(request: Request) {
   if (!validId(id)) return reply({ error: "Invalid request" }, 400);
   try {
     const { data, error } = await createServiceRoleClient().from("facility_invitation_previews")
-      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,expires_at,created_at,lease_until").eq("id", id).maybeSingle();
+      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,expires_at,created_at,lease_until,confirmed_theme,artwork_search_keys").eq("id", id).maybeSingle();
     if (error) return reply({ error: "Preview service unavailable" }, 503);
     if (!data || new Date(data.expires_at).getTime() <= Date.now()) return reply({ error: "Not found" }, 404);
     let status = data.status;
@@ -86,8 +98,11 @@ export async function GET(request: Request) {
       else status = "retryable";
     }
     return reply({ requestId: data.id, status, options,
+      ...(data.confirmed_theme === null ? { artworkStatus: "needs_confirmation", artworkSearchesUsed: Array.isArray(data.artwork_search_keys) ? data.artwork_search_keys.length : 3 } : data.confirmed_theme ? { artworkStatus: "confirmed" } : {}),
       optionIndex: data.selected_option_index, deliveryPreferences: data.delivery_preferences, quantity: data.invitation_quantity,
-      ...(status === "retryable" ? { retry: "Repeat the POST with the same requestKey and party details. If the confirmation token expired, refresh it for the same artwork." } : {}),
+      ...(status === "retryable" ? { retry: data.confirmed_theme === null
+        ? "Repeat the POST with the same requestKey and party details. It will reuse the same preview and search budget."
+        : "Repeat the POST with the same requestKey and party details. If the confirmation token expired, refresh it for the same artwork." } : {}),
       ...(status === "reconciliation_required" ? { action: "Provider acceptance is unknown; manual reconciliation required" } : {}) });
   } catch { return reply({ error: "Preview service unavailable" }, 503); }
 }

@@ -20,7 +20,41 @@ artwork can retry the same request; stored verified theme claims let the preview
 render after that confirmation token expires. Email contains a signed seven-day
 link to all three design previews. Provider acceptance does not prove receipt.
 
-Authenticated `GET` on that route, with `requestId`, reports status and selected
+For a caller who has not seen the artwork, send the same authenticated
+request with `chooseArtworkOnPage: true` in place of `confirmationToken`.
+Include the full `childBirthdate` in ISO date format. The server calculates
+age on the party date (supported ages 1–18), then discards the birthdate.
+A February 29 birthday advances on March 1 in a non-leap year.
+Do not ask for age separately or include the birthdate in any link or log.
+Confirm the recipient address and their consent to receive this preview first.
+The service starts the first picture search and emails one signed link.
+Before rendering the page, the server exchanges the URL token for a secure,
+HttpOnly cookie scoped to that preview and redirects to a clean URL. The link
+token never reaches the rendered page or its analytics. The
+page shows only server-selected, first-party pictures. The caller chooses and
+explicitly confirms a picture on that page, then the same link shows the
+personalized Spotlight, Portrait and Banner layouts. The representative
+still saves the caller's layout, delivery method and quantity separately.
+
+The first search and each new refresh consume one of three searches shared by
+the invitation request. Reloading the page and retrying the same search
+operation do not consume another search. The search budget follows the saved
+preview across signed link reopens and email retries. The website search token
+expires after two hours. During each search, the server verifies that token
+and seals the frozen candidate specifically for this preview, so existing
+choices remain selectable on its signed seven-day link. After three searches,
+the page directs callers who need new pictures to Jumping Jax staff. Choosing
+a picture confirms the intended subject for this invitation. Source and catalog
+metadata do not establish usage rights. The receptionist integration that sends
+the link and records layout, delivery and quantity remains to be connected.
+
+The follow-up migration `20261104220000_preview_artwork_search.sql` is required
+for this flow and the updated preview page. It adds an atomic per-preview
+search budget and prevents layout selection or booking until the picture is
+confirmed. Apply it only after verifying the existing preview schema. The
+feature remains disabled by default.
+
+Authenticated `GET` on that route, with `requestId`, reports stored artwork status and selected
 options. Uncertain sends can retry the same key and details within the 23-hour
 window; older uncertain sends require reconciliation and must not be resent
 with a new key. Durable quotas and leases live in the preview table.

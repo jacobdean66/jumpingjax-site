@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       .eq("status", "accepted")
       .gt("expires_at", new Date().toISOString())
       .is("booking_id", null)
+      .not("confirmed_theme", "is", null)
       .select("id,selected_option_index,delivery_preferences,invitation_quantity")
       .maybeSingle();
     if (error) return reply({ error: "Preview service unavailable" }, 503);

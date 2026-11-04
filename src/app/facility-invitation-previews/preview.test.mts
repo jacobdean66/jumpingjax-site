@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createHash } from "node:crypto";
+import { POST as chooseArtwork } from "./[id]/artwork/route";
+import { NextRequest } from "next/server";
 import { POST as selectPreview } from "@/app/api/facility/invitations/preview-selection/route";
 import { createRequire } from "node:module";
-import { previewToken } from "@/lib/facility-parties/preview-email";
-import { readConfirmedTheme, signConfirmedTheme } from "@/lib/facility-parties/invitations/theme-token";
+import { sealPreviewArtwork } from "@/lib/facility-parties/preview-artwork";
+import { createPreviewSession, PREVIEW_SESSION_COOKIE } from "@/lib/facility-parties/preview-session";
+import { readConfirmedTheme, signConfirmedTheme, signThemeSelection } from "@/lib/facility-parties/invitations/theme-token";
 
-const { default: PreviewPage } = createRequire(import.meta.url)("./[id]/page.tsx") as typeof import("./[id]/page");
+const { renderInvitationPreview } = createRequire(import.meta.url)("./[id]/PreviewContents.tsx") as typeof import("./[id]/PreviewContents");
 
 test("the signed page renders the stored asset and all live layouts, and selection updates one editable row", async t => {
   const key = "synthetic-preview-key-for-tests-only";
@@ -60,10 +64,7 @@ test("the signed page renders the stored asset and all live layouts, and selecti
 
   const expiredToken = signConfirmedTheme(theme, Date.now() - 25 * 60 * 60 * 1000);
   assert.equal(readConfirmedTheme(expiredToken, theme.label), null);
-  const page = await PreviewPage({
-    params: Promise.resolve({ id }),
-    searchParams: Promise.resolve({ token: previewToken(id)! }),
-  });
+  const page = await renderInvitationPreview(id, createPreviewSession(id)!);
   const layouts = page.props.children[2];
   for (const layout of layouts) {
     assert.equal(layout.props.children[1].props.snapshot.colorHint, "Blue Silver");
@@ -99,4 +100,124 @@ test("the signed page renders the stored asset and all live layouts, and selecti
   }]);
   bound = true;
   assert.equal((await selectPreview(request(selection))).status, 404);
+});
+test("the scoped link shows candidates first and the same page renders layouts after explicit confirmation", async t => {
+  const secret = "synthetic-preview-signing-key-0123456";
+  const id = "1ecf032f-f261-44fb-a0e0-fc180e456789";
+  const env = {
+    RECEPTIONIST_INVITATION_PREVIEW_ENABLED: "true",
+    RECEPTIONIST_INVITATION_PREVIEW_SIGNING_KEY: secret,
+    INVITATION_THEME_TOKEN_SECRET: secret,
+    NEXT_PUBLIC_SUPABASE_URL: "https://mock.invalid",
+    SUPABASE_SERVICE_ROLE_KEY: "synthetic",
+  };
+  for (const [name, value] of Object.entries(env)) {
+    const old = process.env[name];
+    process.env[name] = value;
+    t.after(() => { if (old === undefined) delete process.env[name]; else process.env[name] = old; });
+  }
+  const bytes = Buffer.from("89504e470d0a1a0a", "hex");
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  const imagePath = "/api/facility/invitations/artwork/" + hash;
+  const candidate = {
+    id: "space", catalogAssetId: hash, label: "Space Hero", description: "Space art",
+    imageUrl: "https://example.com/space.png", sourceUrl: "https://example.com/space", imagePath,
+  };
+  const before = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now: before });
+  const signed = signThemeSelection("Space", candidate);
+  const sealed = sealPreviewArtwork(id, signed)!;
+  const wrongScope = sealPreviewArtwork("another-preview", signed)!;
+  t.mock.timers.setTime(before + 3 * 60 * 60 * 1000);
+  assert.equal(sealPreviewArtwork(id, signed), null);
+  const preview = {
+    status: "accepted", party_theme: "Space", confirmed_theme: null as unknown,
+    artwork_search_keys: [id, id, id],
+    artwork_candidate_key: id,
+    artwork_candidates: [wrongScope],
+    child_name: "Alex", child_age: "8", customer_phone: "864-555-0100", balloon_colors: "Blue", table_cloth_colors: "Silver",
+    party_date: "2027-01-02", party_time: "2:00 PM - 3:30 PM",
+  };
+  let reads = 0, confirmations = 0, searches = 0;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    assert.equal(url.origin, "https://mock.invalid");
+    reads++;
+    if (url.pathname === "/rest/v1/rpc/claim_facility_preview_artwork_search") {
+      searches++;
+      return Response.json("limited");
+    }
+    if (url.pathname.includes("/storage/v1/object/")) {
+      assert.ok(url.pathname.endsWith(hash + ".png"));
+      return new Response(bytes);
+    }
+    if (url.pathname === "/rest/v1/invitation_theme_assets") {
+      if (init?.method === "PATCH") return Response.json({ id: candidate.catalogAssetId });
+      return Response.json({
+        id: candidate.catalogAssetId, label: candidate.label, description: candidate.description, storage_path: hash + ".png",
+        source_url: candidate.sourceUrl, source_image_url: candidate.imageUrl, approval_status: "pending",
+        franchise: "Space", aliases: [],
+      });
+    }
+    if (url.pathname === "/rest/v1/facility_invitation_previews") {
+      assert.equal(url.searchParams.get("id"), "eq." + id);
+      if (init?.method === "PATCH") {
+        assert.equal(url.searchParams.get("artwork_candidate_key"), "eq." + id);
+        assert.equal(url.searchParams.get("confirmed_theme"), "is.null");
+        const patch = JSON.parse(String(init.body));
+        preview.confirmed_theme = patch.confirmed_theme;
+        preview.party_theme = patch.party_theme;
+        confirmations++;
+        return Response.json([{ id }]);
+      }
+      return Response.json(url.searchParams.get("status") === "eq.accepted" && preview.status !== "accepted" ? [] : [preview]);
+    }
+    // Existing confirmation telemetry is optional and mocked as an empty success.
+    if (url.pathname.startsWith("/rest/v1/")) return Response.json([]);
+    throw new Error("Unexpected fixture request");
+  });
+
+  const session = createPreviewSession(id)!;
+  const page = () => renderInvitationPreview(id, session);
+  const post = (body: object, cookie = session, origin = "https://mock.invalid") =>
+    chooseArtwork(new NextRequest(`https://mock.invalid/facility-invitation-previews/${id}/artwork`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin, cookie: `${PREVIEW_SESSION_COOKIE}=${cookie}` },
+      body: JSON.stringify(body),
+    }), { params: Promise.resolve({ id }) });
+  assert.equal((await post({ action: "confirm", candidateId: "space" }, "wrong")).status, 404);
+  assert.equal((await post({ action: "confirm", candidateId: "space" }, session, "https://other.invalid")).status, 403);
+  assert.equal(reads, 0);
+  assert.equal((await post({ action: "confirm", candidateId: "space", imageUrl: candidate.imageUrl })).status, 400);
+  assert.equal((await post({ action: "confirm", candidateId: "space" })).status, 409);
+  assert.equal(confirmations, 0);
+
+  preview.status = "sending";
+  const reconciling = renderToStaticMarkup(await page());
+  assert.match(reconciling, /Your invitation preview is being prepared/);
+  assert.doesNotMatch(reconciling, /Choose your invitation picture|data-confirmed-layout/);
+  assert.equal((await post({ action: "confirm", candidateId: "space" })).status, 404);
+  preview.status = "accepted";
+
+  preview.artwork_candidates[0] = sealed;
+  const pending = renderToStaticMarkup(await page());
+  assert.match(pending, /Choose your invitation picture/);
+  assert.ok(pending.includes(imagePath), pending);
+  assert.ok(!pending.includes(session));
+  assert.match(pending, /All three picture searches have been used/);
+  assert.doesNotMatch(pending, /data-confirmed-layout|example\.com|selectionToken/);
+  assert.equal(searches, 0);
+  assert.equal((await post({ action: "search", searchKey: id, refinement: "more" })).status, 409);
+  assert.equal(searches, 1);
+  assert.equal((await post({ action: "confirm", candidateId: "forged" })).status, 409);
+  const confirmed = await post({ action: "confirm", candidateId: "space" });
+  assert.equal(confirmed.status, 200, await confirmed.text());
+  assert.equal(confirmations, 1);
+  const replay = await post({ action: "confirm", candidateId: "space" });
+  assert.equal(replay.status, 200, await replay.text());
+  assert.equal((await post({ action: "confirm", candidateId: "different" })).status, 409);
+  assert.equal(confirmations, 1);
+  preview.status = "sending";
+  assert.deepEqual(Array.from(renderToStaticMarkup(await page()).matchAll(/data-confirmed-layout="([^"]+)"/g), m => m[1]),
+    ["spotlight", "portrait", "banner"]);
 });

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { createPreviewSession, PREVIEW_PATH_PREFIX, PREVIEW_SESSION_COOKIE, previewEnabled, validId, validToken } from "@/lib/facility-parties/preview-session";
 import { CANONICAL_PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const LEGACY_PUBLIC_HOSTS = new Set([
@@ -26,6 +27,36 @@ const SENSITIVE_QUERY_PARAMETERS = new Set([
 ]);
 
 export function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const legacyHost = LEGACY_PUBLIC_HOSTS.has(request.nextUrl.hostname.toLowerCase());
+  const lowerPath = pathname.toLowerCase();
+  const previewRoute = lowerPath === PREVIEW_PATH_PREFIX || lowerPath.startsWith(PREVIEW_PATH_PREFIX + "/");
+  const previewPath = pathname.match(/^\/facility-invitation-previews\/([^/]+)\/?$/);
+  if (previewRoute && [...request.nextUrl.searchParams.keys()].some(key => key.toLowerCase() === "token")) {
+    const id = previewPath?.[1];
+    const clean = request.nextUrl.clone();
+    if (id) clean.pathname = `${PREVIEW_PATH_PREFIX}/${id}`;
+    clean.search = "";
+    if (legacyHost) {
+      const canonical = new URL(CANONICAL_PRODUCTION_SITE_URL);
+      clean.protocol = canonical.protocol;
+      clean.hostname = canonical.hostname;
+      clean.port = "";
+    }
+    const response = NextResponse.redirect(clean, 303);
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    const token = request.nextUrl.searchParams.get("token") ?? "";
+    const session = !legacyHost && request.method === "GET" && previewEnabled() && id && validId(id) && validToken(id, token)
+      ? createPreviewSession(id) : null;
+    if (session) {
+      response.cookies.set(PREVIEW_SESSION_COOKIE, session, {
+        path: clean.pathname, httpOnly: true, secure: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60,
+      });
+    }
+    return response;
+  }
+
   const legacyAdminToken = request.nextUrl.searchParams.get("token");
   if (
     request.nextUrl.pathname.startsWith("/admin") &&
@@ -40,7 +71,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(bridge, 307);
   }
 
-  if (!LEGACY_PUBLIC_HOSTS.has(request.nextUrl.hostname.toLowerCase())) {
+  if (!legacyHost) {
     return NextResponse.next();
   }
 
