@@ -94,6 +94,28 @@ export function adminSearchEntries(role: AdminRole): AdminSearchEntry[] {
       { item: { id: "driver-history", label: "Driver Location History", href: "/admin/driver-locations/history" }, group: "Operations" },
       { item: { id: "google-ads", label: "Google Ads Analytics", href: "/admin/ad-analytics/google" }, group: "Marketing" },
       { item: { id: "gmail", label: "Gmail Accounts", href: "/admin/invoices/inbox/gmail" }, group: "Management" },
+      ...([
+        ["new", "Create Social Post"],
+        ["campaign-planner", "Social Campaign Planner"],
+        ["asset-intelligence", "Social Asset Intelligence"],
+        ["creative-brief-intelligence", "Social Creative Briefs"],
+        ["content-draft-specification", "Social Content Drafts"],
+        ["draft-compliance-validator", "Social Draft Review"],
+        ["operations", "Social Operations"],
+        ["memory", "Social Memory"],
+        ["working-context", "Social Working Context"],
+        ["seasonal-intelligence", "Social Seasonal Planning"],
+        ["publication-execution", "Social Publication Execution"],
+        ["publication-learning", "Social Publication Learning"],
+        ["publication-ledger", "Social Publication Ledger"],
+        ["publication-manifest", "Social Publication Manifest"],
+        ["publication-metrics", "Social Publication Metrics"],
+        ["publication-publisher", "Social Publisher"],
+        ["publication-scheduler", "Social Publication Scheduler"],
+      ] as const).map(([path, label]) => ({
+        item: { id: `social-${path}`, label, href: `/admin/social-posts/${path}` },
+        group: "Social Posts",
+      })),
     ] : []),
   ];
   return [
