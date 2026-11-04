@@ -16,10 +16,15 @@ const integer = value => typeof value === "number" && Number.isInteger(value) ? 
 function normalize(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const kind = text(input.kind).toLowerCase();
-  const room = kind === "private" ? "room-20" : text(input.room);
+  const room = kind === "private" ? "room-20" : text(input.room).replace(/^room_(10|20)$/, "room-$1");
   const durationMinutes = kind === "public" ? 90 : integer(input.duration);
   const date = text(input.date);
-  const clock = /^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i.exec(text(input.start_time));
+  const startTime = text(input.start_time);
+  // Votel's dropdown IDs use underscores for the configured 10:00–19:00 half-hour options.
+  const timeLabel = /^(?:1[0-8]_(?:00|30)|19_00)$/.test(startTime)
+    ? startTime.replace("_", ":")
+    : startTime;
+  const clock = /^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i.exec(timeLabel);
   if (!clock) return null;
   let hour = Number(clock[1]);
   const minute = Number(clock[2]);

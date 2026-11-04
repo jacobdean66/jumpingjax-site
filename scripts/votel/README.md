@@ -1,7 +1,9 @@
 # Facility pre-submit adapter
 
 `facility-preflight.cjs` is a standalone candidate for the existing Votel
-`fac_price` Execute Code step. It is **not installed in Votel**. Its fixed URL
+`fac_price` Execute Code step. It was installed in the existing draft as Votel
+version 94 on November 4, 2026. Full routing and conversation verification are
+still unfinished. Its fixed URL
 is the verified read-only deployment preview, not the production domain.
 It never calls a booking, payment, contact, or email endpoint.
 
@@ -36,9 +38,13 @@ in `files: [{path: "main.cjs", content: "..."}]`.
 Each `inputVariables` value is `{{contact.<field>}}`. Map output variables by
 identical name and path: `preflight_status`, `message`, `price_known`,
 `availability`, `quote_json`, `package_price`, `addon_subtotal`, `subtotal`,
-`tax`, `total`, `ready_marker`, `kind`, `room`, `date`, `duration_minutes`,
+`tax`, `total`, `ready_marker`, `duration_minutes`,
 `readable_time`, `booking_guaranteed`, `submitted`. `ready_marker` is nonempty
 only for a verified opening; other states clear it. No contact-field writes are needed.
+Map `kind_out` to path `kind`, `room_out` to `room`, and `date_out` to `date`:
+Votel rejects an output name that duplicates an input name. JavaScript template
+interpolation and a dollar sign directly before a workflow reference also
+confuse its validator; the source uses string concatenation and spoken currency.
 Public duration is 90 minutes. Private parties use room-20. Missing add-on
 answers are rejected rather than interpreted as consent to select none.
 An entered promotion code requires separate verification; it cannot silently
@@ -46,9 +52,9 @@ receive an undiscounted final quote.
 
 ## Required workflow integration, still pending
 
-The existing builder was actively modifying this draft during inspection.
-Re-read its saved graph and obtain exclusive editing ownership before applying
-any changes. Preserve its rental branch and existing IDs. Do not replace the
+The existing builder's cancellation was verified before version 94 was saved.
+Re-read the saved graph before subsequent edits and preserve its rental branch
+and existing IDs. Do not replace the
 whole workflow with this document or recreate an agent.
 
 1. Route completed facility intake through the adapter, replacing the old

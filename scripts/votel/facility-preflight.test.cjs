@@ -24,6 +24,34 @@ test("Votel adapter normalizes dropdown values and sends no caller identity or a
   assert.equal(result.duration_minutes, "90"); assert.equal(result.subtotal, "140.00");
 });
 
+test("Votel room and time option IDs produce canonical requests for both public rooms", async () => {
+  for (const [room, start_time, expectedRoom, expectedMinutes] of [
+    ["room_10", "12_00", "room-10", 720],
+    ["room_20", "16_00", "room-20", 960],
+  ]) {
+    const result = await runPreflight({ ...input, date: "2026-11-20", room, start_time }, async (_url, options) => {
+      const request = JSON.parse(options.body);
+      assert.equal(request.room, expectedRoom);
+      assert.equal(request.startMinutes, expectedMinutes);
+      return Response.json(reply(request));
+    });
+    assert.equal(result.preflight_status, "ready_for_review");
+  }
+});
+
+test("malformed dropdown IDs cannot start a website check", async () => {
+  let calls = 0;
+  for (const change of [
+    { room: "room_30" }, { room: "room__10" }, { room: "room_10_extra" },
+    { start_time: "12_00 PM" }, { start_time: "12__00" }, { start_time: "12_15" },
+    { start_time: "19_30" }, { start_time: "24_00" },
+  ]) {
+    const result = await runPreflight({ ...input, ...change }, async () => { calls++; });
+    assert.equal(result.preflight_status, "needs_details");
+  }
+  assert.equal(calls, 0);
+});
+
 test("missing selections and unverified promotions never produce an assumed quote", async () => {
   const forbidden = () => { throw new Error("Must not request a quote"); };
   for (const change of [{ balloons: "" }, { cotton: "" }, { goodie_bags: "" }, { start_time: "25:00" }, { room: "{{contact.room}}" }]) {
