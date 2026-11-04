@@ -11,7 +11,7 @@ export function AdminPageSearch({ entries }: { entries: AdminSearchEntry[] }) {
 
   return (
     <div className="relative my-3 w-full max-w-md text-slate-950">
-      <label htmlFor={id} className="mb-1 block text-xs font-bold text-slate-700">Find a dashboard page</label>
+      <label htmlFor={id} className="mb-1 inline-block rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-800">Find a dashboard page</label>
       <input
         id={id}
         type="search"
