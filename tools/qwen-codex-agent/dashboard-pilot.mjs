@@ -27,7 +27,7 @@ class WorkerRequestError extends Error {
   }
 }
 
-export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log }) {
+export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log, renewIntervalMs = 10_000 }) {
   async function send(command, requestSignal) {
     const timeout = AbortSignal.timeout(8_000);
     const response = await fetchImpl(endpoint, {
@@ -49,17 +49,23 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
     const renew = async () => {
       try {
         while (!heartbeat.aborted) {
-          await sleep(10_000, undefined, { signal: heartbeat });
+          await sleep(renewIntervalMs, undefined, { signal: heartbeat });
           const response = await send({ action: "renew", ...lease }, heartbeat);
           if (response.ok !== true) throw new Error("The dashboard did not renew the lease.");
         }
-      } catch {
-        if (!finished.signal.aborted) inference.abort();
+      } catch (error) {
+        if (!finished.signal.aborted) {
+          if (signal.aborted) log("The worker is stopping.");
+          else if (error instanceof WorkerRequestError) log(`Lease renewal failed with HTTP ${error.status}.`);
+          else log("Lease renewal failed or timed out.");
+          inference.abort();
+        }
       }
     };
     const renewing = renew();
     const expected = `JAX-${randomBytes(3).toString("hex")}`;
     let failure = null;
+    let stage = "connecting to Ollama";
     try {
       const response = await fetchImpl("http://127.0.0.1:11434/api/chat", {
         method: "POST",
@@ -76,12 +82,18 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
         }),
         signal: AbortSignal.any([signal, inference.signal, AbortSignal.timeout(300_000)]),
       });
-      if (!response.ok) throw new Error("Ollama rejected the check.");
+      if (!response.ok) {
+        log(`Ollama returned HTTP ${response.status}.`);
+        throw new Error("Ollama rejected the check.");
+      }
+      stage = "reading the Ollama response";
       const result = await response.json();
+      stage = "parsing the model response";
       const reply = JSON.parse(result.message.content);
       if (reply.code !== expected) failure = "unexpected_reply";
     } catch {
       failure = "model_unavailable";
+      if (!inference.signal.aborted && !signal.aborted) log(`The model check failed while ${stage}.`);
     } finally {
       finished.abort();
       await renewing;

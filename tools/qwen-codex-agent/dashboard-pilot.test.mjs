@@ -47,3 +47,22 @@ test("a rejected dashboard credential stops the loop without calling Ollama", as
 test("the worker rejects an insecure dashboard origin", () => {
   assert.throws(() => pilotOptions({ QWEN_PILOT_ORIGIN: "http://example.invalid", QWEN_PILOT_WORKER_SECRET: options.secret }), /dashboard origin/);
 });
+
+test("a failed renewal stops inference and logs the HTTP status without sensitive content", async () => {
+  const job = { id: randomUUID(), lease: randomUUID() };
+  const messages = [];
+  let finished;
+  await runPilot({ ...options, renewIntervalMs: 5, log: message => messages.push(message), fetchImpl: async (url, request) => {
+    const payload = JSON.parse(request.body);
+    if (String(url) !== String(options.endpoint)) {
+      return new Promise((resolve, reject) => request.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true }));
+    }
+    if (payload.action === "claim") return Response.json({ job });
+    if (payload.action === "renew") return new Response(null, { status: 503 });
+    finished = payload;
+    return Response.json({ ok: true });
+  } });
+  assert.equal(finished.failure, "model_unavailable");
+  assert.ok(messages.includes("Lease renewal failed with HTTP 503."));
+  assert.ok(messages.every(message => !message.includes(options.secret) && !message.includes(job.lease)));
+});
