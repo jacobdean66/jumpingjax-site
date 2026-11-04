@@ -219,6 +219,24 @@ export async function loadSiteSettings(): Promise<SiteSettings> {
   }
 }
 
+/** Binding requires saved prices and must never substitute the public page's defaults. */
+export async function loadSavedFacilityPricing(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  cacheNonce: string,
+): Promise<FacilityPricingConfig> {
+  const { data, error } = await supabase.storage.from(SETTINGS_BUCKET)
+    .download(SETTINGS_PATH, { cacheNonce }, { cache: "no-store" });
+  if (error || !data || data.size > 1_000_000) throw new Error("Facility pricing unavailable");
+  const pricing = JSON.parse(await data.text())?.facilityPricing;
+  if (!pricing || Object.keys(DEFAULT_FACILITY_PRICING).some(key => {
+    const value = pricing[key];
+    return typeof value !== "number" || !Number.isFinite(value) || value < 0 || (key === "taxRate" && value > 1);
+  })) {
+    throw new Error("Facility pricing unavailable");
+  }
+  return normalizeFacilityPricing(pricing);
+}
+
 export async function saveSiteSettings(
   input: SiteSettings,
 ): Promise<SiteSettings> {

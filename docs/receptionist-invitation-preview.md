@@ -80,6 +80,19 @@ canonical booking payload. The preview display time must match the website
 format such as `2:00 PM - 3:30 PM` in Eastern time. Existing-party edits require
 separate caller authority verification.
 
+The dormant server adapter accepts an already authenticated and explicitly
+approved public party. It loads the selected preview, uses the website slot
+template and saved pricing, checks the approved quote and artwork, then calls
+the binding RPC. The RPC owns the final conflict check under its booking lock.
+Retries reconstruct the monetary fields from the persisted booking and send
+the same canonical payload through the RPC fingerprint check. If the saved price or reconstructed payload
+has changed, the adapter fails closed. A future route must establish caller
+authority and record exact final approval on every request. The adapter is
+not connected to the disabled endpoint. Saved pricing is checked immediately
+before binding, but the settings object version is not locked by the booking
+transaction. Require a settings version guard before activating if pricing
+changes must never race a binding.
+
 ## Verification
 
 Three focused tests passed: mocked email/auth/idempotency behavior; actual card
