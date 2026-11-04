@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { pilotOptions, runPilot } from "./dashboard-pilot.mjs";
+import { pilotOptions, runPilot, watchParent } from "./dashboard-pilot.mjs";
 
 const signal = new AbortController().signal;
 const options = {
@@ -46,6 +46,15 @@ test("a rejected dashboard credential stops the loop without calling Ollama", as
 
 test("the worker rejects an insecure dashboard origin", () => {
   assert.throws(() => pilotOptions({ QWEN_PILOT_ORIGIN: "http://example.invalid", QWEN_PILOT_WORKER_SECRET: options.secret }), /dashboard origin/);
+});
+
+test("an orphaned worker stops when its launcher is gone", async () => {
+  const controller = new AbortController();
+  const stop = watchParent(controller, 123, () => { throw Object.assign(new Error("missing"), { code: "ESRCH" }); }, 5);
+  try {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(controller.signal.aborted, true);
+  } finally { stop(); }
 });
 
 test("a failed renewal stops inference and logs the HTTP status without sensitive content", async () => {

@@ -27,6 +27,18 @@ class WorkerRequestError extends Error {
   }
 }
 
+// Task Scheduler may terminate the PowerShell launcher without terminating its
+// Node child. Stop polling if the launcher exits, so a replacement cannot leave
+// an older orphan worker taking jobs.
+export function watchParent(shutdown, parentPid, probe = process.kill, intervalMs = 5_000) {
+  const timer = setInterval(() => {
+    try { probe(parentPid, 0); }
+    catch (error) { if (error?.code === "ESRCH") shutdown.abort(); }
+  }, intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
 export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log, renewIntervalMs = 10_000 }) {
   async function send(command, requestSignal) {
     const timeout = AbortSignal.timeout(8_000);
@@ -139,6 +151,7 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const shutdown = new AbortController();
+  const stopParentWatch = watchParent(shutdown, process.ppid);
   process.once("SIGINT", () => shutdown.abort());
   process.once("SIGTERM", () => shutdown.abort());
   try {
@@ -150,5 +163,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(error instanceof WorkerRequestError || error instanceof Error && error.message.startsWith("Set ")
       ? error.message : "The Qwen connection-check worker stopped. Check the dashboard and local Ollama status.");
     process.exitCode = 1;
+  } finally {
+    stopParentWatch();
   }
 }
