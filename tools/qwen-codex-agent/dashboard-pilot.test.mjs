@@ -66,3 +66,30 @@ test("a failed renewal stops inference and logs the HTTP status without sensitiv
   assert.ok(messages.includes("Lease renewal failed with HTTP 503."));
   assert.ok(messages.every(message => !message.includes(options.secret) && !message.includes(job.lease)));
 });
+
+test("one transient renewal failure is retried before aborting inference", async () => {
+  const job = { id: randomUUID(), lease: randomUUID() };
+  const messages = [];
+  let renewals = 0;
+  let finish;
+  let completeInference;
+  await runPilot({ ...options, renewIntervalMs: 5, log: message => messages.push(message), fetchImpl: async (url, request) => {
+    const payload = JSON.parse(request.body);
+    if (String(url) !== String(options.endpoint)) {
+      const code = payload.messages[0].content.match(/JAX-[0-9a-f]{6}$/)[0];
+      return new Promise(resolve => { completeInference = () => resolve(Response.json({ message: { content: JSON.stringify({ code }) } })); });
+    }
+    if (payload.action === "claim") return Response.json({ job });
+    if (payload.action === "renew") {
+      renewals++;
+      if (renewals === 1) return new Response(null, { status: 503 });
+      completeInference();
+      return Response.json({ ok: true });
+    }
+    finish = payload;
+    return Response.json({ ok: true });
+  } });
+  assert.equal(renewals, 2);
+  assert.equal(finish.failure, null);
+  assert.ok(messages.includes("Lease renewal interrupted; retrying once."));
+});

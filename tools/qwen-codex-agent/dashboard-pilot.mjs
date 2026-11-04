@@ -50,7 +50,17 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
       try {
         while (!heartbeat.aborted) {
           await sleep(renewIntervalMs, undefined, { signal: heartbeat });
-          const response = await send({ action: "renew", ...lease }, heartbeat);
+          let response;
+          try {
+            response = await send({ action: "renew", ...lease }, heartbeat);
+          } catch (error) {
+            const terminal = error instanceof WorkerRequestError
+              && error.status >= 400 && error.status < 500 && error.status !== 429;
+            if (heartbeat.aborted || terminal) throw error;
+            log("Lease renewal interrupted; retrying once.");
+            await sleep(2_000, undefined, { signal: heartbeat });
+            response = await send({ action: "renew", ...lease }, heartbeat);
+          }
           if (response.ok !== true) throw new Error("The dashboard did not renew the lease.");
         }
       } catch (error) {
