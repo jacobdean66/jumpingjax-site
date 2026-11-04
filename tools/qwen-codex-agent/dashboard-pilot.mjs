@@ -27,7 +27,19 @@ class WorkerRequestError extends Error {
   }
 }
 
-export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log }) {
+// Task Scheduler may terminate the PowerShell launcher without terminating its
+// Node child. Stop polling if the launcher exits, so a replacement cannot leave
+// an older orphan worker taking jobs.
+export function watchParent(shutdown, parentPid, probe = process.kill, intervalMs = 5_000) {
+  const timer = setInterval(() => {
+    try { probe(parentPid, 0); }
+    catch (error) { if (error?.code === "ESRCH") shutdown.abort(); }
+  }, intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
+export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log, renewIntervalMs = 10_000 }) {
   async function send(command, requestSignal) {
     const timeout = AbortSignal.timeout(8_000);
     const response = await fetchImpl(endpoint, {
@@ -49,17 +61,33 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
     const renew = async () => {
       try {
         while (!heartbeat.aborted) {
-          await sleep(10_000, undefined, { signal: heartbeat });
-          const response = await send({ action: "renew", ...lease }, heartbeat);
+          await sleep(renewIntervalMs, undefined, { signal: heartbeat });
+          let response;
+          try {
+            response = await send({ action: "renew", ...lease }, heartbeat);
+          } catch (error) {
+            const terminal = error instanceof WorkerRequestError
+              && error.status >= 400 && error.status < 500 && error.status !== 429;
+            if (heartbeat.aborted || terminal) throw error;
+            log("Lease renewal interrupted; retrying once.");
+            await sleep(2_000, undefined, { signal: heartbeat });
+            response = await send({ action: "renew", ...lease }, heartbeat);
+          }
           if (response.ok !== true) throw new Error("The dashboard did not renew the lease.");
         }
-      } catch {
-        if (!finished.signal.aborted) inference.abort();
+      } catch (error) {
+        if (!finished.signal.aborted) {
+          if (signal.aborted) log("The worker is stopping.");
+          else if (error instanceof WorkerRequestError) log(`Lease renewal failed with HTTP ${error.status}.`);
+          else log("Lease renewal failed or timed out.");
+          inference.abort();
+        }
       }
     };
     const renewing = renew();
     const expected = `JAX-${randomBytes(3).toString("hex")}`;
     let failure = null;
+    let stage = "connecting to Ollama";
     try {
       const response = await fetchImpl("http://127.0.0.1:11434/api/chat", {
         method: "POST",
@@ -76,12 +104,18 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
         }),
         signal: AbortSignal.any([signal, inference.signal, AbortSignal.timeout(300_000)]),
       });
-      if (!response.ok) throw new Error("Ollama rejected the check.");
+      if (!response.ok) {
+        log(`Ollama returned HTTP ${response.status}.`);
+        throw new Error("Ollama rejected the check.");
+      }
+      stage = "reading the Ollama response";
       const result = await response.json();
+      stage = "parsing the model response";
       const reply = JSON.parse(result.message.content);
       if (reply.code !== expected) failure = "unexpected_reply";
     } catch {
       failure = "model_unavailable";
+      if (!inference.signal.aborted && !signal.aborted) log(`The model check failed while ${stage}.`);
     } finally {
       finished.abort();
       await renewing;
@@ -108,7 +142,14 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
     } catch (error) {
       if (signal.aborted) return;
       if (once || (error instanceof WorkerRequestError && error.status >= 400 && error.status < 500 && error.status !== 429)) throw error;
-      log("The dashboard connection was interrupted. Retrying after a short delay.");
+      if (error instanceof WorkerRequestError) {
+        log(`The dashboard returned HTTP ${error.status}. Retrying after a short delay.`);
+      } else {
+        const safeCodes = ["ETIMEDOUT", "ENOTFOUND", "ECONNRESET", "ECONNREFUSED", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_SOCKET"];
+        const code = error?.cause?.code;
+        const detail = safeCodes.includes(code) ? code : error?.name === "TimeoutError" ? "timeout" : "transport error";
+        log(`The dashboard connection failed (${detail}). Retrying after a short delay.`);
+      }
     }
     if (once) return;
     await sleep(15_000, undefined, { signal }).catch(() => undefined);
@@ -117,6 +158,7 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const shutdown = new AbortController();
+  const stopParentWatch = watchParent(shutdown, process.ppid);
   process.once("SIGINT", () => shutdown.abort());
   process.once("SIGTERM", () => shutdown.abort());
   try {
@@ -128,5 +170,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(error instanceof WorkerRequestError || error instanceof Error && error.message.startsWith("Set ")
       ? error.message : "The Qwen connection-check worker stopped. Check the dashboard and local Ollama status.");
     process.exitCode = 1;
+  } finally {
+    stopParentWatch();
   }
 }
