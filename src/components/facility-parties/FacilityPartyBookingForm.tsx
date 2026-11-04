@@ -1,4 +1,5 @@
 "use client";
+import { formatInvitationDateLabel } from "@/lib/facility-parties/invitations/preview-data";
 import { RentalPromotionEntry,useGoogleOffer } from "@/components/booking/RentalPromotion";
 import { facilityGoogleDiscount } from "@/lib/analytics/customer-offer";
 
@@ -266,12 +267,7 @@ export function FacilityPartyBookingForm({
   }, [partyTheme, invitationOverride, invitationColorHint, confirmedTheme]);
 
   const invitationDateLabel = selectedDate
-    ? new Intl.DateTimeFormat(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }).format(selectedDate)
+    ? formatInvitationDateLabel(selectedDate)
     : "";
   const invitationTimeLabel = selectedDisposition
     ? formatReadableTimeRange(
