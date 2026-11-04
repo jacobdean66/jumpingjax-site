@@ -41,7 +41,7 @@ export function watchParent(shutdown, parentPid, probe = process.kill, intervalM
 
 export async function runPilot({ endpoint, secret, model, signal, once = false, fetchImpl = fetch, log = console.log, renewIntervalMs = 10_000 }) {
   async function send(command, requestSignal) {
-    const timeout = AbortSignal.timeout(8_000);
+    const timeout = AbortSignal.timeout(20_000);
     const response = await fetchImpl(endpoint, {
       method: "POST",
       headers: { authorization: `Bearer ${secret}`, "content-type": "application/json" },
@@ -100,7 +100,7 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
           think: false,
           stream: false,
           keep_alive: 0,
-          options: { num_predict: 48, temperature: 0 },
+          options: { num_predict: 48, num_thread: 1, temperature: 0 },
         }),
         signal: AbortSignal.any([signal, inference.signal, AbortSignal.timeout(300_000)]),
       });

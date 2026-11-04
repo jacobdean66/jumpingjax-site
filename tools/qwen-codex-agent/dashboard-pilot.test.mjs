@@ -27,6 +27,7 @@ test("a claimed job calls local Ollama and reports only the check result", async
     assert.equal(url, "http://127.0.0.1:11434/api/chat");
     assert.equal(request.headers.authorization, undefined);
     assert.equal(payload.keep_alive, 0);
+    assert.equal(payload.options.num_thread, 1);
     const code = payload.messages[0].content.match(/JAX-[0-9a-f]{6}$/)[0];
     return Response.json({ message: { content: JSON.stringify({ code }) } });
   } });
