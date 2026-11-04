@@ -142,7 +142,14 @@ export async function runPilot({ endpoint, secret, model, signal, once = false, 
     } catch (error) {
       if (signal.aborted) return;
       if (once || (error instanceof WorkerRequestError && error.status >= 400 && error.status < 500 && error.status !== 429)) throw error;
-      log("The dashboard connection was interrupted. Retrying after a short delay.");
+      if (error instanceof WorkerRequestError) {
+        log(`The dashboard returned HTTP ${error.status}. Retrying after a short delay.`);
+      } else {
+        const safeCodes = ["ETIMEDOUT", "ENOTFOUND", "ECONNRESET", "ECONNREFUSED", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_SOCKET"];
+        const code = error?.cause?.code;
+        const detail = safeCodes.includes(code) ? code : error?.name === "TimeoutError" ? "timeout" : "transport error";
+        log(`The dashboard connection failed (${detail}). Retrying after a short delay.`);
+      }
     }
     if (once) return;
     await sleep(15_000, undefined, { signal }).catch(() => undefined);
