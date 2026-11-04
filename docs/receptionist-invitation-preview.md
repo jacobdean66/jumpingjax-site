@@ -88,10 +88,53 @@ Retries reconstruct the monetary fields from the persisted booking and send
 the same canonical payload through the RPC fingerprint check. If the saved price or reconstructed payload
 has changed, the adapter fails closed. A future route must establish caller
 authority and record exact final approval on every request. The adapter is
-not connected to the disabled endpoint. Saved pricing is checked immediately
-before binding, but the settings object version is not locked by the booking
-transaction. Require a settings version guard before activating if pricing
-changes must never race a binding.
+not connected to the disabled endpoint. The binding adapter currently checks saved pricing immediately before the RPC.
+A price change can still commit between that read and the booking.
+
+## Transactional pricing prerequisite
+
+The current authority is the mutable `site-settings/public-settings.json`
+object. The admin saves it through a Storage API upsert. A fresh download and
+a second comparison reduce the window but cannot close it. The old
+receptionist guard reads and locks `storage.objects.version`. This repo
+does not establish that a path-based download returns bytes bound to that
+exact metadata version, or that every deployed writer participates in its
+locking protocol. Keep binding disabled while that is unresolved.
+
+Move only the normalized `facilityPricing` configuration into a dedicated
+Postgres row containing the pricing JSON and a monotonically increasing
+revision. Keep unrelated settings in Storage. At cutover, freeze existing
+pricing writes, read and validate the actual saved object, seed its exact
+normalized prices with an audit comparison, and switch the admin writer,
+website form and booking readers, and receptionist quote and binding readers
+to the same row. Leave the preview endpoint disabled during the transition.
+After cutover, a missing or invalid pricing row must fail closed for booking
+and quote operations. The legacy object may retain a copy for rollback but
+must stop serving as a pricing source. Separate the pricing admin update
+from unrelated Storage updates so a cross-service partial write cannot
+report success for a failed pricing change.
+
+The quote adapter should read prices and revision in one result, apply the
+existing website calculation, and compare the entire approved quote. Pass
+that revision from the trusted adapter to the binding RPC. After it locks
+the preview and checks for an exact replay, a fresh binding must lock the
+pricing row with `FOR SHARE` and reject a missing or different revision
+before calling `create_facility_booking_atomic`. Hold the lock through the
+booking and preview-binding commit. The admin price update takes a conflicting
+lock on the same row and increments the revision in the same transaction.
+On a revision conflict, refresh the quote and obtain approval for any changed
+amounts before trying again. Keep the transient pricing revision separate from
+the stable booking fingerprint. An exact replay after a successful commit
+must still return its prior receipt after a later price change.
+
+Before enabling binding, verify the production schema and privileges and run
+a two-session Postgres test with synthetic prices and bookings. Cover both
+orders. If the price update commits first, the stale revision must produce no
+booking or binding. If the booking holds the share lock first, the update
+must wait for the booking to commit. Also verify exact replay after a revision
+change, missing-row failure, and quote parity for both public packages with
+the seeded pricing. These are acceptance checks for the proposed cutover,
+which is outside the current migration.
 
 ## Verification
 
