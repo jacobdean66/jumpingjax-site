@@ -13,6 +13,9 @@ on:
       - 'src/app/api/**/code-repair*/**'
       - 'scripts/code-repairs/**'
       - 'scripts/agent-investigation/**'
+      - 'tools/qwen-codex-agent/**'
+      - 'src/app/api/**/qwen-pilot/**'
+      - 'supabase/migrations/*qwen_pilot_queue.sql'
       - 'src/lib/email/office-inbox*'
       - 'next.config.ts'
       - 'package.json'
@@ -41,6 +44,7 @@ jobs:
       - run: node --import tsx --test src/lib/agent-manager/code-repair.test.mts src/lib/agent-manager/code-repair-api.test.mts src/lib/agent-manager/coding-diagnosis.test.mts src/lib/agent-manager/supervisor.test.mts src/lib/agent-manager/supervisor-boundaries.test.mts src/app/admin/agents/agent-manager-ui.test.mts
       - run: node --test scripts/code-repairs/verify.test.mjs
       - run: node --test scripts/code-repairs/queue-client.test.mjs
+      - run: node --test tools/qwen-codex-agent/dashboard-pilot.test.mjs tools/qwen-codex-agent/dashboard-pilot-queue.test.mjs
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/network/network.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/writing-suggestions.test.mts
       - run: node --conditions=react-server --import tsx --test src/lib/agent-manager/conversation-reply.test.mts
