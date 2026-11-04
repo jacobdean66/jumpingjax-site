@@ -58,11 +58,27 @@ different schema. Do not apply both versions or deploy either old worktree
 wholesale. No migration has been applied for this branch.
 
 `POST /api/facility/invitations/preview-booking` deliberately returns 503.
-Production lacks the old patch's guarded V4/V5 booking stack. Remaining work is
-an atomic, authorized booking integration that validates the exact party and
-slot, persists canonical `invitation` JSON plus delivery and quantity, and binds
-the preview in the same transaction. Existing-party edits need separate caller
-authority verification; a preview ID alone is not that authority.
+The review migration `20261104210000_bind_facility_invitation_preview.sql`
+adds a service-role transaction around the website's current
+`create_facility_booking_atomic` RPC. It locks the accepted preview, verifies
+the canonical Eastern slot and selected invitation against the server-built
+booking, persists delivery/template/quantity, and binds the preview in the
+same transaction. The receipt fingerprint identifies exact retries even
+after the preview expires. There is no delivery side effect in this function.
+
+A fresh binding currently accepts a 90-minute public party in the 10-kid or
+20-kid room and a single delivery method. Private parties remain outside this
+binding draft. The tracked
+booking constraint allows only one value while the preview supports several.
+Verify the deployed column and its consumers before enabling multi-method
+binding. The preview selection stays intact if binding is rejected.
+
+Before connecting the HTTP route, verify the deployed migrations and grants.
+The future authenticated adapter must obtain explicit booking approval, run
+the existing slot, pricing, identity and artwork checks, and pass the
+canonical booking payload. The preview display time must match the website
+format such as `2:00 PM - 3:30 PM` in Eastern time. Existing-party edits require
+separate caller authority verification.
 
 ## Verification
 
@@ -72,3 +88,11 @@ assertions. Targeted ESLint and the full repository type check passed.
 These used fictional data and intercepted network calls. No actual email,
 production database change, booking, activation, or saved-party binding was
 tested. Deployment build and disabled-route checks are recorded in the PR.
+
+The subsequent binding migration test passed alongside the existing preview
+migration test (two local PGlite tests). It loads the checked-in booking RPC
+over a representative synthetic schema and verifies selected-option
+persistence, slot/quantity mismatches, exact replay after expiry, changed
+replay rejection, existing-key collision rejection, transaction rollback,
+and denial to the authenticated role. It does not verify the deployed schema
+or concurrent database sessions. This binding migration has not been applied.
