@@ -1,7 +1,8 @@
 import type { AdminRole } from "./delivery-auth";
 
-export type AdminNavItem = { id: string; label: string; href: string };
+export type AdminNavItem = { id: string; label: string; href: string; description?: string };
 export type AdminNavGroup = { label: string; items: AdminNavItem[] };
+export type AdminSearchEntry = { item: AdminNavItem; group: string };
 
 export const FRONT_DESK_TASKS = [
   { id: "open-play", label: "Waiver Check-in", href: "/admin/check-in#check-in-desk", description: "Find guests and check them in using the waiver system.", cta: "Open check-in", accent: "ops" },
@@ -81,4 +82,32 @@ export function isAdminNavActive(item: AdminNavItem, pathname: string): boolean 
   if (item.id === "invitations") return pathname === target || /^\/admin\/facility\/[^/]+\/invitations$/.test(pathname) || pathname.startsWith("/admin/facility/invitations/");
   if (item.id === "invoices") return pathname === target;
   return pathname === target || pathname.startsWith(`${target}/`);
+}
+
+export function adminSearchEntries(role: AdminRole): AdminSearchEntry[] {
+  const { primary, groups } = adminNavigation(role);
+  const extra: AdminSearchEntry[] = [
+    { item: { id: "office-inbox", label: "Office Email Inbox", href: "/admin/invoices/inbox", description: "Read office email and customer replies" }, group: "Operations" },
+    { item: { id: "whos-here", label: "Who's Here", href: "/admin/whos-here", description: "Current guests and check-ins" }, group: "Operations" },
+    ...(role === "owner" ? [
+      { item: { id: "birthday-coupons", label: "Birthday Coupons", href: "/admin/birthday-coupons" }, group: "Management" },
+      { item: { id: "driver-history", label: "Driver Location History", href: "/admin/driver-locations/history" }, group: "Operations" },
+      { item: { id: "google-ads", label: "Google Ads Analytics", href: "/admin/ad-analytics/google" }, group: "Marketing" },
+      { item: { id: "gmail", label: "Gmail Accounts", href: "/admin/invoices/inbox/gmail" }, group: "Management" },
+    ] : []),
+  ];
+  return [
+    ...primary.map(item => ({ item, group: "Front desk" })),
+    ...groups.flatMap(group => group.items.map(item => ({ item, group: group.label }))),
+    ...extra,
+  ];
+}
+
+export function searchAdminPages(entries: AdminSearchEntry[], query: string): AdminSearchEntry[] {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return entries.filter(({ item, group }) => {
+    const searchable = `${item.label} ${group} ${item.href.replace(/[-/#]/g, " ")} ${item.description ?? ""}`.toLowerCase();
+    return terms.every(term => searchable.includes(term));
+  });
 }

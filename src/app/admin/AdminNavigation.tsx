@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { adminNavigation, isAdminNavActive, type AdminNavItem } from "@/lib/admin/navigation";
+import { adminNavigation, adminSearchEntries, isAdminNavActive, type AdminNavItem } from "@/lib/admin/navigation";
 import type { AdminRole } from "@/lib/admin/delivery-auth";
 import { AdminBackButton } from "./AdminBackButton";
 import { AdminLogoutButton } from "./AdminLogoutButton";
 import { PermanentAgentSummary } from "./PermanentAgentSummary";
+import { AdminPageSearch } from "./AdminPageSearch";
 
 export function AdminNavigation({ role, variant = "standard" }: { role: AdminRole; variant?: "standard" | "home" | "route" | "social" }) {
   const pathname = usePathname();
   const navigationRef = useRef<HTMLDivElement>(null);
   const { primary, groups } = adminNavigation(role);
+  const searchEntries = adminSearchEntries(role);
   useEffect(() => {
     const navigation = navigationRef.current;
     function dismissOutside(event: PointerEvent) {
@@ -77,6 +79,7 @@ export function AdminNavigation({ role, variant = "standard" }: { role: AdminRol
     menu?.querySelector<HTMLElement>("summary")?.focus();
   }}>
     <div className="hidden sm:block">
+    <AdminPageSearch entries={searchEntries} />
     <nav aria-label="Front desk navigation" className="flex flex-wrap gap-2">
       {primary.map(renderLink)}
     </nav>
@@ -87,6 +90,7 @@ export function AdminNavigation({ role, variant = "standard" }: { role: AdminRol
       <details className="admin-nav-mobile-menu">
         <summary className={`${linkClass(false)} cursor-pointer list-none`}>Menu ▾</summary>
         <div style={variant === "home" ? { background: "var(--ah-panel)" } : undefined} className={`${surface} admin-nav-mobile-panel`}>
+          <AdminPageSearch entries={searchEntries} />
           <nav aria-label="Front desk tasks" className="grid gap-2">{primary.filter(item => item.id !== "home" && item.id !== "agents").map(renderLink)}</nav>
           {otherTools(true)}
         </div>
