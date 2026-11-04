@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adminNavigation, isAdminNavActive } from "./navigation";
+import { adminNavigation, adminSearchEntries, isAdminNavActive, searchAdminPages } from "./navigation";
 import { rentalWeekend, validCalendarDate, WEEKEND_RENTAL_FILTERS } from "./weekend";
 import { filterScheduleEvents, type CalendarEvent } from "./schedule";
 import { agentNavigationSummary, UNKNOWN_AGENT_SUMMARY } from "../agent-manager/navigation-summary";
@@ -37,6 +37,20 @@ test("front-desk tasks remain available without granting owner agent or security
   for (const ownerHref of ["/admin/agents#supervisor", "/admin/security", "/admin/staff", "/admin/site-settings", "/admin/ai-ads", "/admin/deliveries", "/admin/inventory", "/admin/reports/tax-export"]) assert.ok(!employeeHrefs.includes(ownerHref));
   assert.ok(employeeHrefs.includes("/admin/payments"));
   assert.equal(adminNavigation("owner").primary.at(-1)?.label, "Permanent Agent");
+});
+
+test("dashboard page search finds task descriptions and respects employee access", () => {
+  const employee = adminSearchEntries("employee");
+  const owner = adminSearchEntries("owner");
+  assert.equal(searchAdminPages(owner, "  ").length, 0);
+  assert.equal(searchAdminPages(owner, "OFFICE email")[0]?.item.href, "/admin/invoices/inbox");
+  assert.equal(searchAdminPages(owner, "waiver guests")[0]?.item.href, "/admin/check-in#check-in-desk");
+  assert.equal(searchAdminPages(owner, "driver history")[0]?.item.href, "/admin/driver-locations/history");
+  assert.equal(searchAdminPages(owner, "social scheduler")[0]?.item.href, "/admin/social-posts/publication-scheduler");
+  assert.equal(searchAdminPages(employee, "security").length, 0);
+  assert.equal(searchAdminPages(employee, "driver history").length, 0);
+  assert.equal(searchAdminPages(employee, "social scheduler").length, 0);
+  assert.equal(searchAdminPages(owner, "no such page").length, 0);
 });
 
 test("invitation and weekend detail paths select their correct destinations", () => {
