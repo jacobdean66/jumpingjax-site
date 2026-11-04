@@ -19,6 +19,7 @@ import { AgentNetworkPanel } from "./AgentNetworkPanel";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { TechSearchClient } from "./TechSearchClient";
 import { CodeRepairClient } from "./CodeRepairClient";
+import { QwenPilot } from "./QwenPilot";
 import { loadNetworkOverview } from "@/lib/agent-manager/network/service";
 import { conversationId } from "@/lib/agent-manager/network/http";
 import { AGENT_DIRECTORY } from "@/lib/agent-manager/network/contracts";
@@ -69,6 +70,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
       tools={<>
       <p className="mt-5 text-sm font-semibold text-slate-600">Run specialist reviews here. Expand setup details and test tools when you need them.</p>
+      {(process.env.QWEN_PILOT_WORKER_SECRET?.trim().length ?? 0) >= 32 && <QwenPilot />}
       <CodingDiagnosisClient />
       <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
       <summary className="cursor-pointer text-lg font-black">Nomination setup</summary>
