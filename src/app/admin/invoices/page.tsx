@@ -26,6 +26,8 @@ export default async function StandaloneInvoicesPage() {
       </AdminHeader>
 
       <div className="mt-6 flex flex-wrap gap-3"><Link href="/admin/invoices/history" className="inline-flex rounded-full bg-indigo-600 px-5 py-3 text-sm font-black text-white">View invoice history</Link><Link href="/admin/invoices/inbox" className="inline-flex rounded-full bg-sky-950 px-5 py-3 text-sm font-black text-white">View office inbox</Link></div>
+      <div className="mt-4"><Link href="/admin/invoices/payment-reports" className="inline-flex rounded-full bg-emerald-700 px-5 py-3 text-sm font-black text-white">Daily payment reports</Link></div>
+      <Link href="/admin/invoices/payment-reports?channel=online" className="mt-5 flex items-center gap-4 rounded-3xl border-4 border-pink-600 bg-pink-400 p-6 text-slate-950 shadow-sm"><span aria-hidden="true" className="text-4xl">📁</span><span><span className="block text-xl font-black">Online link payments</span><span className="mt-1 block text-sm font-bold">Customer payments from SwipeSimple links · Daily totals and reports</span></span></Link>
       <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-indigo-700">Standalone invoice</p>
