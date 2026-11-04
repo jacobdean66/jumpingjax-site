@@ -5,7 +5,8 @@
 const ENDPOINT = "https://jumpingjax-site-glptumf6s-jacobdean66s-projects.vercel.app/api/receptionist/facility-availability";
 const empty = (status, message) => ({
   preflight_status: status, message, price_known: "", availability: "",
-  quote_json: "", package_price: "", addon_subtotal: "", tax: "", total: "",
+  quote_json: "", package_price: "", addon_subtotal: "", subtotal: "", tax: "", total: "", ready_marker: "",
+  kind: "", room: "", date: "", duration_minutes: "", readable_time: "",
   booking_guaranteed: false, submitted: false,
 });
 const text = value => typeof value === "string" ? value.trim() : "";
@@ -67,11 +68,16 @@ async function runPreflight(input, fetcher = fetch) {
     const value = await response.json();
     if (!verifiedResponse(value, request)) return empty("check_failed", "The website response could not be verified. No booking has been submitted.");
     const q = value.quote;
+    // Votel treats JavaScript template interpolation as workflow references.
+    const clock = minutes => (Math.floor(minutes / 60) % 12 || 12) + ":" + String(minutes % 60).padStart(2, "0") + " " + (Math.floor(minutes / 60) % 24 >= 12 ? "PM" : "AM");
     return { ...empty(value.availability === "open-for-review" ? "ready_for_review" : "unavailable",
       value.availability === "open-for-review" ? "The requested time is open for review; it is not held or booked." : "The requested time is unavailable. Choose another time."),
       price_known: "yes", availability: value.availability, quote_json: JSON.stringify(q),
       package_price: q.packagePrice.toFixed(2), addon_subtotal: q.addonSubtotal.toFixed(2),
-      tax: q.tax.toFixed(2), total: q.total.toFixed(2) };
+      subtotal: q.subtotal.toFixed(2), tax: q.tax.toFixed(2), total: q.total.toFixed(2),
+      ready_marker: value.availability === "open-for-review" ? "yes" : "",
+      kind: q.kind, room: q.room, date: q.date, duration_minutes: String(q.durationMinutes),
+      readable_time: clock(q.startMinutes) + " - " + clock(q.endMinutes) };
   } catch {
     return empty("check_failed", "I could not verify the current price and availability. No booking has been submitted.");
   }

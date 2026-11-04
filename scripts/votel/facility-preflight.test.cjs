@@ -20,6 +20,8 @@ test("Votel adapter normalizes dropdown values and sends no caller identity or a
   });
   assert.equal(calls, 1); assert.equal(result.preflight_status, "ready_for_review"); assert.equal(result.total, "149.80");
   assert.equal(result.submitted, false); assert.equal(result.booking_guaranteed, false);
+  assert.equal(result.ready_marker, "yes"); assert.equal(result.readable_time, "12:00 PM - 1:30 PM");
+  assert.equal(result.duration_minutes, "90"); assert.equal(result.subtotal, "140.00");
 });
 
 test("missing selections and unverified promotions never produce an assumed quote", async () => {
@@ -35,6 +37,7 @@ test("unavailable, malformed, mismatched and failed checks cannot be treated as 
   const send = transform => async (_url, options) => Response.json(transform(reply(JSON.parse(options.body))));
   const unavailable = await runPreflight(input, send(value => ({ ...value, availability: "unavailable" })));
   assert.equal(unavailable.preflight_status, "unavailable"); assert.equal(unavailable.price_known, "yes");
+  assert.equal(unavailable.ready_marker, "");
   for (const transform of [value => ({ ...value, bookingGuaranteed: true }), value => ({ ...value, quote: { ...value.quote, room: "room-20" } }),
     value => ({ ...value, quote: { ...value.quote, total: 1 } }), value => ({ ...value, availability: "available" })]) {
     const result = await runPreflight(input, send(transform));

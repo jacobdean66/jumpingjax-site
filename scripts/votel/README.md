@@ -35,8 +35,10 @@ in `files: [{path: "main.cjs", content: "..."}]`.
 
 Each `inputVariables` value is `{{contact.<field>}}`. Map output variables by
 identical name and path: `preflight_status`, `message`, `price_known`,
-`availability`, `quote_json`, `package_price`, `addon_subtotal`, `tax`, `total`,
-`booking_guaranteed`, `submitted`. No contact-field writes are needed.
+`availability`, `quote_json`, `package_price`, `addon_subtotal`, `subtotal`,
+`tax`, `total`, `ready_marker`, `kind`, `room`, `date`, `duration_minutes`,
+`readable_time`, `booking_guaranteed`, `submitted`. `ready_marker` is nonempty
+only for a verified opening; other states clear it. No contact-field writes are needed.
 Public duration is 90 minutes. Private parties use room-20. Missing add-on
 answers are rejected rather than interpreted as consent to select none.
 An entered promotion code requires separate verification; it cannot silently
@@ -51,8 +53,8 @@ whole workflow with this document or recreate an agent.
 
 1. Route completed facility intake through the adapter, replacing the old
    first-row availability inference and hardcoded price calculation.
-2. Branch on **exact `preflight_status` equality**, not presence of
-   `price_known` or a truthy string. `ready_for_review` permits a recap;
+2. Branch on **exact `preflight_status` equality** or the dedicated `ready_marker`,
+   not presence of `price_known` or a truthy string. `ready_for_review` permits a recap;
    `unavailable` asks for another supported slot; `needs_details` corrects the
    choice; `check_failed` states that availability and price remain unverified;
    `promotion_needs_review` requires promotion verification. Wire every outcome.
