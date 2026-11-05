@@ -24,7 +24,7 @@ export async function reconcileResendAgreementEmailWebhook(request: Request) {
       signature: request.headers.get("webhook-signature") ?? request.headers.get("svix-signature") ?? "",
     };
     if (!headers.id || !headers.timestamp || !headers.signature) throw new Error("Webhook signature headers are missing.");
-    event = verifier.webhooks.verify({ payload: raw, headers: headers as unknown as Headers, webhookSecret: secret });
+    event = verifier.webhooks.verify({ payload: raw, headers, webhookSecret: secret });
   } catch {
     throw new Error("Provider webhook signature is invalid.");
   }

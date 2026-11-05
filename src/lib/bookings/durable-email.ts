@@ -45,11 +45,15 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
     return { error: { code: "outbox_write_failed" }, definitelyNotSent: true };
   }
 
-  const { data: stored, error: readError } = await input.supabase
-    .from("booking_notification_outbox")
-    .select(`status,booking_kind,booking_id,purpose,recipient,subject,body,html_body${input.payloadMac ? ",payload_mac" : ""}`)
-    .eq("message_key", input.messageKey)
-    .single();
+  const readResult = input.payloadMac
+    ? await input.supabase.from("booking_notification_outbox")
+      .select("status,booking_kind,booking_id,purpose,recipient,subject,body,html_body,payload_mac")
+      .eq("message_key", input.messageKey).single()
+    : await input.supabase.from("booking_notification_outbox")
+      .select("status,booking_kind,booking_id,purpose,recipient,subject,body,html_body")
+      .eq("message_key", input.messageKey).single();
+  const stored = readResult.data as (typeof row & { status: string; payload_mac?: string | null }) | null;
+  const readError = readResult.error;
   if (readError || !stored) return { error: { code: "outbox_read_failed" }, definitelyNotSent: true };
   if (input.requireExactPayload === true && (
     stored.booking_kind !== row.booking_kind || stored.booking_id !== row.booking_id || stored.purpose !== row.purpose ||
