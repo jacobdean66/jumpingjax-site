@@ -28,7 +28,7 @@ export function isSunday(isoDate: string): boolean {
 }
 
 export function formatMinutesLabel(totalMinutes: number): string {
-  const h24 = Math.floor(totalMinutes / 60);
+  const h24 = Math.floor(totalMinutes / 60) % 24;
   const m = totalMinutes % 60;
   const hour12 = ((h24 + 11) % 12) + 1;
   const ampm = h24 < 12 ? "AM" : "PM";
