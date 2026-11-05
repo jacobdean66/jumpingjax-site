@@ -33,3 +33,11 @@ review the exact recipient, verify caller authority, and recheck the exact
 agreement/version/status after the customer signs. Email dispatch does not
 prove receipt or signature. No real email, payment, agreement or booking was
 created in this draft's tests.
+
+The shared durable sender now has an opt-in `requireExactPayload` check. It
+compares a preexisting outbox entry's booking, purpose, recipient and complete
+message before returning an already-sent result or attempting delivery. Existing
+callers do not opt in as part of this draft. This check alone is not an atomic
+claim, does not bind caller consent, and does not resolve a lost provider response
+or an idempotency-window expiry. The receptionist must not blindly retry an
+uncertain send or connect this option without those remaining safeguards.
