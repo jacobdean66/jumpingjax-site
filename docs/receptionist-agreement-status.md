@@ -23,12 +23,12 @@ cannot mistake a recorded signature for verified current terms.
 `readCurrentAgreementStatus(kind, bookingId)` entry point and a read-only
 message preparation path for an existing current unsigned rental or facility
 agreement. A trusted caller supplies the exact booking/agreement ID
-and version, a UUID identifying its stored consent evidence, the time consent
-was captured, and the recipient that consent covers. Preparation compares that
+and version, UUIDs identifying stored caller-authority and consent evidence,
+the time consent was captured, and the recipient that consent covers. Preparation compares that
 recipient to the booking's currently saved email, verifies the agreement is
 still the single current unsigned version, builds the existing signing-link
-message, and returns an HMAC commitment to the full message payload and
-operation ID. The HMAC key is `RECEPTIONIST_AGREEMENT_EMAIL_HMAC_SECRET` and
+message, and returns an HMAC commitment to the full message payload, evidence
+references, and operation ID. The HMAC key is `RECEPTIONIST_AGREEMENT_EMAIL_HMAC_SECRET` and
 must be at least 32 bytes. This helper does not authenticate the caller, prove
 the customer's authority over a booking, send mail, or mark delivery status.
 The typed `consent` argument is an assertion, not proof; `capturedAt` is parsed
@@ -47,10 +47,28 @@ and exact current agreement version; (3) call the preparation helper with that
 evidence ID and a fresh operation UUID; (4) immediately before a future send,
 revalidate the same booking, recipient, and agreement/version, obtain the
 service-role claim using the returned HMAC and exact payload, and have a
-provider outcome reconciliation path. Do not connect mail dispatch until that
-last boundary and its uncertain-outcome handling are implemented; the current
-claim migration has no acceptance/reconciliation operation and remains
-unapplied.
+provider outcome reconciliation path. Migrations `20261105011000` and
+`20261105013000` contain the draft claim and acceptance/release operations;
+both remain unapplied.
+
+`dispatchCurrentAgreementEmail` is a dormant server-only coordinator. It
+requires an injected `TrustedAgreementGate` to verify booking-bound caller
+authority and read persisted consent, rechecks both immediately before the
+provider request, claims the exact payload, and dispatches through the shared
+outbox with one Resend attempt and a stable operation idempotency key. It is
+disabled unless `RECEPTIONIST_AGREEMENT_EMAIL_SEND_ENABLED=true`; there is no
+HTTP route or gate implementation in this website. Any provider/network error
+stays `outcome_unknown` and is never retried automatically. The server-only
+`reconcileResendAgreementEmailWebhook` helper verifies the Resend signature,
+recomputes the payload HMAC against the exact outbox contents, and accepts only
+a matching `email.sent` event; it is not wired to a route. Acceptance means
+provider acceptance, not delivery. Missing webhook or outcome evidence leaves
+the operation unresolved for manual review. The new `20261105013000` draft
+adds service-role-only acceptance and safe pre-dispatch release operations.
+The claim and reconciliation migrations are unapplied; no send path is live.
+The final status/email check still has a narrow race with concurrent edits
+after recheck and before the provider request; keep the coordinator dormant
+until this boundary is qualified.
 
 Read-only production schema inspection on November 4, 2026 found enabled
 booking-update supersession triggers for both rental and facility agreements.
