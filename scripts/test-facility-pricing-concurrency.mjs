@@ -120,16 +120,28 @@ const bind = (preview, requestKey, revision, price) =>
   `select bind_facility_invitation_preview_atomic(${quote(preview)}, ${quote(requestKey)}, ${json(booking(price))}, ${revision ?? "null"}, 1);`;
 
 function createPreview(key) {
-  return query(`
+  const previewId = query(`
     insert into facility_invitation_previews (
       request_key, payload_hash, recipient, child_name, child_age, customer_phone,
       balloon_colors, table_cloth_colors, party_theme, party_date, party_time, confirmed_theme,
-      status, selected_option_index, delivery_preferences, invitation_quantity, selection_revision
+      status
     ) values (
       ${quote(key)}, 'fixture-hash', 'fixture@example.test', 'Alex', '8', '864-555-0100',
       'Blue', 'Silver', 'Space', '2099-11-21', '2:00 PM - 3:30 PM', ${json(theme)},
-      'accepted', 1, array['email'], 20, 1
+      'accepted'
     ) returning id;`);
+  const attempt = query(`
+    set role service_role;
+    update facility_invitation_previews
+      set selected_option_index=1, delivery_preferences=array['email'], invitation_quantity=20,
+          selection_revision=1, selection_attempt_id=gen_random_uuid()
+      where id=${quote(previewId)} and selection_revision=0
+      returning selection_attempt_id;`);
+  assert.match(attempt, /^[0-9a-f-]{36}$/);
+  assert.equal(query(`
+    select selection_revision from facility_preview_selection_receipts
+      where preview_id=${quote(previewId)} and attempt_id=${quote(attempt)};`), "1");
+  return previewId;
 }
 
 const started = docker([
