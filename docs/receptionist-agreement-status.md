@@ -19,6 +19,39 @@ a caller that the current terms are signed.
 Every agreement-bearing result carries `freshness: "unverified"` so callers
 cannot mistake a recorded signature for verified current terms.
 
+`src/lib/receptionist/agreements/preparation.ts` now provides a server-only
+`readCurrentAgreementStatus(kind, bookingId)` entry point and a read-only
+message preparation path for an existing current unsigned rental or facility
+agreement. A trusted caller supplies the exact booking/agreement ID
+and version, a UUID identifying its stored consent evidence, the time consent
+was captured, and the recipient that consent covers. Preparation compares that
+recipient to the booking's currently saved email, verifies the agreement is
+still the single current unsigned version, builds the existing signing-link
+message, and returns an HMAC commitment to the full message payload and
+operation ID. The HMAC key is `RECEPTIONIST_AGREEMENT_EMAIL_HMAC_SECRET` and
+must be at least 32 bytes. This helper does not authenticate the caller, prove
+the customer's authority over a booking, send mail, or mark delivery status.
+The typed `consent` argument is an assertion, not proof; `capturedAt` is parsed
+but has no freshness or expiry check. The receptionist must independently
+authenticate and authorize the caller for this exact booking, read and validate
+persisted consent evidence for the exact agreement version and email, and keep
+that evidence identified by the supplied UUID. No HTTP route exposes this
+service.
+
+Signing links use the website's pinned email origin through
+`resolveRentalEmailSiteUrl()`; caller-supplied request URLs are not accepted.
+
+The handoff contract is: (1) independently verify caller authority for the
+specific booking; (2) obtain and persist explicit consent for the saved email
+and exact current agreement version; (3) call the preparation helper with that
+evidence ID and a fresh operation UUID; (4) immediately before a future send,
+revalidate the same booking, recipient, and agreement/version, obtain the
+service-role claim using the returned HMAC and exact payload, and have a
+provider outcome reconciliation path. Do not connect mail dispatch until that
+last boundary and its uncertain-outcome handling are implemented; the current
+claim migration has no acceptance/reconciliation operation and remains
+unapplied.
+
 Read-only production schema inspection on November 4, 2026 found enabled
 booking-update supersession triggers for both rental and facility agreements.
 The facility trigger compares specified booking fields but does not itself
