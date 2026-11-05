@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { z } from "zod";
 import {
   FACILITY_INVITATION_DELIVERY_PREFERENCES,
@@ -35,6 +35,13 @@ const previewInput = z.object({
   childName: shortText(80),
   childAge: z.string().trim().regex(/^(?:[1-9]|1[0-8])?$/).default(""),
   childBirthdate: z.string().trim().refine(isCanonicalFacilityBookingYmd).optional(),
+  // Only a trusted call service can sign this short-lived, exact-request proof.
+  privateAgeProof: z.object({
+    callId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
+    callRevision: z.number().int().nonnegative().safe(),
+    expiresAt: z.number().int().nonnegative().safe(),
+    signature: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict().optional(),
   customerPhone: optionalText(40),
   balloonColors: optionalText(160),
   tableClothColors: optionalText(160),
@@ -51,7 +58,23 @@ const previewInput = z.object({
 export function parsePreview(value: unknown) {
   const parsed = previewInput.safeParse(value);
   if (!parsed.success) return null;
-  const { confirmationToken, chooseArtworkOnPage, childBirthdate, ...input } = parsed.data;
+  const { confirmationToken, chooseArtworkOnPage, childBirthdate, privateAgeProof, ...input } = parsed.data;
+  if (privateAgeProof && (childBirthdate || !chooseArtworkOnPage || confirmationToken || !input.childAge)) return null;
+  if (privateAgeProof) {
+    const key = process.env.RECEPTIONIST_INVITATION_PRIVATE_AGE_PROOF_KEY;
+    const now = Date.now();
+    if (!key || key.length < 32 || key.length > 256 || !/^[\x21-\x7e]+$/.test(key) ||
+        key === process.env.RECEPTIONIST_INVITATION_PREVIEW_API_KEY || key === process.env.RECEPTIONIST_INVITATION_PREVIEW_SIGNING_KEY ||
+        privateAgeProof.expiresAt <= now || privateAgeProof.expiresAt > now + 5 * 60_000) return null;
+    // Fixed field order binds the proof to every preview detail and call scope.
+    // The issuer must independently verify the current call, party date and
+    // consent; this MAC does not itself establish any of those facts.
+    const material = JSON.stringify(["facility-private-age-v1", input.requestKey, input.email, input.childName,
+      input.childAge, input.customerPhone, input.balloonColors, input.tableClothColors, input.partyTheme,
+      input.partyDate, input.partyTime, privateAgeProof.callId, privateAgeProof.callRevision, privateAgeProof.expiresAt]);
+    const expected = createHmac("sha256", key).update(material).digest("hex");
+    if (!equalDigest(expected, privateAgeProof.signature)) return null;
+  }
   if (childBirthdate) {
     const partyDate = input.partyDate;
     const yearDifference = Number(partyDate.slice(0, 4)) - Number(childBirthdate.slice(0, 4));
@@ -61,7 +84,7 @@ export function parsePreview(value: unknown) {
     input.childAge = String(age);
   }
   if (chooseArtworkOnPage) {
-    return childBirthdate && !confirmationToken && input.partyTheme.length >= 2
+    return (childBirthdate || privateAgeProof) && !confirmationToken && input.partyTheme.length >= 2
       ? { ...input, confirmedTheme: null } : null;
   }
   const confirmedTheme = readConfirmedTheme(confirmationToken, input.partyTheme);

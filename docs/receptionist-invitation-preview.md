@@ -26,6 +26,18 @@ Include the full `childBirthdate` in ISO date format. The server calculates
 age on the party date (supported ages 1–18), then discards the birthdate.
 A February 29 birthday advances on March 1 in a non-leap year.
 Do not ask for age separately or include the birthdate in any link or log.
+
+A dormant alternative accepts a trusted service-derived `childAge` with
+`privateAgeProof` instead of transmitting the full birthdate to the website.
+It requires bearer authentication plus a separate, short-lived HMAC bound to
+all normalized preview fields, call ID, call revision and expiry. Without the
+separate server key this variant fails closed. The issuer must derive age from
+the full birthday in a private, current call and independently check consent,
+call revision and event date before signing. The website cannot itself verify
+the remote call state or revoke an already issued proof. A proof is not caller
+identity or consent, and must not be exposed as a customer-controlled field.
+Private worker capture, issuance, cancellation fencing, and the caller path
+are not wired or verified; keep this variant disabled until they are.
 Confirm the recipient address and their consent to receive this preview first.
 The service starts the first picture search and emails one signed link.
 Before rendering the page, the server exchanges the URL token for a secure,
