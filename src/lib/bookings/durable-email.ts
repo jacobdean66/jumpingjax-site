@@ -16,6 +16,9 @@ export type DurableEmailInput = {
   subject: string;
   text: string;
   html?: string;
+  // Opt-in for a future agreement bridge; existing callers keep their
+  // existing behavior until individually reviewed and migrated.
+  requireExactPayload?: boolean;
 };
 
 export async function sendDurableBookingEmail(input: DurableEmailInput) {
@@ -39,10 +42,14 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
 
   const { data: stored, error: readError } = await input.supabase
     .from("booking_notification_outbox")
-    .select("status,recipient,subject,body,html_body")
+    .select("status,booking_kind,booking_id,purpose,recipient,subject,body,html_body")
     .eq("message_key", input.messageKey)
     .single();
   if (readError || !stored) return { error: { code: "outbox_read_failed" } };
+  if (input.requireExactPayload === true && (
+    stored.booking_kind !== row.booking_kind || stored.booking_id !== row.booking_id || stored.purpose !== row.purpose ||
+    stored.recipient !== row.recipient || stored.subject !== row.subject || stored.body !== row.body || stored.html_body !== row.html_body
+  )) return { error: { code: "outbox_payload_conflict" } };
   if (stored.status === "sent") return { error: null, alreadySent: true };
 
   if (!isValidEmailAddress(stored.recipient)) {
