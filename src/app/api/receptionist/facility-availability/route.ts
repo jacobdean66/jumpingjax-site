@@ -1,7 +1,7 @@
 import { rateLimit } from "@/lib/rate-limit";
 import { checkFacilityAvailability } from "@/lib/receptionist/facility-availability";
 import { FacilityQuoteInputError } from "@/lib/receptionist/facility-quote";
-import { loadSavedFacilitySettings } from "@/lib/receptionist/facility-pricing-storage";
+import { loadReceptionistFacilityPricing } from "@/lib/receptionist/facility-pricing-storage";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export const dynamic="force-dynamic";
@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     input=JSON.parse(raw);
   } catch {return Response.json({error:"Invalid JSON."},{status:400,headers});}
   try {
-    const settings=await loadSavedFacilitySettings();
-    const result=await checkFacilityAvailability(input,settings,async range=>{
+    const pricing=await loadReceptionistFacilityPricing();
+    const result=await checkFacilityAvailability(input,pricing,async range=>{
       const {data,error,count}=await createServiceRoleClient().from("facility_bookings").select("id,party_kind,room,start_time,end_time,status",{count:"exact"})
         .in("status",["pending","confirmed"]).lt("start_time",range.startBefore).gt("end_time",range.endAfter).limit(1000);
       if(error||!Array.isArray(data)||count===null||count!==data.length)throw new Error("Unavailable");return data;

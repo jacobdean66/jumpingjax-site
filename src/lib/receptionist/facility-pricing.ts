@@ -1,5 +1,10 @@
 import type { FacilityPricingConfig } from "../facility-parties/pricing";
 
+export type ReceptionistFacilityPricing = {
+  pricing: FacilityPricingConfig;
+  revision?: number;
+};
+
 const priceKeys = [
   "publicRoom10", "publicRoom20Weekday", "publicRoom20Weekend",
   "privateWeekday90", "privateWeekday120", "privateWeekend90",
@@ -29,11 +34,12 @@ export function verifiedFacilityPricing(input: unknown): FacilityPricingConfig {
   return Object.fromEntries([...priceKeys, "taxRate"].map(key => [key, fields[key]])) as FacilityPricingConfig;
 }
 
-/** The caller provides the trusted storage loader; failures must never use defaults. */
-export async function facilityPricingResponse(load: () => Promise<unknown>): Promise<Response> {
+/** The caller provides a validated pricing snapshot. */
+export async function facilityPricingResponse(load: () => Promise<ReceptionistFacilityPricing>): Promise<Response> {
   const headers = { "Cache-Control": "no-store" };
   try {
-    return Response.json({ schemaVersion: 1, pricing: verifiedFacilityPricing(await load()) }, { headers });
+    const { pricing } = await load();
+    return Response.json({ schemaVersion: 1, pricing }, { headers });
   } catch {
     return Response.json({ error: "Facility pricing is temporarily unavailable." }, { status: 503, headers });
   }

@@ -1,7 +1,7 @@
 import { rateLimit } from "@/lib/rate-limit";
 import { facilityPricingResponse } from "@/lib/receptionist/facility-pricing";
 import { FacilityQuoteInputError, quoteFacilityParty } from "@/lib/receptionist/facility-quote";
-import { loadSavedFacilitySettings } from "@/lib/receptionist/facility-pricing-storage";
+import { loadReceptionistFacilityPricing } from "@/lib/receptionist/facility-pricing-storage";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store" };
@@ -10,7 +10,7 @@ const headers = { "Cache-Control": "no-store" };
 export async function GET(req: Request) {
   const limited = rateLimit(req, { scope: "receptionist-facility-pricing", limit: 120, windowMs: 60_000 });
   if (limited) return limited;
-  return facilityPricingResponse(loadSavedFacilitySettings);
+  return facilityPricingResponse(loadReceptionistFacilityPricing);
 }
 
 // A quote is informational; it does not check availability or submit a booking.
@@ -32,6 +32,6 @@ export async function POST(req: Request) {
     } finally {reader.releaseLock();}
     input=JSON.parse(raw);
   } catch {return Response.json({error:"Invalid JSON."},{status:400,headers});}
-  try {return Response.json(quoteFacilityParty(input,await loadSavedFacilitySettings()),{headers});}
+  try {return Response.json(quoteFacilityParty(input,await loadReceptionistFacilityPricing()),{headers});}
   catch(error) {return error instanceof FacilityQuoteInputError?Response.json({error:error.message},{status:400,headers}):Response.json({error:"Facility pricing is temporarily unavailable."},{status:503,headers});}
 }
