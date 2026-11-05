@@ -18,7 +18,13 @@ export async function reconcileResendAgreementEmailWebhook(request: Request) {
   let event;
   try {
     const verifier = new Resend(process.env.RESEND_API_KEY?.trim() || "re_webhook_verifier");
-    event = verifier.webhooks.verify({ payload: raw, headers: request.headers, webhookSecret: secret });
+    const headers = {
+      id: request.headers.get("webhook-id") ?? request.headers.get("svix-id") ?? "",
+      timestamp: request.headers.get("webhook-timestamp") ?? request.headers.get("svix-timestamp") ?? "",
+      signature: request.headers.get("webhook-signature") ?? request.headers.get("svix-signature") ?? "",
+    };
+    if (!headers.id || !headers.timestamp || !headers.signature) throw new Error("Webhook signature headers are missing.");
+    event = verifier.webhooks.verify({ payload: raw, headers: headers as unknown as Headers, webhookSecret: secret });
   } catch {
     throw new Error("Provider webhook signature is invalid.");
   }
@@ -32,7 +38,7 @@ export async function reconcileResendAgreementEmailWebhook(request: Request) {
   const consentEvidenceId = tags.agreement_consent_evidence_id;
   if (!uuid.test(operationId ?? "") || !macPattern.test(payloadMac ?? "") ||
       !uuid.test(authorityEvidenceId ?? "") || !uuid.test(consentEvidenceId ?? "") ||
-      typeof data.email_id !== "string" || data.to.length !== 1) {
+      !uuid.test(data.email_id ?? "") || data.to.length !== 1) {
     return { status: "ignored" as const };
   }
 
