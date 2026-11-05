@@ -58,3 +58,13 @@ export function toInvitationDeliveryPreviewData(
     snapshot: input.snapshot,
   };
 }
+
+export function formatInvitationDateLabel(date: Date, timeZone?: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone,
+  }).format(date);
+}

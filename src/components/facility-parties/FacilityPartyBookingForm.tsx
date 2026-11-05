@@ -1,4 +1,6 @@
 "use client";
+import { CHILD_GENDER_CHOICES, FACILITY_DRINK_CHOICES, PAYMENT_METHOD_CHOICES } from "@/lib/facility-parties/booking-choices";
+import { formatInvitationDateLabel } from "@/lib/facility-parties/invitations/preview-data";
 import { RentalPromotionEntry,useGoogleOffer } from "@/components/booking/RentalPromotion";
 import { facilityGoogleDiscount } from "@/lib/analytics/customer-offer";
 
@@ -73,17 +75,6 @@ const controlClassName =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-950 outline-none ring-cyan-400/0 transition placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200";
 
 const inputClassName = `mt-1.5 ${controlClassName}`;
-
-const FACILITY_DRINK_CHOICES = [
-  "Capri-Sun",
-  "Kool-Aid Jammers",
-  "Gatorade",
-  "Soda",
-  "Huggs",
-] as const;
-
-const PAYMENT_METHOD_CHOICES = ["Cash", "Card"] as const;
-const CHILD_GENDER_CHOICES = ["Boy", "Girl"] as const;
 
 const PARTY_KIND_CHOICES: {
   id: FacilityPartyKind;
@@ -266,12 +257,7 @@ export function FacilityPartyBookingForm({
   }, [partyTheme, invitationOverride, invitationColorHint, confirmedTheme]);
 
   const invitationDateLabel = selectedDate
-    ? new Intl.DateTimeFormat(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }).format(selectedDate)
+    ? formatInvitationDateLabel(selectedDate)
     : "";
   const invitationTimeLabel = selectedDisposition
     ? formatReadableTimeRange(

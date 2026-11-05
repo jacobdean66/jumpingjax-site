@@ -110,3 +110,19 @@ test("contact-only bookings save with blank optional details and preserve suppli
     for(const name of envNames) {if(previous[name]===undefined) delete process.env[name]; else process.env[name]=previous[name];}
   }
 });
+
+test("the public booking route cannot replay the preview binding's internal key", async t => {
+  t.mock.method(globalThis, "fetch", async () => {
+    assert.fail("Reserved internal keys must be rejected before any network access");
+  });
+  const response = await POST(new NextRequest("https://example.com/api/facility/book", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "reserved-preview-key" },
+    body: JSON.stringify({
+      party_kind: "public", room: "room-20", booking_date: "2027-01-02", start_minutes: 840, end_minutes: 930,
+      parent_name: "Fixture Parent", email: "fixture@example.test", phone: "864-555-0100",
+      idempotency_key: "facility-preview-v1:36fb225d-20d7-4b77-9bfb-bdc4875316de",
+    }),
+  }));
+  assert.equal(response.status, 400);
+});

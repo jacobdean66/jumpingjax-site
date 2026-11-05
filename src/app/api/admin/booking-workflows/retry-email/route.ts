@@ -20,16 +20,34 @@ export async function POST(req: Request) {
     .eq("message_key", messageKey)
     .single();
   if (error || !data) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+  if (data.message_key.startsWith("receptionist-agreement-")) {
+    return NextResponse.json({ error: "This agreement send is claim-controlled and cannot be retried from the general outbox." }, { status: 409, headers: { "Cache-Control": "private, no-store" } });
+  }
 
-  // Old requests and closed bookings must not send stale confirmations.
-  if (data.status !== "sent" && emailWorkflowStep(data.purpose)) {
+  const step = emailWorkflowStep(data.purpose);
+  const facilityInitial = data.booking_kind === "facility" &&
+    (step === "initial_customer_email" || step === "owner_notification");
+  // Preview notification retries must use their saved booking claim and lease.
+  // Retrying one outbox row here could bypass that lease or its provider window.
+  if ((data.status !== "sent" && step) || facilityInitial) {
     const rental = data.booking_kind === "rental";
     const { data: booking, error: bookingError } = await supabase
       .from(rental ? "bookings" : "facility_bookings")
-      .select(rental ? "status,event_date,span_days" : "status,end_time")
-      .eq("id", data.booking_id).maybeSingle<{ status: string; event_date?: string; span_days?: number; end_time?: string }>();
+      .select(rental ? "status,event_date,span_days" : facilityInitial ? "status,end_time,idempotency_key" : "status,end_time")
+      .eq("id", data.booking_id).maybeSingle<{
+        status: string; event_date?: string; span_days?: number; end_time?: string; idempotency_key?: string;
+      }>();
     if (bookingError) return NextResponse.json({ error: "Could not verify booking status." }, { status: 503 });
-    if (!canRetryBookingEmail(rental ? "rental" : "facility", data.purpose, booking))
+    if (facilityInitial && booking?.idempotency_key?.startsWith("facility-preview-v1:")) {
+      const headers = { "Cache-Control": "private, no-store" };
+      if (data.status === "sent") {
+        return NextResponse.json({ ok: true, alreadySent: true }, { headers });
+      }
+      return NextResponse.json({
+        error: "Retry this preview booking through its saved notification workflow or reconcile the prior send.",
+      }, { status: 409, headers });
+    }
+    if (data.status !== "sent" && !canRetryBookingEmail(rental ? "rental" : "facility", data.purpose, booking))
       return NextResponse.json({ error: "This booking is closed or its event has passed. Its historical email will not be resent." }, { status: 409 });
   }
 
