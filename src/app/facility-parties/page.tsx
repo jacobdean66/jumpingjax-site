@@ -10,6 +10,10 @@ import {
   loadSiteSettings,
 } from "@/lib/admin/site-settings";
 import {
+  databaseFacilityPricingEnabled,
+  readFacilityPricingSnapshot,
+} from "@/lib/facility-parties/saved-pricing";
+import {
   formatUsd,
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
@@ -33,6 +37,17 @@ export default async function FacilityPartiesPage() {
     // Local/dev without Supabase still needs the booking form UI.
     settings = DEFAULT_SITE_SETTINGS;
   }
+  const facilityPricing = databaseFacilityPricingEnabled()
+    ? (await readFacilityPricingSnapshot().catch(() => null))?.pricing
+    : settings.facilityPricing;
+  if (!facilityPricing) {
+    return (
+      <main className="px-6 py-16 text-center">
+        <h1 className="text-3xl font-black">Facility Parties</h1>
+        <p className="mt-4">Online party pricing and booking are temporarily unavailable.</p>
+      </main>
+    );
+  }
   const baselinePartyPrices = [
     {
       label: "10 kid public party",
@@ -44,7 +59,7 @@ export default async function FacilityPartiesPage() {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
       note: "1.5 hour public play slot",
     },
@@ -58,7 +73,7 @@ export default async function FacilityPartiesPage() {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
       note: "1.5 hour public play slot",
     },
@@ -72,7 +87,7 @@ export default async function FacilityPartiesPage() {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
       note: "Private full-facility baseline",
     },
@@ -156,7 +171,7 @@ export default async function FacilityPartiesPage() {
             </div>
           }
         >
-          <div id="facility-booking" className="scroll-mt-4" /><FacilityPartyBookingForm pricingConfig={settings.facilityPricing} canEditTotal={canEditTotal} />
+          <div id="facility-booking" className="scroll-mt-4" /><FacilityPartyBookingForm pricingConfig={facilityPricing} canEditTotal={canEditTotal} />
         </Suspense>
       </section>
       <ServiceQuestions title="Indoor birthday party questions" questions={facilityQuestions} />

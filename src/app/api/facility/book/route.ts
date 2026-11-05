@@ -32,6 +32,11 @@ import {
   normalizeInvitationTemplateId,
 } from "@/lib/facility-parties/invitations";
 import { loadSiteSettings } from "@/lib/admin/site-settings";
+import {
+  databaseFacilityPricingEnabled,
+  FacilityPricingUnavailableError,
+  readFacilityPricingSnapshot,
+} from "@/lib/facility-parties/saved-pricing";
 import { getFacilityOwnerEmails } from "@/lib/email/resend";
 import { isValidEmailAddress } from "@/lib/email/address";
 import {
@@ -235,7 +240,9 @@ export async function POST(req: NextRequest) {
     const endIso = endDate.toISOString();
     const startParts = getFacilityDateParts(startDate);
     const durationMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
-    const siteSettings = await loadSiteSettings();
+    const pricingConfig = databaseFacilityPricingEnabled()
+      ? (await readFacilityPricingSnapshot(supabase)).pricing
+      : (await loadSiteSettings()).facilityPricing;
     const standardPricing = priceFacilityPartyWithConfig(
       {
         partyKind: party_kind,
@@ -244,7 +251,7 @@ export async function POST(req: NextRequest) {
         durationMinutes,
         addonSubtotal: resolvedAddons.subtotal,
       },
-      siteSettings.facilityPricing,
+      pricingConfig,
     );
     let googleCode = "";
     if (body.promotion_code) {
@@ -490,7 +497,10 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, id: bookingId, emailsSent });
-  } catch {
+  } catch (error) {
+    if (error instanceof FacilityPricingUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json(
       { error: "Server error" },
       { status: 500 },

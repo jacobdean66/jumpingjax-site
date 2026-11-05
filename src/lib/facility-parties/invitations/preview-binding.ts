@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { loadSavedFacilityPricing } from "@/lib/admin/site-settings";
+import { databaseFacilityPricingEnabled, readFacilityPricingSnapshot } from "../saved-pricing";
 import { isValidEmailAddress } from "@/lib/email/address";
 import { facilityAddonsForStorage, resolveFacilityAddons } from "../addons";
 import { evaluateCustomerFacingFacilitySlot } from "../availability-source";
@@ -31,6 +30,7 @@ const approvalSchema = z.object({
   room: z.enum(["room-10", "room-20"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startMinutes: z.number().int().min(0).max(1350),
+  selectionRevision: z.number().int().min(1).max(2147483647),
   optionIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   deliveryPreferences: z.array(z.enum(["print", "email", "office_pickup"]))
     .min(1).max(3).refine(values => new Set(values).size === values.length),
@@ -45,6 +45,7 @@ const approvalSchema = z.object({
     goodieBagsQuantity: z.number().int().min(0).max(100),
     cottonCandyPackage: z.enum(["none", "10_kids", "20_kids"]),
   }).strict(),
+  pricingRevision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   quote: quoteSchema,
 }).strict();
 
@@ -64,6 +65,7 @@ const previewSchema = z.object({
   balloon_colors: z.string(),
   table_cloth_colors: z.string(),
   confirmed_theme: confirmedThemeSchema,
+  selection_revision: z.number().int().min(0).max(2147483647),
   selected_option_index: z.number().int().nullable(),
   delivery_preferences: z.array(z.string()).nullable(),
   invitation_quantity: z.number().int().nullable(),
@@ -81,12 +83,15 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
   if (!parsed.success) throw new FacilityPreviewBindingError("invalid_binding_approval");
   const intent = parsed.data;
   const { data, error } = await db.from("facility_invitation_previews")
-    .select("booking_id,status,expires_at,recipient,customer_phone,child_name,child_age,party_theme,party_date,party_time,balloon_colors,table_cloth_colors,confirmed_theme,selected_option_index,delivery_preferences,invitation_quantity")
+    .select("booking_id,status,expires_at,recipient,customer_phone,child_name,child_age,party_theme,party_date,party_time,balloon_colors,table_cloth_colors,confirmed_theme,selection_revision,selected_option_index,delivery_preferences,invitation_quantity")
     .eq("id", intent.previewId).maybeSingle();
   if (error) throw new FacilityPreviewBindingError("preview_unavailable");
   const preview = previewSchema.safeParse(data);
   if (!preview.success) throw new FacilityPreviewBindingError("preview_unavailable");
   const selected = preview.data;
+  if (selected.selection_revision !== intent.selectionRevision) {
+    throw new FacilityPreviewBindingError("preview_selection_changed");
+  }
   const endMinutes = intent.startMinutes + 90;
   const start = facilityLocalDateTimeToUtc(intent.date, intent.startMinutes);
   const end = facilityLocalDateTimeToUtc(intent.date, endMinutes);
@@ -102,6 +107,7 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
 
   const addons = resolveFacilityAddons(intent.addons);
   let quote: z.infer<typeof quoteSchema>;
+  let pricingRevision: number | null = null;
   if (selected.booking_id) {
     // Use the stored monetary values on replay. If a staff edit changed these
     // since the binding, reject and let the authorized caller reconcile.
@@ -120,6 +126,7 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
     if (!saved.success) throw new FacilityPreviewBindingError("binding_receipt_unavailable");
     quote = saved.data;
   } else {
+    if (!databaseFacilityPricingEnabled()) throw new FacilityPreviewBindingError("pricing_unavailable");
     if (selected.status !== "accepted" || !(Date.parse(selected.expires_at) > Date.now())) {
       throw new FacilityPreviewBindingError("preview_unavailable");
     }
@@ -130,9 +137,16 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
       }).validTemplate) {
       throw new FacilityPreviewBindingError("invalid_booking_slot");
     }
+    const snapshot = await readFacilityPricingSnapshot(db).catch(() => {
+      throw new FacilityPreviewBindingError("pricing_unavailable");
+    });
+    if (snapshot.revision !== intent.pricingRevision) {
+      throw new FacilityPreviewBindingError("approved_price_changed");
+    }
+    pricingRevision = snapshot.revision;
     const { missingPrice, ...currentQuote } = priceFacilityPartyWithConfig({
       partyKind: "public", roomId: intent.room, date: intent.date, durationMinutes: 90, addonSubtotal: addons.subtotal,
-    }, await loadSavedFacilityPricing(db, randomUUID()));
+    }, snapshot.pricing);
     if (missingPrice) throw new FacilityPreviewBindingError("pricing_unavailable");
     quote = currentQuote;
   }
@@ -146,6 +160,8 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
   const { data: bookingId, error: bindingError } = await db.rpc("bind_facility_invitation_preview_atomic", {
     p_preview_id: intent.previewId,
     p_request_key: intent.requestKey,
+    p_pricing_revision: pricingRevision,
+    p_selection_revision: intent.selectionRevision,
     p_booking: {
       party_kind: "public", room: intent.room, start_time: start.toISOString(), end_time: end.toISOString(),
       customer_name: intent.customerName, parent_name: intent.customerName, email: intent.email, phone: intent.phone,
@@ -166,7 +182,8 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
   const result = z.string().uuid().safeParse(bookingId);
   if (bindingError || !result.success) {
     const code = bindingError?.message ?? "";
-    const conflict = ["preview_binding_conflict", "preview_binding_mismatch", "booking_conflict"].includes(code);
+    const conflict = ["preview_binding_conflict", "preview_binding_mismatch", "preview_selection_changed", "booking_conflict",
+      "approved_price_changed", "pricing_unavailable"].includes(code);
     throw new FacilityPreviewBindingError(conflict ? code : "binding_unavailable");
   }
   return { bookingId: result.data };

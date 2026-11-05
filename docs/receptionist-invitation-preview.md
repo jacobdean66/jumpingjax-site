@@ -146,8 +146,11 @@ Retries reconstruct the monetary fields from the persisted booking and send
 the same canonical payload through the RPC fingerprint check. If the saved price or reconstructed payload
 has changed, the adapter fails closed. A future route must establish caller
 authority and record exact final approval on every request. The adapter is
-not connected to the disabled endpoint. The binding adapter currently checks saved pricing immediately before the RPC.
-A price change can still commit between that read and the booking.
+not connected to the disabled endpoint. The draft now requires a positive
+pricing revision and exact selection revision, and the replacement binding
+RPC checks both under database locks. It remains unavailable until the
+separate pricing-row cutover is completed and verified; no production cutover
+or migration has been performed.
 
 The binding RPC saves the booking and records that its initial notification
 workflow needs attention. The disabled server orchestrator can then run the
@@ -187,9 +190,9 @@ does not establish that a path-based download returns bytes bound to that
 exact metadata version, or that every deployed writer participates in its
 locking protocol. Keep binding disabled while that is unresolved.
 
-Move only the normalized `facilityPricing` configuration into a dedicated
-Postgres row containing the pricing JSON and a monotonically increasing
-revision. Keep unrelated settings in Storage. At cutover, freeze existing
+The draft introduces a dedicated Postgres row for normalized `facilityPricing`
+with a monotonically increasing revision. Keep unrelated settings in Storage.
+At cutover, freeze existing
 pricing writes, read and validate the actual saved object, seed its exact
 normalized prices with an audit comparison, and switch the admin writer,
 website form and booking readers, and receptionist quote and binding readers
@@ -200,9 +203,9 @@ must stop serving as a pricing source. Separate the pricing admin update
 from unrelated Storage updates so a cross-service partial write cannot
 report success for a failed pricing change.
 
-The quote adapter should read prices and revision in one result, apply the
-existing website calculation, and compare the entire approved quote. Pass
-that revision from the trusted adapter to the binding RPC. After it locks
+The draft quote adapter reads prices and revision together, applies the
+existing website calculation, and compares the approved quote. The trusted
+adapter passes that revision to the binding RPC. After it locks
 the preview and checks for an exact replay, a fresh binding must lock the
 pricing row with `FOR SHARE` and reject a missing or different revision
 before calling `create_facility_booking_atomic`. Hold the lock through the
