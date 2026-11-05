@@ -55,12 +55,6 @@ begin
      or preview.delivery_preferences is null or preview.invitation_quantity is null then
     raise exception using errcode = 'P0001', message = 'preview_unavailable';
   end if;
-  -- The tracked booking column only permits one delivery method. Keep the
-  -- preview selection intact and fail closed until schema compatibility is verified.
-  if cardinality(preview.delivery_preferences) <> 1 then
-    raise exception using errcode = 'P0001', message = 'preview_multi_delivery_unavailable';
-  end if;
-
   start_at := (p_booking->>'start_time')::timestamptz;
   end_at := (p_booking->>'end_time')::timestamptz;
   if start_at is null or end_at is null or not isfinite(start_at) or not isfinite(end_at)
@@ -88,7 +82,7 @@ begin
      or v_invitation->'confirmedTheme' is distinct from preview.confirmed_theme
      or v_invitation->'optionIndex' is distinct from to_jsonb(preview.selected_option_index)
      or v_invitation->>'deliveryPreference' is distinct from preview.delivery_preferences[1]
-     or p_booking->>'invitation_delivery_preference' is distinct from preview.delivery_preferences[1]
+     or p_booking->>'invitation_delivery_preference' is distinct from array_to_string(preview.delivery_preferences, ',')
      or p_booking->'invitation_quantity' is distinct from to_jsonb(preview.invitation_quantity)
      or nullif(btrim(p_booking->>'invitation_template_id'), '') is null
      or v_invitation ? '_previewBindingInsertMarker' then
@@ -109,7 +103,7 @@ begin
   );
   update public.facility_bookings
     set invitation = invitation - '_previewBindingInsertMarker',
-        invitation_delivery_preference = preview.delivery_preferences[1],
+        invitation_delivery_preference = array_to_string(preview.delivery_preferences, ','),
         invitation_template_id = p_booking->>'invitation_template_id',
         invitation_quantity = preview.invitation_quantity
     where id = booking_id_result and idempotency_key = booking_key

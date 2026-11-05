@@ -10,7 +10,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
     previewId: "36fb225d-20d7-4b77-9bfb-bdc4875316de", requestKey: "fixture-preview-bind-001",
     customerName: "Fixture Parent", email: "fixture@example.test", phone: "864-555-0100",
     room: "room-20", date: "2026-11-21", startMinutes: 840,
-    optionIndex: 1, deliveryPreference: "email", quantity: 20, depositAcknowledged: true,
+    optionIndex: 1, deliveryPreferences: ["email", "print"], quantity: 20, depositAcknowledged: true,
     childGender: "Girl", drinkChoice: "Capri-Sun", paymentMethod: "Cash", notes: "Please save the blue tablecloth.",
     addons: { customBirthdayBalloons: false, goodieBagsQuantity: 0, cottonCandyPackage: "none" },
     quote: { packagePrice: 240, addonSubtotal: 0, subtotal: 240, tax: 16.8, total: 256.8, taxRate: 0.07 },
@@ -25,7 +25,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
       imageUrl: "https://example.com/space.png", sourceUrl: "https://example.com/source",
       imagePath: "/api/facility/invitations/artwork/" + "a".repeat(64), confirmedAt: "2026-11-04T14:00:00Z",
     },
-    selected_option_index: 1, delivery_preferences: ["email"], invitation_quantity: 20,
+    selected_option_index: 1, delivery_preferences: ["email", "print"], invitation_quantity: 20,
   };
   let failSettings = false;
   let price = 240;
@@ -76,6 +76,8 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   } as unknown as SupabaseClient;
 
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, phone: "864-555-0101" }), /preview_binding_mismatch/);
+  await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email"] }), /preview_binding_mismatch/);
+  await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email", "email"] }), /invalid_binding_approval/);
   failSettings = true;
   await assert.rejects(bindApprovedFacilityPreview(mock, approval), /Facility pricing unavailable/);
   failSettings = false;
@@ -88,7 +90,8 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   assert.equal(first.p_booking.start_time, "2026-11-21T19:00:00.000Z");
   assert.equal(first.p_booking.total, 256.8);
   assert.equal(first.p_booking.invitation_quantity, 20);
-  assert.equal(first.p_booking.invitation_delivery_preference, "email");
+  assert.equal(first.p_booking.invitation_delivery_preference, "email,print");
+  assert.equal((first.p_booking.invitation as { deliveryPreference: string }).deliveryPreference, "email");
   assert.equal(first.p_booking.customer_name, approval.customerName);
   assert.equal(first.p_booking.parent_name, approval.customerName);
   assert.equal(first.p_booking.child_gender, "Girl");

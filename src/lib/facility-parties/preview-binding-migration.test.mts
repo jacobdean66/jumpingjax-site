@@ -21,8 +21,8 @@ test("preview binding uses the current booking RPC, persists the selected invita
         addon_subtotal numeric, subtotal numeric, tax numeric, total numeric,
         pricing_details jsonb, status text, idempotency_key text unique,
         invitation_delivery_preference text not null default 'print'
-          check (invitation_delivery_preference in ('print','email','office_pickup')),
-        invitation_template_id text default 'default',
+          check (invitation_delivery_preference ~ '^(print|email|office_pickup)(,(print|email|office_pickup))*$'),
+        invitation_template_id text default 'spotlight' check (invitation_template_id in ('spotlight','ticket','poster')),
         invitation_quantity integer not null default 4 check (invitation_quantity in (4,8,12,16,20,24,28))
       );
       grant select, update on facility_bookings to service_role;
@@ -41,7 +41,7 @@ test("preview binding uses the current booking RPC, persists the selected invita
       customer_name: "Fixture Parent", email: "fixture@example.test", phone: "864-555-0100",
       child_name: "Alex", child_age: "8", party_theme: "Space", balloon_colors: "Blue", table_cloth_colors: "Silver",
       invitation: { creationPreference: "create", confirmedTheme: theme, optionIndex: 1, deliveryPreference: "email" },
-      invitation_delivery_preference: "email", invitation_template_id: "character-spotlight", invitation_quantity: 20,
+      invitation_delivery_preference: "email", invitation_template_id: "spotlight", invitation_quantity: 20,
     };
     const addPreview = async (key: string, delivery = ["email"]) => {
       const { rows } = await db.query<{ id: string }>(`
@@ -65,7 +65,7 @@ test("preview binding uses the current booking RPC, persists the selected invita
 
     const first = await addPreview("fixture-preview-0001");
     const other = await addPreview("fixture-preview-0002", ["email", "print"]);
-    await assert.rejects(bind(other), /preview_multi_delivery_unavailable/);
+    await assert.rejects(bind(other), /preview_binding_mismatch/);
     await assert.rejects(bind(first, { ...booking, start_time: "2027-11-20T21:00:00Z", end_time: "2027-11-20T22:30:00Z" }), /preview_binding_mismatch/);
     await assert.rejects(bind(first, { ...booking, invitation_quantity: 24 }), /preview_binding_mismatch/);
 
@@ -95,7 +95,7 @@ test("preview binding uses the current booking RPC, persists the selected invita
       from facility_bookings where id = $1
     `, [id])).rows, [{
       invitation: booking.invitation, invitation_delivery_preference: "email",
-      invitation_template_id: "character-spotlight", invitation_quantity: 20, status: "pending",
+      invitation_template_id: "spotlight", invitation_quantity: 20, status: "pending",
       readable_date: "2027-11-20", readable_time: "2:00 PM - 3:30 PM",
     }]);
     await db.query("update facility_invitation_previews set expires_at=now()-interval '1 hour' where id=$1", [first]);
@@ -103,6 +103,13 @@ test("preview binding uses the current booking RPC, persists the selected invita
     await assert.rejects(bind(first, { ...booking, customer_name: "Changed" }), /preview_binding_conflict/);
     await assert.rejects(bind(first, booking, "fixture-other-binding-key"), /preview_binding_conflict/);
     assert.deepEqual((await db.query("select id from facility_bookings")).rows, [{ id }]);
+
+    const multiBooking = { ...booking, room: "room-20", invitation_delivery_preference: "email,print" };
+    const multiId = await bind(other, multiBooking, "fixture-multi-binding-key");
+    assert.deepEqual((await db.query("select invitation_delivery_preference from facility_bookings where id=$1", [multiId])).rows,
+      [{ invitation_delivery_preference: "email,print" }]);
+    assert.equal(await bind(other, multiBooking, "fixture-multi-binding-key"), multiId);
+    await assert.rejects(bind(other, booking, "fixture-multi-binding-key"), /preview_binding_conflict/);
 
     await db.exec("set role authenticated");
     await assert.rejects(bind(first), /permission denied/);

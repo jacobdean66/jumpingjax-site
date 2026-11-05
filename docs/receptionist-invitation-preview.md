@@ -101,13 +101,15 @@ same transaction. The receipt fingerprint identifies exact retries even
 after the preview expires. There is no delivery side effect in this function.
 
 A fresh binding currently accepts a 90-minute public party in the 10-kid or
-20-kid room and a single delivery method. Private parties remain outside this
-binding draft. Read-only linked-project metadata on November 4, 2026 showed
+20-kid room. Private parties remain outside this binding draft. Read-only
+linked-project metadata on November 4, 2026 showed
 the deployed booking constraint accepts comma-separated `print`, `email`, and
-`office_pickup` values. This binding still requires exactly one method and
-persists only its first value. Verify the deployed column and its consumers,
-and implement and test multi-method binding before enabling it. The preview
-selection stays intact if binding is rejected.
+`office_pickup` values. The draft binding now checks the entire approved ordered
+selection, saves all methods as a comma-separated value, and keeps the first
+method as the invitation snapshot's primary value, like the website booking
+route. Local adapter and PGlite tests cover a two-method selection and exact
+replay; deployed consumers and end-to-end fulfillment remain unverified. The
+preview selection stays intact if binding is rejected.
 
 Before connecting the HTTP route, verify the deployed migrations and grants.
 The future authenticated adapter must obtain explicit booking approval, run

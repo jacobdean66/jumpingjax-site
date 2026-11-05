@@ -32,7 +32,8 @@ const approvalSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startMinutes: z.number().int().min(0).max(1350),
   optionIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  deliveryPreference: z.enum(["print", "email", "office_pickup"]),
+  deliveryPreferences: z.array(z.enum(["print", "email", "office_pickup"]))
+    .min(1).max(3).refine(values => new Set(values).size === values.length),
   quantity: z.union([z.literal(4), z.literal(8), z.literal(12), z.literal(16), z.literal(20), z.literal(24), z.literal(28)]),
   depositAcknowledged: z.literal(true),
   childGender: z.enum([...CHILD_GENDER_CHOICES, ""]).default(""),
@@ -94,7 +95,7 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
     selected.party_date !== intent.date || selected.party_time !== time ||
     selected.recipient !== intent.email || selected.customer_phone !== intent.phone ||
     selected.selected_option_index !== intent.optionIndex ||
-    !isDeepStrictEqual(selected.delivery_preferences, [intent.deliveryPreference]) ||
+    !isDeepStrictEqual(selected.delivery_preferences, intent.deliveryPreferences) ||
     selected.invitation_quantity !== intent.quantity || selected.confirmed_theme.label !== selected.party_theme) {
     throw new FacilityPreviewBindingError("preview_binding_mismatch");
   }
@@ -152,8 +153,8 @@ export async function bindApprovedFacilityPreview(db: SupabaseClient, approval: 
       party_theme: selected.party_theme,
       drink_choice: intent.drinkChoice, payment_method: intent.paymentMethod, notes: intent.notes,
       balloon_colors: selected.balloon_colors, table_cloth_colors: selected.table_cloth_colors,
-      invitation: { ...snapshot, creationPreference: "create", deliveryPreference: intent.deliveryPreference },
-      invitation_delivery_preference: intent.deliveryPreference,
+      invitation: { ...snapshot, creationPreference: "create", deliveryPreference: intent.deliveryPreferences[0] },
+      invitation_delivery_preference: intent.deliveryPreferences.join(","),
       invitation_template_id: normalizeInvitationTemplateId(undefined),
       invitation_quantity: intent.quantity,
       deposit_acknowledged: intent.depositAcknowledged, party_label: "Public Play Party",
