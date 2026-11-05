@@ -227,3 +227,16 @@ persistence, slot/quantity mismatches, exact replay after expiry, changed
 replay rejection, existing-key collision rejection, transaction rollback,
 and denial to the authenticated role. It does not verify the deployed schema
 or concurrent database sessions. This binding migration has not been applied.
+
+
+## Ordered selection draft
+
+The preview status response carries `selectionRevision`. An authenticated
+selection write must include the revision the caller reviewed; it atomically
+advances that value and returns 409 if it is stale. A database trigger rejects
+old clients that attempt unversioned writes. After an ambiguous response,
+read the current preview and compare the revision and every selected option;
+never silently refresh and replay an earlier choice. This does not itself
+verify caller identity or consent. Keep the feature disabled until the lab
+client, workflow, migration and real call path are deployed and verified
+together.

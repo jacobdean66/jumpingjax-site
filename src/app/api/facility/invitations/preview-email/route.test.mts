@@ -32,7 +32,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     if (url.includes("/facility_invitation_previews")) {
       if (init?.method === "PATCH") return Response.json({ id });
       lastLookup = url;
-      return Response.json({ id, status: "sending", created_at: createdAt, lease_until: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString(), selected_option_index: null, delivery_preferences: null, invitation_quantity: null });
+      return Response.json({ id, status: "sending", created_at: createdAt, lease_until: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString(), selection_revision: 0, selected_option_index: null, delivery_preferences: null, invitation_quantity: null });
     }
     if (url === "https://api.resend.com/emails") {
       sends++;
