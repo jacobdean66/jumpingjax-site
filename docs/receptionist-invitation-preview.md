@@ -149,22 +149,33 @@ authority and record exact final approval on every request. The adapter is
 not connected to the disabled endpoint. The binding adapter currently checks saved pricing immediately before the RPC.
 A price change can still commit between that read and the booking.
 
-The binding RPC creates and associates a booking and records that its
-notification workflow needs staff attention. It does not send the normal
-facility booking route's owner notification or customer receipt. Do not report
-a confirmation email as sent until those
-steps are explicitly integrated and their outcomes are recorded. Reusing the
-public booking route as a receipt retry requires care: its booking RPC returns
-an existing ID for the same idempotency key, while the route builds email from
-request fields. The safe path must bind delivery to the actual saved booking
-and preserve the original outbox identity, without making another booking.
-The current workflow outcome function recomputes `operator_required` from
-failed steps and can clear a pending marker. The draft adds a trigger to keep
-the alert for preview-linked bookings until both initial emails are resolved.
-Local fictional tests cover this interaction; it has not been deployed or
-verified with the production workflow and does not send either email. The
-trigger uses invoker permissions and depends on the preview link remaining;
-all workflow updaters need preview-table read access for it to operate.
+The binding RPC saves the booking and records that its initial notification
+workflow needs attention. The disabled server orchestrator can then run the
+same facility owner notification and customer receipt used by the website.
+It obtains a service-role dispatch claim for the exact linked, pending
+booking. The claim reads the saved values for email, slot, price and
+invitation choices. Website email formatting, outbox message keys, and
+workflow outcomes are shared. It does not replay the public booking route.
+That route reserves the preview idempotency-key namespace for the binder.
+
+The draft notification migration
+`20261104230000_preview_booking_notification_claim.sql` gives each saved
+preview one short dispatch lease, freezes the owner list on the first
+attempt, and rejects retries against changed booking details. After 23
+hours from the first dispatch claim, unresolved sends require staff
+reconciliation. An accepted or in-flight retry does not create a second
+booking. Notification failure does not hide the saved booking receipt.
+Provider acceptance and inbox delivery are separate states.
+The existing single-outbox-row admin retry refuses unresolved preview
+initial messages so it cannot bypass the booking-level claim. A dedicated
+manual preview retry action remains outside this draft.
+
+The workflow trigger keeps preview bookings visible to staff until both
+initial notifications resolve. The trigger uses invoker permissions and
+depends on the preview link remaining. Before enabling the orchestration,
+verify the deployed workflow, outbox and preview migrations and grants, the
+notification sender and link-signing configuration, and authorized caller
+approval. The public preview booking endpoint remains disabled.
 
 ## Transactional pricing prerequisite
 
