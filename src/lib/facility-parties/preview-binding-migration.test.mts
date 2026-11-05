@@ -41,6 +41,8 @@ test("preview binding uses the current booking RPC, persists the selected invita
       "20261104210000_bind_facility_invitation_preview.sql",
       "20261104220000_preview_artwork_search.sql",
       "20261104223000_facility_pricing_revision.sql",
+      "20261105021500_facility_preview_selection_revision.sql",
+      "20261105021600_guard_preview_booking_revisions.sql",
     ]) {
       await db.exec(await readFile(new URL("../../../supabase/migrations/" + name, import.meta.url), "utf8"));
     }
@@ -63,17 +65,19 @@ test("preview binding uses the current booking RPC, persists the selected invita
         insert into facility_invitation_previews (
           request_key, payload_hash, recipient, child_name, child_age, customer_phone,
           balloon_colors, table_cloth_colors, party_theme, party_date, party_time,
-          confirmed_theme, status, selected_option_index, delivery_preferences, invitation_quantity
+          confirmed_theme, status, selected_option_index, delivery_preferences, invitation_quantity, selection_revision
         ) values ($1,'fixture-hash','fixture@example.test','Alex','8','864-555-0100',
-          'Blue','Silver','Space','2027-11-20','2:00 PM - 3:30 PM',$2,'accepted',1,$3,20)
+          'Blue','Silver','Space','2027-11-20','2:00 PM - 3:30 PM',$2,'accepted',1,$3,20,1)
         returning id
       `, [key, JSON.stringify(theme), delivery]);
       return rows[0].id;
     };
-    const bind = async (id: string, data = booking, key = requestKey, revision: number | null = 1) => {
+    const bind = async (
+      id: string, data = booking, key = requestKey, revision: number | null = 1, selectionRevision = 1,
+    ) => {
       const { rows } = await db.query<{ id: string }>(
-        "select bind_facility_invitation_preview_atomic($1,$2,$3,$4) as id",
-        [id, key, JSON.stringify(data), revision],
+        "select bind_facility_invitation_preview_atomic($1,$2,$3,$4,$5) as id",
+        [id, key, JSON.stringify(data), revision, selectionRevision],
       );
       return rows[0].id;
     };
@@ -144,11 +148,15 @@ test("preview binding uses the current booking RPC, persists the selected invita
     await assert.rejects(bind(other, multiBooking, "fixture-multi-binding-key"), /approved_price_changed/);
     assert.deepEqual((await db.query("select id from facility_bookings")).rows, [{ id }]);
     assert.deepEqual((await db.query("select booking_id from facility_invitation_previews where id=$1", [other])).rows, [{ booking_id: null }]);
-    const multiId = await bind(other, multiBooking, "fixture-multi-binding-key", 2);
+    await db.query("update facility_invitation_previews set selected_option_index=2, selection_revision=2 where id=$1", [other]);
+    await db.query("update facility_invitation_previews set selected_option_index=1, selection_revision=3 where id=$1", [other]);
+    await assert.rejects(bind(other, multiBooking, "fixture-multi-binding-key", 2), /preview_selection_changed/);
+    assert.deepEqual((await db.query("select booking_id from facility_invitation_previews where id=$1", [other])).rows, [{ booking_id: null }]);
+    const multiId = await bind(other, multiBooking, "fixture-multi-binding-key", 2, 3);
     assert.deepEqual((await db.query("select invitation_delivery_preference from facility_bookings where id=$1", [multiId])).rows,
       [{ invitation_delivery_preference: "email,print" }]);
-    assert.equal(await bind(other, multiBooking, "fixture-multi-binding-key"), multiId);
-    await assert.rejects(bind(other, booking, "fixture-multi-binding-key"), /preview_binding_conflict/);
+    assert.equal(await bind(other, multiBooking, "fixture-multi-binding-key", null, 3), multiId);
+    await assert.rejects(bind(other, booking, "fixture-multi-binding-key", null, 3), /preview_binding_conflict/);
 
     await db.exec("set role authenticated");
     await assert.rejects(bind(first), /permission denied/);

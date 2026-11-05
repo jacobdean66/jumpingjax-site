@@ -16,7 +16,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
     previewId: "36fb225d-20d7-4b77-9bfb-bdc4875316de", requestKey: "fixture-preview-bind-001",
     customerName: "Fixture Parent", email: "fixture@example.test", phone: "864-555-0100",
     room: "room-20", date: "2026-11-21", startMinutes: 840,
-    optionIndex: 1, deliveryPreferences: ["email", "print"], quantity: 20, depositAcknowledged: true,
+    selectionRevision: 3, optionIndex: 1, deliveryPreferences: ["email", "print"], quantity: 20, depositAcknowledged: true,
     childGender: "Girl", drinkChoice: "Capri-Sun", paymentMethod: "Cash", notes: "Please save the blue tablecloth.",
     addons: { customBirthdayBalloons: false, goodieBagsQuantity: 0, cottonCandyPackage: "none" },
     pricingRevision: 12,
@@ -32,14 +32,14 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
       imageUrl: "https://example.com/space.png", sourceUrl: "https://example.com/source",
       imagePath: "/api/facility/invitations/artwork/" + "a".repeat(64), confirmedAt: "2026-11-04T14:00:00Z",
     },
-    selected_option_index: 1, delivery_preferences: ["email", "print"], invitation_quantity: 20,
+    selection_revision: 3, selected_option_index: 1, delivery_preferences: ["email", "print"], invitation_quantity: 20,
   };
   let failSettings = false;
   let price = 240;
   let settingsReads = 0;
   let artworkReads = 0;
   let receiptReads = 0;
-  const calls: { p_pricing_revision: number | null; p_booking: Record<string, unknown> }[] = [];
+  const calls: { p_pricing_revision: number | null; p_selection_revision: number; p_booking: Record<string, unknown> }[] = [];
   const mock = {
     from(table: string) {
       return { select: () => ({ eq: () => ({ maybeSingle: async () => {
@@ -82,6 +82,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, phone: "864-555-0101" }), /preview_binding_mismatch/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email"] }), /preview_binding_mismatch/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email", "email"] }), /invalid_binding_approval/);
+  await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, selectionRevision: 1 }), /preview_selection_changed/);
   failSettings = true;
   await assert.rejects(bindApprovedFacilityPreview(mock, approval), /pricing_unavailable/);
   failSettings = false;
@@ -93,6 +94,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   assert.deepEqual(await bindApprovedFacilityPreview(mock, approval), { bookingId });
   const first = calls[0];
   assert.equal(first.p_pricing_revision, 12);
+  assert.equal(first.p_selection_revision, 3);
   assert.equal(first.p_booking.start_time, "2026-11-21T19:00:00.000Z");
   assert.equal(first.p_booking.total, 256.8);
   assert.equal(first.p_booking.invitation_quantity, 20);
@@ -112,6 +114,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   const previousArtworkReads = artworkReads;
   assert.deepEqual(await bindApprovedFacilityPreview(mock, approval), { bookingId });
   assert.equal(calls[1].p_pricing_revision, null);
+  assert.equal(calls[1].p_selection_revision, 3);
   assert.deepEqual(calls[1].p_booking, calls[0].p_booking);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, customerName: "Changed" }), /preview_binding_conflict/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, quote: { ...approval.quote, total: 1 } }), /approved_price_changed/);

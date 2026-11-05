@@ -50,6 +50,8 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
       "20261104210000_bind_facility_invitation_preview.sql",
       "20261104220000_preview_artwork_search.sql",
       "20261104223000_facility_pricing_revision.sql",
+      "20261105021500_facility_preview_selection_revision.sql",
+      "20261105021600_guard_preview_booking_revisions.sql",
     ]) {
       await db.exec(await readFile(new URL("../../../supabase/migrations/" + name, import.meta.url), "utf8"));
     }
@@ -73,22 +75,22 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
       storage: {from() { return {download: async () => ({
         data: new Blob([Buffer.from("89504e470d0a1a0a","hex")]), error: null,
       })}; }},
-      rpc: async (name: string,args: {p_preview_id:string;p_request_key:string;p_booking:unknown;p_pricing_revision:number|null}) => {
+      rpc: async (name: string,args: {p_preview_id:string;p_request_key:string;p_booking:unknown;p_pricing_revision:number|null;p_selection_revision:number}) => {
         assert.equal(name,"bind_facility_invitation_preview_atomic");
-        try {const result=await db.query<{id:string}>("select public.bind_facility_invitation_preview_atomic($1,$2,$3,$4) as id",[args.p_preview_id,args.p_request_key,JSON.stringify(args.p_booking),args.p_pricing_revision]);return {data:result.rows[0].id,error:null};}
+        try {const result=await db.query<{id:string}>("select public.bind_facility_invitation_preview_atomic($1,$2,$3,$4,$5) as id",[args.p_preview_id,args.p_request_key,JSON.stringify(args.p_booking),args.p_pricing_revision,args.p_selection_revision]);return {data:result.rows[0].id,error:null};}
         catch(error) {return {data:null,error:{message:String(error)}};}
       },
     } as unknown as SupabaseClient;
     for (const [room,total,packagePrice,key] of [["room-10",149.8,140,"fictional-preview-10"],["room-20",256.8,240,"fictional-preview-20"]] as const) {
       const inserted=await db.query<{id:string}>(`insert into facility_invitation_previews
         (request_key,payload_hash,recipient,child_name,child_age,customer_phone,balloon_colors,table_cloth_colors,
-         party_theme,party_date,party_time,confirmed_theme,status,selected_option_index,delivery_preferences,invitation_quantity)
+         party_theme,party_date,party_time,confirmed_theme,status,selected_option_index,delivery_preferences,invitation_quantity,selection_revision)
         values ($1,'fixture','parent@example.test','Alex','8','864-555-0100','Blue','Silver',
-          'Space','2026-11-21','2:00 PM - 3:30 PM',$2,'accepted',1,array['email','print'],20) returning id`,[key,JSON.stringify(theme)]);
+          'Space','2026-11-21','2:00 PM - 3:30 PM',$2,'accepted',1,array['email','print'],20,1) returning id`,[key,JSON.stringify(theme)]);
       const previewId=inserted.rows[0].id;
       const result=await bindApprovedFacilityPreview(supabase,{
         previewId,requestKey:key+"-booking",customerName:"Fixture Parent",email:"parent@example.test",phone:"864-555-0100",
-        room,date:"2026-11-21",startMinutes:840,optionIndex:1,deliveryPreferences:["email","print"],quantity:20,depositAcknowledged:true,
+        room,date:"2026-11-21",startMinutes:840,selectionRevision:1,optionIndex:1,deliveryPreferences:["email","print"],quantity:20,depositAcknowledged:true,
         childGender:"Girl",drinkChoice:"Capri-Sun",paymentMethod:"Cash",notes:"",addons:{customBirthdayBalloons:false,goodieBagsQuantity:0,cottonCandyPackage:"none"},
         pricingRevision:1,
         quote:{packagePrice,addonSubtotal:0,subtotal:packagePrice,tax:Math.round((total-packagePrice)*100)/100,total,taxRate:0.07},
