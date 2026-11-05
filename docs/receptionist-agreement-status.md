@@ -41,3 +41,20 @@ callers do not opt in as part of this draft. This check alone is not an atomic
 claim, does not bind caller consent, and does not resolve a lost provider response
 or an idempotency-window expiry. The receptionist must not blindly retry an
 uncertain send or connect this option without those remaining safeguards.
+
+The unexposed, unapplied `20261105011000` draft adds a service-role-only
+agreement-email claim: it locks the booking, checks the saved recipient and
+exact single active unsigned version (including a null signed timestamp), and
+commits an unknown outcome before
+granting one send attempt. A repeated operation with a different keyed payload
+commitment is rejected; a different operation is blocked while the prior one is
+unknown. It stores no recipient or message body. Local PGlite tests cover both
+booking types and denial to anon/authenticated roles. A separate two-session
+local PostgreSQL test adapted only schema and grants to a disposable schema and
+observed one dispatch grant for simultaneous claims. The trusted server must
+compute the HMAC over the exact
+recipient, agreement version and message, verify caller authority and consent,
+and ensure the outbound message matches that commitment. The current draft has
+no provider acceptance/reconciliation operation and no live send integration.
+A cancellation or edit after claim but before network dispatch remains a race;
+do not enable the bridge until that boundary is addressed and tested.
