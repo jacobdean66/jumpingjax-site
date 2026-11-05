@@ -51,3 +51,38 @@ for (const scenario of ["invalid address", "authentication", "quota", "rate limi
     }
   });
 }
+
+test("single-attempt agreement mail records provider ambiguity without retrying", async context => {
+  const previous = process.env.RESEND_API_KEY;
+  process.env.RESEND_API_KEY = "test-key";
+  let row: Record<string, unknown> | undefined;
+  let attempts = 0;
+  context.mock.method(globalThis, "fetch", async (source: string | Request, init?: RequestInit) => {
+    const req = new Request(source, init);
+    const url = new URL(req.url);
+    if (url.hostname === "api.resend.com") {
+      attempts++;
+      return Response.json({ name: "internal_server_error", message: "ambiguous" }, { status: 500 });
+    }
+    if (req.method === "POST") { row = { ...await req.json(), status: "pending", attempt_count: 0 }; return new Response(null, { status: 201 }); }
+    if (req.method === "PATCH") { Object.assign(row!, await req.json()); return new Response(null, { status: 204 }); }
+    return Response.json(row);
+  });
+  try {
+    const supabase = createClient("https://durable-test.supabase.co", "test-key");
+    const result = await sendDurableBookingEmail({
+      supabase, messageKey: "receptionist-agreement-2ecf032f-f261-44fb-a0e0-fc180e456789",
+      kind: "rental", bookingId: "123", purpose: "rental_agreement_signature", to: "caller@example.test",
+      subject: "Sign rental", text: "Exact message", requireExactPayload: true, singleAttempt: true,
+      payloadMac: "a".repeat(64), tags: [{ name: "agreement_operation_id", value: "2ecf032f-f261-44fb-a0e0-fc180e456789" }],
+    });
+    assert.deepEqual(result, { error: { code: "email_provider_unavailable" }, outcomeUnknown: true });
+    assert.equal(attempts, 1);
+    assert.equal(row?.status, "pending");
+    assert.equal(row?.attempt_count, 1);
+    assert.equal(row?.payload_mac, "a".repeat(64));
+  } finally {
+    if (previous === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = previous;
+  }
+});

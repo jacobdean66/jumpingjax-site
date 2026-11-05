@@ -8,6 +8,7 @@ const base = {
   agreementId: "1ecf032f-f261-44fb-a0e0-fc180e456789",
   version: 2,
   operationId: "2ecf032f-f261-44fb-a0e0-fc180e456789",
+  authorityEvidenceId: "4ecf032f-f261-44fb-a0e0-fc180e456789",
   consentEvidenceId: "3ecf032f-f261-44fb-a0e0-fc180e456789",
   recipient: "alex@example.com",
   purpose: "rental_agreement_signature" as const,

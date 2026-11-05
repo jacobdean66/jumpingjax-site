@@ -26,6 +26,7 @@ export type AgreementEmailPreparation = {
   agreementId: string;
   version: number;
   operationId: string;
+  authorityEvidenceId: string;
   consentEvidenceId: string;
   recipient: string;
   purpose: "rental_agreement_signature" | "party_agreement_signature";
@@ -81,10 +82,14 @@ export async function prepareCurrentAgreementEmail(input: {
   version: number;
   operationId: string;
   consent: AgreementConsentEvidence;
+  authorityEvidenceId: string;
 }): Promise<AgreementEmailPreparation> {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.operationId) ||
       !Number.isSafeInteger(input.version) || input.version < 1) {
     throw new Error("Agreement email request is invalid.");
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.authorityEvidenceId)) {
+    throw new Error("Agreement caller authority evidence is invalid.");
   }
 
   const db = createServiceRoleClient();
@@ -144,6 +149,7 @@ export async function prepareCurrentAgreementEmail(input: {
     agreementId: input.agreementId,
     version: input.version,
     operationId: input.operationId,
+    authorityEvidenceId: input.authorityEvidenceId,
     consentEvidenceId: input.consent.evidenceId,
     recipient: recipient.toLowerCase(),
     purpose: input.kind === "rental" ? "rental_agreement_signature" as const : "party_agreement_signature" as const,
