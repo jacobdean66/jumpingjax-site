@@ -7,7 +7,9 @@ import { setTimeout as delay } from "node:timers/promises";
 const image = "public.ecr.aws/supabase/postgres:17.6.1.121";
 const container = `jjx-pricing-race-${process.pid}`;
 const database = "pricing_race";
-const psqlArgs = ["exec", "-i", "--user", "postgres", container, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-d", database];
+const fixturePassword = "synthetic-local-test-only";
+// Connect to the final postmaster, not the image's socket-only bootstrap server.
+const psqlArgs = ["exec", "-i", "--user", "postgres", "-e", `PGPASSWORD=${fixturePassword}`, container, "psql", "-h", "127.0.0.1", "-U", "supabase_admin", "-w", "-XqAt", "-v", "ON_ERROR_STOP=1", "-d", database];
 const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
 const json = value => quote(JSON.stringify(value)) + "::jsonb";
 const docker = (args, input) => spawnSync("docker", args, { input, encoding: "utf8", timeout: 30_000 });
@@ -146,7 +148,7 @@ function createPreview(key) {
 
 const started = docker([
   "run", "--rm", "-d", "--pull=never", "--network", "none", "--name", container,
-  "-e", "POSTGRES_PASSWORD=synthetic-local-test-only", "-e", `POSTGRES_DB=${database}`, image,
+  "-e", `POSTGRES_PASSWORD=${fixturePassword}`, "-e", `POSTGRES_DB=${database}`, image,
 ]);
 assert.equal(started.status, 0, started.error?.message ?? started.stderr);
 try {
