@@ -102,10 +102,12 @@ after the preview expires. There is no delivery side effect in this function.
 
 A fresh binding currently accepts a 90-minute public party in the 10-kid or
 20-kid room and a single delivery method. Private parties remain outside this
-binding draft. The tracked
-booking constraint allows only one value while the preview supports several.
-Verify the deployed column and its consumers before enabling multi-method
-binding. The preview selection stays intact if binding is rejected.
+binding draft. Read-only linked-project metadata on November 4, 2026 showed
+the deployed booking constraint accepts comma-separated `print`, `email`, and
+`office_pickup` values. This binding still requires exactly one method and
+persists only its first value. Verify the deployed column and its consumers,
+and implement and test multi-method binding before enabling it. The preview
+selection stays intact if binding is rejected.
 
 Before connecting the HTTP route, verify the deployed migrations and grants.
 The future authenticated adapter must obtain explicit booking approval, run
