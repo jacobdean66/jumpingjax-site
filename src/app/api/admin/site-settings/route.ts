@@ -9,6 +9,12 @@ import {
   normalizeWebsiteText,
   saveSiteSettings,
 } from "@/lib/admin/site-settings";
+import {
+  databaseFacilityPricingEnabled,
+  readFacilityPricingSnapshot,
+  saveFacilityPricingSnapshot,
+} from "@/lib/facility-parties/saved-pricing";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 function numberValue(value: FormDataEntryValue | null, fallback: number): number {
   const parsed = Number(value);
@@ -49,51 +55,76 @@ export async function POST(req: NextRequest) {
 
   try {
     const action = String(formData.get("action") ?? "");
-    const current = await loadSiteSettings();
+    if (action === "facility-pricing" && process.env.FACILITY_PRICING_WRITES_FROZEN === "true") {
+      throw new Error("Facility price edits are temporarily paused.");
+    }
+    const pricingDb = action === "facility-pricing" && databaseFacilityPricingEnabled()
+      ? createServiceRoleClient() : null;
+    const snapshot = pricingDb ? await readFacilityPricingSnapshot(pricingDb) : null;
+    const current = snapshot ? null : await loadSiteSettings();
     let message = "Website settings saved";
 
     if (action === "facility-pricing") {
-      current.facilityPricing = normalizeFacilityPricing({
+      const previousPricing = snapshot?.pricing ?? current?.facilityPricing;
+      if (!previousPricing) throw new Error("Facility pricing is temporarily unavailable.");
+      if ((formData.get("pricingRevision") ?? "") !== (snapshot ? String(snapshot.revision) : "")) {
+        throw new Error("Facility pricing changed. Reload the settings and try again.");
+      }
+      if (snapshot) {
+        for (const key of Object.keys(previousPricing)) {
+          const value = formData.get(key === "taxRate" ? "taxPercent" : key);
+          if (typeof value !== "string" || !value.trim() || !Number.isFinite(Number(value))
+            || Number(value) < 0 || (key === "taxRate" && Number(value) > 100)) {
+            throw new Error("Enter a valid value for every facility price and the tax percentage.");
+          }
+        }
+      }
+      const pricing = normalizeFacilityPricing({
         publicRoom10: numberValue(
           formData.get("publicRoom10"),
-          current.facilityPricing.publicRoom10,
+          previousPricing.publicRoom10,
         ),
         publicRoom20Weekday: numberValue(
           formData.get("publicRoom20Weekday"),
-          current.facilityPricing.publicRoom20Weekday,
+          previousPricing.publicRoom20Weekday,
         ),
         publicRoom20Weekend: numberValue(
           formData.get("publicRoom20Weekend"),
-          current.facilityPricing.publicRoom20Weekend,
+          previousPricing.publicRoom20Weekend,
         ),
         privateWeekday90: numberValue(
           formData.get("privateWeekday90"),
-          current.facilityPricing.privateWeekday90,
+          previousPricing.privateWeekday90,
         ),
         privateWeekday120: numberValue(
           formData.get("privateWeekday120"),
-          current.facilityPricing.privateWeekday120,
+          previousPricing.privateWeekday120,
         ),
         privateWeekend90: numberValue(
           formData.get("privateWeekend90"),
-          current.facilityPricing.privateWeekend90,
+          previousPricing.privateWeekend90,
         ),
         privateWeekend120: numberValue(
           formData.get("privateWeekend120"),
-          current.facilityPricing.privateWeekend120,
+          previousPricing.privateWeekend120,
         ),
         privateAny180: numberValue(
           formData.get("privateAny180"),
-          current.facilityPricing.privateAny180,
+          previousPricing.privateAny180,
         ),
         taxRate:
           numberValue(
             formData.get("taxPercent"),
-            current.facilityPricing.taxRate * 100,
+            previousPricing.taxRate * 100,
           ) / 100,
       });
+      if (pricingDb && snapshot) {
+        await saveFacilityPricingSnapshot(pricingDb, pricing, snapshot.revision);
+      } else if (current) {
+        current.facilityPricing = pricing;
+      }
       message = "Facility party prices saved";
-    } else if (action === "business-hours") {
+    } else if (action === "business-hours" && current) {
       current.businessHours = normalizeBusinessHours(
         current.businessHours.map((row, index) => {
           const closed = checkboxValue(formData.get(`closed-${index}`));
@@ -105,7 +136,7 @@ export async function POST(req: NextRequest) {
         }),
       );
       message = "Business hours saved";
-    } else if (action === "website-text") {
+    } else if (action === "website-text" && current) {
       current.websiteText = normalizeWebsiteText({
         businessTagline: textValue(formData.get("businessTagline")),
         businessDescription: textValue(formData.get("businessDescription")),
@@ -128,7 +159,7 @@ export async function POST(req: NextRequest) {
       throw new Error("Choose a settings section to save.");
     }
 
-    await saveSiteSettings(current);
+    if (current) await saveSiteSettings(current);
     revalidatePath("/");
     revalidatePath("/rentals");
     revalidatePath("/facility-parties");

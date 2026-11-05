@@ -1,5 +1,9 @@
 import { loadSiteSettings } from "@/lib/admin/site-settings";
 import {
+  databaseFacilityPricingEnabled,
+  readFacilityPricingSnapshot,
+} from "@/lib/facility-parties/saved-pricing";
+import {
   formatUsd,
   priceFacilityPartyWithConfig,
 } from "@/lib/facility-parties/pricing";
@@ -56,6 +60,11 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
   }
 
   const settings = await loadSiteSettings();
+  const databasePricing = databaseFacilityPricingEnabled();
+  const snapshot = databasePricing
+    ? await readFacilityPricingSnapshot().catch(() => null)
+    : null;
+  const facilityPricing = snapshot?.pricing ?? settings.facilityPricing;
   const priceRows = [
     {
       label: "10 kid public party",
@@ -68,7 +77,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
     },
     {
@@ -82,7 +91,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
     },
     {
@@ -96,7 +105,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           durationMinutes: 90,
           addonSubtotal: 0,
         },
-        settings.facilityPricing,
+        facilityPricing,
       ).packagePrice,
     },
   ];
@@ -105,49 +114,49 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       name: "publicRoom10",
       label: "10 kid public party",
       help: "Room 10, 90 minutes",
-      value: settings.facilityPricing.publicRoom10,
+      value: facilityPricing.publicRoom10,
     },
     {
       name: "publicRoom20Weekday",
       label: "20 kid public party, Wed/Thu",
       help: "Room 20, 90 minutes",
-      value: settings.facilityPricing.publicRoom20Weekday,
+      value: facilityPricing.publicRoom20Weekday,
     },
     {
       name: "publicRoom20Weekend",
       label: "20 kid public party, Fri/Sat",
       help: "Room 20, 90 minutes",
-      value: settings.facilityPricing.publicRoom20Weekend,
+      value: facilityPricing.publicRoom20Weekend,
     },
     {
       name: "privateWeekday90",
       label: "Private party, Mon–Thu, 90 minutes",
       help: "Full facility",
-      value: settings.facilityPricing.privateWeekday90,
+      value: facilityPricing.privateWeekday90,
     },
     {
       name: "privateWeekday120",
       label: "Private party, Mon–Thu, 120 minutes",
       help: "Full facility",
-      value: settings.facilityPricing.privateWeekday120,
+      value: facilityPricing.privateWeekday120,
     },
     {
       name: "privateWeekend90",
       label: "Private party, Fri/Sat/Sun, 90 minutes",
       help: "Full facility",
-      value: settings.facilityPricing.privateWeekend90,
+      value: facilityPricing.privateWeekend90,
     },
     {
       name: "privateWeekend120",
       label: "Private party, Fri/Sat/Sun, 120 minutes",
       help: "Full facility",
-      value: settings.facilityPricing.privateWeekend120,
+      value: facilityPricing.privateWeekend120,
     },
     {
       name: "privateAny180",
       label: "Private party, any day, 180 minutes",
       help: "Full facility",
-      value: settings.facilityPricing.privateAny180,
+      value: facilityPricing.privateAny180,
     },
   ];
 
@@ -186,6 +195,11 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         socialPostsHref={settingsHref(token, "/admin/social-posts")}
       />
 
+      {databasePricing && !snapshot ? (
+        <p className="mt-6 rounded-xl bg-amber-100 p-4 font-bold text-amber-900">
+          Facility pricing is temporarily unavailable.
+        </p>
+      ) : (
       <form
         action="/api/admin/site-settings"
         method="post"
@@ -193,6 +207,7 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
       >
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="action" value="facility-pricing" />
+        {snapshot && <input type="hidden" name="pricingRevision" value={snapshot.revision} />}
         <div className="border-b border-slate-200 pb-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
             Facility Party Prices
@@ -253,13 +268,14 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
               min="0"
               max="100"
               step="0.01"
-              defaultValue={settings.facilityPricing.taxRate * 100}
+              defaultValue={facilityPricing.taxRate * 100}
               className={inputClassName}
             />
           </label>
         </div>
         <FormFooter label="Save facility prices" />
       </form>
+      )}
 
       <form
         action="/api/admin/site-settings"

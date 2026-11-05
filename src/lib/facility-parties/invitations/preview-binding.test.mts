@@ -4,6 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { bindApprovedFacilityPreview, type ApprovedFacilityPreview } from "./preview-binding";
 
 test("adapter uses saved prices for a new binding and reconstructs exact retries from the saved booking", async (t) => {
+  const previousPricingSource = process.env.FACILITY_PRICING_DATABASE_ENABLED;
+  process.env.FACILITY_PRICING_DATABASE_ENABLED = "true";
+  t.after(() => {
+    if (previousPricingSource === undefined) delete process.env.FACILITY_PRICING_DATABASE_ENABLED;
+    else process.env.FACILITY_PRICING_DATABASE_ENABLED = previousPricingSource;
+  });
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-04T15:00:00Z") });
   const bookingId = "5efb225d-20d7-4b77-9bfb-bdc4875316de";
   const approval: ApprovedFacilityPreview = {
@@ -13,6 +19,7 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
     optionIndex: 1, deliveryPreferences: ["email", "print"], quantity: 20, depositAcknowledged: true,
     childGender: "Girl", drinkChoice: "Capri-Sun", paymentMethod: "Cash", notes: "Please save the blue tablecloth.",
     addons: { customBirthdayBalloons: false, goodieBagsQuantity: 0, cottonCandyPackage: "none" },
+    pricingRevision: 12,
     quote: { packagePrice: 240, addonSubtotal: 0, subtotal: 240, tax: 16.8, total: 256.8, taxRate: 0.07 },
   };
   const preview = {
@@ -32,11 +39,20 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   let settingsReads = 0;
   let artworkReads = 0;
   let receiptReads = 0;
-  const calls: unknown[] = [];
+  const calls: { p_pricing_revision: number | null; p_booking: Record<string, unknown> }[] = [];
   const mock = {
     from(table: string) {
       return { select: () => ({ eq: () => ({ maybeSingle: async () => {
         if (table === "facility_invitation_previews") return { data: preview, error: null };
+        if (table === "facility_pricing_settings") {
+          settingsReads++;
+          if (failSettings) return { data: null, error: { message: "offline" } };
+          return { data: { revision: 12, pricing: {
+            publicRoom10: 140, publicRoom20Weekday: 215, publicRoom20Weekend: price,
+            privateWeekday90: 270, privateWeekday120: 305, privateWeekend90: 270,
+            privateWeekend120: 305, privateAny180: 450, taxRate: 0.07,
+          } }, error: null };
+        }
         assert.equal(table, "facility_bookings");
         receiptReads++;
         return { data: {
@@ -46,29 +62,17 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
       } }) }) };
     },
     storage: { from(bucket: string) {
-      return { download: async (path: string, options?: { cacheNonce: string }, init?: { cache: string }) => {
-        if (bucket === "site-settings") {
-          settingsReads++;
-          assert.equal(path, "public-settings.json");
-          assert.ok(options?.cacheNonce);
-          assert.equal(init?.cache, "no-store");
-          if (failSettings) return { data: null, error: { message: "offline" } };
-          return { data: new Blob([JSON.stringify({ facilityPricing: {
-            publicRoom10: 140, publicRoom20Weekday: 215, publicRoom20Weekend: price,
-            privateWeekday90: 270, privateWeekday120: 305, privateWeekend90: 270,
-            privateWeekend120: 305, privateAny180: 450, taxRate: 0.07,
-          } })]), error: null };
-        }
+      return { download: async (path: string) => {
         assert.match(bucket, /^invitation-theme-artwork(?:-preview)?$/);
         assert.equal(path, "a".repeat(64) + ".png");
         artworkReads++;
         return { data: new Blob([Buffer.from("89504e470d0a1a0a", "hex")]), error: null };
       } };
     } },
-    rpc: async (name: string, args: unknown) => {
+    rpc: async (name: string, args: (typeof calls)[number]) => {
       assert.equal(name, "bind_facility_invitation_preview_atomic");
       calls.push(args);
-      if (calls.length > 1 && JSON.stringify(args) !== JSON.stringify(calls[0])) {
+      if (calls.length > 1 && JSON.stringify(args.p_booking) !== JSON.stringify(calls[0].p_booking)) {
         return { data: null, error: { message: "preview_binding_conflict" } };
       }
       return { data: bookingId, error: null };
@@ -79,14 +83,16 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email"] }), /preview_binding_mismatch/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, deliveryPreferences: ["email", "email"] }), /invalid_binding_approval/);
   failSettings = true;
-  await assert.rejects(bindApprovedFacilityPreview(mock, approval), /Facility pricing unavailable/);
+  await assert.rejects(bindApprovedFacilityPreview(mock, approval), /pricing_unavailable/);
   failSettings = false;
+  await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, pricingRevision: 11 }), /approved_price_changed/);
   price = 250;
   await assert.rejects(bindApprovedFacilityPreview(mock, approval), /approved_price_changed/);
   assert.equal(calls.length, 0);
   price = 240;
   assert.deepEqual(await bindApprovedFacilityPreview(mock, approval), { bookingId });
-  const first = calls[0] as { p_booking: Record<string, unknown> };
+  const first = calls[0];
+  assert.equal(first.p_pricing_revision, 12);
   assert.equal(first.p_booking.start_time, "2026-11-21T19:00:00.000Z");
   assert.equal(first.p_booking.total, 256.8);
   assert.equal(first.p_booking.invitation_quantity, 20);
@@ -105,7 +111,8 @@ test("adapter uses saved prices for a new binding and reconstructs exact retries
   const previousSettingsReads = settingsReads;
   const previousArtworkReads = artworkReads;
   assert.deepEqual(await bindApprovedFacilityPreview(mock, approval), { bookingId });
-  assert.deepEqual(calls[1], calls[0]);
+  assert.equal(calls[1].p_pricing_revision, null);
+  assert.deepEqual(calls[1].p_booking, calls[0].p_booking);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, customerName: "Changed" }), /preview_binding_conflict/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, quote: { ...approval.quote, total: 1 } }), /approved_price_changed/);
   await assert.rejects(bindApprovedFacilityPreview(mock, { ...approval, notes: "Changed" }), /preview_binding_conflict/);
