@@ -13,6 +13,11 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
       create role anon;
       create role authenticated;
       create role service_role bypassrls;
+      create table booking_integration_workflows (
+        booking_kind text not null, booking_id text not null,
+        operator_required boolean not null default false, last_error_class text,
+        unique (booking_kind, booking_id)
+      );
       create table facility_bookings (
         id uuid primary key default gen_random_uuid(),
         party_kind text, room text, start_time timestamptz, end_time timestamptz,
@@ -29,6 +34,7 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
         invitation_quantity integer not null default 4 check (invitation_quantity in (4,8,12,16,20,24,28))
       );
       grant select, update on facility_bookings to service_role;
+      grant select, insert on booking_integration_workflows to service_role;
     `);
     for (const name of [
       "20260930002000_repair_facility_invitation_persistence.sql",

@@ -10,6 +10,11 @@ test("preview binding uses the current booking RPC, persists the selected invita
       create role anon;
       create role authenticated;
       create role service_role bypassrls;
+      create table booking_integration_workflows (
+        booking_kind text not null, booking_id text not null,
+        operator_required boolean not null default false, last_error_class text,
+        unique (booking_kind, booking_id)
+      );
       create table facility_bookings (
         id uuid primary key default gen_random_uuid(),
         party_kind text, room text, start_time timestamptz, end_time timestamptz,
@@ -26,6 +31,7 @@ test("preview binding uses the current booking RPC, persists the selected invita
         invitation_quantity integer not null default 4 check (invitation_quantity in (4,8,12,16,20,24,28))
       );
       grant select, update on facility_bookings to service_role;
+      grant select, insert on booking_integration_workflows to service_role;
     `);
     for (const name of [
       "20260930002000_repair_facility_invitation_persistence.sql",
@@ -98,6 +104,8 @@ test("preview binding uses the current booking RPC, persists the selected invita
       invitation_template_id: "spotlight", invitation_quantity: 20, status: "pending",
       readable_date: "2027-11-20", readable_time: "2:00 PM - 3:30 PM",
     }]);
+    assert.deepEqual((await db.query("select booking_kind,booking_id,operator_required,last_error_class from booking_integration_workflows where booking_id=$1", [id])).rows,
+      [{booking_kind:"facility",booking_id:id,operator_required:true,last_error_class:"preview_notifications_pending"}]);
     await db.query("update facility_invitation_previews set expires_at=now()-interval '1 hour' where id=$1", [first]);
     assert.equal(await bind(first), id);
     await assert.rejects(bind(first, { ...booking, customer_name: "Changed" }), /preview_binding_conflict/);

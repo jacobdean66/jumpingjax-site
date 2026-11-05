@@ -113,6 +113,13 @@ begin
     raise exception using errcode = 'P0001', message = 'preview_booking_key_conflict';
   end if;
 
+  -- This path does not yet execute the website's email workflow. Record the
+  -- missing notifications atomically so staff can see that work is required.
+  insert into public.booking_integration_workflows
+    (booking_kind, booking_id, operator_required, last_error_class)
+    values ('facility', booking_id_result::text, true, 'preview_notifications_pending')
+    on conflict (booking_kind, booking_id) do nothing;
+
   update public.facility_invitation_previews
     set booking_id = booking_id_result, binding_fingerprint = fingerprint
     where id = p_preview_id;
