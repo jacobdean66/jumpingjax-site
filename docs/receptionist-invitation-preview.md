@@ -149,9 +149,10 @@ authority and record exact final approval on every request. The adapter is
 not connected to the disabled endpoint. The binding adapter currently checks saved pricing immediately before the RPC.
 A price change can still commit between that read and the booking.
 
-The binding RPC only creates and associates a booking. It does not run the
-normal facility booking route's workflow initialization, owner notification,
-or customer receipt. Do not report a confirmation email as sent until those
+The binding RPC creates and associates a booking and records that its
+notification workflow needs staff attention. It does not send the normal
+facility booking route's owner notification or customer receipt. Do not report
+a confirmation email as sent until those
 steps are explicitly integrated and their outcomes are recorded. Reusing the
 public booking route as a receipt retry requires care: its booking RPC returns
 an existing ID for the same idempotency key, while the route builds email from
