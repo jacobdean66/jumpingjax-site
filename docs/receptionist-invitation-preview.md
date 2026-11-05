@@ -158,6 +158,9 @@ public booking route as a receipt retry requires care: its booking RPC returns
 an existing ID for the same idempotency key, while the route builds email from
 request fields. The safe path must bind delivery to the actual saved booking
 and preserve the original outbox identity, without making another booking.
+The current workflow outcome function recomputes `operator_required` from
+failed steps and can clear this marker while an email is still pending. Fix
+that interaction before relying on the marker for ongoing staff alerts.
 
 ## Transactional pricing prerequisite
 
