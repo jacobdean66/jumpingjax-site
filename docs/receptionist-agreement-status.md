@@ -11,9 +11,11 @@ non-superseded agreement; it does not mean no historical version exists.
 This helper is not an HTTP route and does not authenticate a caller or send
 anything. A trusted caller must first verify authority for the exact booking.
 The response is an observation at query time, not a guarantee that the
-agreement stays current after the read. Booking and agreement queries are not
-one transaction, so their race and all relevant snapshot/terms invalidation
-must be resolved before telling a caller that the current terms are signed.
+agreement stays current after the read. The draft service-role SQL function
+reads the booking and agreement in one database statement and preserves bigint
+rental IDs as text. Its migration is not applied. All relevant snapshot/terms
+invalidation and races after the read still need to be resolved before telling
+a caller that the current terms are signed.
 Every agreement-bearing result carries `freshness: "unverified"` so callers
 cannot mistake a recorded signature for verified current terms.
 
