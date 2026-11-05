@@ -84,11 +84,16 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   if (disabled()) return reply({ error: "Preview service unavailable" }, 503);
   if (!authorized(request)) return reply({ error: "Unauthorized" }, 401);
-  const id = new URL(request.url).searchParams.get("requestId") ?? "";
-  if (!validId(id)) return reply({ error: "Invalid request" }, 400);
+  const params = new URL(request.url).searchParams;
+  const ids = params.getAll("requestId"), keys = params.getAll("requestKey");
+  const id = ids[0] ?? "", key = keys[0] ?? "";
+  if (ids.length + keys.length !== 1 || (ids.length === 1 ? !validId(id) : !/^[A-Za-z0-9._:-]{16,128}$/.test(key))) {
+    return reply({ error: "Invalid request" }, 400);
+  }
   try {
     const { data, error } = await createServiceRoleClient().from("facility_invitation_previews")
-      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,expires_at,created_at,lease_until,confirmed_theme,artwork_search_keys").eq("id", id).maybeSingle();
+      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,expires_at,created_at,lease_until,confirmed_theme,artwork_search_keys")
+      .eq(ids.length === 1 ? "id" : "request_key", ids.length === 1 ? id : key).maybeSingle();
     if (error) return reply({ error: "Preview service unavailable" }, 503);
     if (!data || new Date(data.expires_at).getTime() <= Date.now()) return reply({ error: "Not found" }, 404);
     let status = data.status;

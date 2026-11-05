@@ -10,6 +10,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
   const secret = "synthetic-test-only-0123456789abcdef";
   const id = "1ecf032f-f261-44fb-a0e0-fc180e456789";
   let claim = "claimed", failSend = true, sends = 0;
+  let lastLookup = "";
   let createdAt = new Date().toISOString();
   const claims: Array<Record<string, unknown>> = [];
   const sendKeys: string[] = [];
@@ -30,6 +31,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     }
     if (url.includes("/facility_invitation_previews")) {
       if (init?.method === "PATCH") return Response.json({ id });
+      lastLookup = url;
       return Response.json({ id, status: "sending", created_at: createdAt, lease_until: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString(), selected_option_index: null, delivery_preferences: null, invitation_quantity: null });
     }
     if (url === "https://api.resend.com/emails") {
@@ -73,6 +75,13 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     const statusRequest = () => new Request(`http://localhost?requestId=${id}`, { headers: { authorization: `Bearer ${secret}` } });
     const stale = await (await GET(statusRequest())).json();
     assert.equal(stale.status, "retryable");
+    const keyUrl = "http://localhost?requestKey=preview-request-0001";
+    assert.equal((await GET(new Request(keyUrl, { headers: { authorization: "Bearer wrong" } }))).status, 401);
+    assert.equal((await GET(new Request(keyUrl + `&requestId=${id}`, { headers: { authorization: `Bearer ${secret}` } }))).status, 400);
+    const recovered = await (await GET(new Request(keyUrl, { headers: { authorization: `Bearer ${secret}` } }))).json();
+    assert.equal(recovered.requestId, id);
+    assert.equal(new URL(lastLookup).searchParams.get("request_key"), "eq.preview-request-0001");
+    assert.equal(JSON.stringify(recovered).includes("caller@example.test"), false);
     assert.match(stale.retry, /same requestKey and party details/);
     assert.equal((await POST(make(`Bearer ${secret}`))).status, 503);
     failSend = false;

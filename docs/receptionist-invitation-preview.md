@@ -54,8 +54,13 @@ search budget and prevents layout selection or booking until the picture is
 confirmed. Apply it only after verifying the existing preview schema. The
 feature remains disabled by default.
 
-Authenticated `GET` on that route, with `requestId`, reports stored artwork status and selected
-options. Uncertain sends can retry the same key and details within the 23-hour
+Authenticated `GET` on that route, with exactly one of `requestId` or the
+original `requestKey`, reports stored artwork status and selected options.
+The key lookup allows an authorized client to recover the preview ID if the
+POST response was lost. Generate an opaque request key without customer data;
+query URLs may be logged. A missing result does not prove an earlier in-flight
+request cannot still finish and does not authorize a new send. Uncertain sends
+can retry the same key and details within the 23-hour
 window; older uncertain sends require reconciliation and must not be resent
 with a new key. Durable quotas and leases live in the preview table.
 
