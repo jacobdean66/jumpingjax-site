@@ -107,8 +107,11 @@ the deployed booking constraint accepts comma-separated `print`, `email`, and
 `office_pickup` values. The draft binding now checks the entire approved ordered
 selection, saves all methods as a comma-separated value, and keeps the first
 method as the invitation snapshot's primary value, like the website booking
-route. Local adapter and PGlite tests cover a two-method selection and exact
-replay; deployed consumers and end-to-end fulfillment remain unverified. The
+route. The current source for the staff invitation page parses the stored
+comma-separated column into distinct delivery preferences, and resolves the
+selected visual layout from the invitation snapshot. Local adapter and PGlite
+tests cover a two-method selection and exact replay; deployed consumers and
+end-to-end fulfillment remain unverified. The
 preview selection stays intact if binding is rejected.
 
 Before connecting the HTTP route, verify the deployed migrations and grants.
