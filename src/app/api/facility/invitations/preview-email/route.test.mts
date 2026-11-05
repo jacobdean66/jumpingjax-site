@@ -12,6 +12,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
   let claim = "claimed", failSend = true, sends = 0;
   let lastLookup = "";
   let createdAt = new Date().toISOString();
+  let selectionAttemptId: string | null = null;
   const claims: Array<Record<string, unknown>> = [];
   const sendKeys: string[] = [];
   const sendBodies: string[] = [];
@@ -32,7 +33,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     if (url.includes("/facility_invitation_previews")) {
       if (init?.method === "PATCH") return Response.json({ id });
       lastLookup = url;
-      return Response.json({ id, status: "sending", created_at: createdAt, lease_until: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString(), selection_revision: 0, selected_option_index: null, delivery_preferences: null, invitation_quantity: null });
+      return Response.json({ id, status: selectionAttemptId ? "accepted" : "sending", created_at: createdAt, lease_until: new Date(Date.now() - 1000).toISOString(), expires_at: new Date(Date.now() + 86400000).toISOString(), selection_revision: selectionAttemptId ? 1 : 0, selection_attempt_id: selectionAttemptId, selected_option_index: selectionAttemptId ? 1 : null, delivery_preferences: selectionAttemptId ? ["email"] : null, invitation_quantity: selectionAttemptId ? 20 : null });
     }
     if (url === "https://api.resend.com/emails") {
       sends++;
@@ -75,6 +76,7 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     const statusRequest = () => new Request(`http://localhost?requestId=${id}`, { headers: { authorization: `Bearer ${secret}` } });
     const stale = await (await GET(statusRequest())).json();
     assert.equal(stale.status, "retryable");
+    assert.equal(stale.selectionAttemptId, null);
     const keyUrl = "http://localhost?requestKey=preview-request-0001";
     assert.equal((await GET(new Request(keyUrl, { headers: { authorization: "Bearer wrong" } }))).status, 401);
     assert.equal((await GET(new Request(keyUrl + `&requestId=${id}`, { headers: { authorization: `Bearer ${secret}` } }))).status, 400);
@@ -94,6 +96,13 @@ test("auth, conflict, and failed-send retry use the same provider idempotency ke
     assert.deepEqual(sendKeys, [`facility-preview-${id}`, `facility-preview-${id}`]);
     assert.equal(sendBodies[0], sendBodies[1]);
     assert.equal(claims.at(-1)?.p_hash, claims.at(-2)?.p_hash);
+    selectionAttemptId = "36fb225d-20d7-4b77-9bfb-bdc4875316de";
+    const receipt = await (await GET(statusRequest())).json();
+    assert.equal(receipt.status, "accepted");
+    assert.equal(receipt.selectionRevision, 1);
+    assert.equal(receipt.selectionAttemptId, selectionAttemptId);
+    assert.equal(receipt.optionIndex, 1);
+    selectionAttemptId = null;
     createdAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const oldStatus = await (await GET(statusRequest())).json();
     assert.equal(oldStatus.status, "reconciliation_required");

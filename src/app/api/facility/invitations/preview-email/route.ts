@@ -92,7 +92,7 @@ export async function GET(request: Request) {
   }
   try {
     const { data, error } = await createServiceRoleClient().from("facility_invitation_previews")
-      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,selection_revision,expires_at,created_at,lease_until,confirmed_theme,artwork_search_keys")
+      .select("id,status,selected_option_index,delivery_preferences,invitation_quantity,selection_revision,selection_attempt_id,expires_at,created_at,lease_until,confirmed_theme,artwork_search_keys")
       .eq(ids.length === 1 ? "id" : "request_key", ids.length === 1 ? id : key).maybeSingle();
     if (error) return reply({ error: "Preview service unavailable" }, 503);
     if (!data || new Date(data.expires_at).getTime() <= Date.now()) return reply({ error: "Not found" }, 404);
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
     }
     return reply({ requestId: data.id, status, options,
       ...(data.confirmed_theme === null ? { artworkStatus: "needs_confirmation", artworkSearchesUsed: Array.isArray(data.artwork_search_keys) ? data.artwork_search_keys.length : 3 } : data.confirmed_theme ? { artworkStatus: "confirmed" } : {}),
-      selectionRevision: data.selection_revision, optionIndex: data.selected_option_index, deliveryPreferences: data.delivery_preferences, quantity: data.invitation_quantity,
+      selectionRevision: data.selection_revision, selectionAttemptId: data.selection_attempt_id ?? null, optionIndex: data.selected_option_index, deliveryPreferences: data.delivery_preferences, quantity: data.invitation_quantity,
       ...(status === "retryable" ? { retry: data.confirmed_theme === null
         ? "Repeat the POST with the same requestKey and party details. It will reuse the same preview and search budget."
         : "Repeat the POST with the same requestKey and party details. If the confirmation token expired, refresh it for the same artwork." } : {}),

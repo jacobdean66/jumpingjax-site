@@ -242,12 +242,17 @@ or concurrent database sessions. This binding migration has not been applied.
 
 ## Ordered selection draft
 
-The preview status response carries `selectionRevision`. An authenticated
-selection write must include the revision the caller reviewed; it atomically
-advances that value and returns 409 if it is stale. A database trigger rejects
-old clients that attempt unversioned writes. After an ambiguous response,
-read the current preview and compare the revision and every selected option;
-never silently refresh and replay an earlier choice. This does not itself
-verify caller identity or consent. Keep the feature disabled until the lab
-client, workflow, migration and real call path are deployed and verified
-together.
+The authenticated preview status response carries `selectionRevision` and
+`selectionAttemptId` (null before a selection with a causal receipt). Send
+`expectedRevision` and a new, lowercase UUID `attemptId` with the caller's
+selection. The database stores the choice, next revision and attempt ID
+together. A stale revision or reused attempt ID returns 409. A small
+service-only receipt history prevents reuse after later selections.
+
+After an ambiguous response, read status and compare the same preview ID,
+expected next revision, attempt ID and all saved choices. A matching choice
+from a different attempt is insufficient. If the current selection has
+changed, escalate or obtain a new explicit caller approval for a new write.
+Never replay the old write. This verifies which selection operation saved the
+observed revision. Caller identity and consent must still be verified by the
+receptionist integration before invoking the write.

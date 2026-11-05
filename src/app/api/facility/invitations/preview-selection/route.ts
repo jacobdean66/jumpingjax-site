@@ -25,6 +25,7 @@ export async function POST(request: Request) {
     const { data, error } = await createServiceRoleClient().from("facility_invitation_previews")
       .update({
         selection_revision: selection.expectedRevision + 1,
+        selection_attempt_id: selection.attemptId,
         selected_option_index: selection.optionIndex,
         delivery_preferences: selection.deliveryPreferences,
         invitation_quantity: selection.quantity,
@@ -35,13 +36,17 @@ export async function POST(request: Request) {
       .gt("expires_at", new Date().toISOString())
       .is("booking_id", null)
       .not("confirmed_theme", "is", null)
-      .select("id,selected_option_index,delivery_preferences,invitation_quantity,selection_revision")
+      .select("id,selected_option_index,delivery_preferences,invitation_quantity,selection_revision,selection_attempt_id")
       .maybeSingle();
-    if (error) return reply({ error: "Preview changed or is unavailable; check its current status." }, error.message?.includes("preview_selection_unavailable") ? 409 : 503);
+    if (error) {
+      const changed = error.code === "23505" || /preview_selection_(unavailable|attempt_required)/.test(error.message);
+      return reply({ error: "Preview changed or is unavailable; check its current status." }, changed ? 409 : 503);
+    }
     if (!data) return reply({ error: "Preview changed or is unavailable; check its current status." }, 409);
     return reply({
       requestId: data.id,
       selectionRevision: data.selection_revision,
+      selectionAttemptId: data.selection_attempt_id,
       optionIndex: data.selected_option_index,
       deliveryPreferences: data.delivery_preferences,
       quantity: data.invitation_quantity,

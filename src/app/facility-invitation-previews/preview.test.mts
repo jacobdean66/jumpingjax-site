@@ -79,7 +79,8 @@ test("the signed page renders the stored asset and all live layouts, and selecti
   assert.equal(html.split("864-555-0100").length - 1, 3);
   assert.equal(html.split("Saturday, January 2, 2027").length - 1, 3);
 
-  const selection = { requestId: id, optionIndex: 2, deliveryPreferences: ["email", "print"], quantity: 28 };
+  const attemptId = "36fb225d-20d7-4b77-9bfb-bdc4875316de";
+  const selection = { requestId: id, expectedRevision: 0, attemptId, optionIndex: 2, deliveryPreferences: ["email", "print"], quantity: 28 };
   const request = (body: unknown) => new Request("https://mock.invalid", {
     method: "POST", headers: { authorization: "Bearer " + key, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -94,12 +95,15 @@ test("the signed page renders the stored asset and all live layouts, and selecti
 
   const response = await selectPreview(request(selection));
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), selection);
+  assert.deepEqual(await response.json(), {
+    requestId: id, selectionRevision: 1, selectionAttemptId: attemptId,
+    optionIndex: 2, deliveryPreferences: ["email", "print"], quantity: 28,
+  });
   assert.deepEqual(writes, [{
-    selected_option_index: 2, delivery_preferences: ["email", "print"], invitation_quantity: 28,
+    selection_revision: 1, selection_attempt_id: attemptId, selected_option_index: 2, delivery_preferences: ["email", "print"], invitation_quantity: 28,
   }]);
   bound = true;
-  assert.equal((await selectPreview(request(selection))).status, 404);
+  assert.equal((await selectPreview(request(selection))).status, 409);
 });
 test("the scoped link shows candidates first and the same page renders layouts after explicit confirmation", async t => {
   const secret = "synthetic-preview-signing-key-0123456";
