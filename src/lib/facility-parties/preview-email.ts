@@ -101,6 +101,7 @@ export function payloadHash(value: NonNullable<ReturnType<typeof parsePreview>>)
 
 const selectionInput = z.object({
   requestId: z.string().refine(validId),
+  expectedRevision: z.number().int().min(0).max(2147483646),
   optionIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   deliveryPreferences: z.array(z.enum(FACILITY_INVITATION_DELIVERY_PREFERENCES)).min(1).max(3)
     .refine(values => new Set(values).size === values.length)

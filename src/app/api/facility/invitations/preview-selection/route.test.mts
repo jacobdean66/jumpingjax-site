@@ -22,28 +22,29 @@ test("selection saves the caller's layout and delivery only for an editable prev
     assert.equal(init?.method, "PATCH");
     writes.push({ url, body: JSON.parse(String(init?.body)) });
     return Response.json(editable ? {
-      id, selected_option_index: 1, delivery_preferences: ["email"], invitation_quantity: 20,
+      id, selection_revision: 1, selected_option_index: 1, delivery_preferences: ["email"], invitation_quantity: 20,
     } : null);
   };
   const request = (authorization: string, body: unknown) => new Request("http://localhost", {
     method: "POST", headers: { authorization, "content-type": "application/json" }, body: JSON.stringify(body),
   });
-  const selection = { requestId: id, optionIndex: 1, deliveryPreferences: ["email"], quantity: 20 };
+  const selection = { requestId: id, expectedRevision: 0, optionIndex: 1, deliveryPreferences: ["email"], quantity: 20 };
   try {
     assert.equal((await POST(request("Bearer wrong", selection))).status, 401);
     assert.equal((await POST(request(`Bearer ${secret}`, { ...selection, optionIndex: 3 }))).status, 400);
     assert.equal(writes.length, 0);
     const response = await POST(request(`Bearer ${secret}`, selection));
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), selection);
-    assert.deepEqual(writes[0].body, { selected_option_index: 1, delivery_preferences: ["email"], invitation_quantity: 20 });
+    assert.deepEqual(await response.json(), { requestId: id, selectionRevision: 1, optionIndex: 1, deliveryPreferences: ["email"], quantity: 20 });
+    assert.deepEqual(writes[0].body, { selection_revision: 1, selected_option_index: 1, delivery_preferences: ["email"], invitation_quantity: 20 });
     assert.equal(writes[0].url.searchParams.get("id"), `eq.${id}`);
     assert.equal(writes[0].url.searchParams.get("status"), "eq.accepted");
+    assert.equal(writes[0].url.searchParams.get("selection_revision"), "eq.0");
     assert.equal(writes[0].url.searchParams.get("booking_id"), "is.null");
     assert.equal(writes[0].url.searchParams.get("confirmed_theme"), "not.is.null");
     assert.match(writes[0].url.searchParams.get("expires_at") ?? "", /^gt\./);
     editable = false;
-    assert.equal((await POST(request(`Bearer ${secret}`, selection))).status, 404);
+    assert.equal((await POST(request(`Bearer ${secret}`, selection))).status, 409);
   } finally {
     globalThis.fetch = originalFetch;
     names.forEach((name, index) => saved[index] === undefined ? delete process.env[name] : process.env[name] = saved[index]);
