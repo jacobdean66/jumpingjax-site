@@ -58,3 +58,16 @@ and ensure the outbound message matches that commitment. The current draft has
 no provider acceptance/reconciliation operation and no live send integration.
 A cancellation or edit after claim but before network dispatch remains a race;
 do not enable the bridge until that boundary is addressed and tested.
+
+
+A separate draft guards the existing facility signing RPC against a booking
+cancelled before signing. Read-only production function metadata showed the
+previous function checked the agreement but did not check booking status; the
+booking-change trigger does not supersede agreements solely on status changes.
+The draft locks the booking before the agreement, allows signing only for
+pending or confirmed parties, and rejects inconsistent signature state. Local
+fictional PostgreSQL tests held the booking lock during cancellation and during
+a simulated replacement; the signing request waited, then rejected both. These
+tests do not prove all production writers, triggers, or agreement terms are
+covered. This change is unexposed and unapplied; reopening a cancelled party
+and existing signing links require product review before deployment.
