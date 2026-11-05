@@ -86,8 +86,9 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
         (request_key,payload_hash,recipient,child_name,child_age,customer_phone,balloon_colors,table_cloth_colors,
          party_theme,party_date,party_time,confirmed_theme,status,selected_option_index,delivery_preferences,invitation_quantity,selection_revision)
         values ($1,'fixture','parent@example.test','Alex','8','864-555-0100','Blue','Silver',
-          'Space','2026-11-21','2:00 PM - 3:30 PM',$2,'accepted',1,array['email','print'],20,1) returning id`,[key,JSON.stringify(theme)]);
+          'Space','2026-11-21','2:00 PM - 3:30 PM',$2,'accepted',1,array['email','print'],20,0) returning id`,[key,JSON.stringify(theme)]);
       const previewId=inserted.rows[0].id;
+      await db.query("update facility_invitation_previews set selection_revision=1,selection_attempt_id=gen_random_uuid() where id=$1",[previewId]);
       const result=await bindApprovedFacilityPreview(supabase,{
         previewId,requestKey:key+"-booking",customerName:"Fixture Parent",email:"parent@example.test",phone:"864-555-0100",
         room,date:"2026-11-21",startMinutes:840,selectionRevision:1,optionIndex:1,deliveryPreferences:["email","print"],quantity:20,depositAcknowledged:true,

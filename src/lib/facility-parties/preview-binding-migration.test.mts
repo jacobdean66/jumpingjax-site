@@ -67,9 +67,10 @@ test("preview binding uses the current booking RPC, persists the selected invita
           balloon_colors, table_cloth_colors, party_theme, party_date, party_time,
           confirmed_theme, status, selected_option_index, delivery_preferences, invitation_quantity, selection_revision
         ) values ($1,'fixture-hash','fixture@example.test','Alex','8','864-555-0100',
-          'Blue','Silver','Space','2027-11-20','2:00 PM - 3:30 PM',$2,'accepted',1,$3,20,1)
+          'Blue','Silver','Space','2027-11-20','2:00 PM - 3:30 PM',$2,'accepted',1,$3,20,0)
         returning id
       `, [key, JSON.stringify(theme), delivery]);
+      await db.query("update facility_invitation_previews set selection_revision=1,selection_attempt_id=gen_random_uuid() where id=$1", [rows[0].id]);
       return rows[0].id;
     };
     const bind = async (
@@ -148,8 +149,8 @@ test("preview binding uses the current booking RPC, persists the selected invita
     await assert.rejects(bind(other, multiBooking, "fixture-multi-binding-key"), /approved_price_changed/);
     assert.deepEqual((await db.query("select id from facility_bookings")).rows, [{ id }]);
     assert.deepEqual((await db.query("select booking_id from facility_invitation_previews where id=$1", [other])).rows, [{ booking_id: null }]);
-    await db.query("update facility_invitation_previews set selected_option_index=2, selection_revision=2 where id=$1", [other]);
-    await db.query("update facility_invitation_previews set selected_option_index=1, selection_revision=3 where id=$1", [other]);
+    await db.query("update facility_invitation_previews set selected_option_index=2, selection_revision=2,selection_attempt_id=gen_random_uuid() where id=$1", [other]);
+    await db.query("update facility_invitation_previews set selected_option_index=1, selection_revision=3,selection_attempt_id=gen_random_uuid() where id=$1", [other]);
     await assert.rejects(bind(other, multiBooking, "fixture-multi-binding-key", 2), /preview_selection_changed/);
     assert.deepEqual((await db.query("select booking_id from facility_invitation_previews where id=$1", [other])).rows, [{ booking_id: null }]);
     const multiId = await bind(other, multiBooking, "fixture-multi-binding-key", 2, 3);
