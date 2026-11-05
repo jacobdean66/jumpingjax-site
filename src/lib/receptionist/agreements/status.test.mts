@@ -12,18 +12,7 @@ function fixture({ booking = { id: 123, status: "pending", customer_name: "Alex 
 } = {}) {
   const calls: unknown[][] = [];
   const db = {
-    from(table: string) {
-      calls.push(["from", table]);
-      const query = {
-        select(value: string) { calls.push(["select", value]); return this; },
-        eq(key: string, value: string) { calls.push(["eq", key, value]); return this; },
-        neq(key: string, value: string) { calls.push(["neq", key, value]); return this; },
-        order(key: string, value: unknown) { calls.push(["order", key, value]); return this; },
-        async maybeSingle() { return { data: booking, error: error ? { message: "synthetic" } : null }; },
-        async limit(value: number) { calls.push(["limit", value]); return { data: rows, error: error ? { message: "synthetic" } : null }; },
-      };
-      return query;
-    },
+    async rpc(name: string, args: unknown) { calls.push(["rpc", name, args]); return { data: { booking, agreements: booking === null ? [] : rows }, error: error ? { message: "synthetic" } : null }; },
   } as unknown as SupabaseClient;
   return { db, calls };
 }
@@ -32,8 +21,7 @@ test("reports only the current agreement and keeps signature separate from email
   const signed = fixture();
   assert.deepEqual(await loadCurrentAgreementStatus(signed.db, "rental", "123"),
     { kind: "rental", state: "signed", agreementId, version: 2, delivery: "sent", freshness: "unverified" });
-  assert.ok(signed.calls.some(value => JSON.stringify(value) === JSON.stringify(["neq", "status", "superseded"])));
-  assert.ok(signed.calls.some(value => JSON.stringify(value) === JSON.stringify(["limit", 2])));
+  assert.deepEqual(signed.calls, [["rpc", "receptionist_agreement_status_snapshot", { p_kind: "rental", p_booking_id: "123" }]]);
   const awaiting = fixture({ rows: [{ ...rental, status: "awaiting_signature", signed_at: null, email_status: "sent" }] });
   assert.equal((await loadCurrentAgreementStatus(awaiting.db, "rental", "123")).state, "awaiting_signature");
   const review = fixture({ rows: [{ ...rental, signer_legal_name: "Different Name" }] });
@@ -41,6 +29,7 @@ test("reports only the current agreement and keeps signature separate from email
   const facility = fixture({ booking: { id: facilityId, status: "pending" }, rows: [{ id: agreementId, booking_id: facilityId, version: 1, status: "signed", signed_at: "2026-11-04T20:00:00Z", email_status: "failed" }] });
   assert.deepEqual(await loadCurrentAgreementStatus(facility.db, "facility", facilityId),
     { kind: "facility", state: "signed", agreementId, version: 1, delivery: "failed", freshness: "unverified" });
+  assert.equal((await loadCurrentAgreementStatus(facility.db, "facility", facilityId.toUpperCase())).state, "signed");
 });
 
 test("fails closed on lookup errors, inconsistent records or multiple current versions", async () => {
