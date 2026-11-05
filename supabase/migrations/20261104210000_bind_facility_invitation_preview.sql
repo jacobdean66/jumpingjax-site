@@ -8,6 +8,26 @@ alter table public.facility_invitation_previews
         and binding_fingerprint ~ '^[a-f0-9]{64}$')
   );
 
+-- The existing outcome recorder clears operator_required when no step is
+-- failed, even if an initial email is still pending. Keep preview-linked
+-- bookings visible to staff until both initial notifications are resolved.
+create function public.preserve_preview_notification_attention()
+returns trigger language plpgsql security invoker set search_path = public, pg_temp as $$
+begin
+  if new.booking_kind = 'facility'
+     and (new.initial_customer_email_status = 'pending' or new.owner_notification_status = 'pending')
+     and exists (select 1 from public.facility_invitation_previews p where p.booking_id::text = new.booking_id) then
+    new.operator_required := true;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.preserve_preview_notification_attention() from public, anon, authenticated;
+grant execute on function public.preserve_preview_notification_attention() to service_role;
+create trigger preview_notification_attention
+  before update on public.booking_integration_workflows
+  for each row execute function public.preserve_preview_notification_attention();
+
 create function public.bind_facility_invitation_preview_atomic(
   p_preview_id uuid,
   p_request_key text,

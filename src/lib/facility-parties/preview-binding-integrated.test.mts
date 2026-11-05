@@ -16,6 +16,8 @@ test("approved previews bind the chosen invitation to fictional 10 and 20 kid bo
       create table booking_integration_workflows (
         booking_kind text not null, booking_id text not null,
         operator_required boolean not null default false, last_error_class text,
+        initial_customer_email_status text not null default 'pending',
+        owner_notification_status text not null default 'pending',
         unique (booking_kind, booking_id)
       );
       create table facility_bookings (

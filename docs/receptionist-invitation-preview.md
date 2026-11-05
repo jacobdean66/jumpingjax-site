@@ -159,8 +159,12 @@ an existing ID for the same idempotency key, while the route builds email from
 request fields. The safe path must bind delivery to the actual saved booking
 and preserve the original outbox identity, without making another booking.
 The current workflow outcome function recomputes `operator_required` from
-failed steps and can clear this marker while an email is still pending. Fix
-that interaction before relying on the marker for ongoing staff alerts.
+failed steps and can clear a pending marker. The draft adds a trigger to keep
+the alert for preview-linked bookings until both initial emails are resolved.
+Local fictional tests cover this interaction; it has not been deployed or
+verified with the production workflow and does not send either email. The
+trigger uses invoker permissions and depends on the preview link remaining;
+all workflow updaters need preview-table read access for it to operate.
 
 ## Transactional pricing prerequisite
 

@@ -13,6 +13,8 @@ test("preview binding uses the current booking RPC, persists the selected invita
       create table booking_integration_workflows (
         booking_kind text not null, booking_id text not null,
         operator_required boolean not null default false, last_error_class text,
+        initial_customer_email_status text not null default 'pending',
+        owner_notification_status text not null default 'pending',
         unique (booking_kind, booking_id)
       );
       create table facility_bookings (
@@ -31,7 +33,7 @@ test("preview binding uses the current booking RPC, persists the selected invita
         invitation_quantity integer not null default 4 check (invitation_quantity in (4,8,12,16,20,24,28))
       );
       grant select, update on facility_bookings to service_role;
-      grant select, insert on booking_integration_workflows to service_role;
+      grant select, insert, update on booking_integration_workflows to service_role;
     `);
     for (const name of [
       "20260930002000_repair_facility_invitation_persistence.sql",
@@ -106,6 +108,12 @@ test("preview binding uses the current booking RPC, persists the selected invita
     }]);
     assert.deepEqual((await db.query("select booking_kind,booking_id,operator_required,last_error_class from booking_integration_workflows where booking_id=$1", [id])).rows,
       [{booking_kind:"facility",booking_id:id,operator_required:true,last_error_class:"preview_notifications_pending"}]);
+    await db.exec("set role service_role");
+    await db.query("update booking_integration_workflows set operator_required=false,owner_notification_status='sent' where booking_id=$1", [id]);
+    assert.equal((await db.query<{operator_required:boolean}>("select operator_required from booking_integration_workflows where booking_id=$1", [id])).rows[0].operator_required,true);
+    await db.query("update booking_integration_workflows set operator_required=false,initial_customer_email_status='sent' where booking_id=$1", [id]);
+    assert.equal((await db.query<{operator_required:boolean}>("select operator_required from booking_integration_workflows where booking_id=$1", [id])).rows[0].operator_required,false);
+    await db.exec("reset role");
     await db.query("update facility_invitation_previews set expires_at=now()-interval '1 hour' where id=$1", [first]);
     assert.equal(await bind(first), id);
     await assert.rejects(bind(first, { ...booking, customer_name: "Changed" }), /preview_binding_conflict/);
