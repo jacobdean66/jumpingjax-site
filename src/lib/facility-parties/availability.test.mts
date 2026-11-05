@@ -4,6 +4,7 @@ import {
   listPrivateSlotDispositions,
   listPublicSaturdaySlotDispositions,
 } from "./availability";
+import { formatFacilityReadableTime } from "./time";
 import type { FacilityPartyBookingBlock } from "./types";
 
 type TestFn = () => void | Promise<void>;
@@ -41,6 +42,14 @@ await test("public party slots keep a 30 minute buffer between bookings", () => 
   for (let index = 1; index < slots.length; index += 1) {
     assert.equal(slots[index]!.startMinutes - slots[index - 1]!.endMinutes, 30);
   }
+});
+
+await test("Saturday private slot ending at midnight keeps that time in the booking label", () => {
+  const slot = listPrivateSlotDispositions("2026-07-18", 90, []).find(
+    (option) => option.endMinutes === 24 * 60,
+  );
+  assert.ok(slot?.available);
+  assert.equal(formatFacilityReadableTime(slot.startMinutes, slot.endMinutes), "10:30 PM - 12:00 AM");
 });
 
 function privateBlock(input: {
