@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       .not("confirmed_theme", "is", null)
       .select("id,selected_option_index,delivery_preferences,invitation_quantity,selection_revision")
       .maybeSingle();
-    if (error) return reply({ error: "Preview service unavailable" }, 503);
+    if (error) return reply({ error: "Preview changed or is unavailable; check its current status." }, error.message?.includes("preview_selection_unavailable") ? 409 : 503);
     if (!data) return reply({ error: "Preview changed or is unavailable; check its current status." }, 409);
     return reply({
       requestId: data.id,

@@ -7,8 +7,15 @@ returns trigger language plpgsql security invoker set search_path=public,pg_temp
 begin
   if row(new.selected_option_index,new.delivery_preferences,new.invitation_quantity,new.selection_revision)
      is distinct from row(old.selected_option_index,old.delivery_preferences,old.invitation_quantity,old.selection_revision)
-     and (old.selection_revision = 2147483647 or new.selection_revision <> old.selection_revision + 1) then
-    raise exception using errcode='23514',message='preview_selection_revision_required';
+  then
+    if old.selection_revision = 2147483647 or new.selection_revision <> old.selection_revision + 1 then
+      raise exception using errcode='23514',message='preview_selection_revision_required';
+    end if;
+    -- This executes under the row lock; an application timestamp taken before
+    -- waiting cannot authorize a selection after its expiry or booking.
+    if old.status <> 'accepted' or old.expires_at <= clock_timestamp() or old.booking_id is not null or old.confirmed_theme is null then
+      raise exception using errcode='23514',message='preview_selection_unavailable';
+    end if;
   end if;
   return new;
 end;
