@@ -18,6 +18,7 @@ export function adminNavigation(role: AdminRole): { primary: AdminNavItem[]; gro
       { id: "visits", label: "Bookings & Visits", href: "/admin/visits" },
       { id: "rentals", label: "Rentals", href: "/admin/rentals" },
       { id: "facility", label: "Facility Parties", href: "/admin/facility" },
+      { id: "callback-notes", label: "Callback Notes", href: "/admin/callback-notes" },
       { id: "schedule", label: "Full Schedule", href: "/admin/schedule" },
       { id: "payments", label: "Payments", href: "/admin/payments" },
       { id: "invoices", label: "Invoices", href: "/admin/invoices" },
