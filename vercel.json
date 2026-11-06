@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/receptionist-live-readonly-staging": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/google-reporting",
