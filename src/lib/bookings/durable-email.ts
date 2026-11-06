@@ -16,6 +16,9 @@ export type DurableEmailInput = {
   subject: string;
   text: string;
   html?: string;
+  /** For a claimed resend, a provider error is unknown and is never retried. */
+  singleAttempt?: boolean;
+  requireExactPayload?: boolean;
 };
 
 export async function sendDurableBookingEmail(input: DurableEmailInput) {
@@ -39,10 +42,13 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
 
   const { data: stored, error: readError } = await input.supabase
     .from("booking_notification_outbox")
-    .select("status,recipient,subject,body,html_body")
+    .select("status,booking_kind,booking_id,purpose,recipient,subject,body,html_body")
     .eq("message_key", input.messageKey)
     .single();
   if (readError || !stored) return { error: { code: "outbox_read_failed" } };
+  if (input.requireExactPayload && (stored.booking_kind!==row.booking_kind || stored.booking_id!==row.booking_id || stored.purpose!==row.purpose ||
+    stored.recipient!==row.recipient || stored.subject!==row.subject || stored.body!==row.body || stored.html_body!==row.html_body))
+    return { error: { code: "outbox_payload_conflict" } };
   if (stored.status === "sent") return { error: null, alreadySent: true };
 
   if (!isValidEmailAddress(stored.recipient)) {
@@ -63,7 +69,8 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
     subject: stored.subject, text: stored.body,
     ...(stored.html_body ? { html: stored.html_body } : {}),
   };
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const maxAttempts = input.singleAttempt ? 1 : 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let failure = { code: "email_network_error", retryable: true };
     let delayMs = 1000 * (attempt + 1);
     try {
@@ -83,7 +90,7 @@ export async function sendDurableBookingEmail(input: DurableEmailInput) {
       console.error("[booking-email] provider request failed", { code: failure.code });
     }
     await mark(input.supabase, input.messageKey, "failed", failure.code);
-    if (!failure.retryable || attempt === 2 || delayMs > 5000) return { error: { code: failure.code } };
+    if (!failure.retryable || attempt === maxAttempts - 1 || delayMs > 5000) return { error: { code: failure.code } };
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
   return { error: { code: "email_delivery_failed" } };

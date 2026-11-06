@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   // Receptionist queue sends can have an unknown provider outcome. Their
   // reconciliation must inspect the queue rather than blindly resend here.
-  if (messageKey.startsWith("receptionist-facility:"))
+  if (messageKey.startsWith("receptionist-facility:") || messageKey.startsWith("receptionist-facility-resend:"))
     return NextResponse.json({ error: "This receptionist email needs delivery review before another attempt." }, { status: 409 });
 
   const supabase = createServiceRoleClient();
