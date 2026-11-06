@@ -24,10 +24,10 @@ const files=[
   'src/lib/facility-parties/types.ts',
   'src/lib/facility-parties/zoned-time.ts',
   'supabase/migrations/20260715190000_atomic_booking_creation.sql',
-  'supabase/migrations/20261101190000_receptionist_facility_receipts.sql',
-  'supabase/migrations/20261101210000_receptionist_facility_notification_queue.sql',
-  'supabase/migrations/20261101220000_receptionist_facility_settings_guard.sql',
-  'supabase/migrations/20261101230000_receptionist_facility_policy_guard.sql',
+  'supabase/migrations/20261106010000_receptionist_facility_receipts.sql',
+  'supabase/migrations/20261106010100_receptionist_facility_notification_queue.sql',
+  'supabase/migrations/20261106010200_receptionist_facility_settings_guard.sql',
+  'supabase/migrations/20261106010300_receptionist_facility_policy_guard.sql',
 ];
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const hash=createHash('sha256').update('receptionist-facility-write-policy-v1\0');
