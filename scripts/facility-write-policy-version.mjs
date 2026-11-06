@@ -20,6 +20,7 @@ const files=[
   'src/lib/facility-parties/booking-terms.ts',
   'src/lib/facility-parties/constants.ts',
   'src/lib/facility-parties/pricing.ts',
+  'src/lib/facility-parties/saved-pricing.ts',
   'src/lib/facility-parties/time.ts',
   'src/lib/facility-parties/types.ts',
   'src/lib/facility-parties/zoned-time.ts',
