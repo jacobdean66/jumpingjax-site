@@ -42,6 +42,8 @@ import {
 import { facilityAdminDay } from "@/lib/admin/facility-admin-date";
 import { FacilityDayRefresh } from "./FacilityDayRefresh";
 import { FacilityDashboardFilters } from "./FacilityDashboardFilters";
+import { loadFacilityNoticeStatuses } from "@/lib/admin/facility-notification-status-service";
+import { facilityNoticeLabel, facilityNoticeNeedsAttention, type FacilityNotice } from "@/lib/admin/facility-notification-status";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +116,7 @@ function canRetryCancelledCalendarRemoval(
   );
 }
 
-function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
+function FacilityCard({ booking, notices }: { booking: AdminFacilityBooking; notices: FacilityNotice[] | undefined }) {
   const partyTime = partyTimeLabel(booking);
   const kidCount = kidCountForBooking(booking);
   const canMutate = facilityBookingCanMutate({
@@ -421,6 +423,13 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
           </ul>
         )}
       </section>
+      {notices ? (
+        <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 print:hidden">
+          <h3 className="font-bold text-slate-950">Receptionist booking emails</h3>
+          <p className="mt-1 text-sm text-slate-800">Customer: {facilityNoticeLabel(notices.find(notice => notice.kind === "customer"))}</p>
+          <p className="mt-1 text-sm text-slate-800">Staff: {facilityNoticeLabel(notices.find(notice => notice.kind === "owner"))}</p>
+        </section>
+      ) : null}
       <GoogleOfferCard offer={booking.googleOffer} kind="facility" />
       {!["cancelled", "canceled", "rejected"].includes(booking.status) ? (
         <FacilityAgreementPanel
@@ -445,8 +454,10 @@ function FacilityCard({ booking }: { booking: AdminFacilityBooking }) {
 
 function FacilityExpandableCard({
   booking,
+  notices,
 }: {
   booking: AdminFacilityBooking;
+  notices: FacilityNotice[] | undefined;
 }) {
   const depositStatus = facilityDepositStatus(booking.paymentEntries);
   const paymentProjection = projectBookingPaymentStatus(booking.total, booking.paymentEntries);
@@ -464,9 +475,10 @@ function FacilityExpandableCard({
         <p className={`text-xs font-black ${booking.total === 0 || paidInFull || depositStatus === "paid" ? "text-emerald-800" : "text-amber-800"}`}>
           {booking.total === 0 ? "Free — no deposit due" : paidInFull ? paymentStatusLabel(paymentProjection.status) : depositStatus === "paid" ? "Deposit paid" : depositStatus === "review" ? "Deposit needs verification" : "Deposit not paid"}
         </p>
+        {notices && ["customer", "owner"].some(kind => facilityNoticeNeedsAttention(notices.find(notice => notice.kind === kind))) ? <p className="text-xs font-bold text-amber-800">Receptionist email needs review</p> : null}
       </summary>
       <div className="bg-slate-100 p-3 sm:p-5">
-        <FacilityCard booking={booking} />
+        <FacilityCard booking={booking} notices={notices} />
       </div>
     </details>
   );
@@ -494,6 +506,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
       : bookings;
   const depositFilter = ["paid", "unrecorded", "review"].includes(resolved?.deposit ?? "") ? resolved!.deposit! : "all";
   const displayedBookings = scopedBookings.filter(b => depositFilter === "all" || facilityDepositStatus(b.paymentEntries) === depositFilter);
+  const noticeStatuses = await loadFacilityNoticeStatuses(displayedBookings.map(booking => booking.id));
   const baseQuery = new URLSearchParams({ ...(token ? { token } : {}), view, from, to, q: search }).toString();
   const privateCount = allFacility.bookings.filter(
     (booking) => booking.partyKind === "private",
@@ -524,6 +537,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             <AdminHeader eyebrow="Facility Admin" title="Facility Party Dashboard" />
             <AdminNav token={token} role={auth.role} active="facility" />
             <FacilityDashboardFilters token={token} view={view} today={today} from={from} to={to} status={status} kind={kind} search={search} deposit={depositFilter} />
+            {noticeStatuses === null ? <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-900">Receptionist email statuses are unavailable. Check the booking before sending another email.</p> : null}
 
             <div className="mt-5 flex flex-wrap gap-2 print:hidden">
               {pendingApprovalEndpoints.length > 0 ? (
@@ -593,7 +607,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
                 </div>
               ) : (
                 displayedBookings.map((booking) => (
-                  <FacilityExpandableCard key={booking.id} booking={booking} />
+                  <FacilityExpandableCard key={booking.id} booking={booking} notices={noticeStatuses?.get(booking.id)} />
                 ))
               )}
             </div>
@@ -603,7 +617,7 @@ export default async function AdminFacilityPage({ searchParams }: Props) {
             <div className="mt-8 hidden gap-5 print:grid">
               {displayedBookings.map((booking) => (
                 <div key={booking.id}>
-                  <FacilityCard booking={booking} />
+                  <FacilityCard booking={booking} notices={noticeStatuses?.get(booking.id)} />
                 </div>
               ))}
             </div>
