@@ -20,7 +20,7 @@ create index if not exists receptionist_facility_notification_expiry_idx
 -- State transitions must go through the checked RPCs, not direct updates.
 revoke update (state, attempts, updated_at) on public.receptionist_facility_notifications from service_role;
 
-create or replace function public.claim_receptionist_facility_notification_v1()
+create or replace function public.claim_receptionist_facility_notification_v1(p_booking_id uuid default null,p_kind text default null)
 returns table(booking_id uuid, kind text, execution_token uuid, attempt integer, message_key text)
 language plpgsql
 security definer
@@ -30,8 +30,12 @@ declare
   v_row public.receptionist_facility_notifications%rowtype;
   v_token uuid;
 begin
+  if p_kind is not null and p_kind not in ('owner','customer') then
+    raise exception using errcode = '22023', message = 'invalid_receptionist_notification_kind';
+  end if;
   select n.* into v_row from public.receptionist_facility_notifications n
-  where n.state='pending' order by n.created_at,n.booking_id,n.kind
+  where n.state='pending' and (p_booking_id is null or n.booking_id=p_booking_id)
+    and (p_kind is null or n.kind=p_kind) order by n.created_at,n.booking_id,n.kind
   for update of n skip locked limit 1;
   if not found then return; end if;
   if not exists(select 1 from public.facility_bookings f where f.id=v_row.booking_id) then
@@ -55,8 +59,8 @@ begin
     'receptionist-facility:'||v_row.booking_id::text||':'||v_row.kind;
 end;
 $$;
-revoke all on function public.claim_receptionist_facility_notification_v1() from public, anon, authenticated;
-grant execute on function public.claim_receptionist_facility_notification_v1() to service_role;
+revoke all on function public.claim_receptionist_facility_notification_v1(uuid,text) from public, anon, authenticated;
+grant execute on function public.claim_receptionist_facility_notification_v1(uuid,text) to service_role;
 
 create or replace function public.finish_receptionist_facility_notification_v1(
   p_booking_id uuid, p_kind text, p_execution_token uuid, p_outcome text, p_error_class text

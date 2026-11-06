@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dispatchOneFacilityNotification } from "./facility-notification-dispatch";
+import { dispatchOneFacilityNotification, scheduleFacilityNotifications } from "./facility-notification-dispatch";
 import { submitFacilityBooking } from "./facility-book";
 import { quoteFacilityParty } from "./facility-quote";
 import { FACILITY_BALANCE_DUE, FACILITY_DEPOSIT_CENTS, FACILITY_DEPOSIT_DUE } from "../facility-parties/booking-terms";
@@ -34,4 +34,14 @@ test("dispatches the saved customer request once with a guest-list link and reta
     assert.deepEqual(await dispatchOneFacilityNotification(db,true,async()=>{throw Error("lost");}),{state:"unknown"});
     assert.deepEqual(await dispatchOneFacilityNotification(db,true,sender),{state:"idle"});assert.equal(sends,1);
   } finally {if(saved===undefined)delete process.env.INVITATION_THEME_TOKEN_SECRET;else process.env.INVITATION_THEME_TOKEN_SECRET=saved;}
+});
+
+test("background dispatch targets the saved booking even when one notification fails",async()=>{
+  let scheduled:(()=>Promise<void>)|undefined;const targets:string[]=[];
+  scheduleFacilityNotifications("fixture-booking",work=>{scheduled=work;},async target=>{
+    targets.push(`${target.bookingId}:${target.kind}`);if(target.kind==="customer")throw Error("transport unavailable");
+  });
+  assert.ok(scheduled);await scheduled();
+  assert.deepEqual(targets,["fixture-booking:customer","fixture-booking:owner"]);
+  assert.doesNotThrow(()=>scheduleFacilityNotifications("fixture-booking",()=>{throw Error("no background context");},async()=>{}));
 });

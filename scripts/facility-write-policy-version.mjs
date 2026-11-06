@@ -7,7 +7,14 @@ import { fileURLToPath } from 'node:url';
 const files=[
   'scripts/facility-write-policy-version.mjs',
   'src/app/api/receptionist/facility-book/route.ts',
+  'src/app/api/receptionist/facility-email-status/route.ts',
+  'src/app/api/receptionist/facility-notification-dispatch/route.ts',
+  'src/app/api/admin/booking-workflows/retry-email/route.ts',
+  'src/lib/bookings/durable-email.ts',
   'src/lib/receptionist/facility-book.ts',
+  'src/lib/receptionist/facility-notification-dispatch.ts',
+  'src/lib/receptionist/facility-notification-message.ts',
+  'src/lib/receptionist/facility-notification-worker.ts',
   'src/lib/receptionist/facility-availability.ts',
   'src/lib/receptionist/facility-pricing-storage.ts',
   'src/lib/receptionist/facility-pricing.ts',
@@ -29,6 +36,7 @@ const files=[
   'supabase/migrations/20261106010100_receptionist_facility_notification_queue.sql',
   'supabase/migrations/20261106010200_receptionist_facility_settings_guard.sql',
   'supabase/migrations/20261106010300_receptionist_facility_policy_guard.sql',
+  'supabase/migrations/20261106010400_receptionist_facility_notification_leases.sql',
 ];
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const hash=createHash('sha256').update('receptionist-facility-write-policy-v1\0');

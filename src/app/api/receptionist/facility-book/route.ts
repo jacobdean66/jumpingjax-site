@@ -5,6 +5,8 @@ import { checkFacilityAvailability } from "@/lib/receptionist/facility-availabil
 import { loadSavedFacilitySettingsForWrite } from "@/lib/receptionist/facility-pricing-storage";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { FACILITY_POLICY_DIGEST } from "@/lib/receptionist/facility-policy-version";
+import { after } from "next/server";
+import { dispatchOneFacilityNotification, scheduleFacilityNotifications } from "@/lib/receptionist/facility-notification-dispatch";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -37,5 +39,11 @@ export async function POST(req:Request) {
     },now),
     create:async(request,booking,key,version)=>{const {data,error}=await createServiceRoleClient().rpc("create_receptionist_facility_booking_guarded_v4",{p_request:request,p_booking:booking,p_request_key:key,p_settings_version:version,p_policy_digest:FACILITY_POLICY_DIGEST});if(error||typeof data!=="string")throw new Error("Unavailable");return data;},
   });
+  // A successful receipt is returned immediately; notification failures can
+  // never turn a committed booking into a retryable booking request.
+  if(result.status===200&&result.body.ok===true&&typeof result.body.id==="string"&&
+      process.env.RECEPTIONIST_FACILITY_NOTIFICATION_ENABLED==="true"&&process.env.RESEND_API_KEY?.trim()) {
+    scheduleFacilityNotifications(result.body.id,after,target=>dispatchOneFacilityNotification(createServiceRoleClient(),true,undefined,target));
+  }
   return Response.json(result.body,{status:result.status,headers});
 }
