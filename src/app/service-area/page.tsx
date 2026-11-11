@@ -40,7 +40,8 @@ export default function ServiceAreaPage() {
           <Link href="/" className="text-cyan-800 underline">
             Home
           </Link>{" "}
-          / Rental delivery
+          <span aria-hidden="true">/</span>{" "}
+          <span aria-current="page">Rental delivery area</span>
         </nav>
         <h1 className="mt-5 text-3xl font-black sm:text-5xl">
           Inflatable rental delivery around Greenwood, SC
