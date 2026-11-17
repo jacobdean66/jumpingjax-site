@@ -105,3 +105,62 @@ test('reader caps body size, invalid arguments, unknown tools and evidence recor
   assert.ok((await reader.execute('__proto__', {})).error);
   assert.deepEqual(parseInvestigationEvidence([{ tool: '__proto__', source: 'bad', checkedAt: '2026-10-30', ok: true, limited: false }]), []);
 });
+
+test('concrete invitation URLs resolve to the indexed dynamic page', async () => {
+  const source = 'src/app/admin/facility/[id]/invitations/page.tsx';
+  const reader = createInvestigationReader({ index: async () => ({
+    ...index,
+    files: [...index.files, { path: source, text: 'Invitation editor', lines: 1, truncated: false }],
+    routes: [...index.routes, { path: '/admin/facility/[id]/invitations', source, dynamic: true, protected: true }],
+  }) });
+  const result = await reader.execute('repository_read', { path: '/admin/facility/123/invitations', startLine: 1, lineCount: 10 });
+  assert.equal(result.path, source);
+  assert.match(String(result.text), /Invitation editor/);
+});
+
+test('rental lookups read a saved booking and its items without returning private fields', async () => {
+  const requests: URL[] = [];
+  const reader = createInvestigationReader({ databaseUrl: 'https://project.supabase.co', databaseKey: 'test', fetch: async input => {
+    const url = new URL(String(input));
+    requests.push(url);
+    return url.pathname.endsWith('/bookings')
+      ? Response.json([{ id: 123, status: 'cancelled', customer_email: 'private@example.com' }])
+      : Response.json([{ booking_id: 123, rental_item: 'slide', rental_name: 'Water slide' }]);
+  } });
+  const result = await reader.execute('rental_lookup', { bookingId: '123', eventDate: null, offset: 0 });
+  assert.match(JSON.stringify(result), /cancelled.*Water slide/);
+  assert.doesNotMatch(JSON.stringify(result), /private@example.com/);
+  assert.equal(requests[0].searchParams.get('id'), 'eq.123');
+  assert.equal(requests[1].searchParams.get('booking_id'), 'in.(123)');
+  assert.match(String((await reader.execute('rental_lookup', { bookingId: null, eventDate: null, offset: 0 })).error), /required/);
+  assert.equal(requests.length, 2);
+});
+
+test('party invitation drafts open the verified party with the supplied theme and never write', async () => {
+  const partyId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const reader = createInvestigationReader({ databaseUrl: 'https://project.supabase.co', databaseKey: 'test', fetch: async (input, request) => {
+    assert.equal(request?.method, 'GET');
+    assert.equal(new URL(String(input)).searchParams.get('id'), 'eq.' + partyId);
+    return Response.json([{ id: partyId, status: 'confirmed' }]);
+  } });
+  const result = await reader.execute('prepare_party_invitation', { partyId, theme: 'Space & stars' });
+  assert.equal(result.saved, false);
+  assert.equal(reader.actions[0].href, '/admin/facility/' + partyId + '/invitations?theme=Space+%26+stars#create-invitation');
+});
+
+test('this weekend uses Eastern Friday through Sunday and hides cancelled bookings', async () => {
+  const reader = createInvestigationReader({
+    now: () => new Date('2026-11-17T18:33:19Z'),
+    schedule: async ({ from, to }) => {
+      assert.equal(from, '2026-11-20');
+      assert.equal(to, '2026-11-22');
+      const event = { id: 'a', bookingId: '1', type: 'rental' as const, date: from, sortTime: '10:00', displayTime: '10 AM', title: 'Water slide', customer: 'Private name', phone: null, status: 'approved', location: null, room: null, detailHref: '/admin/rentals', products: [], details: [] };
+      return [event, { ...event, id: 'b', type: 'private-party' as const, title: 'Private child name' }, { ...event, id: 'c', title: 'Cancelled item', status: 'cancelled' }];
+    },
+  });
+  const result = await reader.execute('weekend_bookings', { scope: 'all' });
+  assert.equal(result.count, 2);
+  assert.match(String(result.reply), /Fri, Nov 20 through Sun, Nov 22/);
+  assert.match(String(result.reply), /Water slide.*Private facility party/);
+  assert.doesNotMatch(String(result.reply), /Cancelled item|Private name|Private child name/);
+});

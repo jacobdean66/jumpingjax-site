@@ -5,6 +5,9 @@ import { investigationInputs, readableDatabaseColumn, type InvestigationTool, ty
 import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-investigation/source-policy.mjs';
 import { CANONICAL_PRODUCTION_SITE_URL } from '@/lib/site-url';
 import { listOfficeMessages, readOfficeMessage } from '@/lib/email/office-inbox';
+import { getWebsiteRentalBySlug } from '@/lib/rentals/public-catalog';
+import { loadScheduleEvents, isCancelledStatus } from '@/lib/admin/schedule';
+import { rentalWeekend } from '@/lib/admin/weekend';
 import { reviewDraftHref } from './action-drafts';
 import type { SupervisorRelatedAction } from './supervisor';
 
@@ -13,6 +16,22 @@ export type RepositoryIndex = {
   files: Array<{ path: string; text: string; lines: number | null; truncated: boolean }>;
   routes: Array<{ path: string; source: string; dynamic: boolean; protected: boolean }>;
 };
+function resolvePageSource(routes: RepositoryIndex['routes'], page: string) {
+  const exact = routes.find(route => route.path === page);
+  if (exact) return exact.source;
+  const segments = page.slice(1).split('/');
+  if (segments.some(segment => !/^[a-zA-Z0-9_~.-]+$/.test(segment) || segment === '.' || segment === '..')) return;
+  const candidates = routes.filter(route => {
+    if (!route.dynamic) return false;
+    const pattern = route.path.slice(1).split('/');
+    return pattern.length === segments.length && pattern.every((part, index) =>
+      /^\[[a-zA-Z0-9_]+\]$/.test(part) || part === segments[index]);
+  });
+  const specificity = (route: (typeof routes)[number]) => route.path.split('/').map(part => part.startsWith('[') ? '0' : '1').join('');
+  candidates.sort((left, right) => specificity(right).localeCompare(specificity(left)));
+  return candidates[0]?.source;
+}
+
 let indexPromise: Promise<RepositoryIndex> | undefined;
 export function deployedRepositoryIndex() {
   indexPromise ??= readFile(join(process.cwd(), '.generated/agent-repository-index.json'), 'utf8').then(text => JSON.parse(text) as RepositoryIndex).catch(() => { indexPromise = undefined; throw new Error('The deployed repository index is unavailable.'); });
@@ -24,6 +43,8 @@ type Catalog = Record<string, { properties?: Record<string, Column> }>;
 type Dependencies = {
   index: () => Promise<RepositoryIndex>; fetch: typeof fetch; databaseUrl?: string; databaseKey?: string;
   emailList: typeof listOfficeMessages; emailRead: typeof readOfficeMessage;
+  schedule: typeof loadScheduleEvents;
+  now: () => Date;
   allowEmail: boolean;
 };
 
@@ -52,7 +73,7 @@ function authenticationMail(text: string) { return /password.reset|verification.
 function safeSubject(subject: string | null) { return authenticationMail(subject ?? '') ? '[Authentication email: open directly in Office Inbox]' : redactEvidence(subject ?? '(no subject)'); }
 
 export function createInvestigationReader(overrides: Partial<Dependencies> = {}, signal?: AbortSignal) {
-  const deps: Dependencies = { index: deployedRepositoryIndex, fetch, databaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY, emailList: listOfficeMessages, emailRead: readOfficeMessage, allowEmail: false, ...overrides };
+  const deps: Dependencies = { index: deployedRepositoryIndex, fetch, databaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY, emailList: listOfficeMessages, emailRead: readOfficeMessage, schedule: loadScheduleEvents, now: () => new Date(), allowEmail: false, ...overrides };
   const traces: InvestigationTrace[] = [];
   const actions: SupervisorRelatedAction[] = [];
   let catalogPromise: Promise<Catalog> | undefined;
@@ -105,7 +126,7 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         const { path, startLine, lineCount } = investigationInputs.repository_read.parse(input);
         if (!path.startsWith('/') && !eligibleSourcePath(path)) throw new Error('That file is outside the deployed source index.');
         const index = await deps.index();
-        const resolvedPath = path.startsWith('/') ? index.routes.find(route => route.path === path)?.source : path;
+        const resolvedPath = path.startsWith('/') ? resolvePageSource(index.routes, path) : path;
         if (!resolvedPath) throw new Error('The exact website page was not found in the deployed source index.');
         if (!eligibleSourcePath(resolvedPath)) throw new Error('That file is outside the deployed source index.');
         const file = index.files.find(file => file.path === resolvedPath);
@@ -118,6 +139,72 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         }
         limited = endLine < lines.length;
         data = { path: resolvedPath, ...(path.startsWith('/') ? { pagePath: path } : {}), commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
+      } else if (tool === 'prepare_rental_request' || tool === 'prepare_party_invitation') {
+        let action: SupervisorRelatedAction;
+        if (tool === 'prepare_rental_request') {
+          const { slug, eventDate } = investigationInputs.prepare_rental_request.parse(input);
+          source = 'website:rental-catalog';
+          if (!await getWebsiteRentalBySlug(slug)) return { source, checkedAt, error: 'That rental was not found in the catalog.' };
+          const query = new URLSearchParams({ rental: slug, ...(eventDate ? { date: eventDate } : {}) });
+          action = { kind: 'rental_request', label: 'Open rental checkout', href: '/booking?' + query };
+        } else {
+          const { partyId, theme } = investigationInputs.prepare_party_invitation.parse(input);
+          source = 'database.public.facility_bookings';
+          const result = await databaseGet('facility_bookings', new URLSearchParams({ select: 'id,status', id: 'eq.' + partyId, limit: '1' }));
+          if (!result.data[0] || result.data[0].status === 'cancelled') return { source, checkedAt, error: 'No active party was found with that ID.' };
+          const query = theme ? '?' + new URLSearchParams({ theme }) : '';
+          action = { kind: 'party_invitation', label: 'Open invitation editor', href: '/admin/facility/' + partyId + '/invitations' + query + '#create-invitation' };
+        }
+        actions.push(action);
+        data = { prepared: true, saved: false, action };
+      } else if (tool === 'weekend_bookings') {
+        const { scope } = investigationInputs.weekend_bookings.parse(input);
+        const range = rentalWeekend(undefined, deps.now());
+        source = 'admin.schedule:' + range.from + '..' + range.to;
+        const events = (await deps.schedule(range)).filter(event => {
+          const rental = event.type === 'rental' || event.type === 'foam-party';
+          return !isCancelledStatus(event.status) && (scope === 'all' || (scope === 'rental' ? rental : !rental));
+        });
+        limited = events.length > 12;
+        const format = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+        const day = (date: string) => format.format(new Date(date + 'T12:00:00Z'));
+        const listed = events.slice(0, 12);
+        const lines = range.dates.filter(date => listed.some(event => event.date === date)).map(date =>
+          day(date) + ': ' + listed.filter(event => event.date === date).map(event => {
+            const label = event.type === 'rental' || event.type === 'foam-party' ? event.title : event.type === 'private-party' ? 'Private facility party' : 'Facility party';
+            return label + (event.displayTime ? ' at ' + event.displayTime : '') + ' (' + event.status + ')';
+          }).join('; '));
+        actions.push({ kind: 'booking_schedule', label: 'Open weekend schedule', href: '/admin/schedule?view=week&date=' + range.from });
+        const heading = day(range.from) + ' through ' + day(range.to);
+        data = { from: range.from, to: range.to, count: events.length, reply: events.length
+          ? heading + '\n\n' + lines.map(line => '- ' + line).join('\n') + (limited ? '\n\nOpen the schedule for the remaining entries.' : '')
+          : 'No ' + (scope === 'all' ? '' : scope + ' ') + 'bookings are on the schedule for ' + heading + '.' };
+      } else if (tool === 'rental_lookup') {
+        const { bookingId, eventDate, offset } = investigationInputs.rental_lookup.parse(input);
+        if (!bookingId && !eventDate) return { source, checkedAt, error: 'A booking ID or event date is required.' };
+        const fields = ['id', 'status', 'event_date', 'event_start_time', 'requested_delivery_window', 'delivery_time', 'rental_name', 'rental_item', 'duration', 'foam_duration', 'span_days', 'distance_miles', 'setup_surface', 'delivery_fee', 'mileage_fee', 'subtotal', 'total', 'payment_method', 'payment_confirmed_at'];
+        const query = new URLSearchParams({ select: fields.join(','), order: 'id.asc', offset: String(offset), limit: '11' });
+        if (bookingId) query.set('id', 'eq.' + bookingId);
+        if (eventDate) query.set('event_date', 'eq.' + eventDate);
+        source = 'database.public.bookings';
+        const result = await databaseGet('bookings', query);
+        limited = result.data.length > 10;
+        const bookings = result.data.slice(0, 10).map((row: Record<string, unknown>) =>
+          Object.fromEntries(fields.map(field => [field, row[field]])));
+        const ids = bookings.map((row: Record<string, unknown>) => investigationInputs.rental_lookup.shape.bookingId.parse(String(row.id)));
+        if (ids.length) {
+          const items = await databaseGet('booking_rental_items', new URLSearchParams({
+            select: 'booking_id,rental_item,rental_name',
+            booking_id: 'in.(' + ids.join(',') + ')',
+          }));
+          for (const booking of bookings) {
+            booking.items = items.data
+              .filter((item: Record<string, unknown>) => String(item.booking_id) === String(booking.id))
+              .map((item: Record<string, unknown>) => ({ slug: item.rental_item, name: item.rental_name }));
+          }
+          source += '+booking_rental_items';
+        }
+        data = { bookings, nextOffset: limited ? offset + 10 : null };
       } else if (tool === 'website_map') {
         const { query, offset } = investigationInputs.website_map.parse(input), index = await deps.index();
         const matches = index.routes.filter(route => `${route.path} ${route.source}`.toLowerCase().includes(query.toLowerCase()));
