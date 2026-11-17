@@ -286,7 +286,14 @@ export function supervisorJobMessage(job: Pick<AgentJob, "payload" | "result_sum
     relatedAction: parseRelatedAction(job.payload.relatedAction),
     evidence: parseInvestigationEvidence(job.payload.evidence),
     pictureCount: savedPictureCount(job.payload.pictureCount),
+    feedback: parseSupervisorFeedback(job.payload.feedback),
   };
+}
+
+function parseSupervisorFeedback(value: unknown): { rating: "up" | "down"; explanation: string } | null {
+  if (!value || typeof value !== "object" || !("rating" in value) || !("explanation" in value)) return null;
+  if ((value.rating !== "up" && value.rating !== "down") || typeof value.explanation !== "string") return null;
+  return { rating: value.rating, explanation: value.explanation.slice(0, 500) };
 }
 
 function parseRelatedAction(value: unknown): SupervisorRelatedAction | null {

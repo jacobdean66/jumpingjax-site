@@ -7,6 +7,7 @@ import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-ma
 import { supervisorIssueAction } from "./navigation";
 import { SupervisorComposer } from "./SupervisorComposer";
 import { AgentBrowserControls } from "./AgentBrowserControls";
+import { SupervisorFeedback, type AgentFeedback } from "./SupervisorFeedback";
 import { SupervisorReply } from "./SupervisorReply";
 import { parseInvestigationEvidence, type InvestigationTrace } from '@/lib/agent-manager/investigation';
 import Image from 'next/image';
@@ -14,7 +15,7 @@ import { MAX_CHAT_PICTURES, type ChatPicture } from '@/lib/agent-manager/chat-pi
 import { prepareChatPicture } from './chat-picture-client';
 import { createSupervisorRequest } from './supervisor-chat-request';
 
-type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[]; pictureCount?: number; pictures?: ChatPicture[] };
+type ConversationItem = { id: string; question: string; reply: string; createdAt: string; relatedAction?: SupervisorRelatedAction | null; evidence?: InvestigationTrace[]; pictureCount?: number; pictures?: ChatPicture[]; feedback?: AgentFeedback | null };
 
 export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMessages: ConversationItem[]; initialSnapshot: SupervisorSnapshot | null }) {
   const [messages, setMessages] = useState(() => [...initialMessages].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
@@ -112,6 +113,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
       </div>
       <div className="max-w-3xl rounded-2xl bg-slate-100 px-4 py-4 text-slate-800 sm:px-5">
         <SupervisorReply text={item.reply} />
+        <SupervisorFeedback id={item.id} initial={item.feedback} />
         {item.evidence?.length ? <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600"><summary className="cursor-pointer font-semibold">Sources checked ({item.evidence.length})</summary><ul className="mt-2 space-y-2">{item.evidence.map((entry, index) => <li key={index} className="break-words"><span className={entry.ok ? 'text-emerald-800' : 'text-rose-800'}>{entry.ok ? 'Checked' : 'Unavailable'}</span> · {entry.source}<span className="block text-xs">{formatAgentTime(entry.checkedAt)}{entry.limited ? ' · Limited scope' : ''}</span></li>)}</ul></details> : null}
         {item.relatedAction ? <a href={item.relatedAction.href} className="mt-3 inline-flex rounded-full bg-violet-700 px-4 py-2 text-xs font-black text-white hover:bg-violet-800">{item.relatedAction.label}</a> : null}
       </div>

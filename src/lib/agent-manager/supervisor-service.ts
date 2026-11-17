@@ -288,12 +288,15 @@ export async function runSupervisorConversation(message: string, actorId: string
         if (acceptsEditor && previousAction?.kind === "party_invitation") {
           followUpAction = previousAction;
           reply = "Open the invitation editor below to make your changes.";
-        } else reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
-          await assertAllowed();
-          if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
-          const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
-          if (reserved.error || !reserved.data) { await stopped.check(); throw new Error('Conversational replies are temporarily unavailable.'); }
-        } } }, deadline);
+        } else {
+          const ratedHistory = await loadSupervisorConversation(6, actorId, true).catch(() => []);
+          reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, ratedHistory, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
+            await assertAllowed();
+            if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
+            const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
+            if (reserved.error || !reserved.data) { await stopped.check(); throw new Error('Conversational replies are temporarily unavailable.'); }
+          } } }, deadline);
+        }
       }
     }
     const relatedAction = handoff?.relatedAction ?? followUpAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
@@ -324,7 +327,7 @@ export async function runSupervisorConversation(message: string, actorId: string
   } finally { stopped.dispose(); }
 }
 
-export async function loadSupervisorConversation(limit = 12, actorId?: string) {
+export async function loadSupervisorConversation(limit = 12, actorId?: string, ratedOnly = false) {
   const db = createServiceRoleClient();
   const bounded = Math.max(1, Math.min(20, Math.trunc(limit)));
   const { data: agent, error: agentError } = await db.from("agents").select("id").eq("key", "supervisor").single();
@@ -337,6 +340,7 @@ export async function loadSupervisorConversation(limit = 12, actorId?: string) {
     .order("created_at", { ascending: false })
     .limit(bounded);
   if (actorId) query = query.contains("payload", { actorId });
+  if (ratedOnly) query = query.in("payload->feedback->>rating", ["up", "down"]);
   const { data, error } = await query;
   if (error) throw new Error("Permanent Agent conversation history is unavailable.");
   return (data ?? []).map((job) => supervisorJobMessage(job as Pick<AgentJob, "payload" | "result_summary" | "created_at" | "id">)).filter((item): item is NonNullable<typeof item> => Boolean(item));
