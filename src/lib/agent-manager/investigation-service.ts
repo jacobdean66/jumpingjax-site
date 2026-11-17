@@ -13,6 +13,22 @@ export type RepositoryIndex = {
   files: Array<{ path: string; text: string; lines: number | null; truncated: boolean }>;
   routes: Array<{ path: string; source: string; dynamic: boolean; protected: boolean }>;
 };
+function resolvePageSource(routes: RepositoryIndex['routes'], page: string) {
+  const exact = routes.find(route => route.path === page);
+  if (exact) return exact.source;
+  const segments = page.slice(1).split('/');
+  if (segments.some(segment => !/^[a-zA-Z0-9_~.-]+$/.test(segment) || segment === '.' || segment === '..')) return;
+  const candidates = routes.filter(route => {
+    if (!route.dynamic) return false;
+    const pattern = route.path.slice(1).split('/');
+    return pattern.length === segments.length && pattern.every((part, index) =>
+      /^\[[a-zA-Z0-9_]+\]$/.test(part) || part === segments[index]);
+  });
+  const specificity = (route: (typeof routes)[number]) => route.path.split('/').map(part => part.startsWith('[') ? '0' : '1').join('');
+  candidates.sort((left, right) => specificity(right).localeCompare(specificity(left)));
+  return candidates[0]?.source;
+}
+
 let indexPromise: Promise<RepositoryIndex> | undefined;
 export function deployedRepositoryIndex() {
   indexPromise ??= readFile(join(process.cwd(), '.generated/agent-repository-index.json'), 'utf8').then(text => JSON.parse(text) as RepositoryIndex).catch(() => { indexPromise = undefined; throw new Error('The deployed repository index is unavailable.'); });
@@ -105,7 +121,7 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         const { path, startLine, lineCount } = investigationInputs.repository_read.parse(input);
         if (!path.startsWith('/') && !eligibleSourcePath(path)) throw new Error('That file is outside the deployed source index.');
         const index = await deps.index();
-        const resolvedPath = path.startsWith('/') ? index.routes.find(route => route.path === path)?.source : path;
+        const resolvedPath = path.startsWith('/') ? resolvePageSource(index.routes, path) : path;
         if (!resolvedPath) throw new Error('The exact website page was not found in the deployed source index.');
         if (!eligibleSourcePath(resolvedPath)) throw new Error('That file is outside the deployed source index.');
         const file = index.files.find(file => file.path === resolvedPath);
@@ -118,6 +134,32 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         }
         limited = endLine < lines.length;
         data = { path: resolvedPath, ...(path.startsWith('/') ? { pagePath: path } : {}), commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
+      } else if (tool === 'rental_lookup') {
+        const { bookingId, eventDate, offset } = investigationInputs.rental_lookup.parse(input);
+        if (!bookingId && !eventDate) return { source, checkedAt, error: 'A booking ID or event date is required.' };
+        const fields = ['id', 'status', 'event_date', 'event_start_time', 'requested_delivery_window', 'delivery_time', 'rental_name', 'duration', 'span_days', 'delivery_fee', 'mileage_fee', 'subtotal', 'total', 'payment_confirmed_at'];
+        const query = new URLSearchParams({ select: fields.join(','), order: 'id.asc', offset: String(offset), limit: '11' });
+        if (bookingId) query.set('id', 'eq.' + bookingId);
+        if (eventDate) query.set('event_date', 'eq.' + eventDate);
+        source = 'database.public.bookings';
+        const result = await databaseGet('bookings', query);
+        limited = result.data.length > 10;
+        const bookings = result.data.slice(0, 10).map((row: Record<string, unknown>) =>
+          Object.fromEntries(fields.map(field => [field, row[field]])));
+        const ids = bookings.map((row: Record<string, unknown>) => investigationInputs.rental_lookup.shape.bookingId.parse(String(row.id)));
+        if (ids.length) {
+          const items = await databaseGet('booking_rental_items', new URLSearchParams({
+            select: 'booking_id,rental_item,rental_name',
+            booking_id: 'in.(' + ids.join(',') + ')',
+          }));
+          for (const booking of bookings) {
+            booking.items = items.data
+              .filter((item: Record<string, unknown>) => String(item.booking_id) === String(booking.id))
+              .map((item: Record<string, unknown>) => ({ slug: item.rental_item, name: item.rental_name }));
+          }
+          source += '+booking_rental_items';
+        }
+        data = { bookings, nextOffset: limited ? offset + 10 : null };
       } else if (tool === 'website_map') {
         const { query, offset } = investigationInputs.website_map.parse(input), index = await deps.index();
         const matches = index.routes.filter(route => `${route.path} ${route.source}`.toLowerCase().includes(query.toLowerCase()));
