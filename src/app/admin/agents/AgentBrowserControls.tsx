@@ -21,6 +21,8 @@ function visibleControls(doc: Document) {
 export function AgentBrowserControls() {
   const frame = useRef<HTMLIFrameElement>(null);
   const inspected = useRef<{ document: Document; elements: HTMLElement[] } | null>(null);
+  const pending = useRef<AbortController | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const [page, setPage] = useState("");
   const [command, setCommand] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
@@ -31,18 +33,16 @@ export function AgentBrowserControls() {
     setLabels([]);
   }
 
-  function run(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const input = command.trim();
-    setCommand("");
+  function run(input: string) {
     try {
       const navigation = /^open (\/[^\s]*)$/i.exec(input);
       if (navigation) {
         const target = new URL(navigation[1], window.location.origin);
         if (target.origin !== window.location.origin || !supportedPage.test(target.pathname)) throw new Error("Choose a rental, checkout, facility, or invitation page.");
         reset();
-        if (frame.current) frame.current.src = target.href;
-        setPage(target.pathname + target.search + target.hash);
+        const nextPage = target.pathname + target.search + target.hash;
+        if (nextPage === page && frame.current) frame.current.src = target.href;
+        else setPage(nextPage);
         setStatus("Opening page…");
         return;
       }
@@ -89,17 +89,71 @@ export function AgentBrowserControls() {
     }
   }
 
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const input = command.trim();
+    if (!input || pending.current) return;
+    setCommand("");
+    if (/^(?:inspect$|open \/|(?:click|focus|type|select) \d+(?:\s|$))/i.test(input)) {
+      run(input);
+      return;
+    }
+    const doc = frame.current?.contentDocument;
+    const elements = doc && supportedPage.test(doc.location.pathname) ? visibleControls(doc) : [];
+    const snapshot = { document: doc, elements };
+    const controlNames = elements.map(controlLabel);
+    const controller = new AbortController();
+    pending.current = controller;
+    setRequesting(true);
+    setStatus("Choosing a browser action…");
+    try {
+      const response = await fetch("/api/admin/agents/browser-command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: input, controls: elements.map((element, index) => ({ label: controlNames[index], tag: element.tagName })) }),
+        signal: controller.signal,
+      });
+      const { decision, error } = await response.json();
+      if (controller.signal.aborted) return;
+      if (!response.ok) throw new Error(error || "The agent could not choose a browser action.");
+      if (decision.action === "ask") { setStatus(decision.value); return; }
+      if (decision.action === "open") { run("open " + decision.value); return; }
+      if (!snapshot.document || frame.current?.contentDocument !== snapshot.document) throw new Error("The page changed. Give the instruction again.");
+      const target = elements[decision.number - 1];
+      const current = visibleControls(snapshot.document);
+      if (!target || current[decision.number - 1] !== target || controlLabel(target) !== controlNames[decision.number - 1]) throw new Error("The controls changed. Give the instruction again.");
+      inspected.current = { document: snapshot.document, elements };
+      run([decision.action, decision.number, decision.value].join(" ").trim());
+    } catch (error) {
+      if (!controller.signal.aborted) setStatus(error instanceof Error ? error.message : "The browser request failed.");
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null;
+        setRequesting(false);
+      }
+    }
+  }
+
+  function close() {
+    pending.current?.abort();
+    pending.current = null;
+    setRequesting(false);
+    reset();
+    setPage("");
+    setStatus("");
+  }
+
   if (!page) return <button type="button" className="mt-4 rounded-lg border border-slate-500 px-3 py-2 text-sm font-bold" onClick={() => setPage(initialPage)}>Open browser controls</button>;
   return <section className="mt-4 space-y-3 rounded-xl border border-slate-600 p-3" aria-label="Permanent Agent browser controls">
     <div className="flex items-center justify-between gap-3">
       <h3 className="font-bold">Browser controls</h3>
-      <button type="button" onClick={() => { reset(); setPage(""); setStatus(""); }}>Close</button>
+      <button type="button" onClick={close}>Close</button>
     </div>
-    <form onSubmit={run} className="flex gap-2">
-      <input aria-label="Browser command" value={command} maxLength={1000} onChange={event => setCommand(event.target.value)} placeholder="inspect, click 2, type 3 Space theme" className="min-w-0 flex-1 rounded-lg bg-white p-2 text-slate-950" />
-      <button type="submit" className="rounded-lg bg-sky-700 px-3 py-2 font-bold">Run</button>
+    <form onSubmit={submit} className="flex gap-2">
+      <input aria-label="Browser command" value={command} maxLength={1000} onChange={event => setCommand(event.target.value)} placeholder="Open the invitation editor or click Search" className="min-w-0 flex-1 rounded-lg bg-white p-2 text-slate-950" />
+      <button type="submit" disabled={requesting} className="rounded-lg bg-sky-700 px-3 py-2 font-bold">Run</button>
     </form>
-    <p className="text-sm text-slate-300">Use <code>open /booking</code> to navigate, <code>inspect</code> to list controls, then <code>click 2</code>, <code>focus 2</code>, <code>type 3 text</code>, or <code>select 4 value</code>.</p>
+    <p className="text-sm text-slate-300">Tell the agent what to do on this page. It runs one action per instruction. Use <code>inspect</code> to see numbered controls.</p>
     <p role="status" className="text-sm">{status}</p>
     {labels.length ? <ol className="max-h-44 list-decimal overflow-auto pl-8 text-sm">{labels.map((label, index) => <li key={index}>{label}</li>)}</ol> : null}
     <iframe ref={frame} src={page} title="Jumping Jax browser controls" onLoad={reset} className="h-[32rem] w-full rounded-lg bg-white" />
