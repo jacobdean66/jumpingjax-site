@@ -37,7 +37,11 @@ import { trackLead } from "@/lib/analytics/client";
 import { calculateInflatableDiscount, DEFAULT_PROMOTION_SLUGS } from "@/lib/rentals/ad-promotion";
 import { RentalPromotionEntry, useRentalPromotion } from "./RentalPromotion";
 
+const emptyDraftCart: RentalCartItem[] = [];
+
 export type RentalBookingPanelProps = {
+  isolatedDraft?: boolean;
+  draftDate?: string;
   rental_item: string;
   rentalTitle: string;
   startingPrice: number;
@@ -328,6 +332,8 @@ export function RentalCardCartActions({
 }
 
 export function RentalBookingPanel({
+  isolatedDraft = false,
+  draftDate,
   rental_item: slug,
   rentalTitle,
   startingPrice,
@@ -343,7 +349,7 @@ export function RentalBookingPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitIdempotencyKey = useRef<string | null>(null);
 
-  const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
+  const [selectedYmd, setSelectedYmd] = useState<string | null>(draftDate ?? null);
   const [clickedBlockedYmd, setClickedBlockedYmd] = useState<string | null>(null);
   const [durationId, setDurationId] = useState(ONE_DAY_RENTAL_DURATION.id);
   const [secondDayQuoteRequested, setSecondDayQuoteRequested] = useState(false);
@@ -354,7 +360,7 @@ export function RentalBookingPanel({
   const [deliveryTime, setDeliveryTime] = useState("");
   const [eventStartTime, setEventStartTime] = useState("");
 
-  const rentalCartItems = useBookingStore((s) => s.rentalCartItems);
+  const rentalCartItems = useBookingStore((s) => isolatedDraft ? emptyDraftCart : s.rentalCartItems);
   const removeRentalFromCart = useBookingStore((s) => s.removeRentalFromCart);
 
   const [optimisticBlockedYmds, setOptimisticBlockedYmds] = useState(
@@ -380,11 +386,12 @@ export function RentalBookingPanel({
   };
 
   useEffect(() => {
+    if (isolatedDraft) return;
     const timeoutId = window.setTimeout(() => {
       setRestoredSuccessId(readPersistedSubmitSuccess(slug));
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [slug]);
+  }, [slug, isolatedDraft]);
 
   const activeSuccessId = successId ?? restoredSuccessId;
 
@@ -814,7 +821,7 @@ export function RentalBookingPanel({
         if (data && typeof data === "object" && "signedAgreementPath" in data && typeof data.signedAgreementPath === "string") setAgreementPath(data.signedAgreementPath);
         if (data && typeof data === "object" && "signingAgreementPath" in data && typeof data.signingAgreementPath === "string") setAgreementPath(data.signingAgreementPath);
         if (signLater && data && typeof data === "object" && "agreementEmailSent" in data && !("signedAgreementPath" in data && data.signedAgreementPath)) setSigningEmailSent(data.agreementEmailSent === true);
-        writePersistedSubmitSuccess(id, slug);
+        if (!isolatedDraft) writePersistedSubmitSuccess(id, slug);
         setSuccessId(id);
         if (selectedYmd && duration) {
           setOptimisticBlockedYmds((prev) => {

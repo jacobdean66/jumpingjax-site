@@ -7,8 +7,9 @@ import { isInflatablePromotionCategory } from "@/lib/rentals/ad-promotion";
 import { useBookingStore } from "@/store/bookingStore";
 import { RentalBookingPanel } from "./RentalBookingPanel";
 
-export function BookingPageClient({ rentals }: { rentals: Rental[] }) {
-  const rentalId = useBookingStore((s) => s.rentalId);
+export function BookingPageClient({ rentals, draftRentalId, draftDate }: { rentals: Rental[]; draftRentalId?: string; draftDate?: string }) {
+  const storedRentalId = useBookingStore((s) => s.rentalId);
+  const rentalId = draftRentalId ?? storedRentalId;
 
   const rental = useMemo(
     () => rentals.find(item => item.slug === rentalId),
@@ -60,6 +61,9 @@ export function BookingPageClient({ rentals }: { rentals: Rental[] }) {
 
         <div className="mt-10">
           <RentalBookingPanel
+            key={draftRentalId ? JSON.stringify([draftRentalId, draftDate]) : undefined}
+            isolatedDraft={Boolean(draftRentalId)}
+            draftDate={draftDate}
             rental_item={rental.slug}
             rentalTitle={rental.title}
             startingPrice={rental.startingPrice}

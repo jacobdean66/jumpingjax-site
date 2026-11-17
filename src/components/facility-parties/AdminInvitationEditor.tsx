@@ -31,7 +31,7 @@ export function AdminInvitationEditor(props: {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The invitation could not be saved."); }
     finally { setBusy(false); }
   }
-  return <section className="my-6 rounded-2xl border border-slate-200 bg-white p-5 print:hidden" aria-label="Create party invitations">
+  return <section id="create-invitation" className="my-6 rounded-2xl border border-slate-200 bg-white p-5 print:hidden" aria-label="Create party invitations">
     <h2 className="text-xl font-black text-slate-950">Create or change party invitations</h2>
     <p className="mt-2 text-slate-700">Search for the party theme, confirm the right picture, then choose a design and save it to this party.</p>
     <label className="mt-4 block font-bold text-slate-900" htmlFor="admin-invitation-theme">Party theme</label>

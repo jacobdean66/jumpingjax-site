@@ -5,6 +5,7 @@ import { investigationInputs, readableDatabaseColumn, type InvestigationTool, ty
 import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-investigation/source-policy.mjs';
 import { CANONICAL_PRODUCTION_SITE_URL } from '@/lib/site-url';
 import { listOfficeMessages, readOfficeMessage } from '@/lib/email/office-inbox';
+import { getWebsiteRentalBySlug } from '@/lib/rentals/public-catalog';
 import { reviewDraftHref } from './action-drafts';
 import type { SupervisorRelatedAction } from './supervisor';
 
@@ -134,10 +135,28 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         }
         limited = endLine < lines.length;
         data = { path: resolvedPath, ...(path.startsWith('/') ? { pagePath: path } : {}), commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
+      } else if (tool === 'prepare_rental_request' || tool === 'prepare_party_invitation') {
+        let action: SupervisorRelatedAction;
+        if (tool === 'prepare_rental_request') {
+          const { slug, eventDate } = investigationInputs.prepare_rental_request.parse(input);
+          source = 'website:rental-catalog';
+          if (!await getWebsiteRentalBySlug(slug)) return { source, checkedAt, error: 'That rental was not found in the catalog.' };
+          const query = new URLSearchParams({ rental: slug, ...(eventDate ? { date: eventDate } : {}) });
+          action = { kind: 'rental_request', label: 'Open rental checkout', href: '/booking?' + query };
+        } else {
+          const { partyId, theme } = investigationInputs.prepare_party_invitation.parse(input);
+          source = 'database.public.facility_bookings';
+          const result = await databaseGet('facility_bookings', new URLSearchParams({ select: 'id,status', id: 'eq.' + partyId, limit: '1' }));
+          if (!result.data[0] || result.data[0].status === 'cancelled') return { source, checkedAt, error: 'No active party was found with that ID.' };
+          const query = theme ? '?' + new URLSearchParams({ theme }) : '';
+          action = { kind: 'party_invitation', label: 'Open invitation editor', href: '/admin/facility/' + partyId + '/invitations' + query + '#create-invitation' };
+        }
+        actions.push(action);
+        data = { prepared: true, saved: false, action };
       } else if (tool === 'rental_lookup') {
         const { bookingId, eventDate, offset } = investigationInputs.rental_lookup.parse(input);
         if (!bookingId && !eventDate) return { source, checkedAt, error: 'A booking ID or event date is required.' };
-        const fields = ['id', 'status', 'event_date', 'event_start_time', 'requested_delivery_window', 'delivery_time', 'rental_name', 'duration', 'span_days', 'delivery_fee', 'mileage_fee', 'subtotal', 'total', 'payment_confirmed_at'];
+        const fields = ['id', 'status', 'event_date', 'event_start_time', 'requested_delivery_window', 'delivery_time', 'rental_name', 'rental_item', 'duration', 'foam_duration', 'span_days', 'distance_miles', 'setup_surface', 'delivery_fee', 'mileage_fee', 'subtotal', 'total', 'payment_method', 'payment_confirmed_at'];
         const query = new URLSearchParams({ select: fields.join(','), order: 'id.asc', offset: String(offset), limit: '11' });
         if (bookingId) query.set('id', 'eq.' + bookingId);
         if (eventDate) query.set('event_date', 'eq.' + eventDate);

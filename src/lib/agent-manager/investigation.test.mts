@@ -135,3 +135,15 @@ test('rental lookups read a saved booking and its items without returning privat
   assert.match(String((await reader.execute('rental_lookup', { bookingId: null, eventDate: null, offset: 0 })).error), /required/);
   assert.equal(requests.length, 2);
 });
+
+test('party invitation drafts open the verified party with the supplied theme and never write', async () => {
+  const partyId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const reader = createInvestigationReader({ databaseUrl: 'https://project.supabase.co', databaseKey: 'test', fetch: async (input, request) => {
+    assert.equal(request?.method, 'GET');
+    assert.equal(new URL(String(input)).searchParams.get('id'), 'eq.' + partyId);
+    return Response.json([{ id: partyId, status: 'confirmed' }]);
+  } });
+  const result = await reader.execute('prepare_party_invitation', { partyId, theme: 'Space & stars' });
+  assert.equal(result.saved, false);
+  assert.equal(reader.actions[0].href, '/admin/facility/' + partyId + '/invitations?theme=Space+%26+stars#create-invitation');
+});
