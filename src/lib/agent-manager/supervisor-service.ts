@@ -279,7 +279,7 @@ export async function runSupervisorConversation(message: string, actorId: string
         const rental = /\brentals?\b/i.test(message);
         const facility = /\b(?:facility|parties)\b/i.test(message);
         const result = await reader.execute('weekend_bookings', { scope: rental === facility ? 'all' : rental ? 'rental' : 'facility' });
-        reply = typeof result.reply === 'string' ? result.reply : 'I could not load the weekend schedule. Please try again.';
+        reply = 'reply' in result && typeof result.reply === 'string' ? result.reply : 'I could not load the weekend schedule. Please try again.';
       } else {
         const history = await loadSupervisorConversation(4, actorId);
         reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
