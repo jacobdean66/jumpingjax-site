@@ -164,3 +164,14 @@ test('this weekend uses Eastern Friday through Sunday and hides cancelled bookin
   assert.match(String(result.reply), /Water slide.*Private facility party/);
   assert.doesNotMatch(String(result.reply), /Cancelled item|Private name|Private child name/);
 });
+
+test('a known party name resolves a verified invitation editor and deduplicates matching fields', async () => {
+  const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const reader = createInvestigationReader({ databaseUrl: 'https://project.supabase.co', databaseKey: 'test', fetch: async input => {
+    const query = new URL(String(input)).searchParams;
+    return Response.json(query.has('party_label') ? [] : [{ id, status: 'approved', readable_date: '2026-11-21' }]);
+  } });
+  const result = await reader.execute('find_party_invitation', { partyName: 'Example Parent' });
+  assert.equal(result.error, undefined);
+  assert.equal(reader.actions[0]?.href, '/admin/facility/' + id + '/invitations#create-invitation');
+});

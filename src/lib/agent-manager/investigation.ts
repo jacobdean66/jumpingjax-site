@@ -9,6 +9,7 @@ export const investigationInputs = {
   repository_search: z.object({ query: z.string().max(120), prefix: z.string().max(200).nullable(), offset: z.number().int().min(0).max(10000) }).strict(),
   repository_read: z.object({ path: z.string().min(1).max(240), startLine: z.number().int().min(1).max(100000), lineCount: z.number().int().min(1).max(120) }).strict(),
   prepare_rental_request: z.object({ slug: z.string().regex(/^[a-z0-9-]{1,120}$/), eventDate: z.iso.date().nullable() }).strict(),
+  find_party_invitation: z.object({ partyName: z.string().trim().min(2).max(120).regex(/^[\p{L}\p{M}\p{N} .’'\-]+$/u) }).strict(),
   prepare_party_invitation: z.object({ partyId: z.string().uuid(), theme: z.string().trim().min(1).max(160).nullable() }).strict(),
   weekend_bookings: z.object({ scope: z.enum(['all', 'rental', 'facility']) }).strict(),
   rental_lookup: z.object({
@@ -42,6 +43,7 @@ const descriptions: Record<InvestigationTool, string> = {
   repository_search: 'Search the deployed active repository by literal text or filename. Returns source paths and matching lines. Empty query lists paths. Prefix is a repository directory such as src/app/admin, not a website URL path. For an exact website page path, use repository_read directly or website_map to resolve its source. Use offset to continue.',
   repository_read: 'Read a numbered excerpt from an indexed source file or a website page path, including concrete URLs backed by dynamic routes. Website paths resolve to their exact indexed page source, never a parent page. This is deployed code, not a live GitHub branch. No secrets or environment files are available.',
   prepare_rental_request: 'Open the existing rental checkout with the verified rental selected and requested date filled in. Use when asked to book an item. Ask about the item if ambiguous. Staff review, complete required details and submit from checkout.',
+  find_party_invitation: 'Find the invitation editor by the exact party, customer, or parent name, including a name already established in conversation. A single active match returns the editor link. For multiple matches ask which date; never guess.',
   prepare_party_invitation: 'Open the existing invitation editor for a verified facility party, with the requested theme filled in. Use when asked to create an invitation. Obtain the party ID first. Staff select artwork and save from the editor.',
   weekend_bookings: 'Read this weekend’s Friday through Sunday rental and facility schedule in Eastern time. Use for weekend booking questions.',
   rental_lookup: 'Read actual rental bookings by booking ID or event date, including past and cancelled bookings, with items, scheduling, and charges. Use null for an unknown ID or date and require at least one. For an item question about the rental catalog instead, investigate the product page and catalog source.',

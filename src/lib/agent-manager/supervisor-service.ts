@@ -255,6 +255,7 @@ export async function runSupervisorConversation(message: string, actorId: string
     await stopped.check();
     const snapshot = await collectSupervisorSnapshot(actorId, fetch, stopped.signal);
     let reply: string;
+    let followUpAction: SupervisorRelatedAction | null = null;
     let aiInvocations = 0;
     const deadline = AbortSignal.any([stopped.signal, AbortSignal.timeout(65000)]);
     const reader = createInvestigationReader({ allowEmail: canReadOfficeMail(message) }, deadline);
@@ -282,7 +283,12 @@ export async function runSupervisorConversation(message: string, actorId: string
         reply = 'reply' in result && typeof result.reply === 'string' ? result.reply : 'I could not load the weekend schedule. Please try again.';
       } else {
         const history = await loadSupervisorConversation(4, actorId);
-        reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
+        const previousAction = history[0]?.relatedAction;
+        const acceptsEditor = !pictureCount && /^(?:(?:ok(?:ay)?|yes|sure)[,!.]?\s*)?(?:let['’]?s do (?:that|it)|do (?:that|it)|go ahead|open it|send (?:me )?the link|yes please|please do)[.!?]*$/i.test(message.trim());
+        if (acceptsEditor && previousAction?.kind === "party_invitation") {
+          followUpAction = previousAction;
+          reply = "Open the invitation editor below to make your changes.";
+        } else reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
           await assertAllowed();
           if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
           const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
@@ -290,7 +296,7 @@ export async function runSupervisorConversation(message: string, actorId: string
         } } }, deadline);
       }
     }
-    const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
+    const relatedAction = handoff?.relatedAction ?? followUpAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
     const payload = {
       message,
       clientRequestId,

@@ -139,6 +139,31 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         }
         limited = endLine < lines.length;
         data = { path: resolvedPath, ...(path.startsWith('/') ? { pagePath: path } : {}), commit: index.commit, text, totalLines: lines.length, nextLine: limited && endLine >= startLine ? endLine + 1 : null };
+      } else if (tool === 'find_party_invitation') {
+        const { partyName } = investigationInputs.find_party_invitation.parse(input);
+        source = 'database.public.facility_bookings';
+        const results = await Promise.all(['customer_name', 'parent_name', 'party_label'].map(column =>
+          databaseGet('facility_bookings', new URLSearchParams({
+            select: 'id,status,readable_date,readable_time', [column]: 'ilike.' + partyName,
+            order: 'readable_date.desc,id.asc', limit: '6',
+          }))));
+        const matches = new Map<string, { partyId: string; date: unknown; time: unknown }>();
+        for (const { data: rows } of results) {
+          if (!Array.isArray(rows)) throw new Error('The party lookup is unavailable.');
+          limited ||= rows.length >= 6;
+          for (const row of rows) {
+            const id = investigationInputs.prepare_party_invitation.shape.partyId.safeParse(row.id);
+            if (id.success && !isCancelledStatus(row.status)) matches.set(id.data, { partyId: id.data, date: row.readable_date, time: row.readable_time });
+          }
+        }
+        const parties = [...matches.values()];
+        if (parties.length === 1 && !limited) {
+          const action: SupervisorRelatedAction = { kind: 'party_invitation', label: 'Open invitation editor', href: '/admin/facility/' + parties[0].partyId + '/invitations#create-invitation' };
+          actions.push(action);
+          data = { parties, action };
+        } else {
+          data = { parties: parties.slice(0, 5), ambiguous: parties.length > 1 || limited };
+        }
       } else if (tool === 'prepare_rental_request' || tool === 'prepare_party_invitation') {
         let action: SupervisorRelatedAction;
         if (tool === 'prepare_rental_request') {
