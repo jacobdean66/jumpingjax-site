@@ -167,6 +167,9 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
       ) : null}
 
+      <details className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-black text-slate-950 [&::-webkit-details-marker]:hidden">Rental Catalog<span aria-hidden="true" className="text-sky-700">＋</span></summary>
+        <div className="border-t border-slate-200 p-4 sm:p-5">
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
           Rental Catalog
@@ -181,12 +184,22 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
           production workflow receive separate validation.
         </p>
       </section>
+        </div>
+      </details>
 
+      <details className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-black text-slate-950 [&::-webkit-details-marker]:hidden">Social Posts<span aria-hidden="true" className="text-sky-700">＋</span></summary>
+        <div className="border-t border-slate-200 p-4 sm:p-5">
       <SocialPostsInstructionManual
         socialPostsHref={settingsHref(token, "/admin/social-posts")}
       />
+        </div>
+      </details>
 
-      <form
+      <details className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-black text-slate-950 [&::-webkit-details-marker]:hidden">Party Pricing<span aria-hidden="true" className="text-sky-700">＋</span></summary>
+        <div className="border-t border-slate-200 p-4 sm:p-5">
+<form
         action="/api/admin/site-settings"
         method="post"
         className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -260,8 +273,13 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
         <FormFooter label="Save facility prices" />
       </form>
+        </div>
+      </details>
 
-      <form
+      <details className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-black text-slate-950 [&::-webkit-details-marker]:hidden">Business Hours<span aria-hidden="true" className="text-sky-700">＋</span></summary>
+        <div className="border-t border-slate-200 p-4 sm:p-5">
+<form
         action="/api/admin/site-settings"
         method="post"
         className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -305,8 +323,13 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
         <FormFooter label="Save hours" />
       </form>
+        </div>
+      </details>
 
-      <form
+      <details className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-black text-slate-950 [&::-webkit-details-marker]:hidden">Website Text<span aria-hidden="true" className="text-sky-700">＋</span></summary>
+        <div className="border-t border-slate-200 p-4 sm:p-5">
+<form
         action="/api/admin/site-settings"
         method="post"
         className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -469,6 +492,8 @@ export default async function AdminSiteSettingsPage({ searchParams }: Props) {
         </div>
         <FormFooter label="Save website text" />
       </form>
+        </div>
+      </details>
     </AdminShell>
   );
 }
