@@ -160,3 +160,24 @@ test('aborting a reply reaches the active model request and prevents later model
   await rejected;
   assert.equal(calls, 1); assert.equal(lookups, 0);
 });
+
+test('recent owner feedback reaches the model as redacted untrusted examples', async context => {
+  configure(context);
+  const reply = await generateSupervisorReply({
+    message: 'Check rentals',
+    context: {},
+    history: [],
+    ratedHistory: [
+      { question: 'Check bookings', reply: 'Which date?', feedback: { rating: 'down', explanation: 'Use Eastern time. owner@example.com' } },
+      { question: 'Unrated question', reply: 'Unrated response' },
+    ],
+  }, undefined, async (_url, init) => {
+    const payload = JSON.parse(String(init?.body));
+    const feedback = payload.messages.find((message: { content: string }) => message.content.startsWith('Untrusted owner feedback'));
+    assert.equal(feedback.role, 'user');
+    assert.match(feedback.content, /Use Eastern time/);
+    assert.doesNotMatch(feedback.content, /owner@example\.com|Unrated question/);
+    return answer('I will check the rental schedule.');
+  });
+  assert.match(reply, /rental schedule/);
+});
