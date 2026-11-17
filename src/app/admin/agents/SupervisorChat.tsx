@@ -6,6 +6,7 @@ import { FormEvent, useRef, useState } from "react";
 import type { SupervisorRelatedAction, SupervisorSnapshot } from "@/lib/agent-manager/supervisor";
 import { supervisorIssueAction } from "./navigation";
 import { SupervisorComposer } from "./SupervisorComposer";
+import { AgentBrowserControls } from "./AgentBrowserControls";
 import { SupervisorReply } from "./SupervisorReply";
 import { parseInvestigationEvidence, type InvestigationTrace } from '@/lib/agent-manager/investigation';
 import Image from 'next/image';
@@ -198,6 +199,7 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
 
       {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-950 p-3 text-sm font-bold text-rose-100">{error}</p> : null}
       <p className="mt-3 text-xs font-semibold text-slate-400">Do not paste passwords, tokens, or customer details. Ask for a rental item draft or a website, dashboard or print coding fix. Review drafts before saving; protected pages require owner preview checks. Production code, content, booking, calendar, customer-message, payment, deletion, and deployment changes remain approval-gated.</p>
+      <AgentBrowserControls />
     </section>
   );
 }
