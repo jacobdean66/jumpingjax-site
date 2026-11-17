@@ -178,9 +178,6 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
         </div>
       ) : null}
 
-      <SupervisorComposer message={message} busy={busy || preparingPictures} stopping={stopping} onStop={() => { void stop(); }} preparingPictures={preparingPictures} pictures={pictures} onAddPictures={files => { void addPictures(files); }} onRemovePicture={index => { setPictures(current => current.filter((_, at) => at !== index)); setError(''); }} onChange={setMessage} onSubmit={submit} />
-      {notice ? <p role="status" className="mt-3 text-sm font-semibold text-sky-200">{notice}</p> : null}
-
       <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-black">Recent chats</h3><span className="text-xs text-slate-300">Newest first · Eastern time</span></div>
       <div ref={historyRef} aria-label="Permanent agent chat history" className="mt-2 scroll-mt-4 space-y-4 rounded-2xl bg-white p-4 text-slate-950">
         {busy ? <p role="status" className="text-sm font-bold text-slate-500">{stopping ? 'Stopping…' : 'Preparing a reply…'}</p> : null}
@@ -196,6 +193,9 @@ export function SupervisorChat({ initialMessages, initialSnapshot }: { initialMe
           </details> : null}
         </>}
       </div>
+
+      <SupervisorComposer message={message} busy={busy || preparingPictures} stopping={stopping} onStop={() => { void stop(); }} preparingPictures={preparingPictures} pictures={pictures} onAddPictures={files => { void addPictures(files); }} onRemovePicture={index => { setPictures(current => current.filter((_, at) => at !== index)); setError(''); }} onChange={setMessage} onSubmit={submit} />
+      {notice ? <p role="status" className="mt-3 text-sm font-semibold text-sky-200">{notice}</p> : null}
 
       {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-950 p-3 text-sm font-bold text-rose-100">{error}</p> : null}
       <p className="mt-3 text-xs font-semibold text-slate-400">Do not paste passwords, tokens, or customer details. Ask for a rental item draft or a website, dashboard or print coding fix. Review drafts before saving; protected pages require owner preview checks. Production code, content, booking, calendar, customer-message, payment, deletion, and deployment changes remain approval-gated.</p>
