@@ -57,7 +57,7 @@ export type SupervisorSnapshot = {
 export type SupervisorRelatedAction = {
   label: string;
   href: string;
-  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center" | "agent_network" | "code_repair" | "catalog_draft" | "rental_request" | "party_invitation";
+  kind: "existing_social_draft" | "new_social_draft" | "answering_machine" | "security_center" | "agent_network" | "code_repair" | "catalog_draft" | "rental_request" | "party_invitation" | "booking_schedule";
 };
 
 export type SupervisorControl =
@@ -294,6 +294,6 @@ function parseRelatedAction(value: unknown): SupervisorRelatedAction | null {
   const action = value as Partial<SupervisorRelatedAction>;
   if (typeof action.label !== "string" || typeof action.href !== "string") return null;
   if (!(action.href.startsWith("/admin/") || (action.kind === "rental_request" && action.href.startsWith("/booking?"))) || action.href.length > 18000 || /[\\\r\n]/.test(action.href)) return null;
-  if (!action.kind || !["existing_social_draft", "new_social_draft", "answering_machine", "security_center", "agent_network", "code_repair", "catalog_draft", "rental_request", "party_invitation"].includes(action.kind)) return null;
+  if (!action.kind || !["existing_social_draft", "new_social_draft", "answering_machine", "security_center", "agent_network", "code_repair", "catalog_draft", "rental_request", "party_invitation", "booking_schedule"].includes(action.kind)) return null;
   return { label: action.label.slice(0, 120), href: action.href, kind: action.kind };
 }

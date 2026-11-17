@@ -6,6 +6,8 @@ import { eligibleSourcePath, redactEvidence } from '../../../scripts/agent-inves
 import { CANONICAL_PRODUCTION_SITE_URL } from '@/lib/site-url';
 import { listOfficeMessages, readOfficeMessage } from '@/lib/email/office-inbox';
 import { getWebsiteRentalBySlug } from '@/lib/rentals/public-catalog';
+import { loadScheduleEvents, isCancelledStatus } from '@/lib/admin/schedule';
+import { rentalWeekend } from '@/lib/admin/weekend';
 import { reviewDraftHref } from './action-drafts';
 import type { SupervisorRelatedAction } from './supervisor';
 
@@ -41,6 +43,8 @@ type Catalog = Record<string, { properties?: Record<string, Column> }>;
 type Dependencies = {
   index: () => Promise<RepositoryIndex>; fetch: typeof fetch; databaseUrl?: string; databaseKey?: string;
   emailList: typeof listOfficeMessages; emailRead: typeof readOfficeMessage;
+  schedule: typeof loadScheduleEvents;
+  now: () => Date;
   allowEmail: boolean;
 };
 
@@ -69,7 +73,7 @@ function authenticationMail(text: string) { return /password.reset|verification.
 function safeSubject(subject: string | null) { return authenticationMail(subject ?? '') ? '[Authentication email: open directly in Office Inbox]' : redactEvidence(subject ?? '(no subject)'); }
 
 export function createInvestigationReader(overrides: Partial<Dependencies> = {}, signal?: AbortSignal) {
-  const deps: Dependencies = { index: deployedRepositoryIndex, fetch, databaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY, emailList: listOfficeMessages, emailRead: readOfficeMessage, allowEmail: false, ...overrides };
+  const deps: Dependencies = { index: deployedRepositoryIndex, fetch, databaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY, emailList: listOfficeMessages, emailRead: readOfficeMessage, schedule: loadScheduleEvents, now: () => new Date(), allowEmail: false, ...overrides };
   const traces: InvestigationTrace[] = [];
   const actions: SupervisorRelatedAction[] = [];
   let catalogPromise: Promise<Catalog> | undefined;
@@ -153,6 +157,28 @@ export function createInvestigationReader(overrides: Partial<Dependencies> = {},
         }
         actions.push(action);
         data = { prepared: true, saved: false, action };
+      } else if (tool === 'weekend_bookings') {
+        const { scope } = investigationInputs.weekend_bookings.parse(input);
+        const range = rentalWeekend(undefined, deps.now());
+        source = 'admin.schedule:' + range.from + '..' + range.to;
+        const events = (await deps.schedule(range)).filter(event => {
+          const rental = event.type === 'rental' || event.type === 'foam-party';
+          return !isCancelledStatus(event.status) && (scope === 'all' || (scope === 'rental' ? rental : !rental));
+        });
+        limited = events.length > 12;
+        const format = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+        const day = (date: string) => format.format(new Date(date + 'T12:00:00Z'));
+        const listed = events.slice(0, 12);
+        const lines = range.dates.filter(date => listed.some(event => event.date === date)).map(date =>
+          day(date) + ': ' + listed.filter(event => event.date === date).map(event => {
+            const label = event.type === 'rental' || event.type === 'foam-party' ? event.title : event.type === 'private-party' ? 'Private facility party' : 'Facility party';
+            return label + (event.displayTime ? ' at ' + event.displayTime : '') + ' (' + event.status + ')';
+          }).join('; '));
+        actions.push({ kind: 'booking_schedule', label: 'Open weekend schedule', href: '/admin/schedule?view=week&date=' + range.from });
+        const heading = day(range.from) + ' through ' + day(range.to);
+        data = { from: range.from, to: range.to, count: events.length, reply: events.length
+          ? heading + '\n\n' + lines.map(line => '- ' + line).join('\n') + (limited ? '\n\nOpen the schedule for the remaining entries.' : '')
+          : 'No ' + (scope === 'all' ? '' : scope + ' ') + 'bookings are on the schedule for ' + heading + '.' };
       } else if (tool === 'rental_lookup') {
         const { bookingId, eventDate, offset } = investigationInputs.rental_lookup.parse(input);
         if (!bookingId && !eventDate) return { source, checkedAt, error: 'A booking ID or event date is required.' };

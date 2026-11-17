@@ -272,13 +272,23 @@ export async function runSupervisorConversation(message: string, actorId: string
         stopped.signal.throwIfAborted();
       };
       await assertAllowed();
-      const history = await loadSupervisorConversation(4, actorId);
-      reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
-        await assertAllowed();
-        if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
-        const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
-        if (reserved.error || !reserved.data) { await stopped.check(); throw new Error('Conversational replies are temporarily unavailable.'); }
-      } } }, deadline);
+      const weekendQuestion = !pictureCount && /\bthis weekend\b/i.test(message)
+        && /^(?:what|which|how many|show|list|check|do we have|are there|tell me)\b/i.test(message)
+        && /\b(?:bookings?|rentals?|parties|schedule)\b/i.test(message);
+      if (weekendQuestion) {
+        const rental = /\brentals?\b/i.test(message);
+        const facility = /\b(?:facility|parties)\b/i.test(message);
+        const result = await reader.execute('weekend_bookings', { scope: rental === facility ? 'all' : rental ? 'rental' : 'facility' });
+        reply = typeof result.reply === 'string' ? result.reply : 'I could not load the weekend schedule. Please try again.';
+      } else {
+        const history = await loadSupervisorConversation(4, actorId);
+        reply = await generateSupervisorReply({ message, context: { ...supervisorReplyContext(message, snapshot), pictureCount, ...(pictureReviewAction ? { invitationReview: pictureReviewAction } : {}) }, history, pictures, investigation: { execute: reader.execute, beforeLookups: assertAllowed, beforeModelCall: async () => {
+          await assertAllowed();
+          if (++aiInvocations > 5) throw new Error('Conversational investigation reached its model-call limit.');
+          const reserved = await db.from('agent_jobs').update({ payload: { ...job.payload, actorId, aiInvocations } }).eq('id', job.id).eq('status', 'running').select('id').maybeSingle();
+          if (reserved.error || !reserved.data) { await stopped.check(); throw new Error('Conversational replies are temporarily unavailable.'); }
+        } } }, deadline);
+      }
     }
     const relatedAction = handoff?.relatedAction ?? reader.actions.at(-1) ?? pictureReviewAction ?? codingConversationAction(message);
     const payload = {

@@ -147,3 +147,20 @@ test('party invitation drafts open the verified party with the supplied theme an
   assert.equal(result.saved, false);
   assert.equal(reader.actions[0].href, '/admin/facility/' + partyId + '/invitations?theme=Space+%26+stars#create-invitation');
 });
+
+test('this weekend uses Eastern Friday through Sunday and hides cancelled bookings', async () => {
+  const reader = createInvestigationReader({
+    now: () => new Date('2026-11-17T18:33:19Z'),
+    schedule: async ({ from, to }) => {
+      assert.equal(from, '2026-11-20');
+      assert.equal(to, '2026-11-22');
+      const event = { id: 'a', bookingId: '1', type: 'rental' as const, date: from, sortTime: '10:00', displayTime: '10 AM', title: 'Water slide', customer: 'Private name', phone: null, status: 'approved', location: null, room: null, detailHref: '/admin/rentals', products: [], details: [] };
+      return [event, { ...event, id: 'b', type: 'private-party' as const, title: 'Private child name' }, { ...event, id: 'c', title: 'Cancelled item', status: 'cancelled' }];
+    },
+  });
+  const result = await reader.execute('weekend_bookings', { scope: 'all' });
+  assert.equal(result.count, 2);
+  assert.match(String(result.reply), /Fri, Nov 20 through Sun, Nov 22/);
+  assert.match(String(result.reply), /Water slide.*Private facility party/);
+  assert.doesNotMatch(String(result.reply), /Cancelled item|Private name|Private child name/);
+});

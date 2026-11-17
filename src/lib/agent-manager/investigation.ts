@@ -10,6 +10,7 @@ export const investigationInputs = {
   repository_read: z.object({ path: z.string().min(1).max(240), startLine: z.number().int().min(1).max(100000), lineCount: z.number().int().min(1).max(120) }).strict(),
   prepare_rental_request: z.object({ slug: z.string().regex(/^[a-z0-9-]{1,120}$/), eventDate: z.iso.date().nullable() }).strict(),
   prepare_party_invitation: z.object({ partyId: z.string().uuid(), theme: z.string().trim().min(1).max(160).nullable() }).strict(),
+  weekend_bookings: z.object({ scope: z.enum(['all', 'rental', 'facility']) }).strict(),
   rental_lookup: z.object({
     bookingId: z.string().regex(/^[1-9][0-9]{0,18}$/).nullable(),
     eventDate: z.iso.date().nullable(),
@@ -42,6 +43,7 @@ const descriptions: Record<InvestigationTool, string> = {
   repository_read: 'Read a numbered excerpt from an indexed source file or a website page path, including concrete URLs backed by dynamic routes. Website paths resolve to their exact indexed page source, never a parent page. This is deployed code, not a live GitHub branch. No secrets or environment files are available.',
   prepare_rental_request: 'Open the existing rental checkout with the verified rental selected and requested date filled in. Use when asked to book an item. Ask about the item if ambiguous. Staff review, complete required details and submit from checkout.',
   prepare_party_invitation: 'Open the existing invitation editor for a verified facility party, with the requested theme filled in. Use when asked to create an invitation. Obtain the party ID first. Staff select artwork and save from the editor.',
+  weekend_bookings: 'Read this weekend’s Friday through Sunday rental and facility schedule in Eastern time. Use for weekend booking questions.',
   rental_lookup: 'Read actual rental bookings by booking ID or event date, including past and cancelled bookings, with items, scheduling, and charges. Use null for an unknown ID or date and require at least one. For an item question about the rental catalog instead, investigate the product page and catalog source.',
   website_map: 'Discover public and protected page routes throughout the deployed website, including their source files. This inventory is not proof pages have been checked.',
   website_inspect: 'Read live HTML text, title, links and HTTP status from one public website page. No scripts, screenshots, authenticated browsing or interactions; protected pages must be investigated through source and database tools.',
