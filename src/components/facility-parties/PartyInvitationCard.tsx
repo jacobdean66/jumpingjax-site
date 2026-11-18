@@ -35,6 +35,8 @@ export type PartyInvitationCardProps = {
   previewScale?: boolean;
   sheetReadable?: boolean;
   sheetMode?: boolean;
+  /** Staff-only visual mockup when theme artwork has not yet been confirmed. */
+  layoutPreview?: boolean;
 };
 
 export function PartyInvitationCard({
@@ -51,10 +53,13 @@ export function PartyInvitationCard({
   previewScale = false,
   sheetReadable = false,
   sheetMode = false,
+  layoutPreview = false,
 }: PartyInvitationCardProps) {
-  if (invitationNeedsArtworkConfirmation(snapshot)) return <InvitationArtworkRequired themeText={snapshot.sourceText} />;
+  const needsArtworkConfirmation = invitationNeedsArtworkConfirmation(snapshot);
+  if (needsArtworkConfirmation && !layoutPreview) return <InvitationArtworkRequired themeText={snapshot.sourceText} />;
+  const isUnconfirmedLayoutPreview = layoutPreview && needsArtworkConfirmation;
   const qrUrl = waiverUrl ? buildQrCodeImageUrl(waiverUrl, 300) : suppliedQrUrl;
-  if (snapshot.approvedPrint && !snapshot.confirmedTheme) {
+  if (snapshot.approvedPrint && !snapshot.confirmedTheme && (!layoutPreview || !needsArtworkConfirmation)) {
     const print = snapshot.approvedPrint;
     return <article data-approved-print-id={print.id} data-theme-id={snapshot.themeId} className={sheetMode ? "h-full w-full" : "mx-auto w-full max-w-xl"}>
       <a href={print.rsvpUrl} aria-label={`${childName} — RSVP and guest list`} className="block h-full w-full">
@@ -64,9 +69,9 @@ export function PartyInvitationCard({
   }
   compact = compact || previewScale || sheetReadable;
   const composed = composeLibraryInvitation({
-    themeId: snapshot.themeId,
+    themeId: isUnconfirmedLayoutPreview ? "classic-birthday" : snapshot.themeId,
     optionIndex: snapshot.optionIndex,
-    artworkVariant: snapshot.artworkVariant,
+    artworkVariant: isUnconfirmedLayoutPreview ? 0 : snapshot.artworkVariant,
     colorHint: [snapshot.colorHint, snapshot.sourceText].filter(Boolean).join(" "),
   });
   const treatment = resolveInvitationSourceTreatment(snapshot.sourceText);
@@ -95,7 +100,7 @@ export function PartyInvitationCard({
   const displayName = invitationCopy.childName;
   const headline = invitationCopy.headline;
 
-  if (snapshot.confirmedTheme) {
+  if (snapshot.confirmedTheme && !isUnconfirmedLayoutPreview) {
     return <ConfirmedInvitationCard key={snapshot.confirmedTheme.imagePath} snapshot={snapshot} childName={displayName} childAge={childAge}
       customerPhone={invitationCopy.customerPhone} dateLabel={invitationCopy.dateLabel} timeLabel={invitationCopy.timeLabel}
       qrUrl={qrUrl} waiverUrl={waiverUrl} sheetMode={sheetMode} />;
@@ -136,11 +141,11 @@ export function PartyInvitationCard({
   const textSize = compact
     ? "text-[clamp(9px,3.2cqw,17px)]"
     : "text-base sm:text-lg";
-  const artworkSrc = approvedArtworkSrc(snapshot.themeId, snapshot.sourceText);
+  const artworkSrc = isUnconfirmedLayoutPreview ? null : approvedArtworkSrc(snapshot.themeId, snapshot.sourceText);
   const approvedFullBleed = artworkSrc?.startsWith("/invitations/approved/") ?? false;
 
   if (sheetMode) {
-    const printArtworkSrc = agentPrintArtworkSrc(snapshot.themeId, snapshot.sourceText);
+    const printArtworkSrc = isUnconfirmedLayoutPreview ? null : agentPrintArtworkSrc(snapshot.themeId, snapshot.sourceText);
     return (
       <InkSaverSheetInvitation
         snapshot={snapshot}
