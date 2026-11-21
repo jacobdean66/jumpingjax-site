@@ -20,6 +20,9 @@ export async function POST(req: Request) {
     .eq("message_key", messageKey)
     .single();
   if (error || !data) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+  if (data.message_key.startsWith("receptionist-agreement-")) {
+    return NextResponse.json({ error: "This agreement send is claim-controlled and cannot be retried from the general outbox." }, { status: 409, headers: { "Cache-Control": "private, no-store" } });
+  }
 
   // Old requests and closed bookings must not send stale confirmations.
   if (data.status !== "sent" && emailWorkflowStep(data.purpose)) {

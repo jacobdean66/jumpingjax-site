@@ -41,6 +41,9 @@ export async function POST(req: Request, context: { params: Promise<{ token: str
   if (result?.outcome === "superseded") {
     return NextResponse.json({ ok: false, message: "This agreement was replaced. Please use the newest email link." }, { status: 409 });
   }
+  if (result?.outcome === "booking_inactive") {
+    return NextResponse.json({ ok: false, message: "This party is no longer active. Please contact Jumping Jax." }, { status: 409 });
+  }
   if (result?.outcome === "not_found") {
     return NextResponse.json({ ok: false, message: "Agreement not found." }, { status: 404 });
   }
