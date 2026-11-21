@@ -13,6 +13,11 @@ export async function POST(req: Request) {
   const messageKey = typeof body?.messageKey === "string" ? body.messageKey.trim() : "";
   if (!messageKey) return NextResponse.json({ error: "messageKey is required" }, { status: 400 });
 
+  // Receptionist queue sends can have an unknown provider outcome. Their
+  // reconciliation must inspect the queue rather than blindly resend here.
+  if (messageKey.startsWith("receptionist-facility:") || messageKey.startsWith("receptionist-facility-resend:"))
+    return NextResponse.json({ error: "This receptionist email needs delivery review before another attempt." }, { status: 409 });
+
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("booking_notification_outbox")

@@ -7,6 +7,7 @@ import { loadWebsiteRentals } from "@/lib/rentals/public-catalog";
 import { AdminAuthError, AdminHeader, AdminNav, AdminShell } from "../_components";
 import { AnsweringMachineInbox } from "./AnsweringMachineInbox";
 import { AnsweringMachineTestCall } from "./AnsweringMachineTestCall";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function AnsweringMachinePage() {
       <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-600">
         Review the call, complete the customer details, and create a protected pending booking through the normal Jumping Jax workflow.
       </p>
+      <p className="my-4"><Link className="font-bold text-blue-800 underline" href="/admin/callback-notes">Open receptionist callback notes</Link></p>
       <AnsweringMachineTestCall results={{
         facility: runAnsweringMachineTestCall("facility"),
         rental: runAnsweringMachineTestCall("rental"),
