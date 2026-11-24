@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { permanentAgentConfigured } from "@/lib/agent-manager/permanent-agent-bridge";
+import { PermanentAsk } from "./PermanentAsk";
+import { ProjectWorkspace } from "./ProjectWorkspace";
 import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
 import { buildAgentWiring } from "@/lib/agent-manager/agent-wiring";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
@@ -56,15 +60,22 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
 
   return (
     <AdminShell>
-      <AdminHeader eyebrow="Owner Tools" title="Agent Manager">
+      <AdminHeader eyebrow="Owner Tools" title="Permanent Agent">
         <AdminNav token="" role={auth.role} active="agents" compact />
       </AdminHeader>
       <p className="mt-4 max-w-3xl text-sm font-semibold text-slate-600">
         Talk to your permanent agent, manage specialists, and follow their saved conversations.
       </p>
-      <AgentWorkspace initialConversation={Boolean(initialContextId || initialRecipient)} supervisor={dashboard && !dashboard.demoMode ? (
-        <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
-      ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
+      <AgentWorkspace initialConversation={Boolean(initialContextId || initialRecipient)} supervisor={<>
+        {permanentAgentConfigured() ? <>
+          <PermanentAsk />
+          <ProjectWorkspace scope={createHash("sha256").update(auth.identity.id).digest("hex")} />
+        </> : <p role="status" className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">Ask, Knowledge and Projects are unavailable while the private connection is offline.</p>}
+        {dashboard && !dashboard.demoMode && <details className="mt-4 rounded-xl border p-3">
+          <summary className="cursor-pointer font-semibold">Supervisor tools</summary>
+          <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
+        </details>}
+      </>}
       techSearch={<TechSearchClient issues={supervisorSnapshot?.issues ?? []} initialIssueCode={params.researchIssue} />}
       codeRepairs={<CodeRepairClient key={repairDraft ? JSON.stringify(repairDraft) : 'new-repair'} draft={repairDraft} />}
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
