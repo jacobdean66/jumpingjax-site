@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { PermanentAsk } from "./PermanentAsk";
+import { ProjectWorkspace } from "./ProjectWorkspace";
+import { getPermanentAgentConnection } from "@/lib/agent-manager/permanent-agent-connection";
 import { createLocalAgentPreview, isLocalAgentPreviewEnabled } from "@/lib/agent-manager/local-preview";
 import { buildAgentWiring } from "@/lib/agent-manager/agent-wiring";
 import { getNominationAgentReadiness } from "@/lib/agent-manager/nomination-readiness";
@@ -54,6 +58,20 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
     ]);
   }
 
+  const supervisor = dashboard && !dashboard.demoMode ? (
+    <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
+  ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>;
+  const workspace = getPermanentAgentConnection() ? (
+    <>
+      <PermanentAsk />
+      <ProjectWorkspace scope={createHash("sha256").update(auth.identity.id).digest("hex")} />
+      <details className="mt-4 rounded-xl border p-3">
+        <summary className="cursor-pointer font-semibold">Website Supervisor conversation history</summary>
+        {supervisor}
+      </details>
+    </>
+  ) : supervisor;
+
   return (
     <AdminShell>
       <AdminHeader eyebrow="Owner Tools" title="Agent Manager">
@@ -62,9 +80,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       <p className="mt-4 max-w-3xl text-sm font-semibold text-slate-600">
         Talk to your permanent agent, manage specialists, and follow their saved conversations.
       </p>
-      <AgentWorkspace initialConversation={Boolean(initialContextId || initialRecipient)} supervisor={dashboard && !dashboard.demoMode ? (
-        <SupervisorChat initialMessages={supervisorMessages} initialSnapshot={supervisorSnapshot} />
-      ) : <p className="mt-5 rounded-2xl bg-amber-50 p-5 font-semibold">The permanent agent is unavailable in this environment. Open Agents &amp; activity for connection status.</p>}
+      <AgentWorkspace initialConversation={Boolean(initialContextId || initialRecipient)} supervisor={workspace}
       techSearch={<TechSearchClient issues={supervisorSnapshot?.issues ?? []} initialIssueCode={params.researchIssue} />}
       codeRepairs={<CodeRepairClient key={repairDraft ? JSON.stringify(repairDraft) : 'new-repair'} draft={repairDraft} />}
       conversations={<AgentNetworkPanel initial={network} initialContextId={initialContextId} initialRecipient={initialRecipient} />}
