@@ -68,7 +68,7 @@ export function adminNavigation(role: AdminRole): { primary: AdminNavItem[]; gro
     primary: [
       { id: "home", label: "Front Desk", href: "/admin" },
       ...FRONT_DESK_TASKS,
-      ...(owner ? [{ id: "agents", label: "Permanent Agent", href: "/admin/agents#supervisor" }] : []),
+      ...(owner ? [{ id: "agents", label: "Permanent Agent", href: "/admin/agents" }] : []),
     ],
     groups,
   };
