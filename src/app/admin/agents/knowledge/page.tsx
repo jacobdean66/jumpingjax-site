@@ -1,11 +1,11 @@
-import {AdminShell,AdminAuthError} from "../../_components";
-import {verifyAdminAccess} from "@/lib/admin/session";
-import {PublishedKnowledge} from "./PublishedKnowledge";
+import { AdminShell, AdminAuthError } from "../../_components";
+import { verifyAdminOwnerAccess } from "@/lib/admin/session";
+import { PublishedKnowledge } from "./PublishedKnowledge";
 
-export const dynamic="force-dynamic";
+export const dynamic = "force-dynamic";
 
-export default async function StaffKnowledgePage(){
-  const auth=await verifyAdminAccess();
-  if(!auth.ok)return <AdminAuthError reason={auth.reason}/>;
-  return <AdminShell><PublishedKnowledge/></AdminShell>;
+export default async function AgentKnowledgePage() {
+  const auth = await verifyAdminOwnerAccess();
+  if (!auth.ok) return <AdminAuthError reason={auth.reason} />;
+  return <AdminShell><PublishedKnowledge /></AdminShell>;
 }

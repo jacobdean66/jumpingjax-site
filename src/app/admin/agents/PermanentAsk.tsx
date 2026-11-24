@@ -110,7 +110,7 @@ export function PermanentAsk(){
 
   return <section className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 text-slate-950">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-xl font-semibold">Ask Website Supervisor</h2>
+      <h2 className="text-xl font-semibold">Ask the Permanent Agent</h2>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Permanent Agent views">
         <button className={button} type="button" onClick={()=>setView("ask")} aria-pressed={view==="ask"}>Ask</button>
         <button className={button} type="button" onClick={()=>setView("knowledge")} aria-pressed={view==="knowledge"}>Knowledge</button>

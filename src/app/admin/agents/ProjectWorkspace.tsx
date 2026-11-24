@@ -30,6 +30,7 @@ const queueStates=["queued","waiting","paused"];
 const phaseLabel = (role?:string)=>presets.find(p=>p[0]===role)?.[1]??role??"Execution";
 
 export function ProjectWorkspace({scope}:{scope:string}){
+  const selectionKey="jax-selected-project:"+scope;
   const [projects,setProjects]=useState<Project[]>([]);
   const [inventory,setInventory]=useState<Inventory|null>(null);
   const [lifecycle,setLifecycle]=useState("");
@@ -66,7 +67,7 @@ export function ProjectWorkspace({scope}:{scope:string}){
         if(stop.signal.aborted)return;
         setProjects(data.projects);setInventory(data.inventory);setLifecycle(data.lifecycle);setConnection("");
         if(data.projects.length){
-          setSelected(old=>old||data.projects[0].id);
+          setSelected(old=>data.projects.some((item:Project)=>item.id===old)?old:(data.projects.find((item:Project)=>item.id===localStorage.getItem(selectionKey))?.id??data.projects[0].id));
           setCreating(old=>old&&sessionStorage.getItem("jax-project-create")==="true");
         }
       }catch(error){
@@ -75,15 +76,15 @@ export function ProjectWorkspace({scope}:{scope:string}){
     }
     void load();
     return ()=>{stop.abort();clearTimeout(timer);};
-  },[refresh]);
+  },[refresh,selectionKey]);
 
   useEffect(()=>{
     const change=(event:Event)=>{
-      setSelected((event as unknown as CustomEvent<string>).detail);setCreating(false);setRefresh(value=>value+1);
+      setSelected((event as unknown as CustomEvent<string>).detail);localStorage.setItem(selectionKey,(event as unknown as CustomEvent<string>).detail);setCreating(false);setRefresh(value=>value+1);
     };
     window.addEventListener("jax-project-saved",change as unknown as EventListener);
     return ()=>window.removeEventListener("jax-project-saved",change as unknown as EventListener);
-  },[]);
+  },[selectionKey]);
 
   useEffect(()=>{
     function selectHash(){
@@ -121,7 +122,7 @@ export function ProjectWorkspace({scope}:{scope:string}){
     const project=await send({action:editingDraft?"save-draft":"start",id,...spec});
     if(project){pending.current=null;localStorage.removeItem(key);openProject(project.id);}
   }
-  function openProject(id:string){setEditingDraft(null);setSelected(id);setCreating(false);setTab("Project");sessionStorage.removeItem("jax-project-create");}
+  function openProject(id:string){localStorage.setItem(selectionKey,id);setEditingDraft(null);setSelected(id);setCreating(false);setTab("Project");sessionStorage.removeItem("jax-project-create");}
   function editWorker(role:string,patch:Partial<Worker>){
     setWorkers(old=>old.map(item=>item.role===role?{...item,...patch}:item));
   }
