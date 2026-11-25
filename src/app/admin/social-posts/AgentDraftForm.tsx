@@ -104,14 +104,21 @@ export default function AgentDraftForm({
     checkpointSignature:string|null; initial_request:Record<string,unknown>|null; post_id:string|null; claim_stage:string|null; last_error:string|null;
   }>>([]);
   const [runRefresh,setRunRefresh]=useState(0);
+  const [savedRunsError, setSavedRunsError] = useState<string | null>(null);
   useEffect(()=>{
     const controller=new AbortController();
     async function load(){
       try {
         const res=await fetch("/api/social-posts/agent-draft/stage",{method:"POST",
           headers:{"content-type":"application/json"},body:JSON.stringify({token,action:"list"}),signal:controller.signal});
-        if(res.ok){const data=await res.json();if(!controller.signal.aborted)setSavedRuns(data.runs??[]);}
-      } catch {}
+        if (!res.ok) throw new Error("Saved draft runs are unavailable.");
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+        setSavedRuns(data.runs ?? []);
+        setSavedRunsError(null);
+      } catch {
+        if (!controller.signal.aborted) setSavedRunsError("Saved draft runs could not be loaded. Refresh saved runs to retry.");
+      }
     }
     void load();
     return ()=>controller.abort();
@@ -269,8 +276,14 @@ export default function AgentDraftForm({
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <section aria-label="Saved draft runs" className="space-y-2">
         <button type="button" onClick={()=>setRunRefresh(value=>value+1)}>Refresh saved runs</button>
+        {savedRunsError && <p role="alert">{savedRunsError}</p>}
         {savedRuns.map(run=><div key={run.id} className="flex flex-wrap items-center gap-2">
-          <span>{run.claim_stage?"Worker processing "+run.claim_stage:run.next_stage} · {run.id.slice(0,8)}</span>
+          <span>
+            {run.post_id ? "Draft saved" : run.last_error ? "Needs attention" : run.claim_stage
+              ? `Stage claimed: ${NEXT_STAGE_LABELS[run.claim_stage as SocialDraftCheckpoint["nextStage"]] ?? run.claim_stage}`
+              : NEXT_STAGE_LABELS[run.next_stage as SocialDraftCheckpoint["nextStage"]] ?? run.next_stage}
+            {" · "}{run.id.slice(0,8)}
+          </span>
           {run.last_error&&<span role="status">{run.last_error}</span>}
           {run.post_id?<a href={"/admin/social-posts/"+encodeURIComponent(run.post_id)}>Open saved draft</a>:
             <>
