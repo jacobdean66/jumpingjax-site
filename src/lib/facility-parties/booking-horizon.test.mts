@@ -150,11 +150,11 @@ await test("facility booking API enforces the shared horizon before side effects
 
   assert.ok(validationIndex > 0);
   for (const laterOperation of [
-    "resolveFacilityAddons(addon_selections)",
+    "resolveFacilityAddons(addon_selections, balloonDigits)",
     "createServiceRoleClient()",
     "priceFacilityPartyWithConfig(",
     "listPublicSaturdaySlotDispositions(",
-    'supabase.rpc("create_facility_booking_atomic"',
+    'supabase.rpc(googleCode ? "book_with_google_customer_offer" : "create_facility_booking_atomic"',
     "initializeBookingWorkflow(",
     "sendDurableBookingEmail(",
   ]) {

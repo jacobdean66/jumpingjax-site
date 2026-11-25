@@ -13,6 +13,7 @@ import {
   type BookingPaymentKind,
   type BookingPaymentMethod,
 } from "@/lib/payments/booking-payments";
+import { bookingPaymentReferenceConflictMessage } from "@/lib/payments/booking-payment-reference-conflict";
 import { rateLimit } from "@/lib/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
@@ -130,9 +131,22 @@ export async function POST(
     payer_name:payerName, paid_at:paidAt, payment_purpose:purpose, request_id:requestId,
     receipt_email:sendReceipt && customerEmail && validEmail(customerEmail) ? customerEmail : null,
   }});
+  if (!insertError && entry?.outcome === "reference_exists") {
+    // The finance RPC checks receipt references across the entire ledger. Inspect
+    // only the matching entry's scope and status; never return its IDs or details.
+    let conflict: { booking_kind: string | null; booking_id: string | null; status: string | null } | null = null;
+    if (typeof entry.id === "string" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(entry.id)) {
+      const lookup = await supabase.from("booking_payment_entries")
+        .select("booking_kind,booking_id,status").eq("id", entry.id).maybeSingle();
+      if (!lookup.error) conflict = lookup.data;
+    }
+    return NextResponse.json({
+      ok: false,
+      message: bookingPaymentReferenceConflictMessage({ kind, id }, conflict),
+    }, { status: 409 });
+  }
   if (insertError || !entry || !["created","duplicate"].includes(entry.outcome)) {
-    return NextResponse.json({ok:false,message:entry?.outcome === "deposit_exists" ? "A deposit is already recorded for this party. Choose Payment or Balance for an additional payment." : entry?.outcome === "reference_exists"
-      ? "This receipt is already recorded. Review payment history before adding another payment."
+    return NextResponse.json({ok:false,message:entry?.outcome === "deposit_exists" ? "A deposit is already recorded for this party. Choose Payment or Balance for an additional payment."
       : entry?.outcome === "conflict" ? "This request was already saved with different details. Reload and check payment history."
       : "Payment could not be recorded. Check payment history before retrying."},{status:insertError ? 503 : 409});
   }

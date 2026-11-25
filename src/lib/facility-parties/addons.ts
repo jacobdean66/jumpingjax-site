@@ -8,6 +8,7 @@ export type FacilityAddonSelectionsInput = {
 
 export type StoredFacilityAddonSelections = {
   customBirthdayBalloons: boolean;
+  birthdayBalloonDigits?: string;
   goodieBagsQuantity: number;
   cottonCandyPackage: CottonCandyPackage;
 };
@@ -27,7 +28,14 @@ export type ResolvedFacilityAddons = {
   subtotal: number;
 };
 
-const BALLOONS_PRICE = 10;
+export const BIRTHDAY_BALLOON_DIGIT_PRICE = 10;
+export const BIRTHDAY_BALLOON_AGE_ERROR =
+  "Enter an age from 1 to 18 to add birthday number balloons.";
+
+export function getBirthdayBalloonDigits(age: unknown): string | null {
+  const text = typeof age === "number" ? String(age) : age;
+  return typeof text === "string" && text === text.trim() && /^(?:[1-9]|1[0-8])$/.test(text) ? text : null;
+}
 const GOODIE_BAG_EACH = 3.5;
 const COTTON_CANDY_10 = 15;
 const COTTON_CANDY_20 = 30;
@@ -48,9 +56,12 @@ function normalizeGoodieBagsQuantity(value: unknown): number {
 
 export function resolveFacilityAddons(
   input: FacilityAddonSelectionsInput | null | undefined,
+  ageOrStoredDigits?: unknown,
 ): ResolvedFacilityAddons {
+  const digits = getBirthdayBalloonDigits(ageOrStoredDigits);
   const selections: StoredFacilityAddonSelections = {
     customBirthdayBalloons: input?.customBirthdayBalloons === true,
+    ...(input?.customBirthdayBalloons === true && digits ? { birthdayBalloonDigits: digits } : {}),
     goodieBagsQuantity: normalizeGoodieBagsQuantity(input?.goodieBagsQuantity),
     cottonCandyPackage: isCottonCandyPackage(input?.cottonCandyPackage)
       ? input.cottonCandyPackage
@@ -60,13 +71,15 @@ export function resolveFacilityAddons(
   const lines: ResolvedFacilityAddonLine[] = [];
 
   if (selections.customBirthdayBalloons) {
+    // A stored legacy boolean has no digits and keeps its original single-balloon price.
+    const quantity = digits?.length ?? 1;
     lines.push({
       key: "customBirthdayBalloons",
       label: "Custom Birthday Balloons",
-      detail: null,
-      unitPrice: BALLOONS_PRICE,
-      quantity: 1,
-      lineTotal: BALLOONS_PRICE,
+      detail: digits ? `Number ${digits} · ${quantity} ${quantity === 1 ? "digit" : "digits"}` : null,
+      unitPrice: BIRTHDAY_BALLOON_DIGIT_PRICE,
+      quantity,
+      lineTotal: BIRTHDAY_BALLOON_DIGIT_PRICE * quantity,
     });
   }
 
@@ -108,8 +121,9 @@ export function resolveFacilityAddons(
 
 export function previewAddonSubtotal(
   input: FacilityAddonSelectionsInput,
+  childAge?: unknown,
 ): number {
-  return resolveFacilityAddons(input).subtotal;
+  return resolveFacilityAddons(input, childAge).subtotal;
 }
 
 export function formatFacilityAddonsForEmail(
@@ -169,7 +183,7 @@ export function formatStoredFacilityAddons(stored: unknown): string {
   }
 
   if (record.selections) {
-    return formatFacilityAddonsForEmail(resolveFacilityAddons(record.selections));
+    return formatFacilityAddonsForEmail(resolveFacilityAddons(record.selections, record.selections.birthdayBalloonDigits));
   }
 
   return "Add-ons: None selected";
@@ -199,7 +213,7 @@ export function getStoredFacilityAddonsSubtotal(stored: unknown): number {
   }
 
   if (record.selections) {
-    return resolveFacilityAddons(record.selections).subtotal;
+    return resolveFacilityAddons(record.selections, record.selections.birthdayBalloonDigits).subtotal;
   }
 
   return 0;
