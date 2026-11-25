@@ -3215,6 +3215,22 @@ export default async function AdminPublicationExecutionPage({
             <Field label="Publish state" value={metaOrganicPublishReadiness.state} />
           </div>
 
+          {selectedPost && auth.role === "owner" ? (
+            <dl className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              <div><dt className="font-bold">Destination</dt><dd>{metaOrganicPublishReadiness.pageId
+                ? `Facebook Page ${metaOrganicPublishReadiness.pageId}`
+                : "Bind an authorized Facebook Page before sending."}</dd></div>
+              <div><dt className="font-bold">What the live adapter sends</dt>
+                <dd className="whitespace-pre-wrap break-words">{selectedPost.caption?.trim() || "No caption is saved."}</dd></div>
+              <div><dt className="font-bold">Media and other placements</dt>
+                <dd>The live Facebook feed adapter sends the caption as text. Media, non-feed placements and other platforms are draft-only in this path.</dd></div>
+              <div><dt className="font-bold">Preferred time (America/New_York)</dt>
+                <dd>{selectedScheduledFor ? new Intl.DateTimeFormat("en-US", {
+                  timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short",
+                }).format(new Date(selectedScheduledFor)) : "None saved"} · Queue authorization is separate.</dd></div>
+            </dl>
+          ) : null}
+
           {!filters.socialPostId || !filters.ownerApprovalId || !filters.executionIntentId ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
               Start with <strong>Approve &amp; Continue</strong> on Social Post Drafts so this screen
@@ -3310,7 +3326,7 @@ export default async function AdminPublicationExecutionPage({
                 className="inline-flex min-h-12 items-center justify-center rounded-full bg-sky-700 px-6 py-2.5 text-sm font-black text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!metaOrganicPublishReadiness.canPublish}
               >
-                Schedule for {formatDateTime(selectedScheduledFor)}
+                Queue authorized post for {new Intl.DateTimeFormat("en-US", {timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedScheduledFor))} Eastern time
               </button>
               <p className="max-w-xl text-xs font-semibold text-sky-900">
                 The protected scheduler will publish this exact approved post and target. You can
@@ -3321,16 +3337,16 @@ export default async function AdminPublicationExecutionPage({
 
           {metaPublishStatusParam ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
-              Publish result: {metaPublishStatusParam}
+              Publication result: {metaPublishStatusParam}
               {resolved.meta_publish_message ? ` — ${resolved.meta_publish_message}` : ""}
               {resolved.meta_publish_external_id
-                ? ` — external id: ${resolved.meta_publish_external_id}`
+                ? ` — provider receipt: ${resolved.meta_publish_external_id}`
                 : ""}
             </div>
           ) : null}
           {resolved.meta_schedule ? (
             <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-950">
-              Schedule result: {resolved.meta_schedule}
+              Queue result: {resolved.meta_schedule}
               {resolved.meta_schedule_message ? ` — ${resolved.meta_schedule_message}` : ""}
               {resolved.meta_schedule_error ? ` (${resolved.meta_schedule_error})` : ""}
               {resolved.meta_schedule_id ? ` — schedule: ${resolved.meta_schedule_id}` : ""}
@@ -4049,7 +4065,7 @@ export default async function AdminPublicationExecutionPage({
                 ) : null}
                 {metaPublishStatusParam ? (
                   <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                    Publish result: {metaPublishStatusParam}
+                    Publication result: {metaPublishStatusParam}
                     {resolved.meta_publish_message
                       ? ` — ${resolved.meta_publish_message}`
                       : ""}
@@ -4057,7 +4073,7 @@ export default async function AdminPublicationExecutionPage({
                       ? ` (${resolved.meta_publish_error})`
                       : ""}
                     {resolved.meta_publish_external_id
-                      ? ` — external id: ${resolved.meta_publish_external_id}`
+                      ? ` — provider receipt: ${resolved.meta_publish_external_id}`
                       : ""}
                   </div>
                 ) : null}

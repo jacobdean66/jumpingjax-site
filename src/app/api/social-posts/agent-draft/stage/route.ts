@@ -80,7 +80,7 @@ type StageRequest = {
   mediaType?: "image" | "video";
   businessFocus?: "rentals" | "facility-parties" | "both";
   source_image_url?: string;
-  theme?: string;
+  theme?: string | null;
 };
 
 const VALID_NEXT_STAGES = new Set<SocialDraftNextStage>([
