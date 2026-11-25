@@ -6,6 +6,7 @@ import {
   beginSocialAgentStage,
   finishSocialAgentStage,
   type SocialAgentStage,
+  type SocialDraftInferenceReceipt,
 } from "@/lib/agent-manager/social-run";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { verifyAdminAccess } from "@/lib/admin/session";
@@ -187,8 +188,10 @@ async function runManagedStage<T>(input: {
   execute: (recordModelCall: () => void, client: LlmJsonClient) => Promise<T>;
   summarize: (value: T) => string;
 }): Promise<{ value: T; modelCalls: number }> {
-  let inference: {executionId:string;model:string} | undefined;
-  const client=socialDraftModelClient(input.runId,input.stage,(executionId,model)=>{inference={executionId,model};});
+  let inference: SocialDraftInferenceReceipt | undefined;
+  const client = socialDraftModelClient(input.runId, input.stage, (receipt) => {
+    inference = receipt;
+  });
   if (["campaign_strategist","creative_director","independent_reviewer","revision"].includes(input.stage)
     && !client.isConfigured()) throw new Error("The authenticated Social Posts draft worker is not configured.");
   const job = await beginSocialAgentStage({

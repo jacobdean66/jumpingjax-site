@@ -1,13 +1,20 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { LlmJsonClient } from "./llm-json-client";
-import type { SocialAgentStage } from "@/lib/agent-manager/social-run";
+import type { SocialAgentStage, SocialDraftInferenceReceipt } from "@/lib/agent-manager/social-run";
 
 export class SocialDraftWorkerUnconfirmed extends Error {}
 
 export const SOCIAL_DRAFT_THUNDER_MODEL = "deepseek-coder-v2:16b";
 
-export function socialDraftModelClient(runId: string, stage: SocialAgentStage, observed: (executionId: string, model: string) => void): LlmJsonClient {
+// The scoped gateway binds this route to one published n8n workflow.
+const SOCIAL_DRAFT_WORKFLOW_ID = "JjxSocialDraftV1";
+
+export function socialDraftModelClient(
+  runId: string,
+  stage: SocialAgentStage,
+  observed: (receipt: SocialDraftInferenceReceipt) => void,
+): LlmJsonClient {
   const endpoint=process.env.SOCIAL_DRAFT_N8N_URL;
   const credential=process.env.SOCIAL_DRAFT_N8N_BEARER;
   let url: URL | undefined;
@@ -34,7 +41,12 @@ export function socialDraftModelClient(runId: string, stage: SocialAgentStage, o
         if(result.requestId!==requestId||result.model!==SOCIAL_DRAFT_THUNDER_MODEL||
           !/^\d{1,30}$/.test(result.executionId??"")||typeof result.text!=="string"||result.text.length>24000)
           throw new Error("Unverified response");
-        observed(result.executionId,result.model);
+        observed({
+          workflowId: SOCIAL_DRAFT_WORKFLOW_ID,
+          executionId: result.executionId,
+          requestId,
+          model: result.model,
+        });
         return {ok:true,parsed:JSON.parse(result.text),rawText:result.text,model:result.model,
           provider:"n8n-thunder",requestId,truncatedInput:false,timedOut:false};
       } catch {

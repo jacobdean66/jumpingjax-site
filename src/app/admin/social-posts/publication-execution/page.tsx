@@ -197,6 +197,7 @@ import {
 } from "@/lib/social-posts/oauth/social-oauth-config";
 import { buildSocialOAuthOrchestrationDiagnostics } from "@/lib/social-posts/oauth/social-oauth-orchestration-integration";
 import { countActiveMetaPageAccessVaultRecords } from "@/lib/social-posts/oauth/social-oauth-token-loader";
+import { buildMetaOrganicPublishMessageFromPost } from "@/lib/social-posts/oauth/social-meta-page-publish-service";
 import { evaluateMetaOrganicPublishReadiness } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
 import { resolveVerifiedMetaOrganicPublishGates } from "@/lib/social-posts/oauth/social-meta-page-publish-readiness";
 import { getSocialPostById } from "@/lib/social-posts/social-post-data";
@@ -3221,7 +3222,7 @@ export default async function AdminPublicationExecutionPage({
                 ? `Facebook Page ${metaOrganicPublishReadiness.pageId}`
                 : "Bind an authorized Facebook Page before sending."}</dd></div>
               <div><dt className="font-bold">What the live adapter sends</dt>
-                <dd className="whitespace-pre-wrap break-words">{selectedPost.caption?.trim() || "No caption is saved."}</dd></div>
+                <dd className="whitespace-pre-wrap break-words">{buildMetaOrganicPublishMessageFromPost(selectedPost) || "No message is available."}</dd></div>
               <div><dt className="font-bold">Media and other placements</dt>
                 <dd>The live Facebook feed adapter sends the caption as text. Media, non-feed placements and other platforms are draft-only in this path.</dd></div>
               <div><dt className="font-bold">Preferred time (America/New_York)</dt>

@@ -23,6 +23,13 @@ export type SocialAgentStage =
   | "revision"
   | "persist";
 
+export type SocialDraftInferenceReceipt = {
+  workflowId: string;
+  executionId: string;
+  requestId: string;
+  model: string;
+};
+
 /** Claim the run and its Agent Manager job before invoking the stage. */
 export async function beginSocialAgentStage(input: {
   runId: string;
@@ -47,7 +54,7 @@ export async function finishSocialAgentStage(input: {
   ok: boolean;
   summary: string;
   modelCalls: number;
-  inference?: { executionId: string; model: string };
+  inference?: SocialDraftInferenceReceipt;
 }): Promise<void> {
   const db = createServiceRoleClient();
   const now = new Date().toISOString();
