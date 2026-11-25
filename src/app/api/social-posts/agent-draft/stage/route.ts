@@ -26,7 +26,7 @@ import {
   boundNullableText,
   boundOptionalText,
 } from "@/lib/social-posts/agents/agent-input-bounds";
-import { runCampaignStrategistAgent } from "@/lib/social-posts/agents/campaign-strategist-agent";
+import { requireNativeStrategistOutput, runCampaignStrategistAgent } from "@/lib/social-posts/agents/campaign-strategist-agent";
 import {
   runCreativeDirectorAgent,
   validateCreativeDirectorOutputDetailed,
@@ -349,8 +349,8 @@ async function executeStage(body: StageRequest, owner: string, claimId: string) 
         actorId: owner,
         claimId,
         payload: { theme: request.theme ?? null, campaignId: request.campaignId ?? null },
-        execute: (recordModelCall, client) =>
-          runCampaignStrategistAgent(strategyInput, { onModelCall: recordModelCall, client }),
+        execute: async (recordModelCall, client) =>
+          requireNativeStrategistOutput(await runCampaignStrategistAgent(strategyInput, { onModelCall: recordModelCall, client })),
         summarize: (result) =>
           result.ok ? "Campaign strategy prepared for owner checkpoint." : result.error,
       });
@@ -396,6 +396,12 @@ async function executeStage(body: StageRequest, owner: string, claimId: string) 
     }
     if (checkpoint.nextStage === "blocked" || checkpoint.nextStage === "complete") {
       return NextResponse.json({ ok: false, error: "This workflow cannot continue." }, { status: 409 });
+    }
+
+    if (checkpoint.nextStage === "creative_director" && !checkpoint.diagnostics.some(
+      diagnostic => diagnostic.agentId === "campaign-strategist" && diagnostic.provider === "n8n-thunder" && diagnostic.source === "model",
+    )) {
+      return NextResponse.json({ ok: false, error: "The strategy checkpoint did not come from a valid native model result. Stop without continuing." }, { status: 409 });
     }
 
     const modelStage = ["creative_director", "independent_reviewer", "revision"].includes(

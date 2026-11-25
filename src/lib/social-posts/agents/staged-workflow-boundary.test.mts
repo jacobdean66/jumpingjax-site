@@ -38,3 +38,11 @@ test("admin UI requires an explicit owner continuation at every checkpoint", () 
   assert.match(form, /Workflow inputs passed in/);
   assert.match(form, /checkpoint\.workflowContext\.modules\.map/);
 });
+
+test("refuses continuation of a legacy strategist fallback before requesting a later model stage", () => {
+  const fence = route.indexOf('diagnostic.agentId === "campaign-strategist" && diagnostic.provider === "n8n-thunder" && diagnostic.source === "model"');
+  const nativeStart = route.indexOf("requireNativeStrategistOutput(await runCampaignStrategistAgent");
+  const next = route.indexOf("const modelStage =");
+  assert.ok(nativeStart > 0 && fence > nativeStart && next > fence);
+  assert.match(route.slice(fence, next), /status: 409/);
+});
