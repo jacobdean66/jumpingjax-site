@@ -6,6 +6,7 @@ User=permanent-agent-gateway
 Group=permanent-agent-gateway
 ExecStart=/usr/local/bin/node /opt/permanent-agent-production/source/tools/permanent-agent-gateway/permanent-agent-gateway.mjs
 LoadCredential=service-token:/etc/permanent-agent-gateway/service-token
+LoadCredential=social-draft-token:/etc/jjx-social-draft/n8n-bearer
 Restart=on-failure
 RestartSec=5
 UMask=0077

@@ -1,6 +1,6 @@
 export type AgentOutputSource = "model" | "deterministic-fallback";
 
-export type AgentProviderId = "openai" | "none";
+export type AgentProviderId = "openai" | "n8n-thunder" | "none";
 
 export type AgentFailureKind =
   | "not_configured"

@@ -6,9 +6,11 @@ import {
   beginSocialAgentStage,
   finishSocialAgentStage,
   type SocialAgentStage,
+  type SocialDraftInferenceReceipt,
 } from "@/lib/agent-manager/social-run";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { verifyAdminAccess } from "@/lib/admin/session";
-import { createSocialPost } from "@/lib/social-posts/social-post-data";
+import { getSocialPostById } from "@/lib/social-posts/social-post-data";
 import { chooseSourceImageUrl, type SocialAgentInput } from "@/lib/social-posts/social-agent";
 import {
   resolveApprovedAssetContext,
@@ -24,7 +26,7 @@ import {
   boundNullableText,
   boundOptionalText,
 } from "@/lib/social-posts/agents/agent-input-bounds";
-import { runCampaignStrategistAgent } from "@/lib/social-posts/agents/campaign-strategist-agent";
+import { requireNativeStrategistOutput, runCampaignStrategistAgent } from "@/lib/social-posts/agents/campaign-strategist-agent";
 import {
   runCreativeDirectorAgent,
   validateCreativeDirectorOutputDetailed,
@@ -62,11 +64,15 @@ import {
 } from "@/lib/social-posts/social-theme-library";
 import { buildSocialDraftWorkflowContext } from "@/lib/social-posts/agents/staged-workflow-context-loader";
 
-type StageAction = "start" | "continue" | "stop";
+import { socialDraftModelClient, SocialDraftWorkerUnconfirmed } from "@/lib/social-posts/agents/n8n-draft-client";
+import type { LlmJsonClient } from "@/lib/social-posts/agents/llm-json-client";
+
+type StageAction = "start" | "continue" | "stop" | "list";
 
 type StageRequest = {
   token?: string;
   action?: StageAction;
+  runId?: string;
   checkpoint?: SocialDraftCheckpoint;
   checkpointSignature?: string;
   campaignId?: string;
@@ -75,7 +81,7 @@ type StageRequest = {
   mediaType?: "image" | "video";
   businessFocus?: "rentals" | "facility-parties" | "both";
   source_image_url?: string;
-  theme?: string;
+  theme?: string | null;
 };
 
 const VALID_NEXT_STAGES = new Set<SocialDraftNextStage>([
@@ -177,24 +183,32 @@ async function runManagedStage<T>(input: {
   runId: string;
   stage: SocialAgentStage;
   actorId: string;
+  claimId: string;
   payload?: Record<string, unknown>;
-  execute: (recordModelCall: () => void) => Promise<T>;
+  execute: (recordModelCall: () => void, client: LlmJsonClient) => Promise<T>;
   summarize: (value: T) => string;
 }): Promise<{ value: T; modelCalls: number }> {
+  let inference: SocialDraftInferenceReceipt | undefined;
+  const client = socialDraftModelClient(input.runId, input.stage, (receipt) => {
+    inference = receipt;
+  });
+  if (["campaign_strategist","creative_director","independent_reviewer","revision"].includes(input.stage)
+    && !client.isConfigured()) throw new Error("The authenticated Social Posts draft worker is not configured.");
   const job = await beginSocialAgentStage({
     runId: input.runId,
     stage: input.stage,
     actorId: input.actorId,
+    claimId: input.claimId,
     payload: input.payload,
   });
-  if (job.status === "succeeded") {
-    throw new Error(`Social Agent ${input.stage} already completed for this run.`);
+  if (job.status === "succeeded" && input.stage === "persist") {
+    return {value:await input.execute(()=>{},client),modelCalls:0};
   }
   let modelCalls = 0;
   try {
     const value = await input.execute(() => {
       modelCalls += 1;
-    });
+    },client);
     await finishSocialAgentStage({
       job,
       runId: input.runId,
@@ -202,6 +216,7 @@ async function runManagedStage<T>(input: {
       ok: true,
       summary: input.summarize(value),
       modelCalls,
+      inference,
     });
     return { value, modelCalls };
   } catch (error) {
@@ -213,44 +228,88 @@ async function runManagedStage<T>(input: {
       ok: false,
       summary,
       modelCalls,
+      inference,
     });
     throw error;
   }
 }
 
+export const maxDuration = 120;
+const runIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as StageRequest;
     const auth = await verifyAdminAccess(body.token);
-    if (!auth.ok) {
-      return NextResponse.json({ ok: false, error: "Invalid admin login" }, { status: 401 });
+    if (!auth.ok) return NextResponse.json({ ok:false, error:"Invalid admin login" }, {status:401});
+    const owner=auth.identity.id;
+    const db=createServiceRoleClient();
+    if (!["start","continue","stop","list"].includes(body.action??"")) {
+      return NextResponse.json({ok:false,error:"Invalid workflow action."},{status:400});
     }
-
-    const schemaGuard = await socialPostAdminSchemaGuardResponse();
-    if (schemaGuard) return schemaGuard;
-
-    if (body.action === "stop") {
-      const checkpoint = validateCheckpoint(body.checkpoint);
-      if (!verifySocialDraftCheckpointSignature(checkpoint, auth.identity.id, body.checkpointSignature)) {
-        return NextResponse.json({ ok: false, error: "Workflow checkpoint signature is invalid." }, { status: 400 });
-      }
-      const stoppedCheckpoint = withCheckpoint(checkpoint, { nextStage: "blocked" });
-      return NextResponse.json({
-        ok: true,
-        stopped: true,
-        checkpoint: stoppedCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(stoppedCheckpoint, auth.identity.id),
-        publication: { published: false, note: "Workflow stopped by owner. No additional agent or model call ran." },
-      });
+    if (body.action==="list") {
+      const {data,error}=await db.from("social_draft_runs")
+        .select("id,status,next_stage,checkpoint,initial_request,post_id,claim_stage,last_error")
+        .eq("owner_id",owner).in("status",["active","complete"]).order("updated_at",{ascending:false}).limit(15);
+      if(error)throw error;
+      return NextResponse.json({ok:true,runs:(data??[]).map(run=>({...run,
+        checkpointSignature:run.checkpoint?signSocialDraftCheckpoint(run.checkpoint,owner):null,
+      }))});
     }
-
-    const limited = await socialPostAdminRateLimitResponse(req, {
-      route: "/api/social-posts/agent-draft/stage",
-      category: "draft",
-      token: body.token,
+    const schemaGuard=await socialPostAdminSchemaGuardResponse();
+    if(schemaGuard)return schemaGuard;
+    const checkpoint=body.action==="continue"?validateCheckpoint(body.checkpoint):null;
+    const runId=checkpoint?.runId??body.runId??body.checkpoint?.runId;
+    if(!runId||!runIdPattern.test(runId))throw new AgentInputValidationError("A valid run ID is required.");
+    if(checkpoint&&!verifySocialDraftCheckpointSignature(checkpoint,owner,body.checkpointSignature))
+      throw new AgentInputValidationError("Workflow checkpoint signature is invalid.");
+    if(body.action==="stop"){
+      const {data,error}=await db.rpc("stop_social_draft_run",{p_owner:owner,p_run:runId});
+      if(error)throw error;
+      if(data.state==="missing")return NextResponse.json({ok:false,error:"Run not found."},{status:404});
+      if(data.state==="complete")return NextResponse.json({ok:false,error:"The draft was already saved.",postId:data.postId},{status:409});
+      const stopped=data.checkpoint?withCheckpoint(data.checkpoint,{nextStage:"blocked"}):null;
+      return NextResponse.json({ok:true,stopped:true,checkpoint:stopped,
+        checkpointSignature:stopped?signSocialDraftCheckpoint(stopped,owner):null});
+    }
+    const limited=await socialPostAdminRateLimitResponse(req,{route:"/api/social-posts/agent-draft/stage",category:"draft",token:body.token});
+    if(limited)return limited;
+    const stage=checkpoint?.nextStage??"campaign_strategist";
+    const claimId=randomUUID();
+    const initial=body.action==="start"?{
+      goal:boundOptionalText(body.goal,"goal",AGENT_INPUT_LIMITS.goal),
+      campaignId:boundOptionalText(body.campaignId,"campaignId",80),
+      platform:body.platform??"both",mediaType:body.mediaType??"image",businessFocus:body.businessFocus??"both",
+      source_image_url:boundOptionalText(body.source_image_url,"source_image_url",2000),
+      theme:boundNullableText(body.theme,"theme",160),
+    }:null;
+    if(initial)validateStartInput(initial);
+    const {data:claim,error}=await db.rpc("claim_social_draft_stage",{p_owner:owner,p_run:runId,p_stage:stage,p_claim:claimId,p_initial:initial});
+    if(error)throw error;
+    if(claim.state==="saved")return NextResponse.json(claim.response);
+    if(claim.state==="running")return NextResponse.json({ok:false,runId,error:"This stage is already running. Reopen the run to check its result."},{status:202});
+    if(claim.state!=="claimed"){
+      const detail=claim.state==="uncertain"?"The worker did not confirm completion. Review the Agent Manager job before continuing.": "This checkpoint is no longer active. Reopen the run.";
+      return NextResponse.json({ok:false,error:detail},{status:409});
+    }
+    const response=await executeStage({...body,...(initial??{}),runId},owner,claimId);
+    const result=await response.clone().json();
+    const {data:finished,error:finishError}=await db.rpc("finish_social_draft_stage",{
+      p_owner:owner,p_run:runId,p_claim:claimId,p_result:response.ok&&result.checkpoint?result:null,
+      p_error:response.ok?null:result.error??"The stage failed.",p_unconfirmed:result.workerUnconfirmed===true,
     });
-    if (limited) return limited;
+    if(finishError)throw finishError;
+    if(!finished)return NextResponse.json({ok:false,error:"This run was stopped while its stage was running."},{status:409});
+    return response;
+  }catch(error){
+    if(error instanceof AgentInputValidationError)
+      return NextResponse.json({ok:false,error:error.message},{status:400});
+    return NextResponse.json({ok:false,error:"The draft run could not be reconciled. Reopen it before retrying."},{status:503});
+  }
+}
 
+async function executeStage(body: StageRequest, owner: string, claimId: string) {
+  try {
     if (body.action === "start") {
       const modelBlock = await billableModelProtectionBlock();
       if (modelBlock) return NextResponse.json(modelBlock, { status: 503 });
@@ -283,14 +342,15 @@ export async function POST(req: Request) {
         seasonalContext: workflowContext.strategistSeasonalContext,
         assetContext: workflowContext.strategistAssetContext,
       };
-      const runId = randomUUID();
+      const runId = body.runId!;
       const managed = await runManagedStage({
         runId,
         stage: "campaign_strategist",
-        actorId: auth.identity.id,
+        actorId: owner,
+        claimId,
         payload: { theme: request.theme ?? null, campaignId: request.campaignId ?? null },
-        execute: (recordModelCall) =>
-          runCampaignStrategistAgent(strategyInput, { onModelCall: recordModelCall }),
+        execute: async (recordModelCall, client) =>
+          requireNativeStrategistOutput(await runCampaignStrategistAgent(strategyInput, { onModelCall: recordModelCall, client })),
         summarize: (result) =>
           result.ok ? "Campaign strategy prepared for owner checkpoint." : result.error,
       });
@@ -324,18 +384,24 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         checkpoint,
-        checkpointSignature: signSocialDraftCheckpoint(checkpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(checkpoint, owner),
         preview: managed.value.output,
         protection: protectionMetadata(),
       });
     }
 
     const checkpoint = validateCheckpoint(body.checkpoint);
-    if (!verifySocialDraftCheckpointSignature(checkpoint, auth.identity.id, body.checkpointSignature)) {
+    if (!verifySocialDraftCheckpointSignature(checkpoint, owner, body.checkpointSignature)) {
       return NextResponse.json({ ok: false, error: "Workflow checkpoint signature is invalid." }, { status: 400 });
     }
     if (checkpoint.nextStage === "blocked" || checkpoint.nextStage === "complete") {
       return NextResponse.json({ ok: false, error: "This workflow cannot continue." }, { status: 409 });
+    }
+
+    if (checkpoint.nextStage === "creative_director" && !checkpoint.diagnostics.some(
+      diagnostic => diagnostic.agentId === "campaign-strategist" && diagnostic.provider === "n8n-thunder" && diagnostic.source === "model",
+    )) {
+      return NextResponse.json({ ok: false, error: "The strategy checkpoint did not come from a valid native model result. Stop without continuing." }, { status: 409 });
     }
 
     const modelStage = ["creative_director", "independent_reviewer", "revision"].includes(
@@ -351,8 +417,9 @@ export async function POST(req: Request) {
       const managed = await runManagedStage({
         runId: checkpoint.runId,
         stage: "creative_director",
-        actorId: auth.identity.id,
-        execute: (recordModelCall) =>
+        actorId: owner,
+        claimId,
+        execute: (recordModelCall, client) =>
           runCreativeDirectorAgent(
             {
               strategist: checkpoint.strategist!,
@@ -360,7 +427,7 @@ export async function POST(req: Request) {
                 checkpoint.workflowContext?.agentContextSummary ?? null,
               themeContext: checkpoint.themeContext,
             },
-            { onModelCall: recordModelCall },
+            { onModelCall: recordModelCall, client },
           ),
         summarize: (result) =>
           result.ok ? "Creative package prepared for owner checkpoint." : result.error,
@@ -411,7 +478,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         checkpoint: nextCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, owner),
         preview: creative,
         creativeQuality,
         blocked: !creativeQuality.allowed,
@@ -433,8 +500,9 @@ export async function POST(req: Request) {
       const managed = await runManagedStage({
         runId: checkpoint.runId,
         stage: "independent_reviewer",
-        actorId: auth.identity.id,
-        execute: (recordModelCall) =>
+        actorId: owner,
+        claimId,
+        execute: (recordModelCall, client) =>
           runIndependentReviewerAgent(
             {
               strategist: checkpoint.strategist!,
@@ -442,7 +510,7 @@ export async function POST(req: Request) {
               workflowContextSummary:
                 checkpoint.workflowContext?.agentContextSummary ?? null,
             },
-            { onModelCall: recordModelCall },
+            { onModelCall: recordModelCall, client },
           ),
         summarize: (result) =>
           result.ok ? `Independent review completed: ${result.output.verdict}.` : result.error,
@@ -465,7 +533,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         checkpoint: nextCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, owner),
         preview: managed.value.output,
       });
     }
@@ -478,7 +546,8 @@ export async function POST(req: Request) {
       const managed = await runManagedStage({
         runId: checkpoint.runId,
         stage: finalPass ? "final_compliance" : "compliance",
-        actorId: auth.identity.id,
+        actorId: owner,
+        claimId,
         payload: { finalPass },
         execute: async () => evaluateAgentComplianceGateWithPosts(creativeCandidate(checkpoint.creative!)),
         summarize: (result) => `Deterministic compliance decision: ${result.decision}.`,
@@ -531,7 +600,7 @@ export async function POST(req: Request) {
         blocked,
         visualGate,
         checkpoint: nextCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, owner),
         preview: { compliance, visualGate },
         publication: { published: false, note: blocked ? "Stopped before persistence." : "No post has been saved yet." },
       });
@@ -551,8 +620,9 @@ export async function POST(req: Request) {
       const managed = await runManagedStage({
         runId: checkpoint.runId,
         stage: "revision",
-        actorId: auth.identity.id,
-        execute: (recordModelCall) =>
+        actorId: owner,
+        claimId,
+        execute: (recordModelCall, client) =>
           runCreativeDirectorAgent(
             {
               strategist: checkpoint.strategist!,
@@ -567,7 +637,7 @@ export async function POST(req: Request) {
                 ...checkpoint.compliance!.hardClaimFindings,
               ],
             },
-            { onModelCall: recordModelCall },
+            { onModelCall: recordModelCall, client },
           ),
         summarize: (result) =>
           result.ok ? "Single permitted Creative Director revision completed." : result.error,
@@ -612,7 +682,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         checkpoint: nextCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(nextCheckpoint, owner),
         preview: revised,
         creativeQuality,
         blocked: !creativeQuality.allowed,
@@ -644,9 +714,11 @@ export async function POST(req: Request) {
       const managed = await runManagedStage({
         runId: checkpoint.runId,
         stage: "persist",
-        actorId: auth.identity.id,
-        execute: async () =>
-          createSocialPost({
+        actorId: owner,
+        claimId,
+        execute: async () => {
+          const db=createServiceRoleClient();
+          const {data:id,error}=await db.rpc("persist_social_draft_once",{p_owner:owner,p_run:checkpoint.runId,p_claim:claimId,p_post:{
             title: checkpoint.creative!.title,
             campaign_id: checkpoint.creative!.campaignId,
             goal: checkpoint.creative!.goal,
@@ -657,9 +729,14 @@ export async function POST(req: Request) {
             source_image_url: checkpoint.selectedSourceImageUrl,
             platforms: checkpoint.creative!.platforms,
             creative_source: checkpoint.diagnostics.some((item) => item.source === "model")
-              ? "openai"
+              ? "n8n-thunder"
               : "rule-fallback",
-          }),
+          }});
+          if(error||!id)throw new Error("Draft save was not confirmed.");
+          const post=await getSocialPostById(id);
+          if(!post)throw new Error("Saved draft is unavailable.");
+          return post;
+        },
         summarize: (post) => `Owner-ready social draft ${post.id} persisted; not published.`,
       });
       revalidatePath("/admin/social-posts");
@@ -678,13 +755,15 @@ export async function POST(req: Request) {
         ok: true,
         post: managed.value,
         checkpoint: completeCheckpoint,
-        checkpointSignature: signSocialDraftCheckpoint(completeCheckpoint, auth.identity.id),
+        checkpointSignature: signSocialDraftCheckpoint(completeCheckpoint, owner),
         publication: { published: false, note: "Draft saved only. Owner approval remains required." },
       });
     }
 
     return NextResponse.json({ ok: false, error: "Unsupported workflow stage." }, { status: 400 });
   } catch (error) {
+    if(error instanceof SocialDraftWorkerUnconfirmed)
+      return NextResponse.json({ok:false,workerUnconfirmed:true,error:error.message},{status:503});
     const durable = durableAgentStoreErrorResponse(error);
     if (durable) return durable;
     if (error instanceof SyntaxError) {

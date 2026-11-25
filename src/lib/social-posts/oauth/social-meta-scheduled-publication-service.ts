@@ -11,7 +11,10 @@ import {
 } from "../social-post-data";
 import { createServiceRoleClient } from "../../supabase/admin";
 import { resolveActiveBoundMetaPageForPublicationTarget } from "./social-meta-asset-binding-service";
-import { publishOrganicMetaPagePost } from "./social-meta-page-publish-service";
+import {
+  buildMetaOrganicPublishMessageFromPost,
+  publishOrganicMetaPagePost,
+} from "./social-meta-page-publish-service";
 import { metaSchedulerFailure } from "./social-meta-scheduler-errors";
 
 export type MetaScheduledPublicationState =
@@ -173,7 +176,7 @@ export async function scheduleMetaOrganicPublication(input: {
 
   const post = await deps.loadSocialPost(socialPostId);
   if (!post) return { ok: false, code: "social_post_not_found", message: "Social post was not found." };
-  const message = (post.caption?.trim() || post.title?.trim() || "").trim();
+  const message = buildMetaOrganicPublishMessageFromPost(post);
   if (!message) return { ok: false, code: "publish_content_empty", message: "The reviewed post has no text to publish." };
   const compliance = await deps.evaluateCompliance({ post, message });
   if (!compliance.allowedToProceed || compliance.decision !== "allow") {

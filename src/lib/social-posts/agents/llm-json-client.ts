@@ -31,7 +31,7 @@ export type LlmJsonSuccess = {
   rawText: string;
   model: string;
   requestId: string;
-  provider: "openai";
+  provider: "openai" | "n8n-thunder";
   truncatedInput: boolean;
   timedOut: boolean;
 };

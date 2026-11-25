@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { assertAgentDispatchAllowed, enqueueJob } from "./service";
+import { assertAgentDispatchAllowed } from "./service";
 import type { AgentJob } from "./types";
 
 export const SOCIAL_AGENT_CAPABILITIES = [
@@ -23,77 +23,28 @@ export type SocialAgentStage =
   | "revision"
   | "persist";
 
-function jobType(stage: SocialAgentStage): string {
-  return `social.draft.${stage}`;
-}
+export type SocialDraftInferenceReceipt = {
+  workflowId: string;
+  executionId: string;
+  requestId: string;
+  model: string;
+};
 
-/**
- * Social stages execute inline so the owner can inspect every result before the
- * next model call. They are still durable Agent Manager jobs, not invisible
- * page-local calls.
- */
+/** Claim the run and its Agent Manager job before invoking the stage. */
 export async function beginSocialAgentStage(input: {
   runId: string;
   stage: SocialAgentStage;
   actorId: string;
+  claimId: string;
   payload?: Record<string, unknown>;
 }): Promise<AgentJob> {
-  // A draft request must never enable an agent or erase its paused state.
   await assertAgentDispatchAllowed("social");
-  const db = createServiceRoleClient();
-  const now = new Date().toISOString();
-  const { error: configureError } = await db
-    .from("agents")
-    .update({
-      agent_type: "application",
-      capabilities: [...SOCIAL_AGENT_CAPABILITIES],
-      updated_at: now,
-    })
-    .eq("key", "social");
-  if (configureError) {
-    throw new Error(`Social Agent configuration failed: ${configureError.message}`);
-  }
-
-  await assertAgentDispatchAllowed("social");
-  const job = await enqueueJob({
-    agentKey: "social",
-    jobType: jobType(input.stage),
-    source: "admin.social-posts.checkpoint",
-    payload: { runId: input.runId, stage: input.stage, ...(input.payload ?? {}) },
-    idempotencyKey: `social:${input.runId}:${input.stage}`,
-    actorId: input.actorId,
+  const db=createServiceRoleClient();
+  const {data,error}=await db.rpc("claim_social_agent_job",{
+    p_owner:input.actorId,p_run:input.runId,p_stage:input.stage,p_claim:input.claimId,p_payload:input.payload??{},
   });
-
-  if (job.status === "succeeded") return job;
-  const { error: jobError } = await db
-    .from("agent_jobs")
-    .update({ status: "running", started_at: now, updated_at: now })
-    .eq("id", job.id)
-    .in("status", ["queued", "claimed", "running"]);
-  if (jobError) throw new Error(`Social Agent job start failed: ${jobError.message}`);
-
-  await Promise.all([
-    db
-      .from("agents")
-      .update({
-        status: "working",
-        current_job_id: job.id,
-        last_activity_at: now,
-        updated_at: now,
-      })
-      .eq("id", job.agent_id)
-      .eq("enabled", true)
-      .eq("paused", false),
-    db.from("agent_events").insert({
-      agent_id: job.agent_id,
-      job_id: job.id,
-      event_type: "social.stage.started",
-      actor_id: input.actorId,
-      summary: `Social Agent started ${input.stage}`,
-      metadata: { runId: input.runId, stage: input.stage },
-    }),
-  ]);
-  return { ...job, status: "running" };
+  if(error||!data)throw new Error("Social Agent could not claim this stage. Check Agent Manager before retrying.");
+  return data as AgentJob;
 }
 
 export async function finishSocialAgentStage(input: {
@@ -103,6 +54,7 @@ export async function finishSocialAgentStage(input: {
   ok: boolean;
   summary: string;
   modelCalls: number;
+  inference?: SocialDraftInferenceReceipt;
 }): Promise<void> {
   const db = createServiceRoleClient();
   const now = new Date().toISOString();
@@ -111,13 +63,13 @@ export async function finishSocialAgentStage(input: {
     .from("agent_jobs")
     .update({
       status,
-      attempt_count: 1,
+
       result_summary: input.ok ? input.summary : null,
       error_summary: input.ok ? null : input.summary,
       completed_at: now,
       updated_at: now,
     })
-    .eq("id", input.job.id);
+    .eq("id", input.job.id).eq("status","running");
   if (error) throw new Error(`Social Agent job completion failed: ${error.message}`);
 
   await Promise.all([
@@ -131,6 +83,7 @@ export async function finishSocialAgentStage(input: {
         updated_at: now,
       })
       .eq("id", input.job.agent_id)
+      .eq("current_job_id", input.job.id)
       .eq("enabled", true)
       .eq("paused", false),
     db.from("agent_events").insert({
@@ -142,6 +95,7 @@ export async function finishSocialAgentStage(input: {
         runId: input.runId,
         stage: input.stage,
         modelCalls: input.modelCalls,
+        ...(input.inference??{}),
       },
     }),
   ]);

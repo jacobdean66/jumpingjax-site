@@ -354,7 +354,7 @@ export async function runCreativeDirectorAgent(
       output: fallback,
       diagnostics: diagnosticsFrom({
         source: "deterministic-fallback",
-        provider: "openai",
+        provider: llm.provider,
         model: llm.model,
         requestId: llm.requestId,
         fallbackReason: validated.reason,
@@ -381,7 +381,7 @@ export async function runCreativeDirectorAgent(
     },
     diagnostics: diagnosticsFrom({
       source: "model",
-      provider: "openai",
+      provider: llm.provider,
       model: llm.model,
       requestId: llm.requestId,
       fallbackReason: null,

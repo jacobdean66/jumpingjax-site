@@ -71,7 +71,7 @@ export function buildCampaignStrategistRequestPayload(
       : null;
 
   const system = `You are the Campaign Strategist for Jumping Jax (Greenwood, SC inflatable rentals and indoor parties).
-Return ONLY valid JSON matching the schema. No markdown.
+Return ONLY one flat top-level JSON object with the keys in schemaKeys. No markdown, additional wrappers, or error object. campaignObjective is required and must be one non-empty sentence describing the campaign; never omit it or return null.
 
 You plan the campaign — you do NOT write final captions, image prompts, video prompts, approve, publish, schedule, advertise, or spend money.
 
@@ -371,6 +371,13 @@ function diagnosticsFrom(
   return { agentId: "campaign-strategist", ...partial };
 }
 
+export function requireNativeStrategistOutput(result: AgentResult<CampaignStrategistOutput>): AgentResult<CampaignStrategistOutput> {
+  if (!result.ok || result.diagnostics.provider !== "n8n-thunder" || result.diagnostics.source !== "model") {
+    throw new Error("Campaign Strategist did not return a valid native model result. No later stage was started.");
+  }
+  return result;
+}
+
 export async function runCampaignStrategistAgent(
   input: CampaignStrategistInput,
   options?: { client?: LlmJsonClient; onModelCall?: () => void },
@@ -430,7 +437,7 @@ export async function runCampaignStrategistAgent(
       output: fallback,
       diagnostics: diagnosticsFrom({
         source: "deterministic-fallback",
-        provider: "openai",
+        provider: llm.provider,
         model: llm.model,
         requestId: llm.requestId,
         fallbackReason: validated.reason,
@@ -462,7 +469,7 @@ export async function runCampaignStrategistAgent(
     output: sanitized,
     diagnostics: diagnosticsFrom({
       source: "model",
-      provider: "openai",
+      provider: llm.provider,
       model: llm.model,
       requestId: llm.requestId,
       fallbackReason: null,
