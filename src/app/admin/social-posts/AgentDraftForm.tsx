@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { SOCIAL_CAMPAIGNS } from "@/lib/social-posts/social-campaigns";
 import type { AgentUiProtectionStatus } from "@/lib/social-posts/agents/agent-ui-protection";
 import type { SocialSourceImage } from "@/lib/social-posts/social-source-images";
@@ -99,6 +99,24 @@ export default function AgentDraftForm({
   initialTheme = "",
 }: Props) {
   const router = useRouter();
+  const [savedRuns,setSavedRuns]=useState<Array<{
+    id:string; status:string; next_stage:string; checkpoint:SocialDraftCheckpoint|null;
+    checkpointSignature:string|null; initial_request:Record<string,unknown>|null; post_id:string|null; claim_stage:string|null; last_error:string|null;
+  }>>([]);
+  const [runRefresh,setRunRefresh]=useState(0);
+  useEffect(()=>{
+    const controller=new AbortController();
+    async function load(){
+      try {
+        const res=await fetch("/api/social-posts/agent-draft/stage",{method:"POST",
+          headers:{"content-type":"application/json"},body:JSON.stringify({token,action:"list"}),signal:controller.signal});
+        if(res.ok){const data=await res.json();if(!controller.signal.aborted)setSavedRuns(data.runs??[]);}
+      } catch {}
+    }
+    void load();
+    return ()=>controller.abort();
+  },[token,runRefresh]);
+  const startingRun=useRef<string|null>(null);
   const [selectedGoal, setSelectedGoal] = useState<string>(initialGoal ? CUSTOM_GOAL_VALUE : PREMADE_GOALS[0]);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -149,6 +167,7 @@ export default function AgentDraftForm({
         body: JSON.stringify({
           token,
           action: "start",
+          runId: startingRun.current ??= crypto.randomUUID(),
           campaignId: String(form.get("campaignId") ?? ""),
           goal,
           platform: String(form.get("platform") ?? "both"),
@@ -164,6 +183,7 @@ export default function AgentDraftForm({
         throw new Error(data.error ?? "Campaign Strategist could not start.");
       }
       applyCheckpoint(data.checkpoint, data.checkpointSignature);
+      startingRun.current=null;
       setAgentStatus("Campaign Strategist finished. The Creative Director has not run.");
       setMessage("Review the strategy below. Continue only if it makes sense; otherwise stop without another model call.");
     } catch (caught) {
@@ -172,6 +192,7 @@ export default function AgentDraftForm({
     } finally {
       inFlightRef.current = false;
       setPending(false);
+      setRunRefresh(value=>value+1);
     }
   }
 
@@ -198,7 +219,8 @@ export default function AgentDraftForm({
         setAgentStatus("Owner-ready draft saved. Nothing was published or scheduled.");
         setMessage(data.publication?.note ?? "Draft saved for owner review.");
         setSelectedGoal(PREMADE_GOALS[0]);
-        router.refresh();
+        if(data.post?.id)router.push("/admin/social-posts/"+encodeURIComponent(data.post.id));
+        else router.refresh();
       } else if (data.checkpoint.nextStage === "blocked") {
         setAgentStatus("Workflow stopped at a hard gate.");
         setError(data.publication?.note ?? "The workflow was blocked before persistence.");
@@ -212,6 +234,7 @@ export default function AgentDraftForm({
     } finally {
       inFlightRef.current = false;
       setPending(false);
+      setRunRefresh(value=>value+1);
     }
   }
 
@@ -238,11 +261,48 @@ export default function AgentDraftForm({
     } finally {
       inFlightRef.current = false;
       setPending(false);
+      setRunRefresh(value=>value+1);
     }
   }
 
   return (
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <section aria-label="Saved draft runs" className="space-y-2">
+        <button type="button" onClick={()=>setRunRefresh(value=>value+1)}>Refresh saved runs</button>
+        {savedRuns.map(run=><div key={run.id} className="flex flex-wrap items-center gap-2">
+          <span>{run.claim_stage?"Worker processing "+run.claim_stage:run.next_stage} · {run.id.slice(0,8)}</span>
+          {run.last_error&&<span role="status">{run.last_error}</span>}
+          {run.post_id?<a href={"/admin/social-posts/"+encodeURIComponent(run.post_id)}>Open saved draft</a>:
+            <>
+              {run.checkpoint&&run.checkpointSignature&&<button type="button" disabled={pending}
+                onClick={()=>applyCheckpoint(run.checkpoint!,run.checkpointSignature!)}>Resume</button>}
+              {!run.checkpoint&&run.initial_request&&<button type="button" disabled={pending} onClick={async()=>{
+                try{
+                  const res=await fetch("/api/social-posts/agent-draft/stage",{method:"POST",
+                    headers:{"content-type":"application/json"},
+                    body:JSON.stringify({...run.initial_request,token,action:"start",runId:run.id})});
+                  const data=await res.json();
+                  if(!res.ok||!data.ok||!data.checkpoint||!data.checkpointSignature)
+                    throw new Error(data.error??"The first checkpoint is unavailable.");
+                  applyCheckpoint(data.checkpoint,data.checkpointSignature);
+                }catch(error){setError(error instanceof Error?error.message:"Resume was not confirmed.");}
+                finally{setRunRefresh(value=>value+1);}
+              }}>Resume</button>}
+              <button type="button" onClick={async()=>{
+                try{
+                  const res=await fetch("/api/social-posts/agent-draft/stage",{method:"POST",
+                    headers:{"content-type":"application/json"},body:JSON.stringify({token,action:"stop",runId:run.id})});
+                  const data=await res.json();
+                  if(!res.ok||!data.ok)throw new Error(data.error??"Stop was not confirmed.");
+                  if(data.checkpoint&&data.checkpointSignature&&checkpoint?.runId===run.id)
+                    applyCheckpoint(data.checkpoint,data.checkpointSignature);
+                  setMessage("Run stopped on the server.");
+                }catch(error){setError(error instanceof Error?error.message:"Stop was not confirmed.");}
+                finally{setRunRefresh(value=>value+1);}
+              }}>Stop</button>
+            </>}
+        </div>)}
+      </section>
       <div className="mb-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">
           Create AI Draft

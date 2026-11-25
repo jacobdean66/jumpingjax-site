@@ -1,5 +1,6 @@
 "use client";
 
+import { preferredTimeFields, preferredTimeIso, SOCIAL_BUSINESS_TIME_ZONE } from "@/lib/social-posts/preferred-time";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
@@ -69,28 +70,18 @@ function formatDateTime(value: string | null): string {
   }).format(new Date(value));
 }
 
-function localDateParts(value: string | null): { date: string; time: string } {
-  if (!value) return { date: "", time: "" };
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return { date: "", time: "" };
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  const local = new Date(date.getTime() - offsetMs).toISOString();
-  return { date: local.slice(0, 10), time: local.slice(11, 16) };
-}
-
 function datetimeLocalValue(value: string | null): string {
-  const parts = localDateParts(value);
+  const parts = preferredTimeFields(value);
   return parts.date && parts.time ? `${parts.date}T${parts.time}` : "";
 }
 
 function scheduledIso(draft: EditorDraft): string | null {
   if (!draft.scheduled_date || !draft.scheduled_time) return null;
-  const date = new Date(`${draft.scheduled_date}T${draft.scheduled_time}`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return preferredTimeIso(`${draft.scheduled_date}T${draft.scheduled_time}`);
 }
 
 function draftFromPost(post: SocialPost): EditorDraft {
-  const scheduled = localDateParts(post.scheduled_for);
+  const scheduled = preferredTimeFields(post.scheduled_for);
   return {
     title: post.title ?? "",
     campaign_id: post.campaign_id ?? "",
@@ -454,12 +445,12 @@ export default function SocialPostsAdminClient({
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const scheduledFor = String(form.get("scheduled_for") ?? "");
-      const scheduledDate = new Date(scheduledFor);
-      if (!scheduledFor || Number.isNaN(scheduledDate.getTime())) {
-        setError("Choose a valid schedule date and time.");
+      const scheduledDate = preferredTimeIso(scheduledFor);
+      if (!scheduledDate) {
+        setError("Choose an unambiguous date and time in America/New_York.");
         return;
       }
-      void patchPost(id, { scheduled_for: scheduledDate.toISOString() });
+      void patchPost(id, { scheduled_for: scheduledDate });
     };
   }
 
@@ -883,7 +874,7 @@ export default function SocialPostsAdminClient({
                           </select>
                         </Field>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="Scheduled Date">
+                          <Field label="Preferred date (Eastern time)">
                             <input
                               type="date"
                               value={draft.scheduled_date}
@@ -893,7 +884,7 @@ export default function SocialPostsAdminClient({
                               className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
                             />
                           </Field>
-                          <Field label="Scheduled Time">
+                          <Field label="Preferred time (Eastern time)">
                             <input
                               type="time"
                               value={draft.scheduled_time}
@@ -986,6 +977,7 @@ export default function SocialPostsAdminClient({
                     <input
                       type="datetime-local"
                       name="scheduled_for"
+                      aria-label="Preferred time in America/New_York"
                       defaultValue={datetimeLocalValue(post.scheduled_for)}
                       className="min-h-11 flex-1 rounded-xl border border-slate-300 px-3 text-sm font-semibold"
                     />
@@ -994,12 +986,11 @@ export default function SocialPostsAdminClient({
                       disabled={pendingId === post.id}
                       className="min-h-11 rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Schedule
+                      Save preferred time
                     </button>
                   </form>
                   <p className="text-xs font-semibold text-slate-500">
-                    Scheduling records the intended time. Publishing still requires explicit owner
-                    authorization on the next screen.
+                    This saves a preferred time in {SOCIAL_BUSINESS_TIME_ZONE}. Owner authorization in Publication Execution is required to queue or publish.
                   </p>
                 </div>
               </article>
