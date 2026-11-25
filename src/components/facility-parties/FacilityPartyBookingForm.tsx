@@ -1,4 +1,5 @@
 "use client";
+import { BirthdayBalloonOption } from "./BirthdayBalloonOption";
 import { RentalPromotionEntry,useGoogleOffer } from "@/components/booking/RentalPromotion";
 import { facilityGoogleDiscount } from "@/lib/analytics/customer-offer";
 
@@ -27,6 +28,8 @@ import {
   listPublicSaturdaySlotDispositions,
 } from "@/lib/facility-parties/availability";
 import {
+  BIRTHDAY_BALLOON_AGE_ERROR,
+  getBirthdayBalloonDigits,
   previewAddonSubtotal,
   type CottonCandyPackage,
   type FacilityAddonSelectionsInput,
@@ -377,25 +380,27 @@ export function FacilityPartyBookingForm({
     confirmationRef.current?.focus({ preventScroll: true });
   }, [bookingSubmitted]);
 
+  const balloonDigits = getBirthdayBalloonDigits(childAge.trim());
   const addonSelections = useMemo((): FacilityAddonSelectionsInput => {
     const qty = goodieBagsSelected
       ? Math.max(1, Math.floor(goodieBagsQuantity) || 1)
       : 0;
     return {
-      customBirthdayBalloons: balloonsSelected,
+      customBirthdayBalloons: balloonsSelected && balloonDigits !== null,
       goodieBagsQuantity: qty,
       cottonCandyPackage,
     };
   }, [
     balloonsSelected,
+    balloonDigits,
     goodieBagsSelected,
     goodieBagsQuantity,
     cottonCandyPackage,
   ]);
 
   const addonSubtotalPreview = useMemo(
-    () => previewAddonSubtotal(addonSelections),
-    [addonSelections],
+    () => previewAddonSubtotal(addonSelections, balloonDigits),
+    [addonSelections, balloonDigits],
   );
 
   const pricingPreview = useMemo(() => {
@@ -504,6 +509,10 @@ export function FacilityPartyBookingForm({
     }
     if (invitationCreationPreference === "create" && !themeDesignMatches(themeDesign, partyTheme)) {
       setFormError("Search for your theme and confirm the correct picture before creating invitations.");
+      return;
+    }
+    if (balloonsSelected && !balloonDigits) {
+      setFormError(BIRTHDAY_BALLOON_AGE_ERROR);
       return;
     }
     const resolvedRoomId =
@@ -1380,20 +1389,11 @@ export function FacilityPartyBookingForm({
                   </p>
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-[#071326]/40 px-3 py-3">
-                  <input
-                    type="checkbox"
-                    checked={balloonsSelected}
-                    onChange={(e) => setBalloonsSelected(e.target.checked)}
-                    className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
-                  />
-                  <span className="text-sm text-slate-200">
-                    <span className="font-semibold text-white">
-                      Custom Birthday Balloons
-                    </span>
-                    <span className="mt-0.5 block text-slate-400">$10</span>
-                  </span>
-                </label>
+                <BirthdayBalloonOption
+                  age={childAge.trim()}
+                  selected={balloonsSelected}
+                  onSelectedChange={setBalloonsSelected}
+                />
 
                 <div className="rounded-xl border border-white/10 bg-[#071326]/40 px-3 py-3">
                   <label className="flex cursor-pointer items-start gap-3">

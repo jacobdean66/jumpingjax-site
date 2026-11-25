@@ -15,8 +15,10 @@ import type {
   PrivateDurationMinutes,
 } from "@/lib/facility-parties/types";
 import {
+  BIRTHDAY_BALLOON_AGE_ERROR,
   facilityAddonsForStorage,
   formatFacilityAddonsForEmail,
+  getBirthdayBalloonDigits,
   resolveFacilityAddons,
 } from "@/lib/facility-parties/addons";
 import {
@@ -176,7 +178,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resolvedAddons = resolveFacilityAddons(addon_selections);
+    const balloonDigits = getBirthdayBalloonDigits(child_age);
+    if (addon_selections?.customBirthdayBalloons === true && !balloonDigits) {
+      return NextResponse.json({ error: BIRTHDAY_BALLOON_AGE_ERROR }, { status: 400 });
+    }
+    // Balloon quantity and price come from validated age, never client add-on totals or digits.
+    const resolvedAddons = resolveFacilityAddons(addon_selections, balloonDigits);
     const storedAddons = facilityAddonsForStorage(resolvedAddons);
     const addonsEmailText = formatFacilityAddonsForEmail(resolvedAddons);
     const invitationPreferences = normalizeInvitationDeliveryPreferences(
